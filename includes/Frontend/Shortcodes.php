@@ -1694,6 +1694,167 @@ private function render_frontend_leave_tab( array $emp ): void {
 
     // ===================== Output =====================
 
+    // Output CSS first, before any HTML
+    ?>
+    <style>
+    .sfs-hr-leave-self-form-wrap {
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        background: #f9fafb;
+        padding: 14px 16px;
+        margin-bottom: 14px;
+    }
+    .sfs-hr-leave-form-fields {
+        max-width: 520px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .sfs-hr-lf-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .sfs-hr-lf-label {
+        font-size: 12px;
+        font-weight: 500;
+        color: #374151;
+    }
+    .sfs-hr-lf-hint {
+        font-size: 11px;
+        color: #6b7280;
+    }
+    .sfs-hr-lf-row {
+        display: flex;
+        gap: 12px;
+    }
+    .sfs-hr-lf-row .sfs-hr-lf-group {
+        flex: 1;
+    }
+
+    .sfs-hr-leave-self-form select,
+    .sfs-hr-leave-self-form input[type="date"],
+    .sfs-hr-leave-self-form input[type="file"],
+    .sfs-hr-leave-self-form textarea {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .sfs-hr-lf-actions {
+        margin-top: 8px;
+    }
+    .sfs-hr-lf-submit {
+        min-width: 180px;
+    }
+
+    @media (max-width: 600px) {
+        .sfs-hr-lf-row {
+            flex-direction: column;
+        }
+        .sfs-hr-lf-submit {
+            width: 100%;
+            text-align: center;
+        }
+    }
+
+    .sfs-hr-my-profile-leave {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 16px 18px 18px;
+        margin-top: 24px;
+        margin-bottom: 24px;
+        background: #ffffff;
+    }
+    .sfs-hr-my-profile-leave h4 {
+        margin: 0 0 8px;
+    }
+    .sfs-hr-lw-sub {
+        margin: 0 0 10px;
+        font-size: 12px;
+        color: #6b7280;
+    }
+    .sfs-hr-lw-kpis {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+    .sfs-hr-lw-kpi-card {
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid #e5e7eb;
+        background: #f9fafb;
+    }
+    .sfs-hr-lw-kpi-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: #6b7280;
+        margin-bottom: 4px;
+    }
+    .sfs-hr-lw-kpi-value {
+        font-size: 18px;
+        font-weight: 600;
+        color: #111827;
+    }
+    .sfs-hr-lw-kpi-sub {
+        font-size: 12px;
+        font-weight: 400;
+        color: #4b5563;
+    }
+    .sfs-hr-lw-kpi-next {
+        font-size: 13px;
+        font-weight: 500;
+    }
+
+    .sfs-hr-leaves-desktop { display:block; }
+    .sfs-hr-leaves-mobile  { display:none; }
+
+    .sfs-hr-leave-card {
+        border-radius: 10px;
+        border: 1px solid #e5e7eb;
+        padding: 8px 10px;
+        margin-bottom: 8px;
+        background: #f9fafb;
+    }
+    .sfs-hr-leave-summary {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        cursor:pointer;
+    }
+    .sfs-hr-leave-summary-title {
+        font-weight:500;
+        font-size:13px;
+    }
+    .sfs-hr-leave-summary-status {
+        font-size:12px;
+    }
+    .sfs-hr-leave-body {
+        margin-top:6px;
+        font-size:12px;
+    }
+    .sfs-hr-leave-field-row {
+        display:flex;
+        justify-content:space-between;
+        margin-bottom:3px;
+    }
+    .sfs-hr-leave-field-label {
+        color:#6b7280;
+        margin-right:8px;
+    }
+    .sfs-hr-leave-field-value {
+        font-weight:500;
+        text-align:right;
+    }
+
+    @media (max-width: 768px) {
+        .sfs-hr-leaves-desktop { display:none; }
+        .sfs-hr-leaves-mobile  { display:block; }
+    }
+    </style>
+    <?php
+
     echo '<div class="sfs-hr-my-profile-leave">';
 
     // Header + employee / year
@@ -1979,166 +2140,7 @@ private function render_frontend_leave_tab( array $emp ): void {
     }
     echo '</div>'; // .sfs-hr-leaves-mobile
 
-    // ===== Basic styles (keep light) =====
-    ?>
-    <style>
-        .sfs-hr-leave-self-form-wrap {
-        border-radius: 8px;
-        border: 1px solid #e5e7eb;
-        background: #f9fafb;
-        padding: 14px 16px;
-        margin-bottom: 14px;
-    }
-    .sfs-hr-leave-form-fields {
-        max-width: 520px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-    .sfs-hr-lf-group {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-    .sfs-hr-lf-label {
-        font-size: 12px;
-        font-weight: 500;
-        color: #374151;
-    }
-    .sfs-hr-lf-hint {
-        font-size: 11px;
-        color: #6b7280;
-    }
-    .sfs-hr-lf-row {
-        display: flex;
-        gap: 12px;
-    }
-    .sfs-hr-lf-row .sfs-hr-lf-group {
-        flex: 1;
-    }
-
-    .sfs-hr-leave-self-form select,
-    .sfs-hr-leave-self-form input[type="date"],
-    .sfs-hr-leave-self-form input[type="file"],
-    .sfs-hr-leave-self-form textarea {
-        width: 100%;
-        max-width: 100%;
-    }
-
-    .sfs-hr-lf-actions {
-        margin-top: 8px;
-    }
-    .sfs-hr-lf-submit {
-        min-width: 180px;
-    }
-
-    @media (max-width: 600px) {
-        .sfs-hr-lf-row {
-            flex-direction: column;
-        }
-        .sfs-hr-lf-submit {
-            width: 100%;
-            text-align: center;
-        }
-    }
-
-    .sfs-hr-my-profile-leave {
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        padding: 16px 18px 18px;
-        margin-top: 24px;
-        margin-bottom: 24px;
-        background: #ffffff;
-    }
-    .sfs-hr-my-profile-leave h4 {
-        margin: 0 0 8px;
-    }
-    .sfs-hr-lw-sub {
-        margin: 0 0 10px;
-        font-size: 12px;
-        color: #6b7280;
-    }
-    .sfs-hr-lw-kpis {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 12px;
-        margin-bottom: 14px;
-    }
-    .sfs-hr-lw-kpi-card {
-        padding: 10px 12px;
-        border-radius: 10px;
-        border: 1px solid #e5e7eb;
-        background: #f9fafb;
-    }
-    .sfs-hr-lw-kpi-label {
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        color: #6b7280;
-        margin-bottom: 4px;
-    }
-    .sfs-hr-lw-kpi-value {
-        font-size: 18px;
-        font-weight: 600;
-        color: #111827;
-    }
-    .sfs-hr-lw-kpi-sub {
-        font-size: 12px;
-        font-weight: 400;
-        color: #4b5563;
-    }
-    .sfs-hr-lw-kpi-next {
-        font-size: 13px;
-        font-weight: 500;
-    }
-
-    .sfs-hr-leaves-desktop { display:block; }
-    .sfs-hr-leaves-mobile  { display:none; }
-
-    .sfs-hr-leave-card {
-        border-radius: 10px;
-        border: 1px solid #e5e7eb;
-        padding: 8px 10px;
-        margin-bottom: 8px;
-        background: #f9fafb;
-    }
-    .sfs-hr-leave-summary {
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        cursor:pointer;
-    }
-    .sfs-hr-leave-summary-title {
-        font-weight:500;
-        font-size:13px;
-    }
-    .sfs-hr-leave-summary-status {
-        font-size:12px;
-    }
-    .sfs-hr-leave-body {
-        margin-top:6px;
-        font-size:12px;
-    }
-    .sfs-hr-leave-field-row {
-        display:flex;
-        justify-content:space-between;
-        margin-bottom:3px;
-    }
-    .sfs-hr-leave-field-label {
-        color:#6b7280;
-        margin-right:8px;
-    }
-    .sfs-hr-leave-field-value {
-        font-weight:500;
-        text-align:right;
-    }
-
-    @media (max-width: 768px) {
-        .sfs-hr-leaves-desktop { display:none; }
-        .sfs-hr-leaves-mobile  { display:block; }
-    }
-    </style>
-    <?php
+    // Styles have been moved to the beginning of output for proper rendering
 
     echo '</div>'; // .sfs-hr-my-profile-leave wrapper
 }
