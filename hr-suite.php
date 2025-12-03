@@ -40,11 +40,13 @@ add_action('admin_init', function(){
     \SFS\HR\Core\Capabilities::ensure_roles_caps();
 
     global $wpdb;
-    $types_table = $wpdb->prefix . 'sfs_hr_leave_types';
-    $req_table   = $wpdb->prefix . 'sfs_hr_leave_requests';
-    $bal_table   = $wpdb->prefix . 'sfs_hr_leave_balances';
-    $emp_table   = $wpdb->prefix . 'sfs_hr_employees';
-    $dept_table  = $wpdb->prefix . 'sfs_hr_departments';
+    $types_table  = $wpdb->prefix . 'sfs_hr_leave_types';
+    $req_table    = $wpdb->prefix . 'sfs_hr_leave_requests';
+    $bal_table    = $wpdb->prefix . 'sfs_hr_leave_balances';
+    $emp_table    = $wpdb->prefix . 'sfs_hr_employees';
+    $dept_table   = $wpdb->prefix . 'sfs_hr_departments';
+    $assets_table = $wpdb->prefix . 'sfs_hr_assets';
+    $assign_table = $wpdb->prefix . 'sfs_hr_asset_assignments';
 
     $table_exists = function(string $table) use ($wpdb){
         return (bool)$wpdb->get_var($wpdb->prepare(
@@ -63,11 +65,13 @@ add_action('admin_init', function(){
     $needs_migration = version_compare((string)$stored, SFS_HR_VER, '<');
 
     $needs_tables = (
-        !$table_exists($types_table) ||
-        !$table_exists($req_table)   ||
-        !$table_exists($bal_table)   ||
-        !$table_exists($emp_table)   ||
-        !$table_exists($dept_table)
+        !$table_exists($types_table)  ||
+        !$table_exists($req_table)    ||
+        !$table_exists($bal_table)    ||
+        !$table_exists($emp_table)    ||
+        !$table_exists($dept_table)   ||
+        !$table_exists($assets_table) ||
+        !$table_exists($assign_table)
     );
 
     $needs_columns = false;
@@ -105,6 +109,15 @@ add_action('admin_init', function(){
     if (get_option('sfs_hr_global_approver_role', '') === '') {
         add_option('sfs_hr_global_approver_role', 'sfs_hr_manager');
     }
+
+    // Self-heal Assets tables if missing
+    if (!$table_exists($assets_table) || !$table_exists($assign_table)) {
+        // Load and instantiate the Assets module to create tables
+        if (class_exists('\SFS\HR\Modules\Assets\AssetsModule')) {
+            $assets_module = new \SFS\HR\Modules\Assets\AssetsModule();
+            $assets_module->maybe_upgrade_db();
+        }
+    }
 });
 
 /** Bootstrap modules */
@@ -133,17 +146,22 @@ add_action('plugins_loaded', function(){
 add_action('admin_notices', function(){
     if (!current_user_can('manage_options')) return;
     global $wpdb;
-    $req  = $wpdb->prefix.'sfs_hr_leave_requests';
-    $dept = $wpdb->prefix.'sfs_hr_departments';
-    $ok_req  = $wpdb->get_var($wpdb->prepare(
+    $req    = $wpdb->prefix.'sfs_hr_leave_requests';
+    $dept   = $wpdb->prefix.'sfs_hr_departments';
+    $assets = $wpdb->prefix.'sfs_hr_assets';
+    $ok_req    = $wpdb->get_var($wpdb->prepare(
         "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
         $req
     ));
-    $ok_dept = $wpdb->get_var($wpdb->prepare(
+    $ok_dept   = $wpdb->get_var($wpdb->prepare(
         "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
         $dept
     ));
-    if (!$ok_req || !$ok_dept) {
+    $ok_assets = $wpdb->get_var($wpdb->prepare(
+        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
+        $assets
+    ));
+    if (!$ok_req || !$ok_dept || !$ok_assets) {
         echo '<div class="notice notice-error"><p><strong>HR Suite:</strong> database tables not found. Deactivate → activate the plugin, or reload this page to let self-healing run.</p></div>';
     }
 });
