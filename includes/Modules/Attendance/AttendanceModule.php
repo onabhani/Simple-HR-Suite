@@ -4029,12 +4029,12 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
         $actual_worked_minutes += (int)round(($end - $start) / 60);
     }
 
-    // Debug logging
-    if (defined('WP_DEBUG') && WP_DEBUG) {
-        error_log('[SFS ATT] evaluate_segments: intervals_count=' . count($intervals) .
-                  ', actual_worked_min=' . $actual_worked_minutes .
-                  ', segments_count=' . count($segments));
-    }
+    // FORCE DEBUG - will log regardless of WP_DEBUG setting
+    error_log('=== SFS ATTENDANCE DEBUG ===');
+    error_log('Intervals count: ' . count($intervals));
+    error_log('Actual worked minutes: ' . $actual_worked_minutes);
+    error_log('Segments count: ' . count($segments));
+    error_log('===========================');
 
     foreach ($segments as $seg) {
         $S = strtotime($seg['start_utc'].' UTC');
