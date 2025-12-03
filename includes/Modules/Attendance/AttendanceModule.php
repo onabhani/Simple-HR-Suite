@@ -967,9 +967,64 @@ setInterval(tickClock, 1000);
             }
 
             if (requiresSelfie) {
-                // Step 1: choose action (button)
-                // Step 2: open camera frame and wait for manual capture
-                await startSelfie(type);
+                // Preflight check: validate punch BEFORE opening camera
+                setStat('Validating…', 'busy');
+
+                let geo = null;
+                try {
+                    geo = await getGeo();
+                } catch(e) {
+                    // geo blocked, show error without opening camera
+                    return;
+                }
+
+                // Make preflight API call without selfie to check for server-side errors
+                const payload = { punch_type: type, source: 'self_web' };
+                if (geo && typeof geo.lat==='number' && typeof geo.lng==='number') {
+                    payload.geo_lat = geo.lat;
+                    payload.geo_lng = geo.lng;
+                    if (typeof geo.acc==='number') payload.geo_accuracy_m = Math.round(geo.acc);
+                }
+
+                try {
+                    const resp = await fetch(PUNCH_URL, {
+                        method: 'POST',
+                        headers: {
+                            'X-WP-Nonce': NONCE,
+                            'Content-Type': 'application/json'
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify(payload)
+                    });
+
+                    const text = await resp.text();
+                    let j = null;
+                    try { j = JSON.parse(text); } catch(_) {}
+
+                    const errCode = j && (j.code || (j.data && j.data.code)) || null;
+
+                    // If server says "selfie required", open camera
+                    if (!resp.ok && errCode === 'sfs_att_selfie_required') {
+                        await startSelfie(type);
+                        return;
+                    }
+
+                    // If success (no selfie needed), we're done
+                    if (resp.ok) {
+                        setStat('Success!', 'success');
+                        setTimeout(refresh, 1000);
+                        return;
+                    }
+
+                    // Any other error: show it without opening camera
+                    const msg = (j && j.message) || 'Punch failed';
+                    setStat('Error: ' + msg, 'error');
+                    return;
+
+                } catch(e) {
+                    setStat('Error: ' + e.message, 'error');
+                    return;
+                }
             } else {
                 await doPunch(type, null);
             }
