@@ -3577,9 +3577,10 @@ private static function load_automation_map_and_keytype(): array {
 
 /**
  * Resolve effective shift for Y-m-d:
- * 1) explicit assignment
- * 2) automation (supports id/slug/name keying, and UI settings)
- * 3) (optional) fallback by dept slug
+ * 1) Explicit date-specific assignment
+ * 2) Employee-specific default shift (from emp_shifts table)
+ * 3) Department automation (supports id/slug/name keying, and UI settings)
+ * 4) (Optional) Fallback by dept slug
  */
 public static function resolve_shift_for_date(
     int $employee_id,
@@ -3614,7 +3615,22 @@ public static function resolve_shift_for_date(
         return $row;
     }
 
-    // --- Dept identity (id, slug, name)
+    // --- 1.5) Employee-specific shift (from emp_shifts mapping)
+    $emp_shift = self::lookup_emp_shift_for_date( $employee_id, $ymd );
+    if ( $emp_shift ) {
+        // Get employee dept for context
+        $emp = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$empT} WHERE id=%d", $employee_id));
+        $dept_label = $emp && isset($emp->department) && $emp->department !== '' ? (string)$emp->department : 'office';
+
+        // Set dept and other required fields
+        $emp_shift->dept       = sanitize_title($dept_label);
+        $emp_shift->__virtual  = 0;
+        $emp_shift->is_holiday = 0;
+
+        return $emp_shift;
+    }
+
+    // --- 2) Dept identity (id, slug, name) for automation
     $emp = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$empT} WHERE id=%d", $employee_id));
     if (!$emp) {
         error_log('[SFS ATT] no employee row for id '.$employee_id);
@@ -3638,7 +3654,7 @@ public static function resolve_shift_for_date(
         $dept_slug = sanitize_title($dept_name);
     }
 
-    // --- 2) Automation
+    // --- 3) Department Automation
     $auto    = self::load_automation_map_and_keytype(); // ['keytype','map','source']
     $map     = $auto['map'];
     $keytype = $auto['keytype'];
@@ -3731,7 +3747,7 @@ public static function resolve_shift_for_date(
         }
     }
 
-    // --- 3) Optional fallback by dept slug to keep system usable
+    // --- 4) Optional fallback by dept slug to keep system usable
     if ($dept_slug) {
         $fb = $wpdb->get_row(
             $wpdb->prepare(
