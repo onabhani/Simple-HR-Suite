@@ -3165,6 +3165,9 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
      * Applies: grace (late/early), rounding (nearest N), unpaid break, OT threshold.
      */
     public static function recalc_session_for( int $employee_id, string $ymd, \wpdb $wpdb = null ): void {
+    // FORCE DEBUG - Shows we entered the function
+    error_log('>>> recalc_session_for CALLED: emp=' . $employee_id . ', date=' . $ymd);
+
     $wpdb = $wpdb ?: $GLOBALS['wpdb'];
     $pT   = $wpdb->prefix . 'sfs_hr_attendance_punches';
     $sT   = $wpdb->prefix . 'sfs_hr_attendance_sessions';
@@ -3228,7 +3231,9 @@ foreach ($rows as $r) {
     $roundN   = ($round === 'none') ? 0 : (int)$round;
 
     // Evaluate
+    error_log('>>> BEFORE evaluate_segments: punches=' . count($rows) . ', segments=' . count($segments));
     $ev = self::evaluate_segments($segments, $rows, $grLate, $grEarly);
+    error_log('>>> AFTER evaluate_segments: worked_total=' . $ev['worked_total'] . ', break_total=' . ($ev['break_total'] ?? 0));
     $net = (int)$ev['worked_total'];
     if ($roundN > 0) $net = (int)round($net / $roundN) * $roundN;
 
