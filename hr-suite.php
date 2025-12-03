@@ -112,6 +112,9 @@ add_action('admin_init', function(){
 
     // Self-heal Assets tables if missing
     if (!$table_exists($assets_table) || !$table_exists($assign_table)) {
+        // Force delete the version option to trigger table creation
+        delete_option('sfs_hr_assets_db_version');
+
         // Load and instantiate the Assets module to create tables
         if (class_exists('\SFS\HR\Modules\Assets\AssetsModule')) {
             $assets_module = new \SFS\HR\Modules\Assets\AssetsModule();
@@ -170,4 +173,9 @@ add_action('admin_notices', function(){
 
 register_activation_hook(__FILE__, function () {
     (new \SFS\HR\Modules\Leave\LeaveModule())->install();
+    // Ensure Assets tables are created on activation
+    if (class_exists('\SFS\HR\Modules\Assets\AssetsModule')) {
+        $assets_module = new \SFS\HR\Modules\Assets\AssetsModule();
+        $assets_module->maybe_upgrade_db();
+    }
 });
