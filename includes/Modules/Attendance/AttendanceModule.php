@@ -4029,6 +4029,13 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
         $actual_worked_minutes += (int)round(($end - $start) / 60);
     }
 
+    // Debug logging
+    if (defined('WP_DEBUG') && WP_DEBUG) {
+        error_log('[SFS ATT] evaluate_segments: intervals_count=' . count($intervals) .
+                  ', actual_worked_min=' . $actual_worked_minutes .
+                  ', segments_count=' . count($segments));
+    }
+
     foreach ($segments as $seg) {
         $S = strtotime($seg['start_utc'].' UTC');
         $E = strtotime($seg['end_utc'].' UTC');
