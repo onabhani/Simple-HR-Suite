@@ -885,7 +885,8 @@ setInterval(tickClock, 1000);
                     }
 
                     if (selfieBlob) {
-                        fd.append('selfie', selfieBlob, 'selfie.jpg');
+                        const timestamp = Date.now();
+                        fd.append('selfie', selfieBlob, `selfie-${timestamp}.jpg`);
                     } else if (selfieInput && selfieInput.files && selfieInput.files[0]) {
                         fd.append('selfie', selfieInput.files[0]);
                     } else {

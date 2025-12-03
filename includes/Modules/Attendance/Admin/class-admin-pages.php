@@ -1647,7 +1647,7 @@ $sql = "
   LEFT JOIN {$eT} e ON e.id = p.employee_id
   LEFT JOIN {$uT} u ON u.ID = e.user_id
   {$where}
-  ORDER BY p.punch_time ASC
+  ORDER BY p.punch_time DESC
 ";
 
 $rows = $wpdb->get_results( $sql );
