@@ -39,6 +39,9 @@ class My_Profile_Page {
             wp_die( esc_html__( 'Invalid user.', 'sfs-hr' ) );
         }
 
+        // Output CSS for asset and leave status badges once
+        Helpers::output_asset_status_badge_css();
+
         global $wpdb;
         $emp_table = $wpdb->prefix . 'sfs_hr_employees';
 
@@ -157,6 +160,7 @@ echo '<hr class="wp-header-end" />';
         $nid_exp     = $employee->national_id_expiry      ?? '';
         $passport_no = $employee->passport_no             ?? '';
         $pass_exp    = $employee->passport_expiry         ?? '';
+        $base_salary = $employee->base_salary             ?? '';
         $emg_name    = $employee->emergency_contact_name  ?? '';
         $emg_phone   = $employee->emergency_contact_phone ?? '';
         $photo_id    = isset( $employee->photo_id ) ? (int) $employee->photo_id : 0;
@@ -281,6 +285,33 @@ $this->render_attendance_block( $employee );
 
         $assign_table = $wpdb->prefix . 'sfs_hr_asset_assignments';
         $asset_table  = $wpdb->prefix . 'sfs_hr_assets';
+
+        // Check if Assets tables exist; if not, bail silently
+        $assets_exists = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*)
+                 FROM information_schema.tables
+                 WHERE table_schema = DATABASE()
+                   AND table_name = %s",
+                $asset_table
+            )
+        );
+        if ( ! $assets_exists ) {
+            return;
+        }
+
+        $assign_exists = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*)
+                 FROM information_schema.tables
+                 WHERE table_schema = DATABASE()
+                   AND table_name = %s",
+                $assign_table
+            )
+        );
+        if ( ! $assign_exists ) {
+            return;
+        }
 
         // Fetch all assignments for this employee (limit to something sane)
         $rows = $wpdb->get_results(
