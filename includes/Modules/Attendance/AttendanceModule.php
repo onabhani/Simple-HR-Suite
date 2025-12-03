@@ -951,6 +951,10 @@ setInterval(tickClock, 1000);
         }
 
         async function punch(type){
+            // Refresh status to ensure latest state before punch attempt
+            setStat('Checking status…', 'busy');
+            await refresh();
+
             if (!allowed[type]) {
                 let msg = 'Invalid action.';
                 if (type==='out' && state==='break')        msg = 'You are on break. End the break before clocking out.';
@@ -1032,6 +1036,15 @@ setInterval(tickClock, 1000);
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) refresh();
         });
+
+        // Pre-request location permission on page load
+        (async function preloadGeo() {
+            try {
+                await getGeo();
+            } catch(e) {
+                // Location denied or unavailable - user will see error when they try to punch
+            }
+        })();
 
         // Initial load
         refresh();
@@ -3206,7 +3219,7 @@ foreach ($rows as $r) {
         'work_date'           => $ymd,
         'in_time'             => $firstIn,
         'out_time'            => $lastOut,
-        'break_minutes'       => 0,
+        'break_minutes'       => (int)$ev['break_total'],
         'net_minutes'         => (int)$ev['worked_total'],
         'rounded_net_minutes' => $net,
         'overtime_minutes'    => $ot,
@@ -3935,6 +3948,21 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
     // Close unmatched IN? leave it open → incomplete
     $has_unmatched = ($open !== null);
 
+    // Calculate break time from break_start..break_end pairs
+    $break_total = 0;
+    $break_open = null;
+    foreach ($punchesUTC as $r) {
+        $t = strtotime($r->punch_time.' UTC');
+        if ($r->punch_type === 'break_start') {
+            if ($break_open === null) $break_open = $t;
+        } elseif ($r->punch_type === 'break_end') {
+            if ($break_open !== null && $t > $break_open) {
+                $break_total += (int)round(($t - $break_open) / 60);
+                $break_open = null;
+            }
+        }
+    }
+
     $flags = [];
     $worked_total = 0;
     $scheduled_total = 0;
@@ -3982,6 +4010,7 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
     return [
         'worked_total'    => $worked_total,
         'scheduled_total' => $scheduled_total,
+        'break_total'     => $break_total,
         'flags'           => $flags,
         'segments'        => $seg_details,
     ];
