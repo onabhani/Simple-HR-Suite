@@ -4023,6 +4023,12 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
     $scheduled_total = 0;
     $seg_details = [];
 
+    // Calculate ACTUAL worked time from all IN/OUT intervals (regardless of segments)
+    $actual_worked_minutes = 0;
+    foreach ($intervals as [$start, $end]) {
+        $actual_worked_minutes += (int)round(($end - $start) / 60);
+    }
+
     foreach ($segments as $seg) {
         $S = strtotime($seg['start_utc'].' UTC');
         $E = strtotime($seg['end_utc'].' UTC');
@@ -4048,7 +4054,6 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
             if ($firstIn !== null && ($firstIn - $S) > ($graceLateMin*60))  $segFlags[] = 'late';
             if ($lastOut  !== null && ($E - $lastOut) > ($graceEarlyMin*60)) $segFlags[] = 'left_early';
         }
-        $worked_total += $ovMin;
         $flags = array_values(array_unique(array_merge($flags, $segFlags)));
         $seg_details[] = [
             'start' => $seg['start_l'],
@@ -4058,6 +4063,9 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
             'flags' => $segFlags,
         ];
     }
+
+    // Use actual worked time if there are intervals, even if no segment overlap
+    $worked_total = $actual_worked_minutes;
 
     if ($has_unmatched) $flags[] = 'incomplete';
     $flags = array_values(array_unique($flags));
