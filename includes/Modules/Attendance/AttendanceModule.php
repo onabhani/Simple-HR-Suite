@@ -2723,6 +2723,7 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
             active TINYINT(1) NOT NULL DEFAULT 1,
             dept ENUM('office','showroom','warehouse','factory') NOT NULL,
             notes TEXT NULL,
+            weekly_overrides TEXT NULL,
             PRIMARY KEY (id),
             KEY active_dept (active, dept),
             KEY dept (dept)
@@ -3612,7 +3613,7 @@ public static function resolve_shift_for_date(
             $label = $emp && isset($emp->department) && $emp->department !== '' ? (string)$emp->department : 'office';
             $row->dept = sanitize_title($label);
         }
-        return $row;
+        return self::apply_weekly_override( $row, $ymd, $wpdb );
     }
 
     // --- 1.5) Employee-specific shift (from emp_shifts mapping)
@@ -3627,7 +3628,7 @@ public static function resolve_shift_for_date(
         $emp_shift->__virtual  = 0;
         $emp_shift->is_holiday = 0;
 
-        return $emp_shift;
+        return self::apply_weekly_override( $emp_shift, $ymd, $wpdb );
     }
 
     // --- 2) Dept identity (id, slug, name) for automation
@@ -3739,7 +3740,7 @@ public static function resolve_shift_for_date(
                 $sh->__virtual  = 1;
                 $sh->is_holiday = 0;
                 $sh->dept       = $dept_slug ?: ($dept_name ?: 'office');
-                return $sh;
+                return self::apply_weekly_override( $sh, $ymd, $wpdb );
             }
             if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
                 error_log('[SFS ATT] automation shift_id '.$shift_id.' not found/active');
@@ -3758,13 +3759,69 @@ public static function resolve_shift_for_date(
         if ($fb) {
             $fb->__virtual  = 1;
             $fb->is_holiday = 0;
-            return $fb;
+            return self::apply_weekly_override( $fb, $ymd, $wpdb );
         }
     }
 
     return null;
 }
 
+/**
+ * Apply weekly overrides to a shift for a given date.
+ * If the shift has weekly_overrides configured for the day-of-week,
+ * load and return the override shift instead.
+ */
+private static function apply_weekly_override( ?\stdClass $shift, string $ymd, \wpdb $wpdb = null ): ?\stdClass {
+    if ( ! $shift ) {
+        return $shift;
+    }
+
+    // Check if shift has weekly_overrides
+    if ( empty( $shift->weekly_overrides ) ) {
+        return $shift;
+    }
+
+    $wpdb = $wpdb ?: $GLOBALS['wpdb'];
+
+    // Decode weekly overrides JSON
+    $overrides = json_decode( $shift->weekly_overrides, true );
+    if ( ! is_array( $overrides ) || empty( $overrides ) ) {
+        return $shift;
+    }
+
+    // Get day of week from date (monday, tuesday, etc.)
+    $tz = wp_timezone();
+    $date = new \DateTimeImmutable( $ymd . ' 00:00:00', $tz );
+    $day_of_week = strtolower( $date->format( 'l' ) ); // monday, tuesday, etc.
+
+    // Check if there's an override for this day
+    if ( ! isset( $overrides[ $day_of_week ] ) || (int) $overrides[ $day_of_week ] <= 0 ) {
+        return $shift;
+    }
+
+    $override_shift_id = (int) $overrides[ $day_of_week ];
+
+    // Load the override shift
+    $shiftT = $wpdb->prefix . 'sfs_hr_attendance_shifts';
+    $override_shift = $wpdb->get_row(
+        $wpdb->prepare(
+            "SELECT * FROM {$shiftT} WHERE id=%d AND active=1 LIMIT 1",
+            $override_shift_id
+        )
+    );
+
+    if ( ! $override_shift ) {
+        // Override shift not found or inactive, return original
+        return $shift;
+    }
+
+    // Preserve key properties from original shift
+    $override_shift->__virtual = $shift->__virtual ?? 0;
+    $override_shift->is_holiday = $shift->is_holiday ?? 0;
+    $override_shift->dept = $shift->dept ?? 'office';
+
+    return $override_shift;
+}
 
 
 /** Build split segments for Y-m-d from dept + settings. */

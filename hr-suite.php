@@ -47,6 +47,7 @@ add_action('admin_init', function(){
     $dept_table   = $wpdb->prefix . 'sfs_hr_departments';
     $assets_table = $wpdb->prefix . 'sfs_hr_assets';
     $assign_table = $wpdb->prefix . 'sfs_hr_asset_assignments';
+    $shifts_table = $wpdb->prefix . 'sfs_hr_attendance_shifts';
 
     $table_exists = function(string $table) use ($wpdb){
         return (bool)$wpdb->get_var($wpdb->prepare(
@@ -77,6 +78,7 @@ add_action('admin_init', function(){
     $needs_columns = false;
     if ($table_exists($types_table) && !$column_exists($types_table, 'is_annual')) $needs_columns = true;
     if ($table_exists($emp_table)   && !$column_exists($emp_table,   'hire_date')) $needs_columns = true;
+    if ($table_exists($shifts_table) && !$column_exists($shifts_table, 'weekly_overrides')) $needs_columns = true;
 
     if ($needs_migration || $needs_tables || $needs_columns) {
         \SFS\HR\Install\Migrations::run();
