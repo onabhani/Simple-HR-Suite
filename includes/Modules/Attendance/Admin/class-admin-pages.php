@@ -2349,8 +2349,6 @@ public function handle_rebuild_sessions_day(): void {
             'rounded_net_minutes' => $net, // ممكن نضيف rounding لاحقاً
             'overtime_minutes'    => 0,
             'status'              => ( $in && $out ) ? 'present' : 'incomplete',
-            'outside_geo_count'   => $geo_bad,
-            'no_selfie_count'     => $selfie_bad,
             'flags_json'          => $flags ? wp_json_encode( $flags ) : null,
             'calc_meta_json'      => null,
             'last_recalc_at'      => current_time( 'mysql', true ),
@@ -2466,8 +2464,6 @@ private function rebuild_sessions_for_date(string $date): void {
             'rounded_net_minutes' => $net,
             'overtime_minutes'    => 0,
             'status'              => ($in && $out) ? 'present' : 'incomplete',
-            'outside_geo_count'   => $geo_bad,
-            'no_selfie_count'     => $selfie_bad,
             'flags_json'          => $flags ? wp_json_encode($flags) : null,
             'calc_meta_json'      => null,
             'last_recalc_at'      => current_time('mysql', true),
