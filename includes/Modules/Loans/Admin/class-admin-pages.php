@@ -926,7 +926,7 @@ class AdminPages {
                 $installment_amount = round( $principal / $installments, 2 );
 
                 // Insert loan
-                $wpdb->insert( $loans_table, [
+                $result = $wpdb->insert( $loans_table, [
                     'loan_number'        => $loan_number,
                     'employee_id'        => $employee_id,
                     'department'         => $employee->department,
@@ -947,10 +947,14 @@ class AdminPages {
                 $new_loan_id = $wpdb->insert_id;
 
                 if ( ! $new_loan_id ) {
+                    error_log( 'Loan insert failed. Result: ' . var_export( $result, true ) );
+                    error_log( 'wpdb->last_error: ' . $wpdb->last_error );
+                    error_log( 'wpdb->last_query: ' . $wpdb->last_query );
+
                     wp_safe_redirect( add_query_arg( [
                         'page' => 'sfs-hr-loans',
                         'action' => 'create',
-                        'error' => urlencode( __( 'Failed to create loan. Please try again.', 'sfs-hr' ) ),
+                        'error' => urlencode( 'Failed to create loan: ' . $wpdb->last_error ),
                     ], admin_url( 'admin.php' ) ) );
                     exit;
                 }
