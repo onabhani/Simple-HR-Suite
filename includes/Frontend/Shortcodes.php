@@ -901,6 +901,9 @@ class Shortcodes {
 
                 // Support both { allow: {...} } and flat { in: true, ... }
                 var allow = data.allow || data;
+                console.log('Allow object:', allow);
+                console.log('State:', data.state, 'Label:', data.label);
+
                 var label = '';
 
                 // Check what actions are allowed - priority order matters
