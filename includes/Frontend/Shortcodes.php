@@ -103,6 +103,7 @@ class Shortcodes {
     $base_url        = remove_query_arg( 'sfs_hr_tab' );
     $overview_url    = add_query_arg( 'sfs_hr_tab', 'overview',   $base_url );
     $leave_url       = add_query_arg( 'sfs_hr_tab', 'leave',      $base_url );
+    $loans_url       = add_query_arg( 'sfs_hr_tab', 'loans',      $base_url );
     $attendance_url  = add_query_arg( 'sfs_hr_tab', 'attendance', $base_url );
 
 
@@ -179,6 +180,10 @@ class Shortcodes {
                class="sfs-hr-tab <?php echo ( $active_tab === 'leave' ) ? 'sfs-hr-tab-active' : ''; ?>">
                 <?php esc_html_e( 'Leave', 'sfs-hr' ); ?>
             </a>
+            <a href="<?php echo esc_url( $loans_url ); ?>"
+               class="sfs-hr-tab <?php echo ( $active_tab === 'loans' ) ? 'sfs-hr-tab-active' : ''; ?>">
+                <?php esc_html_e( 'Loans', 'sfs-hr' ); ?>
+            </a>
 
             <?php if ( $can_self_clock ) : ?>
                 <a href="<?php echo esc_url( $attendance_url ); ?>"
@@ -192,6 +197,10 @@ class Shortcodes {
                 <?php if ( $active_tab === 'leave' ) : ?>
 
             <?php $this->render_frontend_leave_tab( $emp ); ?>
+
+        <?php elseif ( $active_tab === 'loans' ) : ?>
+
+            <?php $this->render_frontend_loans_tab( $emp, $emp_id ); ?>
 
         <?php elseif ( $active_tab === 'attendance' && $can_self_clock ) : ?>
 
@@ -2147,6 +2156,229 @@ private function render_frontend_leave_tab( array $emp ): void {
 
 
 
+
+/**
+ * Frontend "My Loans" tab
+ */
+private function render_frontend_loans_tab( array $emp, int $emp_id ): void {
+    if ( ! is_user_logged_in() || (int) ( $emp['user_id'] ?? 0 ) !== get_current_user_id() ) {
+        echo '<p>' . esc_html__( 'You can only view your own loan information.', 'sfs-hr' ) . '</p>';
+        return;
+    }
+
+    // Check if loans module is enabled
+    $settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+    if ( ! $settings['show_in_my_profile'] ) {
+        echo '<div style="padding:20px;background:#fff;border:1px solid #ddd;border-radius:4px;margin-top:20px;">';
+        echo '<p>' . esc_html__( 'Loans module is currently not available.', 'sfs-hr' ) . '</p>';
+        echo '</div>';
+        return;
+    }
+
+    global $wpdb;
+    $loans_table = $wpdb->prefix . 'sfs_hr_loans';
+    $payments_table = $wpdb->prefix . 'sfs_hr_loan_payments';
+
+    // Get employee's loans
+    $loans = $wpdb->get_results( $wpdb->prepare(
+        "SELECT * FROM {$loans_table}
+         WHERE employee_id = %d
+         ORDER BY created_at DESC",
+        $emp_id
+    ) );
+
+    echo '<div class="sfs-hr-loans-tab" style="padding:20px;background:#fff;border:1px solid #ddd;border-radius:4px;margin-top:20px;">';
+    echo '<h4 style="margin:0 0 16px;">' . esc_html__( 'My Loans', 'sfs-hr' ) . '</h4>';
+
+    // Request new loan button (if enabled)
+    if ( $settings['allow_employee_requests'] ) {
+        echo '<div style="margin-bottom:16px;">';
+        echo '<button type="button" class="button" style="background:#2271b1;color:#fff;border:0;padding:8px 16px;border-radius:4px;cursor:pointer;" onclick="document.getElementById(\'sfs-loan-request-form-frontend\').style.display=\'block\';this.style.display=\'none\';">';
+        esc_html_e( 'Request New Loan', 'sfs-hr' );
+        echo '</button>';
+        echo '</div>';
+
+        // Request form
+        $this->render_frontend_loan_request_form( $emp_id, $settings );
+    }
+
+    // Display loans
+    if ( empty( $loans ) ) {
+        echo '<p>' . esc_html__( 'You have no loan records.', 'sfs-hr' ) . '</p>';
+    } else {
+        // Loans table
+        echo '<div style="overflow-x:auto;">';
+        echo '<table style="width:100%;border-collapse:collapse;margin-top:16px;">';
+        echo '<thead>';
+        echo '<tr style="background:#f5f5f5;">';
+        echo '<th style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Loan #', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Remaining', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Installments', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Requested', 'sfs-hr' ) . '</th>';
+        echo '</tr>';
+        echo '</thead>';
+        echo '<tbody>';
+
+        foreach ( $loans as $loan ) {
+            // Get paid installments count
+            $paid_count = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$payments_table} WHERE loan_id = %d AND status = 'paid'",
+                $loan->id
+            ) );
+
+            echo '<tr>';
+            echo '<td style="padding:8px;border:1px solid #ddd;"><strong>' . esc_html( $loan->loan_number ) . '</strong></td>';
+            echo '<td style="padding:8px;border:1px solid #ddd;">' . number_format( (float) $loan->principal_amount, 2 ) . ' ' . esc_html( $loan->currency ) . '</td>';
+            echo '<td style="padding:8px;border:1px solid #ddd;">' . number_format( (float) $loan->remaining_balance, 2 ) . ' ' . esc_html( $loan->currency ) . '</td>';
+            echo '<td style="padding:8px;border:1px solid #ddd;">' . (int) $paid_count . ' / ' . (int) $loan->installments_count . '</td>';
+            echo '<td style="padding:8px;border:1px solid #ddd;">' . $this->get_loan_status_badge( $loan->status ) . '</td>';
+            echo '<td style="padding:8px;border:1px solid #ddd;">' . esc_html( wp_date( 'M j, Y', strtotime( $loan->created_at ) ) ) . '</td>';
+            echo '</tr>';
+
+            // Details row
+            echo '<tr>';
+            echo '<td colspan="6" style="padding:12px;border:1px solid #ddd;background:#f9f9f9;">';
+            echo '<p style="margin:0 0 8px;"><strong>' . esc_html__( 'Reason:', 'sfs-hr' ) . '</strong> ' . esc_html( $loan->reason ) . '</p>';
+
+            if ( $loan->status === 'rejected' && $loan->rejection_reason ) {
+                echo '<p style="margin:0;color:#dc3545;"><strong>' . esc_html__( 'Rejection Reason:', 'sfs-hr' ) . '</strong> ' . esc_html( $loan->rejection_reason ) . '</p>';
+            }
+
+            // Payment schedule for active/completed loans
+            if ( in_array( $loan->status, [ 'active', 'completed' ] ) ) {
+                $payments = $wpdb->get_results( $wpdb->prepare(
+                    "SELECT * FROM {$payments_table} WHERE loan_id = %d ORDER BY sequence ASC",
+                    $loan->id
+                ) );
+
+                if ( ! empty( $payments ) ) {
+                    echo '<h5 style="margin:12px 0 8px;">' . esc_html__( 'Payment Schedule', 'sfs-hr' ) . '</h5>';
+                    echo '<table style="width:100%;border-collapse:collapse;margin-top:8px;">';
+                    echo '<thead>';
+                    echo '<tr style="background:#eee;">';
+                    echo '<th style="padding:6px;text-align:left;border:1px solid #ccc;width:50px;">#</th>';
+                    echo '<th style="padding:6px;text-align:left;border:1px solid #ccc;">' . esc_html__( 'Due Date', 'sfs-hr' ) . '</th>';
+                    echo '<th style="padding:6px;text-align:left;border:1px solid #ccc;">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
+                    echo '<th style="padding:6px;text-align:left;border:1px solid #ccc;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+                    echo '</tr>';
+                    echo '</thead>';
+                    echo '<tbody>';
+
+                    foreach ( $payments as $payment ) {
+                        echo '<tr>';
+                        echo '<td style="padding:6px;border:1px solid #ccc;">' . (int) $payment->sequence . '</td>';
+                        echo '<td style="padding:6px;border:1px solid #ccc;">' . esc_html( wp_date( 'M Y', strtotime( $payment->due_date ) ) ) . '</td>';
+                        echo '<td style="padding:6px;border:1px solid #ccc;">' . number_format( (float) $payment->amount_planned, 2 ) . '</td>';
+                        echo '<td style="padding:6px;border:1px solid #ccc;">' . $this->get_payment_status_badge( $payment->status ) . '</td>';
+                        echo '</tr>';
+                    }
+
+                    echo '</tbody>';
+                    echo '</table>';
+                }
+            }
+
+            echo '</td>';
+            echo '</tr>';
+        }
+
+        echo '</tbody>';
+        echo '</table>';
+        echo '</div>';
+    }
+
+    echo '</div>'; // .sfs-hr-loans-tab
+}
+
+/**
+ * Render frontend loan request form
+ */
+private function render_frontend_loan_request_form( int $emp_id, array $settings ): void {
+    echo '<div id="sfs-loan-request-form-frontend" style="display:none;background:#f9f9f9;padding:20px;border:1px solid #ddd;border-radius:4px;margin-bottom:20px;">';
+    echo '<h5 style="margin:0 0 16px;">' . esc_html__( 'Request New Loan', 'sfs-hr' ) . '</h5>';
+
+    // Show messages
+    if ( isset( $_GET['loan_request'] ) ) {
+        if ( $_GET['loan_request'] === 'success' ) {
+            echo '<div style="padding:12px;background:#d4edda;border:1px solid #c3e6cb;border-radius:4px;margin-bottom:16px;color:#155724;">';
+            esc_html_e( 'Loan request submitted successfully!', 'sfs-hr' );
+            echo '</div>';
+        } elseif ( $_GET['loan_request'] === 'error' ) {
+            $error = isset( $_GET['error'] ) ? urldecode( $_GET['error'] ) : __( 'Failed to submit request.', 'sfs-hr' );
+            echo '<div style="padding:12px;background:#f8d7da;border:1px solid #f5c6cb;border-radius:4px;margin-bottom:16px;color:#721c24;">';
+            echo esc_html( $error );
+            echo '</div>';
+        }
+    }
+
+    echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+    wp_nonce_field( 'sfs_hr_submit_loan_request_' . $emp_id );
+    echo '<input type="hidden" name="action" value="sfs_hr_submit_loan_request" />';
+    echo '<input type="hidden" name="employee_id" value="' . (int) $emp_id . '" />';
+
+    echo '<div style="margin-bottom:16px;">';
+    echo '<label style="display:block;margin-bottom:4px;font-weight:600;">' . esc_html__( 'Loan Amount (SAR)', 'sfs-hr' ) . ' <span style="color:red;">*</span></label>';
+    echo '<input type="number" name="principal_amount" step="0.01" min="1" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" />';
+    if ( $settings['max_loan_amount'] > 0 ) {
+        echo '<p style="margin:4px 0 0;font-size:12px;color:#666;">' .
+             sprintf( esc_html__( 'Maximum: %s SAR', 'sfs-hr' ), number_format( $settings['max_loan_amount'], 2 ) ) .
+             '</p>';
+    }
+    echo '</div>';
+
+    echo '<div style="margin-bottom:16px;">';
+    echo '<label style="display:block;margin-bottom:4px;font-weight:600;">' . esc_html__( 'Number of Installments', 'sfs-hr' ) . ' <span style="color:red;">*</span></label>';
+    echo '<input type="number" name="installments_count" min="1" max="60" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" />';
+    echo '<p style="margin:4px 0 0;font-size:12px;color:#666;">' . esc_html__( 'Monthly installments (1-60 months)', 'sfs-hr' ) . '</p>';
+    echo '</div>';
+
+    echo '<div style="margin-bottom:16px;">';
+    echo '<label style="display:block;margin-bottom:4px;font-weight:600;">' . esc_html__( 'Reason for Loan', 'sfs-hr' ) . ' <span style="color:red;">*</span></label>';
+    echo '<textarea name="reason" rows="4" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"></textarea>';
+    echo '</div>';
+
+    echo '<div>';
+    echo '<button type="submit" style="background:#2271b1;color:#fff;border:0;padding:8px 16px;border-radius:4px;cursor:pointer;margin-right:8px;">' .
+         esc_html__( 'Submit Request', 'sfs-hr' ) .
+         '</button>';
+    echo '<button type="button" onclick="document.getElementById(\'sfs-loan-request-form-frontend\').style.display=\'none\';document.querySelector(\'.button\').style.display=\'inline-block\';" style="background:#6c757d;color:#fff;border:0;padding:8px 16px;border-radius:4px;cursor:pointer;">' .
+         esc_html__( 'Cancel', 'sfs-hr' ) .
+         '</button>';
+    echo '</div>';
+
+    echo '</form>';
+    echo '</div>'; // #sfs-loan-request-form-frontend
+}
+
+/**
+ * Get loan status badge
+ */
+private function get_loan_status_badge( string $status ): string {
+    $badges = [
+        'pending_gm'      => '<span style="background:#ffa500;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">Pending GM</span>',
+        'pending_finance' => '<span style="background:#ff8c00;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">Pending Finance</span>',
+        'active'          => '<span style="background:#28a745;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">Active</span>',
+        'completed'       => '<span style="background:#6c757d;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">Completed</span>',
+        'rejected'        => '<span style="background:#dc3545;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">Rejected</span>',
+        'cancelled'       => '<span style="background:#6c757d;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">Cancelled</span>',
+    ];
+    return $badges[ $status ] ?? esc_html( ucfirst( $status ) );
+}
+
+/**
+ * Get payment status badge
+ */
+private function get_payment_status_badge( string $status ): string {
+    $badges = [
+        'planned'  => '<span style="background:#ffc107;color:#000;padding:2px 6px;border-radius:3px;font-size:10px;">Planned</span>',
+        'paid'     => '<span style="background:#28a745;color:#fff;padding:2px 6px;border-radius:3px;font-size:10px;">Paid</span>',
+        'skipped'  => '<span style="background:#6c757d;color:#fff;padding:2px 6px;border-radius:3px;font-size:10px;">Skipped</span>',
+        'partial'  => '<span style="background:#17a2b8;color:#fff;padding:2px 6px;border-radius:3px;font-size:10px;">Partial</span>',
+    ];
+    return $badges[ $status ] ?? esc_html( ucfirst( $status ) );
+}
 
 /**
  * Frontend "My Assets" block – read-only, with clickable asset names (to admin).
