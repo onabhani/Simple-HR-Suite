@@ -1547,18 +1547,30 @@ class Admin_Pages {
         $header = array_map('trim', $header);
         error_log('CSV Header: ' . implode(', ', $header));
 
+        $row_num = 0;
+        $processed = 0;
+        $skipped = 0;
+
         while ( ( $row = fgetcsv($handle) ) !== false ) {
+            $row_num++;
+
             if ( count($row) === 1 && $row[0] === '' ) {
+                error_log("Row $row_num: SKIPPED (empty row)");
+                $skipped++;
                 continue;
             }
 
             $data = array_combine($header, $row);
             if ( ! $data ) {
+                error_log("Row $row_num: SKIPPED (array_combine failed, header count: " . count($header) . ", row count: " . count($row) . ")");
+                $skipped++;
                 continue;
             }
 
             $asset_code = isset($data['asset_code']) ? sanitize_text_field($data['asset_code']) : '';
             if ( $asset_code === '' ) {
+                error_log("Row $row_num: SKIPPED (no asset_code)");
+                $skipped++;
                 continue;
             }
 
@@ -1568,8 +1580,12 @@ class Admin_Pages {
             $data['department'] = isset($data['department']) ? sanitize_text_field($data['department']) : '';
 
             if ( $data['category'] === '' || $data['name'] === '' ) {
+                error_log("Row $row_num: SKIPPED (asset_code=$asset_code, missing category or name. category='" . $data['category'] . "', name='" . $data['name'] . "')");
+                $skipped++;
                 continue;
             }
+
+            error_log("Row $row_num: Processing asset_code=$asset_code, name=" . $data['name'] . ", category=" . $data['category']);
 
             // We **never** trust CSV for created_at / updated_at
             unset( $data['created_at'], $data['updated_at'] );
@@ -1594,6 +1610,7 @@ class Admin_Pages {
                 if ($wpdb->last_error) {
                     error_log('DB Error: ' . $wpdb->last_error);
                 }
+                if ($result !== false) $processed++;
             } else {
                 // New asset: created_at = now, updated_at = now (ignore CSV values)
                 $data['created_at'] = $now;
@@ -1607,11 +1624,13 @@ class Admin_Pages {
                 if ($wpdb->last_error) {
                     error_log('DB Error: ' . $wpdb->last_error);
                 }
+                if ($result !== false) $processed++;
             }
         }
 
         fclose($handle);
-        error_log('Import complete, redirecting...');
+        error_log("Import complete: Total rows=$row_num, Processed=$processed, Skipped=$skipped");
+        error_log('Redirecting...');
 
         $redirect = add_query_arg(
             [
