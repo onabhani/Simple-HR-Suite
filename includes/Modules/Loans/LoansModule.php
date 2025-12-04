@@ -37,9 +37,30 @@ class LoansModule {
         global $wpdb;
 
         $charset_collate = $wpdb->get_charset_collate();
+        $loans_table = $wpdb->prefix . 'sfs_hr_loans';
+        $payments_table = $wpdb->prefix . 'sfs_hr_loan_payments';
+        $history_table = $wpdb->prefix . 'sfs_hr_loan_history';
+
+        // Check if loans table exists and if loan_number column exists
+        $table_exists = $wpdb->get_var( "SHOW TABLES LIKE '{$loans_table}'" ) === $loans_table;
+
+        if ( $table_exists ) {
+            // Check if loan_number column exists
+            $column_exists = $wpdb->get_results(
+                "SHOW COLUMNS FROM {$loans_table} LIKE 'loan_number'"
+            );
+
+            // Add loan_number column if it doesn't exist
+            if ( empty( $column_exists ) ) {
+                $wpdb->query(
+                    "ALTER TABLE {$loans_table}
+                    ADD COLUMN loan_number varchar(50) NOT NULL AFTER id,
+                    ADD UNIQUE KEY loan_number (loan_number)"
+                );
+            }
+        }
 
         // 1. Loans table
-        $loans_table = $wpdb->prefix . 'sfs_hr_loans';
         $sql_loans = "CREATE TABLE {$loans_table} (
             id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             loan_number varchar(50) NOT NULL,
@@ -76,7 +97,6 @@ class LoansModule {
         ) {$charset_collate};";
 
         // 2. Loan payments (schedule & actuals)
-        $payments_table = $wpdb->prefix . 'sfs_hr_loan_payments';
         $sql_payments = "CREATE TABLE {$payments_table} (
             id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             loan_id bigint(20) UNSIGNED NOT NULL,
@@ -97,7 +117,6 @@ class LoansModule {
         ) {$charset_collate};";
 
         // 3. Loan history (audit trail)
-        $history_table = $wpdb->prefix . 'sfs_hr_loan_history';
         $sql_history = "CREATE TABLE {$history_table} (
             id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             loan_id bigint(20) UNSIGNED NOT NULL,
