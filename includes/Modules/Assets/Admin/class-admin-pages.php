@@ -1507,17 +1507,25 @@ class Admin_Pages {
     }
 
     public function handle_assets_import(): void {
+        error_log('=== ASSET IMPORT START ===');
+        error_log('User can manage: ' . (current_user_can('sfs_hr.manage') ? 'yes' : 'no'));
+
         if ( ! current_user_can('sfs_hr.manage') ) {
+            error_log('ERROR: Access denied');
             wp_die(__('Access denied', 'sfs-hr'));
         }
 
+        error_log('Checking nonce...');
         check_admin_referer('sfs_hr_assets_import');
+        error_log('Nonce OK');
 
         if ( empty($_FILES['import_file']['tmp_name']) ) {
+            error_log('ERROR: No file uploaded');
             wp_die(__('No file uploaded.', 'sfs-hr'));
         }
 
         $file = $_FILES['import_file']['tmp_name'];
+        error_log('File uploaded: ' . $file);
 
         $handle = fopen($file, 'r');
         if ( ! $handle ) {
@@ -1526,15 +1534,18 @@ class Admin_Pages {
 
         global $wpdb;
         $table = $wpdb->prefix . 'sfs_hr_assets';
+        error_log('Table: ' . $table);
 
         $header = fgetcsv($handle);
         if ( ! $header ) {
             fclose($handle);
+            error_log('ERROR: Empty CSV file');
             wp_die(__('Empty CSV file.', 'sfs-hr'));
         }
 
         // Normalize header
         $header = array_map('trim', $header);
+        error_log('CSV Header: ' . implode(', ', $header));
 
         while ( ( $row = fgetcsv($handle) ) !== false ) {
             if ( count($row) === 1 && $row[0] === '' ) {
@@ -1574,24 +1585,33 @@ class Admin_Pages {
                 // Existing asset: KEEP old created_at, only bump updated_at
                 $data['updated_at'] = $now;
 
-                $wpdb->update(
+                $result = $wpdb->update(
                     $table,
                     $data,
                     [ 'id' => (int) $existing_id ]
                 );
+                error_log('Updated asset ' . $asset_code . ': ' . ($result !== false ? 'success' : 'FAILED'));
+                if ($wpdb->last_error) {
+                    error_log('DB Error: ' . $wpdb->last_error);
+                }
             } else {
                 // New asset: created_at = now, updated_at = now (ignore CSV values)
                 $data['created_at'] = $now;
                 $data['updated_at'] = $now;
 
-                $wpdb->insert(
+                $result = $wpdb->insert(
                     $table,
                     $data
                 );
+                error_log('Inserted asset ' . $asset_code . ': ' . ($result !== false ? 'success' : 'FAILED'));
+                if ($wpdb->last_error) {
+                    error_log('DB Error: ' . $wpdb->last_error);
+                }
             }
         }
 
         fclose($handle);
+        error_log('Import complete, redirecting...');
 
         $redirect = add_query_arg(
             [
@@ -1602,6 +1622,7 @@ class Admin_Pages {
             admin_url('admin.php')
         );
 
+        error_log('Redirect URL: ' . $redirect);
         wp_safe_redirect($redirect);
         exit;
     }
