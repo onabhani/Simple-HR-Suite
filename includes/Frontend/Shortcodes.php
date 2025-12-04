@@ -903,15 +903,15 @@ class Shortcodes {
                 var allow = data.allow || data;
                 var label = '';
 
-                // Check what actions are allowed
+                // Check what actions are allowed - priority order matters
                 if (allow.in) {
                     label = '<?php echo esc_js( __( 'Clock In', 'sfs-hr' ) ); ?>';
-                } else if (allow.out) {
-                    label = '<?php echo esc_js( __( 'Clock Out', 'sfs-hr' ) ); ?>';
                 } else if (allow.break_start) {
                     label = '<?php echo esc_js( __( 'Start Break', 'sfs-hr' ) ); ?>';
                 } else if (allow.break_end) {
                     label = '<?php echo esc_js( __( 'End Break', 'sfs-hr' ) ); ?>';
+                } else if (allow.out) {
+                    label = '<?php echo esc_js( __( 'Clock Out', 'sfs-hr' ) ); ?>';
                 }
 
                 // Update button text or fallback to default
