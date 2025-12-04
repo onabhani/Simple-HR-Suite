@@ -872,9 +872,9 @@ class Shortcodes {
             return;
         }
 
-        var statusUrl = '<?php echo esc_js( rest_url( 'sfs-hr/v1/attendance/status' ) ); ?>';
+        var statusUrl = '<?php echo esc_js( rest_url( 'sfs-hr/v1/attendance/status' ) ); ?>' + '?dbg=1';
 
-        
+
         // Add a loading indicator
         btn.textContent = '<?php echo esc_js( __( 'Loading...', 'sfs-hr' ) ); ?>';
 
@@ -898,6 +898,9 @@ class Shortcodes {
                 }
 
                 console.log('Attendance status:', data); // Debug log
+                if (data._debug) {
+                    console.log('DEBUG INFO:', data._debug);
+                }
 
                 // Support both { allow: {...} } and flat { in: true, ... }
                 var allow = data.allow || data;
