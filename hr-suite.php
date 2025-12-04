@@ -45,6 +45,7 @@ add_action('admin_init', function(){
     $bal_table   = $wpdb->prefix . 'sfs_hr_leave_balances';
     $emp_table   = $wpdb->prefix . 'sfs_hr_employees';
     $dept_table  = $wpdb->prefix . 'sfs_hr_departments';
+    $resign_table = $wpdb->prefix . 'sfs_hr_resignations';
 
     $table_exists = function(string $table) use ($wpdb){
         return (bool)$wpdb->get_var($wpdb->prepare(
@@ -67,7 +68,8 @@ add_action('admin_init', function(){
         !$table_exists($req_table)   ||
         !$table_exists($bal_table)   ||
         !$table_exists($emp_table)   ||
-        !$table_exists($dept_table)
+        !$table_exists($dept_table)  ||
+        !$table_exists($resign_table)
     );
 
     $needs_columns = false;
@@ -122,9 +124,10 @@ add_action('plugins_loaded', function(){
     (new \SFS\HR\Modules\Departments\DepartmentsModule())->hooks(); // departments UI + role mapping
     (new \SFS\HR\Modules\Leave\LeaveModule())->hooks();
     (new \SFS\HR\Modules\Attendance\AttendanceModule())->hooks();
-    (new \SFS\HR\Modules\Workforce_Status\WorkforceStatusModule())->hooks(); 
+    (new \SFS\HR\Modules\Workforce_Status\WorkforceStatusModule())->hooks();
     (new \SFS\HR\Modules\Employees\EmployeesModule())->hooks();
     (new \SFS\HR\Modules\Assets\AssetsModule())->hooks();
+    (new \SFS\HR\Modules\Resignation\ResignationModule())->hooks();
 
 });
 

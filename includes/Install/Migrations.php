@@ -14,6 +14,7 @@ class Migrations {
         $types = $wpdb->prefix.'sfs_hr_leave_types';
         $req   = $wpdb->prefix.'sfs_hr_leave_requests';
         $bal   = $wpdb->prefix.'sfs_hr_leave_balances';
+        $resign = $wpdb->prefix.'sfs_hr_resignations';
 
         /** EMPLOYEES (create minimal shell if missing, then add columns idempotently) */
         $wpdb->query("CREATE TABLE IF NOT EXISTS `$emp` (
@@ -131,6 +132,35 @@ class Migrations {
             KEY `emp_idx` (`employee_id`),
             KEY `type_idx` (`type_id`)
         ) $charset");
+
+        /** RESIGNATIONS */
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$resign` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `employee_id` BIGINT(20) UNSIGNED NOT NULL,
+            `resignation_date` DATE NOT NULL,
+            `last_working_day` DATE NULL,
+            `notice_period_days` INT NOT NULL DEFAULT 30,
+            `reason` TEXT NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `approver_id` BIGINT(20) UNSIGNED NULL,
+            `approver_note` TEXT NULL,
+            `approval_level` TINYINT(3) UNSIGNED NOT NULL DEFAULT 1,
+            `approval_chain` LONGTEXT NULL,
+            `decided_at` DATETIME NULL,
+            `created_at` DATETIME NULL,
+            `updated_at` DATETIME NULL,
+            `handover_notes` TEXT NULL,
+            `clearance_status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            PRIMARY KEY (`id`),
+            KEY `emp_idx` (`employee_id`),
+            KEY `status_idx` (`status`),
+            KEY `resignation_date_idx` (`resignation_date`)
+        ) $charset");
+        self::add_column_if_missing($resign, 'approval_level', "TINYINT(3) UNSIGNED NOT NULL DEFAULT 1");
+        self::add_column_if_missing($resign, 'approval_chain', "LONGTEXT NULL");
+        self::add_column_if_missing($resign, 'decided_at', "DATETIME NULL");
+        self::add_column_if_missing($resign, 'handover_notes', "TEXT NULL");
+        self::add_column_if_missing($resign, 'clearance_status', "VARCHAR(20) NOT NULL DEFAULT 'pending'");
 
         /** Seed Departments + assign */
         $has_dept = (int)$wpdb->get_var("SELECT COUNT(*) FROM `$dept`");
