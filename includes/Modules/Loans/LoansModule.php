@@ -24,6 +24,10 @@ class LoansModule {
         if ( is_admin() ) {
             require_once __DIR__ . '/Admin/class-admin-pages.php';
             new Admin\AdminPages();
+
+            // Frontend: My Profile Loans tab
+            require_once __DIR__ . '/Frontend/class-my-profile-loans.php';
+            new Frontend\MyProfileLoans();
         }
 
         // Activation hook for DB
