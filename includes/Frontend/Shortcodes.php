@@ -101,9 +101,10 @@ class Shortcodes {
 
     // Tab URLs (keep current query string but override sfs_hr_tab).
     $base_url        = remove_query_arg( 'sfs_hr_tab' );
-    $overview_url    = add_query_arg( 'sfs_hr_tab', 'overview',   $base_url );
-    $leave_url       = add_query_arg( 'sfs_hr_tab', 'leave',      $base_url );
-    $attendance_url  = add_query_arg( 'sfs_hr_tab', 'attendance', $base_url );
+    $overview_url    = add_query_arg( 'sfs_hr_tab', 'overview',    $base_url );
+    $leave_url       = add_query_arg( 'sfs_hr_tab', 'leave',       $base_url );
+    $resignation_url = add_query_arg( 'sfs_hr_tab', 'resignation', $base_url );
+    $attendance_url  = add_query_arg( 'sfs_hr_tab', 'attendance',  $base_url );
 
 
     // Preload assets once – we’ll show them in both desktop table + mobile cards.
@@ -179,6 +180,10 @@ class Shortcodes {
                class="sfs-hr-tab <?php echo ( $active_tab === 'leave' ) ? 'sfs-hr-tab-active' : ''; ?>">
                 <?php esc_html_e( 'Leave', 'sfs-hr' ); ?>
             </a>
+            <a href="<?php echo esc_url( $resignation_url ); ?>"
+               class="sfs-hr-tab <?php echo ( $active_tab === 'resignation' ) ? 'sfs-hr-tab-active' : ''; ?>">
+                <?php esc_html_e( 'Resignation', 'sfs-hr' ); ?>
+            </a>
 
             <?php if ( $can_self_clock ) : ?>
                 <a href="<?php echo esc_url( $attendance_url ); ?>"
@@ -192,6 +197,10 @@ class Shortcodes {
                 <?php if ( $active_tab === 'leave' ) : ?>
 
             <?php $this->render_frontend_leave_tab( $emp ); ?>
+
+        <?php elseif ( $active_tab === 'resignation' ) : ?>
+
+            <?php $this->render_frontend_resignation_tab( $emp ); ?>
 
         <?php elseif ( $active_tab === 'attendance' && $can_self_clock ) : ?>
 
@@ -2951,6 +2960,206 @@ foreach ( $display_rows as $r ) {
 }
 echo '</div>'; // .sfs-hr-leaves-mobile
 
+}
+
+/**
+ * Frontend Resignation tab:
+ * - Self-service resignation submission form
+ * - Read-only resignation history
+ *
+ * @param array $emp Employee row from Helpers::get_employee_row().
+ */
+private function render_frontend_resignation_tab( array $emp ): void {
+    if ( ! is_user_logged_in() || (int) ( $emp['user_id'] ?? 0 ) !== get_current_user_id() ) {
+        echo '<p>' . esc_html__( 'You can only view your own resignation information.', 'sfs-hr' ) . '</p>';
+        return;
+    }
+
+    global $wpdb;
+
+    $employee_id = isset( $emp['id'] ) ? (int) $emp['id'] : 0;
+    if ( $employee_id <= 0 ) {
+        echo '<p>' . esc_html__( 'Employee record not found.', 'sfs-hr' ) . '</p>';
+        return;
+    }
+
+    $resign_table = $wpdb->prefix . 'sfs_hr_resignations';
+
+    // Fetch existing resignations
+    $resignations = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT * FROM {$resign_table} WHERE employee_id = %d ORDER BY id DESC",
+            $employee_id
+        ),
+        ARRAY_A
+    );
+
+    // Check if there's already a pending/approved resignation
+    $has_pending = false;
+    $has_approved = false;
+    foreach ( $resignations as $r ) {
+        if ( $r['status'] === 'pending' ) {
+            $has_pending = true;
+        }
+        if ( $r['status'] === 'approved' ) {
+            $has_approved = true;
+        }
+    }
+
+    echo '<div class="sfs-hr-resignation-tab" style="margin-top:24px;">';
+
+    // Show submission form if no pending/approved resignation
+    if ( ! $has_pending && ! $has_approved ) {
+        ?>
+        <div class="sfs-hr-resignation-form" style="background:#f9f9f9;padding:20px;border-radius:4px;margin-bottom:24px;">
+            <h4><?php esc_html_e( 'Submit Resignation', 'sfs-hr' ); ?></h4>
+            <form method="POST" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                <?php wp_nonce_field( 'sfs_hr_resignation_submit' ); ?>
+                <input type="hidden" name="action" value="sfs_hr_resignation_submit">
+
+                <p>
+                    <label for="resignation_date">
+                        <?php esc_html_e( 'Resignation Date:', 'sfs-hr' ); ?>
+                        <span style="color:red;">*</span>
+                    </label><br>
+                    <input
+                        type="date"
+                        name="resignation_date"
+                        id="resignation_date"
+                        required
+                        style="width:100%;max-width:300px;padding:8px;border:1px solid #ddd;border-radius:3px;">
+                </p>
+
+                <p>
+                    <label for="notice_period_days">
+                        <?php esc_html_e( 'Notice Period (days):', 'sfs-hr' ); ?>
+                        <span style="color:red;">*</span>
+                    </label><br>
+                    <input
+                        type="number"
+                        name="notice_period_days"
+                        id="notice_period_days"
+                        value="30"
+                        min="0"
+                        required
+                        style="width:100%;max-width:300px;padding:8px;border:1px solid #ddd;border-radius:3px;">
+                    <small style="color:#666;">
+                        <?php esc_html_e( 'Your last working day will be calculated based on this notice period.', 'sfs-hr' ); ?>
+                    </small>
+                </p>
+
+                <p>
+                    <label for="reason">
+                        <?php esc_html_e( 'Reason for Resignation:', 'sfs-hr' ); ?>
+                        <span style="color:red;">*</span>
+                    </label><br>
+                    <textarea
+                        name="reason"
+                        id="reason"
+                        rows="5"
+                        required
+                        style="width:100%;max-width:600px;padding:8px;border:1px solid #ddd;border-radius:3px;"></textarea>
+                </p>
+
+                <p>
+                    <button type="submit" class="button button-primary" style="padding:10px 20px;">
+                        <?php esc_html_e( 'Submit Resignation', 'sfs-hr' ); ?>
+                    </button>
+                </p>
+            </form>
+        </div>
+        <?php
+    } elseif ( $has_pending ) {
+        echo '<div class="sfs-hr-alert" style="background:#fff3cd;color:#856404;padding:15px;border-radius:4px;margin-bottom:24px;">';
+        echo '<strong>' . esc_html__( 'Notice:', 'sfs-hr' ) . '</strong> ';
+        echo esc_html__( 'You have a pending resignation request. You cannot submit a new one until the current request is processed.', 'sfs-hr' );
+        echo '</div>';
+    } elseif ( $has_approved ) {
+        echo '<div class="sfs-hr-alert" style="background:#d4edda;color:#155724;padding:15px;border-radius:4px;margin-bottom:24px;">';
+        echo '<strong>' . esc_html__( 'Notice:', 'sfs-hr' ) . '</strong> ';
+        echo esc_html__( 'Your resignation has been approved. Please coordinate with HR for your exit process.', 'sfs-hr' );
+        echo '</div>';
+    }
+
+    // Show resignation history
+    if ( ! empty( $resignations ) ) {
+        echo '<div class="sfs-hr-resignation-history">';
+        echo '<h4>' . esc_html__( 'My Resignations', 'sfs-hr' ) . '</h4>';
+
+        echo '<div class="sfs-hr-resignations-desktop" style="overflow-x:auto;">';
+        echo '<table style="width:100%;border-collapse:collapse;background:#fff;">';
+        echo '<thead>';
+        echo '<tr style="background:#f5f5f5;">';
+        echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Resignation Date', 'sfs-hr' ) . '</th>';
+        echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Last Working Day', 'sfs-hr' ) . '</th>';
+        echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Notice Period', 'sfs-hr' ) . '</th>';
+        echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+        echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Submitted', 'sfs-hr' ) . '</th>';
+        echo '</tr>';
+        echo '</thead>';
+        echo '<tbody>';
+
+        foreach ( $resignations as $r ) {
+            $status_badge = $this->resignation_status_badge( $r['status'] );
+
+            echo '<tr>';
+            echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['resignation_date'] ) . '</td>';
+            echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['last_working_day'] ?: 'N/A' ) . '</td>';
+            echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['notice_period_days'] ) . ' ' . esc_html__( 'days', 'sfs-hr' ) . '</td>';
+            echo '<td style="border:1px solid #ddd;padding:12px;">' . $status_badge . '</td>';
+            echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['created_at'] ) . '</td>';
+            echo '</tr>';
+
+            // Show reason and notes in a collapsible row
+            if ( ! empty( $r['reason'] ) || ! empty( $r['approver_note'] ) ) {
+                echo '<tr>';
+                echo '<td colspan="5" style="border:1px solid #ddd;padding:12px;background:#f9f9f9;">';
+
+                if ( ! empty( $r['reason'] ) ) {
+                    echo '<div style="margin-bottom:8px;">';
+                    echo '<strong>' . esc_html__( 'Reason:', 'sfs-hr' ) . '</strong><br>';
+                    echo '<div style="margin-top:4px;">' . nl2br( esc_html( $r['reason'] ) ) . '</div>';
+                    echo '</div>';
+                }
+
+                if ( ! empty( $r['approver_note'] ) ) {
+                    echo '<div>';
+                    echo '<strong>' . esc_html__( 'Approver Note:', 'sfs-hr' ) . '</strong><br>';
+                    echo '<div style="margin-top:4px;">' . nl2br( esc_html( $r['approver_note'] ) ) . '</div>';
+                    echo '</div>';
+                }
+
+                echo '</td>';
+                echo '</tr>';
+            }
+        }
+
+        echo '</tbody>';
+        echo '</table>';
+        echo '</div>'; // .sfs-hr-resignations-desktop
+
+        echo '</div>'; // .sfs-hr-resignation-history
+    }
+
+    echo '</div>'; // .sfs-hr-resignation-tab
+}
+
+/**
+ * Helper to render resignation status badge
+ */
+private function resignation_status_badge( string $status ): string {
+    $colors = [
+        'pending'  => '#f0ad4e',
+        'approved' => '#5cb85c',
+        'rejected' => '#d9534f',
+    ];
+
+    $color = $colors[ $status ] ?? '#777';
+    return sprintf(
+        '<span style="background:%s;color:#fff;padding:6px 12px;border-radius:3px;font-size:12px;font-weight:500;">%s</span>',
+        esc_attr( $color ),
+        esc_html( ucfirst( $status ) )
+    );
 }
 
 
