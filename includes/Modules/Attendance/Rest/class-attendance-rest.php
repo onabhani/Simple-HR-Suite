@@ -205,7 +205,10 @@ public static function status( \WP_REST_Request $req ) {
 
     // Optional debug switch (?dbg=1) – only echoed in JSON, never as raw output
     $dbg = (int) ($req->get_param('dbg') ?: 0);
-    $debug = [];
+    $debug = [
+        'test' => 'Debug is working',
+        'php_version' => PHP_VERSION,
+    ];
 
     try {
         $device_id = (int) ( $req->get_param('device') ?: 0 );
