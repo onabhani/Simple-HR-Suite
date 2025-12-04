@@ -575,7 +575,9 @@ class AdminPages {
                     <tr>
                         <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
                         <td>
-                            <?php echo esc_html( $loan->employee_name ); ?>
+                            <a href="?page=sfs-hr-workforce&action=view&id=<?php echo (int) $loan->employee_id; ?>" style="text-decoration:none;">
+                                <strong><?php echo esc_html( $loan->employee_name ); ?></strong>
+                            </a>
                             <br><small><?php echo esc_html( $loan->employee_code ); ?> - <?php echo esc_html( $loan->department ); ?></small>
                         </td>
                     </tr>
@@ -751,9 +753,19 @@ class AdminPages {
                                         if ( $event->meta ) {
                                             $meta = json_decode( $event->meta, true );
                                             if ( is_array( $meta ) && ! empty( $meta ) ) {
-                                                echo '<pre style="font-size:11px;background:#f5f5f5;padding:5px;border-radius:3px;">';
-                                                echo esc_html( print_r( $meta, true ) );
-                                                echo '</pre>';
+                                                echo '<div style="font-size:12px;">';
+                                                foreach ( $meta as $key => $value ) {
+                                                    // Format key (convert snake_case to Title Case)
+                                                    $label = ucwords( str_replace( '_', ' ', $key ) );
+                                                    // Format value
+                                                    if ( is_numeric( $value ) && $key !== 'installments' ) {
+                                                        $display_value = number_format( (float) $value, 2 );
+                                                    } else {
+                                                        $display_value = esc_html( $value );
+                                                    }
+                                                    echo '<strong>' . esc_html( $label ) . ':</strong> ' . $display_value . '<br>';
+                                                }
+                                                echo '</div>';
                                             }
                                         }
                                         ?>
