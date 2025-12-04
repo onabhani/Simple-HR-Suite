@@ -192,7 +192,9 @@ class AdminPages {
                                 </a>
                             </td>
                             <td>
-                                <?php echo esc_html( $loan->employee_name ); ?>
+                                <a href="?page=sfs-hr-employee-profile&employee_id=<?php echo (int) $loan->employee_id; ?>" style="text-decoration:none;">
+                                    <?php echo esc_html( $loan->employee_name ); ?>
+                                </a>
                                 <br><small><?php echo esc_html( $loan->employee_code ); ?></small>
                             </td>
                             <td><?php echo number_format( (float) $loan->principal_amount, 2 ); ?> <?php echo esc_html( $loan->currency ); ?></td>
