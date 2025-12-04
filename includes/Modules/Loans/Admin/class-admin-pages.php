@@ -186,7 +186,11 @@ class AdminPages {
                 <?php else : ?>
                     <?php foreach ( $loans as $loan ) : ?>
                         <tr>
-                            <td><strong><?php echo esc_html( $loan->loan_number ); ?></strong></td>
+                            <td>
+                                <a href="?page=sfs-hr-loans&action=view&id=<?php echo (int) $loan->id; ?>" style="text-decoration:none;">
+                                    <strong><?php echo esc_html( $loan->loan_number ); ?></strong>
+                                </a>
+                            </td>
                             <td>
                                 <?php echo esc_html( $loan->employee_name ); ?>
                                 <br><small><?php echo esc_html( $loan->employee_code ); ?></small>
@@ -575,7 +579,7 @@ class AdminPages {
                     <tr>
                         <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
                         <td>
-                            <a href="?page=sfs-hr-workforce&action=view&id=<?php echo (int) $loan->employee_id; ?>" style="text-decoration:none;">
+                            <a href="?page=sfs-hr-employee-profile&employee_id=<?php echo (int) $loan->employee_id; ?>" style="text-decoration:none;">
                                 <strong><?php echo esc_html( $loan->employee_name ); ?></strong>
                             </a>
                             <br><small><?php echo esc_html( $loan->employee_code ); ?> - <?php echo esc_html( $loan->department ); ?></small>
