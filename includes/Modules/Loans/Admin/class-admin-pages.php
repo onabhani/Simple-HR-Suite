@@ -14,6 +14,8 @@ class AdminPages {
         add_action( 'admin_menu', [ $this, 'menu' ], 20 );
         add_action( 'admin_init', [ $this, 'save_settings' ] );
         add_action( 'admin_init', [ $this, 'handle_loan_actions' ] );
+        add_action( 'admin_init', [ $this, 'handle_installment_actions' ] );
+        add_action( 'admin_init', [ $this, 'export_installments_csv' ] );
     }
 
     /**
@@ -335,7 +337,253 @@ class AdminPages {
      * Render monthly installments tab (Finance only)
      */
     private function render_installments_tab(): void {
-        echo '<div class="notice notice-info"><p>' . esc_html__( 'Monthly installments management - Coming in Phase 3', 'sfs-hr' ) . '</p></div>';
+        global $wpdb;
+        $loans_table = $wpdb->prefix . 'sfs_hr_loans';
+        $payments_table = $wpdb->prefix . 'sfs_hr_loan_payments';
+        $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+
+        // Get selected month (default to current month)
+        $selected_month = isset( $_GET['month'] ) ? sanitize_text_field( $_GET['month'] ) : wp_date( 'Y-m' );
+
+        // Calculate month range
+        $month_start = $selected_month . '-01';
+        $month_end = wp_date( 'Y-m-t', strtotime( $month_start ) );
+
+        // Query installments for selected month
+        $installments = $wpdb->get_results( $wpdb->prepare(
+            "SELECT p.*, l.loan_number, l.currency, l.employee_id, l.remaining_balance,
+                    CONCAT(e.first_name, ' ', e.last_name) as employee_name,
+                    e.employee_code
+             FROM {$payments_table} p
+             INNER JOIN {$loans_table} l ON p.loan_id = l.id
+             LEFT JOIN {$emp_table} e ON l.employee_id = e.id
+             WHERE p.due_date >= %s
+             AND p.due_date <= %s
+             AND l.status = 'active'
+             ORDER BY p.due_date ASC, e.first_name ASC",
+            $month_start,
+            $month_end
+        ) );
+
+        // Calculate totals
+        $total_planned = 0;
+        $total_paid = 0;
+        $count_paid = 0;
+        $count_pending = 0;
+        $count_skipped = 0;
+        $count_partial = 0;
+
+        foreach ( $installments as $inst ) {
+            $total_planned += (float) $inst->amount_planned;
+            $total_paid += (float) $inst->amount_paid;
+
+            switch ( $inst->status ) {
+                case 'paid':
+                    $count_paid++;
+                    break;
+                case 'planned':
+                    $count_pending++;
+                    break;
+                case 'skipped':
+                    $count_skipped++;
+                    break;
+                case 'partial':
+                    $count_partial++;
+                    break;
+            }
+        }
+
+        ?>
+        <div class="notice notice-info" style="display:flex;justify-content:space-between;align-items:center;">
+            <p style="margin:0;">
+                <?php esc_html_e( 'This page shows all loan installments due for the selected month. Mark installments as paid/partial/skipped to update loan balances.', 'sfs-hr' ); ?>
+            </p>
+        </div>
+
+        <div style="background:#fff;padding:15px;border:1px solid #ccc;border-radius:4px;margin-top:15px;margin-bottom:15px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <label for="month-selector" style="margin-right:10px;font-weight:600;">
+                        <?php esc_html_e( 'Select Month:', 'sfs-hr' ); ?>
+                    </label>
+                    <input type="month" id="month-selector" value="<?php echo esc_attr( $selected_month ); ?>"
+                           onchange="location.href='?page=sfs-hr-loans&tab=installments&month='+this.value"
+                           style="padding:5px;" />
+                </div>
+                <div>
+                    <a href="?page=sfs-hr-loans&tab=installments&action=export_csv&month=<?php echo esc_attr( $selected_month ); ?>"
+                       class="button button-secondary">
+                        <?php esc_html_e( '📥 Export to CSV', 'sfs-hr' ); ?>
+                    </a>
+                </div>
+            </div>
+
+            <div style="margin-top:15px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;">
+                <div style="padding:10px;background:#f0f9ff;border-left:3px solid #0ea5e9;border-radius:4px;">
+                    <div style="font-size:11px;color:#666;text-transform:uppercase;"><?php esc_html_e( 'Total Planned', 'sfs-hr' ); ?></div>
+                    <div style="font-size:18px;font-weight:600;margin-top:5px;">
+                        <?php echo number_format( $total_planned, 2 ); ?> <span style="font-size:12px;">SAR</span>
+                    </div>
+                </div>
+                <div style="padding:10px;background:#f0fdf4;border-left:3px solid #22c55e;border-radius:4px;">
+                    <div style="font-size:11px;color:#666;text-transform:uppercase;"><?php esc_html_e( 'Total Paid', 'sfs-hr' ); ?></div>
+                    <div style="font-size:18px;font-weight:600;margin-top:5px;">
+                        <?php echo number_format( $total_paid, 2 ); ?> <span style="font-size:12px;">SAR</span>
+                    </div>
+                </div>
+                <div style="padding:10px;background:#fefce8;border-left:3px solid #eab308;border-radius:4px;">
+                    <div style="font-size:11px;color:#666;text-transform:uppercase;"><?php esc_html_e( 'Pending', 'sfs-hr' ); ?></div>
+                    <div style="font-size:18px;font-weight:600;margin-top:5px;"><?php echo $count_pending; ?></div>
+                </div>
+                <div style="padding:10px;background:#f0fdf4;border-left:3px solid #22c55e;border-radius:4px;">
+                    <div style="font-size:11px;color:#666;text-transform:uppercase;"><?php esc_html_e( 'Paid', 'sfs-hr' ); ?></div>
+                    <div style="font-size:18px;font-weight:600;margin-top:5px;"><?php echo $count_paid; ?></div>
+                </div>
+                <div style="padding:10px;background:#fef2f2;border-left:3px solid #ef4444;border-radius:4px;">
+                    <div style="font-size:11px;color:#666;text-transform:uppercase;"><?php esc_html_e( 'Partial', 'sfs-hr' ); ?></div>
+                    <div style="font-size:18px;font-weight:600;margin-top:5px;"><?php echo $count_partial; ?></div>
+                </div>
+                <div style="padding:10px;background:#f9fafb;border-left:3px solid #6b7280;border-radius:4px;">
+                    <div style="font-size:11px;color:#666;text-transform:uppercase;"><?php esc_html_e( 'Skipped', 'sfs-hr' ); ?></div>
+                    <div style="font-size:18px;font-weight:600;margin-top:5px;"><?php echo $count_skipped; ?></div>
+                </div>
+            </div>
+        </div>
+
+        <?php if ( empty( $installments ) ) : ?>
+            <div class="notice notice-warning">
+                <p><?php esc_html_e( 'No installments found for the selected month.', 'sfs-hr' ); ?></p>
+            </div>
+        <?php else : ?>
+            <form method="post" action="" id="bulk-installments-form">
+                <?php wp_nonce_field( 'sfs_hr_bulk_installments' ); ?>
+                <input type="hidden" name="action" value="bulk_update_installments" />
+                <input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" />
+
+                <div class="tablenav top">
+                    <div class="alignleft actions bulkactions">
+                        <select name="bulk_action" id="bulk-action-selector-top">
+                            <option value=""><?php esc_html_e( 'Bulk Actions', 'sfs-hr' ); ?></option>
+                            <option value="mark_paid"><?php esc_html_e( 'Mark as Paid', 'sfs-hr' ); ?></option>
+                            <option value="mark_skipped"><?php esc_html_e( 'Mark as Skipped', 'sfs-hr' ); ?></option>
+                        </select>
+                        <button type="submit" class="button action"><?php esc_html_e( 'Apply', 'sfs-hr' ); ?></button>
+                    </div>
+                </div>
+
+                <table class="wp-list-table widefat fixed striped">
+                    <thead>
+                        <tr>
+                            <td class="manage-column column-cb check-column">
+                                <input type="checkbox" id="cb-select-all" onclick="
+                                    var checkboxes = document.getElementsByName('payment_ids[]');
+                                    for (var i = 0; i < checkboxes.length; i++) {
+                                        checkboxes[i].checked = this.checked;
+                                    }
+                                " />
+                            </td>
+                            <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Loan #', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Installment #', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Due Date', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Amount Planned', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Amount Paid', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Remaining Loan', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ( $installments as $inst ) : ?>
+                            <tr>
+                                <th scope="row" class="check-column">
+                                    <input type="checkbox" name="payment_ids[]" value="<?php echo (int) $inst->id; ?>" />
+                                </th>
+                                <td>
+                                    <a href="?page=sfs-hr-employee-profile&employee_id=<?php echo (int) $inst->employee_id; ?>" style="text-decoration:none;">
+                                        <strong><?php echo esc_html( $inst->employee_name ); ?></strong>
+                                    </a>
+                                    <br><small><?php echo esc_html( $inst->employee_code ); ?></small>
+                                </td>
+                                <td>
+                                    <a href="?page=sfs-hr-loans&action=view&id=<?php echo (int) $inst->loan_id; ?>" style="text-decoration:none;">
+                                        <strong><?php echo esc_html( $inst->loan_number ); ?></strong>
+                                    </a>
+                                </td>
+                                <td><?php echo (int) $inst->sequence; ?></td>
+                                <td><?php echo esc_html( wp_date( 'M j, Y', strtotime( $inst->due_date ) ) ); ?></td>
+                                <td><?php echo number_format( (float) $inst->amount_planned, 2 ); ?></td>
+                                <td><?php echo number_format( (float) $inst->amount_paid, 2 ); ?></td>
+                                <td><?php echo $this->get_payment_status_badge( $inst->status ); ?></td>
+                                <td><?php echo number_format( (float) $inst->remaining_balance, 2 ); ?> <?php echo esc_html( $inst->currency ); ?></td>
+                                <td>
+                                    <?php if ( $inst->status === 'planned' || $inst->status === 'partial' ) : ?>
+                                        <div class="row-actions" style="display:flex;gap:5px;">
+                                            <form method="post" action="" style="display:inline-block;">
+                                                <?php wp_nonce_field( 'sfs_hr_mark_installment_' . $inst->id ); ?>
+                                                <input type="hidden" name="action" value="mark_installment_paid" />
+                                                <input type="hidden" name="payment_id" value="<?php echo (int) $inst->id; ?>" />
+                                                <input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" />
+                                                <button type="submit" class="button button-small button-primary" title="<?php esc_attr_e( 'Mark as Paid', 'sfs-hr' ); ?>">
+                                                    <?php esc_html_e( 'Paid', 'sfs-hr' ); ?>
+                                                </button>
+                                            </form>
+                                            <button type="button" class="button button-small" onclick="showPartialForm(<?php echo (int) $inst->id; ?>)" title="<?php esc_attr_e( 'Mark as Partial', 'sfs-hr' ); ?>">
+                                                <?php esc_html_e( 'Partial', 'sfs-hr' ); ?>
+                                            </button>
+                                            <form method="post" action="" style="display:inline-block;">
+                                                <?php wp_nonce_field( 'sfs_hr_mark_installment_' . $inst->id ); ?>
+                                                <input type="hidden" name="action" value="mark_installment_skipped" />
+                                                <input type="hidden" name="payment_id" value="<?php echo (int) $inst->id; ?>" />
+                                                <input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" />
+                                                <button type="submit" class="button button-small" title="<?php esc_attr_e( 'Skip Payment', 'sfs-hr' ); ?>"
+                                                        onclick="return confirm('<?php esc_attr_e( 'Are you sure you want to skip this payment?', 'sfs-hr' ); ?>');">
+                                                    <?php esc_html_e( 'Skip', 'sfs-hr' ); ?>
+                                                </button>
+                                            </form>
+                                        </div>
+
+                                        <!-- Partial Payment Form (Hidden by default) -->
+                                        <div id="partial-form-<?php echo (int) $inst->id; ?>" style="display:none;margin-top:10px;padding:10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;">
+                                            <form method="post" action="">
+                                                <?php wp_nonce_field( 'sfs_hr_mark_installment_' . $inst->id ); ?>
+                                                <input type="hidden" name="action" value="mark_installment_partial" />
+                                                <input type="hidden" name="payment_id" value="<?php echo (int) $inst->id; ?>" />
+                                                <input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" />
+                                                <label style="display:block;margin-bottom:5px;font-weight:600;">
+                                                    <?php esc_html_e( 'Partial Amount:', 'sfs-hr' ); ?>
+                                                </label>
+                                                <input type="number" name="partial_amount" step="0.01" min="0.01"
+                                                       max="<?php echo esc_attr( $inst->amount_planned ); ?>"
+                                                       required style="width:120px;margin-right:5px;" />
+                                                <button type="submit" class="button button-small button-primary">
+                                                    <?php esc_html_e( 'Submit', 'sfs-hr' ); ?>
+                                                </button>
+                                                <button type="button" class="button button-small" onclick="hidePartialForm(<?php echo (int) $inst->id; ?>)">
+                                                    <?php esc_html_e( 'Cancel', 'sfs-hr' ); ?>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    <?php else : ?>
+                                        <span style="color:#999;">—</span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </form>
+
+            <script>
+                function showPartialForm(id) {
+                    document.getElementById('partial-form-' + id).style.display = 'block';
+                }
+                function hidePartialForm(id) {
+                    document.getElementById('partial-form-' + id).style.display = 'none';
+                }
+            </script>
+        <?php endif; ?>
+        <?php
     }
 
     /**
@@ -508,6 +756,20 @@ class AdminPages {
             'completed'       => '<span style="background:#6c757d;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">Completed</span>',
             'rejected'        => '<span style="background:#dc3545;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">Rejected</span>',
             'cancelled'       => '<span style="background:#6c757d;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">Cancelled</span>',
+        ];
+
+        return $badges[ $status ] ?? esc_html( $status );
+    }
+
+    /**
+     * Get payment status badge HTML
+     */
+    private function get_payment_status_badge( string $status ): string {
+        $badges = [
+            'planned'  => '<span style="background:#ffc107;color:#000;padding:3px 8px;border-radius:3px;font-size:11px;">Planned</span>',
+            'paid'     => '<span style="background:#28a745;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">Paid</span>',
+            'partial'  => '<span style="background:#ff8c00;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">Partial</span>',
+            'skipped'  => '<span style="background:#6c757d;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">Skipped</span>',
         ];
 
         return $badges[ $status ] ?? esc_html( $status );
@@ -1044,5 +1306,339 @@ class AdminPages {
             'first_due'    => $first_date->format( 'Y-m-d' ),
             'last_due'     => $last_date->format( 'Y-m-d' ),
         ] );
+    }
+
+    /**
+     * Handle installment payment actions
+     */
+    public function handle_installment_actions(): void {
+        if ( ! isset( $_POST['action'] ) || ! current_user_can( 'sfs_hr.manage' ) ) {
+            return;
+        }
+
+        $action = $_POST['action'];
+        $payment_id = isset( $_POST['payment_id'] ) ? (int) $_POST['payment_id'] : 0;
+        $month = isset( $_POST['month'] ) ? sanitize_text_field( $_POST['month'] ) : wp_date( 'Y-m' );
+
+        global $wpdb;
+        $payments_table = $wpdb->prefix . 'sfs_hr_loan_payments';
+        $loans_table = $wpdb->prefix . 'sfs_hr_loans';
+
+        $redirect_url = add_query_arg( [
+            'page'  => 'sfs-hr-loans',
+            'tab'   => 'installments',
+            'month' => $month,
+        ], admin_url( 'admin.php' ) );
+
+        switch ( $action ) {
+            case 'mark_installment_paid':
+                if ( ! $payment_id ) {
+                    return;
+                }
+                check_admin_referer( 'sfs_hr_mark_installment_' . $payment_id );
+
+                // Get payment details
+                $payment = $wpdb->get_row( $wpdb->prepare(
+                    "SELECT * FROM {$payments_table} WHERE id = %d",
+                    $payment_id
+                ) );
+
+                if ( ! $payment ) {
+                    wp_die( __( 'Payment not found', 'sfs-hr' ) );
+                }
+
+                // Update payment status
+                $wpdb->update( $payments_table, [
+                    'amount_paid' => $payment->amount_planned,
+                    'status'      => 'paid',
+                    'paid_at'     => current_time( 'mysql' ),
+                    'updated_at'  => current_time( 'mysql' ),
+                ], [ 'id' => $payment_id ] );
+
+                // Update loan remaining balance
+                $this->update_loan_balance( $payment->loan_id );
+
+                // Log event
+                \SFS\HR\Modules\Loans\LoansModule::log_event( $payment->loan_id, 'payment_marked_paid', [
+                    'payment_id' => $payment_id,
+                    'sequence'   => $payment->sequence,
+                    'amount'     => $payment->amount_planned,
+                ] );
+
+                wp_safe_redirect( add_query_arg( 'updated', '1', $redirect_url ) );
+                exit;
+
+            case 'mark_installment_partial':
+                if ( ! $payment_id ) {
+                    return;
+                }
+                check_admin_referer( 'sfs_hr_mark_installment_' . $payment_id );
+
+                $partial_amount = (float) ( $_POST['partial_amount'] ?? 0 );
+
+                // Get payment details
+                $payment = $wpdb->get_row( $wpdb->prepare(
+                    "SELECT * FROM {$payments_table} WHERE id = %d",
+                    $payment_id
+                ) );
+
+                if ( ! $payment || $partial_amount <= 0 || $partial_amount > (float) $payment->amount_planned ) {
+                    wp_die( __( 'Invalid partial amount', 'sfs-hr' ) );
+                }
+
+                // Update payment status
+                $wpdb->update( $payments_table, [
+                    'amount_paid' => $partial_amount,
+                    'status'      => 'partial',
+                    'paid_at'     => current_time( 'mysql' ),
+                    'updated_at'  => current_time( 'mysql' ),
+                ], [ 'id' => $payment_id ] );
+
+                // Update loan remaining balance
+                $this->update_loan_balance( $payment->loan_id );
+
+                // Log event
+                \SFS\HR\Modules\Loans\LoansModule::log_event( $payment->loan_id, 'payment_marked_partial', [
+                    'payment_id'     => $payment_id,
+                    'sequence'       => $payment->sequence,
+                    'amount_planned' => $payment->amount_planned,
+                    'amount_paid'    => $partial_amount,
+                ] );
+
+                wp_safe_redirect( add_query_arg( 'updated', '1', $redirect_url ) );
+                exit;
+
+            case 'mark_installment_skipped':
+                if ( ! $payment_id ) {
+                    return;
+                }
+                check_admin_referer( 'sfs_hr_mark_installment_' . $payment_id );
+
+                // Get payment details
+                $payment = $wpdb->get_row( $wpdb->prepare(
+                    "SELECT * FROM {$payments_table} WHERE id = %d",
+                    $payment_id
+                ) );
+
+                if ( ! $payment ) {
+                    wp_die( __( 'Payment not found', 'sfs-hr' ) );
+                }
+
+                // Update payment status
+                $wpdb->update( $payments_table, [
+                    'status'     => 'skipped',
+                    'updated_at' => current_time( 'mysql' ),
+                ], [ 'id' => $payment_id ] );
+
+                // Log event
+                \SFS\HR\Modules\Loans\LoansModule::log_event( $payment->loan_id, 'payment_skipped', [
+                    'payment_id' => $payment_id,
+                    'sequence'   => $payment->sequence,
+                ] );
+
+                wp_safe_redirect( add_query_arg( 'updated', '1', $redirect_url ) );
+                exit;
+
+            case 'bulk_update_installments':
+                check_admin_referer( 'sfs_hr_bulk_installments' );
+
+                $bulk_action = sanitize_text_field( $_POST['bulk_action'] ?? '' );
+                $payment_ids = isset( $_POST['payment_ids'] ) ? array_map( 'intval', $_POST['payment_ids'] ) : [];
+
+                if ( ! $bulk_action || empty( $payment_ids ) ) {
+                    wp_safe_redirect( $redirect_url );
+                    exit;
+                }
+
+                $processed = 0;
+
+                foreach ( $payment_ids as $pid ) {
+                    $payment = $wpdb->get_row( $wpdb->prepare(
+                        "SELECT * FROM {$payments_table} WHERE id = %d",
+                        $pid
+                    ) );
+
+                    if ( ! $payment ) {
+                        continue;
+                    }
+
+                    if ( $bulk_action === 'mark_paid' ) {
+                        $wpdb->update( $payments_table, [
+                            'amount_paid' => $payment->amount_planned,
+                            'status'      => 'paid',
+                            'paid_at'     => current_time( 'mysql' ),
+                            'updated_at'  => current_time( 'mysql' ),
+                        ], [ 'id' => $pid ] );
+
+                        $this->update_loan_balance( $payment->loan_id );
+
+                        \SFS\HR\Modules\Loans\LoansModule::log_event( $payment->loan_id, 'payment_marked_paid', [
+                            'payment_id' => $pid,
+                            'sequence'   => $payment->sequence,
+                            'amount'     => $payment->amount_planned,
+                            'bulk'       => true,
+                        ] );
+
+                        $processed++;
+                    } elseif ( $bulk_action === 'mark_skipped' ) {
+                        $wpdb->update( $payments_table, [
+                            'status'     => 'skipped',
+                            'updated_at' => current_time( 'mysql' ),
+                        ], [ 'id' => $pid ] );
+
+                        \SFS\HR\Modules\Loans\LoansModule::log_event( $payment->loan_id, 'payment_skipped', [
+                            'payment_id' => $pid,
+                            'sequence'   => $payment->sequence,
+                            'bulk'       => true,
+                        ] );
+
+                        $processed++;
+                    }
+                }
+
+                wp_safe_redirect( add_query_arg( 'updated', $processed, $redirect_url ) );
+                exit;
+        }
+    }
+
+    /**
+     * Update loan remaining balance based on payments
+     */
+    private function update_loan_balance( int $loan_id ): void {
+        global $wpdb;
+        $payments_table = $wpdb->prefix . 'sfs_hr_loan_payments';
+        $loans_table = $wpdb->prefix . 'sfs_hr_loans';
+
+        // Get loan
+        $loan = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$loans_table} WHERE id = %d",
+            $loan_id
+        ) );
+
+        if ( ! $loan ) {
+            return;
+        }
+
+        // Calculate total paid
+        $total_paid = (float) $wpdb->get_var( $wpdb->prepare(
+            "SELECT SUM(amount_paid) FROM {$payments_table} WHERE loan_id = %d",
+            $loan_id
+        ) );
+
+        // Calculate remaining balance
+        $remaining = (float) $loan->principal_amount - $total_paid;
+        $remaining = max( 0, $remaining ); // Ensure non-negative
+
+        // Update loan
+        $wpdb->update( $loans_table, [
+            'remaining_balance' => $remaining,
+            'updated_at'        => current_time( 'mysql' ),
+        ], [ 'id' => $loan_id ] );
+
+        // Check if loan is fully paid
+        if ( $remaining <= 0.01 && $loan->status === 'active' ) {
+            $wpdb->update( $loans_table, [
+                'status'     => 'completed',
+                'updated_at' => current_time( 'mysql' ),
+            ], [ 'id' => $loan_id ] );
+
+            \SFS\HR\Modules\Loans\LoansModule::log_event( $loan_id, 'loan_completed', [
+                'principal_amount' => $loan->principal_amount,
+                'total_paid'       => $total_paid,
+            ] );
+        }
+    }
+
+    /**
+     * Export installments to CSV
+     */
+    public function export_installments_csv(): void {
+        if ( ! isset( $_GET['page'] ) || $_GET['page'] !== 'sfs-hr-loans' ) {
+            return;
+        }
+
+        if ( ! isset( $_GET['tab'] ) || $_GET['tab'] !== 'installments' ) {
+            return;
+        }
+
+        if ( ! isset( $_GET['action'] ) || $_GET['action'] !== 'export_csv' ) {
+            return;
+        }
+
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
+            wp_die( __( 'Permission denied', 'sfs-hr' ) );
+        }
+
+        global $wpdb;
+        $loans_table = $wpdb->prefix . 'sfs_hr_loans';
+        $payments_table = $wpdb->prefix . 'sfs_hr_loan_payments';
+        $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+
+        // Get selected month
+        $selected_month = isset( $_GET['month'] ) ? sanitize_text_field( $_GET['month'] ) : wp_date( 'Y-m' );
+
+        // Calculate month range
+        $month_start = $selected_month . '-01';
+        $month_end = wp_date( 'Y-m-t', strtotime( $month_start ) );
+
+        // Query installments
+        $installments = $wpdb->get_results( $wpdb->prepare(
+            "SELECT p.*, l.loan_number, l.currency, l.employee_id,
+                    CONCAT(e.first_name, ' ', e.last_name) as employee_name,
+                    e.employee_code
+             FROM {$payments_table} p
+             INNER JOIN {$loans_table} l ON p.loan_id = l.id
+             LEFT JOIN {$emp_table} e ON l.employee_id = e.id
+             WHERE p.due_date >= %s
+             AND p.due_date <= %s
+             AND l.status = 'active'
+             ORDER BY e.first_name ASC, p.due_date ASC",
+            $month_start,
+            $month_end
+        ) );
+
+        // Set headers for CSV download
+        $filename = 'loan-installments-' . $selected_month . '.csv';
+        header( 'Content-Type: text/csv; charset=utf-8' );
+        header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+        header( 'Pragma: no-cache' );
+        header( 'Expires: 0' );
+
+        // Open output stream
+        $output = fopen( 'php://output', 'w' );
+
+        // Write UTF-8 BOM for Excel compatibility
+        fprintf( $output, chr(0xEF).chr(0xBB).chr(0xBF) );
+
+        // Write CSV headers
+        fputcsv( $output, [
+            'Employee Code',
+            'Employee Name',
+            'Loan Number',
+            'Installment #',
+            'Due Date',
+            'Amount Planned',
+            'Amount Paid',
+            'Status',
+            'Currency',
+        ] );
+
+        // Write data rows
+        foreach ( $installments as $inst ) {
+            fputcsv( $output, [
+                $inst->employee_code,
+                $inst->employee_name,
+                $inst->loan_number,
+                $inst->sequence,
+                wp_date( 'Y-m-d', strtotime( $inst->due_date ) ),
+                number_format( (float) $inst->amount_planned, 2, '.', '' ),
+                number_format( (float) $inst->amount_paid, 2, '.', '' ),
+                ucfirst( $inst->status ),
+                $inst->currency,
+            ] );
+        }
+
+        fclose( $output );
+        exit;
     }
 }
