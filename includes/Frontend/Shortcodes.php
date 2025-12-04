@@ -873,15 +873,16 @@ class Shortcodes {
         }
 
         var statusUrl = '<?php echo esc_js( rest_url( 'sfs-hr/v1/attendance/status' ) ); ?>' + '?dbg=1';
-
+        var nonce = '<?php echo wp_create_nonce( 'wp_rest' ); ?>';
 
         // Add a loading indicator
         btn.textContent = '<?php echo esc_js( __( 'Loading...', 'sfs-hr' ) ); ?>';
 
-        fetch(statusUrl, { 
+        fetch(statusUrl, {
             credentials: 'same-origin',
             headers: {
-                'Cache-Control': 'no-cache'
+                'Cache-Control': 'no-cache',
+                'X-WP-Nonce': nonce
             }
         })
             .then(function (res) { 
