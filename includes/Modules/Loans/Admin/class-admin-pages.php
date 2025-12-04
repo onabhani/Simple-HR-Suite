@@ -776,15 +776,15 @@ class AdminPages {
         $action = $_POST['action'];
         $loan_id = isset( $_POST['loan_id'] ) ? (int) $_POST['loan_id'] : 0;
 
-        if ( ! $loan_id ) {
-            return;
-        }
-
         global $wpdb;
         $loans_table = $wpdb->prefix . 'sfs_hr_loans';
 
         switch ( $action ) {
             case 'approve_gm':
+                // Validate loan_id for this action
+                if ( ! $loan_id ) {
+                    return;
+                }
                 check_admin_referer( 'sfs_hr_loan_approve_gm_' . $loan_id );
 
                 $wpdb->update( $loans_table, [
@@ -802,6 +802,10 @@ class AdminPages {
                 exit;
 
             case 'approve_finance':
+                // Validate loan_id for this action
+                if ( ! $loan_id ) {
+                    return;
+                }
                 check_admin_referer( 'sfs_hr_loan_approve_finance_' . $loan_id );
 
                 $principal = (float) ( $_POST['principal_amount'] ?? 0 );
@@ -839,6 +843,10 @@ class AdminPages {
                 exit;
 
             case 'reject_loan':
+                // Validate loan_id for this action
+                if ( ! $loan_id ) {
+                    return;
+                }
                 check_admin_referer( 'sfs_hr_loan_reject_' . $loan_id );
 
                 $reason = sanitize_textarea_field( $_POST['rejection_reason'] ?? '' );
