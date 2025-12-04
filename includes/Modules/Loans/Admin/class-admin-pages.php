@@ -45,6 +45,12 @@ class AdminPages {
             return;
         }
 
+        // Show create form if action=create
+        if ( $action === 'create' ) {
+            $this->render_create_loan_form();
+            return;
+        }
+
         // Otherwise show tabs
         $tab = $_GET['tab'] ?? 'loans';
 
@@ -131,6 +137,12 @@ class AdminPages {
         $loans = $wpdb->get_results( $query );
 
         ?>
+        <div style="margin-bottom: 15px;">
+            <a href="?page=sfs-hr-loans&action=create" class="button button-primary">
+                <?php esc_html_e( 'Add New Loan', 'sfs-hr' ); ?>
+            </a>
+        </div>
+
         <div class="tablenav top">
             <div class="alignleft actions">
                 <select name="filter_status" onchange="location.href='?page=sfs-hr-loans&filter_status='+this.value">
@@ -198,6 +210,115 @@ class AdminPages {
                 <?php endif; ?>
             </tbody>
         </table>
+        <?php
+    }
+
+    /**
+     * Render create loan form
+     */
+    private function render_create_loan_form(): void {
+        global $wpdb;
+        $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+
+        // Get all active employees
+        $employees = $wpdb->get_results(
+            "SELECT id, employee_code, first_name, last_name, department
+             FROM {$emp_table}
+             WHERE status = 'active'
+             ORDER BY first_name, last_name"
+        );
+
+        ?>
+        <div class="wrap">
+            <h1>
+                <?php esc_html_e( 'Create New Loan', 'sfs-hr' ); ?>
+                <a href="?page=sfs-hr-loans" class="page-title-action"><?php esc_html_e( '← Back to List', 'sfs-hr' ); ?></a>
+            </h1>
+
+            <?php if ( isset( $_GET['error'] ) ) : ?>
+                <div class="notice notice-error is-dismissible">
+                    <p><?php echo esc_html( urldecode( $_GET['error'] ) ); ?></p>
+                </div>
+            <?php endif; ?>
+
+            <div style="background:#fff;padding:20px;border:1px solid #ccc;border-radius:4px;margin-top:20px;max-width:800px;">
+                <form method="post" action="">
+                    <?php wp_nonce_field( 'sfs_hr_loan_create' ); ?>
+                    <input type="hidden" name="action" value="create_loan" />
+
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">
+                                <label for="employee_id"><?php esc_html_e( 'Employee', 'sfs-hr' ); ?> <span style="color:red;">*</span></label>
+                            </th>
+                            <td>
+                                <select name="employee_id" id="employee_id" required style="min-width:300px;">
+                                    <option value=""><?php esc_html_e( '— Select Employee —', 'sfs-hr' ); ?></option>
+                                    <?php foreach ( $employees as $emp ) : ?>
+                                        <option value="<?php echo (int) $emp->id; ?>">
+                                            <?php echo esc_html( $emp->first_name . ' ' . $emp->last_name ); ?>
+                                            (<?php echo esc_html( $emp->employee_code ); ?>) -
+                                            <?php echo esc_html( $emp->department ); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <p class="description"><?php esc_html_e( 'Select the employee requesting the loan.', 'sfs-hr' ); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="principal_amount"><?php esc_html_e( 'Principal Amount', 'sfs-hr' ); ?> <span style="color:red;">*</span></label>
+                            </th>
+                            <td>
+                                <input type="number" name="principal_amount" id="principal_amount"
+                                       step="0.01" min="1" required style="width:200px;" />
+                                <span style="margin-left:5px;">SAR</span>
+                                <p class="description"><?php esc_html_e( 'The total loan amount requested.', 'sfs-hr' ); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="installments_count"><?php esc_html_e( 'Number of Installments', 'sfs-hr' ); ?> <span style="color:red;">*</span></label>
+                            </th>
+                            <td>
+                                <input type="number" name="installments_count" id="installments_count"
+                                       min="1" max="60" required style="width:100px;" />
+                                <p class="description"><?php esc_html_e( 'Number of monthly installments (1-60 months).', 'sfs-hr' ); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="reason"><?php esc_html_e( 'Reason for Loan', 'sfs-hr' ); ?> <span style="color:red;">*</span></label>
+                            </th>
+                            <td>
+                                <textarea name="reason" id="reason" rows="4" required
+                                          style="width:100%;max-width:500px;"></textarea>
+                                <p class="description"><?php esc_html_e( 'Employee\'s reason for requesting the loan.', 'sfs-hr' ); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="internal_notes"><?php esc_html_e( 'Internal Notes', 'sfs-hr' ); ?></label>
+                            </th>
+                            <td>
+                                <textarea name="internal_notes" id="internal_notes" rows="3"
+                                          style="width:100%;max-width:500px;"></textarea>
+                                <p class="description"><?php esc_html_e( 'Optional internal notes (not visible to employee).', 'sfs-hr' ); ?></p>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <p class="submit">
+                        <button type="submit" class="button button-primary">
+                            <?php esc_html_e( 'Create Loan Request', 'sfs-hr' ); ?>
+                        </button>
+                        <a href="?page=sfs-hr-loans" class="button">
+                            <?php esc_html_e( 'Cancel', 'sfs-hr' ); ?>
+                        </a>
+                    </p>
+                </form>
+            </div>
+        </div>
         <?php
     }
 
@@ -736,6 +857,104 @@ class AdminPages {
                 ] );
 
                 wp_safe_redirect( add_query_arg( [ 'page' => 'sfs-hr-loans', 'action' => 'view', 'id' => $loan_id, 'updated' => '1' ], admin_url( 'admin.php' ) ) );
+                exit;
+
+            case 'create_loan':
+                check_admin_referer( 'sfs_hr_loan_create' );
+
+                // Validate inputs
+                $employee_id = isset( $_POST['employee_id'] ) ? (int) $_POST['employee_id'] : 0;
+                $principal = isset( $_POST['principal_amount'] ) ? (float) $_POST['principal_amount'] : 0;
+                $installments = isset( $_POST['installments_count'] ) ? (int) $_POST['installments_count'] : 0;
+                $reason = sanitize_textarea_field( $_POST['reason'] ?? '' );
+                $internal_notes = sanitize_textarea_field( $_POST['internal_notes'] ?? '' );
+
+                // Validation
+                if ( ! $employee_id || ! $principal || ! $installments || ! $reason ) {
+                    wp_safe_redirect( add_query_arg( [
+                        'page' => 'sfs-hr-loans',
+                        'action' => 'create',
+                        'error' => urlencode( __( 'All required fields must be filled.', 'sfs-hr' ) ),
+                    ], admin_url( 'admin.php' ) ) );
+                    exit;
+                }
+
+                if ( $principal <= 0 || $installments <= 0 || $installments > 60 ) {
+                    wp_safe_redirect( add_query_arg( [
+                        'page' => 'sfs-hr-loans',
+                        'action' => 'create',
+                        'error' => urlencode( __( 'Invalid amount or installments.', 'sfs-hr' ) ),
+                    ], admin_url( 'admin.php' ) ) );
+                    exit;
+                }
+
+                // Get employee details
+                $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+                $employee = $wpdb->get_row( $wpdb->prepare(
+                    "SELECT department FROM {$emp_table} WHERE id = %d AND status = 'active'",
+                    $employee_id
+                ) );
+
+                if ( ! $employee ) {
+                    wp_safe_redirect( add_query_arg( [
+                        'page' => 'sfs-hr-loans',
+                        'action' => 'create',
+                        'error' => urlencode( __( 'Employee not found or inactive.', 'sfs-hr' ) ),
+                    ], admin_url( 'admin.php' ) ) );
+                    exit;
+                }
+
+                // Generate loan number
+                $loan_number = \SFS\HR\Modules\Loans\LoansModule::generate_loan_number();
+
+                // Calculate installment amount
+                $installment_amount = round( $principal / $installments, 2 );
+
+                // Insert loan
+                $wpdb->insert( $loans_table, [
+                    'loan_number'        => $loan_number,
+                    'employee_id'        => $employee_id,
+                    'department'         => $employee->department,
+                    'principal_amount'   => $principal,
+                    'currency'           => 'SAR',
+                    'installments_count' => $installments,
+                    'installment_amount' => $installment_amount,
+                    'remaining_balance'  => 0, // Will be set when approved
+                    'status'             => 'pending_gm',
+                    'reason'             => $reason,
+                    'internal_notes'     => $internal_notes,
+                    'request_source'     => 'admin_portal',
+                    'created_by'         => get_current_user_id(),
+                    'created_at'         => current_time( 'mysql' ),
+                    'updated_at'         => current_time( 'mysql' ),
+                ] );
+
+                $new_loan_id = $wpdb->insert_id;
+
+                if ( ! $new_loan_id ) {
+                    wp_safe_redirect( add_query_arg( [
+                        'page' => 'sfs-hr-loans',
+                        'action' => 'create',
+                        'error' => urlencode( __( 'Failed to create loan. Please try again.', 'sfs-hr' ) ),
+                    ], admin_url( 'admin.php' ) ) );
+                    exit;
+                }
+
+                // Log creation
+                \SFS\HR\Modules\Loans\LoansModule::log_event( $new_loan_id, 'loan_created', [
+                    'created_by'      => 'admin',
+                    'principal'       => $principal,
+                    'installments'    => $installments,
+                    'request_source'  => 'admin_portal',
+                ] );
+
+                // Redirect to loan detail
+                wp_safe_redirect( add_query_arg( [
+                    'page' => 'sfs-hr-loans',
+                    'action' => 'view',
+                    'id' => $new_loan_id,
+                    'updated' => '1',
+                ], admin_url( 'admin.php' ) ) );
                 exit;
         }
     }
