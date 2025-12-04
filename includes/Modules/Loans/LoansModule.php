@@ -155,7 +155,9 @@ class LoansModule {
             'allow_multiple_active_loans'      => false,
             'max_active_loans_per_employee'    => 1,
             'require_gm_approval'              => true,
+            'gm_user_ids'                      => [], // Array of user IDs who can approve as GM
             'require_finance_approval'         => true,
+            'finance_user_ids'                 => [], // Array of user IDs who can approve as Finance
             'allow_early_repayment'            => true,
             'early_repayment_requires_approval'=> true,
             'show_in_my_profile'               => true,
@@ -241,5 +243,99 @@ class LoansModule {
         ) );
 
         return (float) ( $balance ?? 0 );
+    }
+
+    /**
+     * Check if current user can approve as GM
+     */
+    public static function current_user_can_approve_as_gm(): bool {
+        if ( ! is_user_logged_in() ) {
+            return false;
+        }
+
+        // If user has full manage capability, they can approve
+        if ( current_user_can( 'sfs_hr.manage' ) ) {
+            $settings = self::get_settings();
+            $gm_user_ids = $settings['gm_user_ids'] ?? [];
+
+            // If no GMs assigned, any manager can approve
+            if ( empty( $gm_user_ids ) ) {
+                return true;
+            }
+
+            // Check if current user is in the GM list
+            return in_array( get_current_user_id(), $gm_user_ids, true );
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if current user can approve as Finance
+     */
+    public static function current_user_can_approve_as_finance(): bool {
+        if ( ! is_user_logged_in() ) {
+            return false;
+        }
+
+        // If user has full manage capability, they can approve
+        if ( current_user_can( 'sfs_hr.manage' ) ) {
+            $settings = self::get_settings();
+            $finance_user_ids = $settings['finance_user_ids'] ?? [];
+
+            // If no Finance users assigned, any manager can approve
+            if ( empty( $finance_user_ids ) ) {
+                return true;
+            }
+
+            // Check if current user is in the Finance list
+            return in_array( get_current_user_id(), $finance_user_ids, true );
+        }
+
+        return false;
+    }
+
+    /**
+     * Get assigned GM users
+     */
+    public static function get_gm_users(): array {
+        $settings = self::get_settings();
+        $gm_user_ids = $settings['gm_user_ids'] ?? [];
+
+        if ( empty( $gm_user_ids ) ) {
+            return [];
+        }
+
+        $users = [];
+        foreach ( $gm_user_ids as $user_id ) {
+            $user = get_userdata( $user_id );
+            if ( $user ) {
+                $users[] = $user;
+            }
+        }
+
+        return $users;
+    }
+
+    /**
+     * Get assigned Finance users
+     */
+    public static function get_finance_users(): array {
+        $settings = self::get_settings();
+        $finance_user_ids = $settings['finance_user_ids'] ?? [];
+
+        if ( empty( $finance_user_ids ) ) {
+            return [];
+        }
+
+        $users = [];
+        foreach ( $finance_user_ids as $user_id ) {
+            $user = get_userdata( $user_id );
+            if ( $user ) {
+                $users[] = $user;
+            }
+        }
+
+        return $users;
     }
 }

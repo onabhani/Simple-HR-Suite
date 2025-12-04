@@ -674,6 +674,64 @@ class AdminPages {
                     </td>
                 </tr>
                 <tr>
+                    <th><?php esc_html_e( 'GM Approvers', 'sfs-hr' ); ?></th>
+                    <td>
+                        <?php
+                        // Get all users with manage capability
+                        $all_users = get_users( [
+                            'role__in' => [ 'administrator' ],
+                            'orderby'  => 'display_name',
+                        ] );
+
+                        // Also get users with sfs_hr.manage capability
+                        $manage_users = get_users( [
+                            'meta_query' => [
+                                [
+                                    'key'     => 'wp_capabilities',
+                                    'value'   => 'sfs_hr.manage',
+                                    'compare' => 'LIKE',
+                                ],
+                            ],
+                        ] );
+
+                        $available_users = array_merge( $all_users, $manage_users );
+                        $available_users = array_unique( $available_users, SORT_REGULAR );
+
+                        $gm_user_ids = $settings['gm_user_ids'] ?? [];
+                        ?>
+
+                        <select name="gm_user_ids[]" multiple style="min-width:400px;height:150px;">
+                            <?php foreach ( $available_users as $user ) : ?>
+                                <option value="<?php echo (int) $user->ID; ?>" <?php selected( in_array( $user->ID, $gm_user_ids, true ), true ); ?>>
+                                    <?php echo esc_html( $user->display_name . ' (' . $user->user_email . ')' ); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <p class="description">
+                            <?php esc_html_e( 'Select users who can approve loans at the GM stage. Hold Ctrl/Cmd to select multiple. Leave empty to allow any user with sfs_hr.manage capability.', 'sfs-hr' ); ?>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e( 'Finance Approvers', 'sfs-hr' ); ?></th>
+                    <td>
+                        <?php
+                        $finance_user_ids = $settings['finance_user_ids'] ?? [];
+                        ?>
+
+                        <select name="finance_user_ids[]" multiple style="min-width:400px;height:150px;">
+                            <?php foreach ( $available_users as $user ) : ?>
+                                <option value="<?php echo (int) $user->ID; ?>" <?php selected( in_array( $user->ID, $finance_user_ids, true ), true ); ?>>
+                                    <?php echo esc_html( $user->display_name . ' (' . $user->user_email . ')' ); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <p class="description">
+                            <?php esc_html_e( 'Select users who can approve loans at the Finance stage. Hold Ctrl/Cmd to select multiple. Leave empty to allow any user with sfs_hr.manage capability.', 'sfs-hr' ); ?>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
                     <th><?php esc_html_e( 'Early Repayment', 'sfs-hr' ); ?></th>
                     <td>
                         <label>
@@ -722,6 +780,18 @@ class AdminPages {
 
         check_admin_referer( 'sfs_hr_loans_settings' );
 
+        // Process GM user IDs
+        $gm_user_ids = [];
+        if ( isset( $_POST['gm_user_ids'] ) && is_array( $_POST['gm_user_ids'] ) ) {
+            $gm_user_ids = array_map( 'intval', $_POST['gm_user_ids'] );
+        }
+
+        // Process Finance user IDs
+        $finance_user_ids = [];
+        if ( isset( $_POST['finance_user_ids'] ) && is_array( $_POST['finance_user_ids'] ) ) {
+            $finance_user_ids = array_map( 'intval', $_POST['finance_user_ids'] );
+        }
+
         $settings = [
             'enabled'                          => isset( $_POST['enabled'] ),
             'max_loan_amount'                  => (float) ( $_POST['max_loan_amount'] ?? 0 ),
@@ -732,7 +802,9 @@ class AdminPages {
             'allow_multiple_active_loans'      => isset( $_POST['allow_multiple_active_loans'] ),
             'max_active_loans_per_employee'    => (int) ( $_POST['max_active_loans_per_employee'] ?? 1 ),
             'require_gm_approval'              => isset( $_POST['require_gm_approval'] ),
+            'gm_user_ids'                      => $gm_user_ids,
             'require_finance_approval'         => true, // Always required
+            'finance_user_ids'                 => $finance_user_ids,
             'allow_early_repayment'            => isset( $_POST['allow_early_repayment'] ),
             'early_repayment_requires_approval'=> isset( $_POST['early_repayment_requires_approval'] ),
             'show_in_my_profile'               => isset( $_POST['show_in_my_profile'] ),
@@ -893,11 +965,12 @@ class AdminPages {
                 </table>
 
                 <!-- Approval Actions -->
-                <?php if ( current_user_can( 'sfs_hr.manage' ) ) : ?>
-                    <hr style="margin: 30px 0;">
+                <hr style="margin: 30px 0;">
 
-                    <?php if ( $loan->status === 'pending_gm' ) : ?>
-                        <h3><?php esc_html_e( 'GM Approval', 'sfs-hr' ); ?></h3>
+                <?php if ( $loan->status === 'pending_gm' ) : ?>
+                    <h3><?php esc_html_e( 'GM Approval', 'sfs-hr' ); ?></h3>
+
+                    <?php if ( \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm() ) : ?>
                         <form method="post" action="" style="display:inline-block;margin-right:10px;">
                             <?php wp_nonce_field( 'sfs_hr_loan_approve_gm_' . $loan_id ); ?>
                             <input type="hidden" name="action" value="approve_gm" />
@@ -911,9 +984,34 @@ class AdminPages {
                             <input type="text" name="rejection_reason" placeholder="<?php esc_attr_e( 'Reason (required)', 'sfs-hr' ); ?>" required style="width:300px;" />
                             <button type="submit" class="button"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>
                         </form>
+                    <?php else : ?>
+                        <div class="notice notice-info inline">
+                            <p>
+                                <?php
+                                $gm_users = \SFS\HR\Modules\Loans\LoansModule::get_gm_users();
+                                if ( ! empty( $gm_users ) ) {
+                                    $gm_names = array_map( function( $user ) {
+                                        return $user->display_name;
+                                    }, $gm_users );
+                                    echo esc_html(
+                                        sprintf(
+                                            /* translators: %s: Comma-separated list of GM names */
+                                            __( 'This loan requires GM approval. Assigned GM(s): %s', 'sfs-hr' ),
+                                            implode( ', ', $gm_names )
+                                        )
+                                    );
+                                } else {
+                                    esc_html_e( 'This loan requires GM approval. No GMs are currently assigned in settings.', 'sfs-hr' );
+                                }
+                                ?>
+                            </p>
+                        </div>
+                    <?php endif; ?>
 
-                    <?php elseif ( $loan->status === 'pending_finance' ) : ?>
-                        <h3><?php esc_html_e( 'Finance Approval', 'sfs-hr' ); ?></h3>
+                <?php elseif ( $loan->status === 'pending_finance' ) : ?>
+                    <h3><?php esc_html_e( 'Finance Approval', 'sfs-hr' ); ?></h3>
+
+                    <?php if ( \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_finance() ) : ?>
                         <form method="post" action="">
                             <?php wp_nonce_field( 'sfs_hr_loan_approve_finance_' . $loan_id ); ?>
                             <input type="hidden" name="action" value="approve_finance" />
@@ -956,6 +1054,28 @@ class AdminPages {
                             <input type="text" name="rejection_reason" placeholder="<?php esc_attr_e( 'Reason (required)', 'sfs-hr' ); ?>" required style="width:400px;" />
                             <button type="submit" class="button"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>
                         </form>
+                    <?php else : ?>
+                        <div class="notice notice-info inline">
+                            <p>
+                                <?php
+                                $finance_users = \SFS\HR\Modules\Loans\LoansModule::get_finance_users();
+                                if ( ! empty( $finance_users ) ) {
+                                    $finance_names = array_map( function( $user ) {
+                                        return $user->display_name;
+                                    }, $finance_users );
+                                    echo esc_html(
+                                        sprintf(
+                                            /* translators: %s: Comma-separated list of Finance user names */
+                                            __( 'This loan requires Finance approval. Assigned Finance user(s): %s', 'sfs-hr' ),
+                                            implode( ', ', $finance_names )
+                                        )
+                                    );
+                                } else {
+                                    esc_html_e( 'This loan requires Finance approval. No Finance users are currently assigned in settings.', 'sfs-hr' );
+                                }
+                                ?>
+                            </p>
+                        </div>
                     <?php endif; ?>
                 <?php endif; ?>
             </div>
