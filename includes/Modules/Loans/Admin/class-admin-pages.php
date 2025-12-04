@@ -219,13 +219,16 @@ class AdminPages {
     private function render_create_loan_form(): void {
         global $wpdb;
         $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+        $dept_table = $wpdb->prefix . 'sfs_hr_departments';
 
         // Get all active employees
         $employees = $wpdb->get_results(
-            "SELECT id, employee_code, first_name, last_name, department
-             FROM {$emp_table}
-             WHERE status = 'active'
-             ORDER BY first_name, last_name"
+            "SELECT e.id, e.employee_code, e.first_name, e.last_name,
+                    COALESCE(d.name, 'N/A') as department
+             FROM {$emp_table} e
+             LEFT JOIN {$dept_table} d ON e.dept_id = d.id
+             WHERE e.status = 'active'
+             ORDER BY e.first_name, e.last_name"
         );
 
         ?>
@@ -890,8 +893,12 @@ class AdminPages {
 
                 // Get employee details
                 $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+                $dept_table = $wpdb->prefix . 'sfs_hr_departments';
                 $employee = $wpdb->get_row( $wpdb->prepare(
-                    "SELECT department FROM {$emp_table} WHERE id = %d AND status = 'active'",
+                    "SELECT COALESCE(d.name, 'N/A') as department
+                     FROM {$emp_table} e
+                     LEFT JOIN {$dept_table} d ON e.dept_id = d.id
+                     WHERE e.id = %d AND e.status = 'active'",
                     $employee_id
                 ) );
 
