@@ -40,9 +40,9 @@ class LoansModule {
 
         // 1. Loans table
         $loans_table = $wpdb->prefix . 'sfs_hr_loans';
-        $sql_loans = "CREATE TABLE IF NOT EXISTS {$loans_table} (
+        $sql_loans = "CREATE TABLE {$loans_table} (
             id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-            loan_number varchar(50) NOT NULL UNIQUE,
+            loan_number varchar(50) NOT NULL,
             employee_id bigint(20) UNSIGNED NOT NULL,
             department varchar(100) DEFAULT NULL,
             principal_amount decimal(12,2) NOT NULL,
@@ -69,6 +69,7 @@ class LoansModule {
             created_at datetime NOT NULL,
             updated_at datetime NOT NULL,
             PRIMARY KEY (id),
+            UNIQUE KEY loan_number (loan_number),
             KEY employee_id (employee_id),
             KEY status (status),
             KEY created_at (created_at)
@@ -76,7 +77,7 @@ class LoansModule {
 
         // 2. Loan payments (schedule & actuals)
         $payments_table = $wpdb->prefix . 'sfs_hr_loan_payments';
-        $sql_payments = "CREATE TABLE IF NOT EXISTS {$payments_table} (
+        $sql_payments = "CREATE TABLE {$payments_table} (
             id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             loan_id bigint(20) UNSIGNED NOT NULL,
             sequence int(10) UNSIGNED NOT NULL,
@@ -97,7 +98,7 @@ class LoansModule {
 
         // 3. Loan history (audit trail)
         $history_table = $wpdb->prefix . 'sfs_hr_loan_history';
-        $sql_history = "CREATE TABLE IF NOT EXISTS {$history_table} (
+        $sql_history = "CREATE TABLE {$history_table} (
             id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             loan_id bigint(20) UNSIGNED NOT NULL,
             created_at datetime NOT NULL,
@@ -112,9 +113,9 @@ class LoansModule {
 
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
-        $wpdb->query( $sql_loans );
-        $wpdb->query( $sql_payments );
-        $wpdb->query( $sql_history );
+        dbDelta( $sql_loans );
+        dbDelta( $sql_payments );
+        dbDelta( $sql_history );
     }
 
     /**
