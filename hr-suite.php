@@ -13,6 +13,7 @@ if (!defined('ABSPATH')) { exit; }
 define('SFS_HR_VER', '0.1.8');
 define('SFS_HR_DIR', plugin_dir_path(__FILE__));
 define('SFS_HR_URL', plugin_dir_url(__FILE__));
+define('SFS_HR_PLUGIN_FILE', __FILE__);
 
 spl_autoload_register(function($class){
     if (strpos($class, 'SFS\\HR\\') !== 0) return;
@@ -48,6 +49,9 @@ add_action('admin_init', function(){
     $assets_table = $wpdb->prefix . 'sfs_hr_assets';
     $assign_table = $wpdb->prefix . 'sfs_hr_asset_assignments';
     $shifts_table = $wpdb->prefix . 'sfs_hr_attendance_shifts';
+    $loans_table  = $wpdb->prefix . 'sfs_hr_loans';
+    $loan_payments_table = $wpdb->prefix . 'sfs_hr_loan_payments';
+    $loan_history_table  = $wpdb->prefix . 'sfs_hr_loan_history';
 
     $table_exists = function(string $table) use ($wpdb){
         return (bool)$wpdb->get_var($wpdb->prepare(
@@ -72,7 +76,10 @@ add_action('admin_init', function(){
         !$table_exists($emp_table)    ||
         !$table_exists($dept_table)   ||
         !$table_exists($assets_table) ||
-        !$table_exists($assign_table)
+        !$table_exists($assign_table) ||
+        !$table_exists($loans_table)  ||
+        !$table_exists($loan_payments_table) ||
+        !$table_exists($loan_history_table)
     );
 
     $needs_columns = false;
@@ -192,9 +199,10 @@ add_action('plugins_loaded', function(){
     (new \SFS\HR\Modules\Departments\DepartmentsModule())->hooks(); // departments UI + role mapping
     (new \SFS\HR\Modules\Leave\LeaveModule())->hooks();
     (new \SFS\HR\Modules\Attendance\AttendanceModule())->hooks();
-    (new \SFS\HR\Modules\Workforce_Status\WorkforceStatusModule())->hooks(); 
+    (new \SFS\HR\Modules\Workforce_Status\WorkforceStatusModule())->hooks();
     (new \SFS\HR\Modules\Employees\EmployeesModule())->hooks();
     (new \SFS\HR\Modules\Assets\AssetsModule())->hooks();
+    new \SFS\HR\Modules\Loans\LoansModule(); // Loans (Cash Advances)
 
 });
 

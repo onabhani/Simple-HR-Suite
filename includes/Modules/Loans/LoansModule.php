@@ -1,0 +1,221 @@
+<?php
+namespace SFS\HR\Modules\Loans;
+
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
+/**
+ * Loans Module (Cash Advances)
+ *
+ * Features:
+ * - Cash advances with zero interest
+ * - Monthly salary deductions
+ * - Approval workflow: Employee → GM → Finance
+ * - Schedule generation with skip capability
+ * - Full audit trail
+ */
+class LoansModule {
+
+    const OPT_SETTINGS = 'sfs_hr_loans_settings';
+
+    public function __construct() {
+        // Admin pages
+        if ( is_admin() ) {
+            require_once __DIR__ . '/Admin/class-admin-pages.php';
+            new Admin\AdminPages();
+        }
+
+        // Activation hook for DB
+        register_activation_hook( SFS_HR_PLUGIN_FILE, [ __CLASS__, 'on_activation' ] );
+    }
+
+    /**
+     * Create/update database tables on activation
+     */
+    public static function on_activation(): void {
+        global $wpdb;
+
+        $charset_collate = $wpdb->get_charset_collate();
+
+        // 1. Loans table
+        $loans_table = $wpdb->prefix . 'sfs_hr_loans';
+        $sql_loans = "CREATE TABLE IF NOT EXISTS {$loans_table} (
+            id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            loan_number varchar(50) NOT NULL UNIQUE,
+            employee_id bigint(20) UNSIGNED NOT NULL,
+            department varchar(100) DEFAULT NULL,
+            principal_amount decimal(12,2) NOT NULL,
+            currency varchar(10) DEFAULT 'SAR',
+            installments_count int(10) UNSIGNED NOT NULL,
+            installment_amount decimal(12,2) NOT NULL,
+            first_due_date date DEFAULT NULL,
+            last_due_date date DEFAULT NULL,
+            remaining_balance decimal(12,2) NOT NULL DEFAULT 0,
+            status varchar(30) NOT NULL DEFAULT 'pending_gm',
+            reason text DEFAULT NULL,
+            internal_notes text DEFAULT NULL,
+            request_source varchar(20) DEFAULT 'employee_portal',
+            created_by bigint(20) UNSIGNED DEFAULT NULL,
+            approved_gm_by bigint(20) UNSIGNED DEFAULT NULL,
+            approved_gm_at datetime DEFAULT NULL,
+            approved_finance_by bigint(20) UNSIGNED DEFAULT NULL,
+            approved_finance_at datetime DEFAULT NULL,
+            rejected_by bigint(20) UNSIGNED DEFAULT NULL,
+            rejected_at datetime DEFAULT NULL,
+            rejection_reason text DEFAULT NULL,
+            cancelled_by bigint(20) UNSIGNED DEFAULT NULL,
+            cancelled_at datetime DEFAULT NULL,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY (id),
+            KEY employee_id (employee_id),
+            KEY status (status),
+            KEY created_at (created_at)
+        ) {$charset_collate};";
+
+        // 2. Loan payments (schedule & actuals)
+        $payments_table = $wpdb->prefix . 'sfs_hr_loan_payments';
+        $sql_payments = "CREATE TABLE IF NOT EXISTS {$payments_table} (
+            id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            loan_id bigint(20) UNSIGNED NOT NULL,
+            sequence int(10) UNSIGNED NOT NULL,
+            due_date date NOT NULL,
+            amount_planned decimal(12,2) NOT NULL,
+            amount_paid decimal(12,2) NOT NULL DEFAULT 0,
+            status varchar(20) NOT NULL DEFAULT 'planned',
+            paid_at datetime DEFAULT NULL,
+            source varchar(20) DEFAULT 'payroll',
+            notes text DEFAULT NULL,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY (id),
+            KEY loan_id (loan_id),
+            KEY due_date (due_date),
+            KEY status (status)
+        ) {$charset_collate};";
+
+        // 3. Loan history (audit trail)
+        $history_table = $wpdb->prefix . 'sfs_hr_loan_history';
+        $sql_history = "CREATE TABLE IF NOT EXISTS {$history_table} (
+            id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            loan_id bigint(20) UNSIGNED NOT NULL,
+            created_at datetime NOT NULL,
+            user_id bigint(20) UNSIGNED DEFAULT NULL,
+            event_type varchar(50) NOT NULL,
+            meta longtext DEFAULT NULL,
+            PRIMARY KEY (id),
+            KEY loan_id (loan_id),
+            KEY created_at (created_at),
+            KEY event_type (event_type)
+        ) {$charset_collate};";
+
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+        $wpdb->query( $sql_loans );
+        $wpdb->query( $sql_payments );
+        $wpdb->query( $sql_history );
+    }
+
+    /**
+     * Get default settings
+     */
+    public static function get_default_settings(): array {
+        return [
+            'enabled'                          => true,
+            'max_loan_amount'                  => 0, // 0 = no limit
+            'max_loan_multiplier'              => 0, // 0 = disabled, e.g., 2.0 = 2x basic salary
+            'max_installment_amount'           => 0,
+            'max_installment_percent'          => 0, // e.g., 30 = 30% of basic salary
+            'loan_start_offset_months'         => 2, // Start deductions N months after request
+            'allow_multiple_active_loans'      => false,
+            'max_active_loans_per_employee'    => 1,
+            'require_gm_approval'              => true,
+            'require_finance_approval'         => true,
+            'allow_early_repayment'            => true,
+            'early_repayment_requires_approval'=> true,
+            'show_in_my_profile'               => true,
+            'allow_employee_requests'          => true,
+        ];
+    }
+
+    /**
+     * Get current settings
+     */
+    public static function get_settings(): array {
+        $defaults = self::get_default_settings();
+        $saved    = get_option( self::OPT_SETTINGS, [] );
+        return wp_parse_args( $saved, $defaults );
+    }
+
+    /**
+     * Generate unique loan number
+     */
+    public static function generate_loan_number(): string {
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_loans';
+        $year  = wp_date( 'Y' );
+
+        // Get count for this year
+        $count = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$table} WHERE loan_number LIKE %s",
+                'LN-' . $year . '-%'
+            )
+        );
+
+        $sequence = str_pad( $count + 1, 4, '0', STR_PAD_LEFT );
+        return 'LN-' . $year . '-' . $sequence;
+    }
+
+    /**
+     * Log loan event to history
+     */
+    public static function log_event( int $loan_id, string $event_type, array $meta = [] ): void {
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_loan_history';
+
+        $wpdb->insert( $table, [
+            'loan_id'    => $loan_id,
+            'created_at' => current_time( 'mysql' ),
+            'user_id'    => get_current_user_id(),
+            'event_type' => $event_type,
+            'meta'       => wp_json_encode( $meta ),
+        ] );
+    }
+
+    /**
+     * Check if employee has active loans
+     */
+    public static function has_active_loans( int $employee_id ): bool {
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_loans';
+
+        $count = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$table}
+             WHERE employee_id = %d
+             AND status = 'active'
+             AND remaining_balance > 0",
+            $employee_id
+        ) );
+
+        return $count > 0;
+    }
+
+    /**
+     * Get outstanding balance for employee
+     */
+    public static function get_outstanding_balance( int $employee_id ): float {
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_loans';
+
+        $balance = $wpdb->get_var( $wpdb->prepare(
+            "SELECT SUM(remaining_balance) FROM {$table}
+             WHERE employee_id = %d
+             AND status = 'active'",
+            $employee_id
+        ) );
+
+        return (float) ( $balance ?? 0 );
+    }
+}
