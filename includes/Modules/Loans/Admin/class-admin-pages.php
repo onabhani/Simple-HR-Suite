@@ -514,13 +514,16 @@ class AdminPages {
         global $wpdb;
         $loans_table = $wpdb->prefix . 'sfs_hr_loans';
         $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+        $dept_table = $wpdb->prefix . 'sfs_hr_departments';
         $history_table = $wpdb->prefix . 'sfs_hr_loan_history';
         $payments_table = $wpdb->prefix . 'sfs_hr_loan_payments';
 
         $loan = $wpdb->get_row( $wpdb->prepare(
-            "SELECT l.*, CONCAT(e.first_name, ' ', e.last_name) as employee_name, e.employee_code, e.department
+            "SELECT l.*, CONCAT(e.first_name, ' ', e.last_name) as employee_name, e.employee_code,
+                    COALESCE(d.name, l.department, 'N/A') as department
              FROM {$loans_table} l
              LEFT JOIN {$emp_table} e ON l.employee_id = e.id
+             LEFT JOIN {$dept_table} d ON e.dept_id = d.id
              WHERE l.id = %d",
             $loan_id
         ) );
