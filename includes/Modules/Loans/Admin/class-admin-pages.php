@@ -13,6 +13,7 @@ class AdminPages {
     public function __construct() {
         add_action( 'admin_menu', [ $this, 'menu' ], 20 );
         add_action( 'admin_init', [ $this, 'save_settings' ] );
+        add_action( 'admin_init', [ $this, 'handle_loan_actions' ] );
     }
 
     /**
@@ -32,9 +33,19 @@ class AdminPages {
     }
 
     /**
-     * Main loans page (list view)
+     * Main loans page (list view or detail)
      */
     public function loans_page(): void {
+        $action = $_GET['action'] ?? '';
+        $loan_id = isset( $_GET['id'] ) ? (int) $_GET['id'] : 0;
+
+        // Show loan detail if action=view
+        if ( $action === 'view' && $loan_id > 0 ) {
+            $this->render_loan_detail( $loan_id );
+            return;
+        }
+
+        // Otherwise show tabs
         $tab = $_GET['tab'] ?? 'loans';
 
         ?>
@@ -370,5 +381,409 @@ class AdminPages {
         ];
 
         return $badges[ $status ] ?? esc_html( $status );
+    }
+
+    /**
+     * Render loan detail page
+     */
+    private function render_loan_detail( int $loan_id ): void {
+        global $wpdb;
+        $loans_table = $wpdb->prefix . 'sfs_hr_loans';
+        $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+        $history_table = $wpdb->prefix . 'sfs_hr_loan_history';
+        $payments_table = $wpdb->prefix . 'sfs_hr_loan_payments';
+
+        $loan = $wpdb->get_row( $wpdb->prepare(
+            "SELECT l.*, CONCAT(e.first_name, ' ', e.last_name) as employee_name, e.employee_code, e.department
+             FROM {$loans_table} l
+             LEFT JOIN {$emp_table} e ON l.employee_id = e.id
+             WHERE l.id = %d",
+            $loan_id
+        ) );
+
+        if ( ! $loan ) {
+            echo '<div class="wrap"><h1>' . esc_html__( 'Loan not found', 'sfs-hr' ) . '</h1></div>';
+            return;
+        }
+
+        // Get history
+        $history = $wpdb->get_results( $wpdb->prepare(
+            "SELECT h.*, u.display_name as user_name
+             FROM {$history_table} h
+             LEFT JOIN {$wpdb->users} u ON h.user_id = u.ID
+             WHERE h.loan_id = %d
+             ORDER BY h.created_at DESC",
+            $loan_id
+        ) );
+
+        // Get payments schedule
+        $payments = $wpdb->get_results( $wpdb->prepare(
+            "SELECT * FROM {$payments_table}
+             WHERE loan_id = %d
+             ORDER BY sequence ASC",
+            $loan_id
+        ) );
+
+        ?>
+        <div class="wrap">
+            <h1>
+                <?php echo esc_html( $loan->loan_number ); ?>
+                <a href="?page=sfs-hr-loans" class="page-title-action"><?php esc_html_e( '← Back to List', 'sfs-hr' ); ?></a>
+            </h1>
+
+            <?php if ( isset( $_GET['updated'] ) ) : ?>
+                <div class="notice notice-success is-dismissible">
+                    <p><?php esc_html_e( 'Loan updated successfully.', 'sfs-hr' ); ?></p>
+                </div>
+            <?php endif; ?>
+
+            <div style="background:#fff;padding:20px;border:1px solid #ccc;border-radius:4px;margin-top:20px;">
+                <h2><?php esc_html_e( 'Loan Information', 'sfs-hr' ); ?></h2>
+
+                <table class="form-table">
+                    <tr>
+                        <th><?php esc_html_e( 'Loan Number', 'sfs-hr' ); ?></th>
+                        <td><strong><?php echo esc_html( $loan->loan_number ); ?></strong></td>
+                    </tr>
+                    <tr>
+                        <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
+                        <td>
+                            <?php echo esc_html( $loan->employee_name ); ?>
+                            <br><small><?php echo esc_html( $loan->employee_code ); ?> - <?php echo esc_html( $loan->department ); ?></small>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
+                        <td><?php echo $this->get_status_badge( $loan->status ); ?></td>
+                    </tr>
+                    <tr>
+                        <th><?php esc_html_e( 'Principal Amount', 'sfs-hr' ); ?></th>
+                        <td><strong><?php echo number_format( (float) $loan->principal_amount, 2 ); ?> <?php echo esc_html( $loan->currency ); ?></strong></td>
+                    </tr>
+                    <tr>
+                        <th><?php esc_html_e( 'Remaining Balance', 'sfs-hr' ); ?></th>
+                        <td><strong><?php echo number_format( (float) $loan->remaining_balance, 2 ); ?> <?php echo esc_html( $loan->currency ); ?></strong></td>
+                    </tr>
+                    <tr>
+                        <th><?php esc_html_e( 'Installments', 'sfs-hr' ); ?></th>
+                        <td>
+                            <?php echo (int) $loan->installments_count; ?> installments ×
+                            <?php echo number_format( (float) $loan->installment_amount, 2 ); ?> <?php echo esc_html( $loan->currency ); ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><?php esc_html_e( 'First Due Date', 'sfs-hr' ); ?></th>
+                        <td><?php echo $loan->first_due_date ? esc_html( wp_date( 'F j, Y', strtotime( $loan->first_due_date ) ) ) : '—'; ?></td>
+                    </tr>
+                    <tr>
+                        <th><?php esc_html_e( 'Last Due Date', 'sfs-hr' ); ?></th>
+                        <td><?php echo $loan->last_due_date ? esc_html( wp_date( 'F j, Y', strtotime( $loan->last_due_date ) ) ) : '—'; ?></td>
+                    </tr>
+                    <tr>
+                        <th><?php esc_html_e( 'Reason', 'sfs-hr' ); ?></th>
+                        <td><?php echo esc_html( $loan->reason ); ?></td>
+                    </tr>
+                    <?php if ( $loan->internal_notes ) : ?>
+                        <tr>
+                            <th><?php esc_html_e( 'Internal Notes', 'sfs-hr' ); ?></th>
+                            <td><?php echo nl2br( esc_html( $loan->internal_notes ) ); ?></td>
+                        </tr>
+                    <?php endif; ?>
+                    <tr>
+                        <th><?php esc_html_e( 'Created', 'sfs-hr' ); ?></th>
+                        <td><?php echo esc_html( wp_date( 'F j, Y g:i a', strtotime( $loan->created_at ) ) ); ?></td>
+                    </tr>
+                </table>
+
+                <!-- Approval Actions -->
+                <?php if ( current_user_can( 'sfs_hr.manage' ) ) : ?>
+                    <hr style="margin: 30px 0;">
+
+                    <?php if ( $loan->status === 'pending_gm' ) : ?>
+                        <h3><?php esc_html_e( 'GM Approval', 'sfs-hr' ); ?></h3>
+                        <form method="post" action="" style="display:inline-block;margin-right:10px;">
+                            <?php wp_nonce_field( 'sfs_hr_loan_approve_gm_' . $loan_id ); ?>
+                            <input type="hidden" name="action" value="approve_gm" />
+                            <input type="hidden" name="loan_id" value="<?php echo (int) $loan_id; ?>" />
+                            <button type="submit" class="button button-primary"><?php esc_html_e( 'Approve (GM)', 'sfs-hr' ); ?></button>
+                        </form>
+                        <form method="post" action="" style="display:inline-block;" onsubmit="return confirm('<?php esc_attr_e( 'Are you sure you want to reject this loan?', 'sfs-hr' ); ?>');">
+                            <?php wp_nonce_field( 'sfs_hr_loan_reject_' . $loan_id ); ?>
+                            <input type="hidden" name="action" value="reject_loan" />
+                            <input type="hidden" name="loan_id" value="<?php echo (int) $loan_id; ?>" />
+                            <input type="text" name="rejection_reason" placeholder="<?php esc_attr_e( 'Reason (required)', 'sfs-hr' ); ?>" required style="width:300px;" />
+                            <button type="submit" class="button"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>
+                        </form>
+
+                    <?php elseif ( $loan->status === 'pending_finance' ) : ?>
+                        <h3><?php esc_html_e( 'Finance Approval', 'sfs-hr' ); ?></h3>
+                        <form method="post" action="">
+                            <?php wp_nonce_field( 'sfs_hr_loan_approve_finance_' . $loan_id ); ?>
+                            <input type="hidden" name="action" value="approve_finance" />
+                            <input type="hidden" name="loan_id" value="<?php echo (int) $loan_id; ?>" />
+
+                            <table class="form-table">
+                                <tr>
+                                    <th><?php esc_html_e( 'Principal Amount', 'sfs-hr' ); ?></th>
+                                    <td>
+                                        <input type="number" name="principal_amount" value="<?php echo esc_attr( $loan->principal_amount ); ?>" step="0.01" required style="width:150px;" />
+                                        <p class="description"><?php esc_html_e( 'You can adjust the amount before approval.', 'sfs-hr' ); ?></p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th><?php esc_html_e( 'Number of Installments', 'sfs-hr' ); ?></th>
+                                    <td>
+                                        <input type="number" name="installments_count" value="<?php echo esc_attr( $loan->installments_count ); ?>" min="1" required style="width:100px;" />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th><?php esc_html_e( 'First Deduction Month', 'sfs-hr' ); ?></th>
+                                    <td>
+                                        <input type="month" name="first_due_month" required />
+                                        <p class="description"><?php esc_html_e( 'Select the month when first deduction should occur.', 'sfs-hr' ); ?></p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p>
+                                <button type="submit" class="button button-primary"><?php esc_html_e( 'Approve & Activate Loan', 'sfs-hr' ); ?></button>
+                                <a href="?page=sfs-hr-loans" class="button"><?php esc_html_e( 'Cancel', 'sfs-hr' ); ?></a>
+                            </p>
+                        </form>
+
+                        <hr style="margin:20px 0;">
+                        <form method="post" action="" onsubmit="return confirm('<?php esc_attr_e( 'Are you sure you want to reject this loan?', 'sfs-hr' ); ?>');">
+                            <?php wp_nonce_field( 'sfs_hr_loan_reject_' . $loan_id ); ?>
+                            <input type="hidden" name="action" value="reject_loan" />
+                            <input type="hidden" name="loan_id" value="<?php echo (int) $loan_id; ?>" />
+                            <input type="text" name="rejection_reason" placeholder="<?php esc_attr_e( 'Reason (required)', 'sfs-hr' ); ?>" required style="width:400px;" />
+                            <button type="submit" class="button"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>
+                        </form>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </div>
+
+            <!-- Schedule -->
+            <?php if ( ! empty( $payments ) ) : ?>
+                <div style="background:#fff;padding:20px;border:1px solid #ccc;border-radius:4px;margin-top:20px;">
+                    <h2><?php esc_html_e( 'Payment Schedule', 'sfs-hr' ); ?></h2>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th><?php esc_html_e( '#', 'sfs-hr' ); ?></th>
+                                <th><?php esc_html_e( 'Due Date', 'sfs-hr' ); ?></th>
+                                <th><?php esc_html_e( 'Amount Planned', 'sfs-hr' ); ?></th>
+                                <th><?php esc_html_e( 'Amount Paid', 'sfs-hr' ); ?></th>
+                                <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
+                                <th><?php esc_html_e( 'Paid At', 'sfs-hr' ); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ( $payments as $payment ) : ?>
+                                <tr>
+                                    <td><?php echo (int) $payment->sequence; ?></td>
+                                    <td><?php echo esc_html( wp_date( 'F Y', strtotime( $payment->due_date ) ) ); ?></td>
+                                    <td><?php echo number_format( (float) $payment->amount_planned, 2 ); ?></td>
+                                    <td><?php echo number_format( (float) $payment->amount_paid, 2 ); ?></td>
+                                    <td>
+                                        <span style="padding:2px 6px;border-radius:3px;font-size:11px;background:<?php
+                                        echo $payment->status === 'paid' ? '#28a745' : ($payment->status === 'skipped' ? '#6c757d' : '#ffc107');
+                                        ?>;color:#fff;">
+                                            <?php echo esc_html( ucfirst( $payment->status ) ); ?>
+                                        </span>
+                                    </td>
+                                    <td><?php echo $payment->paid_at ? esc_html( wp_date( 'M j, Y', strtotime( $payment->paid_at ) ) ) : '—'; ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+
+            <!-- History -->
+            <?php if ( ! empty( $history ) ) : ?>
+                <div style="background:#fff;padding:20px;border:1px solid #ccc;border-radius:4px;margin-top:20px;">
+                    <h2><?php esc_html_e( 'Loan History', 'sfs-hr' ); ?></h2>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th><?php esc_html_e( 'Date', 'sfs-hr' ); ?></th>
+                                <th><?php esc_html_e( 'User', 'sfs-hr' ); ?></th>
+                                <th><?php esc_html_e( 'Event', 'sfs-hr' ); ?></th>
+                                <th><?php esc_html_e( 'Details', 'sfs-hr' ); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ( $history as $event ) : ?>
+                                <tr>
+                                    <td><?php echo esc_html( wp_date( 'M j, Y g:i a', strtotime( $event->created_at ) ) ); ?></td>
+                                    <td><?php echo esc_html( $event->user_name ?: __( 'System', 'sfs-hr' ) ); ?></td>
+                                    <td><strong><?php echo esc_html( str_replace( '_', ' ', ucwords( $event->event_type, '_' ) ) ); ?></strong></td>
+                                    <td>
+                                        <?php
+                                        if ( $event->meta ) {
+                                            $meta = json_decode( $event->meta, true );
+                                            if ( is_array( $meta ) && ! empty( $meta ) ) {
+                                                echo '<pre style="font-size:11px;background:#f5f5f5;padding:5px;border-radius:3px;">';
+                                                echo esc_html( print_r( $meta, true ) );
+                                                echo '</pre>';
+                                            }
+                                        }
+                                        ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+
+    /**
+     * Handle loan actions (approve, reject, etc.)
+     */
+    public function handle_loan_actions(): void {
+        if ( ! isset( $_POST['action'] ) || ! current_user_can( 'sfs_hr.manage' ) ) {
+            return;
+        }
+
+        $action = $_POST['action'];
+        $loan_id = isset( $_POST['loan_id'] ) ? (int) $_POST['loan_id'] : 0;
+
+        if ( ! $loan_id ) {
+            return;
+        }
+
+        global $wpdb;
+        $loans_table = $wpdb->prefix . 'sfs_hr_loans';
+
+        switch ( $action ) {
+            case 'approve_gm':
+                check_admin_referer( 'sfs_hr_loan_approve_gm_' . $loan_id );
+
+                $wpdb->update( $loans_table, [
+                    'status'          => 'pending_finance',
+                    'approved_gm_by'  => get_current_user_id(),
+                    'approved_gm_at'  => current_time( 'mysql' ),
+                    'updated_at'      => current_time( 'mysql' ),
+                ], [ 'id' => $loan_id ] );
+
+                \SFS\HR\Modules\Loans\LoansModule::log_event( $loan_id, 'gm_approved', [
+                    'status' => 'pending_gm → pending_finance',
+                ] );
+
+                wp_safe_redirect( add_query_arg( [ 'page' => 'sfs-hr-loans', 'action' => 'view', 'id' => $loan_id, 'updated' => '1' ], admin_url( 'admin.php' ) ) );
+                exit;
+
+            case 'approve_finance':
+                check_admin_referer( 'sfs_hr_loan_approve_finance_' . $loan_id );
+
+                $principal = (float) ( $_POST['principal_amount'] ?? 0 );
+                $installments = (int) ( $_POST['installments_count'] ?? 0 );
+                $first_month = sanitize_text_field( $_POST['first_due_month'] ?? '' );
+
+                if ( $principal <= 0 || $installments <= 0 || ! $first_month ) {
+                    wp_die( __( 'Invalid data', 'sfs-hr' ) );
+                }
+
+                $installment_amount = round( $principal / $installments, 2 );
+
+                // Update loan
+                $wpdb->update( $loans_table, [
+                    'principal_amount'       => $principal,
+                    'installments_count'     => $installments,
+                    'installment_amount'     => $installment_amount,
+                    'remaining_balance'      => $principal,
+                    'status'                 => 'active',
+                    'approved_finance_by'    => get_current_user_id(),
+                    'approved_finance_at'    => current_time( 'mysql' ),
+                    'updated_at'             => current_time( 'mysql' ),
+                ], [ 'id' => $loan_id ] );
+
+                // Generate schedule
+                $this->generate_payment_schedule( $loan_id, $first_month, $installments, $installment_amount );
+
+                \SFS\HR\Modules\Loans\LoansModule::log_event( $loan_id, 'finance_approved', [
+                    'status'       => 'pending_finance → active',
+                    'principal'    => $principal,
+                    'installments' => $installments,
+                ] );
+
+                wp_safe_redirect( add_query_arg( [ 'page' => 'sfs-hr-loans', 'action' => 'view', 'id' => $loan_id, 'updated' => '1' ], admin_url( 'admin.php' ) ) );
+                exit;
+
+            case 'reject_loan':
+                check_admin_referer( 'sfs_hr_loan_reject_' . $loan_id );
+
+                $reason = sanitize_textarea_field( $_POST['rejection_reason'] ?? '' );
+
+                if ( ! $reason ) {
+                    wp_die( __( 'Rejection reason is required', 'sfs-hr' ) );
+                }
+
+                $wpdb->update( $loans_table, [
+                    'status'           => 'rejected',
+                    'rejected_by'      => get_current_user_id(),
+                    'rejected_at'      => current_time( 'mysql' ),
+                    'rejection_reason' => $reason,
+                    'updated_at'       => current_time( 'mysql' ),
+                ], [ 'id' => $loan_id ] );
+
+                \SFS\HR\Modules\Loans\LoansModule::log_event( $loan_id, 'rejected', [
+                    'reason' => $reason,
+                ] );
+
+                wp_safe_redirect( add_query_arg( [ 'page' => 'sfs-hr-loans', 'action' => 'view', 'id' => $loan_id, 'updated' => '1' ], admin_url( 'admin.php' ) ) );
+                exit;
+        }
+    }
+
+    /**
+     * Generate payment schedule
+     */
+    private function generate_payment_schedule( int $loan_id, string $first_month, int $installments, float $installment_amount ): void {
+        global $wpdb;
+        $payments_table = $wpdb->prefix . 'sfs_hr_loan_payments';
+
+        // Clear existing schedule
+        $wpdb->delete( $payments_table, [ 'loan_id' => $loan_id ] );
+
+        $first_date = new \DateTime( $first_month . '-01' );
+        $last_date = clone $first_date;
+
+        for ( $i = 1; $i <= $installments; $i++ ) {
+            $due_date = clone $first_date;
+            $due_date->modify( '+' . ($i - 1) . ' months' );
+
+            // Last installment may need adjustment for rounding
+            $amount = ( $i === $installments ) ? $installment_amount : $installment_amount;
+
+            $wpdb->insert( $payments_table, [
+                'loan_id'        => $loan_id,
+                'sequence'       => $i,
+                'due_date'       => $due_date->format( 'Y-m-d' ),
+                'amount_planned' => $amount,
+                'amount_paid'    => 0,
+                'status'         => 'planned',
+                'created_at'     => current_time( 'mysql' ),
+                'updated_at'     => current_time( 'mysql' ),
+            ] );
+
+            $last_date = $due_date;
+        }
+
+        // Update loan with first/last due dates
+        $wpdb->update( $wpdb->prefix . 'sfs_hr_loans', [
+            'first_due_date' => $first_date->format( 'Y-m-d' ),
+            'last_due_date'  => $last_date->format( 'Y-m-d' ),
+        ], [ 'id' => $loan_id ] );
+
+        \SFS\HR\Modules\Loans\LoansModule::log_event( $loan_id, 'schedule_generated', [
+            'installments' => $installments,
+            'first_due'    => $first_date->format( 'Y-m-d' ),
+            'last_due'     => $last_date->format( 'Y-m-d' ),
+        ] );
     }
 }
