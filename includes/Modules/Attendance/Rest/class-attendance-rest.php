@@ -205,10 +205,7 @@ public static function status( \WP_REST_Request $req ) {
 
     // Optional debug switch (?dbg=1) – only echoed in JSON, never as raw output
     $dbg = (int) ($req->get_param('dbg') ?: 0);
-    $debug = [
-        'test' => 'Debug is working',
-        'php_version' => PHP_VERSION,
-    ];
+    $debug = [];
 
     try {
         $device_id = (int) ( $req->get_param('device') ?: 0 );
@@ -268,15 +265,9 @@ public static function status( \WP_REST_Request $req ) {
         ];
 
         // ---- If logged in & mapped, include self snapshot
-        $debug['is_logged_in'] = is_user_logged_in();
-        $debug['has_capability'] = current_user_can('sfs_hr_attendance_view_self');
-
         if ( is_user_logged_in() && current_user_can('sfs_hr_attendance_view_self') ) {
             $uid = get_current_user_id();
-            $debug['user_id'] = $uid;
-
             $emp = \SFS\HR\Modules\Attendance\AttendanceModule::employee_id_from_user( (int) $uid );
-            $debug['employee_id'] = $emp;
 
             if ( $emp ) {
                 $snap  = self::snapshot_for_today( (int) $emp );

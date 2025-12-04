@@ -872,7 +872,7 @@ class Shortcodes {
             return;
         }
 
-        var statusUrl = '<?php echo esc_js( rest_url( 'sfs-hr/v1/attendance/status' ) ); ?>' + '?dbg=1';
+        var statusUrl = '<?php echo esc_js( rest_url( 'sfs-hr/v1/attendance/status' ) ); ?>';
         var nonce = '<?php echo wp_create_nonce( 'wp_rest' ); ?>';
 
         // Add a loading indicator
@@ -885,7 +885,7 @@ class Shortcodes {
                 'X-WP-Nonce': nonce
             }
         })
-            .then(function (res) { 
+            .then(function (res) {
                 if (!res.ok) {
                     throw new Error('HTTP ' + res.status);
                 }
@@ -893,21 +893,12 @@ class Shortcodes {
             })
             .then(function (data) {
                 if (!data) {
-                    console.warn('No data returned from status endpoint');
                     btn.textContent = '<?php echo esc_js( __( 'Attendance', 'sfs-hr' ) ); ?>';
                     return;
                 }
 
-                console.log('Attendance status:', data); // Debug log
-                if (data._debug) {
-                    console.log('DEBUG INFO:', data._debug);
-                }
-
                 // Support both { allow: {...} } and flat { in: true, ... }
                 var allow = data.allow || data;
-                console.log('Allow object:', allow);
-                console.log('State:', data.state, 'Label:', data.label);
-
                 var label = '';
 
                 // Check what actions are allowed - priority order matters
@@ -924,10 +915,8 @@ class Shortcodes {
                 // Update button text or fallback to default
                 if (label) {
                     btn.textContent = label;
-                    console.log('Button updated to:', label); // Debug log
                 } else {
                     btn.textContent = '<?php echo esc_js( __( 'Attendance', 'sfs-hr' ) ); ?>';
-                    console.log('No specific action available, using default'); // Debug log
                 }
             })
             .catch(function (err) {
@@ -1013,7 +1002,7 @@ class Shortcodes {
         border-radius:999px;
         border:1px solid #2563eb;
         background:#2563eb;
-        color:#ffffff;
+        color:#ffffff !important;
         font-size:13px;
         font-weight:500;
         text-decoration:none;
@@ -1025,11 +1014,14 @@ class Shortcodes {
             transform .05s ease;
     }
 
-    .sfs-hr-att-btn:hover {
+    .sfs-hr-att-btn:hover,
+    .sfs-hr-att-btn:visited,
+    .sfs-hr-att-btn:active,
+    .sfs-hr-att-btn:focus {
         background:#1d4ed8;
         border-color:#1d4ed8;
         box-shadow:0 4px 10px rgba(37,99,235,0.25);
-        color:#ffffff;
+        color:#ffffff !important;
         text-decoration:none;
         transform:translateY(-1px);
     }
