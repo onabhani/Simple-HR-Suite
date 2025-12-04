@@ -20,6 +20,9 @@ class LoansModule {
     const OPT_SETTINGS = 'sfs_hr_loans_settings';
 
     public function __construct() {
+        // Load Notifications class
+        require_once __DIR__ . '/class-notifications.php';
+
         // Admin pages
         if ( is_admin() ) {
             require_once __DIR__ . '/Admin/class-admin-pages.php';
@@ -162,6 +165,13 @@ class LoansModule {
             'early_repayment_requires_approval'=> true,
             'show_in_my_profile'               => true,
             'allow_employee_requests'          => true,
+            // Email notifications
+            'enable_notifications'             => true,
+            'notify_gm_new_request'            => true,
+            'notify_finance_gm_approved'       => true,
+            'notify_employee_approved'         => true,
+            'notify_employee_rejected'         => true,
+            'notify_employee_installment_skipped' => true,
         ];
     }
 

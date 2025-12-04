@@ -759,6 +759,39 @@ class AdminPages {
                         </label>
                     </td>
                 </tr>
+                <tr>
+                    <th><?php esc_html_e( 'Email Notifications', 'sfs-hr' ); ?></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="enable_notifications" value="1" <?php checked( $settings['enable_notifications'] ?? true, true ); ?> />
+                            <strong><?php esc_html_e( 'Enable email notifications', 'sfs-hr' ); ?></strong>
+                        </label>
+                        <p class="description"><?php esc_html_e( 'Master switch for all loan-related email notifications. Uncheck to disable all emails.', 'sfs-hr' ); ?></p>
+
+                        <div style="margin-top:15px;margin-left:25px;">
+                            <label style="display:block;margin-bottom:8px;">
+                                <input type="checkbox" name="notify_gm_new_request" value="1" <?php checked( $settings['notify_gm_new_request'] ?? true, true ); ?> />
+                                <?php esc_html_e( 'Notify GM when new loan request is submitted', 'sfs-hr' ); ?>
+                            </label>
+                            <label style="display:block;margin-bottom:8px;">
+                                <input type="checkbox" name="notify_finance_gm_approved" value="1" <?php checked( $settings['notify_finance_gm_approved'] ?? true, true ); ?> />
+                                <?php esc_html_e( 'Notify Finance when GM approves loan', 'sfs-hr' ); ?>
+                            </label>
+                            <label style="display:block;margin-bottom:8px;">
+                                <input type="checkbox" name="notify_employee_approved" value="1" <?php checked( $settings['notify_employee_approved'] ?? true, true ); ?> />
+                                <?php esc_html_e( 'Notify employee when loan is approved', 'sfs-hr' ); ?>
+                            </label>
+                            <label style="display:block;margin-bottom:8px;">
+                                <input type="checkbox" name="notify_employee_rejected" value="1" <?php checked( $settings['notify_employee_rejected'] ?? true, true ); ?> />
+                                <?php esc_html_e( 'Notify employee when loan is rejected', 'sfs-hr' ); ?>
+                            </label>
+                            <label style="display:block;margin-bottom:8px;">
+                                <input type="checkbox" name="notify_employee_installment_skipped" value="1" <?php checked( $settings['notify_employee_installment_skipped'] ?? true, true ); ?> />
+                                <?php esc_html_e( 'Notify employee when installment is skipped', 'sfs-hr' ); ?>
+                            </label>
+                        </div>
+                    </td>
+                </tr>
             </table>
 
             <?php submit_button( __( 'Save Settings', 'sfs-hr' ) ); ?>
@@ -809,6 +842,13 @@ class AdminPages {
             'early_repayment_requires_approval'=> isset( $_POST['early_repayment_requires_approval'] ),
             'show_in_my_profile'               => isset( $_POST['show_in_my_profile'] ),
             'allow_employee_requests'          => isset( $_POST['allow_employee_requests'] ),
+            // Email notifications
+            'enable_notifications'             => isset( $_POST['enable_notifications'] ),
+            'notify_gm_new_request'            => isset( $_POST['notify_gm_new_request'] ),
+            'notify_finance_gm_approved'       => isset( $_POST['notify_finance_gm_approved'] ),
+            'notify_employee_approved'         => isset( $_POST['notify_employee_approved'] ),
+            'notify_employee_rejected'         => isset( $_POST['notify_employee_rejected'] ),
+            'notify_employee_installment_skipped' => isset( $_POST['notify_employee_installment_skipped'] ),
         ];
 
         update_option( \SFS\HR\Modules\Loans\LoansModule::OPT_SETTINGS, $settings );
@@ -1201,6 +1241,9 @@ class AdminPages {
                     'status' => 'pending_gm → pending_finance',
                 ] );
 
+                // Send notification to Finance
+                \SFS\HR\Modules\Loans\Notifications::notify_gm_approved( $loan_id );
+
                 wp_safe_redirect( add_query_arg( [ 'page' => 'sfs-hr-loans', 'action' => 'view', 'id' => $loan_id, 'updated' => '1' ], admin_url( 'admin.php' ) ) );
                 exit;
 
@@ -1242,6 +1285,9 @@ class AdminPages {
                     'installments' => $installments,
                 ] );
 
+                // Send notification to Employee
+                \SFS\HR\Modules\Loans\Notifications::notify_finance_approved( $loan_id );
+
                 wp_safe_redirect( add_query_arg( [ 'page' => 'sfs-hr-loans', 'action' => 'view', 'id' => $loan_id, 'updated' => '1' ], admin_url( 'admin.php' ) ) );
                 exit;
 
@@ -1269,6 +1315,9 @@ class AdminPages {
                 \SFS\HR\Modules\Loans\LoansModule::log_event( $loan_id, 'rejected', [
                     'reason' => $reason,
                 ] );
+
+                // Send notification to Employee
+                \SFS\HR\Modules\Loans\Notifications::notify_loan_rejected( $loan_id );
 
                 wp_safe_redirect( add_query_arg( [ 'page' => 'sfs-hr-loans', 'action' => 'view', 'id' => $loan_id, 'updated' => '1' ], admin_url( 'admin.php' ) ) );
                 exit;
@@ -1369,6 +1418,9 @@ class AdminPages {
                     'installments'    => $installments,
                     'request_source'  => 'admin_portal',
                 ] );
+
+                // Send notification to GM
+                \SFS\HR\Modules\Loans\Notifications::notify_new_loan_request( $new_loan_id );
 
                 // Redirect to loan detail
                 wp_safe_redirect( add_query_arg( [
@@ -1556,6 +1608,9 @@ class AdminPages {
                     'sequence'   => $payment->sequence,
                 ] );
 
+                // Send notification to Employee
+                \SFS\HR\Modules\Loans\Notifications::notify_installment_skipped( $payment->loan_id, $payment->sequence );
+
                 wp_safe_redirect( add_query_arg( 'updated', '1', $redirect_url ) );
                 exit;
 
@@ -1611,6 +1666,9 @@ class AdminPages {
                             'sequence'   => $payment->sequence,
                             'bulk'       => true,
                         ] );
+
+                        // Send notification to Employee
+                        \SFS\HR\Modules\Loans\Notifications::notify_installment_skipped( $payment->loan_id, $payment->sequence );
 
                         $processed++;
                     }

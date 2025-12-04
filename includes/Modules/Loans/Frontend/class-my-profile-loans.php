@@ -392,6 +392,9 @@ class MyProfileLoans {
             'request_source'  => 'employee_portal',
         ] );
 
+        // Send notification to GM
+        \SFS\HR\Modules\Loans\Notifications::notify_new_loan_request( $loan_id );
+
         // Redirect with success message
         wp_safe_redirect( add_query_arg( [
             'page' => 'sfs-hr-my-profile',
