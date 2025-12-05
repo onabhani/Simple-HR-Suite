@@ -14,6 +14,8 @@ class Migrations {
         $types = $wpdb->prefix.'sfs_hr_leave_types';
         $req   = $wpdb->prefix.'sfs_hr_leave_requests';
         $bal   = $wpdb->prefix.'sfs_hr_leave_balances';
+        $resign = $wpdb->prefix.'sfs_hr_resignations';
+        $settle = $wpdb->prefix.'sfs_hr_settlements';
 
         /** EMPLOYEES (create minimal shell if missing, then add columns idempotently) */
         $wpdb->query("CREATE TABLE IF NOT EXISTS `$emp` (
@@ -131,6 +133,82 @@ class Migrations {
             KEY `emp_idx` (`employee_id`),
             KEY `type_idx` (`type_id`)
         ) $charset");
+
+        /** RESIGNATIONS */
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$resign` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `employee_id` BIGINT(20) UNSIGNED NOT NULL,
+            `resignation_date` DATE NOT NULL,
+            `last_working_day` DATE NULL,
+            `notice_period_days` INT NOT NULL DEFAULT 30,
+            `reason` TEXT NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `approver_id` BIGINT(20) UNSIGNED NULL,
+            `approver_note` TEXT NULL,
+            `approval_level` TINYINT(3) UNSIGNED NOT NULL DEFAULT 1,
+            `approval_chain` LONGTEXT NULL,
+            `decided_at` DATETIME NULL,
+            `created_at` DATETIME NULL,
+            `updated_at` DATETIME NULL,
+            `handover_notes` TEXT NULL,
+            `clearance_status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            PRIMARY KEY (`id`),
+            KEY `emp_idx` (`employee_id`),
+            KEY `status_idx` (`status`),
+            KEY `resignation_date_idx` (`resignation_date`)
+        ) $charset");
+        self::add_column_if_missing($resign, 'approval_level', "TINYINT(3) UNSIGNED NOT NULL DEFAULT 1");
+        self::add_column_if_missing($resign, 'approval_chain', "LONGTEXT NULL");
+        self::add_column_if_missing($resign, 'decided_at', "DATETIME NULL");
+        self::add_column_if_missing($resign, 'handover_notes', "TEXT NULL");
+        self::add_column_if_missing($resign, 'clearance_status', "VARCHAR(20) NOT NULL DEFAULT 'pending'");
+
+        /** END OF SERVICE SETTLEMENTS */
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$settle` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `employee_id` BIGINT(20) UNSIGNED NOT NULL,
+            `resignation_id` BIGINT(20) UNSIGNED NULL,
+            `settlement_date` DATE NOT NULL,
+            `last_working_day` DATE NOT NULL,
+            `years_of_service` DECIMAL(10,2) NOT NULL DEFAULT 0,
+            `basic_salary` DECIMAL(18,2) NOT NULL DEFAULT 0,
+            `gratuity_amount` DECIMAL(18,2) NOT NULL DEFAULT 0,
+            `leave_encashment` DECIMAL(18,2) NOT NULL DEFAULT 0,
+            `unused_leave_days` INT NOT NULL DEFAULT 0,
+            `final_salary` DECIMAL(18,2) NOT NULL DEFAULT 0,
+            `other_allowances` DECIMAL(18,2) NOT NULL DEFAULT 0,
+            `deductions` DECIMAL(18,2) NOT NULL DEFAULT 0,
+            `deduction_notes` TEXT NULL,
+            `total_settlement` DECIMAL(18,2) NOT NULL DEFAULT 0,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `clearance_checklist` LONGTEXT NULL,
+            `asset_clearance_status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `document_clearance_status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `finance_clearance_status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `approver_id` BIGINT(20) UNSIGNED NULL,
+            `approver_note` TEXT NULL,
+            `approval_level` TINYINT(3) UNSIGNED NOT NULL DEFAULT 1,
+            `approval_chain` LONGTEXT NULL,
+            `decided_at` DATETIME NULL,
+            `payment_date` DATE NULL,
+            `payment_reference` VARCHAR(191) NULL,
+            `created_at` DATETIME NULL,
+            `updated_at` DATETIME NULL,
+            PRIMARY KEY (`id`),
+            KEY `emp_idx` (`employee_id`),
+            KEY `resignation_idx` (`resignation_id`),
+            KEY `status_idx` (`status`),
+            KEY `settlement_date_idx` (`settlement_date`)
+        ) $charset");
+        self::add_column_if_missing($settle, 'approval_level', "TINYINT(3) UNSIGNED NOT NULL DEFAULT 1");
+        self::add_column_if_missing($settle, 'approval_chain', "LONGTEXT NULL");
+        self::add_column_if_missing($settle, 'decided_at', "DATETIME NULL");
+        self::add_column_if_missing($settle, 'payment_date', "DATE NULL");
+        self::add_column_if_missing($settle, 'payment_reference', "VARCHAR(191) NULL");
+        self::add_column_if_missing($settle, 'clearance_checklist', "LONGTEXT NULL");
+        self::add_column_if_missing($settle, 'asset_clearance_status', "VARCHAR(20) NOT NULL DEFAULT 'pending'");
+        self::add_column_if_missing($settle, 'document_clearance_status', "VARCHAR(20) NOT NULL DEFAULT 'pending'");
+        self::add_column_if_missing($settle, 'finance_clearance_status', "VARCHAR(20) NOT NULL DEFAULT 'pending'");
 
         /** Seed Departments + assign */
         $has_dept = (int)$wpdb->get_var("SELECT COUNT(*) FROM `$dept`");

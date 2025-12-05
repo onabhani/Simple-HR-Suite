@@ -15,12 +15,20 @@ define('SFS_HR_DIR', plugin_dir_path(__FILE__));
 define('SFS_HR_URL', plugin_dir_url(__FILE__));
 define('SFS_HR_PLUGIN_FILE', __FILE__);
 
+/**
+ * PSR-4-ish autoloader for SFS\HR\* classes.
+ */
 spl_autoload_register(function($class){
     if (strpos($class, 'SFS\\HR\\') !== 0) return;
     $path = SFS_HR_DIR . 'includes/' . str_replace(['SFS\\HR\\','\\'], ['','/'], $class) . '.php';
-    if (file_exists($path)) require_once $path;
+    if (file_exists($path)) {
+        require_once $path;
+    }
 });
 
+/**
+ * Activation: ensure roles/caps + DB migrations.
+ */
 register_activation_hook(__FILE__, function(){
     \SFS\HR\Core\Capabilities::ensure_roles_caps();
     \SFS\HR\Install\Migrations::run();
@@ -36,56 +44,78 @@ register_activation_hook(__FILE__, function(){
  * - Ensures “Annual” is marked tenure-based when column exists (covers “Annual Leave” too)
  * - Ensures Departments table exists (for approvals routing)
  * - Ensures global fallback approver role option exists
+ * - Ensures Assets / Assignments / Loans / Shifts tables exist
+ * - Ensures Resignations / Settlements tables exist
  */
 add_action('admin_init', function(){
     \SFS\HR\Core\Capabilities::ensure_roles_caps();
 
     global $wpdb;
-    $types_table  = $wpdb->prefix . 'sfs_hr_leave_types';
-    $req_table    = $wpdb->prefix . 'sfs_hr_leave_requests';
-    $bal_table    = $wpdb->prefix . 'sfs_hr_leave_balances';
-    $emp_table    = $wpdb->prefix . 'sfs_hr_employees';
-    $dept_table   = $wpdb->prefix . 'sfs_hr_departments';
-    $assets_table = $wpdb->prefix . 'sfs_hr_assets';
-    $assign_table = $wpdb->prefix . 'sfs_hr_asset_assignments';
-    $shifts_table = $wpdb->prefix . 'sfs_hr_attendance_shifts';
-    $loans_table  = $wpdb->prefix . 'sfs_hr_loans';
-    $loan_payments_table = $wpdb->prefix . 'sfs_hr_loan_payments';
-    $loan_history_table  = $wpdb->prefix . 'sfs_hr_loan_history';
+
+    $types_table          = $wpdb->prefix . 'sfs_hr_leave_types';
+    $req_table            = $wpdb->prefix . 'sfs_hr_leave_requests';
+    $bal_table            = $wpdb->prefix . 'sfs_hr_leave_balances';
+    $emp_table            = $wpdb->prefix . 'sfs_hr_employees';
+    $dept_table           = $wpdb->prefix . 'sfs_hr_departments';
+
+    // From first version
+    $resign_table         = $wpdb->prefix . 'sfs_hr_resignations';
+    $settle_table         = $wpdb->prefix . 'sfs_hr_settlements';
+
+    // From second version
+    $assets_table         = $wpdb->prefix . 'sfs_hr_assets';
+    $assign_table         = $wpdb->prefix . 'sfs_hr_asset_assignments';
+    $shifts_table         = $wpdb->prefix . 'sfs_hr_attendance_shifts';
+    $loans_table          = $wpdb->prefix . 'sfs_hr_loans';
+    $loan_payments_table  = $wpdb->prefix . 'sfs_hr_loan_payments';
+    $loan_history_table   = $wpdb->prefix . 'sfs_hr_loan_history';
 
     $table_exists = function(string $table) use ($wpdb){
-        return (bool)$wpdb->get_var($wpdb->prepare(
+        return (bool) $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
             $table
         ));
     };
+
     $column_exists = function(string $table, string $column) use ($wpdb){
-        return (bool)$wpdb->get_var($wpdb->prepare(
+        return (bool) $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = %s",
             $table, $column
         ));
     };
 
-    $stored = get_option('sfs_hr_db_ver', '0');
-    $needs_migration = version_compare((string)$stored, SFS_HR_VER, '<');
+    $stored          = get_option('sfs_hr_db_ver', '0');
+    $needs_migration = version_compare((string) $stored, SFS_HR_VER, '<');
 
     $needs_tables = (
-        !$table_exists($types_table)  ||
-        !$table_exists($req_table)    ||
-        !$table_exists($bal_table)    ||
-        !$table_exists($emp_table)    ||
-        !$table_exists($dept_table)   ||
-        !$table_exists($assets_table) ||
-        !$table_exists($assign_table) ||
-        !$table_exists($loans_table)  ||
-        !$table_exists($loan_payments_table) ||
+        !$table_exists($types_table)          ||
+        !$table_exists($req_table)            ||
+        !$table_exists($bal_table)            ||
+        !$table_exists($emp_table)            ||
+        !$table_exists($dept_table)           ||
+
+        // From first version
+        !$table_exists($resign_table)         ||
+        !$table_exists($settle_table)         ||
+
+        // From second version
+        !$table_exists($assets_table)         ||
+        !$table_exists($assign_table)         ||
+        !$table_exists($loans_table)          ||
+        !$table_exists($loan_payments_table)  ||
         !$table_exists($loan_history_table)
     );
 
     $needs_columns = false;
-    if ($table_exists($types_table) && !$column_exists($types_table, 'is_annual')) $needs_columns = true;
-    if ($table_exists($emp_table)   && !$column_exists($emp_table,   'hire_date')) $needs_columns = true;
-    if ($table_exists($shifts_table) && !$column_exists($shifts_table, 'weekly_overrides')) $needs_columns = true;
+    if ($table_exists($types_table) && !$column_exists($types_table, 'is_annual')) {
+        $needs_columns = true;
+    }
+    if ($table_exists($emp_table) && !$column_exists($emp_table, 'hire_date')) {
+        $needs_columns = true;
+    }
+    if ($table_exists($shifts_table) && !$column_exists($shifts_table, 'weekly_overrides')) {
+        $needs_columns = true;
+    }
 
     if ($needs_migration || $needs_tables || $needs_columns) {
         \SFS\HR\Install\Migrations::run();
@@ -94,7 +124,7 @@ add_action('admin_init', function(){
 
     // Seed/mark data if tables already exist
     if ($table_exists($types_table)) {
-        $count_types = (int)$wpdb->get_var("SELECT COUNT(*) FROM {$types_table}");
+        $count_types = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$types_table}");
         if ($count_types === 0) {
             \SFS\HR\Install\Migrations::run();
             update_option('sfs_hr_db_ver', SFS_HR_VER);
@@ -102,15 +132,16 @@ add_action('admin_init', function(){
             // Mark annual names broadly
             if ($column_exists($types_table, 'is_annual')) {
                 $wpdb->query("UPDATE {$types_table}
-                              SET is_annual=1
-                              WHERE (LOWER(name)='annual'
-                                  OR LOWER(name)='annual leave'
-                                  OR LOWER(name)='annual vacation'
+                              SET is_annual = 1
+                              WHERE (LOWER(name) = 'annual'
+                                  OR LOWER(name) = 'annual leave'
+                                  OR LOWER(name) = 'annual vacation'
                                   OR LOWER(name) LIKE 'annual %')
-                                AND (is_annual IS NULL OR is_annual=0)");
+                                AND (is_annual IS NULL OR is_annual = 0)");
             }
+
             add_option('sfs_hr_annual_lt5', '21');
-            add_option('sfs_hr_annual_ge5','30');
+            add_option('sfs_hr_annual_ge5', '30');
         }
     }
 
@@ -184,7 +215,9 @@ add_action('admin_init', function(){
     }
 });
 
-/** Bootstrap modules */
+/**
+ * Bootstrap modules.
+ */
 add_action('plugins_loaded', function(){
     \SFS\HR\Core\Capabilities::ensure_roles_caps();
 
@@ -202,23 +235,34 @@ add_action('plugins_loaded', function(){
     (new \SFS\HR\Modules\Workforce_Status\WorkforceStatusModule())->hooks();
     (new \SFS\HR\Modules\Employees\EmployeesModule())->hooks();
     (new \SFS\HR\Modules\Assets\AssetsModule())->hooks();
-    new \SFS\HR\Modules\Loans\LoansModule(); // Loans (Cash Advances)
 
+    // From first version – keep Resignation & Settlement modules
+    (new \SFS\HR\Modules\Resignation\ResignationModule())->hooks();
+    (new \SFS\HR\Modules\Settlement\SettlementModule())->hooks();
+
+    // From second version – Loans (Cash Advances)
+    new \SFS\HR\Modules\Loans\LoansModule();
 });
 
-
-/** Optional: admin notice if tables still missing (edge cases) */
+/**
+ * Optional: admin notice if tables still missing (edge cases)
+ */
 add_action('admin_notices', function(){
-    if (!current_user_can('manage_options')) return;
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+
     global $wpdb;
-    $req    = $wpdb->prefix.'sfs_hr_leave_requests';
-    $dept   = $wpdb->prefix.'sfs_hr_departments';
-    $assets = $wpdb->prefix.'sfs_hr_assets';
-    $ok_req    = $wpdb->get_var($wpdb->prepare(
+
+    $req    = $wpdb->prefix . 'sfs_hr_leave_requests';
+    $dept   = $wpdb->prefix . 'sfs_hr_departments';
+    $assets = $wpdb->prefix . 'sfs_hr_assets';
+
+    $ok_req = $wpdb->get_var($wpdb->prepare(
         "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
         $req
     ));
-    $ok_dept   = $wpdb->get_var($wpdb->prepare(
+    $ok_dept = $wpdb->get_var($wpdb->prepare(
         "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
         $dept
     ));
@@ -226,21 +270,24 @@ add_action('admin_notices', function(){
         "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
         $assets
     ));
+
     if (!$ok_req || !$ok_dept || !$ok_assets) {
         echo '<div class="notice notice-error"><p><strong>HR Suite:</strong> database tables not found. Deactivate → activate the plugin, or reload this page to let self-healing run.</p></div>';
     }
 });
 
-
-
+/**
+ * Activation hook for Leave install + Assets tables (extended second version).
+ */
 register_activation_hook(__FILE__, function () {
     global $wpdb;
 
+    // From both versions: ensure Leave module install
     (new \SFS\HR\Modules\Leave\LeaveModule())->install();
 
-    // Ensure Assets tables are created on activation - use direct SQL
-    $assets_table = $wpdb->prefix . 'sfs_hr_assets';
-    $assign_table = $wpdb->prefix . 'sfs_hr_asset_assignments';
+    // From second version: ensure Assets tables are created on activation - use direct SQL
+    $assets_table    = $wpdb->prefix . 'sfs_hr_assets';
+    $assign_table    = $wpdb->prefix . 'sfs_hr_asset_assignments';
     $charset_collate = $wpdb->get_charset_collate();
 
     // Create Assets table
