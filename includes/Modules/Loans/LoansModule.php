@@ -28,6 +28,10 @@ class LoansModule {
             require_once __DIR__ . '/Admin/class-admin-pages.php';
             new Admin\AdminPages();
 
+            // Dashboard Widget
+            require_once __DIR__ . '/Admin/class-dashboard-widget.php';
+            new Admin\DashboardWidget();
+
             // Frontend: My Profile Loans tab
             require_once __DIR__ . '/Frontend/class-my-profile-loans.php';
             new Frontend\MyProfileLoans();
