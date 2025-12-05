@@ -46,6 +46,7 @@ add_action('admin_init', function(){
     $emp_table   = $wpdb->prefix . 'sfs_hr_employees';
     $dept_table  = $wpdb->prefix . 'sfs_hr_departments';
     $resign_table = $wpdb->prefix . 'sfs_hr_resignations';
+    $settle_table = $wpdb->prefix . 'sfs_hr_settlements';
 
     $table_exists = function(string $table) use ($wpdb){
         return (bool)$wpdb->get_var($wpdb->prepare(
@@ -69,7 +70,8 @@ add_action('admin_init', function(){
         !$table_exists($bal_table)   ||
         !$table_exists($emp_table)   ||
         !$table_exists($dept_table)  ||
-        !$table_exists($resign_table)
+        !$table_exists($resign_table) ||
+        !$table_exists($settle_table)
     );
 
     $needs_columns = false;
@@ -128,6 +130,7 @@ add_action('plugins_loaded', function(){
     (new \SFS\HR\Modules\Employees\EmployeesModule())->hooks();
     (new \SFS\HR\Modules\Assets\AssetsModule())->hooks();
     (new \SFS\HR\Modules\Resignation\ResignationModule())->hooks();
+    (new \SFS\HR\Modules\Settlement\SettlementModule())->hooks();
 
 });
 
