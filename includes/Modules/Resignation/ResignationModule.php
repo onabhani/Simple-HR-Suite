@@ -378,6 +378,19 @@ class ResignationModule {
             }
         }
 
+        // Check for unreturned assets and add to notice
+        if (class_exists('\SFS\HR\Modules\Assets\AssetsModule')) {
+            $has_unreturned = \SFS\HR\Modules\Assets\AssetsModule::has_unreturned_assets($resignation['employee_id']);
+            $unreturned_count = \SFS\HR\Modules\Assets\AssetsModule::get_unreturned_assets_count($resignation['employee_id']);
+
+            if ($has_unreturned) {
+                $success_message .= ' ' . sprintf(
+                    __('Note: Employee has %d unreturned asset(s) that must be returned before final exit.', 'sfs-hr'),
+                    $unreturned_count
+                );
+            }
+        }
+
         Helpers::redirect_with_notice(
             admin_url('admin.php?page=sfs-hr-resignations'),
             'success',

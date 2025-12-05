@@ -298,4 +298,77 @@ class AssetsModule {
     <?php
 }
 
+    /**
+     * Check if employee has any unreturned assets (active or pending).
+     *
+     * @param int $employee_id
+     * @return bool
+     */
+    public static function has_unreturned_assets( int $employee_id ): bool {
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_asset_assignments';
+
+        $count = $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*)
+             FROM {$table}
+             WHERE employee_id = %d
+             AND status IN ('pending_employee_approval', 'active', 'return_requested')",
+            $employee_id
+        ) );
+
+        return (int) $count > 0;
+    }
+
+    /**
+     * Get list of unreturned assets for an employee.
+     *
+     * @param int $employee_id
+     * @return array
+     */
+    public static function get_unreturned_assets( int $employee_id ): array {
+        global $wpdb;
+        $assign_table = $wpdb->prefix . 'sfs_hr_asset_assignments';
+        $asset_table  = $wpdb->prefix . 'sfs_hr_assets';
+
+        $results = $wpdb->get_results( $wpdb->prepare(
+            "SELECT
+                a.id AS assignment_id,
+                a.status AS assignment_status,
+                a.start_date,
+                ast.id AS asset_id,
+                ast.name AS asset_name,
+                ast.asset_code,
+                ast.category
+             FROM {$assign_table} a
+             LEFT JOIN {$asset_table} ast ON ast.id = a.asset_id
+             WHERE a.employee_id = %d
+             AND a.status IN ('pending_employee_approval', 'active', 'return_requested')
+             ORDER BY a.created_at DESC",
+            $employee_id
+        ), ARRAY_A );
+
+        return $results ?: [];
+    }
+
+    /**
+     * Get count of unreturned assets.
+     *
+     * @param int $employee_id
+     * @return int
+     */
+    public static function get_unreturned_assets_count( int $employee_id ): int {
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_asset_assignments';
+
+        $count = $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*)
+             FROM {$table}
+             WHERE employee_id = %d
+             AND status IN ('pending_employee_approval', 'active', 'return_requested')",
+            $employee_id
+        ) );
+
+        return (int) $count;
+    }
+
 }

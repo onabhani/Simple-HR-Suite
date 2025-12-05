@@ -527,6 +527,51 @@ class SettlementModule {
                 </div>
                 <?php endif; ?>
 
+                <h2 style="margin-top:30px;"><?php esc_html_e('Asset Return Status', 'sfs-hr'); ?></h2>
+                <?php
+                // Check for unreturned assets
+                $has_unreturned_assets = false;
+                $unreturned_assets = [];
+                $unreturned_count = 0;
+
+                if (class_exists('\SFS\HR\Modules\Assets\AssetsModule')) {
+                    $has_unreturned_assets = \SFS\HR\Modules\Assets\AssetsModule::has_unreturned_assets($settlement['employee_id']);
+                    $unreturned_count = \SFS\HR\Modules\Assets\AssetsModule::get_unreturned_assets_count($settlement['employee_id']);
+                    $unreturned_assets = \SFS\HR\Modules\Assets\AssetsModule::get_unreturned_assets($settlement['employee_id']);
+                }
+                ?>
+                <?php if ($has_unreturned_assets): ?>
+                <div class="notice notice-error inline" style="margin:0 0 20px 0;">
+                    <p><strong><?php esc_html_e('⚠️ Unreturned Assets Alert:', 'sfs-hr'); ?></strong></p>
+                    <p><?php echo sprintf(
+                        esc_html__('This employee has %d unreturned asset(s). Settlement cannot be finalized until all assets are returned.', 'sfs-hr'),
+                        '<strong>' . $unreturned_count . '</strong>'
+                    ); ?></p>
+                    <?php if (!empty($unreturned_assets)): ?>
+                    <p><strong><?php esc_html_e('Unreturned Assets:', 'sfs-hr'); ?></strong></p>
+                    <ul style="margin-left:20px;">
+                        <?php foreach ($unreturned_assets as $asset): ?>
+                        <li>
+                            <strong><?php echo esc_html($asset['asset_name']); ?></strong>
+                            (<?php echo esc_html($asset['asset_code']); ?>)
+                            - <?php echo esc_html($asset['category']); ?>
+                            - <em><?php echo esc_html(ucfirst(str_replace('_', ' ', $asset['assignment_status']))); ?></em>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <p>
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-employee-profile&id=' . $settlement['employee_id'] . '&tab=assets')); ?>" class="button button-small">
+                            <?php esc_html_e('View Employee Assets', 'sfs-hr'); ?>
+                        </a>
+                    </p>
+                    <?php endif; ?>
+                </div>
+                <?php else: ?>
+                <div class="notice notice-success inline" style="margin:0 0 20px 0;">
+                    <p><strong><?php esc_html_e('✓ Asset Clearance:', 'sfs-hr'); ?></strong> <?php esc_html_e('All assets returned. Employee cleared for settlement.', 'sfs-hr'); ?></p>
+                </div>
+                <?php endif; ?>
+
                 <h2 style="margin-top:30px;"><?php esc_html_e('Approval & Payment', 'sfs-hr'); ?></h2>
                 <table class="widefat">
                     <tr>
@@ -761,6 +806,29 @@ class SettlementModule {
             }
         }
 
+        // Check for unreturned assets
+        if (class_exists('\SFS\HR\Modules\Assets\AssetsModule')) {
+            $has_unreturned = \SFS\HR\Modules\Assets\AssetsModule::has_unreturned_assets($settlement['employee_id']);
+            $unreturned_count = \SFS\HR\Modules\Assets\AssetsModule::get_unreturned_assets_count($settlement['employee_id']);
+
+            if ($has_unreturned) {
+                wp_die(
+                    sprintf(
+                        '<h1>%s</h1><p>%s</p><p><a href="%s" class="button">%s</a> <a href="%s" class="button button-primary">%s</a></p>',
+                        esc_html__('Settlement Approval Blocked', 'sfs-hr'),
+                        sprintf(
+                            esc_html__('Cannot approve settlement. Employee has %d unreturned asset(s). All assets must be returned before settlement approval.', 'sfs-hr'),
+                            '<strong>' . $unreturned_count . '</strong>'
+                        ),
+                        esc_url(admin_url('admin.php?page=sfs-hr-settlements&action=view&id=' . $settlement_id)),
+                        esc_html__('Back to Settlement', 'sfs-hr'),
+                        esc_url(admin_url('admin.php?page=sfs-hr-employee-profile&id=' . $settlement['employee_id'] . '&tab=assets')),
+                        esc_html__('View Employee Assets', 'sfs-hr')
+                    )
+                );
+            }
+        }
+
         $wpdb->update($table, [
             'status' => 'approved',
             'approver_id' => get_current_user_id(),
@@ -841,6 +909,30 @@ class SettlementModule {
                         esc_html__('Back to Settlement', 'sfs-hr'),
                         esc_url(admin_url('admin.php?page=sfs-hr-loans&employee_id=' . $settlement['employee_id'])),
                         esc_html__('View Employee Loans', 'sfs-hr')
+                    )
+                );
+            }
+        }
+
+        // CRITICAL: Check for unreturned assets before final payment
+        if (class_exists('\SFS\HR\Modules\Assets\AssetsModule')) {
+            $has_unreturned = \SFS\HR\Modules\Assets\AssetsModule::has_unreturned_assets($settlement['employee_id']);
+            $unreturned_count = \SFS\HR\Modules\Assets\AssetsModule::get_unreturned_assets_count($settlement['employee_id']);
+
+            if ($has_unreturned) {
+                wp_die(
+                    sprintf(
+                        '<h1>%s</h1><p>%s</p><p><strong>%s</strong></p><p><a href="%s" class="button">%s</a> <a href="%s" class="button button-primary">%s</a></p>',
+                        esc_html__('Settlement Payment Blocked', 'sfs-hr'),
+                        sprintf(
+                            esc_html__('Cannot complete final settlement payment. Employee has %d unreturned asset(s).', 'sfs-hr'),
+                            '<strong style="color:red;">' . $unreturned_count . '</strong>'
+                        ),
+                        esc_html__('All assets must be returned before releasing final exit settlement payment.', 'sfs-hr'),
+                        esc_url(admin_url('admin.php?page=sfs-hr-settlements&action=view&id=' . $settlement_id)),
+                        esc_html__('Back to Settlement', 'sfs-hr'),
+                        esc_url(admin_url('admin.php?page=sfs-hr-employee-profile&id=' . $settlement['employee_id'] . '&tab=assets')),
+                        esc_html__('View Employee Assets', 'sfs-hr')
                     )
                 );
             }
