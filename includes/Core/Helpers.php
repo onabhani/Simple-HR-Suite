@@ -32,6 +32,22 @@ class Helpers {
         return $cache ?: null;
     }
 
+    /** Get the current logged-in user's employee id (any status), cached per request. */
+    public static function current_employee_id_any_status(): ?int {
+        if ( ! is_user_logged_in() ) return null;
+        static $cache = null;
+        if ($cache !== null) return $cache ?: null;
+
+        global $wpdb;
+        $table   = $wpdb->prefix . 'sfs_hr_employees';
+        $user_id = get_current_user_id();
+        $id = $wpdb->get_var(
+            $wpdb->prepare("SELECT id FROM {$table} WHERE user_id = %d LIMIT 1", $user_id)
+        );
+        $cache = $id ? (int)$id : 0;
+        return $cache ?: null;
+    }
+
     /** Fetch an employee row by id (assoc array) or null. */
     public static function get_employee_row(?int $employee_id): ?array {
         if (!$employee_id) return null;

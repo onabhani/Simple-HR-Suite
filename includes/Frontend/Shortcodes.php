@@ -20,7 +20,8 @@ class Shortcodes {
         return '<div class="sfs-hr sfs-hr-alert">' . esc_html__( 'Please log in to view your profile.', 'sfs-hr' ) . '</div>';
     }
 
-    $emp_id = Helpers::current_employee_id();
+    // Use any-status version to allow terminated employees to access their profile
+    $emp_id = Helpers::current_employee_id_any_status();
     if ( ! $emp_id ) {
         return '<div class="sfs-hr sfs-hr-alert">' . esc_html__( 'Your HR profile is not linked. Please contact HR.', 'sfs-hr' ) . '</div>';
     }
@@ -29,6 +30,9 @@ class Shortcodes {
     if ( ! $emp || ! is_array( $emp ) ) {
         return '<div class="sfs-hr sfs-hr-alert">' . esc_html__( 'Profile not found.', 'sfs-hr' ) . '</div>';
     }
+
+    // Check if employee is terminated (limited access)
+    $is_terminated = ( $emp['status'] ?? '' ) === 'terminated';
 
     global $wpdb;
 
@@ -183,23 +187,28 @@ class Shortcodes {
     <div class="sfs-hr sfs-hr-profile sfs-hr-profile--frontend">
         <h3><?php echo esc_html__( 'My HR Profile', 'sfs-hr' ); ?></h3>
 
+        <?php if ( $is_terminated ) : ?>
+            <div class="sfs-hr-alert" style="background:#fff3cd;color:#856404;padding:15px;border-radius:4px;margin-bottom:20px;">
+                <strong><?php esc_html_e( 'Notice:', 'sfs-hr' ); ?></strong>
+                <?php esc_html_e( 'Your employment has been terminated. You have limited access to view your profile, resignation, and settlement information only.', 'sfs-hr' ); ?>
+            </div>
+        <?php endif; ?>
+
                 <div class="sfs-hr-profile-tabs">
             <a href="<?php echo esc_url( $overview_url ); ?>"
                class="sfs-hr-tab <?php echo ( $active_tab === 'overview' ) ? 'sfs-hr-tab-active' : ''; ?>">
                 <?php esc_html_e( 'Overview', 'sfs-hr' ); ?>
             </a>
-            <a href="<?php echo esc_url( $leave_url ); ?>"
-               class="sfs-hr-tab <?php echo ( $active_tab === 'leave' ) ? 'sfs-hr-tab-active' : ''; ?>">
-                <?php esc_html_e( 'Leave', 'sfs-hr' ); ?>
-            </a>
-            <a href="<?php echo esc_url( $leave_url ); ?>"
-               class="sfs-hr-tab <?php echo ( $active_tab === 'leave' ) ? 'sfs-hr-tab-active' : ''; ?>">
-                <?php esc_html_e( 'Leave', 'sfs-hr' ); ?>
-            </a>
-            <a href="<?php echo esc_url( $loans_url ); ?>"
-               class="sfs-hr-tab <?php echo ( $active_tab === 'loans' ) ? 'sfs-hr-tab-active' : ''; ?>">
-                <?php esc_html_e( 'Loans', 'sfs-hr' ); ?>
-            </a>
+            <?php if ( ! $is_terminated ) : ?>
+                <a href="<?php echo esc_url( $leave_url ); ?>"
+                   class="sfs-hr-tab <?php echo ( $active_tab === 'leave' ) ? 'sfs-hr-tab-active' : ''; ?>">
+                    <?php esc_html_e( 'Leave', 'sfs-hr' ); ?>
+                </a>
+                <a href="<?php echo esc_url( $loans_url ); ?>"
+                   class="sfs-hr-tab <?php echo ( $active_tab === 'loans' ) ? 'sfs-hr-tab-active' : ''; ?>">
+                    <?php esc_html_e( 'Loans', 'sfs-hr' ); ?>
+                </a>
+            <?php endif; ?>
             <a href="<?php echo esc_url( $resignation_url ); ?>"
                class="sfs-hr-tab <?php echo ( $active_tab === 'resignation' ) ? 'sfs-hr-tab-active' : ''; ?>">
                 <?php esc_html_e( 'Resignation', 'sfs-hr' ); ?>
@@ -213,7 +222,7 @@ class Shortcodes {
             <?php endif; ?>
 
 
-            <?php if ( $can_self_clock ) : ?>
+            <?php if ( $can_self_clock && ! $is_terminated ) : ?>
                 <a href="<?php echo esc_url( $attendance_url ); ?>"
                    class="sfs-hr-tab <?php echo ( $active_tab === 'attendance' ) ? 'sfs-hr-tab-active' : ''; ?>">
                     <?php esc_html_e( 'Attendance', 'sfs-hr' ); ?>
@@ -222,13 +231,11 @@ class Shortcodes {
         </div>
 
 
-                <?php if ( $active_tab === 'leave' ) : ?>
+                <?php if ( $active_tab === 'leave' && ! $is_terminated ) : ?>
 
             <?php $this->render_frontend_leave_tab( $emp ); ?>
 
-        <?php $this->render_frontend_leave_tab( $emp ); ?>
-
-        <?php elseif ( $active_tab === 'loans' ) : ?>
+        <?php elseif ( $active_tab === 'loans' && ! $is_terminated ) : ?>
 
             <?php $this->render_frontend_loans_tab( $emp, $emp_id ); ?>
 
