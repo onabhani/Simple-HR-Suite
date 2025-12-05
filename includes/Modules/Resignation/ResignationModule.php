@@ -117,8 +117,16 @@ class ResignationModule {
                         <?php foreach ($rows as $row): ?>
                             <tr>
                                 <td><?php echo esc_html($row['id']); ?></td>
-                                <td><?php echo esc_html($row['first_name'] . ' ' . $row['last_name']); ?><br>
-                                    <small><?php echo esc_html($row['employee_code']); ?></small></td>
+                                <td>
+                                    <?php echo esc_html($row['first_name'] . ' ' . $row['last_name']); ?><br>
+                                    <small><?php echo esc_html($row['employee_code']); ?></small>
+                                    <?php
+                                    // Display loan badge if loans exist
+                                    if (class_exists('\SFS\HR\Modules\Loans\Admin\DashboardWidget')) {
+                                        echo \SFS\HR\Modules\Loans\Admin\DashboardWidget::render_employee_loan_badge($row['employee_id']);
+                                    }
+                                    ?>
+                                </td>
                                 <td><?php echo esc_html($row['resignation_date']); ?></td>
                                 <td><?php echo esc_html($row['last_working_day'] ?: 'N/A'); ?></td>
                                 <td><?php echo esc_html($row['notice_period_days']) . ' ' . esc_html__('days', 'sfs-hr'); ?></td>
@@ -354,10 +362,26 @@ class ResignationModule {
         // Send notification
         $this->send_approval_notification($resignation_id);
 
+        // Prepare success message
+        $success_message = __('Resignation approved successfully.', 'sfs-hr');
+
+        // Check for outstanding loans and add to notice
+        if (class_exists('\SFS\HR\Modules\Loans\LoansModule')) {
+            $has_loans = \SFS\HR\Modules\Loans\LoansModule::has_active_loans($resignation['employee_id']);
+            $outstanding = \SFS\HR\Modules\Loans\LoansModule::get_outstanding_balance($resignation['employee_id']);
+
+            if ($has_loans && $outstanding > 0) {
+                $success_message .= ' ' . sprintf(
+                    __('Note: Employee has outstanding loan balance of %s SAR that must be settled before final exit.', 'sfs-hr'),
+                    number_format($outstanding, 2)
+                );
+            }
+        }
+
         Helpers::redirect_with_notice(
             admin_url('admin.php?page=sfs-hr-resignations'),
             'success',
-            __('Resignation approved successfully.', 'sfs-hr')
+            $success_message
         );
     }
 
