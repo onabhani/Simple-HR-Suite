@@ -101,9 +101,18 @@ class Shortcodes {
 
     // Tab URLs (keep current query string but override sfs_hr_tab).
     $base_url        = remove_query_arg( 'sfs_hr_tab' );
-    $overview_url    = add_query_arg( 'sfs_hr_tab', 'overview',   $base_url );
-    $leave_url       = add_query_arg( 'sfs_hr_tab', 'leave',      $base_url );
-    $attendance_url  = add_query_arg( 'sfs_hr_tab', 'attendance', $base_url );
+    $overview_url    = add_query_arg( 'sfs_hr_tab', 'overview',    $base_url );
+    $leave_url       = add_query_arg( 'sfs_hr_tab', 'leave',       $base_url );
+    $resignation_url = add_query_arg( 'sfs_hr_tab', 'resignation', $base_url );
+    $settlement_url  = add_query_arg( 'sfs_hr_tab', 'settlement',  $base_url );
+    $attendance_url  = add_query_arg( 'sfs_hr_tab', 'attendance',  $base_url );
+
+    // Check if employee has settlements (to show Settlement tab)
+    $settle_table = $wpdb->prefix . 'sfs_hr_settlements';
+    $has_settlements = (int) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COUNT(*) FROM {$settle_table} WHERE employee_id = %d",
+        $emp_id
+    ) ) > 0;
 
 
     // Preload assets once – we’ll show them in both desktop table + mobile cards.
@@ -179,6 +188,17 @@ class Shortcodes {
                class="sfs-hr-tab <?php echo ( $active_tab === 'leave' ) ? 'sfs-hr-tab-active' : ''; ?>">
                 <?php esc_html_e( 'Leave', 'sfs-hr' ); ?>
             </a>
+            <a href="<?php echo esc_url( $resignation_url ); ?>"
+               class="sfs-hr-tab <?php echo ( $active_tab === 'resignation' ) ? 'sfs-hr-tab-active' : ''; ?>">
+                <?php esc_html_e( 'Resignation', 'sfs-hr' ); ?>
+            </a>
+
+            <?php if ( $has_settlements ) : ?>
+                <a href="<?php echo esc_url( $settlement_url ); ?>"
+                   class="sfs-hr-tab <?php echo ( $active_tab === 'settlement' ) ? 'sfs-hr-tab-active' : ''; ?>">
+                    <?php esc_html_e( 'Settlement', 'sfs-hr' ); ?>
+                </a>
+            <?php endif; ?>
 
             <?php if ( $can_self_clock ) : ?>
                 <a href="<?php echo esc_url( $attendance_url ); ?>"
@@ -192,6 +212,14 @@ class Shortcodes {
                 <?php if ( $active_tab === 'leave' ) : ?>
 
             <?php $this->render_frontend_leave_tab( $emp ); ?>
+
+        <?php elseif ( $active_tab === 'resignation' ) : ?>
+
+            <?php $this->render_frontend_resignation_tab( $emp ); ?>
+
+        <?php elseif ( $active_tab === 'settlement' && $has_settlements ) : ?>
+
+            <?php $this->render_frontend_settlement_tab( $emp ); ?>
 
         <?php elseif ( $active_tab === 'attendance' && $can_self_clock ) : ?>
 
@@ -2951,6 +2979,389 @@ foreach ( $display_rows as $r ) {
 }
 echo '</div>'; // .sfs-hr-leaves-mobile
 
+}
+
+/**
+ * Frontend Resignation tab:
+ * - Self-service resignation submission form
+ * - Read-only resignation history
+ *
+ * @param array $emp Employee row from Helpers::get_employee_row().
+ */
+private function render_frontend_resignation_tab( array $emp ): void {
+    if ( ! is_user_logged_in() || (int) ( $emp['user_id'] ?? 0 ) !== get_current_user_id() ) {
+        echo '<p>' . esc_html__( 'You can only view your own resignation information.', 'sfs-hr' ) . '</p>';
+        return;
+    }
+
+    global $wpdb;
+
+    $employee_id = isset( $emp['id'] ) ? (int) $emp['id'] : 0;
+    if ( $employee_id <= 0 ) {
+        echo '<p>' . esc_html__( 'Employee record not found.', 'sfs-hr' ) . '</p>';
+        return;
+    }
+
+    $resign_table = $wpdb->prefix . 'sfs_hr_resignations';
+
+    // Fetch existing resignations
+    $resignations = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT * FROM {$resign_table} WHERE employee_id = %d ORDER BY id DESC",
+            $employee_id
+        ),
+        ARRAY_A
+    );
+
+    // Check if there's already a pending/approved resignation
+    $has_pending = false;
+    $has_approved = false;
+    foreach ( $resignations as $r ) {
+        if ( $r['status'] === 'pending' ) {
+            $has_pending = true;
+        }
+        if ( $r['status'] === 'approved' ) {
+            $has_approved = true;
+        }
+    }
+
+    echo '<div class="sfs-hr-resignation-tab" style="margin-top:24px;">';
+
+    // Show submission form if no pending/approved resignation
+    if ( ! $has_pending && ! $has_approved ) {
+        ?>
+        <div class="sfs-hr-resignation-form" style="background:#f9f9f9;padding:20px;border-radius:4px;margin-bottom:24px;">
+            <h4><?php esc_html_e( 'Submit Resignation', 'sfs-hr' ); ?></h4>
+            <form method="POST" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                <?php wp_nonce_field( 'sfs_hr_resignation_submit' ); ?>
+                <input type="hidden" name="action" value="sfs_hr_resignation_submit">
+
+                <p>
+                    <label for="resignation_date">
+                        <?php esc_html_e( 'Resignation Date:', 'sfs-hr' ); ?>
+                        <span style="color:red;">*</span>
+                    </label><br>
+                    <input
+                        type="date"
+                        name="resignation_date"
+                        id="resignation_date"
+                        required
+                        style="width:100%;max-width:300px;padding:8px;border:1px solid #ddd;border-radius:3px;">
+                </p>
+
+                <p>
+                    <label for="notice_period_days">
+                        <?php esc_html_e( 'Notice Period (days):', 'sfs-hr' ); ?>
+                        <span style="color:red;">*</span>
+                    </label><br>
+                    <input
+                        type="number"
+                        name="notice_period_days"
+                        id="notice_period_days"
+                        value="30"
+                        min="0"
+                        required
+                        style="width:100%;max-width:300px;padding:8px;border:1px solid #ddd;border-radius:3px;">
+                    <small style="color:#666;">
+                        <?php esc_html_e( 'Your last working day will be calculated based on this notice period.', 'sfs-hr' ); ?>
+                    </small>
+                </p>
+
+                <p>
+                    <label for="reason">
+                        <?php esc_html_e( 'Reason for Resignation:', 'sfs-hr' ); ?>
+                        <span style="color:red;">*</span>
+                    </label><br>
+                    <textarea
+                        name="reason"
+                        id="reason"
+                        rows="5"
+                        required
+                        style="width:100%;max-width:600px;padding:8px;border:1px solid #ddd;border-radius:3px;"></textarea>
+                </p>
+
+                <p>
+                    <button type="submit" class="button button-primary" style="padding:10px 20px;">
+                        <?php esc_html_e( 'Submit Resignation', 'sfs-hr' ); ?>
+                    </button>
+                </p>
+            </form>
+        </div>
+        <?php
+    } elseif ( $has_pending ) {
+        echo '<div class="sfs-hr-alert" style="background:#fff3cd;color:#856404;padding:15px;border-radius:4px;margin-bottom:24px;">';
+        echo '<strong>' . esc_html__( 'Notice:', 'sfs-hr' ) . '</strong> ';
+        echo esc_html__( 'You have a pending resignation request. You cannot submit a new one until the current request is processed.', 'sfs-hr' );
+        echo '</div>';
+    } elseif ( $has_approved ) {
+        echo '<div class="sfs-hr-alert" style="background:#d4edda;color:#155724;padding:15px;border-radius:4px;margin-bottom:24px;">';
+        echo '<strong>' . esc_html__( 'Notice:', 'sfs-hr' ) . '</strong> ';
+        echo esc_html__( 'Your resignation has been approved. Please coordinate with HR for your exit process.', 'sfs-hr' );
+        echo '</div>';
+    }
+
+    // Show resignation history
+    if ( ! empty( $resignations ) ) {
+        echo '<div class="sfs-hr-resignation-history">';
+        echo '<h4>' . esc_html__( 'My Resignations', 'sfs-hr' ) . '</h4>';
+
+        echo '<div class="sfs-hr-resignations-desktop" style="overflow-x:auto;">';
+        echo '<table style="width:100%;border-collapse:collapse;background:#fff;">';
+        echo '<thead>';
+        echo '<tr style="background:#f5f5f5;">';
+        echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Resignation Date', 'sfs-hr' ) . '</th>';
+        echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Last Working Day', 'sfs-hr' ) . '</th>';
+        echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Notice Period', 'sfs-hr' ) . '</th>';
+        echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+        echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Submitted', 'sfs-hr' ) . '</th>';
+        echo '</tr>';
+        echo '</thead>';
+        echo '<tbody>';
+
+        foreach ( $resignations as $r ) {
+            $status_badge = $this->resignation_status_badge( $r['status'] );
+
+            echo '<tr>';
+            echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['resignation_date'] ) . '</td>';
+            echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['last_working_day'] ?: 'N/A' ) . '</td>';
+            echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['notice_period_days'] ) . ' ' . esc_html__( 'days', 'sfs-hr' ) . '</td>';
+            echo '<td style="border:1px solid #ddd;padding:12px;">' . $status_badge . '</td>';
+            echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['created_at'] ) . '</td>';
+            echo '</tr>';
+
+            // Show reason and notes in a collapsible row
+            if ( ! empty( $r['reason'] ) || ! empty( $r['approver_note'] ) ) {
+                echo '<tr>';
+                echo '<td colspan="5" style="border:1px solid #ddd;padding:12px;background:#f9f9f9;">';
+
+                if ( ! empty( $r['reason'] ) ) {
+                    echo '<div style="margin-bottom:8px;">';
+                    echo '<strong>' . esc_html__( 'Reason:', 'sfs-hr' ) . '</strong><br>';
+                    echo '<div style="margin-top:4px;">' . nl2br( esc_html( $r['reason'] ) ) . '</div>';
+                    echo '</div>';
+                }
+
+                if ( ! empty( $r['approver_note'] ) ) {
+                    echo '<div>';
+                    echo '<strong>' . esc_html__( 'Approver Note:', 'sfs-hr' ) . '</strong><br>';
+                    echo '<div style="margin-top:4px;">' . nl2br( esc_html( $r['approver_note'] ) ) . '</div>';
+                    echo '</div>';
+                }
+
+                echo '</td>';
+                echo '</tr>';
+            }
+        }
+
+        echo '</tbody>';
+        echo '</table>';
+        echo '</div>'; // .sfs-hr-resignations-desktop
+
+        echo '</div>'; // .sfs-hr-resignation-history
+    }
+
+    echo '</div>'; // .sfs-hr-resignation-tab
+}
+
+/**
+ * Helper to render resignation status badge
+ */
+private function resignation_status_badge( string $status ): string {
+    $colors = [
+        'pending'  => '#f0ad4e',
+        'approved' => '#5cb85c',
+        'rejected' => '#d9534f',
+    ];
+
+    $color = $colors[ $status ] ?? '#777';
+    return sprintf(
+        '<span style="background:%s;color:#fff;padding:6px 12px;border-radius:3px;font-size:12px;font-weight:500;">%s</span>',
+        esc_attr( $color ),
+        esc_html( ucfirst( $status ) )
+    );
+}
+
+/**
+ * Helper to render settlement status badge
+ */
+private function settlement_status_badge( string $status ): string {
+    $colors = [
+        'pending'  => '#f0ad4e',
+        'approved' => '#5cb85c',
+        'rejected' => '#d9534f',
+        'paid'     => '#0073aa',
+    ];
+
+    $color = $colors[ $status ] ?? '#777';
+    return sprintf(
+        '<span style="background:%s;color:#fff;padding:6px 12px;border-radius:3px;font-size:12px;font-weight:500;">%s</span>',
+        esc_attr( $color ),
+        esc_html( ucfirst( $status ) )
+    );
+}
+
+/**
+ * Frontend Settlement tab:
+ * - Read-only view of employee's settlement information
+ *
+ * @param array $emp Employee row from Helpers::get_employee_row().
+ */
+private function render_frontend_settlement_tab( array $emp ): void {
+    if ( ! is_user_logged_in() || (int) ( $emp['user_id'] ?? 0 ) !== get_current_user_id() ) {
+        echo '<p>' . esc_html__( 'You can only view your own settlement information.', 'sfs-hr' ) . '</p>';
+        return;
+    }
+
+    global $wpdb;
+
+    $employee_id = isset( $emp['id'] ) ? (int) $emp['id'] : 0;
+    if ( $employee_id <= 0 ) {
+        echo '<p>' . esc_html__( 'Employee record not found.', 'sfs-hr' ) . '</p>';
+        return;
+    }
+
+    $settle_table = $wpdb->prefix . 'sfs_hr_settlements';
+
+    // Fetch settlements for this employee
+    $settlements = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT * FROM {$settle_table} WHERE employee_id = %d ORDER BY id DESC",
+            $employee_id
+        ),
+        ARRAY_A
+    );
+
+    echo '<div class="sfs-hr-settlement-tab" style="margin-top:24px;">';
+
+    if ( empty( $settlements ) ) {
+        echo '<div class="sfs-hr-alert" style="background:#f9f9f9;padding:20px;border-radius:4px;">';
+        echo '<p>' . esc_html__( 'You do not have any settlement records yet.', 'sfs-hr' ) . '</p>';
+        echo '</div>';
+    } else {
+        foreach ( $settlements as $settlement ) {
+            $status_badge = $this->settlement_status_badge( $settlement['status'] );
+
+            echo '<div class="sfs-hr-settlement-card" style="background:#fff;border:1px solid #ddd;border-radius:4px;padding:20px;margin-bottom:20px;">';
+
+            echo '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">';
+            echo '<h3 style="margin:0;">' . esc_html__( 'Settlement', 'sfs-hr' ) . ' #' . esc_html( $settlement['id'] ) . '</h3>';
+            echo $status_badge;
+            echo '</div>';
+
+            echo '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:15px;margin-bottom:15px;">';
+
+            echo '<div>';
+            echo '<div style="font-weight:600;margin-bottom:5px;">' . esc_html__( 'Last Working Day:', 'sfs-hr' ) . '</div>';
+            echo '<div>' . esc_html( $settlement['last_working_day'] ) . '</div>';
+            echo '</div>';
+
+            echo '<div>';
+            echo '<div style="font-weight:600;margin-bottom:5px;">' . esc_html__( 'Years of Service:', 'sfs-hr' ) . '</div>';
+            echo '<div>' . esc_html( number_format( $settlement['years_of_service'], 2 ) ) . ' ' . esc_html__( 'years', 'sfs-hr' ) . '</div>';
+            echo '</div>';
+
+            echo '<div>';
+            echo '<div style="font-weight:600;margin-bottom:5px;">' . esc_html__( 'Settlement Date:', 'sfs-hr' ) . '</div>';
+            echo '<div>' . esc_html( $settlement['settlement_date'] ) . '</div>';
+            echo '</div>';
+
+            echo '</div>'; // grid
+
+            echo '<div style="background:#f9f9f9;padding:15px;border-radius:4px;margin-top:15px;">';
+            echo '<h4 style="margin-top:0;">' . esc_html__( 'Settlement Breakdown', 'sfs-hr' ) . '</h4>';
+
+            echo '<div style="display:grid;gap:10px;">';
+
+            $this->render_settlement_row( __( 'Basic Salary:', 'sfs-hr' ), number_format( $settlement['basic_salary'], 2 ) );
+            $this->render_settlement_row( __( 'Gratuity Amount:', 'sfs-hr' ), number_format( $settlement['gratuity_amount'], 2 ) );
+            $this->render_settlement_row(
+                __( 'Leave Encashment:', 'sfs-hr' ),
+                number_format( $settlement['leave_encashment'], 2 ) . ' (' . $settlement['unused_leave_days'] . ' ' . __( 'days', 'sfs-hr' ) . ')'
+            );
+            $this->render_settlement_row( __( 'Final Salary:', 'sfs-hr' ), number_format( $settlement['final_salary'], 2 ) );
+            $this->render_settlement_row( __( 'Other Allowances:', 'sfs-hr' ), number_format( $settlement['other_allowances'], 2 ) );
+
+            if ( $settlement['deductions'] > 0 ) {
+                $deduction_text = number_format( $settlement['deductions'], 2 );
+                if ( ! empty( $settlement['deduction_notes'] ) ) {
+                    $deduction_text .= '<br><small style="color:#666;">' . esc_html( $settlement['deduction_notes'] ) . '</small>';
+                }
+                $this->render_settlement_row( __( 'Deductions:', 'sfs-hr' ), $deduction_text, true );
+            }
+
+            echo '<div style="border-top:2px solid #ddd;padding-top:10px;margin-top:10px;">';
+            echo '<div style="display:flex;justify-content:space-between;align-items:center;">';
+            echo '<strong style="font-size:16px;">' . esc_html__( 'Total Settlement:', 'sfs-hr' ) . '</strong>';
+            echo '<strong style="font-size:18px;color:#0073aa;">' . esc_html( number_format( $settlement['total_settlement'], 2 ) ) . '</strong>';
+            echo '</div>';
+            echo '</div>';
+
+            echo '</div>'; // grid
+            echo '</div>'; // breakdown
+
+            // Clearance status
+            if ( $settlement['status'] !== 'pending' ) {
+                echo '<div style="margin-top:15px;">';
+                echo '<h4>' . esc_html__( 'Clearance Status', 'sfs-hr' ) . '</h4>';
+                echo '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:10px;">';
+
+                echo '<div>';
+                echo '<div style="font-weight:600;margin-bottom:5px;">' . esc_html__( 'Assets:', 'sfs-hr' ) . '</div>';
+                echo $this->settlement_status_badge( $settlement['asset_clearance_status'] );
+                echo '</div>';
+
+                echo '<div>';
+                echo '<div style="font-weight:600;margin-bottom:5px;">' . esc_html__( 'Documents:', 'sfs-hr' ) . '</div>';
+                echo $this->settlement_status_badge( $settlement['document_clearance_status'] );
+                echo '</div>';
+
+                echo '<div>';
+                echo '<div style="font-weight:600;margin-bottom:5px;">' . esc_html__( 'Finance:', 'sfs-hr' ) . '</div>';
+                echo $this->settlement_status_badge( $settlement['finance_clearance_status'] );
+                echo '</div>';
+
+                echo '</div>';
+                echo '</div>';
+            }
+
+            // Payment information
+            if ( $settlement['status'] === 'paid' && ! empty( $settlement['payment_date'] ) ) {
+                echo '<div style="background:#d4edda;color:#155724;padding:15px;border-radius:4px;margin-top:15px;">';
+                echo '<div style="font-weight:600;margin-bottom:5px;">' . esc_html__( 'Payment Information', 'sfs-hr' ) . '</div>';
+                echo '<div>' . esc_html__( 'Payment Date:', 'sfs-hr' ) . ' ' . esc_html( $settlement['payment_date'] ) . '</div>';
+                if ( ! empty( $settlement['payment_reference'] ) ) {
+                    echo '<div>' . esc_html__( 'Reference:', 'sfs-hr' ) . ' ' . esc_html( $settlement['payment_reference'] ) . '</div>';
+                }
+                echo '</div>';
+            }
+
+            // Approver note
+            if ( ! empty( $settlement['approver_note'] ) ) {
+                echo '<div style="margin-top:15px;padding:15px;background:#fff3cd;border-radius:4px;">';
+                echo '<div style="font-weight:600;margin-bottom:5px;">' . esc_html__( 'Note from HR:', 'sfs-hr' ) . '</div>';
+                echo '<div>' . nl2br( esc_html( $settlement['approver_note'] ) ) . '</div>';
+                echo '</div>';
+            }
+
+            echo '</div>'; // settlement-card
+        }
+    }
+
+    echo '</div>'; // .sfs-hr-settlement-tab
+}
+
+/**
+ * Helper to render settlement row
+ */
+private function render_settlement_row( string $label, string $value, bool $allow_html = false ): void {
+    echo '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ddd;">';
+    echo '<div style="font-weight:500;">' . esc_html( $label ) . '</div>';
+    if ( $allow_html ) {
+        echo '<div>' . $value . '</div>';
+    } else {
+        echo '<div>' . esc_html( $value ) . '</div>';
+    }
+    echo '</div>';
 }
 
 
