@@ -89,9 +89,8 @@ class AssetsModule {
         return;
     }
 
-    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-
-    $sql_assets = "CREATE TABLE {$assets_table} (
+    // Use direct SQL instead of dbDelta for reliability
+    $wpdb->query("CREATE TABLE IF NOT EXISTS {$assets_table} (
         id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
         asset_code VARCHAR(50) NOT NULL,
         name VARCHAR(255) NOT NULL,
@@ -107,42 +106,31 @@ class AssetsModule {
         invoice_file VARCHAR(255) DEFAULT '',
         qr_code_path VARCHAR(255) DEFAULT '',
         status ENUM('available','assigned','under_approval','returned','archived') DEFAULT 'available',
-        condition ENUM('new','good','damaged','needs_repair','lost') DEFAULT 'good',
+        `condition` ENUM('new','good','damaged','needs_repair','lost') DEFAULT 'good',
         notes TEXT,
         created_at DATETIME NOT NULL,
         updated_at DATETIME NOT NULL,
-        PRIMARY KEY  (id),
+        PRIMARY KEY (id),
         UNIQUE KEY asset_code (asset_code),
         KEY category (category),
         KEY status (status),
         KEY department (department)
-    ) {$charset_collate};";
+    ) {$charset_collate}");
 
-    $sql_assign = "CREATE TABLE {$assign_table} (
+    $wpdb->query("CREATE TABLE IF NOT EXISTS {$assign_table} (
         id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
         asset_id BIGINT(20) UNSIGNED NOT NULL,
         employee_id BIGINT(20) UNSIGNED NOT NULL,
         assigned_by BIGINT(20) UNSIGNED NOT NULL,
         start_date DATE NOT NULL,
         end_date DATE DEFAULT NULL,
-        status ENUM(
-            'pending_employee_approval',
-            'active',
-            'return_requested',
-            'returned',
-            'rejected'
-        ) NOT NULL DEFAULT 'pending_employee_approval',
+        status ENUM('pending_employee_approval','active','return_requested','returned','rejected') NOT NULL DEFAULT 'pending_employee_approval',
         return_requested_by BIGINT(20) UNSIGNED DEFAULT NULL,
         return_date DATE DEFAULT NULL,
-
-        -- Photos captured on initial approval
         selfie_attachment_id BIGINT(20) UNSIGNED NULL DEFAULT NULL,
-        asset_attachment_id  BIGINT(20) UNSIGNED NULL DEFAULT NULL,
-
-        -- Photos captured on return confirmation
+        asset_attachment_id BIGINT(20) UNSIGNED NULL DEFAULT NULL,
         return_selfie_attachment_id BIGINT(20) UNSIGNED NULL DEFAULT NULL,
-        return_asset_attachment_id  BIGINT(20) UNSIGNED NULL DEFAULT NULL,
-
+        return_asset_attachment_id BIGINT(20) UNSIGNED NULL DEFAULT NULL,
         notes TEXT,
         created_at DATETIME NOT NULL,
         updated_at DATETIME NOT NULL,
@@ -150,10 +138,7 @@ class AssetsModule {
         KEY asset_id (asset_id),
         KEY employee_id (employee_id),
         KEY status (status)
-    ) {$charset_collate};";
-
-    dbDelta( $sql_assets );
-    dbDelta( $sql_assign );
+    ) {$charset_collate}");
 
     update_option( self::OPT_DB_VERSION, self::VERSION );
 }

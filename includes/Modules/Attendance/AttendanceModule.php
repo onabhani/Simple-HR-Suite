@@ -885,7 +885,8 @@ setInterval(tickClock, 1000);
                     }
 
                     if (selfieBlob) {
-                        fd.append('selfie', selfieBlob, 'selfie.jpg');
+                        const timestamp = Date.now();
+                        fd.append('selfie', selfieBlob, `selfie-${timestamp}.jpg`);
                     } else if (selfieInput && selfieInput.files && selfieInput.files[0]) {
                         fd.append('selfie', selfieInput.files[0]);
                     } else {
@@ -950,6 +951,10 @@ setInterval(tickClock, 1000);
         }
 
         async function punch(type){
+            // Refresh status to ensure latest state before punch attempt
+            setStat('Checking status…', 'busy');
+            await refresh();
+
             if (!allowed[type]) {
                 let msg = 'Invalid action.';
                 if (type==='out' && state==='break')        msg = 'You are on break. End the break before clocking out.';
@@ -962,9 +967,64 @@ setInterval(tickClock, 1000);
             }
 
             if (requiresSelfie) {
-                // Step 1: choose action (button)
-                // Step 2: open camera frame and wait for manual capture
-                await startSelfie(type);
+                // Preflight check: validate punch BEFORE opening camera
+                setStat('Validating…', 'busy');
+
+                let geo = null;
+                try {
+                    geo = await getGeo();
+                } catch(e) {
+                    // geo blocked, show error without opening camera
+                    return;
+                }
+
+                // Make preflight API call without selfie to check for server-side errors
+                const payload = { punch_type: type, source: 'self_web' };
+                if (geo && typeof geo.lat==='number' && typeof geo.lng==='number') {
+                    payload.geo_lat = geo.lat;
+                    payload.geo_lng = geo.lng;
+                    if (typeof geo.acc==='number') payload.geo_accuracy_m = Math.round(geo.acc);
+                }
+
+                try {
+                    const resp = await fetch(PUNCH_URL, {
+                        method: 'POST',
+                        headers: {
+                            'X-WP-Nonce': NONCE,
+                            'Content-Type': 'application/json'
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify(payload)
+                    });
+
+                    const text = await resp.text();
+                    let j = null;
+                    try { j = JSON.parse(text); } catch(_) {}
+
+                    const errCode = j && (j.code || (j.data && j.data.code)) || null;
+
+                    // If server says "selfie required", open camera
+                    if (!resp.ok && errCode === 'sfs_att_selfie_required') {
+                        await startSelfie(type);
+                        return;
+                    }
+
+                    // If success (no selfie needed), we're done
+                    if (resp.ok) {
+                        setStat('Success!', 'success');
+                        setTimeout(refresh, 1000);
+                        return;
+                    }
+
+                    // Any other error: show it without opening camera
+                    const msg = (j && j.message) || 'Punch failed';
+                    setStat('Error: ' + msg, 'error');
+                    return;
+
+                } catch(e) {
+                    setStat('Error: ' + e.message, 'error');
+                    return;
+                }
             } else {
                 await doPunch(type, null);
             }
@@ -1031,6 +1091,15 @@ setInterval(tickClock, 1000);
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) refresh();
         });
+
+        // Pre-request location permission on page load
+        (async function preloadGeo() {
+            try {
+                await getGeo();
+            } catch(e) {
+                // Location denied or unavailable - user will see error when they try to punch
+            }
+        })();
 
         // Initial load
         refresh();
@@ -2723,6 +2792,7 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
             active TINYINT(1) NOT NULL DEFAULT 1,
             dept ENUM('office','showroom','warehouse','factory') NOT NULL,
             notes TEXT NULL,
+            weekly_overrides TEXT NULL,
             PRIMARY KEY (id),
             KEY active_dept (active, dept),
             KEY dept (dept)
@@ -3095,6 +3165,9 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
      * Applies: grace (late/early), rounding (nearest N), unpaid break, OT threshold.
      */
     public static function recalc_session_for( int $employee_id, string $ymd, \wpdb $wpdb = null ): void {
+    // FORCE DEBUG - Shows we entered the function
+    error_log('>>> recalc_session_for CALLED: emp=' . $employee_id . ', date=' . $ymd);
+
     $wpdb = $wpdb ?: $GLOBALS['wpdb'];
     $pT   = $wpdb->prefix . 'sfs_hr_attendance_punches';
     $sT   = $wpdb->prefix . 'sfs_hr_attendance_sessions';
@@ -3158,7 +3231,9 @@ foreach ($rows as $r) {
     $roundN   = ($round === 'none') ? 0 : (int)$round;
 
     // Evaluate
+    error_log('>>> BEFORE evaluate_segments: punches=' . count($rows) . ', segments=' . count($segments));
     $ev = self::evaluate_segments($segments, $rows, $grLate, $grEarly);
+    error_log('>>> AFTER evaluate_segments: worked_total=' . $ev['worked_total'] . ', break_total=' . ($ev['break_total'] ?? 0));
     $net = (int)$ev['worked_total'];
     if ($roundN > 0) $net = (int)round($net / $roundN) * $roundN;
 
@@ -3204,7 +3279,7 @@ foreach ($rows as $r) {
         'work_date'           => $ymd,
         'in_time'             => $firstIn,
         'out_time'            => $lastOut,
-        'break_minutes'       => 0,
+        'break_minutes'       => (int)$ev['break_total'],
         'net_minutes'         => (int)$ev['worked_total'],
         'rounded_net_minutes' => $net,
         'overtime_minutes'    => $ot,
@@ -3577,9 +3652,10 @@ private static function load_automation_map_and_keytype(): array {
 
 /**
  * Resolve effective shift for Y-m-d:
- * 1) explicit assignment
- * 2) automation (supports id/slug/name keying, and UI settings)
- * 3) (optional) fallback by dept slug
+ * 1) Explicit date-specific assignment
+ * 2) Employee-specific default shift (from emp_shifts table)
+ * 3) Department automation (supports id/slug/name keying, and UI settings)
+ * 4) (Optional) Fallback by dept slug
  */
 public static function resolve_shift_for_date(
     int $employee_id,
@@ -3611,10 +3687,25 @@ public static function resolve_shift_for_date(
             $label = $emp && isset($emp->department) && $emp->department !== '' ? (string)$emp->department : 'office';
             $row->dept = sanitize_title($label);
         }
-        return $row;
+        return self::apply_weekly_override( $row, $ymd, $wpdb );
     }
 
-    // --- Dept identity (id, slug, name)
+    // --- 1.5) Employee-specific shift (from emp_shifts mapping)
+    $emp_shift = self::lookup_emp_shift_for_date( $employee_id, $ymd );
+    if ( $emp_shift ) {
+        // Get employee dept for context
+        $emp = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$empT} WHERE id=%d", $employee_id));
+        $dept_label = $emp && isset($emp->department) && $emp->department !== '' ? (string)$emp->department : 'office';
+
+        // Set dept and other required fields
+        $emp_shift->dept       = sanitize_title($dept_label);
+        $emp_shift->__virtual  = 0;
+        $emp_shift->is_holiday = 0;
+
+        return self::apply_weekly_override( $emp_shift, $ymd, $wpdb );
+    }
+
+    // --- 2) Dept identity (id, slug, name) for automation
     $emp = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$empT} WHERE id=%d", $employee_id));
     if (!$emp) {
         error_log('[SFS ATT] no employee row for id '.$employee_id);
@@ -3638,7 +3729,7 @@ public static function resolve_shift_for_date(
         $dept_slug = sanitize_title($dept_name);
     }
 
-    // --- 2) Automation
+    // --- 3) Department Automation
     $auto    = self::load_automation_map_and_keytype(); // ['keytype','map','source']
     $map     = $auto['map'];
     $keytype = $auto['keytype'];
@@ -3723,7 +3814,7 @@ public static function resolve_shift_for_date(
                 $sh->__virtual  = 1;
                 $sh->is_holiday = 0;
                 $sh->dept       = $dept_slug ?: ($dept_name ?: 'office');
-                return $sh;
+                return self::apply_weekly_override( $sh, $ymd, $wpdb );
             }
             if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
                 error_log('[SFS ATT] automation shift_id '.$shift_id.' not found/active');
@@ -3731,7 +3822,7 @@ public static function resolve_shift_for_date(
         }
     }
 
-    // --- 3) Optional fallback by dept slug to keep system usable
+    // --- 4) Optional fallback by dept slug to keep system usable
     if ($dept_slug) {
         $fb = $wpdb->get_row(
             $wpdb->prepare(
@@ -3742,13 +3833,69 @@ public static function resolve_shift_for_date(
         if ($fb) {
             $fb->__virtual  = 1;
             $fb->is_holiday = 0;
-            return $fb;
+            return self::apply_weekly_override( $fb, $ymd, $wpdb );
         }
     }
 
     return null;
 }
 
+/**
+ * Apply weekly overrides to a shift for a given date.
+ * If the shift has weekly_overrides configured for the day-of-week,
+ * load and return the override shift instead.
+ */
+private static function apply_weekly_override( ?\stdClass $shift, string $ymd, \wpdb $wpdb = null ): ?\stdClass {
+    if ( ! $shift ) {
+        return $shift;
+    }
+
+    // Check if shift has weekly_overrides
+    if ( empty( $shift->weekly_overrides ) ) {
+        return $shift;
+    }
+
+    $wpdb = $wpdb ?: $GLOBALS['wpdb'];
+
+    // Decode weekly overrides JSON
+    $overrides = json_decode( $shift->weekly_overrides, true );
+    if ( ! is_array( $overrides ) || empty( $overrides ) ) {
+        return $shift;
+    }
+
+    // Get day of week from date (monday, tuesday, etc.)
+    $tz = wp_timezone();
+    $date = new \DateTimeImmutable( $ymd . ' 00:00:00', $tz );
+    $day_of_week = strtolower( $date->format( 'l' ) ); // monday, tuesday, etc.
+
+    // Check if there's an override for this day
+    if ( ! isset( $overrides[ $day_of_week ] ) || (int) $overrides[ $day_of_week ] <= 0 ) {
+        return $shift;
+    }
+
+    $override_shift_id = (int) $overrides[ $day_of_week ];
+
+    // Load the override shift
+    $shiftT = $wpdb->prefix . 'sfs_hr_attendance_shifts';
+    $override_shift = $wpdb->get_row(
+        $wpdb->prepare(
+            "SELECT * FROM {$shiftT} WHERE id=%d AND active=1 LIMIT 1",
+            $override_shift_id
+        )
+    );
+
+    if ( ! $override_shift ) {
+        // Override shift not found or inactive, return original
+        return $shift;
+    }
+
+    // Preserve key properties from original shift
+    $override_shift->__virtual = $shift->__virtual ?? 0;
+    $override_shift->is_holiday = $shift->is_holiday ?? 0;
+    $override_shift->dept = $shift->dept ?? 'office';
+
+    return $override_shift;
+}
 
 
 /** Build split segments for Y-m-d from dept + settings. */
@@ -3861,10 +4008,38 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
     // Close unmatched IN? leave it open → incomplete
     $has_unmatched = ($open !== null);
 
+    // Calculate break time from break_start..break_end pairs
+    $break_total = 0;
+    $break_open = null;
+    foreach ($punchesUTC as $r) {
+        $t = strtotime($r->punch_time.' UTC');
+        if ($r->punch_type === 'break_start') {
+            if ($break_open === null) $break_open = $t;
+        } elseif ($r->punch_type === 'break_end') {
+            if ($break_open !== null && $t > $break_open) {
+                $break_total += (int)round(($t - $break_open) / 60);
+                $break_open = null;
+            }
+        }
+    }
+
     $flags = [];
     $worked_total = 0;
     $scheduled_total = 0;
     $seg_details = [];
+
+    // Calculate ACTUAL worked time from all IN/OUT intervals (regardless of segments)
+    $actual_worked_minutes = 0;
+    foreach ($intervals as [$start, $end]) {
+        $actual_worked_minutes += (int)round(($end - $start) / 60);
+    }
+
+    // FORCE DEBUG - will log regardless of WP_DEBUG setting
+    error_log('=== SFS ATTENDANCE DEBUG ===');
+    error_log('Intervals count: ' . count($intervals));
+    error_log('Actual worked minutes: ' . $actual_worked_minutes);
+    error_log('Segments count: ' . count($segments));
+    error_log('===========================');
 
     foreach ($segments as $seg) {
         $S = strtotime($seg['start_utc'].' UTC');
@@ -3891,7 +4066,6 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
             if ($firstIn !== null && ($firstIn - $S) > ($graceLateMin*60))  $segFlags[] = 'late';
             if ($lastOut  !== null && ($E - $lastOut) > ($graceEarlyMin*60)) $segFlags[] = 'left_early';
         }
-        $worked_total += $ovMin;
         $flags = array_values(array_unique(array_merge($flags, $segFlags)));
         $seg_details[] = [
             'start' => $seg['start_l'],
@@ -3902,12 +4076,16 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
         ];
     }
 
+    // Use actual worked time if there are intervals, even if no segment overlap
+    $worked_total = $actual_worked_minutes;
+
     if ($has_unmatched) $flags[] = 'incomplete';
     $flags = array_values(array_unique($flags));
 
     return [
         'worked_total'    => $worked_total,
         'scheduled_total' => $scheduled_total,
+        'break_total'     => $break_total,
         'flags'           => $flags,
         'segments'        => $seg_details,
     ];

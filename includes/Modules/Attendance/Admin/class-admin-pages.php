@@ -314,7 +314,6 @@ public function render_automation(): void {
     $opt       = get_option( \SFS\HR\Modules\Attendance\AttendanceModule::OPT_SETTINGS, [] );
     $dept_def  = $opt['dept_defaults']          ?? []; // dept_id => shift_id
     $dept_ovr  = $opt['dept_period_overrides']  ?? []; // dept_id => [ ['start'=>Y-m-d,'end'=>Y-m-d,'shift_id'=>int,'label'=>string] ]
-    $dept_week = $opt['dept_weekday_overrides'] ?? []; // dept_id => [ 'mon' => shift_id, ... ]
 
     $departments = $this->get_departments( $wpdb );
 
@@ -342,77 +341,13 @@ public function render_automation(): void {
         .sfs-hr-automation-table th:nth-child(2),
         .sfs-hr-automation-table td:nth-child(2) { width: 30%; }
         .sfs-hr-automation-table th:nth-child(3),
-        .sfs-hr-automation-table td:nth-child(3) { width: 26%; }
-        .sfs-hr-automation-table th:nth-child(4),
-        .sfs-hr-automation-table td:nth-child(4) { width: 26%; }
+        .sfs-hr-automation-table td:nth-child(3) { width: 52%; }
         .sfs-hr-automation-table td { padding-top: 8px; padding-bottom: 8px; }
 
         .sfs-hr-automation-table select {
             max-width: 100%;
             width: 100%;
             box-sizing: border-box;
-        }
-
-        .sfs-hr-weekly-wrap { max-width: 260px; }
-        .sfs-hr-weekday-chips {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 4px 6px;
-            margin-bottom: 6px;
-        }
-        .sfs-hr-chip {
-            display: inline-flex;
-            align-items: center;
-            padding: 2px 8px;
-            border-radius: 999px;
-            border: 1px solid #dcdcde;
-            background: #f6f7f7;
-            font-size: 11px;
-            cursor: pointer;
-            user-select: none;
-            white-space: nowrap;
-        }
-        .sfs-hr-chip input { margin-right: 4px; }
-        .sfs-hr-chip.is-active {
-            background: #2271b1;
-            border-color: #2271b1;
-            color: #fff;
-        }
-
-        .sfs-hr-weekday-rows {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        .sfs-hr-weekday-row {
-            display: none;
-            align-items: center;
-            gap: 6px;
-            flex-wrap: nowrap;
-        }
-        .sfs-hr-weekday-label {
-            font-size: 11px;
-            color: #6c7781;
-            min-width: 32px;
-            flex: 0 0 auto;
-        }
-        .sfs-hr-weekday-row select.sfs-hr-weekday-select {
-            flex: 1 1 auto;
-            max-width: 100%;
-        }
-
-        @media (max-width: 960px) {
-            .sfs-hr-automation-table { table-layout: auto; }
-            .sfs-hr-automation-table th:nth-child(1),
-            .sfs-hr-automation-table td:nth-child(1),
-            .sfs-hr-automation-table th:nth-child(2),
-            .sfs-hr-automation-table td:nth-child(2),
-            .sfs-hr-automation-table th:nth-child(3),
-            .sfs-hr-automation-table td:nth-child(3),
-            .sfs-hr-automation-table th:nth-child(4),
-            .sfs-hr-automation-table td:nth-child(4) { width: auto; }
-            .sfs-hr-weekly-wrap { max-width: 100%; }
-            .sfs-hr-weekday-row { flex-wrap: wrap; }
         }
         </style>
 
@@ -426,7 +361,6 @@ public function render_automation(): void {
                     <th>Department</th>
                     <th>Default Shift</th>
                     <th>Override (optional)</th>
-                    <th>Weekly overrides (optional)</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -434,9 +368,6 @@ public function render_automation(): void {
                     $did             = (int) $d['id'];
                     $current_default = isset( $dept_def[ $did ] ) ? (int) $dept_def[ $did ] : 0;
                     $ovr             = $dept_ovr[ $did ][0] ?? [ 'label' => 'Ramadan', 'start' => '', 'end' => '', 'shift_id' => 0 ];
-                    $week            = ( isset( $dept_week[ $did ] ) && is_array( $dept_week[ $did ] ) )
-                        ? $dept_week[ $did ]
-                        : [];
                     ?>
                     <tr>
                         <td><strong><?php echo esc_html( $d['name'] ); ?></strong></td>
@@ -484,104 +415,12 @@ public function render_automation(): void {
                                 <?php endforeach; ?>
                             </select>
                         </td>
-
-                        <!-- Weekly overrides -->
-                        <td>
-                            <?php
-                            $days = [
-                                'mon' => __( 'Mon', 'sfs-hr' ),
-                                'tue' => __( 'Tue', 'sfs-hr' ),
-                                'wed' => __( 'Wed', 'sfs-hr' ),
-                                'thu' => __( 'Thu', 'sfs-hr' ),
-                                'fri' => __( 'Fri', 'sfs-hr' ),
-                                'sat' => __( 'Sat', 'sfs-hr' ),
-                                'sun' => __( 'Sun', 'sfs-hr' ),
-                            ];
-                            ?>
-                            <div class="sfs-hr-weekly-wrap">
-                                <!-- Chips -->
-                                <div class="sfs-hr-weekday-chips">
-                                    <?php foreach ( $days as $dow_key => $dow_label ) :
-                                        $has_shift = isset( $week[ $dow_key ] ) && (int) $week[ $dow_key ] > 0;
-                                        ?>
-                                        <label class="sfs-hr-chip<?php echo $has_shift ? ' is-active' : ''; ?>">
-                                            <input type="checkbox"
-                                                   class="sfs-hr-weekday-toggle"
-                                                   data-day="<?php echo esc_attr( $dow_key ); ?>"
-                                                <?php checked( $has_shift ); ?> />
-                                            <?php echo esc_html( $dow_label ); ?>
-                                        </label>
-                                    <?php endforeach; ?>
-                                </div>
-
-                                <!-- Rows: only for selected days -->
-                                <div class="sfs-hr-weekday-rows">
-                                    <?php foreach ( $days as $dow_key => $dow_label ) :
-                                        $selected_shift = isset( $week[ $dow_key ] ) ? (int) $week[ $dow_key ] : 0;
-                                        $row_active     = $selected_shift > 0;
-                                        ?>
-                                        <div class="sfs-hr-weekday-row<?php echo $row_active ? ' is-active' : ''; ?>"
-                                             data-day="<?php echo esc_attr( $dow_key ); ?>"
-                                             style="display:<?php echo $row_active ? 'flex' : 'none'; ?>;">
-                                            <span class="sfs-hr-weekday-label">
-                                                <?php echo esc_html( $dow_label ); ?>
-                                            </span>
-                                            <select
-                                                name="dept_weekday_shift[<?php echo $did; ?>][<?php echo esc_attr( $dow_key ); ?>]"
-                                                class="sfs-hr-weekday-select"
-                                                data-day="<?php echo esc_attr( $dow_key ); ?>"
-                                            >
-                                                <option value="0"><?php esc_html_e( '— Default —', 'sfs-hr' ); ?></option>
-                                                <?php foreach ( $all_shifts as $s ) : ?>
-                                                    <?php
-                                                    $label = "{$s['name']} — {$s['location_label']} ({$s['start_time']}→{$s['end_time']})";
-                                                    ?>
-                                                    <option value="<?php echo (int) $s['id']; ?>"
-                                                        <?php selected( $selected_shift, (int) $s['id'] ); ?>>
-                                                        <?php echo esc_html( $label ); ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
-                                    <?php endforeach; ?>
-                                </div>
-                            </div>
-                        </td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>
             </table>
 
             <?php submit_button( 'Save Automation' ); ?>
-
-            <script>
-            document.addEventListener('DOMContentLoaded', function () {
-                document.querySelectorAll('.sfs-hr-weekday-toggle').forEach(function (chk) {
-                    chk.addEventListener('change', function () {
-                        var day  = this.getAttribute('data-day');
-                        var wrap = this.closest('.sfs-hr-weekly-wrap');
-                        if (!wrap) { return; }
-
-                        var row    = wrap.querySelector('.sfs-hr-weekday-row[data-day="' + day + '"]');
-                        var select = row ? row.querySelector('select.sfs-hr-weekday-select[data-day="' + day + '"]') : null;
-                        var chip   = this.closest('.sfs-hr-chip');
-
-                        if (!row || !select) { return; }
-
-                        if (this.checked) {
-                            row.style.display = 'flex';
-                            row.classList.add('is-active');
-                            if (chip) { chip.classList.add('is-active'); }
-                        } else {
-                            select.value = '0'; // back to default
-                            row.style.display = 'none';
-                            row.classList.remove('is-active');
-                            if (chip) { chip.classList.remove('is-active'); }
-                        }
-                    });
-                });
-            });
-            </script>
         </form>
     </div>
     <?php
@@ -597,7 +436,6 @@ public function handle_save_automation(): void {
     $os    = (array) ( $_POST['dept_override_start'] ?? [] );
     $oe    = (array) ( $_POST['dept_override_end']   ?? [] );
     $osh   = (array) ( $_POST['dept_override_shift'] ?? [] );
-    $weeks = (array) ( $_POST['dept_weekday_shift']  ?? [] ); // dept_id => [ dow => shift_id ]
 
     // -------- Defaults --------
     $dept_defaults = [];
@@ -631,32 +469,6 @@ public function handle_save_automation(): void {
         }
     }
 
-    // -------- Weekly overrides (Mon–Sun) --------
-    $dept_weekday_overrides = [];
-    foreach ( $weeks as $dept_id => $day_map ) {
-        $did = (int) $dept_id;
-        if ( ! is_array( $day_map ) ) {
-            continue;
-        }
-
-        foreach ( $day_map as $dow => $sid ) {
-            $sid = (int) $sid;
-            if ( $sid <= 0 ) {
-                continue; // 0 = Default → لا نخزن شيء
-            }
-
-            $dow = strtolower( sanitize_key( $dow ) );
-            if ( ! in_array( $dow, [ 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun' ], true ) ) {
-                continue;
-            }
-
-            if ( ! isset( $dept_weekday_overrides[ $did ] ) ) {
-                $dept_weekday_overrides[ $did ] = [];
-            }
-            $dept_weekday_overrides[ $did ][ $dow ] = $sid;
-        }
-    }
-
     // -------- Save into main option --------
     $opt = get_option( \SFS\HR\Modules\Attendance\AttendanceModule::OPT_SETTINGS, [] );
     if ( ! is_array( $opt ) ) {
@@ -665,7 +477,6 @@ public function handle_save_automation(): void {
 
     $opt['dept_defaults']          = $dept_defaults;
     $opt['dept_period_overrides']  = $dept_period_overrides;
-    $opt['dept_weekday_overrides'] = $dept_weekday_overrides; // ← كنتَ ناسي هذا السطر
 
     update_option( \SFS\HR\Modules\Attendance\AttendanceModule::OPT_SETTINGS, $opt, false );
 
@@ -858,6 +669,53 @@ public function render_shifts(): void {
                 </tr>
 
                 <tr>
+                    <th>Weekly Overrides</th>
+                    <td>
+                        <p class="description" style="margin:0 0 10px;">
+                            Override this shift with a different shift on specific days of the week.
+                        </p>
+                        <?php
+                        // Parse existing weekly overrides from notes or dedicated field
+                        $weekly_overrides = [];
+                        if ( isset( $editing->weekly_overrides ) && ! empty( $editing->weekly_overrides ) ) {
+                            $decoded = json_decode( $editing->weekly_overrides, true );
+                            if ( is_array( $decoded ) ) {
+                                $weekly_overrides = $decoded;
+                            }
+                        }
+
+                        $days = [
+                            'monday'    => 'Monday',
+                            'tuesday'   => 'Tuesday',
+                            'wednesday' => 'Wednesday',
+                            'thursday'  => 'Thursday',
+                            'friday'    => 'Friday',
+                            'saturday'  => 'Saturday',
+                            'sunday'    => 'Sunday',
+                        ];
+
+                        foreach ( $days as $day_key => $day_label ) :
+                            $selected_shift = $weekly_overrides[ $day_key ] ?? 0;
+                            ?>
+                            <div style="margin-bottom:8px;">
+                                <label style="display:inline-block;width:120px;font-weight:500;">
+                                    <?php echo esc_html( $day_label ); ?>:
+                                </label>
+                                <select name="weekly_override[<?php echo esc_attr( $day_key ); ?>]">
+                                    <option value="0">— No override —</option>
+                                    <?php foreach ( $rows as $s ) : ?>
+                                        <option value="<?php echo (int) $s->id; ?>"
+                                            <?php selected( $selected_shift, (int) $s->id ); ?>>
+                                            <?php echo esc_html( $s->name . ' (' . $s->start_time . '→' . $s->end_time . ')' ); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        <?php endforeach; ?>
+                    </td>
+                </tr>
+
+                <tr>
                     <th>Notes</th>
                     <td>
                         <textarea name="notes" rows="3" class="large-text"><?php
@@ -964,6 +822,19 @@ $end   = $norm_time($_POST['end_time']   ?? '');
     $active  = !empty($_POST['active']) ? 1 : 0;
     $notes   = wp_kses_post( $_POST['notes'] ?? '' );
 
+    // Weekly overrides: store as JSON
+    $weekly_override_raw = $_POST['weekly_override'] ?? [];
+    $weekly_override = [];
+    if ( is_array( $weekly_override_raw ) ) {
+        foreach ( $weekly_override_raw as $day => $shift_id ) {
+            $shift_id = (int) $shift_id;
+            if ( $shift_id > 0 ) {
+                $weekly_override[ sanitize_key( $day ) ] = $shift_id;
+            }
+        }
+    }
+    $weekly_override_json = ! empty( $weekly_override ) ? wp_json_encode( $weekly_override ) : '';
+
     // Enforce required fields ONLY when saving an ACTIVE shift.
     if ( $active === 1 ) {
         $missing = [];
@@ -996,6 +867,7 @@ $end   = $norm_time($_POST['end_time']   ?? '');
         'active'                   => $active,
         'dept'                     => $dept,
         'notes'                    => $notes,
+        'weekly_overrides'         => $weekly_override_json,
     ];
 
     if ( $id ) {
@@ -1775,7 +1647,7 @@ $sql = "
   LEFT JOIN {$eT} e ON e.id = p.employee_id
   LEFT JOIN {$uT} u ON u.ID = e.user_id
   {$where}
-  ORDER BY p.punch_time ASC
+  ORDER BY p.punch_time DESC
 ";
 
 $rows = $wpdb->get_results( $sql );
@@ -2477,8 +2349,6 @@ public function handle_rebuild_sessions_day(): void {
             'rounded_net_minutes' => $net, // ممكن نضيف rounding لاحقاً
             'overtime_minutes'    => 0,
             'status'              => ( $in && $out ) ? 'present' : 'incomplete',
-            'outside_geo_count'   => $geo_bad,
-            'no_selfie_count'     => $selfie_bad,
             'flags_json'          => $flags ? wp_json_encode( $flags ) : null,
             'calc_meta_json'      => null,
             'last_recalc_at'      => current_time( 'mysql', true ),
@@ -2594,8 +2464,6 @@ private function rebuild_sessions_for_date(string $date): void {
             'rounded_net_minutes' => $net,
             'overtime_minutes'    => 0,
             'status'              => ($in && $out) ? 'present' : 'incomplete',
-            'outside_geo_count'   => $geo_bad,
-            'no_selfie_count'     => $selfie_bad,
             'flags_json'          => $flags ? wp_json_encode($flags) : null,
             'calc_meta_json'      => null,
             'last_recalc_at'      => current_time('mysql', true),

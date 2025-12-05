@@ -268,6 +268,7 @@ public static function status( \WP_REST_Request $req ) {
         if ( is_user_logged_in() && current_user_can('sfs_hr_attendance_view_self') ) {
             $uid = get_current_user_id();
             $emp = \SFS\HR\Modules\Attendance\AttendanceModule::employee_id_from_user( (int) $uid );
+
             if ( $emp ) {
                 $snap  = self::snapshot_for_today( (int) $emp );
                 $today = wp_date( 'Y-m-d' );
@@ -436,9 +437,6 @@ $now_ts = time();
 if ( $last_attempt_ts > 0 && ( $now_ts - $last_attempt_ts ) < 10 ) { // 10-sec global cooldown
     return new \WP_Error( 'cooldown', 'Please wait 10 seconds between attempts.', [ 'status' => 429 ] );
 }
-
-// Set attempt timestamp (expires in 15 seconds to avoid stale data)
-set_transient( $last_attempt_key, $now_ts, 15 );
 
     // ---- Resolve effective shift for today (Assignments override Automation)
     $dateYmd = wp_date( 'Y-m-d' );
@@ -618,6 +616,9 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
     ] );
 
 $punch_id = (int) $wpdb->insert_id;
+
+// Set attempt timestamp AFTER successful punch (expires in 15 seconds to avoid stale data)
+set_transient( $last_attempt_key, time(), 15 );
 
 if ( $selfie_media_id ) {
     update_post_meta( $selfie_media_id, '_sfs_att_punch_id', $punch_id );
