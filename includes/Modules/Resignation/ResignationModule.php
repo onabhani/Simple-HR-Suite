@@ -20,6 +20,12 @@ class ResignationModule {
         // AJAX handlers
         add_action('wp_ajax_sfs_hr_get_resignation', [$this, 'ajax_get_resignation']);
 
+        // Daily cron to terminate employees after last working day
+        add_action('sfs_hr_daily_resignation_check', [$this, 'process_expired_resignations']);
+        if (!wp_next_scheduled('sfs_hr_daily_resignation_check')) {
+            wp_schedule_event(time(), 'daily', 'sfs_hr_daily_resignation_check');
+        }
+
         // Shortcodes for employee self-service
         add_shortcode('sfs_hr_resignation_submit', [$this, 'shortcode_submit_form']);
         add_shortcode('sfs_hr_my_resignations', [$this, 'shortcode_my_resignations']);
@@ -50,7 +56,7 @@ class ResignationModule {
         $where  = '1=1';
         $params = [];
 
-        if (in_array($status, ['pending', 'approved', 'rejected'], true)) {
+        if (in_array($status, ['pending', 'approved', 'rejected', 'cancelled'], true)) {
             $where   .= " AND r.status = %s";
             $params[] = $status;
         } elseif ($status === 'final_exit') {
@@ -101,6 +107,9 @@ class ResignationModule {
                 <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&status=rejected')); ?>"
                     class="<?php echo $status === 'rejected' ? 'current' : ''; ?>">
                     <?php esc_html_e('Rejected', 'sfs-hr'); ?></a> | </li>
+                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&status=cancelled')); ?>"
+                    class="<?php echo $status === 'cancelled' ? 'current' : ''; ?>">
+                    <?php esc_html_e('Cancelled', 'sfs-hr'); ?></a> | </li>
                 <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&status=final_exit')); ?>"
                     class="<?php echo $status === 'final_exit' ? 'current' : ''; ?>">
                     <?php esc_html_e('Final Exit', 'sfs-hr'); ?></a></li>
@@ -176,7 +185,7 @@ class ResignationModule {
                                         </a>
                                     <?php endif; ?>
                                     <?php if (in_array($row['status'], ['pending', 'approved']) && $this->can_approve_resignation($row)): ?>
-                                        <a href="#" onclick="return showCancelModal(<?php echo esc_attr($row['id']); ?>);" class="button button-small" style="background:#dc3545;border-color:#dc3545;">
+                                        <a href="#" onclick="return showCancelModal(<?php echo esc_attr($row['id']); ?>);" class="button button-small" style="background:#dc3545;border-color:#dc3545;color:#fff;margin-left:4px;">
                                             <?php esc_html_e('Cancel', 'sfs-hr'); ?>
                                         </a>
                                     <?php endif; ?>
@@ -659,12 +668,9 @@ class ResignationModule {
             $update_data['status'] = 'approved';
             $update_data['decided_at'] = current_time('mysql');
 
-            // Update employee status to terminated
-            $emp_table = $wpdb->prefix . 'sfs_hr_employees';
-            $wpdb->update($emp_table, [
-                'status' => 'terminated',
-                'updated_at' => current_time('mysql'),
-            ], ['id' => $resignation['employee_id']]);
+            // NOTE: Employee status remains 'active' during notice period
+            // They should only be terminated after their last working day
+            // This allows them to work, attend, and access their profile during the notice period
         } else {
             $update_data['approval_level'] = $new_level;
         }
@@ -675,7 +681,11 @@ class ResignationModule {
         $this->send_approval_notification($resignation_id);
 
         // Prepare success message
-        $success_message = __('Resignation approved successfully.', 'sfs-hr');
+        $last_working_day = $resignation['last_working_day'] ?? 'N/A';
+        $success_message = sprintf(
+            __('Resignation approved successfully. Employee will remain active until their last working day (%s), after which they will be automatically terminated.', 'sfs-hr'),
+            $last_working_day
+        );
 
         // Check for outstanding loans and add to notice
         if (class_exists('\SFS\HR\Modules\Loans\LoansModule')) {
@@ -806,19 +816,27 @@ class ResignationModule {
             'updated_at'     => current_time('mysql'),
         ], ['id' => $resignation_id]);
 
-        // If resignation was approved, revert employee status to active
-        if ($was_approved) {
-            $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+        // Check if employee was already terminated (past last working day)
+        $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+        $employee = $wpdb->get_row($wpdb->prepare(
+            "SELECT status FROM {$emp_table} WHERE id = %d",
+            $resignation['employee_id']
+        ), ARRAY_A);
+
+        $status_message = '';
+        if ($employee && $employee['status'] === 'terminated') {
+            // Revert to active
             $wpdb->update($emp_table, [
                 'status' => 'active',
                 'updated_at' => current_time('mysql'),
             ], ['id' => $resignation['employee_id']]);
+            $status_message = ' ' . __('Employee status has been reverted to active.', 'sfs-hr');
         }
 
         Helpers::redirect_with_notice(
             admin_url('admin.php?page=sfs-hr-resignations'),
             'success',
-            __('Resignation cancelled successfully.', 'sfs-hr') . ($was_approved ? ' ' . __('Employee status has been reverted to active.', 'sfs-hr') : '')
+            __('Resignation cancelled successfully.', 'sfs-hr') . $status_message
         );
     }
 
@@ -976,6 +994,43 @@ class ResignationModule {
         $message .= "\n" . __('Reason:', 'sfs-hr') . ' ' . $resignation['approver_note'];
 
         Helpers::send_mail($employee->user_email, $subject, $message);
+    }
+
+    /* ---------------------------------- Cron Jobs ---------------------------------- */
+
+    /**
+     * Daily cron job to terminate employees whose last working day has passed
+     */
+    public function process_expired_resignations(): void {
+        global $wpdb;
+        $resign_table = $wpdb->prefix . 'sfs_hr_resignations';
+        $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+
+        // Get today's date
+        $today = current_time('Y-m-d');
+
+        // Find all approved resignations where last_working_day has passed
+        $expired_resignations = $wpdb->get_results($wpdb->prepare(
+            "SELECT r.id, r.employee_id, r.last_working_day, e.status as employee_status
+             FROM {$resign_table} r
+             JOIN {$emp_table} e ON e.id = r.employee_id
+             WHERE r.status = 'approved'
+             AND r.last_working_day < %s
+             AND e.status = 'active'",
+            $today
+        ), ARRAY_A);
+
+        if (empty($expired_resignations)) {
+            return;
+        }
+
+        // Terminate each employee
+        foreach ($expired_resignations as $resignation) {
+            $wpdb->update($emp_table, [
+                'status' => 'terminated',
+                'updated_at' => current_time('mysql'),
+            ], ['id' => $resignation['employee_id']]);
+        }
     }
 
     /* ---------------------------------- AJAX Handlers ---------------------------------- */
