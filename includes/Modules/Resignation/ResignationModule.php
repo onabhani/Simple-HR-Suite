@@ -14,6 +14,10 @@ class ResignationModule {
         add_action('admin_post_sfs_hr_resignation_submit',  [$this, 'handle_submit']);
         add_action('admin_post_sfs_hr_resignation_approve', [$this, 'handle_approve']);
         add_action('admin_post_sfs_hr_resignation_reject',  [$this, 'handle_reject']);
+        add_action('admin_post_sfs_hr_final_exit_update',   [$this, 'handle_final_exit_update']);
+
+        // AJAX handlers
+        add_action('wp_ajax_sfs_hr_get_resignation', [$this, 'ajax_get_resignation']);
 
         // Shortcodes for employee self-service
         add_shortcode('sfs_hr_resignation_submit', [$this, 'shortcode_submit_form']);
@@ -48,6 +52,9 @@ class ResignationModule {
         if (in_array($status, ['pending', 'approved', 'rejected'], true)) {
             $where   .= " AND r.status = %s";
             $params[] = $status;
+        } elseif ($status === 'final_exit') {
+            $where   .= " AND r.resignation_type = %s";
+            $params[] = 'final_exit';
         }
 
         // Department manager scoping
@@ -92,7 +99,10 @@ class ResignationModule {
                     <?php esc_html_e('Approved', 'sfs-hr'); ?></a> | </li>
                 <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&status=rejected')); ?>"
                     class="<?php echo $status === 'rejected' ? 'current' : ''; ?>">
-                    <?php esc_html_e('Rejected', 'sfs-hr'); ?></a></li>
+                    <?php esc_html_e('Rejected', 'sfs-hr'); ?></a> | </li>
+                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&status=final_exit')); ?>"
+                    class="<?php echo $status === 'final_exit' ? 'current' : ''; ?>">
+                    <?php esc_html_e('Final Exit', 'sfs-hr'); ?></a></li>
             </ul>
 
             <table class="wp-list-table widefat fixed striped">
@@ -100,10 +110,12 @@ class ResignationModule {
                     <tr>
                         <th><?php esc_html_e('ID', 'sfs-hr'); ?></th>
                         <th><?php esc_html_e('Employee', 'sfs-hr'); ?></th>
+                        <th><?php esc_html_e('Type', 'sfs-hr'); ?></th>
                         <th><?php esc_html_e('Resignation Date', 'sfs-hr'); ?></th>
                         <th><?php esc_html_e('Last Working Day', 'sfs-hr'); ?></th>
                         <th><?php esc_html_e('Notice Period', 'sfs-hr'); ?></th>
                         <th><?php esc_html_e('Status', 'sfs-hr'); ?></th>
+                        <th><?php esc_html_e('Final Exit', 'sfs-hr'); ?></th>
                         <th><?php esc_html_e('Reason', 'sfs-hr'); ?></th>
                         <th><?php esc_html_e('Actions', 'sfs-hr'); ?></th>
                     </tr>
@@ -111,7 +123,7 @@ class ResignationModule {
                 <tbody>
                     <?php if (empty($rows)): ?>
                         <tr>
-                            <td colspan="8"><?php esc_html_e('No resignations found.', 'sfs-hr'); ?></td>
+                            <td colspan="10"><?php esc_html_e('No resignations found.', 'sfs-hr'); ?></td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($rows as $row): ?>
@@ -127,10 +139,31 @@ class ResignationModule {
                                     }
                                     ?>
                                 </td>
+                                <td><?php
+                                    $type = $row['resignation_type'] ?? 'regular';
+                                    if ($type === 'final_exit') {
+                                        echo '<span style="background:#673ab7;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">'
+                                            . esc_html__('Final Exit', 'sfs-hr') . '</span>';
+                                    } else {
+                                        echo '<span style="background:#607d8b;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">'
+                                            . esc_html__('Regular', 'sfs-hr') . '</span>';
+                                    }
+                                ?></td>
                                 <td><?php echo esc_html($row['resignation_date']); ?></td>
                                 <td><?php echo esc_html($row['last_working_day'] ?: 'N/A'); ?></td>
                                 <td><?php echo esc_html($row['notice_period_days']) . ' ' . esc_html__('days', 'sfs-hr'); ?></td>
                                 <td><?php echo $this->status_badge($row['status']); ?></td>
+                                <td><?php
+                                    if ($type === 'final_exit') {
+                                        $fe_status = $row['final_exit_status'] ?? 'not_required';
+                                        echo $this->final_exit_status_badge($fe_status);
+                                        if (!empty($row['final_exit_number'])) {
+                                            echo '<br><small>' . esc_html($row['final_exit_number']) . '</small>';
+                                        }
+                                    } else {
+                                        echo '—';
+                                    }
+                                ?></td>
                                 <td><?php echo esc_html(wp_trim_words($row['reason'], 10)); ?></td>
                                 <td>
                                     <?php if ($row['status'] === 'pending' && $this->can_approve_resignation($row)): ?>
@@ -139,6 +172,11 @@ class ResignationModule {
                                         </a>
                                         <a href="#" onclick="return showRejectModal(<?php echo esc_attr($row['id']); ?>);" class="button button-small">
                                             <?php esc_html_e('Reject', 'sfs-hr'); ?>
+                                        </a>
+                                    <?php endif; ?>
+                                    <?php if ($type === 'final_exit'): ?>
+                                        <a href="#" onclick="return showFinalExitModal(<?php echo esc_attr($row['id']); ?>);" class="button button-small">
+                                            <?php esc_html_e('Final Exit', 'sfs-hr'); ?>
                                         </a>
                                     <?php endif; ?>
                                     <a href="#" onclick="return showDetailsModal(<?php echo esc_attr($row['id']); ?>);" class="button button-small">
@@ -208,6 +246,16 @@ class ResignationModule {
             </div>
         </div>
 
+        <!-- Final Exit Modal -->
+        <div id="final-exit-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;">
+            <div style="background:#fff;padding:30px;max-width:900px;margin:50px auto;border-radius:5px;max-height:90%;overflow-y:auto;">
+                <h2><?php esc_html_e('Final Exit Management', 'sfs-hr'); ?></h2>
+                <div id="final-exit-content">
+                    <p><?php esc_html_e('Loading...', 'sfs-hr'); ?></p>
+                </div>
+            </div>
+        </div>
+
         <script>
         function showApproveModal(id) {
             document.getElementById('approve-resignation-id').value = id;
@@ -230,6 +278,122 @@ class ResignationModule {
             alert('Details for resignation #' + id);
             return false;
         }
+        function showFinalExitModal(id) {
+            document.getElementById('final-exit-modal').style.display = 'block';
+
+            // Load resignation data via AJAX
+            jQuery.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'sfs_hr_get_resignation',
+                    resignation_id: id,
+                    nonce: '<?php echo wp_create_nonce('sfs_hr_resignation_ajax'); ?>'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        document.getElementById('final-exit-content').innerHTML = buildFinalExitForm(response.data);
+                    } else {
+                        document.getElementById('final-exit-content').innerHTML = '<p>Error loading resignation data.</p>';
+                    }
+                },
+                error: function() {
+                    document.getElementById('final-exit-content').innerHTML = '<p>Error loading resignation data.</p>';
+                }
+            });
+            return false;
+        }
+        function hideFinalExitModal() {
+            document.getElementById('final-exit-modal').style.display = 'none';
+        }
+        function buildFinalExitForm(data) {
+            var html = '<form method="POST" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">';
+            html += '<?php wp_nonce_field('sfs_hr_final_exit_update', '_wpnonce', true, false); ?>';
+            html += '<input type="hidden" name="action" value="sfs_hr_final_exit_update">';
+            html += '<input type="hidden" name="resignation_id" value="' + data.id + '">';
+
+            html += '<div style="margin-bottom:20px;">';
+            html += '<h3><?php esc_html_e('Employee Information', 'sfs-hr'); ?></h3>';
+            html += '<p><strong><?php esc_html_e('Name:', 'sfs-hr'); ?></strong> ' + data.employee_name + '</p>';
+            html += '<p><strong><?php esc_html_e('Employee Code:', 'sfs-hr'); ?></strong> ' + data.employee_code + '</p>';
+            html += '<p><strong><?php esc_html_e('Resignation Date:', 'sfs-hr'); ?></strong> ' + data.resignation_date + '</p>';
+            html += '<p><strong><?php esc_html_e('Expected Exit Date:', 'sfs-hr'); ?></strong> ' + (data.expected_country_exit_date || 'N/A') + '</p>';
+            html += '</div>';
+
+            html += '<div style="margin-bottom:20px;padding:20px;background:#f0f0f1;border-radius:4px;">';
+            html += '<h3><?php esc_html_e('Government Processing', 'sfs-hr'); ?></h3>';
+
+            html += '<p>';
+            html += '<label><strong><?php esc_html_e('Final Exit Status:', 'sfs-hr'); ?></strong></label><br>';
+            html += '<select name="final_exit_status" style="width:100%;max-width:300px;padding:8px;">';
+            var statuses = ['not_required', 'pending_submission', 'submitted', 'approved', 'issued', 'completed'];
+            var statusLabels = {
+                'not_required': '<?php echo esc_js(__('Not Required', 'sfs-hr')); ?>',
+                'pending_submission': '<?php echo esc_js(__('Pending Submission', 'sfs-hr')); ?>',
+                'submitted': '<?php echo esc_js(__('Submitted to Government', 'sfs-hr')); ?>',
+                'approved': '<?php echo esc_js(__('Approved by Government', 'sfs-hr')); ?>',
+                'issued': '<?php echo esc_js(__('Final Exit Visa Issued', 'sfs-hr')); ?>',
+                'completed': '<?php echo esc_js(__('Completed', 'sfs-hr')); ?>'
+            };
+            statuses.forEach(function(status) {
+                var selected = (data.final_exit_status === status) ? ' selected' : '';
+                html += '<option value="' + status + '"' + selected + '>' + statusLabels[status] + '</option>';
+            });
+            html += '</select>';
+            html += '</p>';
+
+            html += '<p>';
+            html += '<label><strong><?php esc_html_e('Government Submission Date:', 'sfs-hr'); ?></strong></label><br>';
+            html += '<input type="date" name="final_exit_submitted_date" value="' + (data.final_exit_submitted_date || '') + '" style="width:100%;max-width:300px;padding:8px;">';
+            html += '</p>';
+
+            html += '<p>';
+            html += '<label><strong><?php esc_html_e('Government Reference Number:', 'sfs-hr'); ?></strong></label><br>';
+            html += '<input type="text" name="government_reference" value="' + (data.government_reference || '') + '" style="width:100%;max-width:400px;padding:8px;">';
+            html += '</p>';
+
+            html += '<p>';
+            html += '<label><strong><?php esc_html_e('Final Exit Issue Date:', 'sfs-hr'); ?></strong></label><br>';
+            html += '<input type="date" name="final_exit_date" value="' + (data.final_exit_date || '') + '" style="width:100%;max-width:300px;padding:8px;">';
+            html += '</p>';
+
+            html += '<p>';
+            html += '<label><strong><?php esc_html_e('Final Exit Number:', 'sfs-hr'); ?></strong></label><br>';
+            html += '<input type="text" name="final_exit_number" value="' + (data.final_exit_number || '') + '" style="width:100%;max-width:400px;padding:8px;">';
+            html += '</p>';
+            html += '</div>';
+
+            html += '<div style="margin-bottom:20px;padding:20px;background:#f9f9f9;border-radius:4px;">';
+            html += '<h3><?php esc_html_e('Exit Tracking', 'sfs-hr'); ?></h3>';
+
+            html += '<p>';
+            html += '<label>';
+            html += '<input type="checkbox" name="ticket_booked" value="1"' + (data.ticket_booked == 1 ? ' checked' : '') + '> ';
+            html += '<strong><?php esc_html_e('Ticket Booked', 'sfs-hr'); ?></strong>';
+            html += '</label>';
+            html += '</p>';
+
+            html += '<p>';
+            html += '<label><strong><?php esc_html_e('Actual Exit Date:', 'sfs-hr'); ?></strong></label><br>';
+            html += '<input type="date" name="actual_exit_date" value="' + (data.actual_exit_date || '') + '" style="width:100%;max-width:300px;padding:8px;">';
+            html += '</p>';
+
+            html += '<p>';
+            html += '<label>';
+            html += '<input type="checkbox" name="exit_stamp_received" value="1"' + (data.exit_stamp_received == 1 ? ' checked' : '') + '> ';
+            html += '<strong><?php esc_html_e('Exit Stamp Received', 'sfs-hr'); ?></strong>';
+            html += '</label>';
+            html += '</p>';
+            html += '</div>';
+
+            html += '<p>';
+            html += '<button type="submit" class="button button-primary"><?php esc_html_e('Save Final Exit Data', 'sfs-hr'); ?></button> ';
+            html += '<button type="button" onclick="hideFinalExitModal();" class="button"><?php esc_html_e('Cancel', 'sfs-hr'); ?></button>';
+            html += '</p>';
+            html += '</form>';
+
+            return html;
+        }
         </script>
         <?php
     }
@@ -250,6 +414,8 @@ class ResignationModule {
         $resignation_date = sanitize_text_field($_POST['resignation_date'] ?? '');
         $notice_period = intval($_POST['notice_period_days'] ?? 30);
         $reason = sanitize_textarea_field($_POST['reason'] ?? '');
+        $resignation_type = sanitize_text_field($_POST['resignation_type'] ?? 'regular');
+        $expected_country_exit_date = sanitize_text_field($_POST['expected_country_exit_date'] ?? '');
 
         if (empty($resignation_date)) {
             wp_die(__('Resignation date is required.', 'sfs-hr'));
@@ -273,7 +439,7 @@ class ResignationModule {
         }
 
         $now = current_time('mysql');
-        $wpdb->insert($table, [
+        $insert_data = [
             'employee_id'        => $employee_id,
             'resignation_date'   => $resignation_date,
             'last_working_day'   => $last_working_day,
@@ -284,7 +450,17 @@ class ResignationModule {
             'approver_id'        => $approver_id,
             'created_at'         => $now,
             'updated_at'         => $now,
-        ]);
+            'resignation_type'   => $resignation_type,
+        ];
+
+        if ($resignation_type === 'final_exit') {
+            $insert_data['final_exit_status'] = 'pending_submission';
+            if (!empty($expected_country_exit_date)) {
+                $insert_data['expected_country_exit_date'] = $expected_country_exit_date;
+            }
+        }
+
+        $wpdb->insert($table, $insert_data);
 
         $resignation_id = $wpdb->insert_id;
 
@@ -489,6 +665,35 @@ class ResignationModule {
         );
     }
 
+    private function final_exit_status_badge(string $status): string {
+        $colors = [
+            'not_required'       => '#999',
+            'pending_submission' => '#f0ad4e',
+            'submitted'          => '#17a2b8',
+            'approved'           => '#5cb85c',
+            'issued'             => '#007bff',
+            'completed'          => '#28a745',
+        ];
+
+        $labels = [
+            'not_required'       => __('Not Required', 'sfs-hr'),
+            'pending_submission' => __('Pending', 'sfs-hr'),
+            'submitted'          => __('Submitted', 'sfs-hr'),
+            'approved'           => __('Approved', 'sfs-hr'),
+            'issued'             => __('Issued', 'sfs-hr'),
+            'completed'          => __('Completed', 'sfs-hr'),
+        ];
+
+        $color = $colors[$status] ?? '#777';
+        $label = $labels[$status] ?? ucfirst($status);
+
+        return sprintf(
+            '<span style="background:%s;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">%s</span>',
+            esc_attr($color),
+            esc_html($label)
+        );
+    }
+
     /* ---------------------------------- Notifications ---------------------------------- */
 
     private function send_notification_to_approver(int $resignation_id, int $approver_id): void {
@@ -575,6 +780,109 @@ class ResignationModule {
         $message .= "\n" . __('Reason:', 'sfs-hr') . ' ' . $resignation['approver_note'];
 
         Helpers::send_mail($employee->user_email, $subject, $message);
+    }
+
+    /* ---------------------------------- AJAX Handlers ---------------------------------- */
+
+    public function ajax_get_resignation(): void {
+        check_ajax_referer('sfs_hr_resignation_ajax', 'nonce');
+
+        if (!current_user_can('sfs_hr.manage') && !current_user_can('sfs_hr.view')) {
+            wp_send_json_error(['message' => __('Access denied', 'sfs-hr')]);
+        }
+
+        $resignation_id = intval($_POST['resignation_id'] ?? 0);
+        if (!$resignation_id) {
+            wp_send_json_error(['message' => __('Invalid resignation ID', 'sfs-hr')]);
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_resignations';
+        $emp_t = $wpdb->prefix . 'sfs_hr_employees';
+
+        $resignation = $wpdb->get_row($wpdb->prepare(
+            "SELECT r.*, e.first_name, e.last_name, e.employee_code
+             FROM {$table} r
+             LEFT JOIN {$emp_t} e ON e.id = r.employee_id
+             WHERE r.id = %d",
+            $resignation_id
+        ), ARRAY_A);
+
+        if (!$resignation) {
+            wp_send_json_error(['message' => __('Resignation not found', 'sfs-hr')]);
+        }
+
+        // Prepare response data
+        $data = [
+            'id'                         => $resignation['id'],
+            'employee_name'              => trim($resignation['first_name'] . ' ' . $resignation['last_name']),
+            'employee_code'              => $resignation['employee_code'],
+            'resignation_date'           => $resignation['resignation_date'],
+            'resignation_type'           => $resignation['resignation_type'] ?? 'regular',
+            'final_exit_status'          => $resignation['final_exit_status'] ?? 'not_required',
+            'final_exit_number'          => $resignation['final_exit_number'] ?? '',
+            'final_exit_date'            => $resignation['final_exit_date'] ?? '',
+            'final_exit_submitted_date'  => $resignation['final_exit_submitted_date'] ?? '',
+            'government_reference'       => $resignation['government_reference'] ?? '',
+            'expected_country_exit_date' => $resignation['expected_country_exit_date'] ?? '',
+            'actual_exit_date'           => $resignation['actual_exit_date'] ?? '',
+            'ticket_booked'              => $resignation['ticket_booked'] ?? 0,
+            'exit_stamp_received'        => $resignation['exit_stamp_received'] ?? 0,
+        ];
+
+        wp_send_json_success($data);
+    }
+
+    public function handle_final_exit_update(): void {
+        check_admin_referer('sfs_hr_final_exit_update');
+
+        if (!current_user_can('sfs_hr.manage')) {
+            wp_die(__('Access denied', 'sfs-hr'));
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_resignations';
+
+        $resignation_id = intval($_POST['resignation_id'] ?? 0);
+        if (!$resignation_id) {
+            wp_die(__('Invalid resignation ID', 'sfs-hr'));
+        }
+
+        $resignation = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$table} WHERE id = %d",
+            $resignation_id
+        ), ARRAY_A);
+
+        if (!$resignation) {
+            wp_die(__('Resignation not found', 'sfs-hr'));
+        }
+
+        $update_data = [
+            'final_exit_status'          => sanitize_text_field($_POST['final_exit_status'] ?? 'not_required'),
+            'final_exit_number'          => sanitize_text_field($_POST['final_exit_number'] ?? ''),
+            'final_exit_date'            => sanitize_text_field($_POST['final_exit_date'] ?? ''),
+            'final_exit_submitted_date'  => sanitize_text_field($_POST['final_exit_submitted_date'] ?? ''),
+            'government_reference'       => sanitize_text_field($_POST['government_reference'] ?? ''),
+            'actual_exit_date'           => sanitize_text_field($_POST['actual_exit_date'] ?? ''),
+            'ticket_booked'              => isset($_POST['ticket_booked']) ? 1 : 0,
+            'exit_stamp_received'        => isset($_POST['exit_stamp_received']) ? 1 : 0,
+            'updated_at'                 => current_time('mysql'),
+        ];
+
+        // Remove empty dates
+        foreach (['final_exit_date', 'final_exit_submitted_date', 'actual_exit_date'] as $date_field) {
+            if (empty($update_data[$date_field])) {
+                $update_data[$date_field] = null;
+            }
+        }
+
+        $wpdb->update($table, $update_data, ['id' => $resignation_id]);
+
+        Helpers::redirect_with_notice(
+            admin_url('admin.php?page=sfs-hr-resignations&status=final_exit'),
+            'success',
+            __('Final Exit data updated successfully.', 'sfs-hr')
+        );
     }
 
     /* ---------------------------------- Shortcodes ---------------------------------- */

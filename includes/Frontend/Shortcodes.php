@@ -3329,6 +3329,49 @@ private function render_frontend_resignation_tab( array $emp ): void {
                 </p>
 
                 <p>
+                    <label>
+                        <?php esc_html_e( 'Resignation Type:', 'sfs-hr' ); ?>
+                        <span style="color:red;">*</span>
+                    </label><br>
+                    <label style="display:inline-block;margin-right:20px;">
+                        <input type="radio" name="resignation_type" value="regular" checked onchange="toggleFEFinalExitFields()">
+                        <?php esc_html_e( 'Regular Resignation', 'sfs-hr' ); ?>
+                    </label>
+                    <label style="display:inline-block;">
+                        <input type="radio" name="resignation_type" value="final_exit" onchange="toggleFEFinalExitFields()">
+                        <?php esc_html_e( 'Final Exit (Foreign Employee)', 'sfs-hr' ); ?>
+                    </label>
+                </p>
+
+                <div id="fe-final-exit-fields" style="display:none;">
+                    <p>
+                        <label for="expected_country_exit_date">
+                            <?php esc_html_e( 'Expected Country Exit Date:', 'sfs-hr' ); ?>
+                        </label><br>
+                        <input
+                            type="date"
+                            name="expected_country_exit_date"
+                            id="expected_country_exit_date"
+                            style="width:100%;max-width:300px;padding:8px;border:1px solid #ddd;border-radius:3px;">
+                        <br><small style="color:#666;">
+                            <?php esc_html_e( 'Expected date when you plan to leave the country', 'sfs-hr' ); ?>
+                        </small>
+                    </p>
+                </div>
+
+                <script>
+                function toggleFEFinalExitFields() {
+                    var finalExitRadio = document.querySelector('input[name="resignation_type"][value="final_exit"]');
+                    var finalExitFields = document.getElementById('fe-final-exit-fields');
+                    if (finalExitRadio && finalExitRadio.checked) {
+                        finalExitFields.style.display = 'block';
+                    } else {
+                        finalExitFields.style.display = 'none';
+                    }
+                }
+                </script>
+
+                <p>
                     <button type="submit" class="button button-primary" style="padding:10px 20px;">
                         <?php esc_html_e( 'Submit Resignation', 'sfs-hr' ); ?>
                     </button>
@@ -3357,6 +3400,7 @@ private function render_frontend_resignation_tab( array $emp ): void {
         echo '<table style="width:100%;border-collapse:collapse;background:#fff;">';
         echo '<thead>';
         echo '<tr style="background:#f5f5f5;">';
+        echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Type', 'sfs-hr' ) . '</th>';
         echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Resignation Date', 'sfs-hr' ) . '</th>';
         echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Last Working Day', 'sfs-hr' ) . '</th>';
         echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Notice Period', 'sfs-hr' ) . '</th>';
@@ -3368,8 +3412,21 @@ private function render_frontend_resignation_tab( array $emp ): void {
 
         foreach ( $resignations as $r ) {
             $status_badge = $this->resignation_status_badge( $r['status'] );
+            $type = $r['resignation_type'] ?? 'regular';
 
             echo '<tr>';
+
+            // Type column
+            echo '<td style="border:1px solid #ddd;padding:12px;">';
+            if ( $type === 'final_exit' ) {
+                echo '<span style="background:#673ab7;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">'
+                    . esc_html__( 'Final Exit', 'sfs-hr' ) . '</span>';
+            } else {
+                echo '<span style="background:#607d8b;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">'
+                    . esc_html__( 'Regular', 'sfs-hr' ) . '</span>';
+            }
+            echo '</td>';
+
             echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['resignation_date'] ) . '</td>';
             echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['last_working_day'] ?: 'N/A' ) . '</td>';
             echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['notice_period_days'] ) . ' ' . esc_html__( 'days', 'sfs-hr' ) . '</td>';
@@ -3377,10 +3434,10 @@ private function render_frontend_resignation_tab( array $emp ): void {
             echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['created_at'] ) . '</td>';
             echo '</tr>';
 
-            // Show reason and notes in a collapsible row
-            if ( ! empty( $r['reason'] ) || ! empty( $r['approver_note'] ) ) {
+            // Show reason, notes, and Final Exit info in expanded row
+            if ( ! empty( $r['reason'] ) || ! empty( $r['approver_note'] ) || $type === 'final_exit' ) {
                 echo '<tr>';
-                echo '<td colspan="5" style="border:1px solid #ddd;padding:12px;background:#f9f9f9;">';
+                echo '<td colspan="6" style="border:1px solid #ddd;padding:12px;background:#f9f9f9;">';
 
                 if ( ! empty( $r['reason'] ) ) {
                     echo '<div style="margin-bottom:8px;">';
@@ -3390,10 +3447,42 @@ private function render_frontend_resignation_tab( array $emp ): void {
                 }
 
                 if ( ! empty( $r['approver_note'] ) ) {
-                    echo '<div>';
+                    echo '<div style="margin-bottom:8px;">';
                     echo '<strong>' . esc_html__( 'Approver Note:', 'sfs-hr' ) . '</strong><br>';
                     echo '<div style="margin-top:4px;">' . nl2br( esc_html( $r['approver_note'] ) ) . '</div>';
                     echo '</div>';
+                }
+
+                // Final Exit information
+                if ( $type === 'final_exit' ) {
+                    $fe_status = $r['final_exit_status'] ?? 'not_required';
+                    echo '<div style="margin-top:8px;padding:10px;background:#e3f2fd;border-radius:4px;">';
+                    echo '<strong>' . esc_html__( 'Final Exit Information', 'sfs-hr' ) . '</strong><br>';
+                    echo '<div style="margin-top:4px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;">';
+
+                    echo '<div><strong>' . esc_html__( 'Status:', 'sfs-hr' ) . '</strong> ' . esc_html( ucwords( str_replace( '_', ' ', $fe_status ) ) ) . '</div>';
+
+                    if ( ! empty( $r['final_exit_number'] ) ) {
+                        echo '<div><strong>' . esc_html__( 'Exit Number:', 'sfs-hr' ) . '</strong> ' . esc_html( $r['final_exit_number'] ) . '</div>';
+                    }
+
+                    if ( ! empty( $r['government_reference'] ) ) {
+                        echo '<div><strong>' . esc_html__( 'Gov. Reference:', 'sfs-hr' ) . '</strong> ' . esc_html( $r['government_reference'] ) . '</div>';
+                    }
+
+                    if ( ! empty( $r['expected_country_exit_date'] ) ) {
+                        echo '<div><strong>' . esc_html__( 'Expected Exit:', 'sfs-hr' ) . '</strong> ' . esc_html( $r['expected_country_exit_date'] ) . '</div>';
+                    }
+
+                    if ( ! empty( $r['actual_exit_date'] ) ) {
+                        echo '<div><strong>' . esc_html__( 'Actual Exit:', 'sfs-hr' ) . '</strong> ' . esc_html( $r['actual_exit_date'] ) . '</div>';
+                    }
+
+                    if ( ! empty( $r['final_exit_date'] ) ) {
+                        echo '<div><strong>' . esc_html__( 'Exit Issue Date:', 'sfs-hr' ) . '</strong> ' . esc_html( $r['final_exit_date'] ) . '</div>';
+                    }
+
+                    echo '</div></div>';
                 }
 
                 echo '</td>';
