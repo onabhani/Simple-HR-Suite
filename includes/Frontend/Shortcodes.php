@@ -34,7 +34,21 @@ class Shortcodes {
     // Check if employee is terminated (limited access)
     $is_terminated = ( $emp['status'] ?? '' ) === 'terminated';
 
+    // Check if employee has approved resignation (also limited access during notice period)
+    $has_approved_resignation = false;
     global $wpdb;
+    if ( ! $is_terminated ) {
+        $resignation_table = $wpdb->prefix . 'sfs_hr_resignations';
+        $approved_resignation = $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$resignation_table}
+             WHERE employee_id = %d AND status = 'approved' LIMIT 1",
+            $emp_id
+        ) );
+        $has_approved_resignation = ( $approved_resignation > 0 );
+    }
+
+    // Limited access for both terminated and employees with approved resignation
+    $is_limited_access = $is_terminated || $has_approved_resignation;
 
     // Department name.
     $dept_name = '';
@@ -192,6 +206,11 @@ class Shortcodes {
                 <strong><?php esc_html_e( 'Notice:', 'sfs-hr' ); ?></strong>
                 <?php esc_html_e( 'Your employment has been terminated. You have limited access to view your profile, resignation, and settlement information only.', 'sfs-hr' ); ?>
             </div>
+        <?php elseif ( $has_approved_resignation ) : ?>
+            <div class="sfs-hr-alert" style="background:#d1ecf1;color:#0c5460;padding:15px;border-radius:4px;margin-bottom:20px;">
+                <strong><?php esc_html_e( 'Notice:', 'sfs-hr' ); ?></strong>
+                <?php esc_html_e( 'Your resignation has been approved. During your notice period, you have limited access. You cannot request leave or loans, but can view your profile and resignation information.', 'sfs-hr' ); ?>
+            </div>
         <?php endif; ?>
 
                 <div class="sfs-hr-profile-tabs">
@@ -199,7 +218,7 @@ class Shortcodes {
                class="sfs-hr-tab <?php echo ( $active_tab === 'overview' ) ? 'sfs-hr-tab-active' : ''; ?>">
                 <?php esc_html_e( 'Overview', 'sfs-hr' ); ?>
             </a>
-            <?php if ( ! $is_terminated ) : ?>
+            <?php if ( ! $is_limited_access ) : ?>
                 <a href="<?php echo esc_url( $leave_url ); ?>"
                    class="sfs-hr-tab <?php echo ( $active_tab === 'leave' ) ? 'sfs-hr-tab-active' : ''; ?>">
                     <?php esc_html_e( 'Leave', 'sfs-hr' ); ?>
@@ -222,7 +241,7 @@ class Shortcodes {
             <?php endif; ?>
 
 
-            <?php if ( $can_self_clock && ! $is_terminated ) : ?>
+            <?php if ( $can_self_clock && ! $is_limited_access ) : ?>
                 <a href="<?php echo esc_url( $attendance_url ); ?>"
                    class="sfs-hr-tab <?php echo ( $active_tab === 'attendance' ) ? 'sfs-hr-tab-active' : ''; ?>">
                     <?php esc_html_e( 'Attendance', 'sfs-hr' ); ?>
@@ -231,11 +250,11 @@ class Shortcodes {
         </div>
 
 
-                <?php if ( $active_tab === 'leave' && ! $is_terminated ) : ?>
+                <?php if ( $active_tab === 'leave' && ! $is_limited_access ) : ?>
 
             <?php $this->render_frontend_leave_tab( $emp ); ?>
 
-        <?php elseif ( $active_tab === 'loans' && ! $is_terminated ) : ?>
+        <?php elseif ( $active_tab === 'loans' && ! $is_limited_access ) : ?>
 
             <?php $this->render_frontend_loans_tab( $emp, $emp_id ); ?>
 
