@@ -183,80 +183,71 @@ class Shortcodes {
     <div class="sfs-hr sfs-hr-profile sfs-hr-profile--frontend">
         <h3><?php echo esc_html__( 'My HR Profile', 'sfs-hr' ); ?></h3>
 
-                <div class="sfs-hr-profile-tabs">
-            <a href="<?php echo esc_url( $overview_url ); ?>"
-               class="sfs-hr-tab <?php echo ( $active_tab === 'overview' ) ? 'sfs-hr-tab-active' : ''; ?>">
-                <?php esc_html_e( 'Overview', 'sfs-hr' ); ?>
+                    <div class="sfs-hr-profile-tabs">
+        <a href="<?php echo esc_url( $overview_url ); ?>"
+           class="sfs-hr-tab <?php echo ( $active_tab === 'overview' ) ? 'sfs-hr-tab-active' : ''; ?>">
+            <?php esc_html_e( 'Overview', 'sfs-hr' ); ?>
+        </a>
+
+        <a href="<?php echo esc_url( $leave_url ); ?>"
+           class="sfs-hr-tab <?php echo ( $active_tab === 'leave' ) ? 'sfs-hr-tab-active' : ''; ?>">
+            <?php esc_html_e( 'Leave', 'sfs-hr' ); ?>
+        </a>
+
+        <a href="<?php echo esc_url( $loans_url ); ?>"
+           class="sfs-hr-tab <?php echo ( $active_tab === 'loans' ) ? 'sfs-hr-tab-active' : ''; ?>">
+            <?php esc_html_e( 'Loans', 'sfs-hr' ); ?>
+        </a>
+
+        <a href="<?php echo esc_url( $resignation_url ); ?>"
+           class="sfs-hr-tab <?php echo ( $active_tab === 'resignation' ) ? 'sfs-hr-tab-active' : ''; ?>">
+            <?php esc_html_e( 'Resignation', 'sfs-hr' ); ?>
+        </a>
+
+        <?php if ( $has_settlements ) : ?>
+            <a href="<?php echo esc_url( $settlement_url ); ?>"
+               class="sfs-hr-tab <?php echo ( $active_tab === 'settlement' ) ? 'sfs-hr-tab-active' : ''; ?>">
+                <?php esc_html_e( 'Settlement', 'sfs-hr' ); ?>
             </a>
-            <a href="<?php echo esc_url( $leave_url ); ?>"
-               class="sfs-hr-tab <?php echo ( $active_tab === 'leave' ) ? 'sfs-hr-tab-active' : ''; ?>">
-                <?php esc_html_e( 'Leave', 'sfs-hr' ); ?>
+        <?php endif; ?>
+
+        <?php if ( $can_self_clock ) : ?>
+            <a href="<?php echo esc_url( $attendance_url ); ?>"
+               class="sfs-hr-tab <?php echo ( $active_tab === 'attendance' ) ? 'sfs-hr-tab-active' : ''; ?>">
+                <?php esc_html_e( 'Attendance', 'sfs-hr' ); ?>
             </a>
-            <a href="<?php echo esc_url( $leave_url ); ?>"
-               class="sfs-hr-tab <?php echo ( $active_tab === 'leave' ) ? 'sfs-hr-tab-active' : ''; ?>">
-                <?php esc_html_e( 'Leave', 'sfs-hr' ); ?>
-            </a>
-            <a href="<?php echo esc_url( $loans_url ); ?>"
-               class="sfs-hr-tab <?php echo ( $active_tab === 'loans' ) ? 'sfs-hr-tab-active' : ''; ?>">
-                <?php esc_html_e( 'Loans', 'sfs-hr' ); ?>
-            </a>
-            <a href="<?php echo esc_url( $resignation_url ); ?>"
-               class="sfs-hr-tab <?php echo ( $active_tab === 'resignation' ) ? 'sfs-hr-tab-active' : ''; ?>">
-                <?php esc_html_e( 'Resignation', 'sfs-hr' ); ?>
-            </a>
+        <?php endif; ?>
+    </div>
 
-            <?php if ( $has_settlements ) : ?>
-                <a href="<?php echo esc_url( $settlement_url ); ?>"
-                   class="sfs-hr-tab <?php echo ( $active_tab === 'settlement' ) ? 'sfs-hr-tab-active' : ''; ?>">
-                    <?php esc_html_e( 'Settlement', 'sfs-hr' ); ?>
-                </a>
-            <?php endif; ?>
-
-
-            <?php if ( $can_self_clock ) : ?>
-                <a href="<?php echo esc_url( $attendance_url ); ?>"
-                   class="sfs-hr-tab <?php echo ( $active_tab === 'attendance' ) ? 'sfs-hr-tab-active' : ''; ?>">
-                    <?php esc_html_e( 'Attendance', 'sfs-hr' ); ?>
-                </a>
-            <?php endif; ?>
-        </div>
-
-
-                <?php if ( $active_tab === 'leave' ) : ?>
-
-            <?php $this->render_frontend_leave_tab( $emp ); ?>
+    <?php if ( $active_tab === 'leave' ) : ?>
 
         <?php $this->render_frontend_leave_tab( $emp ); ?>
 
-        <?php elseif ( $active_tab === 'loans' ) : ?>
+    <?php elseif ( $active_tab === 'loans' ) : ?>
 
-            <?php $this->render_frontend_loans_tab( $emp, $emp_id ); ?>
+        <?php $this->render_frontend_loans_tab( $emp, $emp_id ); ?>
 
-        <?php elseif ( $active_tab === 'resignation' ) : ?>
+    <?php elseif ( $active_tab === 'resignation' ) : ?>
 
-            <?php $this->render_frontend_resignation_tab( $emp ); ?>
+        <?php $this->render_frontend_resignation_tab( $emp ); ?>
 
-        <?php elseif ( $active_tab === 'settlement' && $has_settlements ) : ?>
+    <?php elseif ( $active_tab === 'settlement' && $has_settlements ) : ?>
 
-            <?php $this->render_frontend_settlement_tab( $emp ); ?>
+        <?php $this->render_frontend_settlement_tab( $emp ); ?>
 
-        <?php elseif ( $active_tab === 'attendance' && $can_self_clock ) : ?>
+    <?php elseif ( $active_tab === 'attendance' && $can_self_clock ) : ?>
 
-            <div class="sfs-hr-profile-attendance-tab" style="margin-top:24px;">
+        <div class="sfs-hr-profile-attendance-tab" style="margin-top:24px;">
+            <?php
+            // Full self-web widget, non-immersive so it stays inline.
+            echo do_shortcode( '[sfs_hr_attendance_widget immersive="0"]' );
+            ?>
+        </div>
 
+    <?php else : ?>
 
-        <?php elseif ( $active_tab === 'attendance' && $can_self_clock ) : ?>
+        <div class="sfs-hr-profile-header">
 
-            <div class="sfs-hr-profile-attendance-tab" style="margin-top:24px;">
-                <?php
-                // Full self-web widget, non-immersive so it stays inline.
-                echo do_shortcode( '[sfs_hr_attendance_widget immersive="0"]' );
-                ?>
-            </div>
-
-        <?php else : ?>
-
-            <div class="sfs-hr-profile-header">
     <div class="sfs-hr-profile-photo">
         <?php
         if ( $photo_id ) {
