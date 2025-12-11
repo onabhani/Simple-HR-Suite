@@ -173,12 +173,31 @@ public static function scan( \WP_REST_Request $req ) {
     $qrTok  = sanitize_text_field( (string) $req->get_param('token') );
     $device = (int) ( $req->get_param('device') ?: 0 );
 
-    // Basic employee existence check
-    $exists = $wpdb->get_var( $wpdb->prepare(
-        "SELECT id FROM {$wpdb->prefix}sfs_hr_employees WHERE id=%d LIMIT 1", $emp
-    ) );
-    if ( ! $exists ) {
+    // Get employee data (code and name)
+    $emp_data = $wpdb->get_row( $wpdb->prepare(
+        "SELECT e.id, e.employee_code, e.first_name, e.last_name, u.display_name
+         FROM {$wpdb->prefix}sfs_hr_employees e
+         LEFT JOIN {$wpdb->users} u ON u.ID = e.user_id
+         WHERE e.id=%d LIMIT 1", $emp
+    ), ARRAY_A );
+
+    if ( ! $emp_data ) {
         return new \WP_Error('unknown_employee', 'Unknown employee.', [ 'status' => 404 ]);
+    }
+
+    // Build employee display name
+    $emp_name = '';
+    if ( !empty($emp_data['first_name']) || !empty($emp_data['last_name']) ) {
+        $emp_name = trim( ($emp_data['first_name'] ?? '') . ' ' . ($emp_data['last_name'] ?? '') );
+    } elseif ( !empty($emp_data['display_name']) ) {
+        $emp_name = $emp_data['display_name'];
+    }
+
+    // Fallback to employee code or ID
+    if ( empty($emp_name) ) {
+        $emp_name = !empty($emp_data['employee_code'])
+            ? "Employee #{$emp_data['employee_code']}"
+            : "Employee #{$emp}";
     }
 
     // Mint short-lived server scan token (one-time use)
@@ -193,10 +212,14 @@ public static function scan( \WP_REST_Request $req ) {
     ], 180 ); // TTL: 3 minutes
 
     return rest_ensure_response([
-        'ok'         => true,
-        'scan_token' => $scan_token,
-        'employee'   => [ 'id' => $emp ],
-        'device_id'  => ($device ?: null),
+        'ok'            => true,
+        'scan_token'    => $scan_token,
+        'employee'      => [
+            'id' => $emp,
+            'code' => $emp_data['employee_code'] ?? '',
+        ],
+        'employee_name' => $emp_name,
+        'device_id'     => ($device ?: null),
     ]);
 }
 
@@ -434,7 +457,9 @@ $last_attempt_key = 'sfs_att_last_attempt_' . (int)$emp;
 $last_attempt_ts  = (int) get_transient( $last_attempt_key );
 $now_ts = time();
 
-
+if ( $last_attempt_ts > 0 && ( $now_ts - $last_attempt_ts ) < 10 ) { // 10-sec global cooldown
+    return new \WP_Error( 'cooldown', 'Please wait 10 seconds between attempts.', [ 'status' => 429 ] );
+}
 
 // SET TRANSIENT IMMEDIATELY to block concurrent requests (moved before insert)
 set_transient( $last_attempt_key, $now_ts, 15 );
@@ -617,11 +642,6 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
     ] );
 
 $punch_id = (int) $wpdb->insert_id;
-
-// Throttle ONLY after a successful punch
-if ( $punch_id > 0 ) {
-    set_transient( $last_attempt_key, time(), 15 );
-}
 
 // Transient already set before insert to prevent race conditions
 // No need to set it again here
