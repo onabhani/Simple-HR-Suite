@@ -1238,9 +1238,10 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
   </div>
 </div>
 
-      
+      <!-- Flashlight overlay for success feedback -->
+      <div id="sfs-kiosk-flash-<?php echo $inst; ?>" class="sfs-flash"></div>
 
-      
+
     </main>
     <?php if ( $immersive ): ?>
   </div> <!-- .sfs-kiosk-veil -->
@@ -1420,11 +1421,42 @@ body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
 }
 
 
-/* Quick “halo” flash on successful / queued punch */
+/* Quick "halo" flash on successful / queued punch */
 #<?php echo $root_id; ?>.sfs-kiosk-flash-ok {
   animation: sfs-kiosk-punch-ok 0.28s ease-out;
 }
 
+#<?php echo $root_id; ?> .sfs-flash {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.22s ease-out;
+  z-index: 9998;
+}
+
+#<?php echo $root_id; ?> .sfs-flash.show {
+  opacity: 1;
+}
+
+#<?php echo $root_id; ?> .sfs-flash--in {
+  background: rgba(34, 197, 94, 0.15);
+}
+
+#<?php echo $root_id; ?> .sfs-flash--out {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+#<?php echo $root_id; ?> .sfs-flash--break_start {
+  background: rgba(245, 158, 11, 0.15);
+}
+
+#<?php echo $root_id; ?> .sfs-flash--break_end {
+  background: rgba(59, 130, 246, 0.15);
+}
 
 @keyframes sfs-kiosk-punch-ok {
   0%   { box-shadow: 0 0 0 0 rgba(34,197,94,0.85); }

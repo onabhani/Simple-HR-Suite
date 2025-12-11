@@ -376,10 +376,11 @@ public static function punch( \WP_REST_Request $req ) {
 
 
 
-    // ---- Kiosk: CONSUME (not peek) the short-lived scan token EARLY
+    // ---- Kiosk: PEEK (not consume) the short-lived scan token to allow multiple punch types
+    // Token will expire naturally after TTL (3 minutes), allowing Break/Out after In
 $scanned_emp = null;
 if ( $source === 'kiosk' && $scan_token !== '' ) {
-    $payload = self::pop_scan_token( $scan_token ); // ← consume immediately
+    $payload = self::get_scan_token( $scan_token ); // ← peek, don't consume (allows multiple punches)
     if ( ! $payload || ! is_array( $payload ) ) {
         error_log( sprintf('[SFS ATT] bad_token: missing/expired token=%s device=%d uid=%d',
             $scan_token, (int) $device_id, (int) get_current_user_id() ) );
