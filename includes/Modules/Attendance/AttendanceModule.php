@@ -1213,9 +1213,9 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
         <span id="sfs-kiosk-lane-chip-<?php echo $inst; ?>" class="sfs-chip sfs-chip--in">Clock In</span>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:10px">
           <button type="button" data-action="in"          class="button sfs-lane-btn button-primary">Clock In</button>
-          <button type="button" data-action="out"         class="button sfs-lane-btn">Clock Out</button>
           <button type="button" data-action="break_start" class="button sfs-lane-btn">Break Start</button>
           <button type="button" data-action="break_end"   class="button sfs-lane-btn">Break End</button>
+          <button type="button" data-action="out"         class="button sfs-lane-btn">Clock Out</button>
         </div>
       </div>
 
@@ -1380,6 +1380,17 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 #<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn[data-action="break_start"]{ background:#fff4d6; }
 #<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn[data-action="break_end"]{   background:#eef4ff; }
 
+/* Highlight expected/suggested action */
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn.button-suggested {
+  border: 3px solid #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2), 0 2px 0 rgba(0,0,0,.05) !important;
+  font-weight: 600 !important;
+}
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn.button-suggested[data-action="in"]{ background:#d1fae5; }
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn.button-suggested[data-action="out"]{ background:#fecaca; }
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn.button-suggested[data-action="break_start"]{ background:#fde68a; }
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn.button-suggested[data-action="break_end"]{ background:#bfdbfe; }
+
 /* Camera / canvas sizing */
 #<?php echo $root_id; ?> #sfs-kiosk-camwrap-<?php echo $inst; ?>{ width:100%; max-width:1024px; margin:10px auto; }
 #<?php echo $root_id; ?> video{ width:100%; height:auto; border-radius:8px; background:#000; }
@@ -1443,19 +1454,19 @@ body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
 }
 
 #<?php echo $root_id; ?> .sfs-flash--in {
-  background: rgba(34, 197, 94, 0.15);
+  background: rgba(34, 197, 94, 0.25);
 }
 
 #<?php echo $root_id; ?> .sfs-flash--out {
-  background: rgba(239, 68, 68, 0.15);
+  background: rgba(239, 68, 68, 0.25);
 }
 
 #<?php echo $root_id; ?> .sfs-flash--break_start {
-  background: rgba(245, 158, 11, 0.15);
+  background: rgba(245, 158, 11, 0.25);
 }
 
 #<?php echo $root_id; ?> .sfs-flash--break_end {
-  background: rgba(59, 130, 246, 0.15);
+  background: rgba(59, 130, 246, 0.25);
 }
 
 @keyframes sfs-kiosk-punch-ok {
@@ -2427,7 +2438,20 @@ setStat('Ready — action: ' + labelFor(currentAction) + tag, currentAction);
 requiresSelfie = !!j.requires_selfie;
 const qrOn = (typeof j.qr_enabled === 'boolean') ? j.qr_enabled : true;
 
+// Get allowed actions for highlighting
+const allowed = j.allow || {};
 
+// Highlight expected/allowed action buttons
+if (laneRoot) {
+  laneRoot.querySelectorAll('button[data-action]').forEach(btn => {
+    const action = btn.getAttribute('data-action');
+    if (allowed[action]) {
+      btn.classList.add('button-suggested');
+    } else {
+      btn.classList.remove('button-suggested');
+    }
+  });
+}
 
 
 // Single, unified status line
