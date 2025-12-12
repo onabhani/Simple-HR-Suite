@@ -1450,6 +1450,48 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
                         &nbsp;<label><input type="checkbox" name="active" value="1" <?php checked(!isset($editing->active) || (int)$editing->active===1); ?>/> Active</label>
                     </td></tr>
 
+                    <tr>
+                        <th><?php esc_html_e('Time-Based Suggestions', 'sfs-hr'); ?></th>
+                        <td>
+                            <p class="description" style="margin-top:0;">
+                                <?php esc_html_e('Configure typical times for each action. The kiosk will highlight actions when current time is within ±30 minutes of these times.', 'sfs-hr'); ?>
+                            </p>
+                            <table style="margin-top:8px;">
+                                <tr>
+                                    <td style="padding:4px 8px;"><strong><?php esc_html_e('Clock In:', 'sfs-hr'); ?></strong></td>
+                                    <td style="padding:4px 8px;">
+                                        <input type="time" name="suggest_in_time" value="<?php echo esc_attr($editing->suggest_in_time ?? ''); ?>" style="width:120px;"/>
+                                        <span class="description"><?php esc_html_e('e.g., 08:00', 'sfs-hr'); ?></span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:4px 8px;"><strong><?php esc_html_e('Break Start:', 'sfs-hr'); ?></strong></td>
+                                    <td style="padding:4px 8px;">
+                                        <input type="time" name="suggest_break_start_time" value="<?php echo esc_attr($editing->suggest_break_start_time ?? ''); ?>" style="width:120px;"/>
+                                        <span class="description"><?php esc_html_e('e.g., 12:00', 'sfs-hr'); ?></span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:4px 8px;"><strong><?php esc_html_e('Break End:', 'sfs-hr'); ?></strong></td>
+                                    <td style="padding:4px 8px;">
+                                        <input type="time" name="suggest_break_end_time" value="<?php echo esc_attr($editing->suggest_break_end_time ?? ''); ?>" style="width:120px;"/>
+                                        <span class="description"><?php esc_html_e('e.g., 13:00', 'sfs-hr'); ?></span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:4px 8px;"><strong><?php esc_html_e('Clock Out:', 'sfs-hr'); ?></strong></td>
+                                    <td style="padding:4px 8px;">
+                                        <input type="time" name="suggest_out_time" value="<?php echo esc_attr($editing->suggest_out_time ?? ''); ?>" style="width:120px;"/>
+                                        <span class="description"><?php esc_html_e('e.g., 17:00', 'sfs-hr'); ?></span>
+                                    </td>
+                                </tr>
+                            </table>
+                            <p class="description">
+                                <?php esc_html_e('Leave blank to disable highlighting for that action. Times use 24-hour format.', 'sfs-hr'); ?>
+                            </p>
+                        </td>
+                    </tr>
+
                 </table>
 
                 <?php submit_button( $editing ? 'Update Device' : 'Add Device' ); ?>
@@ -1513,6 +1555,11 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
         $qr_enabled  = !empty($_POST['qr_enabled']) ? 1 : 0;
 $selfie_mode = in_array(($_POST['selfie_mode'] ?? 'inherit'), ['inherit','never','in_only','in_out','all'], true) ? $_POST['selfie_mode'] : 'inherit';
 
+        // Time-based suggestion fields (HH:MM format)
+        $suggest_in_time         = $this->sanitize_time_input($_POST['suggest_in_time'] ?? '');
+        $suggest_break_start_time = $this->sanitize_time_input($_POST['suggest_break_start_time'] ?? '');
+        $suggest_break_end_time   = $this->sanitize_time_input($_POST['suggest_break_end_time'] ?? '');
+        $suggest_out_time        = $this->sanitize_time_input($_POST['suggest_out_time'] ?? '');
 
 // …and mirror into meta_json for backwards-compat (your TODO)
 $meta = [];
@@ -1540,6 +1587,12 @@ $data = [
     'qr_enabled'        => $qr_enabled,
     'selfie_mode'       => $selfie_mode,
 
+    // time-based action suggestions
+    'suggest_in_time'         => $suggest_in_time,
+    'suggest_break_start_time' => $suggest_break_start_time,
+    'suggest_break_end_time'   => $suggest_break_end_time,
+    'suggest_out_time'        => $suggest_out_time,
+
     // mirror for compatibility/debug
     'meta_json'         => wp_json_encode($meta, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
 ];
@@ -1564,8 +1617,31 @@ exit;
         wp_safe_redirect( admin_url('admin.php?page=sfs_hr_attendance&tab=devices&deleted=1') );
         exit;
     }
-    
-    
+
+    /**
+     * Sanitize time input (HH:MM or HH:MM:SS format)
+     * Returns null for empty or invalid input, otherwise returns TIME string
+     */
+    private function sanitize_time_input( $input ): ?string {
+        $input = trim( (string) $input );
+        if ( empty( $input ) ) {
+            return null;
+        }
+
+        // Validate HH:MM or HH:MM:SS format
+        if ( ! preg_match( '/^([01]?[0-9]|2[0-3]):([0-5][0-9])(?::([0-5][0-9]))?$/', $input, $matches ) ) {
+            return null;
+        }
+
+        // Normalize to HH:MM:SS format
+        $hours   = str_pad( $matches[1], 2, '0', STR_PAD_LEFT );
+        $minutes = $matches[2];
+        $seconds = isset( $matches[3] ) ? $matches[3] : '00';
+
+        return "{$hours}:{$minutes}:{$seconds}";
+    }
+
+
     /* ========================= Punches & Session ========================= */
     
     private function render_punches(): void {
