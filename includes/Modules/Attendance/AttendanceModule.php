@@ -1486,7 +1486,13 @@ wp_enqueue_script('wp-api');
     <script>
     (function(){
         
-
+ // Safe debug logger for kiosk – won't break if debug is off
+        const dbg = (...args) => {
+            if (window.SFS_ATT_DEBUG) {
+                console.log('[SFS-ATT]', ...args);
+            }
+        };
+        
 async function attemptPunch(type, scanToken, selfieBlob, geox) {
   const fd = new FormData();
   fd.append('punch_type', type);
@@ -1719,28 +1725,7 @@ try {
 // Debug flag for console logging (set to true to enable debug logs)
 const DBG = false;
 
-function dbg() {
-  if (!DBG) return;
-  // stringify args safely
-  const parts = [];
-  for (let i = 0; i < arguments.length; i++) {
-    const a = arguments[i];
-    try { parts.push(typeof a === 'object' ? JSON.stringify(a) : String(a)); }
-    catch (_) { parts.push(String(a)); }
-  }
-  const msg = parts.join(' ');
-  // console
-  try { console.log('[ATT]', msg); } catch (_) {}
-  // send to server
-  try {
-    fetch(dbgUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-      credentials: 'same-origin',
-      body: 'm=' + encodeURIComponent(msg)
-    });
-  } catch (_) {}
-}
+
 
 // Status bar elements (must exist before setStat)
 const sBar  = document.querySelector('#<?php echo $root_id; ?> .sfs-statusbar');
@@ -2174,7 +2159,6 @@ if (empEl) {
   }
 }
 
-
 async function startQr(){
   inflight = false;
   lastQrValue = '';
@@ -2185,17 +2169,20 @@ async function startQr(){
   setStat('Scanning — action: ' + labelFor(currentAction) + tag, 'scanning');
 
   showScannerUI(true);
-  
+
+  // Pre-check that we actually have at least one camera
   try {
-  if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
-    const devs = await navigator.mediaDevices.enumerateDevices();
-    const cams = devs.filter(d => d.kind === 'videoinput');
-    if (!cams.length) {
-      setStat('No camera found on this device.', 'error');
-      return;
+    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+      const devs = await navigator.mediaDevices.enumerateDevices();
+      const cams = devs.filter(d => d.kind === 'videoinput');
+      if (!cams.length) {
+        setStat('No camera found on this device.', 'error');
+        return;
+      }
     }
+  } catch (_) {
+    // ignore – fallback to getUserMedia errors
   }
-} catch (_) { /* ignore – fallback to getUserMedia errors */ }
 
   dbg('startQr: begin, requiresSelfie=', requiresSelfie, 'BarcodeDetector in window?', 'BarcodeDetector' in window);
 
@@ -2219,23 +2206,27 @@ async function startQr(){
     }
   }
 
+  // Lazy-load jsQR if needed
   if (!useBarcodeDetector && typeof window.jsQR !== 'function'){
     setStat('Loading QR engine…', 'busy');
     const t0 = Date.now();
     while (typeof window.jsQR !== 'function' && (Date.now() - t0) < 3000) {
-      await new Promise(r=>setTimeout(r,100));
+      await new Promise(r => setTimeout(r,100));
     }
     dbg('startQr: jsQR loaded?', typeof window.jsQR === 'function');
     if (typeof window.jsQR !== 'function'){
-  setStat('QR engine not loaded. Please wait and press Start again.', 'error');
-  
-  if (qrStop)  qrStop.disabled  = true;
-  return;
-}
+      setStat('QR engine not loaded. Please wait and press Start again.', 'error');
+      if (qrStop)  qrStop.disabled  = true;
+      return;
+    }
   }
 
   const constraints = {
-    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+    video: {
+      facingMode: { ideal: 'environment' },
+      width:  { ideal: 1280 },
+      height: { ideal: 720 }
+    },
     audio: false
   };
 
@@ -2246,26 +2237,25 @@ async function startQr(){
     await new Promise(r => qrVid.onloadedmetadata = r);
     dbg('startQr: stream ready', { w: qrVid.videoWidth, h: qrVid.videoHeight });
 
-    try { await qrVid.play(); } catch(e) { dbg('startQr: play() err', e && e.message); }
-    
-// after await qrVid.play();
-if (document.getElementById('sfs-kiosk-canvas-<?php echo $inst; ?>')) {
-  startSelfiePreview();
-}
+    try {
+      await qrVid.play();
+    } catch(e) {
+      dbg('startQr: play() err', e && e.message);
+    }
 
-    
-    if (qrStop)  qrStop.disabled  = false;
-    if (qrStat)  qrStat.textContent = 'Scanning…';
-    startSelfiePreview();
-
-
-    // Live selfie preview when required
-    if (requiresSelfie) dbg('startQr: selfie preview active');
-
+    // === IMPORTANT: mark running BEFORE starting selfie preview ===
     qrRunning = true;
-    touchActivity();  
+    touchActivity();
     if (camwrap) camwrap.style.display = 'grid';
 
+    if (qrStop) qrStop.disabled = false;
+    if (qrStat) qrStat.textContent = 'Scanning…';
+
+    // Start live selfie preview only if the selfie canvas exists
+    if (document.getElementById('sfs-kiosk-canvas-<?php echo $inst; ?>')) {
+      startSelfiePreview();
+      if (requiresSelfie) dbg('startQr: selfie preview active');
+    }
 
     // --- Offscreen canvas for scanning
     const scanCanvas = document.createElement('canvas');
@@ -2276,117 +2266,119 @@ if (document.getElementById('sfs-kiosk-canvas-<?php echo $inst; ?>')) {
       const h = qrVid.videoHeight || 480;
       if (w === 0 || h === 0) return false;
       if (scanCanvas.width !== w || scanCanvas.height !== h){
-        scanCanvas.width = w; scanCanvas.height = h;
+        scanCanvas.width = w;
+        scanCanvas.height = h;
         dbg('ensureCanvasSize: set', {w,h});
       }
       return true;
     };
 
-// ====== TICK LOOP ======
-const tick = async () => {
-  if (!qrRunning) return;
+    // ====== TICK LOOP ======
+    const tick = async () => {
+      if (!qrRunning) return;
 
-  // If a request is in-flight, just loop again
-  if (inflight) { qrLoop = requestAnimationFrame(tick); return; }
+      // If a request is in-flight, just loop again
+      if (inflight) {
+        qrLoop = requestAnimationFrame(tick);
+        return;
+      }
 
-  try {
-    if (!ensureCanvasSize()) {
-      setStat('Camera not ready…', 'busy');
-      dbg('tick: camera not ready (videoWidth/Height=0)');
-      qrLoop = requestAnimationFrame(tick);
-      return;
-    }
-
-    const w = scanCanvas.width, h = scanCanvas.height;
-    sctx.drawImage(qrVid, 0, 0, w, h);
-
-    let payload = null;
-
-    // (A) BarcodeDetector path
-    if (useBarcodeDetector && detector) {
       try {
-        const det = await detector.detect(scanCanvas);
-        if (det && det.length) {
-          payload = String(det[0].rawValue ?? '');
-          if (payload) dbg('tick: detector hit');
+        if (!ensureCanvasSize()) {
+          setStat('Camera not ready…', 'busy');
+          dbg('tick: camera not ready (videoWidth/Height=0)');
+          qrLoop = requestAnimationFrame(tick);
+          return;
+        }
+
+        const w = scanCanvas.width, h = scanCanvas.height;
+        sctx.drawImage(qrVid, 0, 0, w, h);
+
+        let payload = null;
+
+        // (A) BarcodeDetector path
+        if (useBarcodeDetector && detector) {
+          try {
+            const det = await detector.detect(scanCanvas);
+            if (det && det.length) {
+              payload = String(det[0].rawValue ?? '');
+              if (payload) dbg('tick: detector hit');
+            }
+          } catch (e) {
+            dbg('tick: detector error', e && (e.message || e));
+          }
+        }
+
+        // (B) jsQR fallback path
+        if (!payload && typeof window.jsQR === 'function') {
+          try {
+            const img  = sctx.getImageData(0, 0, w, h);
+            const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
+            if (code && code.data) {
+              payload = String(code.data);
+              dbg('tick: jsQR hit');
+            }
+          } catch (err) {
+            // Non-fatal decode hiccup; keep UI in "Scanning…" and just log
+            dbg('tick: jsQR error (non-fatal)', err && (err.message || err));
+          }
+        }
+
+        if (payload) {
+          const now    = Date.now();
+          const cooled = (now - lastQrTs) > QR_COOLDOWN_MS;
+          const isNew  = payload !== lastQrValue;
+
+          if (isNew || cooled) {
+            inflight = true;
+            setStat('Reading QR…', 'busy');
+            dbg('tick: payload detected', payload.slice(0, 128));
+
+            try {
+              const ok = await handleQrFound(payload);
+              touchActivity();
+              if (ok) {
+                // Success → arm cooldown so the same frame doesn’t immediately re-trigger
+                lastQrValue = payload;
+                lastQrTs    = Date.now();
+                setStat('QR OK', 'ok');
+              } else {
+                // handleQrFound already set a meaningful status and cooldown.
+                // DO NOT overwrite it with “QR OK”.
+              }
+            } catch (err) {
+              // Failure → allow immediate retry (light backoff handled inside handleQrFound)
+              setStat('Scan failed', 'error');
+              dbg('tick: handleQrFound error', err && (err.message || err));
+              lastQrValue = null;
+              lastQrTs    = 0;
+            } finally {
+              inflight = false;
+            }
+          } else {
+            dbg('tick: payload ignored (cooldown)');
+          }
         }
       } catch (e) {
-        dbg('tick: detector error', e && (e.message || e));
-      }
-    }
-
-    // (B) jsQR fallback path
-    if (!payload && typeof window.jsQR === 'function') {
-      try {
-        const img  = sctx.getImageData(0, 0, w, h);
-        const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
-        if (code && code.data) {
-          payload = String(code.data);
-          dbg('tick: jsQR hit');
+        // Only surface fatal camera errors; otherwise keep scanning
+        const msg = e && (e.message || e);
+        if (/NotAllowedError|NotReadableError|OverconstrainedError|NotFoundError|no camera/i.test(String(msg))) {
+          setStat('Camera error: ' + msg, 'error');
+        } else {
+          dbg('tick: non-fatal error', msg);
         }
-      } catch (err) {
-        // Non-fatal decode hiccup; keep UI in "Scanning…" and just log
-        dbg('tick: jsQR error (non-fatal)', err && (err.message || err));
       }
-    }
 
-    if (payload) {
-      const now    = Date.now();
-      const cooled = (now - lastQrTs) > QR_COOLDOWN_MS;
-      const isNew  = payload !== lastQrValue;
-
-      if (isNew || cooled) {
-        inflight = true;
-        setStat('Reading QR…', 'busy');
-        dbg('tick: payload detected', payload.slice(0, 128));
-
-        try {
-          const ok = await handleQrFound(payload);
-          touchActivity();
-          if (ok) {
-            // Success → arm cooldown so the same frame doesn’t immediately re-trigger
-            lastQrValue = payload;
-            lastQrTs    = Date.now();
-            setStat('QR OK', 'ok');
-          } else {
-            // handleQrFound already set a meaningful status and cooldown.
-            // DO NOT overwrite it with “QR OK”.
-          }
-        } catch (err) {
-          // Failure → allow immediate retry (light backoff handled inside handleQrFound)
-          setStat('Scan failed', 'error');
-          dbg('tick: handleQrFound error', err && (err.message || err));
-          lastQrValue = null;
-          lastQrTs    = 0;
-        } finally {
-          inflight = false;
+      // Heartbeat: only while scanning and not in-flight
+      if (uiMode === 'scanning' && !inflight && qrStat && (Date.now() - lastUIBeat) > 1000) {
+        if (qrStat.textContent === '' || qrStat.textContent === 'Scanning…') {
+          qrStat.textContent = 'Scanning…';
+          lastUIBeat = Date.now();
         }
-      } else {
-        dbg('tick: payload ignored (cooldown)');
       }
-    }
-  } catch (e) {
-    // Only surface fatal camera errors; otherwise keep scanning
-    const msg = e && (e.message || e);
-    if (/NotAllowedError|NotReadableError|OverconstrainedError|NotFoundError|no camera/i.test(String(msg))) {
-      setStat('Camera error: ' + msg, 'error');
-    } else {
-      dbg('tick: non-fatal error', msg);
-    }
-  }
 
-  // Heartbeat: only while scanning and not in-flight
-  if (uiMode === 'scanning' && !inflight && qrStat && (Date.now() - lastUIBeat) > 1000) {
-    if (qrStat.textContent === '' || qrStat.textContent === 'Scanning…') {
-      qrStat.textContent = 'Scanning…';
-      lastUIBeat = Date.now();
-    }
-  }
-
-  qrLoop = requestAnimationFrame(tick);
-};
-
-
+      qrLoop = requestAnimationFrame(tick);
+    };
 
     qrLoop = requestAnimationFrame(tick);
     dbg('startQr: tick loop started');
@@ -2396,6 +2388,7 @@ const tick = async () => {
     dbg('startQr: getUserMedia error', e && e.message);
   }
 }
+
 
 
 

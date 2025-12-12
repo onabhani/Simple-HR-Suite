@@ -462,6 +462,9 @@ if ( $last_attempt_ts > 0 && ( $now_ts - $last_attempt_ts ) < 10 ) { // 10-sec g
     return new \WP_Error( 'cooldown', 'Please wait 10 seconds between attempts.', [ 'status' => 429 ] );
 }
 
+// SET TRANSIENT IMMEDIATELY to block concurrent requests (moved before insert)
+set_transient( $last_attempt_key, $now_ts, 15 );
+
     // ---- Resolve effective shift for today (Assignments override Automation)
     $dateYmd = wp_date( 'Y-m-d' );
     $assign  = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $emp, $dateYmd );
@@ -643,6 +646,9 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
     ] );
 
 $punch_id = (int) $wpdb->insert_id;
+
+// Transient already set before insert to prevent race conditions
+// No need to set it again here
 
 if ( $selfie_media_id ) {
     update_post_meta( $selfie_media_id, '_sfs_att_punch_id', $punch_id );

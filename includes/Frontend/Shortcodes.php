@@ -213,7 +213,7 @@ class Shortcodes {
             </div>
         <?php endif; ?>
 
-                <div class="sfs-hr-profile-tabs">
+        <div class="sfs-hr-profile-tabs">
             <a href="<?php echo esc_url( $overview_url ); ?>"
                class="sfs-hr-tab <?php echo ( $active_tab === 'overview' ) ? 'sfs-hr-tab-active' : ''; ?>">
                 <?php esc_html_e( 'Overview', 'sfs-hr' ); ?>
@@ -240,7 +240,6 @@ class Shortcodes {
                 </a>
             <?php endif; ?>
 
-
             <?php if ( $can_self_clock && ! $is_limited_access ) : ?>
                 <a href="<?php echo esc_url( $attendance_url ); ?>"
                    class="sfs-hr-tab <?php echo ( $active_tab === 'attendance' ) ? 'sfs-hr-tab-active' : ''; ?>">
@@ -249,40 +248,35 @@ class Shortcodes {
             <?php endif; ?>
         </div>
 
-
-                <?php if ( $active_tab === 'leave' && ! $is_limited_access ) : ?>
+        <?php if ( $active_tab === 'leave' && ! $is_limited_access ) : ?>
 
             <?php $this->render_frontend_leave_tab( $emp ); ?>
 
         <?php elseif ( $active_tab === 'loans' && ! $is_limited_access ) : ?>
 
-            <?php $this->render_frontend_loans_tab( $emp, $emp_id ); ?>
+        <?php $this->render_frontend_loans_tab( $emp, $emp_id ); ?>
 
-        <?php elseif ( $active_tab === 'resignation' ) : ?>
+    <?php elseif ( $active_tab === 'resignation' ) : ?>
 
-            <?php $this->render_frontend_resignation_tab( $emp ); ?>
+        <?php $this->render_frontend_resignation_tab( $emp ); ?>
 
-        <?php elseif ( $active_tab === 'settlement' && $has_settlements ) : ?>
+    <?php elseif ( $active_tab === 'settlement' && $has_settlements ) : ?>
 
-            <?php $this->render_frontend_settlement_tab( $emp ); ?>
+        <?php $this->render_frontend_settlement_tab( $emp ); ?>
 
-        <?php elseif ( $active_tab === 'attendance' && $can_self_clock ) : ?>
+    <?php elseif ( $active_tab === 'attendance' && $can_self_clock ) : ?>
 
-            <div class="sfs-hr-profile-attendance-tab" style="margin-top:24px;">
+        <div class="sfs-hr-profile-attendance-tab" style="margin-top:24px;">
+            <?php
+            // Full self-web widget, non-immersive so it stays inline.
+            echo do_shortcode( '[sfs_hr_attendance_widget immersive="0"]' );
+            ?>
+        </div>
 
+    <?php else : ?>
 
-        <?php elseif ( $active_tab === 'attendance' && $can_self_clock ) : ?>
+        <div class="sfs-hr-profile-header">
 
-            <div class="sfs-hr-profile-attendance-tab" style="margin-top:24px;">
-                <?php
-                // Full self-web widget, non-immersive so it stays inline.
-                echo do_shortcode( '[sfs_hr_attendance_widget immersive="0"]' );
-                ?>
-            </div>
-
-        <?php else : ?>
-
-            <div class="sfs-hr-profile-header">
     <div class="sfs-hr-profile-photo">
         <?php
         if ( $photo_id ) {
