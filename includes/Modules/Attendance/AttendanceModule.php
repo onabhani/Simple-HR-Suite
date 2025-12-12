@@ -1716,6 +1716,8 @@ try {
   qrVid.muted = true;
 } catch (_) {}
 
+// Debug flag for console logging (set to true to enable debug logs)
+const DBG = false;
 
 function dbg() {
   if (!DBG) return;

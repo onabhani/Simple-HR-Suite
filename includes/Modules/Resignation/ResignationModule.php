@@ -1162,6 +1162,18 @@ class ResignationModule {
                 </p>
 
                 <p>
+                    <label><?php esc_html_e('Resignation Type:', 'sfs-hr'); ?> <span style="color:red;">*</span></label><br>
+                    <label style="display:inline-block;margin-right:20px;">
+                        <input type="radio" name="resignation_type" value="regular" checked required>
+                        <?php esc_html_e('Regular Resignation', 'sfs-hr'); ?>
+                    </label>
+                    <label style="display:inline-block;">
+                        <input type="radio" name="resignation_type" value="final_exit" required>
+                        <?php esc_html_e('Final Exit (Foreign Employees)', 'sfs-hr'); ?>
+                    </label>
+                </p>
+
+                <p>
                     <label for="notice_period_days"><?php esc_html_e('Notice Period (days):', 'sfs-hr'); ?> <span style="color:red;">*</span></label><br>
                     <input type="number" name="notice_period_days" id="notice_period_days" value="30" min="0" required style="width:100%;max-width:300px;">
                 </p>
