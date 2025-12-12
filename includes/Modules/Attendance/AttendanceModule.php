@@ -1213,9 +1213,9 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
         <span id="sfs-kiosk-lane-chip-<?php echo $inst; ?>" class="sfs-chip sfs-chip--in">Clock In</span>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:10px">
           <button type="button" data-action="in"          class="button sfs-lane-btn button-primary">Clock In</button>
-          <button type="button" data-action="out"         class="button sfs-lane-btn">Clock Out</button>
           <button type="button" data-action="break_start" class="button sfs-lane-btn">Break Start</button>
           <button type="button" data-action="break_end"   class="button sfs-lane-btn">Break End</button>
+          <button type="button" data-action="out"         class="button sfs-lane-btn">Clock Out</button>
         </div>
       </div>
 
@@ -1238,9 +1238,10 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
   </div>
 </div>
 
-      
+      <!-- Flashlight overlay for success feedback -->
+      <div id="sfs-kiosk-flash-<?php echo $inst; ?>" class="sfs-flash"></div>
 
-      
+
     </main>
     <?php if ( $immersive ): ?>
   </div> <!-- .sfs-kiosk-veil -->
@@ -1379,6 +1380,17 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 #<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn[data-action="break_start"]{ background:#fff4d6; }
 #<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn[data-action="break_end"]{   background:#eef4ff; }
 
+/* Time-based suggestion highlighting (±30 min from configured time) */
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn.button-suggested {
+  border: 3px solid #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2), 0 2px 0 rgba(0,0,0,.05) !important;
+  font-weight: 600 !important;
+}
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn.button-suggested[data-action="in"]{ background:#d1fae5; }
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn.button-suggested[data-action="out"]{ background:#fecaca; }
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn.button-suggested[data-action="break_start"]{ background:#fde68a; }
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn.button-suggested[data-action="break_end"]{ background:#bfdbfe; }
+
 /* Camera / canvas sizing */
 #<?php echo $root_id; ?> #sfs-kiosk-camwrap-<?php echo $inst; ?>{ width:100%; max-width:1024px; margin:10px auto; }
 #<?php echo $root_id; ?> video{ width:100%; height:auto; border-radius:8px; background:#000; }
@@ -1420,11 +1432,42 @@ body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
 }
 
 
-/* Quick “halo” flash on successful / queued punch */
+/* Quick "halo" flash on successful / queued punch */
 #<?php echo $root_id; ?>.sfs-kiosk-flash-ok {
   animation: sfs-kiosk-punch-ok 0.28s ease-out;
 }
 
+#<?php echo $root_id; ?> .sfs-flash {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease-out;
+  z-index: 9998;
+}
+
+#<?php echo $root_id; ?> .sfs-flash.show {
+  opacity: 1;
+}
+
+#<?php echo $root_id; ?> .sfs-flash--in {
+  background: rgba(34, 197, 94, 0.5);
+}
+
+#<?php echo $root_id; ?> .sfs-flash--out {
+  background: rgba(239, 68, 68, 0.5);
+}
+
+#<?php echo $root_id; ?> .sfs-flash--break_start {
+  background: rgba(245, 158, 11, 0.5);
+}
+
+#<?php echo $root_id; ?> .sfs-flash--break_end {
+  background: rgba(59, 130, 246, 0.5);
+}
 
 @keyframes sfs-kiosk-punch-ok {
   0%   { box-shadow: 0 0 0 0 rgba(34,197,94,0.85); }
@@ -1480,7 +1523,11 @@ async function attemptPunch(type, scanToken, selfieBlob, geox) {
       if (typeof acc === 'number') fd.append('geo_accuracy_m', acc);
     }
   }
-  if (selfieBlob) fd.append('selfie', selfieBlob, 'selfie.jpg');
+  if (selfieBlob) {
+    // Use unique filename with timestamp to prevent overwrites across employees
+    const timestamp = Date.now();
+    fd.append('selfie', selfieBlob, `selfie-${timestamp}.jpg`);
+  }
 
   let res, text = '', json = null;
   try {
@@ -1530,6 +1577,13 @@ async function autoPunchWithFallback(scanToken, selfieBlob, geox) {
       // NEW (server is source of truth via /status)
     const DEVICE_ID = <?php echo (int)$device_id; ?>;
 
+// Time-based action suggestions (±30 minutes window)
+const SUGGEST_TIMES = {
+  in: <?php echo $device && !empty($device['suggest_in_time']) ? wp_json_encode($device['suggest_in_time']) : 'null'; ?>,
+  break_start: <?php echo $device && !empty($device['suggest_break_start_time']) ? wp_json_encode($device['suggest_break_start_time']) : 'null'; ?>,
+  break_end: <?php echo $device && !empty($device['suggest_break_end_time']) ? wp_json_encode($device['suggest_break_end_time']) : 'null'; ?>,
+  out: <?php echo $device && !empty($device['suggest_out_time']) ? wp_json_encode($device['suggest_out_time']) : 'null'; ?>
+};
 
       // Elements
       const ROOT      = document.getElementById('<?php echo esc_js($root_id); ?>');
@@ -1615,7 +1669,7 @@ if (capture) {
       if (r.ok) {
   playActionTone(currentAction);
   flashPunchSuccess('ok');    // halo flash here too
-  // flash(currentAction);     // optional: remove
+  flash(currentAction);       // full-screen color flash
 
   setStat((r.data?.label || 'Done') + ' — Next', 'ok');
   touchActivity();
@@ -1623,7 +1677,7 @@ if (capture) {
   manualSelfieMode = false;
   if (capture) capture.style.display = 'none';
   await refresh();
-  setTimeout(() => { if (uiMode !== 'error') setStat('Scanning…', 'scanning'); }, 800);
+  setTimeout(() => { if (uiMode !== 'error') setStat('Scanning…', 'scanning'); }, 400);
 } else {
         playErrorTone();
         setStat(r.data?.message || `Punch failed (HTTP ${r.status})`, 'error');
@@ -1686,6 +1740,8 @@ try {
   qrVid.muted = true;
 } catch (_) {}
 
+// Debug flag for console logging (set to true to enable debug logs)
+const DBG = false;
 
 
 
@@ -1830,6 +1886,41 @@ laneRoot && laneRoot.addEventListener('keydown', (e)=>{
   setAction(next);
 });
 
+// Time-based action highlighting
+function updateTimeSuggestions() {
+  if (!laneRoot || !SUGGEST_TIMES) return;
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  laneRoot.querySelectorAll('button[data-action]').forEach(btn => {
+    const action = btn.getAttribute('data-action');
+    const suggestTime = SUGGEST_TIMES[action];
+
+    if (!suggestTime) {
+      btn.classList.remove('button-suggested');
+      return;
+    }
+
+    // Parse suggest time (HH:MM:SS format)
+    const [hours, minutes] = suggestTime.split(':').map(Number);
+    const suggestMinutes = hours * 60 + minutes;
+
+    // Check if within ±30 minutes window
+    const diff = Math.abs(currentMinutes - suggestMinutes);
+    const withinWindow = diff <= 30 || diff >= (24 * 60 - 30); // Handle midnight wrap
+
+    if (withinWindow) {
+      btn.classList.add('button-suggested');
+    } else {
+      btn.classList.remove('button-suggested');
+    }
+  });
+}
+
+// Update suggestions on load and every minute
+updateTimeSuggestions();
+setInterval(updateTimeSuggestions, 60000);
 
 // Initial lane
 setAction('in');
@@ -1840,10 +1931,14 @@ let inflight = false;
 
 
 // Short beep on success (no <audio> tag needed)
-function playActionTone(kind){
+async function playActionTone(kind){
   const freq = { in: 920, out: 420, break_start: 680, break_end: 560 }[kind] || 750;
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Resume context if suspended (browser autoplay policy)
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
     const o = ctx.createOscillator(); const g = ctx.createGain();
     o.type = 'sine'; o.frequency.value = freq;
     o.connect(g); g.connect(ctx.destination);
@@ -1851,7 +1946,10 @@ function playActionTone(kind){
     o.start();
     g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
     setTimeout(()=>{ o.stop(); ctx.close(); }, 260);
-  } catch(_) {}
+  } catch(e) {
+    // Log audio errors to console for debugging
+    dbg('Audio tone error:', e);
+  }
 }
 function flash(kind){
   if (!flashEl) return;
@@ -1859,7 +1957,7 @@ function flash(kind){
   // trigger reflow to restart animation
   void flashEl.offsetWidth;
   flashEl.classList.add('show');
-  setTimeout(()=> flashEl.classList.remove('show'), 220);
+  setTimeout(()=> flashEl.classList.remove('show'), 400);
 }
 
 
@@ -2048,7 +2146,7 @@ if (empEl) {
     if (r.ok) {
   playActionTone(currentAction);
   flashPunchSuccess('ok');   // <- use halo on the whole kiosk
-  // flash(currentAction);    // optional: remove or keep, it’s a no-op now
+  flash(currentAction);      // full-screen color flash
 
   setStat((r.data?.label || 'Done') + ' — Next', 'ok');
 
@@ -2059,7 +2157,7 @@ if (empEl) {
 
   setTimeout(() => {
     if (uiMode !== 'error') setStat('Scanning…', 'scanning');
-  }, 800);
+  }, 400);
 
   return true;
 }
@@ -2382,11 +2480,7 @@ setStat('Ready — action: ' + labelFor(currentAction) + tag, currentAction);
 requiresSelfie = !!j.requires_selfie;
 const qrOn = (typeof j.qr_enabled === 'boolean') ? j.qr_enabled : true;
 
-
-
-
 // Single, unified status line
-
 setStat('Ready — action: ' + labelFor(currentAction) + tag, 'idle');
 if (laneChip) {
   laneChip.textContent = labelFor(currentAction);
@@ -2654,7 +2748,10 @@ tickDate();
             
             if (typeof geo.acc==='number') fd.append('geo_accuracy_m', String(Math.round(geo.acc)));
           }
-          fd.append('selfie', lastBlob, 'kiosk-selfie.jpg');
+          // Use unique filename with timestamp and random component to prevent overwrites
+          const timestamp = Date.now();
+          const random = Math.random().toString(36).substring(7);
+          fd.append('selfie', lastBlob, `kiosk-selfie-${timestamp}-${random}.jpg`);
           fd.append('employee_scan_token', employeeScanToken || '');
           body = fd;
         } else {
@@ -2852,6 +2949,10 @@ self::add_column_if_missing($wpdb, $t, 'allowed_dept',      "allowed_dept ENUM('
 self::add_column_if_missing($wpdb, $t, 'active',            "active TINYINT(1) NOT NULL DEFAULT 1");
 self::add_column_if_missing($wpdb, $t, 'qr_enabled',        "qr_enabled TINYINT(1) NOT NULL DEFAULT 1");
 self::add_column_if_missing($wpdb, $t, 'selfie_mode',       "selfie_mode ENUM('inherit','never','in_only','in_out','all') NOT NULL DEFAULT 'inherit'");
+self::add_column_if_missing($wpdb, $t, 'suggest_in_time',         "suggest_in_time TIME NULL");
+self::add_column_if_missing($wpdb, $t, 'suggest_break_start_time',"suggest_break_start_time TIME NULL");
+self::add_column_if_missing($wpdb, $t, 'suggest_break_end_time',  "suggest_break_end_time TIME NULL");
+self::add_column_if_missing($wpdb, $t, 'suggest_out_time',        "suggest_out_time TIME NULL");
 
 
         // 6) flags (exceptions)

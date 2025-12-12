@@ -163,6 +163,18 @@ class Migrations {
         self::add_column_if_missing($resign, 'handover_notes', "TEXT NULL");
         self::add_column_if_missing($resign, 'clearance_status', "VARCHAR(20) NOT NULL DEFAULT 'pending'");
 
+        // Final Exit columns for foreign employees
+        self::add_column_if_missing($resign, 'resignation_type', "VARCHAR(20) NOT NULL DEFAULT 'regular'");
+        self::add_column_if_missing($resign, 'final_exit_status', "VARCHAR(20) NOT NULL DEFAULT 'not_required'");
+        self::add_column_if_missing($resign, 'final_exit_number', "VARCHAR(100) NULL");
+        self::add_column_if_missing($resign, 'final_exit_date', "DATE NULL");
+        self::add_column_if_missing($resign, 'final_exit_submitted_date', "DATE NULL");
+        self::add_column_if_missing($resign, 'government_reference', "VARCHAR(100) NULL");
+        self::add_column_if_missing($resign, 'expected_country_exit_date', "DATE NULL");
+        self::add_column_if_missing($resign, 'actual_exit_date', "DATE NULL");
+        self::add_column_if_missing($resign, 'ticket_booked', "TINYINT(1) NOT NULL DEFAULT 0");
+        self::add_column_if_missing($resign, 'exit_stamp_received', "TINYINT(1) NOT NULL DEFAULT 0");
+
         /** END OF SERVICE SETTLEMENTS */
         $wpdb->query("CREATE TABLE IF NOT EXISTS `$settle` (
             `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,

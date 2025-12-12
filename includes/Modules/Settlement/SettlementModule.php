@@ -485,6 +485,93 @@ class SettlementModule {
                     </tr>
                 </table>
 
+                <h2 style="margin-top:30px;"><?php esc_html_e('Loan Status', 'sfs-hr'); ?></h2>
+                <?php
+                // Check for active loans
+                $has_loans = false;
+                $outstanding_balance = 0;
+                $loan_summary = null;
+
+                if (class_exists('\SFS\HR\Modules\Loans\LoansModule')) {
+                    $has_loans = \SFS\HR\Modules\Loans\LoansModule::has_active_loans($settlement['employee_id']);
+                    $outstanding_balance = \SFS\HR\Modules\Loans\LoansModule::get_outstanding_balance($settlement['employee_id']);
+
+                    if (class_exists('\SFS\HR\Modules\Loans\Admin\DashboardWidget')) {
+                        $loan_summary = \SFS\HR\Modules\Loans\Admin\DashboardWidget::get_employee_loan_summary($settlement['employee_id']);
+                    }
+                }
+                ?>
+                <?php if ($has_loans && $outstanding_balance > 0): ?>
+                <div class="notice notice-error inline" style="margin:0 0 20px 0;">
+                    <p><strong><?php esc_html_e('⚠️ Outstanding Loan Alert:', 'sfs-hr'); ?></strong></p>
+                    <p><?php echo sprintf(
+                        esc_html__('This employee has an outstanding loan balance of %s SAR. Settlement cannot be finalized until all loans are settled with Finance.', 'sfs-hr'),
+                        '<strong>' . number_format($outstanding_balance, 2) . '</strong>'
+                    ); ?></p>
+                    <?php if ($loan_summary): ?>
+                    <p>
+                        <strong><?php esc_html_e('Loan Details:', 'sfs-hr'); ?></strong><br>
+                        <?php esc_html_e('Active Loans:', 'sfs-hr'); ?> <?php echo esc_html($loan_summary['loan_count']); ?><br>
+                        <?php if (!empty($loan_summary['next_due_date'])): ?>
+                            <?php esc_html_e('Next Payment Due:', 'sfs-hr'); ?> <?php echo esc_html($loan_summary['next_due_date']); ?><br>
+                        <?php endif; ?>
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-loans&employee_id=' . $settlement['employee_id'])); ?>" class="button button-small">
+                            <?php esc_html_e('View Loans', 'sfs-hr'); ?>
+                        </a>
+                    </p>
+                    <?php endif; ?>
+                </div>
+                <?php else: ?>
+                <div class="notice notice-success inline" style="margin:0 0 20px 0;">
+                    <p><strong><?php esc_html_e('✓ Loan Clearance:', 'sfs-hr'); ?></strong> <?php esc_html_e('No outstanding loans. Employee cleared for settlement.', 'sfs-hr'); ?></p>
+                </div>
+                <?php endif; ?>
+
+                <h2 style="margin-top:30px;"><?php esc_html_e('Asset Return Status', 'sfs-hr'); ?></h2>
+                <?php
+                // Check for unreturned assets
+                $has_unreturned_assets = false;
+                $unreturned_assets = [];
+                $unreturned_count = 0;
+
+                if (class_exists('\SFS\HR\Modules\Assets\AssetsModule')) {
+                    $has_unreturned_assets = \SFS\HR\Modules\Assets\AssetsModule::has_unreturned_assets($settlement['employee_id']);
+                    $unreturned_count = \SFS\HR\Modules\Assets\AssetsModule::get_unreturned_assets_count($settlement['employee_id']);
+                    $unreturned_assets = \SFS\HR\Modules\Assets\AssetsModule::get_unreturned_assets($settlement['employee_id']);
+                }
+                ?>
+                <?php if ($has_unreturned_assets): ?>
+                <div class="notice notice-error inline" style="margin:0 0 20px 0;">
+                    <p><strong><?php esc_html_e('⚠️ Unreturned Assets Alert:', 'sfs-hr'); ?></strong></p>
+                    <p><?php echo sprintf(
+                        esc_html__('This employee has %d unreturned asset(s). Settlement cannot be finalized until all assets are returned.', 'sfs-hr'),
+                        '<strong>' . $unreturned_count . '</strong>'
+                    ); ?></p>
+                    <?php if (!empty($unreturned_assets)): ?>
+                    <p><strong><?php esc_html_e('Unreturned Assets:', 'sfs-hr'); ?></strong></p>
+                    <ul style="margin-left:20px;">
+                        <?php foreach ($unreturned_assets as $asset): ?>
+                        <li>
+                            <strong><?php echo esc_html($asset['asset_name']); ?></strong>
+                            (<?php echo esc_html($asset['asset_code']); ?>)
+                            - <?php echo esc_html($asset['category']); ?>
+                            - <em><?php echo esc_html(ucfirst(str_replace('_', ' ', $asset['assignment_status']))); ?></em>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <p>
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-employee-profile&id=' . $settlement['employee_id'] . '&tab=assets')); ?>" class="button button-small">
+                            <?php esc_html_e('View Employee Assets', 'sfs-hr'); ?>
+                        </a>
+                    </p>
+                    <?php endif; ?>
+                </div>
+                <?php else: ?>
+                <div class="notice notice-success inline" style="margin:0 0 20px 0;">
+                    <p><strong><?php esc_html_e('✓ Asset Clearance:', 'sfs-hr'); ?></strong> <?php esc_html_e('All assets returned. Employee cleared for settlement.', 'sfs-hr'); ?></p>
+                </div>
+                <?php endif; ?>
+
                 <h2 style="margin-top:30px;"><?php esc_html_e('Approval & Payment', 'sfs-hr'); ?></h2>
                 <table class="widefat">
                     <tr>
@@ -686,6 +773,62 @@ class SettlementModule {
         $settlement_id = intval($_POST['settlement_id'] ?? 0);
         $note = sanitize_textarea_field($_POST['note'] ?? '');
 
+        // Get settlement details
+        $settlement = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $table WHERE id = %d",
+            $settlement_id
+        ), ARRAY_A);
+
+        if (!$settlement) {
+            wp_die(__('Settlement not found.', 'sfs-hr'));
+        }
+
+        // Check for outstanding loans
+        if (class_exists('\SFS\HR\Modules\Loans\LoansModule')) {
+            $has_loans = \SFS\HR\Modules\Loans\LoansModule::has_active_loans($settlement['employee_id']);
+            $outstanding = \SFS\HR\Modules\Loans\LoansModule::get_outstanding_balance($settlement['employee_id']);
+
+            if ($has_loans && $outstanding > 0) {
+                wp_die(
+                    sprintf(
+                        '<h1>%s</h1><p>%s</p><p><a href="%s" class="button">%s</a> <a href="%s" class="button button-primary">%s</a></p>',
+                        esc_html__('Settlement Approval Blocked', 'sfs-hr'),
+                        sprintf(
+                            esc_html__('Cannot approve settlement. Employee has outstanding loan balance of %s SAR. Please settle all loans with Finance department first.', 'sfs-hr'),
+                            '<strong>' . number_format($outstanding, 2) . '</strong>'
+                        ),
+                        esc_url(admin_url('admin.php?page=sfs-hr-settlements&action=view&id=' . $settlement_id)),
+                        esc_html__('Back to Settlement', 'sfs-hr'),
+                        esc_url(admin_url('admin.php?page=sfs-hr-loans&employee_id=' . $settlement['employee_id'])),
+                        esc_html__('View Employee Loans', 'sfs-hr')
+                    )
+                );
+            }
+        }
+
+        // Check for unreturned assets
+        if (class_exists('\SFS\HR\Modules\Assets\AssetsModule')) {
+            $has_unreturned = \SFS\HR\Modules\Assets\AssetsModule::has_unreturned_assets($settlement['employee_id']);
+            $unreturned_count = \SFS\HR\Modules\Assets\AssetsModule::get_unreturned_assets_count($settlement['employee_id']);
+
+            if ($has_unreturned) {
+                wp_die(
+                    sprintf(
+                        '<h1>%s</h1><p>%s</p><p><a href="%s" class="button">%s</a> <a href="%s" class="button button-primary">%s</a></p>',
+                        esc_html__('Settlement Approval Blocked', 'sfs-hr'),
+                        sprintf(
+                            esc_html__('Cannot approve settlement. Employee has %d unreturned asset(s). All assets must be returned before settlement approval.', 'sfs-hr'),
+                            '<strong>' . $unreturned_count . '</strong>'
+                        ),
+                        esc_url(admin_url('admin.php?page=sfs-hr-settlements&action=view&id=' . $settlement_id)),
+                        esc_html__('Back to Settlement', 'sfs-hr'),
+                        esc_url(admin_url('admin.php?page=sfs-hr-employee-profile&id=' . $settlement['employee_id'] . '&tab=assets')),
+                        esc_html__('View Employee Assets', 'sfs-hr')
+                    )
+                );
+            }
+        }
+
         $wpdb->update($table, [
             'status' => 'approved',
             'approver_id' => get_current_user_id(),
@@ -736,6 +879,64 @@ class SettlementModule {
         $settlement_id = intval($_POST['settlement_id'] ?? 0);
         $payment_date = sanitize_text_field($_POST['payment_date'] ?? '');
         $payment_reference = sanitize_text_field($_POST['payment_reference'] ?? '');
+
+        // Get settlement details
+        $settlement = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $table WHERE id = %d",
+            $settlement_id
+        ), ARRAY_A);
+
+        if (!$settlement) {
+            wp_die(__('Settlement not found.', 'sfs-hr'));
+        }
+
+        // CRITICAL: Check for outstanding loans before final payment
+        if (class_exists('\SFS\HR\Modules\Loans\LoansModule')) {
+            $has_loans = \SFS\HR\Modules\Loans\LoansModule::has_active_loans($settlement['employee_id']);
+            $outstanding = \SFS\HR\Modules\Loans\LoansModule::get_outstanding_balance($settlement['employee_id']);
+
+            if ($has_loans && $outstanding > 0) {
+                wp_die(
+                    sprintf(
+                        '<h1>%s</h1><p>%s</p><p><strong>%s</strong></p><p><a href="%s" class="button">%s</a> <a href="%s" class="button button-primary">%s</a></p>',
+                        esc_html__('Settlement Payment Blocked', 'sfs-hr'),
+                        sprintf(
+                            esc_html__('Cannot complete final settlement payment. Employee has outstanding loan balance of %s SAR.', 'sfs-hr'),
+                            '<strong style="color:red;">' . number_format($outstanding, 2) . '</strong>'
+                        ),
+                        esc_html__('All loans must be fully settled before releasing final exit settlement payment.', 'sfs-hr'),
+                        esc_url(admin_url('admin.php?page=sfs-hr-settlements&action=view&id=' . $settlement_id)),
+                        esc_html__('Back to Settlement', 'sfs-hr'),
+                        esc_url(admin_url('admin.php?page=sfs-hr-loans&employee_id=' . $settlement['employee_id'])),
+                        esc_html__('View Employee Loans', 'sfs-hr')
+                    )
+                );
+            }
+        }
+
+        // CRITICAL: Check for unreturned assets before final payment
+        if (class_exists('\SFS\HR\Modules\Assets\AssetsModule')) {
+            $has_unreturned = \SFS\HR\Modules\Assets\AssetsModule::has_unreturned_assets($settlement['employee_id']);
+            $unreturned_count = \SFS\HR\Modules\Assets\AssetsModule::get_unreturned_assets_count($settlement['employee_id']);
+
+            if ($has_unreturned) {
+                wp_die(
+                    sprintf(
+                        '<h1>%s</h1><p>%s</p><p><strong>%s</strong></p><p><a href="%s" class="button">%s</a> <a href="%s" class="button button-primary">%s</a></p>',
+                        esc_html__('Settlement Payment Blocked', 'sfs-hr'),
+                        sprintf(
+                            esc_html__('Cannot complete final settlement payment. Employee has %d unreturned asset(s).', 'sfs-hr'),
+                            '<strong style="color:red;">' . $unreturned_count . '</strong>'
+                        ),
+                        esc_html__('All assets must be returned before releasing final exit settlement payment.', 'sfs-hr'),
+                        esc_url(admin_url('admin.php?page=sfs-hr-settlements&action=view&id=' . $settlement_id)),
+                        esc_html__('Back to Settlement', 'sfs-hr'),
+                        esc_url(admin_url('admin.php?page=sfs-hr-employee-profile&id=' . $settlement['employee_id'] . '&tab=assets')),
+                        esc_html__('View Employee Assets', 'sfs-hr')
+                    )
+                );
+            }
+        }
 
         $wpdb->update($table, [
             'status' => 'paid',
