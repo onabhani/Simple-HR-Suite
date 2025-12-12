@@ -1645,7 +1645,7 @@ if (capture) {
       if (r.ok) {
   playActionTone(currentAction);
   flashPunchSuccess('ok');    // halo flash here too
-  // flash(currentAction);     // optional: remove
+  flash(currentAction);       // full-screen color flash
 
   setStat((r.data?.label || 'Done') + ' — Next', 'ok');
   touchActivity();
@@ -1893,10 +1893,14 @@ let inflight = false;
 
 
 // Short beep on success (no <audio> tag needed)
-function playActionTone(kind){
+async function playActionTone(kind){
   const freq = { in: 920, out: 420, break_start: 680, break_end: 560 }[kind] || 750;
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Resume context if suspended (browser autoplay policy)
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
     const o = ctx.createOscillator(); const g = ctx.createGain();
     o.type = 'sine'; o.frequency.value = freq;
     o.connect(g); g.connect(ctx.destination);
@@ -1904,7 +1908,10 @@ function playActionTone(kind){
     o.start();
     g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
     setTimeout(()=>{ o.stop(); ctx.close(); }, 260);
-  } catch(_) {}
+  } catch(e) {
+    // Log audio errors to console for debugging
+    dbg('Audio tone error:', e);
+  }
 }
 function flash(kind){
   if (!flashEl) return;
@@ -2101,7 +2108,7 @@ if (empEl) {
     if (r.ok) {
   playActionTone(currentAction);
   flashPunchSuccess('ok');   // <- use halo on the whole kiosk
-  // flash(currentAction);    // optional: remove or keep, it’s a no-op now
+  flash(currentAction);      // full-screen color flash
 
   setStat((r.data?.label || 'Done') + ' — Next', 'ok');
 
