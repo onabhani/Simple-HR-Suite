@@ -209,7 +209,7 @@ public static function scan( \WP_REST_Request $req ) {
         'qr_token'    => $qrTok,
         'ua'          => isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '',
         'ip'          => isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : '',
-    ], 180 ); // TTL: 3 minutes
+    ], 600 ); // TTL: 10 minutes (allows full punch sequence: In → Break Start → Break End → Out)
 
     return rest_ensure_response([
         'ok'            => true,
@@ -377,7 +377,7 @@ public static function punch( \WP_REST_Request $req ) {
 
 
     // ---- Kiosk: PEEK (not consume) the short-lived scan token to allow multiple punch types
-    // Token will expire naturally after TTL (3 minutes), allowing Break/Out after In
+    // Token will expire naturally after TTL (10 minutes), allowing Break/Out after In
 $scanned_emp = null;
 if ( $source === 'kiosk' && $scan_token !== '' ) {
     $payload = self::get_scan_token( $scan_token ); // ← peek, don't consume (allows multiple punches)

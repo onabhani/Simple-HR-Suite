@@ -1434,7 +1434,7 @@ body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
   bottom: 0;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.22s ease-out;
+  transition: opacity 0.35s ease-out;
   z-index: 9998;
 }
 
@@ -1653,7 +1653,7 @@ if (capture) {
   manualSelfieMode = false;
   if (capture) capture.style.display = 'none';
   await refresh();
-  setTimeout(() => { if (uiMode !== 'error') setStat('Scanning…', 'scanning'); }, 800);
+  setTimeout(() => { if (uiMode !== 'error') setStat('Scanning…', 'scanning'); }, 400);
 } else {
         playErrorTone();
         setStat(r.data?.message || `Punch failed (HTTP ${r.status})`, 'error');
@@ -1919,7 +1919,7 @@ function flash(kind){
   // trigger reflow to restart animation
   void flashEl.offsetWidth;
   flashEl.classList.add('show');
-  setTimeout(()=> flashEl.classList.remove('show'), 220);
+  setTimeout(()=> flashEl.classList.remove('show'), 400);
 }
 
 
@@ -2119,7 +2119,7 @@ if (empEl) {
 
   setTimeout(() => {
     if (uiMode !== 'error') setStat('Scanning…', 'scanning');
-  }, 800);
+  }, 400);
 
   return true;
 }
