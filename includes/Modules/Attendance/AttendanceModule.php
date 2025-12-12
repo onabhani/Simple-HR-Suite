@@ -1506,7 +1506,11 @@ async function attemptPunch(type, scanToken, selfieBlob, geox) {
       if (typeof acc === 'number') fd.append('geo_accuracy_m', acc);
     }
   }
-  if (selfieBlob) fd.append('selfie', selfieBlob, 'selfie.jpg');
+  if (selfieBlob) {
+    // Use unique filename with timestamp to prevent overwrites across employees
+    const timestamp = Date.now();
+    fd.append('selfie', selfieBlob, `selfie-${timestamp}.jpg`);
+  }
 
   let res, text = '', json = null;
   try {
@@ -2693,7 +2697,10 @@ tickDate();
             
             if (typeof geo.acc==='number') fd.append('geo_accuracy_m', String(Math.round(geo.acc)));
           }
-          fd.append('selfie', lastBlob, 'kiosk-selfie.jpg');
+          // Use unique filename with timestamp and random component to prevent overwrites
+          const timestamp = Date.now();
+          const random = Math.random().toString(36).substring(7);
+          fd.append('selfie', lastBlob, `kiosk-selfie-${timestamp}-${random}.jpg`);
           fd.append('employee_scan_token', employeeScanToken || '');
           body = fd;
         } else {
