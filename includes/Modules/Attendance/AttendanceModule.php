@@ -1380,6 +1380,17 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 #<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn[data-action="break_start"]{ background:#fff4d6; }
 #<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn[data-action="break_end"]{   background:#eef4ff; }
 
+/* Time-based suggestion highlighting (±30 min from configured time) */
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn.button-suggested {
+  border: 3px solid #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2), 0 2px 0 rgba(0,0,0,.05) !important;
+  font-weight: 600 !important;
+}
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn.button-suggested[data-action="in"]{ background:#d1fae5; }
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn.button-suggested[data-action="out"]{ background:#fecaca; }
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn.button-suggested[data-action="break_start"]{ background:#fde68a; }
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn.button-suggested[data-action="break_end"]{ background:#bfdbfe; }
+
 /* Camera / canvas sizing */
 #<?php echo $root_id; ?> #sfs-kiosk-camwrap-<?php echo $inst; ?>{ width:100%; max-width:1024px; margin:10px auto; }
 #<?php echo $root_id; ?> video{ width:100%; height:auto; border-radius:8px; background:#000; }
@@ -1566,6 +1577,13 @@ async function autoPunchWithFallback(scanToken, selfieBlob, geox) {
       // NEW (server is source of truth via /status)
     const DEVICE_ID = <?php echo (int)$device_id; ?>;
 
+// Time-based action suggestions (±30 minutes window)
+const SUGGEST_TIMES = {
+  in: <?php echo $device && !empty($device['suggest_in_time']) ? wp_json_encode($device['suggest_in_time']) : 'null'; ?>,
+  break_start: <?php echo $device && !empty($device['suggest_break_start_time']) ? wp_json_encode($device['suggest_break_start_time']) : 'null'; ?>,
+  break_end: <?php echo $device && !empty($device['suggest_break_end_time']) ? wp_json_encode($device['suggest_break_end_time']) : 'null'; ?>,
+  out: <?php echo $device && !empty($device['suggest_out_time']) ? wp_json_encode($device['suggest_out_time']) : 'null'; ?>
+};
 
       // Elements
       const ROOT      = document.getElementById('<?php echo esc_js($root_id); ?>');
@@ -1868,6 +1886,41 @@ laneRoot && laneRoot.addEventListener('keydown', (e)=>{
   setAction(next);
 });
 
+// Time-based action highlighting
+function updateTimeSuggestions() {
+  if (!laneRoot || !SUGGEST_TIMES) return;
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  laneRoot.querySelectorAll('button[data-action]').forEach(btn => {
+    const action = btn.getAttribute('data-action');
+    const suggestTime = SUGGEST_TIMES[action];
+
+    if (!suggestTime) {
+      btn.classList.remove('button-suggested');
+      return;
+    }
+
+    // Parse suggest time (HH:MM:SS format)
+    const [hours, minutes] = suggestTime.split(':').map(Number);
+    const suggestMinutes = hours * 60 + minutes;
+
+    // Check if within ±30 minutes window
+    const diff = Math.abs(currentMinutes - suggestMinutes);
+    const withinWindow = diff <= 30 || diff >= (24 * 60 - 30); // Handle midnight wrap
+
+    if (withinWindow) {
+      btn.classList.add('button-suggested');
+    } else {
+      btn.classList.remove('button-suggested');
+    }
+  });
+}
+
+// Update suggestions on load and every minute
+updateTimeSuggestions();
+setInterval(updateTimeSuggestions, 60000);
 
 // Initial lane
 setAction('in');
@@ -2896,6 +2949,10 @@ self::add_column_if_missing($wpdb, $t, 'allowed_dept',      "allowed_dept ENUM('
 self::add_column_if_missing($wpdb, $t, 'active',            "active TINYINT(1) NOT NULL DEFAULT 1");
 self::add_column_if_missing($wpdb, $t, 'qr_enabled',        "qr_enabled TINYINT(1) NOT NULL DEFAULT 1");
 self::add_column_if_missing($wpdb, $t, 'selfie_mode',       "selfie_mode ENUM('inherit','never','in_only','in_out','all') NOT NULL DEFAULT 'inherit'");
+self::add_column_if_missing($wpdb, $t, 'suggest_in_time',         "suggest_in_time TIME NULL");
+self::add_column_if_missing($wpdb, $t, 'suggest_break_start_time',"suggest_break_start_time TIME NULL");
+self::add_column_if_missing($wpdb, $t, 'suggest_break_end_time',  "suggest_break_end_time TIME NULL");
+self::add_column_if_missing($wpdb, $t, 'suggest_out_time',        "suggest_out_time TIME NULL");
 
 
         // 6) flags (exceptions)
