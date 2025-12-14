@@ -2846,7 +2846,10 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
             PRIMARY KEY (id),
             KEY emp_time (employee_id, punch_time),
             KEY dev_time (device_id, punch_time),
-            KEY punch_time (punch_time)
+            KEY punch_time (punch_time),
+            KEY date_type (punch_time, punch_type),
+            KEY source (source),
+            KEY emp_type_date (employee_id, punch_type, punch_time)
         ) $charset_collate;");
 
         // 2) sessions (processed day rows for payroll)
@@ -2943,7 +2946,8 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
             selfie_mode ENUM('inherit','never','in_only','in_out','all') NOT NULL DEFAULT 'inherit',
             PRIMARY KEY (id),
             KEY active_type (active, type),
-            KEY fp (fingerprint_hash)
+            KEY fp (fingerprint_hash),
+            KEY kiosk_enabled (kiosk_enabled)
         ) $charset_collate;");
 
 
