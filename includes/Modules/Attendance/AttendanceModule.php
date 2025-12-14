@@ -2113,18 +2113,26 @@ if (empEl) {
 
 
     // --- Prepare geo + selfie (if required)
-        if (qrStat) qrStat.textContent = '1/3 Checking location…';
-
-    // 1) Enforce geofence
+    // For kiosks (fixed location), skip browser GPS - use device's configured location
+    // For web/mobile, get browser GPS for verification
     let geox = null;
-    try {
-        geox = await getGeo();  // uses sfsGeo + ROOT just like manual punch
-        if (qrStat) qrStat.textContent = requiresSelfie ? '2/3 Capturing photo…' : '2/2 Recording punch…';
-    } catch(e){
-        // geo_blocked → abort this scan and cool down this frame
-        lastQrValue = raw;
-        lastQrTs    = Date.now() + (BACKOFF_MS_ERR - QR_COOLDOWN_MS);
-        return false; // keep scanner running, but no punch
+
+    if (!deviceIdSafe) {
+        // Web/mobile source: get GPS from browser
+        if (qrStat) qrStat.textContent = '1/3 Checking location…';
+        try {
+            geox = await getGeo();
+            if (qrStat) qrStat.textContent = requiresSelfie ? '2/3 Capturing photo…' : '2/2 Recording punch…';
+        } catch(e){
+            // geo_blocked → abort this scan and cool down this frame
+            lastQrValue = raw;
+            lastQrTs    = Date.now() + (BACKOFF_MS_ERR - QR_COOLDOWN_MS);
+            return false; // keep scanner running, but no punch
+        }
+    } else {
+        // Kiosk source: skip GPS check (device has fixed configured location)
+        // Server will validate against device's geo_lock settings
+        if (qrStat) qrStat.textContent = requiresSelfie ? '1/2 Capturing photo…' : '1/1 Recording punch…';
     }
 
     // 2) Capture selfie frame (if needed)
