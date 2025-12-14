@@ -189,7 +189,7 @@ add_action('rest_api_init', function () {
             <!-- Selfie panel (manual capture like kiosk) -->
             <div id="sfs-att-selfie-panel" class="sfs-att-selfie-panel">
               <video id="sfs-att-selfie-video" autoplay playsinline muted></video>
-              <canvas id="sfs-att-selfie-canvas" width="640" height="640" hidden></canvas>
+              <canvas id="sfs-att-selfie-canvas" width="480" height="480" hidden></canvas>
               <div class="sfs-att-selfie-actions">
                 <button type="button" id="sfs-att-selfie-capture" class="button button-primary">
                   Capture &amp; Submit
@@ -1229,7 +1229,7 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
          style="width:100%;border-radius:8px;background:#000"></video>
 
   <!-- Hidden square canvas only for snapshot encoding -->
-  <canvas id="sfs-kiosk-selfie-<?php echo $inst; ?>" width="640" height="640" hidden></canvas>
+  <canvas id="sfs-kiosk-selfie-<?php echo $inst; ?>" width="480" height="480" hidden></canvas>
 
   <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
     <button id="sfs-kiosk-qr-exit-<?php echo $inst; ?>" type="button" class="button button-secondary">Exit</button>
@@ -2104,7 +2104,7 @@ async function handleQrFound(raw) {
     const empName = (data && (data.employee_name || data.name))
   || `Employee #${data.employee_id || emp}`;
 
-setStat(`${empName} ready`, 'ok');
+setStat(`✓ ${empName} — Validating…`, 'ok');
 dbg('scan ok', data);
 
 if (empEl) {
@@ -2113,12 +2113,13 @@ if (empEl) {
 
 
     // --- Prepare geo + selfie (if required)
-        if (qrStat) qrStat.textContent = 'QR OK — preparing punch…';
+        if (qrStat) qrStat.textContent = '1/3 Checking location…';
 
     // 1) Enforce geofence
     let geox = null;
     try {
         geox = await getGeo();  // uses sfsGeo + ROOT just like manual punch
+        if (qrStat) qrStat.textContent = requiresSelfie ? '2/3 Capturing photo…' : '2/2 Recording punch…';
     } catch(e){
         // geo_blocked → abort this scan and cool down this frame
         lastQrValue = raw;
@@ -2133,13 +2134,13 @@ if (empEl) {
       manualSelfieMode = true;
       pendingPunch = { scanToken, geox };
       if (capture) capture.style.display = '';
-      setStat('Keep face in frame and press “Capture Selfie”.', 'error');
+      setStat('Keep face in frame and press "Capture Selfie".', 'error');
       lastQrValue = raw;
       lastQrTs    = Date.now() + (BACKOFF_MS_SLF - QR_COOLDOWN_MS);
       return false;
     }
 
-    if (qrStat) qrStat.textContent = 'QR OK — attempting punch…';
+    if (qrStat) qrStat.textContent = requiresSelfie ? '3/3 Uploading & recording…' : '2/2 Recording punch…';
     const r = await attemptPunch(currentAction, scanToken, selfieBlob, geox);
 
 
@@ -2636,7 +2637,7 @@ function captureSelfieFromQrVideo() {
   ctx.drawImage(qrVid, sx, sy, size, size, 0, 0, canvas.width, canvas.height);
 
   return new Promise(resolve => {
-    canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.9);
+    canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.75);
   });
 }
 
