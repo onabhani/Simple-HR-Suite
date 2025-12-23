@@ -1125,6 +1125,21 @@ public function render_exceptions(): void {
         }
     }
 
+    // Check which flag columns exist in sessions table
+    $sCols = array_map('strval', $wpdb->get_col("SHOW COLUMNS FROM {$sT}", 0) ?: []);
+    $hasS  = static fn($c) => in_array($c, $sCols, true);
+
+    // Build exception conditions only for columns that exist
+    $conditions = [];
+    if ($hasS('late_flag'))         $conditions[] = 's.late_flag=1';
+    if ($hasS('early_flag'))        $conditions[] = 's.early_flag=1';
+    if ($hasS('missed_punch_flag')) $conditions[] = 's.missed_punch_flag=1';
+    if ($hasS('outside_geo_count')) $conditions[] = 's.outside_geo_count>0';
+    if ($hasS('no_selfie_count'))   $conditions[] = 's.no_selfie_count>0';
+    if ($hasS('flags_json'))        $conditions[] = "(s.flags_json IS NOT NULL AND s.flags_json LIKE '%over_break:%')";
+
+    $exceptionsWhere = $conditions ? '(' . implode("\n   OR ", $conditions) . ')' : '1=0';
+
     $sql = $wpdb->prepare("
       SELECT s.*, e.user_id, u.display_name, COALESCE(d.name,'') AS dept_name
       FROM {$sT} s
@@ -1132,15 +1147,7 @@ public function render_exceptions(): void {
       LEFT JOIN {$uT} u ON u.ID = e.user_id
       {$joinDept}
       WHERE s.work_date=%s
-        AND (
-      s.late_flag=1
-   OR s.early_flag=1
-   OR s.missed_punch_flag=1
-   OR s.outside_geo_count>0
-   OR s.no_selfie_count>0
-   OR (s.flags_json IS NOT NULL AND s.flags_json LIKE '%over_break:%')
-)
-
+        AND {$exceptionsWhere}
         {$whereDept}
       ORDER BY u.display_name ASC
     ", $date);
@@ -1191,14 +1198,14 @@ public function render_exceptions(): void {
               <td>
                 <?php
                   $flags = [];
-                  if ($r->late_flag) $flags[]='late';
-                  if ($r->early_flag) $flags[]='early';
-                  if ($r->missed_punch_flag) $flags[]='missed';
+                  if (!empty($r->late_flag)) $flags[]='late';
+                  if (!empty($r->early_flag)) $flags[]='early';
+                  if (!empty($r->missed_punch_flag)) $flags[]='missed';
                   echo esc_html( $flags ? implode(', ', $flags) : '-' );
                 ?>
               </td>
-              <td><?php echo (int)$r->outside_geo_count; ?></td>
-              <td><?php echo (int)$r->no_selfie_count; ?></td>
+              <td><?php echo isset($r->outside_geo_count) ? (int)$r->outside_geo_count : '-'; ?></td>
+              <td><?php echo isset($r->no_selfie_count) ? (int)$r->no_selfie_count : '-'; ?></td>
             </tr>
           <?php endforeach; ?>
           <?php if (empty($rows)): ?>
@@ -1260,6 +1267,8 @@ public function render_exceptions(): void {
     $missedCol  = $hasS('missed_punch_flag') ? 's.missed_punch_flag' : '0';
     $lockedCol  = $hasS('locked')            ? 's.locked'            : '0';
     $flagsCol   = $hasS('flags_json')        ? 's.flags_json'        : 'NULL';
+    $outGeoCol  = $hasS('outside_geo_count') ? 's.outside_geo_count' : '0';
+    $noSelfCol  = $hasS('no_selfie_count')   ? 's.no_selfie_count'   : '0';
 
     // employee_code may not exist everywhere
     $eCols = array_map('strval', $wpdb->get_col("SHOW COLUMNS FROM {$eT}", 0) ?: []);
@@ -1267,7 +1276,7 @@ public function render_exceptions(): void {
     $empCodeCol = $hasE('employee_code') ? 'e.employee_code' : "''";
 
     $rows = $wpdb->get_results( $wpdb->prepare("
-        SELECT 
+        SELECT
             s.work_date,
             s.employee_id,
             {$empCodeCol}  AS employee_code,
@@ -1281,8 +1290,8 @@ public function render_exceptions(): void {
             {$lateCol}     AS late,
             {$earlyCol}    AS early,
             {$missedCol}   AS missed,
-            s.outside_geo_count,
-            s.no_selfie_count,
+            {$outGeoCol}   AS outside_geo_count,
+            {$noSelfCol}   AS no_selfie_count,
             {$flagsCol}    AS flags_json,
             {$lockedCol}   AS locked
         FROM {$sT} s
@@ -2209,8 +2218,8 @@ if ( $mode === 'day' ) {
 
 if ( $rows ) {
     foreach ( $rows as $r ) {
-        $geoTxt    = ((int) $r->outside_geo_count > 0) ? (int) $r->outside_geo_count : '✓';
-        $selfieTxt = ((int) $r->no_selfie_count   > 0) ? (int) $r->no_selfie_count   : '✓';
+        $geoTxt    = (isset($r->outside_geo_count) && (int)$r->outside_geo_count > 0) ? (int)$r->outside_geo_count : '✓';
+        $selfieTxt = (isset($r->no_selfie_count) && (int)$r->no_selfie_count > 0) ? (int)$r->no_selfie_count : '✓';
 
         $flagsTxt = '—';
         if ( ! empty($r->flags_json) ) {
