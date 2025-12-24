@@ -453,17 +453,26 @@ if ( $last ) {
 }
 // ===========================================================================
 
-// Also block if last attempt (success OR failure) was too recent
+// Smart cooldown: Only block if attempting the SAME action type within cooldown period
 $last_attempt_key = 'sfs_att_last_attempt_' . (int)$emp;
-$last_attempt_ts  = (int) get_transient( $last_attempt_key );
-$now_ts = time();
+$last_attempt     = get_transient( $last_attempt_key );
+$now_ts           = time();
 
-if ( $last_attempt_ts > 0 && ( $now_ts - $last_attempt_ts ) < 10 ) { // 10-sec global cooldown
-    return new \WP_Error( 'cooldown', 'Please wait 10 seconds between attempts.', [ 'status' => 429 ] );
+if ( $last_attempt && is_array( $last_attempt ) ) {
+    $last_ts     = (int) ( $last_attempt['timestamp'] ?? 0 );
+    $last_action = (string) ( $last_attempt['action'] ?? '' );
+    $elapsed     = $now_ts - $last_ts;
+
+    // Only block if attempting SAME action AND within cooldown period (5 seconds)
+    if ( $last_action === $punch_type && $elapsed < 5 ) {
+        $action_label = str_replace( '_', ' ', strtoupper( $punch_type ) );
+        return new \WP_Error(
+            'cooldown',
+            sprintf( 'Please wait %d seconds before attempting %s again.', 5 - $elapsed, $action_label ),
+            [ 'status' => 429 ]
+        );
+    }
 }
-
-// SET TRANSIENT IMMEDIATELY to block concurrent requests (moved before insert)
-set_transient( $last_attempt_key, $now_ts, 15 );
 
     // ---- Resolve effective shift for today (Assignments override Automation)
     $dateYmd = wp_date( 'Y-m-d' );
@@ -616,12 +625,12 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
     return new \WP_Error( 'sfs_att_selfie_required', 'Selfie is required for this punch.', [ 'status' => 400 ] );
 }
 
-
-
-
-    // ---- Set transient RIGHT BEFORE insert to prevent race conditions
-    // Placed here (after all validations pass) so failed validations don't lock employee
-    set_transient( $last_attempt_key, $now_ts, 15 );
+    // ---- Set cooldown transient RIGHT BEFORE insert (after all validations pass)
+    // This prevents failed validations from locking the employee
+    set_transient( $last_attempt_key, [
+        'timestamp' => $now_ts,
+        'action'    => $punch_type,
+    ], 15 );
 
     // ---- Insert immutable punch
     $nowUtc = current_time( 'mysql', true );
