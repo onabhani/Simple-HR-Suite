@@ -141,10 +141,30 @@ class MyProfileLoans {
         echo '<tr>';
         echo '<th scope="row"><label for="installments_count">' . esc_html__( 'Number of Installments', 'sfs-hr' ) . ' <span style="color:red;">*</span></label></th>';
         echo '<td>';
-        echo '<input type="number" name="installments_count" id="installments_count" min="1" max="60" required style="width:100px;" />';
+        echo '<input type="number" name="installments_count" id="installments_count" min="1" max="60" required style="width:100px;" oninput="calculateInstallment()" />';
         echo '<p class="description">' . esc_html__( 'Monthly installments (1-60 months)', 'sfs-hr' ) . '</p>';
+        echo '<p id="calculated_installment" style="margin-top:8px;font-weight:bold;color:#0073aa;"></p>';
         echo '</td>';
         echo '</tr>';
+
+        // Add JavaScript calculator
+        echo '<script>
+        function calculateInstallment() {
+            var principal = parseFloat(document.getElementById("principal_amount").value) || 0;
+            var count = parseInt(document.getElementById("installments_count").value) || 0;
+            var display = document.getElementById("calculated_installment");
+
+            if (principal > 0 && count > 0) {
+                var monthly = (principal / count).toFixed(2);
+                display.textContent = "Monthly Payment: " + monthly + " SAR × " + count + " months";
+            } else {
+                display.textContent = "";
+            }
+        }
+
+        // Also trigger on principal amount change
+        document.getElementById("principal_amount").addEventListener("input", calculateInstallment);
+        </script>';
 
         // Reason
         echo '<tr>';
@@ -355,7 +375,7 @@ class MyProfileLoans {
 
         // Insert loan
         $loans_table = $wpdb->prefix . 'sfs_hr_loans';
-        $wpdb->insert( $loans_table, [
+        $result = $wpdb->insert( $loans_table, [
             'loan_number'        => $loan_number,
             'employee_id'        => $employee_id,
             'department'         => $employee->department_name ?: 'N/A',
@@ -372,9 +392,10 @@ class MyProfileLoans {
             'updated_at'         => current_time( 'mysql' ),
         ] );
 
-        $loan_id = $wpdb->insert_id;
+        if ( $result === false ) {
+            // Log the actual database error
+            error_log( 'SFS HR Loans: Failed to insert loan request. Error: ' . $wpdb->last_error );
 
-        if ( ! $loan_id ) {
             wp_safe_redirect( add_query_arg( [
                 'page' => 'sfs-hr-my-profile',
                 'tab' => 'loans',
@@ -383,6 +404,8 @@ class MyProfileLoans {
             ], admin_url( 'admin.php' ) ) );
             exit;
         }
+
+        $loan_id = $wpdb->insert_id;
 
         // Log creation
         \SFS\HR\Modules\Loans\LoansModule::log_event( $loan_id, 'loan_created', [
