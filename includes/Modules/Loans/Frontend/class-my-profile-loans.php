@@ -137,33 +137,40 @@ class MyProfileLoans {
         echo '</td>';
         echo '</tr>';
 
-        // Installments
+        // Monthly installment amount
         echo '<tr>';
-        echo '<th scope="row"><label for="installments_count">' . esc_html__( 'Number of Installments', 'sfs-hr' ) . ' <span style="color:red;">*</span></label></th>';
+        echo '<th scope="row"><label for="monthly_amount">' . esc_html__( 'Monthly Installment Amount (SAR)', 'sfs-hr' ) . ' <span style="color:red;">*</span></label></th>';
         echo '<td>';
-        echo '<input type="number" name="installments_count" id="installments_count" min="1" max="60" required style="width:100px;" oninput="calculateInstallment()" />';
-        echo '<p class="description">' . esc_html__( 'Monthly installments (1-60 months)', 'sfs-hr' ) . '</p>';
-        echo '<p id="calculated_installment" style="margin-top:8px;font-weight:bold;color:#0073aa;"></p>';
+        echo '<input type="number" name="monthly_amount" id="monthly_amount" step="0.01" min="1" required style="width:200px;" oninput="calculateMonths()" />';
+        echo '<p class="description">' . esc_html__( 'How much you can pay each month', 'sfs-hr' ) . '</p>';
+        echo '<p id="calculated_months" style="margin-top:8px;font-weight:bold;color:#0073aa;"></p>';
         echo '</td>';
         echo '</tr>';
 
         // Add JavaScript calculator
         echo '<script>
-        function calculateInstallment() {
+        function calculateMonths() {
             var principal = parseFloat(document.getElementById("principal_amount").value) || 0;
-            var count = parseInt(document.getElementById("installments_count").value) || 0;
-            var display = document.getElementById("calculated_installment");
+            var monthly = parseFloat(document.getElementById("monthly_amount").value) || 0;
+            var display = document.getElementById("calculated_months");
 
-            if (principal > 0 && count > 0) {
-                var monthly = (principal / count).toFixed(2);
-                display.textContent = "Monthly Payment: " + monthly + " SAR × " + count + " months";
+            if (principal > 0 && monthly > 0) {
+                var months = Math.ceil(principal / monthly);
+                if (months > 60) {
+                    display.textContent = "⚠️ Would require " + months + " months (maximum is 60). Please increase monthly amount.";
+                    display.style.color = "#dc3545";
+                } else {
+                    var total = (monthly * months).toFixed(2);
+                    display.textContent = months + " monthly payments of " + monthly.toFixed(2) + " SAR = " + total + " SAR total";
+                    display.style.color = "#0073aa";
+                }
             } else {
                 display.textContent = "";
             }
         }
 
         // Also trigger on principal amount change
-        document.getElementById("principal_amount").addEventListener("input", calculateInstallment);
+        document.getElementById("principal_amount").addEventListener("input", calculateMonths);
         </script>';
 
         // Reason
@@ -306,19 +313,32 @@ class MyProfileLoans {
      * Handle loan request submission
      */
     public function handle_loan_request(): void {
+        error_log( 'SFS HR Loans: Starting loan request submission' );
+
         // Check if user is logged in
         if ( ! is_user_logged_in() ) {
+            error_log( 'SFS HR Loans: User not logged in' );
             wp_die( esc_html__( 'You must be logged in.', 'sfs-hr' ) );
         }
 
         $employee_id = isset( $_POST['employee_id'] ) ? (int) $_POST['employee_id'] : 0;
+        error_log( 'SFS HR Loans: Employee ID: ' . $employee_id );
 
         // Verify nonce
-        check_admin_referer( 'sfs_hr_submit_loan_request_' . $employee_id );
+        try {
+            check_admin_referer( 'sfs_hr_submit_loan_request_' . $employee_id );
+            error_log( 'SFS HR Loans: Nonce verified' );
+        } catch ( \Exception $e ) {
+            error_log( 'SFS HR Loans: Nonce verification failed: ' . $e->getMessage() );
+            wp_die( esc_html__( 'Security check failed.', 'sfs-hr' ) );
+        }
 
         // Check settings
         $settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+        error_log( 'SFS HR Loans: Settings loaded. Enabled: ' . ( $settings['enabled'] ? 'yes' : 'no' ) . ', Allow requests: ' . ( $settings['allow_employee_requests'] ? 'yes' : 'no' ) );
+
         if ( ! $settings['enabled'] || ! $settings['allow_employee_requests'] ) {
+            error_log( 'SFS HR Loans: Loan requests are disabled' );
             wp_die( esc_html__( 'Loan requests are currently disabled.', 'sfs-hr' ) );
         }
 
@@ -337,16 +357,27 @@ class MyProfileLoans {
         ) );
 
         if ( ! $employee ) {
+            error_log( 'SFS HR Loans: Invalid employee record for ID ' . $employee_id . ', User ID ' . get_current_user_id() );
             wp_die( esc_html__( 'Invalid employee record.', 'sfs-hr' ) );
         }
 
-        // Get form data
+        error_log( 'SFS HR Loans: Employee found: ' . $employee->id );
+
+        // Get form data - NOW USING MONTHLY AMOUNT instead of count
         $principal = isset( $_POST['principal_amount'] ) ? (float) $_POST['principal_amount'] : 0;
-        $installments = isset( $_POST['installments_count'] ) ? (int) $_POST['installments_count'] : 0;
+        $monthly_amount = isset( $_POST['monthly_amount'] ) ? (float) $_POST['monthly_amount'] : 0;
         $reason = sanitize_textarea_field( $_POST['reason'] ?? '' );
 
+        error_log( 'SFS HR Loans: Principal: ' . $principal . ', Monthly: ' . $monthly_amount . ', Reason length: ' . strlen( $reason ) );
+
+        // Calculate number of installments from monthly amount
+        $installments = ( $monthly_amount > 0 ) ? (int) ceil( $principal / $monthly_amount ) : 0;
+
+        error_log( 'SFS HR Loans: Calculated installments: ' . $installments );
+
         // Validate
-        if ( $principal <= 0 || $installments <= 0 || $installments > 60 || ! $reason ) {
+        if ( $principal <= 0 || $monthly_amount <= 0 || $installments <= 0 || $installments > 60 || ! $reason ) {
+            error_log( 'SFS HR Loans: Validation failed. Principal: ' . $principal . ', Monthly: ' . $monthly_amount . ', Installments: ' . $installments . ', Reason: ' . ( $reason ? 'yes' : 'no' ) );
             wp_safe_redirect( add_query_arg( [
                 'page' => 'sfs-hr-my-profile',
                 'tab' => 'loans',
@@ -358,6 +389,7 @@ class MyProfileLoans {
 
         // Check max loan amount
         if ( $settings['max_loan_amount'] > 0 && $principal > $settings['max_loan_amount'] ) {
+            error_log( 'SFS HR Loans: Principal exceeds maximum: ' . $principal . ' > ' . $settings['max_loan_amount'] );
             wp_safe_redirect( add_query_arg( [
                 'page' => 'sfs-hr-my-profile',
                 'tab' => 'loans',
@@ -368,10 +400,12 @@ class MyProfileLoans {
         }
 
         // Generate loan number
+        error_log( 'SFS HR Loans: Generating loan number' );
         $loan_number = \SFS\HR\Modules\Loans\LoansModule::generate_loan_number();
+        error_log( 'SFS HR Loans: Generated loan number: ' . $loan_number );
 
-        // Calculate installment amount
-        $installment_amount = round( $principal / $installments, 2 );
+        // Use the monthly amount entered by user
+        $installment_amount = round( $monthly_amount, 2 );
 
         // Insert loan
         $loans_table = $wpdb->prefix . 'sfs_hr_loans';
