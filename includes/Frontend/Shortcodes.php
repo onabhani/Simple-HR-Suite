@@ -2392,10 +2392,41 @@ private function render_frontend_loan_request_form( int $emp_id, array $settings
     echo '</div>';
 
     echo '<div style="margin-bottom:16px;">';
-    echo '<label style="display:block;margin-bottom:4px;font-weight:600;">' . esc_html__( 'Number of Installments', 'sfs-hr' ) . ' <span style="color:red;">*</span></label>';
-    echo '<input type="number" name="installments_count" min="1" max="60" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" />';
-    echo '<p style="margin:4px 0 0;font-size:12px;color:#666;">' . esc_html__( 'Monthly installments (1-60 months)', 'sfs-hr' ) . '</p>';
+    echo '<label style="display:block;margin-bottom:4px;font-weight:600;">' . esc_html__( 'Monthly Installment Amount (SAR)', 'sfs-hr' ) . ' <span style="color:red;">*</span></label>';
+    echo '<input type="number" name="monthly_amount" id="monthly_amount_frontend" step="0.01" min="1" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" oninput="calculateMonthsFrontend()" />';
+    echo '<p style="margin:4px 0 0;font-size:12px;color:#666;">' . esc_html__( 'How much you can pay each month', 'sfs-hr' ) . '</p>';
+    echo '<p id="calculated_months_frontend" style="margin:8px 0 0;font-weight:bold;color:#0073aa;"></p>';
     echo '</div>';
+
+    echo '<script>
+    function calculateMonthsFrontend() {
+        var principal = parseFloat(document.querySelector(\'input[name="principal_amount"]\').value) || 0;
+        var monthly = parseFloat(document.getElementById("monthly_amount_frontend").value) || 0;
+        var display = document.getElementById("calculated_months_frontend");
+
+        if (principal > 0 && monthly > 0) {
+            var months = Math.ceil(principal / monthly);
+            if (months > 60) {
+                display.textContent = "⚠️ Would require " + months + " months (maximum is 60). Please increase monthly amount.";
+                display.style.color = "#dc3545";
+            } else {
+                var total = (monthly * months).toFixed(2);
+                display.textContent = months + " monthly payments of " + monthly.toFixed(2) + " SAR = " + total + " SAR total";
+                display.style.color = "#0073aa";
+            }
+        } else {
+            display.textContent = "";
+        }
+    }
+
+    // Trigger on principal amount change
+    document.addEventListener("DOMContentLoaded", function() {
+        var principalInput = document.querySelector(\'input[name="principal_amount"]\');
+        if (principalInput) {
+            principalInput.addEventListener("input", calculateMonthsFrontend);
+        }
+    });
+    </script>';
 
     echo '<div style="margin-bottom:16px;">';
     echo '<label style="display:block;margin-bottom:4px;font-weight:600;">' . esc_html__( 'Reason for Loan', 'sfs-hr' ) . ' <span style="color:red;">*</span></label>';
