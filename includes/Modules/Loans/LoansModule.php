@@ -35,10 +35,63 @@ class LoansModule {
             // Frontend: My Profile Loans tab
             require_once __DIR__ . '/Frontend/class-my-profile-loans.php';
             new Frontend\MyProfileLoans();
+
+            // Add admin notice if tables don't exist
+            add_action( 'admin_notices', [ __CLASS__, 'check_tables_notice' ] );
+
+            // Handle manual table installation
+            add_action( 'admin_post_sfs_hr_install_loans_tables', [ __CLASS__, 'install_tables_action' ] );
         }
 
         // Activation hook for DB
         register_activation_hook( SFS_HR_PLUGIN_FILE, [ __CLASS__, 'on_activation' ] );
+    }
+
+    /**
+     * Check if tables exist and show notice if not
+     */
+    public static function check_tables_notice(): void {
+        global $wpdb;
+        $loans_table = $wpdb->prefix . 'sfs_hr_loans';
+        $table_exists = $wpdb->get_var( "SHOW TABLES LIKE '{$loans_table}'" ) === $loans_table;
+
+        if ( ! $table_exists && current_user_can( 'manage_options' ) ) {
+            $install_url = wp_nonce_url(
+                admin_url( 'admin-post.php?action=sfs_hr_install_loans_tables' ),
+                'sfs_hr_install_loans_tables'
+            );
+            ?>
+            <div class="notice notice-warning is-dismissible">
+                <p>
+                    <strong>SFS HR Loans:</strong> Database tables are missing.
+                    <a href="<?php echo esc_url( $install_url ); ?>" class="button button-primary" style="margin-left:10px;">
+                        Install Tables Now
+                    </a>
+                </p>
+            </div>
+            <?php
+        }
+    }
+
+    /**
+     * Handle manual table installation
+     */
+    public static function install_tables_action(): void {
+        check_admin_referer( 'sfs_hr_install_loans_tables' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( 'Unauthorized' );
+        }
+
+        // Call the activation method to create tables
+        self::on_activation();
+
+        // Redirect back with success message
+        wp_safe_redirect( add_query_arg(
+            [ 'loans_tables_installed' => '1' ],
+            admin_url( 'admin.php?page=sfs_hr_loans' )
+        ) );
+        exit;
     }
 
     /**
