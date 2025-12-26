@@ -86,10 +86,15 @@ class LoansModule {
         // Call the activation method to create tables
         self::on_activation();
 
-        // Redirect back with success message
+        // Redirect back to wherever the user came from
+        $redirect_url = wp_get_referer();
+        if ( ! $redirect_url ) {
+            $redirect_url = home_url();
+        }
+
         wp_safe_redirect( add_query_arg(
             [ 'loans_tables_installed' => '1' ],
-            admin_url( 'admin.php?page=sfs_hr_loans' )
+            $redirect_url
         ) );
         exit;
     }

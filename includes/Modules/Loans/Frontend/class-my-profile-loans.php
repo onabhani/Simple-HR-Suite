@@ -375,15 +375,19 @@ class MyProfileLoans {
 
         error_log( 'SFS HR Loans: Calculated installments: ' . $installments );
 
+        // Get redirect URL (stay on frontend)
+        $redirect_url = wp_get_referer();
+        if ( ! $redirect_url ) {
+            $redirect_url = home_url();
+        }
+
         // Validate
         if ( $principal <= 0 || $monthly_amount <= 0 || $installments <= 0 || $installments > 60 || ! $reason ) {
             error_log( 'SFS HR Loans: Validation failed. Principal: ' . $principal . ', Monthly: ' . $monthly_amount . ', Installments: ' . $installments . ', Reason: ' . ( $reason ? 'yes' : 'no' ) );
             wp_safe_redirect( add_query_arg( [
-                'page' => 'sfs-hr-my-profile',
-                'tab' => 'loans',
                 'loan_request' => 'error',
                 'error' => urlencode( __( 'Invalid input. Please check all fields.', 'sfs-hr' ) ),
-            ], admin_url( 'admin.php' ) ) );
+            ], $redirect_url ) );
             exit;
         }
 
@@ -391,11 +395,9 @@ class MyProfileLoans {
         if ( $settings['max_loan_amount'] > 0 && $principal > $settings['max_loan_amount'] ) {
             error_log( 'SFS HR Loans: Principal exceeds maximum: ' . $principal . ' > ' . $settings['max_loan_amount'] );
             wp_safe_redirect( add_query_arg( [
-                'page' => 'sfs-hr-my-profile',
-                'tab' => 'loans',
                 'loan_request' => 'error',
                 'error' => urlencode( sprintf( __( 'Maximum loan amount is %s SAR', 'sfs-hr' ), number_format( $settings['max_loan_amount'], 2 ) ) ),
-            ], admin_url( 'admin.php' ) ) );
+            ], $redirect_url ) );
             exit;
         }
 
@@ -431,15 +433,15 @@ class MyProfileLoans {
             error_log( 'SFS HR Loans: Failed to insert loan request. Error: ' . $wpdb->last_error );
 
             wp_safe_redirect( add_query_arg( [
-                'page' => 'sfs-hr-my-profile',
-                'tab' => 'loans',
                 'loan_request' => 'error',
                 'error' => urlencode( __( 'Failed to submit request. Please try again.', 'sfs-hr' ) ),
-            ], admin_url( 'admin.php' ) ) );
+            ], $redirect_url ) );
             exit;
         }
 
         $loan_id = $wpdb->insert_id;
+
+        error_log( 'SFS HR Loans: Loan created successfully. ID: ' . $loan_id );
 
         // Log creation
         \SFS\HR\Modules\Loans\LoansModule::log_event( $loan_id, 'loan_created', [
@@ -452,12 +454,10 @@ class MyProfileLoans {
         // Send notification to GM
         \SFS\HR\Modules\Loans\Notifications::notify_new_loan_request( $loan_id );
 
-        // Redirect with success message
+        // Redirect with success message (stay on frontend)
         wp_safe_redirect( add_query_arg( [
-            'page' => 'sfs-hr-my-profile',
-            'tab' => 'loans',
             'loan_request' => 'success',
-        ], admin_url( 'admin.php' ) ) );
+        ], $redirect_url ) );
         exit;
     }
 }
