@@ -75,6 +75,20 @@ class MyProfileLoans {
 
         // Request new loan button (if enabled)
         if ( $settings['allow_employee_requests'] ) {
+            // Show error/success messages OUTSIDE the form
+            if ( isset( $_GET['loan_request'] ) ) {
+                if ( $_GET['loan_request'] === 'success' ) {
+                    echo '<div class="notice notice-success" style="margin:10px 0 16px;padding:12px;"><p><strong>' .
+                         esc_html__( '✓ Loan request submitted successfully!', 'sfs-hr' ) .
+                         '</strong></p></div>';
+                } elseif ( $_GET['loan_request'] === 'error' ) {
+                    $error_msg = isset( $_GET['error'] ) ? urldecode( $_GET['error'] ) : __( 'Failed to submit loan request.', 'sfs-hr' );
+                    echo '<div class="notice notice-error" style="margin:10px 0 16px;padding:12px;background:#f8d7da;border-left:4px solid #dc3545;"><p><strong>✗ ' .
+                         esc_html( $error_msg ) .
+                         '</strong></p></div>';
+                }
+            }
+
             echo '<div style="margin-bottom:16px;">';
             echo '<button type="button" class="button button-primary" onclick="document.getElementById(\'sfs-loan-request-form\').style.display=\'block\';this.style.display=\'none\';">';
             esc_html_e( 'Request New Loan', 'sfs-hr' );
@@ -101,21 +115,7 @@ class MyProfileLoans {
         $settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
 
         echo '<div id="sfs-loan-request-form" style="display:none;background:#fff;padding:20px;border:1px solid #ccc;border-radius:4px;margin-bottom:20px;max-width:600px;">';
-        echo '<h3>' . esc_html__( 'Request New Loan', 'sfs-hr' ) . '</h3>';
-
-        // Show error/success messages
-        if ( isset( $_GET['loan_request'] ) ) {
-            if ( $_GET['loan_request'] === 'success' ) {
-                echo '<div class="notice notice-success" style="margin:10px 0;"><p>' .
-                     esc_html__( 'Loan request submitted successfully!', 'sfs-hr' ) .
-                     '</p></div>';
-            } elseif ( $_GET['loan_request'] === 'error' ) {
-                $error_msg = isset( $_GET['error'] ) ? urldecode( $_GET['error'] ) : __( 'Failed to submit loan request.', 'sfs-hr' );
-                echo '<div class="notice notice-error" style="margin:10px 0;"><p>' .
-                     esc_html( $error_msg ) .
-                     '</p></div>';
-            }
-        }
+        echo '<h3>' . esc_html__( 'Request New Loan', 'sfs-hr' ) . ' <span style="color:#999;font-size:11px;font-weight:normal;">(v2.0 - Monthly Amount)</span></h3>';
 
         echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
         wp_nonce_field( 'sfs_hr_submit_loan_request_' . $employee->id );
