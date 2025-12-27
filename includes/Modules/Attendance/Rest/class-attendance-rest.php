@@ -721,18 +721,6 @@ if ( $selfie_media_id ) {
         $resp['selfie_url']      = wp_get_attachment_url( $selfie_media_id );
     }
 
-    // لوج واضح: ماذا كان مطلوب لهذا البنش، وماذا سيكون المطلوب للبنش التالي
-    error_log('[SFS-HR/Attendance] punch selfie | ' . wp_json_encode([
-        'required_for_this_punch' => (bool) $require_selfie,       // منطق التحقق اللي فوق
-        'selfie_mode_next'        => $mode_next,
-        'requires_selfie_next'    => (bool) $requires_selfie_next, // اللي رجعناه للواجهة
-        'saved_attachment'        => (int) $selfie_media_id,
-        'valid_selfie'            => (int) $valid_selfie,
-        'source'                  => $source,
-        'device_id'               => (int) $device_id,
-        'emp'                     => (int) $emp,
-    ]));
-
     return rest_ensure_response( $resp );
 
 

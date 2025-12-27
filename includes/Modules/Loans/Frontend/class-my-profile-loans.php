@@ -313,21 +313,16 @@ class MyProfileLoans {
      * Handle loan request submission
      */
     public function handle_loan_request(): void {
-        error_log( 'SFS HR Loans: Starting loan request submission' );
-
         // Check if user is logged in
         if ( ! is_user_logged_in() ) {
-            error_log( 'SFS HR Loans: User not logged in' );
             wp_die( esc_html__( 'You must be logged in.', 'sfs-hr' ) );
         }
 
         $employee_id = isset( $_POST['employee_id'] ) ? (int) $_POST['employee_id'] : 0;
-        error_log( 'SFS HR Loans: Employee ID: ' . $employee_id );
 
         // Verify nonce
         try {
             check_admin_referer( 'sfs_hr_submit_loan_request_' . $employee_id );
-            error_log( 'SFS HR Loans: Nonce verified' );
         } catch ( \Exception $e ) {
             error_log( 'SFS HR Loans: Nonce verification failed: ' . $e->getMessage() );
             wp_die( esc_html__( 'Security check failed.', 'sfs-hr' ) );
@@ -335,10 +330,8 @@ class MyProfileLoans {
 
         // Check settings
         $settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
-        error_log( 'SFS HR Loans: Settings loaded. Enabled: ' . ( $settings['enabled'] ? 'yes' : 'no' ) . ', Allow requests: ' . ( $settings['allow_employee_requests'] ? 'yes' : 'no' ) );
 
         if ( ! $settings['enabled'] || ! $settings['allow_employee_requests'] ) {
-            error_log( 'SFS HR Loans: Loan requests are disabled' );
             wp_die( esc_html__( 'Loan requests are currently disabled.', 'sfs-hr' ) );
         }
 
@@ -361,19 +354,13 @@ class MyProfileLoans {
             wp_die( esc_html__( 'Invalid employee record.', 'sfs-hr' ) );
         }
 
-        error_log( 'SFS HR Loans: Employee found: ' . $employee->id );
-
         // Get form data - NOW USING MONTHLY AMOUNT instead of count
         $principal = isset( $_POST['principal_amount'] ) ? (float) $_POST['principal_amount'] : 0;
         $monthly_amount = isset( $_POST['monthly_amount'] ) ? (float) $_POST['monthly_amount'] : 0;
         $reason = sanitize_textarea_field( $_POST['reason'] ?? '' );
 
-        error_log( 'SFS HR Loans: Principal: ' . $principal . ', Monthly: ' . $monthly_amount . ', Reason length: ' . strlen( $reason ) );
-
         // Calculate number of installments from monthly amount
         $installments = ( $monthly_amount > 0 ) ? (int) ceil( $principal / $monthly_amount ) : 0;
-
-        error_log( 'SFS HR Loans: Calculated installments: ' . $installments );
 
         // Get redirect URL (stay on frontend)
         $redirect_url = wp_get_referer();
@@ -402,9 +389,7 @@ class MyProfileLoans {
         }
 
         // Generate loan number
-        error_log( 'SFS HR Loans: Generating loan number' );
         $loan_number = \SFS\HR\Modules\Loans\LoansModule::generate_loan_number();
-        error_log( 'SFS HR Loans: Generated loan number: ' . $loan_number );
 
         // Use the monthly amount entered by user
         $installment_amount = round( $monthly_amount, 2 );
@@ -440,8 +425,6 @@ class MyProfileLoans {
         }
 
         $loan_id = $wpdb->insert_id;
-
-        error_log( 'SFS HR Loans: Loan created successfully. ID: ' . $loan_id );
 
         // Log creation
         \SFS\HR\Modules\Loans\LoansModule::log_event( $loan_id, 'loan_created', [

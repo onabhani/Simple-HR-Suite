@@ -3272,9 +3272,6 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
      * Applies: grace (late/early), rounding (nearest N), unpaid break, OT threshold.
      */
     public static function recalc_session_for( int $employee_id, string $ymd, \wpdb $wpdb = null ): void {
-    // FORCE DEBUG - Shows we entered the function
-    error_log('>>> recalc_session_for CALLED: emp=' . $employee_id . ', date=' . $ymd);
-
     $wpdb = $wpdb ?: $GLOBALS['wpdb'];
     $pT   = $wpdb->prefix . 'sfs_hr_attendance_punches';
     $sT   = $wpdb->prefix . 'sfs_hr_attendance_sessions';
@@ -3338,9 +3335,7 @@ foreach ($rows as $r) {
     $roundN   = ($round === 'none') ? 0 : (int)$round;
 
     // Evaluate
-    error_log('>>> BEFORE evaluate_segments: punches=' . count($rows) . ', segments=' . count($segments));
     $ev = self::evaluate_segments($segments, $rows, $grLate, $grEarly);
-    error_log('>>> AFTER evaluate_segments: worked_total=' . $ev['worked_total'] . ', break_total=' . ($ev['break_total'] ?? 0));
     $net = (int)$ev['worked_total'];
     if ($roundN > 0) $net = (int)round($net / $roundN) * $roundN;
 
@@ -3866,16 +3861,6 @@ public static function resolve_shift_for_date(
         }
     }
 
-    // DEBUG (safe; remove later)
-    if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
-        error_log(
-            '[SFS ATT] auto.source='.$auto['source'].
-            ' keytype='.$keytype.
-            ' candidates='.implode('|',$candidates).
-            ' hit='.( $conf ? 'yes':'no' )
-        );
-    }
-
     if ($conf) {
         // default shift id
         $shift_id = null;
@@ -3922,9 +3907,6 @@ public static function resolve_shift_for_date(
                 $sh->is_holiday = 0;
                 $sh->dept       = $dept_slug ?: ($dept_name ?: 'office');
                 return self::apply_weekly_override( $sh, $ymd, $wpdb );
-            }
-            if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
-                error_log('[SFS ATT] automation shift_id '.$shift_id.' not found/active');
             }
         }
     }
@@ -4140,13 +4122,6 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
     foreach ($intervals as [$start, $end]) {
         $actual_worked_minutes += (int)round(($end - $start) / 60);
     }
-
-    // FORCE DEBUG - will log regardless of WP_DEBUG setting
-    error_log('=== SFS ATTENDANCE DEBUG ===');
-    error_log('Intervals count: ' . count($intervals));
-    error_log('Actual worked minutes: ' . $actual_worked_minutes);
-    error_log('Segments count: ' . count($segments));
-    error_log('===========================');
 
     foreach ($segments as $seg) {
         $S = strtotime($seg['start_utc'].' UTC');
