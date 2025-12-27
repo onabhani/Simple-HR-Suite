@@ -295,7 +295,11 @@ class Notifications {
 
         return $wpdb->get_row( $wpdb->prepare(
             "SELECT l.*,
-                    CONCAT(e.first_name, ' ', e.last_name) as employee_name,
+                    COALESCE(
+                        NULLIF(TRIM(CONCAT(e.first_name, ' ', e.last_name)), ''),
+                        e.employee_code,
+                        CONCAT('Employee #', l.employee_id)
+                    ) as employee_name,
                     e.employee_code,
                     e.user_id
              FROM {$loans_table} l
