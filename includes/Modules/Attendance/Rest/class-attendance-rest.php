@@ -88,6 +88,17 @@ public static function routes(): void {
             'device' => [ 'type'=>'integer', 'required'=>false ],
         ],
     ]);
+
+    // POST /sfs-hr/v1/attendance/verify-pin  (verify manager PIN for kiosk)
+    register_rest_route('sfs-hr/v1', '/attendance/verify-pin', [
+        'methods'  => 'POST',
+        'callback' => [ __CLASS__, 'verify_pin' ],
+        'permission_callback' => '__return_true', // Public endpoint, PIN itself provides auth
+        'args' => [
+            'device_id' => [ 'type'=>'integer', 'required'=>true ],
+            'pin'       => [ 'type'=>'string',  'required'=>true ],
+        ],
+    ]);
 }
 
 
@@ -862,5 +873,69 @@ private static function save_selfie_attachment( array $src ): int {
         $a = sin($dLat/2)*sin($dLat/2) + cos(deg2rad($lat1))*cos(deg2rad($lat2))*sin($dLng/2)*sin($dLng/2);
         $c = 2 * atan2(sqrt($a), sqrt(1-$a));
         return $R * $c;
+    }
+
+    /**
+     * Verify Manager PIN for kiosk device
+     * POST /sfs-hr/v1/attendance/verify-pin
+     */
+    public static function verify_pin( \WP_REST_Request $req ) {
+        $device_id = (int) $req->get_param( 'device_id' );
+        $pin = (string) $req->get_param( 'pin' );
+
+        if ( ! $device_id || ! $pin ) {
+            return new \WP_Error( 'invalid_params', 'Device ID and PIN are required', [ 'status' => 400 ] );
+        }
+
+        global $wpdb;
+        $devices_table = $wpdb->prefix . 'sfs_hr_attendance_devices';
+
+        // Get device with PIN
+        $device = $wpdb->get_row( $wpdb->prepare(
+            "SELECT id, label, kiosk_pin FROM {$devices_table} WHERE id = %d AND active = 1",
+            $device_id
+        ) );
+
+        if ( ! $device ) {
+            return new \WP_Error( 'device_not_found', 'Device not found or inactive', [ 'status' => 404 ] );
+        }
+
+        if ( ! $device->kiosk_pin ) {
+            return new \WP_Error( 'no_pin_set', 'No PIN configured for this device', [ 'status' => 400 ] );
+        }
+
+        // Verify PIN using WordPress password functions
+        if ( ! wp_check_password( $pin, $device->kiosk_pin ) ) {
+            // Rate limiting: track failed attempts
+            $transient_key = 'sfs_hr_pin_fail_' . $device_id;
+            $failures = (int) get_transient( $transient_key );
+            $failures++;
+            set_transient( $transient_key, $failures, 300 ); // 5 minute window
+
+            if ( $failures >= 5 ) {
+                return new \WP_Error( 'too_many_attempts', 'Too many failed attempts. Please wait 5 minutes.', [ 'status' => 429 ] );
+            }
+
+            return new \WP_Error( 'invalid_pin', 'Invalid PIN', [ 'status' => 401 ] );
+        }
+
+        // Success - clear failures and return success token
+        delete_transient( 'sfs_hr_pin_fail_' . $device_id );
+
+        // Generate a short-lived session token for manager actions
+        $token = wp_generate_password( 32, false );
+        $session_key = 'sfs_hr_mgr_session_' . $device_id;
+        set_transient( $session_key, [
+            'token' => $token,
+            'device_id' => $device_id,
+            'verified_at' => time(),
+        ], 3600 ); // 1 hour session
+
+        return rest_ensure_response( [
+            'success' => true,
+            'token' => $token,
+            'device_label' => $device->label,
+            'expires_in' => 3600,
+        ] );
     }
 }

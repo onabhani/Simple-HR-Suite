@@ -50,6 +50,16 @@ class Admin {
             56
         );
 
+        // Override the auto-generated duplicate submenu with "Dashboard"
+        add_submenu_page(
+            'sfs-hr',
+            __('Dashboard','sfs-hr'),
+            __('Dashboard','sfs-hr'),
+            'sfs_hr.view',
+            'sfs-hr',
+            [$this, 'render_dashboard']
+        );
+
         add_submenu_page(
             'sfs-hr',
             __('Employees','sfs-hr'),

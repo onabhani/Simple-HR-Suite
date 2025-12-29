@@ -1558,7 +1558,7 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
         $lat = is_numeric($_POST['geo_lock_lat'] ?? null) ? (float)$_POST['geo_lock_lat'] : null;
         $lng = is_numeric($_POST['geo_lock_lng'] ?? null) ? (float)$_POST['geo_lock_lng'] : null;
         $rad = is_numeric($_POST['geo_lock_radius_m'] ?? null) ? max(10, (int)$_POST['geo_lock_radius_m']) : null;
-        $allowed_dept = in_array( $_POST['allowed_dept'] ?? 'any', ['office','showroom','warehouse','factory','any'], true ) ? $_POST['allowed_dept'] : 'any';
+        $allowed_dept = sanitize_text_field( $_POST['allowed_dept'] ?? 'any' );
         $active = !empty($_POST['active']) ? 1 : 0;
         
         $qr_enabled  = !empty($_POST['qr_enabled']) ? 1 : 0;

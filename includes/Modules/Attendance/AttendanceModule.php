@@ -2892,7 +2892,7 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
             overtime_after_minutes SMALLINT UNSIGNED NULL,
             require_selfie TINYINT(1) NOT NULL DEFAULT 0,
             active TINYINT(1) NOT NULL DEFAULT 1,
-            dept ENUM('office','showroom','warehouse','factory') NOT NULL,
+            dept VARCHAR(100) NOT NULL COMMENT 'Department slug from departments table or legacy values',
             notes TEXT NULL,
             weekly_overrides TEXT NULL,
             PRIMARY KEY (id),
@@ -2938,7 +2938,7 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
             geo_lock_lat DECIMAL(10,7) NULL,
             geo_lock_lng DECIMAL(10,7) NULL,
             geo_lock_radius_m SMALLINT UNSIGNED NULL,
-            allowed_dept ENUM('office','showroom','warehouse','factory','any') NOT NULL DEFAULT 'any',
+            allowed_dept VARCHAR(100) NOT NULL DEFAULT 'any' COMMENT 'Department slug or "any" for all',
             fingerprint_hash VARCHAR(64) NULL,
             active TINYINT(1) NOT NULL DEFAULT 1,
             meta_json LONGTEXT NULL,
@@ -2958,7 +2958,7 @@ self::add_column_if_missing($wpdb, $t, 'kiosk_offline',     "kiosk_offline TINYI
 self::add_column_if_missing($wpdb, $t, 'geo_lock_lat',      "geo_lock_lat DECIMAL(10,7) NULL");
 self::add_column_if_missing($wpdb, $t, 'geo_lock_lng',      "geo_lock_lng DECIMAL(10,7) NULL");
 self::add_column_if_missing($wpdb, $t, 'geo_lock_radius_m', "geo_lock_radius_m SMALLINT UNSIGNED NULL");
-self::add_column_if_missing($wpdb, $t, 'allowed_dept',      "allowed_dept ENUM('office','showroom','warehouse','factory','any') NOT NULL DEFAULT 'any'");
+self::add_column_if_missing($wpdb, $t, 'allowed_dept',      "allowed_dept VARCHAR(100) NOT NULL DEFAULT 'any'");
 self::add_column_if_missing($wpdb, $t, 'active',            "active TINYINT(1) NOT NULL DEFAULT 1");
 self::add_column_if_missing($wpdb, $t, 'qr_enabled',        "qr_enabled TINYINT(1) NOT NULL DEFAULT 1");
 self::add_column_if_missing($wpdb, $t, 'selfie_mode',       "selfie_mode ENUM('inherit','never','in_only','in_out','all') NOT NULL DEFAULT 'inherit'");
