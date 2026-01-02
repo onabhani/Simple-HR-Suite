@@ -166,17 +166,47 @@ class AdminPages {
             </div>
         </div>
 
-        <table class="wp-list-table widefat fixed striped">
+        <style>
+            /* Mobile responsive table for loans */
+            @media screen and (max-width: 782px) {
+                .sfs-loans-table-wrapper {
+                    overflow-x: auto;
+                    -webkit-overflow-scrolling: touch;
+                }
+                .sfs-loans-table {
+                    min-width: 100%;
+                    font-size: 12px;
+                }
+                .sfs-loans-table th,
+                .sfs-loans-table td {
+                    padding: 8px 4px;
+                    white-space: nowrap;
+                }
+                /* Hide less important columns on mobile */
+                .sfs-loans-table .hide-mobile {
+                    display: none;
+                }
+                /* Make employee names shorter on mobile */
+                .sfs-loans-table .employee-name {
+                    max-width: 100px;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+            }
+        </style>
+
+        <div class="sfs-loans-table-wrapper">
+        <table class="wp-list-table widefat fixed striped sfs-loans-table">
             <thead>
                 <tr>
                     <th><?php esc_html_e( 'Loan #', 'sfs-hr' ); ?></th>
                     <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
                     <th><?php esc_html_e( 'Principal', 'sfs-hr' ); ?></th>
-                    <th><?php esc_html_e( 'Remaining', 'sfs-hr' ); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e( 'Remaining', 'sfs-hr' ); ?></th>
                     <th><?php esc_html_e( 'Installments', 'sfs-hr' ); ?></th>
                     <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
-                    <th><?php esc_html_e( 'First Due', 'sfs-hr' ); ?></th>
-                    <th><?php esc_html_e( 'Created', 'sfs-hr' ); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e( 'First Due', 'sfs-hr' ); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e( 'Created', 'sfs-hr' ); ?></th>
                     <th><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
                 </tr>
             </thead>
@@ -193,21 +223,21 @@ class AdminPages {
                                     <strong><?php echo esc_html( $loan->loan_number ); ?></strong>
                                 </a>
                             </td>
-                            <td>
+                            <td class="employee-name">
                                 <a href="?page=sfs-hr-employee-profile&employee_id=<?php echo (int) $loan->employee_id; ?>" style="text-decoration:none;">
                                     <?php echo esc_html( $loan->employee_name ); ?>
                                 </a>
                                 <br><small><?php echo esc_html( $loan->employee_code ); ?></small>
                             </td>
                             <td><?php echo number_format( (float) $loan->principal_amount, 2 ); ?> <?php echo esc_html( $loan->currency ); ?></td>
-                            <td><?php echo number_format( (float) $loan->remaining_balance, 2 ); ?> <?php echo esc_html( $loan->currency ); ?></td>
+                            <td class="hide-mobile"><?php echo number_format( (float) $loan->remaining_balance, 2 ); ?> <?php echo esc_html( $loan->currency ); ?></td>
                             <td>
                                 <?php echo (int) $loan->installments_count; ?> ×
                                 <?php echo number_format( (float) $loan->installment_amount, 2 ); ?>
                             </td>
                             <td><?php echo $this->get_status_badge( $loan->status ); ?></td>
-                            <td><?php echo $loan->first_due_date ? esc_html( wp_date( 'Y-m-d', strtotime( $loan->first_due_date ) ) ) : '—'; ?></td>
-                            <td><?php echo esc_html( wp_date( 'Y-m-d', strtotime( $loan->created_at ) ) ); ?></td>
+                            <td class="hide-mobile"><?php echo $loan->first_due_date ? esc_html( wp_date( 'Y-m-d', strtotime( $loan->first_due_date ) ) ) : '—'; ?></td>
+                            <td class="hide-mobile"><?php echo esc_html( wp_date( 'Y-m-d', strtotime( $loan->created_at ) ) ); ?></td>
                             <td>
                                 <a href="?page=sfs-hr-loans&action=view&id=<?php echo (int) $loan->id; ?>" class="button button-small">
                                     <?php esc_html_e( 'View', 'sfs-hr' ); ?>
@@ -218,6 +248,7 @@ class AdminPages {
                 <?php endif; ?>
             </tbody>
         </table>
+        </div>
         <?php
     }
 
