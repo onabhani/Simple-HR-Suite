@@ -677,9 +677,9 @@ class AdminPages {
                     <th><?php esc_html_e( 'GM Approvers', 'sfs-hr' ); ?></th>
                     <td>
                         <?php
-                        // Get all users with manage capability
+                        // Get all users with GM approval capability
                         $all_users = get_users( [
-                            'role__in' => [ 'administrator' ],
+                            'role__in' => [ 'administrator', 'sfs_hr_gm_approver' ],
                             'orderby'  => 'display_name',
                         ] );
 
@@ -694,7 +694,18 @@ class AdminPages {
                             ],
                         ] );
 
-                        $available_users = array_merge( $all_users, $manage_users );
+                        // Get users with GM approval capability (custom role)
+                        $gm_users = get_users( [
+                            'meta_query' => [
+                                [
+                                    'key'     => 'wp_capabilities',
+                                    'value'   => 'sfs_hr_loans_gm_approve',
+                                    'compare' => 'LIKE',
+                                ],
+                            ],
+                        ] );
+
+                        $available_users = array_merge( $all_users, $manage_users, $gm_users );
                         $available_users = array_unique( $available_users, SORT_REGULAR );
 
                         $gm_user_ids = $settings['gm_user_ids'] ?? [];
@@ -716,11 +727,31 @@ class AdminPages {
                     <th><?php esc_html_e( 'Finance Approvers', 'sfs-hr' ); ?></th>
                     <td>
                         <?php
+                        // Get all users with Finance approval capability
+                        $finance_all = get_users( [
+                            'role__in' => [ 'administrator', 'sfs_hr_finance_approver' ],
+                            'orderby'  => 'display_name',
+                        ] );
+
+                        // Get users with finance approval capability (custom capability)
+                        $finance_cap_users = get_users( [
+                            'meta_query' => [
+                                [
+                                    'key'     => 'wp_capabilities',
+                                    'value'   => 'sfs_hr_loans_finance_approve',
+                                    'compare' => 'LIKE',
+                                ],
+                            ],
+                        ] );
+
+                        $available_finance_users = array_merge( $finance_all, $manage_users, $finance_cap_users );
+                        $available_finance_users = array_unique( $available_finance_users, SORT_REGULAR );
+
                         $finance_user_ids = $settings['finance_user_ids'] ?? [];
                         ?>
 
                         <select name="finance_user_ids[]" multiple style="min-width:400px;height:150px;">
-                            <?php foreach ( $available_users as $user ) : ?>
+                            <?php foreach ( $available_finance_users as $user ) : ?>
                                 <option value="<?php echo (int) $user->ID; ?>" <?php selected( in_array( $user->ID, $finance_user_ids, true ), true ); ?>>
                                     <?php echo esc_html( $user->display_name . ' (' . $user->user_email . ')' ); ?>
                                 </option>

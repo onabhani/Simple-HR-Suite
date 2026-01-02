@@ -354,13 +354,16 @@ class MyProfileLoans {
             wp_die( esc_html__( 'Invalid employee record.', 'sfs-hr' ) );
         }
 
-        // Get form data - NOW USING MONTHLY AMOUNT instead of count
+        // Get form data - using monthly amount, not installment count
         $principal = isset( $_POST['principal_amount'] ) ? (float) $_POST['principal_amount'] : 0;
         $monthly_amount = isset( $_POST['monthly_amount'] ) ? (float) $_POST['monthly_amount'] : 0;
         $reason = sanitize_textarea_field( $_POST['reason'] ?? '' );
 
-        // Calculate number of installments from monthly amount
-        $installments = ( $monthly_amount > 0 ) ? (int) ceil( $principal / $monthly_amount ) : 0;
+        // Calculate installments from monthly amount
+        // Use floor to get full payments, then add 1 if there's a remainder
+        $full_months = $monthly_amount > 0 ? (int) floor( $principal / $monthly_amount ) : 0;
+        $last_payment = $principal - ( $full_months * $monthly_amount );
+        $installments = $last_payment > 0 ? $full_months + 1 : $full_months;
 
         // Get redirect URL (stay on frontend)
         $redirect_url = wp_get_referer();
@@ -370,7 +373,6 @@ class MyProfileLoans {
 
         // Validate
         if ( $principal <= 0 || $monthly_amount <= 0 || $installments <= 0 || $installments > 60 || ! $reason ) {
-            error_log( 'SFS HR Loans: Validation failed. Principal: ' . $principal . ', Monthly: ' . $monthly_amount . ', Installments: ' . $installments . ', Reason: ' . ( $reason ? 'yes' : 'no' ) );
             wp_safe_redirect( add_query_arg( [
                 'loan_request' => 'error',
                 'error' => urlencode( __( 'Invalid input. Please check all fields.', 'sfs-hr' ) ),
@@ -391,7 +393,7 @@ class MyProfileLoans {
         // Generate loan number
         $loan_number = \SFS\HR\Modules\Loans\LoansModule::generate_loan_number();
 
-        // Use the monthly amount entered by user
+        // Installment amount is the user's monthly payment (last payment may be different)
         $installment_amount = round( $monthly_amount, 2 );
 
         // Insert loan

@@ -43,8 +43,11 @@ class LoansModule {
             add_action( 'admin_post_sfs_hr_install_loans_tables', [ __CLASS__, 'install_tables_action' ] );
         }
 
-        // Activation hook for DB
+        // Activation hook for DB and roles
         register_activation_hook( SFS_HR_PLUGIN_FILE, [ __CLASS__, 'on_activation' ] );
+
+        // Initialize custom roles and capabilities
+        add_action( 'init', [ __CLASS__, 'register_roles_and_caps' ] );
     }
 
     /**
@@ -204,6 +207,47 @@ class LoansModule {
         dbDelta( $sql_loans );
         dbDelta( $sql_payments );
         dbDelta( $sql_history );
+
+        // Also register roles on activation
+        self::register_roles_and_caps();
+    }
+
+    /**
+     * Register custom roles and capabilities for loan approvers
+     */
+    public static function register_roles_and_caps(): void {
+        // Add capability to Administrator role
+        $admin_role = get_role( 'administrator' );
+        if ( $admin_role ) {
+            $admin_role->add_cap( 'sfs_hr_loans_finance_approve' );
+            $admin_role->add_cap( 'sfs_hr_loans_gm_approve' );
+        }
+
+        // Create Finance Approver role if it doesn't exist
+        if ( ! get_role( 'sfs_hr_finance_approver' ) ) {
+            add_role(
+                'sfs_hr_finance_approver',
+                __( 'HR Finance Approver', 'sfs-hr' ),
+                [
+                    'read'                           => true,  // Basic WordPress access
+                    'sfs_hr_loans_finance_approve'   => true,  // Can approve loans at finance stage
+                    'sfs_hr.view'                    => true,  // Can view HR data
+                ]
+            );
+        }
+
+        // Create GM Approver role if it doesn't exist
+        if ( ! get_role( 'sfs_hr_gm_approver' ) ) {
+            add_role(
+                'sfs_hr_gm_approver',
+                __( 'HR GM Approver', 'sfs-hr' ),
+                [
+                    'read'                         => true,  // Basic WordPress access
+                    'sfs_hr_loans_gm_approve'      => true,  // Can approve loans at GM stage
+                    'sfs_hr.view'                  => true,  // Can view HR data
+                ]
+            );
+        }
     }
 
     /**
@@ -325,12 +369,12 @@ class LoansModule {
             return false;
         }
 
-        // If user has full manage capability, they can approve
-        if ( current_user_can( 'sfs_hr.manage' ) ) {
+        // If user has GM approve capability OR full manage capability, they can approve
+        if ( current_user_can( 'sfs_hr_loans_gm_approve' ) || current_user_can( 'sfs_hr.manage' ) ) {
             $settings = self::get_settings();
             $gm_user_ids = $settings['gm_user_ids'] ?? [];
 
-            // If no GMs assigned, any manager can approve
+            // If no GMs assigned, anyone with the capability can approve
             if ( empty( $gm_user_ids ) ) {
                 return true;
             }
@@ -350,12 +394,12 @@ class LoansModule {
             return false;
         }
 
-        // If user has full manage capability, they can approve
-        if ( current_user_can( 'sfs_hr.manage' ) ) {
+        // If user has finance approve capability OR full manage capability, they can approve
+        if ( current_user_can( 'sfs_hr_loans_finance_approve' ) || current_user_can( 'sfs_hr.manage' ) ) {
             $settings = self::get_settings();
             $finance_user_ids = $settings['finance_user_ids'] ?? [];
 
-            // If no Finance users assigned, any manager can approve
+            // If no Finance users assigned, anyone with the capability can approve
             if ( empty( $finance_user_ids ) ) {
                 return true;
             }
