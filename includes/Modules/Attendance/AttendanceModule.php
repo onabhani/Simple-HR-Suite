@@ -3013,7 +3013,7 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
             geo_lock_lat DECIMAL(10,7) NULL,
             geo_lock_lng DECIMAL(10,7) NULL,
             geo_lock_radius_m SMALLINT UNSIGNED NULL,
-            allowed_dept VARCHAR(100) NOT NULL DEFAULT 'any' COMMENT 'Department slug or "any" for all',
+            allowed_dept VARCHAR(100) NOT NULL DEFAULT 'any' COMMENT 'Department slug or any for all',
             fingerprint_hash VARCHAR(64) NULL,
             active TINYINT(1) NOT NULL DEFAULT 1,
             meta_json LONGTEXT NULL,
