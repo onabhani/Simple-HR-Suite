@@ -8,6 +8,7 @@ class Admin {
     add_action( 'admin_init',  [ $this, 'maybe_add_employee_photo_column' ] );
     add_action( 'admin_init',  [ $this, 'maybe_install_qr_cols' ] );
     add_action( 'admin_init',  [ $this, 'maybe_install_employee_extra_cols' ] );
+    add_action( 'admin_head',  [ $this, 'remove_menu_separator_css' ] );
 
     add_action( 'admin_post_sfs_hr_add_employee',       [ $this, 'handle_add_employee' ] );
     add_action( 'admin_post_sfs_hr_link_user',          [ $this, 'handle_link_user' ] );
@@ -77,6 +78,15 @@ class Admin {
             'sfs-hr-my-team',
             [$this, 'render_my_team']
         );
+    }
+
+    public function remove_menu_separator_css(): void {
+        echo '<style>
+            /* Remove separator after HR menu */
+            #adminmenu li.toplevel_page_sfs-hr + li.wp-menu-separator {
+                display: none !important;
+            }
+        </style>';
     }
 
     public function maybe_install_qr_cols(): void {

@@ -631,6 +631,7 @@ add_action('rest_api_init', function () {
         let requiresSelfie = false;
         let refreshing     = false;
         let queued         = false;
+        let punchInProgress = false; // Prevent duplicate submissions
 
         const STATUS_URL = '<?php echo esc_js( $status_url ); ?>';
         const PUNCH_URL  = '<?php echo esc_js( $punch_url ); ?>';
@@ -867,6 +868,13 @@ setInterval(tickClock, 1000);
                 geo = await getGeo();
             } catch(e){
                 // geo_blocked → do not hit the REST API
+                punchInProgress = false;
+                if (actionsWrap) {
+                    actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
+                        const t = btn.getAttribute('data-type');
+                        btn.disabled = !allowed[t];
+                    });
+                }
                 return;
             }
 
@@ -935,6 +943,7 @@ setInterval(tickClock, 1000);
 
             // Start the camera UI for the same action (in/out/...)
             await startSelfie(type);
+            // Don't clear punchInProgress yet - selfie capture will handle it
             return; // don't fall through to generic error
         }
 
@@ -944,13 +953,33 @@ setInterval(tickClock, 1000);
 
 
                 await refresh();
+                punchInProgress = false;
 
             } catch (e) {
                 setStat('Error: ' + e.message, 'error');
+                punchInProgress = false;
+                if (actionsWrap) {
+                    actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
+                        const t = btn.getAttribute('data-type');
+                        btn.disabled = !allowed[t];
+                    });
+                }
             }
         }
 
         async function punch(type){
+            // Prevent duplicate submissions
+            if (punchInProgress) {
+                setStat('Please wait, processing...', 'busy');
+                return;
+            }
+            punchInProgress = true;
+
+            // Disable all action buttons
+            if (actionsWrap) {
+                actionsWrap.querySelectorAll('button[data-type]').forEach(btn => btn.disabled = true);
+            }
+
             // Refresh status to ensure latest state before punch attempt
             setStat('Checking status…', 'busy');
             await refresh();
@@ -963,6 +992,14 @@ setInterval(tickClock, 1000);
                 else if (type==='break_start' && state!=='in')  msg = 'You can start a break only while clocked in.';
                 else if (type==='break_end'   && state!=='break')msg = 'You have no active break to end.';
                 setStat('Error: ' + msg, 'error');
+                punchInProgress = false;
+                // Re-enable allowed buttons
+                if (actionsWrap) {
+                    actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
+                        const t = btn.getAttribute('data-type');
+                        btn.disabled = !allowed[t];
+                    });
+                }
                 return;
             }
 
@@ -975,6 +1012,13 @@ setInterval(tickClock, 1000);
                     geo = await getGeo();
                 } catch(e) {
                     // geo blocked, show error without opening camera
+                    punchInProgress = false;
+                    if (actionsWrap) {
+                        actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
+                            const t = btn.getAttribute('data-type');
+                            btn.disabled = !allowed[t];
+                        });
+                    }
                     return;
                 }
 
@@ -1006,12 +1050,14 @@ setInterval(tickClock, 1000);
                     // If server says "selfie required", open camera
                     if (!resp.ok && errCode === 'sfs_att_selfie_required') {
                         await startSelfie(type);
+                        // Don't clear punchInProgress yet - selfie capture will handle the actual punch
                         return;
                     }
 
                     // If success (no selfie needed), we're done
                     if (resp.ok) {
                         setStat('Success!', 'success');
+                        punchInProgress = false;
                         setTimeout(refresh, 1000);
                         return;
                     }
@@ -1019,10 +1065,24 @@ setInterval(tickClock, 1000);
                     // Any other error: show it without opening camera
                     const msg = (j && j.message) || 'Punch failed';
                     setStat('Error: ' + msg, 'error');
+                    punchInProgress = false;
+                    if (actionsWrap) {
+                        actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
+                            const t = btn.getAttribute('data-type');
+                            btn.disabled = !allowed[t];
+                        });
+                    }
                     return;
 
                 } catch(e) {
                     setStat('Error: ' + e.message, 'error');
+                    punchInProgress = false;
+                    if (actionsWrap) {
+                        actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
+                            const t = btn.getAttribute('data-type');
+                            btn.disabled = !allowed[t];
+                        });
+                    }
                     return;
                 }
             } else {
@@ -1052,6 +1112,13 @@ setInterval(tickClock, 1000);
             selfieCanvas.toBlob(async function(blob){
                 if (!blob) {
                     setStat('Could not capture selfie. Try again.', 'error');
+                    punchInProgress = false;
+                    if (actionsWrap) {
+                        actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
+                            const t = btn.getAttribute('data-type');
+                            btn.disabled = !allowed[t];
+                        });
+                    }
                     return;
                 }
                 await doPunch(pendingType, blob);
@@ -1070,8 +1137,16 @@ setInterval(tickClock, 1000);
         selfieCapture && selfieCapture.addEventListener('click', captureAndSubmit);
         selfieCancel  && selfieCancel.addEventListener('click', ()=>{
             pendingType = null;
+            punchInProgress = false;
             stopSelfiePreview();
             setStat('Cancelled.', 'idle');
+            // Re-enable buttons
+            if (actionsWrap) {
+                actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
+                    const t = btn.getAttribute('data-type');
+                    btn.disabled = !allowed[t];
+                });
+            }
         });
 
         // Fallback: if user selects file manually (no live camera), submit
