@@ -2863,6 +2863,27 @@ private function render_self_request_form( \stdClass $employee ): void {
     echo '<div class="sfs-hr-leave-self-form-wrap" style="margin-top:12px;margin-bottom:20px;">';
     echo '<h3>' . esc_html__( 'Request new leave', 'sfs-hr' ) . '</h3>';
 
+    // Add mobile-specific CSS to fix spacing
+    echo '<style>
+        @media screen and (max-width: 782px) {
+            .sfs-hr-leave-self-form textarea.large-text {
+                min-height: 80px !important;
+                height: auto !important;
+            }
+            .sfs-hr-leave-self-form .form-table th,
+            .sfs-hr-leave-self-form .form-table td {
+                padding: 10px 0;
+            }
+            .sfs-hr-leave-self-form input[type="date"],
+            .sfs-hr-leave-self-form select,
+            .sfs-hr-leave-self-form textarea {
+                width: 100% !important;
+                max-width: 100% !important;
+                box-sizing: border-box !important;
+            }
+        }
+    </style>';
+
     if ( empty( $types ) ) {
         echo '<p class="description">' . esc_html__( 'Leave types are not configured yet. Please contact HR.', 'sfs-hr' ) . '</p>';
         echo '</div>';
