@@ -199,11 +199,11 @@ class AdminPages {
         <table class="wp-list-table widefat fixed striped sfs-loans-table">
             <thead>
                 <tr>
-                    <th><?php esc_html_e( 'Loan #', 'sfs-hr' ); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e( 'Loan #', 'sfs-hr' ); ?></th>
                     <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
                     <th><?php esc_html_e( 'Principal', 'sfs-hr' ); ?></th>
                     <th class="hide-mobile"><?php esc_html_e( 'Remaining', 'sfs-hr' ); ?></th>
-                    <th><?php esc_html_e( 'Installments', 'sfs-hr' ); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e( 'Installments', 'sfs-hr' ); ?></th>
                     <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
                     <th class="hide-mobile"><?php esc_html_e( 'First Due', 'sfs-hr' ); ?></th>
                     <th class="hide-mobile"><?php esc_html_e( 'Created', 'sfs-hr' ); ?></th>
@@ -218,7 +218,7 @@ class AdminPages {
                 <?php else : ?>
                     <?php foreach ( $loans as $loan ) : ?>
                         <tr>
-                            <td>
+                            <td class="hide-mobile">
                                 <a href="?page=sfs-hr-loans&action=view&id=<?php echo (int) $loan->id; ?>" style="text-decoration:none;">
                                     <strong><?php echo esc_html( $loan->loan_number ); ?></strong>
                                 </a>
@@ -231,7 +231,7 @@ class AdminPages {
                             </td>
                             <td><?php echo number_format( (float) $loan->principal_amount, 2 ); ?> <?php echo esc_html( $loan->currency ); ?></td>
                             <td class="hide-mobile"><?php echo number_format( (float) $loan->remaining_balance, 2 ); ?> <?php echo esc_html( $loan->currency ); ?></td>
-                            <td>
+                            <td class="hide-mobile">
                                 <?php echo (int) $loan->installments_count; ?> ×
                                 <?php echo number_format( (float) $loan->installment_amount, 2 ); ?>
                             </td>
