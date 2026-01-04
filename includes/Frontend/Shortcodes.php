@@ -3814,6 +3814,8 @@ private function resignation_status_badge( string $status, int $approval_level =
             $label = __( 'Pending - Manager', 'sfs-hr' );
         } elseif ( $approval_level === 2 ) {
             $label = __( 'Pending - HR', 'sfs-hr' );
+        } elseif ( $approval_level === 3 ) {
+            $label = __( 'Pending - Finance', 'sfs-hr' );
         } else {
             $label = __( 'Pending', 'sfs-hr' );
         }

@@ -664,11 +664,23 @@ class ResignationModule {
         $current_level = intval($resignation['approval_level']);
         $new_level = $current_level + 1;
 
+        // Check if Finance approver is configured
+        $finance_approver_id = (int)get_option('sfs_hr_resignation_finance_approver', 0);
+        $has_finance_approval = $finance_approver_id > 0;
+
+        // Determine current role based on approval level
+        $role = 'manager';
+        if ($current_level === 2) {
+            $role = 'hr';
+        } elseif ($current_level === 3) {
+            $role = 'finance';
+        }
+
         // Append to approval chain
         $chain = json_decode($resignation['approval_chain'] ?? '[]', true) ?: [];
         $chain[] = [
             'by'     => get_current_user_id(),
-            'role'   => $current_level === 1 ? 'manager' : 'hr',
+            'role'   => $role,
             'action' => 'approved',
             'note'   => $note,
             'at'     => current_time('mysql'),
@@ -681,16 +693,37 @@ class ResignationModule {
             'updated_at'     => current_time('mysql'),
         ];
 
-        // Check if this is final approval (HR level)
-        if ($new_level > 2 || current_user_can('sfs_hr.manage')) {
+        // Determine if this is final approval
+        // Level 1: Manager -> HR (level 2)
+        // Level 2: HR -> Finance (level 3) if configured, else approved
+        // Level 3: Finance -> approved
+        $is_final_approval = false;
+
+        if ($current_level === 1) {
+            // Manager approved, move to HR (level 2)
+            $update_data['approval_level'] = 2;
+        } elseif ($current_level === 2) {
+            // HR approved
+            if ($has_finance_approval) {
+                // Move to Finance (level 3)
+                $update_data['approval_level'] = 3;
+            } else {
+                // No Finance approval needed, mark as approved
+                $is_final_approval = true;
+            }
+        } elseif ($current_level === 3) {
+            // Finance approved (final)
+            $is_final_approval = true;
+        }
+
+        // If final approval, mark as approved
+        if ($is_final_approval) {
             $update_data['status'] = 'approved';
             $update_data['decided_at'] = current_time('mysql');
 
             // NOTE: Employee status remains 'active' during notice period
             // They should only be terminated after their last working day
             // This allows them to work, attend, and access their profile during the notice period
-        } else {
-            $update_data['approval_level'] = $new_level;
         }
 
         $wpdb->update($table, $update_data, ['id' => $resignation_id]);
@@ -861,12 +894,37 @@ class ResignationModule {
     /* ---------------------------------- Helper Methods ---------------------------------- */
 
     private function can_approve_resignation(array $resignation): bool {
+        $current_user_id = get_current_user_id();
+        $approval_level = intval($resignation['approval_level'] ?? 1);
+
+        // HR managers can always approve
         if (current_user_can('sfs_hr.manage')) {
             return true;
         }
 
-        $managed_depts = $this->manager_dept_ids_for_user(get_current_user_id());
-        return in_array($resignation['dept_id'], $managed_depts, true);
+        // Check if user is department manager (for level 1)
+        if ($approval_level === 1) {
+            $managed_depts = $this->manager_dept_ids_for_user($current_user_id);
+            return in_array($resignation['dept_id'], $managed_depts, true);
+        }
+
+        // Check if user is configured HR approver (for level 2)
+        if ($approval_level === 2) {
+            $hr_approver_id = (int)get_option('sfs_hr_resignation_hr_approver', 0);
+            if ($hr_approver_id > 0 && $hr_approver_id === $current_user_id) {
+                return true;
+            }
+        }
+
+        // Check if user is configured Finance approver (for level 3)
+        if ($approval_level === 3) {
+            $finance_approver_id = (int)get_option('sfs_hr_resignation_finance_approver', 0);
+            if ($finance_approver_id > 0 && $finance_approver_id === $current_user_id) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function manager_dept_ids_for_user(int $user_id): array {
@@ -898,6 +956,8 @@ class ResignationModule {
                 $label = __('Pending - Manager', 'sfs-hr');
             } elseif ($approval_level === 2) {
                 $label = __('Pending - HR', 'sfs-hr');
+            } elseif ($approval_level === 3) {
+                $label = __('Pending - Finance', 'sfs-hr');
             } else {
                 $label = __('Pending', 'sfs-hr');
             }
@@ -1283,6 +1343,14 @@ class ResignationModule {
         }
 
         $notice_period_days = (int)get_option('sfs_hr_resignation_notice_period', 30);
+        $hr_approver_id = (int)get_option('sfs_hr_resignation_hr_approver', 0);
+        $finance_approver_id = (int)get_option('sfs_hr_resignation_finance_approver', 0);
+
+        // Get list of users with HR management capabilities
+        $hr_users = get_users([
+            'capability' => 'sfs_hr.manage',
+            'orderby' => 'display_name',
+        ]);
 
         Helpers::render_admin_nav();
         ?>
@@ -1319,6 +1387,48 @@ class ResignationModule {
                             </p>
                         </td>
                     </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="hr_approver">
+                                <?php esc_html_e('HR Approver', 'sfs-hr'); ?>
+                            </label>
+                        </th>
+                        <td>
+                            <select name="hr_approver" id="hr_approver" style="width:300px;">
+                                <option value="0"><?php esc_html_e('-- No specific HR approver --', 'sfs-hr'); ?></option>
+                                <?php foreach ($hr_users as $user): ?>
+                                    <option value="<?php echo esc_attr($user->ID); ?>" <?php selected($hr_approver_id, $user->ID); ?>>
+                                        <?php echo esc_html($user->display_name . ' (' . $user->user_email . ')'); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="description">
+                                <?php esc_html_e('Select a specific user for HR approval. If not set, any user with HR management capability can approve at HR level.', 'sfs-hr'); ?>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="finance_approver">
+                                <?php esc_html_e('Finance Approver', 'sfs-hr'); ?>
+                            </label>
+                        </th>
+                        <td>
+                            <select name="finance_approver" id="finance_approver" style="width:300px;">
+                                <option value="0"><?php esc_html_e('-- No Finance approval required --', 'sfs-hr'); ?></option>
+                                <?php foreach ($hr_users as $user): ?>
+                                    <option value="<?php echo esc_attr($user->ID); ?>" <?php selected($finance_approver_id, $user->ID); ?>>
+                                        <?php echo esc_html($user->display_name . ' (' . $user->user_email . ')'); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="description">
+                                <?php esc_html_e('Select a specific user for Finance approval. If not set, resignations will only require Manager and HR approval. Finance approval happens after HR approval.', 'sfs-hr'); ?>
+                            </p>
+                        </td>
+                    </tr>
                 </table>
 
                 <?php submit_button(__('Save Settings', 'sfs-hr')); ?>
@@ -1336,6 +1446,12 @@ class ResignationModule {
 
         $notice_period_days = isset($_POST['notice_period_days']) ? max(0, min(365, (int)$_POST['notice_period_days'])) : 30;
         update_option('sfs_hr_resignation_notice_period', (string)$notice_period_days);
+
+        $hr_approver = isset($_POST['hr_approver']) ? (int)$_POST['hr_approver'] : 0;
+        update_option('sfs_hr_resignation_hr_approver', (string)$hr_approver);
+
+        $finance_approver = isset($_POST['finance_approver']) ? (int)$_POST['finance_approver'] : 0;
+        update_option('sfs_hr_resignation_finance_approver', (string)$finance_approver);
 
         wp_safe_redirect(admin_url('admin.php?page=sfs-hr-resignation-settings&ok=1'));
         exit;
