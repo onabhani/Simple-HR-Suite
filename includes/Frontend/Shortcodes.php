@@ -2259,6 +2259,24 @@ private function render_frontend_loans_tab( array $emp, int $emp_id ): void {
     echo '<div class="sfs-hr-loans-tab" style="padding:20px;background:#fff;border:1px solid #ddd;border-radius:4px;margin-top:20px;">';
     echo '<h4 style="margin:0 0 16px;">' . esc_html__( 'My Loans', 'sfs-hr' ) . '</h4>';
 
+    // Add mobile CSS for loans table
+    echo '<style>
+        @media screen and (max-width: 782px) {
+            .sfs-hr-loans-table th.hide-mobile,
+            .sfs-hr-loans-table td.hide-mobile {
+                display: none !important;
+            }
+            .sfs-hr-loans-table {
+                font-size: 12px;
+            }
+            .sfs-hr-loans-table th,
+            .sfs-hr-loans-table td {
+                padding: 6px 4px !important;
+                white-space: nowrap;
+            }
+        }
+    </style>';
+
     // Request new loan button (if enabled)
     if ( $settings['allow_employee_requests'] ) {
         echo '<div style="margin-bottom:16px;">';
@@ -2277,15 +2295,15 @@ private function render_frontend_loans_tab( array $emp, int $emp_id ): void {
     } else {
         // Loans table
         echo '<div style="overflow-x:auto;">';
-        echo '<table style="width:100%;border-collapse:collapse;margin-top:16px;">';
+        echo '<table class="sfs-hr-loans-table" style="width:100%;border-collapse:collapse;margin-top:16px;">';
         echo '<thead>';
         echo '<tr style="background:#f5f5f5;">';
-        echo '<th style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Loan #', 'sfs-hr' ) . '</th>';
+        echo '<th class="hide-mobile" style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Loan #', 'sfs-hr' ) . '</th>';
         echo '<th style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
-        echo '<th style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Remaining', 'sfs-hr' ) . '</th>';
-        echo '<th style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Installments', 'sfs-hr' ) . '</th>';
+        echo '<th class="hide-mobile" style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Remaining', 'sfs-hr' ) . '</th>';
+        echo '<th class="hide-mobile" style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Installments', 'sfs-hr' ) . '</th>';
         echo '<th style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
-        echo '<th style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Requested', 'sfs-hr' ) . '</th>';
+        echo '<th class="hide-mobile" style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Requested', 'sfs-hr' ) . '</th>';
         echo '</tr>';
         echo '</thead>';
         echo '<tbody>';
@@ -2298,12 +2316,12 @@ private function render_frontend_loans_tab( array $emp, int $emp_id ): void {
             ) );
 
             echo '<tr>';
-            echo '<td style="padding:8px;border:1px solid #ddd;"><strong>' . esc_html( $loan->loan_number ) . '</strong></td>';
+            echo '<td class="hide-mobile" style="padding:8px;border:1px solid #ddd;"><strong>' . esc_html( $loan->loan_number ) . '</strong></td>';
             echo '<td style="padding:8px;border:1px solid #ddd;">' . number_format( (float) $loan->principal_amount, 2 ) . ' ' . esc_html( $loan->currency ) . '</td>';
-            echo '<td style="padding:8px;border:1px solid #ddd;">' . number_format( (float) $loan->remaining_balance, 2 ) . ' ' . esc_html( $loan->currency ) . '</td>';
-            echo '<td style="padding:8px;border:1px solid #ddd;">' . (int) $paid_count . ' / ' . (int) $loan->installments_count . '</td>';
+            echo '<td class="hide-mobile" style="padding:8px;border:1px solid #ddd;">' . number_format( (float) $loan->remaining_balance, 2 ) . ' ' . esc_html( $loan->currency ) . '</td>';
+            echo '<td class="hide-mobile" style="padding:8px;border:1px solid #ddd;">' . (int) $paid_count . ' / ' . (int) $loan->installments_count . '</td>';
             echo '<td style="padding:8px;border:1px solid #ddd;">' . $this->get_loan_status_badge( $loan->status ) . '</td>';
-            echo '<td style="padding:8px;border:1px solid #ddd;">' . esc_html( wp_date( 'M j, Y', strtotime( $loan->created_at ) ) ) . '</td>';
+            echo '<td class="hide-mobile" style="padding:8px;border:1px solid #ddd;">' . esc_html( wp_date( 'M j, Y', strtotime( $loan->created_at ) ) ) . '</td>';
             echo '</tr>';
 
             // Details row
