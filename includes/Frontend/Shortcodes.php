@@ -2259,21 +2259,66 @@ private function render_frontend_loans_tab( array $emp, int $emp_id ): void {
     echo '<div class="sfs-hr-loans-tab" style="padding:20px;background:#fff;border:1px solid #ddd;border-radius:4px;margin-top:20px;">';
     echo '<h4 style="margin:0 0 16px;">' . esc_html__( 'My Loans', 'sfs-hr' ) . '</h4>';
 
-    // Add mobile CSS for loans table
+    // Styles for desktop/mobile display
     echo '<style>
-        @media screen and (max-width: 782px) {
-            .sfs-hr-loans-table th.hide-mobile,
-            .sfs-hr-loans-table td.hide-mobile {
-                display: none !important;
-            }
-            .sfs-hr-loans-table {
-                font-size: 12px;
-            }
-            .sfs-hr-loans-table th,
-            .sfs-hr-loans-table td {
-                padding: 6px 4px !important;
-                white-space: nowrap;
-            }
+        .sfs-hr-loans-desktop { display: block; }
+        .sfs-hr-loans-mobile { display: none; }
+
+        @media (max-width: 782px) {
+            .sfs-hr-loans-desktop { display: none; }
+            .sfs-hr-loans-mobile { display: block; }
+        }
+
+        .sfs-hr-loan-card {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            padding: 0;
+        }
+
+        .sfs-hr-loan-summary {
+            padding: 12px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            list-style: none;
+        }
+
+        .sfs-hr-loan-summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .sfs-hr-loan-summary-title {
+            font-weight: 600;
+            color: #1d2327;
+        }
+
+        .sfs-hr-loan-body {
+            padding: 0 12px 12px;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .sfs-hr-loan-field-row {
+            display: flex;
+            padding: 8px 0;
+            border-bottom: 1px solid #f5f5f5;
+        }
+
+        .sfs-hr-loan-field-row:last-child {
+            border-bottom: none;
+        }
+
+        .sfs-hr-loan-field-label {
+            font-weight: 600;
+            color: #646970;
+            min-width: 120px;
+        }
+
+        .sfs-hr-loan-field-value {
+            color: #1d2327;
+            flex: 1;
         }
     </style>';
 
@@ -2293,21 +2338,8 @@ private function render_frontend_loans_tab( array $emp, int $emp_id ): void {
     if ( empty( $loans ) ) {
         echo '<p>' . esc_html__( 'You have no loan records.', 'sfs-hr' ) . '</p>';
     } else {
-        // Loans table
-        echo '<div style="overflow-x:auto;">';
-        echo '<table class="sfs-hr-loans-table" style="width:100%;border-collapse:collapse;margin-top:16px;">';
-        echo '<thead>';
-        echo '<tr style="background:#f5f5f5;">';
-        echo '<th class="hide-mobile" style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Loan #', 'sfs-hr' ) . '</th>';
-        echo '<th style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
-        echo '<th class="hide-mobile" style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Remaining', 'sfs-hr' ) . '</th>';
-        echo '<th class="hide-mobile" style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Installments', 'sfs-hr' ) . '</th>';
-        echo '<th style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
-        echo '<th class="hide-mobile" style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Requested', 'sfs-hr' ) . '</th>';
-        echo '</tr>';
-        echo '</thead>';
-        echo '<tbody>';
-
+        // Prepare loan data
+        $loan_data = [];
         foreach ( $loans as $loan ) {
             // Get paid installments count
             $paid_count = (int) $wpdb->get_var( $wpdb->prepare(
@@ -2315,13 +2347,49 @@ private function render_frontend_loans_tab( array $emp, int $emp_id ): void {
                 $loan->id
             ) );
 
+            // Get payment schedule for active/completed loans
+            $payments = [];
+            if ( in_array( $loan->status, [ 'active', 'completed' ] ) ) {
+                $payments = $wpdb->get_results( $wpdb->prepare(
+                    "SELECT * FROM {$payments_table} WHERE loan_id = %d ORDER BY sequence ASC",
+                    $loan->id
+                ) );
+            }
+
+            $loan_data[] = [
+                'loan' => $loan,
+                'paid_count' => $paid_count,
+                'payments' => $payments,
+            ];
+        }
+
+        // ===== Desktop table =====
+        echo '<div class="sfs-hr-loans-desktop">';
+        echo '<table class="sfs-hr-table" style="width:100%;border-collapse:collapse;margin-top:8px;border:1px solid #ddd;">';
+        echo '<thead>';
+        echo '<tr style="background:#f5f5f5;">';
+        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Loan #', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Remaining', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Installments', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Requested', 'sfs-hr' ) . '</th>';
+        echo '</tr>';
+        echo '</thead>';
+        echo '<tbody>';
+
+        foreach ( $loan_data as $data ) {
+            $loan = $data['loan'];
+            $paid_count = $data['paid_count'];
+            $payments = $data['payments'];
+
             echo '<tr>';
-            echo '<td class="hide-mobile" style="padding:8px;border:1px solid #ddd;"><strong>' . esc_html( $loan->loan_number ) . '</strong></td>';
-            echo '<td style="padding:8px;border:1px solid #ddd;">' . number_format( (float) $loan->principal_amount, 2 ) . ' ' . esc_html( $loan->currency ) . '</td>';
-            echo '<td class="hide-mobile" style="padding:8px;border:1px solid #ddd;">' . number_format( (float) $loan->remaining_balance, 2 ) . ' ' . esc_html( $loan->currency ) . '</td>';
-            echo '<td class="hide-mobile" style="padding:8px;border:1px solid #ddd;">' . (int) $paid_count . ' / ' . (int) $loan->installments_count . '</td>';
-            echo '<td style="padding:8px;border:1px solid #ddd;">' . $this->get_loan_status_badge( $loan->status ) . '</td>';
-            echo '<td class="hide-mobile" style="padding:8px;border:1px solid #ddd;">' . esc_html( wp_date( 'M j, Y', strtotime( $loan->created_at ) ) ) . '</td>';
+            echo '<td style="padding:12px;border:1px solid #ddd;"><strong>' . esc_html( $loan->loan_number ) . '</strong></td>';
+            echo '<td style="padding:12px;border:1px solid #ddd;">' . number_format( (float) $loan->principal_amount, 2 ) . ' ' . esc_html( $loan->currency ) . '</td>';
+            echo '<td style="padding:12px;border:1px solid #ddd;">' . number_format( (float) $loan->remaining_balance, 2 ) . ' ' . esc_html( $loan->currency ) . '</td>';
+            echo '<td style="padding:12px;border:1px solid #ddd;">' . (int) $paid_count . ' / ' . (int) $loan->installments_count . '</td>';
+            echo '<td style="padding:12px;border:1px solid #ddd;">' . $this->get_loan_status_badge( $loan->status ) . '</td>';
+            echo '<td style="padding:12px;border:1px solid #ddd;">' . esc_html( wp_date( 'M j, Y', strtotime( $loan->created_at ) ) ) . '</td>';
             echo '</tr>';
 
             // Details row
@@ -2333,38 +2401,31 @@ private function render_frontend_loans_tab( array $emp, int $emp_id ): void {
                 echo '<p style="margin:0;color:#dc3545;"><strong>' . esc_html__( 'Rejection Reason:', 'sfs-hr' ) . '</strong> ' . esc_html( $loan->rejection_reason ) . '</p>';
             }
 
-            // Payment schedule for active/completed loans
-            if ( in_array( $loan->status, [ 'active', 'completed' ] ) ) {
-                $payments = $wpdb->get_results( $wpdb->prepare(
-                    "SELECT * FROM {$payments_table} WHERE loan_id = %d ORDER BY sequence ASC",
-                    $loan->id
-                ) );
+            // Payment schedule
+            if ( ! empty( $payments ) ) {
+                echo '<h5 style="margin:12px 0 8px;">' . esc_html__( 'Payment Schedule', 'sfs-hr' ) . '</h5>';
+                echo '<table style="width:100%;border-collapse:collapse;margin-top:8px;">';
+                echo '<thead>';
+                echo '<tr style="background:#eee;">';
+                echo '<th style="padding:8px;text-align:left;border:1px solid #ccc;width:50px;">#</th>';
+                echo '<th style="padding:8px;text-align:left;border:1px solid #ccc;">' . esc_html__( 'Due Date', 'sfs-hr' ) . '</th>';
+                echo '<th style="padding:8px;text-align:left;border:1px solid #ccc;">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
+                echo '<th style="padding:8px;text-align:left;border:1px solid #ccc;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+                echo '</tr>';
+                echo '</thead>';
+                echo '<tbody>';
 
-                if ( ! empty( $payments ) ) {
-                    echo '<h5 style="margin:12px 0 8px;">' . esc_html__( 'Payment Schedule', 'sfs-hr' ) . '</h5>';
-                    echo '<table style="width:100%;border-collapse:collapse;margin-top:8px;">';
-                    echo '<thead>';
-                    echo '<tr style="background:#eee;">';
-                    echo '<th style="padding:6px;text-align:left;border:1px solid #ccc;width:50px;">#</th>';
-                    echo '<th style="padding:6px;text-align:left;border:1px solid #ccc;">' . esc_html__( 'Due Date', 'sfs-hr' ) . '</th>';
-                    echo '<th style="padding:6px;text-align:left;border:1px solid #ccc;">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
-                    echo '<th style="padding:6px;text-align:left;border:1px solid #ccc;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+                foreach ( $payments as $payment ) {
+                    echo '<tr>';
+                    echo '<td style="padding:6px;border:1px solid #ccc;">' . (int) $payment->sequence . '</td>';
+                    echo '<td style="padding:6px;border:1px solid #ccc;">' . esc_html( wp_date( 'M Y', strtotime( $payment->due_date ) ) ) . '</td>';
+                    echo '<td style="padding:6px;border:1px solid #ccc;">' . number_format( (float) $payment->amount_planned, 2 ) . '</td>';
+                    echo '<td style="padding:6px;border:1px solid #ccc;">' . $this->get_payment_status_badge( $payment->status ) . '</td>';
                     echo '</tr>';
-                    echo '</thead>';
-                    echo '<tbody>';
-
-                    foreach ( $payments as $payment ) {
-                        echo '<tr>';
-                        echo '<td style="padding:6px;border:1px solid #ccc;">' . (int) $payment->sequence . '</td>';
-                        echo '<td style="padding:6px;border:1px solid #ccc;">' . esc_html( wp_date( 'M Y', strtotime( $payment->due_date ) ) ) . '</td>';
-                        echo '<td style="padding:6px;border:1px solid #ccc;">' . number_format( (float) $payment->amount_planned, 2 ) . '</td>';
-                        echo '<td style="padding:6px;border:1px solid #ccc;">' . $this->get_payment_status_badge( $payment->status ) . '</td>';
-                        echo '</tr>';
-                    }
-
-                    echo '</tbody>';
-                    echo '</table>';
                 }
+
+                echo '</tbody>';
+                echo '</table>';
             }
 
             echo '</td>';
@@ -2373,7 +2434,90 @@ private function render_frontend_loans_tab( array $emp, int $emp_id ): void {
 
         echo '</tbody>';
         echo '</table>';
-        echo '</div>';
+        echo '</div>'; // .sfs-hr-loans-desktop
+
+        // ===== Mobile cards =====
+        echo '<div class="sfs-hr-loans-mobile">';
+        foreach ( $loan_data as $data ) {
+            $loan = $data['loan'];
+            $paid_count = $data['paid_count'];
+            $payments = $data['payments'];
+
+            echo '<details class="sfs-hr-loan-card">';
+            echo '  <summary class="sfs-hr-loan-summary">';
+            echo '      <span class="sfs-hr-loan-summary-title">' . esc_html( $loan->loan_number ) . '</span>';
+            echo '      <span class="sfs-hr-loan-summary-status">';
+            echo            $this->get_loan_status_badge( $loan->status ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            echo '      </span>';
+            echo '  </summary>';
+
+            echo '  <div class="sfs-hr-loan-body">';
+
+            echo '      <div class="sfs-hr-loan-field-row">';
+            echo '          <div class="sfs-hr-loan-field-label">' . esc_html__( 'Amount', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-loan-field-value">' . number_format( (float) $loan->principal_amount, 2 ) . ' ' . esc_html( $loan->currency ) . '</div>';
+            echo '      </div>';
+
+            echo '      <div class="sfs-hr-loan-field-row">';
+            echo '          <div class="sfs-hr-loan-field-label">' . esc_html__( 'Remaining', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-loan-field-value">' . number_format( (float) $loan->remaining_balance, 2 ) . ' ' . esc_html( $loan->currency ) . '</div>';
+            echo '      </div>';
+
+            echo '      <div class="sfs-hr-loan-field-row">';
+            echo '          <div class="sfs-hr-loan-field-label">' . esc_html__( 'Installments', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-loan-field-value">' . (int) $paid_count . ' / ' . (int) $loan->installments_count . '</div>';
+            echo '      </div>';
+
+            echo '      <div class="sfs-hr-loan-field-row">';
+            echo '          <div class="sfs-hr-loan-field-label">' . esc_html__( 'Requested', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-loan-field-value">' . esc_html( wp_date( 'M j, Y', strtotime( $loan->created_at ) ) ) . '</div>';
+            echo '      </div>';
+
+            echo '      <div class="sfs-hr-loan-field-row">';
+            echo '          <div class="sfs-hr-loan-field-label">' . esc_html__( 'Reason', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-loan-field-value">' . esc_html( $loan->reason ) . '</div>';
+            echo '      </div>';
+
+            if ( $loan->status === 'rejected' && $loan->rejection_reason ) {
+                echo '      <div class="sfs-hr-loan-field-row">';
+                echo '          <div class="sfs-hr-loan-field-label" style="color:#dc3545;">' . esc_html__( 'Rejection', 'sfs-hr' ) . '</div>';
+                echo '          <div class="sfs-hr-loan-field-value" style="color:#dc3545;">' . esc_html( $loan->rejection_reason ) . '</div>';
+                echo '      </div>';
+            }
+
+            // Payment schedule
+            if ( ! empty( $payments ) ) {
+                echo '      <div style="margin-top:12px;padding-top:12px;border-top:1px solid #ddd;">';
+                echo '          <strong>' . esc_html__( 'Payment Schedule', 'sfs-hr' ) . '</strong>';
+                echo '          <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;">';
+                echo '          <thead>';
+                echo '          <tr style="background:#f5f5f5;">';
+                echo '          <th style="padding:6px;text-align:left;border:1px solid #ddd;">#</th>';
+                echo '          <th style="padding:6px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Due', 'sfs-hr' ) . '</th>';
+                echo '          <th style="padding:6px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
+                echo '          <th style="padding:6px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+                echo '          </tr>';
+                echo '          </thead>';
+                echo '          <tbody>';
+
+                foreach ( $payments as $payment ) {
+                    echo '          <tr>';
+                    echo '          <td style="padding:4px;border:1px solid #ddd;">' . (int) $payment->sequence . '</td>';
+                    echo '          <td style="padding:4px;border:1px solid #ddd;">' . esc_html( wp_date( 'M Y', strtotime( $payment->due_date ) ) ) . '</td>';
+                    echo '          <td style="padding:4px;border:1px solid #ddd;">' . number_format( (float) $payment->amount_planned, 2 ) . '</td>';
+                    echo '          <td style="padding:4px;border:1px solid #ddd;">' . $this->get_payment_status_badge( $payment->status ) . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+                    echo '          </tr>';
+                }
+
+                echo '          </tbody>';
+                echo '          </table>';
+                echo '      </div>';
+            }
+
+            echo '  </div>';
+            echo '</details>';
+        }
+        echo '</div>'; // .sfs-hr-loans-mobile
     }
 
     echo '</div>'; // .sfs-hr-loans-tab
