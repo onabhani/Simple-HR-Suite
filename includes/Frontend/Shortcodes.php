@@ -3520,16 +3520,34 @@ private function render_frontend_resignation_tab( array $emp ): void {
         echo '<div class="sfs-hr-resignation-history">';
         echo '<h4>' . esc_html__( 'My Resignations', 'sfs-hr' ) . '</h4>';
 
+        // Add mobile CSS
+        echo '<style>
+            @media screen and (max-width: 782px) {
+                .sfs-hr-resignations-table th.hide-mobile,
+                .sfs-hr-resignations-table td.hide-mobile {
+                    display: none !important;
+                }
+                .sfs-hr-resignations-table {
+                    font-size: 12px;
+                }
+                .sfs-hr-resignations-table th,
+                .sfs-hr-resignations-table td {
+                    padding: 6px 4px !important;
+                    white-space: nowrap;
+                }
+            }
+        </style>';
+
         echo '<div class="sfs-hr-resignations-desktop" style="overflow-x:auto;">';
-        echo '<table style="width:100%;border-collapse:collapse;background:#fff;">';
+        echo '<table class="sfs-hr-resignations-table" style="width:100%;border-collapse:collapse;background:#fff;">';
         echo '<thead>';
         echo '<tr style="background:#f5f5f5;">';
-        echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Type', 'sfs-hr' ) . '</th>';
+        echo '<th class="hide-mobile" style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Type', 'sfs-hr' ) . '</th>';
         echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Resignation Date', 'sfs-hr' ) . '</th>';
         echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Last Working Day', 'sfs-hr' ) . '</th>';
-        echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Notice Period', 'sfs-hr' ) . '</th>';
+        echo '<th class="hide-mobile" style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Notice Period', 'sfs-hr' ) . '</th>';
         echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
-        echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Submitted', 'sfs-hr' ) . '</th>';
+        echo '<th class="hide-mobile" style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Submitted', 'sfs-hr' ) . '</th>';
         echo '</tr>';
         echo '</thead>';
         echo '<tbody>';
@@ -3541,7 +3559,7 @@ private function render_frontend_resignation_tab( array $emp ): void {
             echo '<tr>';
 
             // Type column
-            echo '<td style="border:1px solid #ddd;padding:12px;">';
+            echo '<td class="hide-mobile" style="border:1px solid #ddd;padding:12px;">';
             if ( $type === 'final_exit' ) {
                 echo '<span style="background:#673ab7;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">'
                     . esc_html__( 'Final Exit', 'sfs-hr' ) . '</span>';
@@ -3553,9 +3571,9 @@ private function render_frontend_resignation_tab( array $emp ): void {
 
             echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['resignation_date'] ) . '</td>';
             echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['last_working_day'] ?: 'N/A' ) . '</td>';
-            echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['notice_period_days'] ) . ' ' . esc_html__( 'days', 'sfs-hr' ) . '</td>';
+            echo '<td class="hide-mobile" style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['notice_period_days'] ) . ' ' . esc_html__( 'days', 'sfs-hr' ) . '</td>';
             echo '<td style="border:1px solid #ddd;padding:12px;">' . $status_badge . '</td>';
-            echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['created_at'] ) . '</td>';
+            echo '<td class="hide-mobile" style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['created_at'] ) . '</td>';
             echo '</tr>';
 
             // Show reason, notes, and Final Exit info in expanded row
