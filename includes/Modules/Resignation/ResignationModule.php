@@ -16,6 +16,7 @@ class ResignationModule {
         add_action('admin_post_sfs_hr_resignation_reject',  [$this, 'handle_reject']);
         add_action('admin_post_sfs_hr_resignation_cancel',  [$this, 'handle_cancel']);
         add_action('admin_post_sfs_hr_final_exit_update',   [$this, 'handle_final_exit_update']);
+        add_action('admin_post_sfs_hr_resignation_settings', [$this, 'handle_settings']);
 
         // AJAX handlers
         add_action('wp_ajax_sfs_hr_get_resignation', [$this, 'ajax_get_resignation']);
@@ -39,6 +40,14 @@ class ResignationModule {
             'sfs_hr.view',
             'sfs-hr-resignations',
             [$this, 'render_admin_page']
+        );
+        add_submenu_page(
+            'sfs-hr',
+            __('Resignation Settings', 'sfs-hr'),
+            __('Resignation Settings', 'sfs-hr'),
+            'sfs_hr.manage',
+            'sfs-hr-resignation-settings',
+            [$this, 'render_settings']
         );
     }
 
@@ -557,7 +566,8 @@ class ResignationModule {
         }
 
         $resignation_date = sanitize_text_field($_POST['resignation_date'] ?? '');
-        $notice_period = intval($_POST['notice_period_days'] ?? 30);
+        // Get notice period from settings
+        $notice_period = (int)get_option('sfs_hr_resignation_notice_period', 30);
         $reason = sanitize_textarea_field($_POST['reason'] ?? '');
         $resignation_type = sanitize_text_field($_POST['resignation_type'] ?? 'regular');
         $expected_country_exit_date = sanitize_text_field($_POST['expected_country_exit_date'] ?? '');
@@ -1175,7 +1185,8 @@ class ResignationModule {
 
                 <p>
                     <label for="notice_period_days"><?php esc_html_e('Notice Period (days):', 'sfs-hr'); ?> <span style="color:red;">*</span></label><br>
-                    <input type="number" name="notice_period_days" id="notice_period_days" value="30" min="0" required style="width:100%;max-width:300px;">
+                    <input type="number" name="notice_period_days" id="notice_period_days" value="<?php echo esc_attr(get_option('sfs_hr_resignation_notice_period', '30')); ?>" min="0" readonly required style="width:100%;max-width:300px;background:#f5f5f5;cursor:not-allowed;">
+                    <br><small style="color:#666;"><?php esc_html_e('Set by HR based on company policy.', 'sfs-hr'); ?></small>
                 </p>
 
                 <p>
@@ -1241,5 +1252,71 @@ class ResignationModule {
         </div>
         <?php
         return ob_get_clean();
+    }
+
+    /* ---------------------------------- Settings ---------------------------------- */
+
+    public function render_settings(): void {
+        if (!current_user_can('sfs_hr.manage')) {
+            wp_die(__('Access denied', 'sfs-hr'));
+        }
+
+        $notice_period_days = (int)get_option('sfs_hr_resignation_notice_period', 30);
+
+        Helpers::render_admin_nav();
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e('Resignation Settings', 'sfs-hr'); ?></h1>
+
+            <?php if (!empty($_GET['ok'])): ?>
+                <div class="notice notice-success"><p><?php esc_html_e('Settings saved successfully.', 'sfs-hr'); ?></p></div>
+            <?php endif; ?>
+
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                <?php wp_nonce_field('sfs_hr_resignation_settings'); ?>
+                <input type="hidden" name="action" value="sfs_hr_resignation_settings">
+
+                <table class="form-table">
+                    <tr>
+                        <th scope="row">
+                            <label for="notice_period_days">
+                                <?php esc_html_e('Default Notice Period (days)', 'sfs-hr'); ?>
+                            </label>
+                        </th>
+                        <td>
+                            <input
+                                type="number"
+                                name="notice_period_days"
+                                id="notice_period_days"
+                                value="<?php echo esc_attr($notice_period_days); ?>"
+                                min="0"
+                                max="365"
+                                style="width:100px;"
+                                required>
+                            <p class="description">
+                                <?php esc_html_e('The default notice period in days for employee resignations. This will be applied automatically and shown as read-only to employees when they submit their resignation.', 'sfs-hr'); ?>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+
+                <?php submit_button(__('Save Settings', 'sfs-hr')); ?>
+            </form>
+        </div>
+        <?php
+    }
+
+    public function handle_settings(): void {
+        if (!current_user_can('sfs_hr.manage')) {
+            wp_die(__('Access denied', 'sfs-hr'));
+        }
+
+        check_admin_referer('sfs_hr_resignation_settings');
+
+        $notice_period_days = isset($_POST['notice_period_days']) ? max(0, min(365, (int)$_POST['notice_period_days'])) : 30;
+        update_option('sfs_hr_resignation_notice_period', (string)$notice_period_days);
+
+        wp_safe_redirect(admin_url('admin.php?page=sfs-hr-resignation-settings&ok=1'));
+        exit;
     }
 }

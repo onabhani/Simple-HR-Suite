@@ -3426,7 +3426,7 @@ private function render_frontend_resignation_tab( array $emp ): void {
                         type="number"
                         name="notice_period_days"
                         id="notice_period_days"
-                        value="30"
+                        value="<?php echo esc_attr( get_option( 'sfs_hr_resignation_notice_period', '30' ) ); ?>"
                         min="0"
                         readonly
                         required
