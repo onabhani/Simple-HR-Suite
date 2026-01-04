@@ -3372,6 +3372,21 @@ private function render_frontend_resignation_tab( array $emp ): void {
                 <input type="hidden" name="action" value="sfs_hr_resignation_submit">
 
                 <p>
+                    <label>
+                        <?php esc_html_e( 'Resignation Type:', 'sfs-hr' ); ?>
+                        <span style="color:red;">*</span>
+                    </label><br>
+                    <label style="display:inline-block;margin-right:20px;">
+                        <input type="radio" name="resignation_type" value="regular" checked onchange="toggleResignationFields()">
+                        <?php esc_html_e( 'Regular Resignation', 'sfs-hr' ); ?>
+                    </label>
+                    <label style="display:inline-block;">
+                        <input type="radio" name="resignation_type" value="final_exit" onchange="toggleResignationFields()">
+                        <?php esc_html_e( 'Final Exit (Foreign Employee)', 'sfs-hr' ); ?>
+                    </label>
+                </p>
+
+                <p id="resignation-date-field">
                     <label for="resignation_date">
                         <?php esc_html_e( 'Resignation Date:', 'sfs-hr' ); ?>
                         <span style="color:red;">*</span>
@@ -3395,10 +3410,11 @@ private function render_frontend_resignation_tab( array $emp ): void {
                         id="notice_period_days"
                         value="30"
                         min="0"
+                        readonly
                         required
-                        style="width:100%;max-width:300px;padding:8px;border:1px solid #ddd;border-radius:3px;">
+                        style="width:100%;max-width:300px;padding:8px;border:1px solid #ddd;border-radius:3px;background:#f5f5f5;cursor:not-allowed;">
                     <small style="color:#666;">
-                        <?php esc_html_e( 'Your last working day will be calculated based on this notice period.', 'sfs-hr' ); ?>
+                        <?php esc_html_e( 'Set by HR based on company policy. Your last working day will be calculated based on this.', 'sfs-hr' ); ?>
                     </small>
                 </p>
 
@@ -3410,24 +3426,9 @@ private function render_frontend_resignation_tab( array $emp ): void {
                     <textarea
                         name="reason"
                         id="reason"
-                        rows="5"
+                        rows="3"
                         required
                         style="width:100%;max-width:600px;padding:8px;border:1px solid #ddd;border-radius:3px;"></textarea>
-                </p>
-
-                <p>
-                    <label>
-                        <?php esc_html_e( 'Resignation Type:', 'sfs-hr' ); ?>
-                        <span style="color:red;">*</span>
-                    </label><br>
-                    <label style="display:inline-block;margin-right:20px;">
-                        <input type="radio" name="resignation_type" value="regular" checked onchange="toggleFEFinalExitFields()">
-                        <?php esc_html_e( 'Regular Resignation', 'sfs-hr' ); ?>
-                    </label>
-                    <label style="display:inline-block;">
-                        <input type="radio" name="resignation_type" value="final_exit" onchange="toggleFEFinalExitFields()">
-                        <?php esc_html_e( 'Final Exit (Foreign Employee)', 'sfs-hr' ); ?>
-                    </label>
                 </p>
 
                 <div id="fe-final-exit-fields" style="display:none;">
@@ -3446,13 +3447,31 @@ private function render_frontend_resignation_tab( array $emp ): void {
                     </p>
                 </div>
 
+                <style>
+                    @media (max-width: 600px) {
+                        .sfs-hr-resignation-form textarea {
+                            min-height: 80px !important;
+                            height: auto !important;
+                        }
+                    }
+                </style>
+
                 <script>
-                function toggleFEFinalExitFields() {
+                function toggleResignationFields() {
                     var finalExitRadio = document.querySelector('input[name="resignation_type"][value="final_exit"]');
+                    var resignationDateField = document.getElementById('resignation-date-field');
+                    var resignationDateInput = document.getElementById('resignation_date');
                     var finalExitFields = document.getElementById('fe-final-exit-fields');
+
                     if (finalExitRadio && finalExitRadio.checked) {
+                        // Final Exit selected: hide resignation date, show final exit fields
+                        resignationDateField.style.display = 'none';
+                        resignationDateInput.removeAttribute('required');
                         finalExitFields.style.display = 'block';
                     } else {
+                        // Regular Resignation: show resignation date, hide final exit fields
+                        resignationDateField.style.display = 'block';
+                        resignationDateInput.setAttribute('required', 'required');
                         finalExitFields.style.display = 'none';
                     }
                 }
