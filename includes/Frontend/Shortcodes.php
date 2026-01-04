@@ -3453,6 +3453,7 @@ private function render_frontend_resignation_tab( array $emp ): void {
                     <p>
                         <label for="expected_country_exit_date">
                             <?php esc_html_e( 'Expected Country Exit Date:', 'sfs-hr' ); ?>
+                            <span style="color:red;">*</span>
                         </label><br>
                         <input
                             type="date"
@@ -3480,17 +3481,24 @@ private function render_frontend_resignation_tab( array $emp ): void {
                     var resignationDateField = document.getElementById('resignation-date-field');
                     var resignationDateInput = document.getElementById('resignation_date');
                     var finalExitFields = document.getElementById('fe-final-exit-fields');
+                    var expectedExitDateInput = document.getElementById('expected_country_exit_date');
 
                     if (finalExitRadio && finalExitRadio.checked) {
                         // Final Exit selected: hide resignation date, show final exit fields
                         resignationDateField.style.display = 'none';
                         resignationDateInput.removeAttribute('required');
                         finalExitFields.style.display = 'block';
+                        if (expectedExitDateInput) {
+                            expectedExitDateInput.setAttribute('required', 'required');
+                        }
                     } else {
                         // Regular Resignation: show resignation date, hide final exit fields
                         resignationDateField.style.display = 'block';
                         resignationDateInput.setAttribute('required', 'required');
                         finalExitFields.style.display = 'none';
+                        if (expectedExitDateInput) {
+                            expectedExitDateInput.removeAttribute('required');
+                        }
                     }
                 }
                 </script>

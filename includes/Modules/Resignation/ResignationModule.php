@@ -572,12 +572,20 @@ class ResignationModule {
         $resignation_type = sanitize_text_field($_POST['resignation_type'] ?? 'regular');
         $expected_country_exit_date = sanitize_text_field($_POST['expected_country_exit_date'] ?? '');
 
-        if (empty($resignation_date)) {
+        // Validation
+        if ($resignation_type !== 'final_exit' && empty($resignation_date)) {
             wp_die(__('Resignation date is required.', 'sfs-hr'));
         }
 
-        // Calculate last working day
-        $last_working_day = date('Y-m-d', strtotime($resignation_date . " +{$notice_period} days"));
+        if ($resignation_type === 'final_exit' && empty($expected_country_exit_date)) {
+            wp_die(__('Expected country exit date is required for Final Exit resignations.', 'sfs-hr'));
+        }
+
+        // Calculate last working day (only for regular resignations with a resignation date)
+        $last_working_day = null;
+        if (!empty($resignation_date)) {
+            $last_working_day = date('Y-m-d', strtotime($resignation_date . " +{$notice_period} days"));
+        }
 
         // Get department manager for approval
         $emp = Helpers::get_employee_row($employee_id);
