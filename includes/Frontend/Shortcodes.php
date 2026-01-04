@@ -3553,7 +3553,7 @@ private function render_frontend_resignation_tab( array $emp ): void {
         echo '<tbody>';
 
         foreach ( $resignations as $r ) {
-            $status_badge = $this->resignation_status_badge( $r['status'] );
+            $status_badge = $this->resignation_status_badge( $r['status'], intval( $r['approval_level'] ?? 1 ) );
             $type = $r['resignation_type'] ?? 'regular';
 
             echo '<tr>';
@@ -3645,18 +3645,32 @@ private function render_frontend_resignation_tab( array $emp ): void {
 /**
  * Helper to render resignation status badge
  */
-private function resignation_status_badge( string $status ): string {
+private function resignation_status_badge( string $status, int $approval_level = 1 ): string {
     $colors = [
-        'pending'  => '#f0ad4e',
-        'approved' => '#5cb85c',
-        'rejected' => '#d9534f',
+        'pending'   => '#f0ad4e',
+        'approved'  => '#5cb85c',
+        'rejected'  => '#d9534f',
+        'cancelled' => '#6c757d',
     ];
 
     $color = $colors[ $status ] ?? '#777';
+
+    // Make status clearer for pending resignations
+    $label = ucfirst( $status );
+    if ( $status === 'pending' ) {
+        if ( $approval_level === 1 ) {
+            $label = __( 'Pending - Manager', 'sfs-hr' );
+        } elseif ( $approval_level === 2 ) {
+            $label = __( 'Pending - HR', 'sfs-hr' );
+        } else {
+            $label = __( 'Pending', 'sfs-hr' );
+        }
+    }
+
     return sprintf(
         '<span style="background:%s;color:#fff;padding:6px 12px;border-radius:3px;font-size:12px;font-weight:500;">%s</span>',
         esc_attr( $color ),
-        esc_html( ucfirst( $status ) )
+        esc_html( $label )
     );
 }
 

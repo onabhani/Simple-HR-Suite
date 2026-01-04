@@ -171,7 +171,7 @@ class ResignationModule {
                                 <td><?php echo esc_html($row['resignation_date']); ?></td>
                                 <td><?php echo esc_html($row['last_working_day'] ?: 'N/A'); ?></td>
                                 <td><?php echo esc_html($row['notice_period_days']) . ' ' . esc_html__('days', 'sfs-hr'); ?></td>
-                                <td><?php echo $this->status_badge($row['status']); ?></td>
+                                <td><?php echo $this->status_badge($row['status'], intval($row['approval_level'] ?? 1)); ?></td>
                                 <td><?php
                                     if ($type === 'final_exit') {
                                         $fe_status = $row['final_exit_status'] ?? 'not_required';
@@ -873,7 +873,7 @@ class ResignationModule {
         return array_column($rows, 'id');
     }
 
-    private function status_badge(string $status): string {
+    private function status_badge(string $status, int $approval_level = 1): string {
         $colors = [
             'pending'   => '#f0ad4e',
             'approved'  => '#5cb85c',
@@ -882,10 +882,23 @@ class ResignationModule {
         ];
 
         $color = $colors[$status] ?? '#777';
+
+        // Make status clearer for pending resignations
+        $label = ucfirst($status);
+        if ($status === 'pending') {
+            if ($approval_level === 1) {
+                $label = __('Pending - Manager', 'sfs-hr');
+            } elseif ($approval_level === 2) {
+                $label = __('Pending - HR', 'sfs-hr');
+            } else {
+                $label = __('Pending', 'sfs-hr');
+            }
+        }
+
         return sprintf(
             '<span style="background:%s;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">%s</span>',
             esc_attr($color),
-            esc_html(ucfirst($status))
+            esc_html($label)
         );
     }
 
@@ -1242,7 +1255,7 @@ class ResignationModule {
                             <tr>
                                 <td style="border:1px solid #ddd;padding:8px;"><?php echo esc_html($r['resignation_date']); ?></td>
                                 <td style="border:1px solid #ddd;padding:8px;"><?php echo esc_html($r['last_working_day']); ?></td>
-                                <td style="border:1px solid #ddd;padding:8px;"><?php echo $this->status_badge($r['status']); ?></td>
+                                <td style="border:1px solid #ddd;padding:8px;"><?php echo $this->status_badge($r['status'], intval($r['approval_level'] ?? 1)); ?></td>
                                 <td style="border:1px solid #ddd;padding:8px;"><?php echo esc_html($r['created_at']); ?></td>
                             </tr>
                         <?php endforeach; ?>
