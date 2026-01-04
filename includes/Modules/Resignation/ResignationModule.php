@@ -165,37 +165,44 @@ class ResignationModule {
 
         ?>
             <style>
-                .sfs-hr-resignations-table-wrapper {
-                    overflow-x: auto;
-                    -webkit-overflow-scrolling: touch;
-                }
-
                 @media (max-width: 782px) {
-                    .sfs-hr-resignations-table-wrapper {
-                        margin: 0 -10px;
-                        padding: 0 10px;
+                    /* Hide less important columns on mobile */
+                    .sfs-hr-resignations-table-wrapper table.wp-list-table th.hide-mobile,
+                    .sfs-hr-resignations-table-wrapper table.wp-list-table td.hide-mobile {
+                        display: none;
                     }
 
+                    /* Adjust remaining columns */
                     .sfs-hr-resignations-table-wrapper table.wp-list-table {
-                        min-width: 800px;
-                        font-size: 12px;
+                        font-size: 13px;
                     }
 
                     .sfs-hr-resignations-table-wrapper table.wp-list-table th,
                     .sfs-hr-resignations-table-wrapper table.wp-list-table td {
-                        padding: 8px 4px;
+                        padding: 10px 8px;
+                    }
+
+                    /* Stack action buttons vertically */
+                    .sfs-hr-resignations-table-wrapper table.wp-list-table td.actions-col {
+                        white-space: normal;
                     }
 
                     .sfs-hr-resignations-table-wrapper table.wp-list-table .button {
-                        font-size: 11px;
-                        padding: 2px 6px;
-                        margin: 2px 0;
-                        display: inline-block;
-                        white-space: nowrap;
+                        display: block;
+                        width: 100%;
+                        margin: 4px 0;
+                        text-align: center;
+                        font-size: 12px;
+                        padding: 4px 8px;
                     }
 
                     .sfs-hr-resignations-table-wrapper table.wp-list-table td small {
-                        font-size: 10px;
+                        font-size: 11px;
+                    }
+
+                    /* Make employee names more readable */
+                    .sfs-hr-resignations-table-wrapper table.wp-list-table td.employee-col {
+                        min-width: 120px;
                     }
                 }
             </style>
@@ -222,16 +229,16 @@ class ResignationModule {
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
-                        <th><?php esc_html_e('ID', 'sfs-hr'); ?></th>
-                        <th><?php esc_html_e('Employee', 'sfs-hr'); ?></th>
+                        <th class="hide-mobile"><?php esc_html_e('ID', 'sfs-hr'); ?></th>
+                        <th class="employee-col"><?php esc_html_e('Employee', 'sfs-hr'); ?></th>
                         <th><?php esc_html_e('Type', 'sfs-hr'); ?></th>
-                        <th><?php esc_html_e('Resignation Date', 'sfs-hr'); ?></th>
-                        <th><?php esc_html_e('Last Working Day', 'sfs-hr'); ?></th>
-                        <th><?php esc_html_e('Notice Period', 'sfs-hr'); ?></th>
+                        <th class="hide-mobile"><?php esc_html_e('Resignation Date', 'sfs-hr'); ?></th>
+                        <th class="hide-mobile"><?php esc_html_e('Last Working Day', 'sfs-hr'); ?></th>
+                        <th class="hide-mobile"><?php esc_html_e('Notice Period', 'sfs-hr'); ?></th>
                         <th><?php esc_html_e('Status', 'sfs-hr'); ?></th>
                         <th><?php esc_html_e('Final Exit', 'sfs-hr'); ?></th>
-                        <th><?php esc_html_e('Reason', 'sfs-hr'); ?></th>
-                        <th><?php esc_html_e('Actions', 'sfs-hr'); ?></th>
+                        <th class="hide-mobile"><?php esc_html_e('Reason', 'sfs-hr'); ?></th>
+                        <th class="actions-col"><?php esc_html_e('Actions', 'sfs-hr'); ?></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -242,8 +249,8 @@ class ResignationModule {
                     <?php else: ?>
                         <?php foreach ($rows as $row): ?>
                             <tr>
-                                <td><?php echo esc_html($row['id']); ?></td>
-                                <td>
+                                <td class="hide-mobile"><?php echo esc_html($row['id']); ?></td>
+                                <td class="employee-col">
                                     <?php echo esc_html($row['first_name'] . ' ' . $row['last_name']); ?><br>
                                     <small><?php echo esc_html($row['employee_code']); ?></small>
                                     <?php
@@ -263,9 +270,9 @@ class ResignationModule {
                                             . esc_html__('Regular', 'sfs-hr') . '</span>';
                                     }
                                 ?></td>
-                                <td><?php echo esc_html($row['resignation_date']); ?></td>
-                                <td><?php echo esc_html($row['last_working_day'] ?: 'N/A'); ?></td>
-                                <td><?php echo esc_html($row['notice_period_days']) . ' ' . esc_html__('days', 'sfs-hr'); ?></td>
+                                <td class="hide-mobile"><?php echo esc_html($row['resignation_date']); ?></td>
+                                <td class="hide-mobile"><?php echo esc_html($row['last_working_day'] ?: 'N/A'); ?></td>
+                                <td class="hide-mobile"><?php echo esc_html($row['notice_period_days']) . ' ' . esc_html__('days', 'sfs-hr'); ?></td>
                                 <td><?php echo $this->status_badge($row['status'], intval($row['approval_level'] ?? 1)); ?></td>
                                 <td><?php
                                     if ($type === 'final_exit') {
@@ -278,8 +285,8 @@ class ResignationModule {
                                         echo '—';
                                     }
                                 ?></td>
-                                <td><?php echo esc_html(wp_trim_words($row['reason'], 10)); ?></td>
-                                <td>
+                                <td class="hide-mobile"><?php echo esc_html(wp_trim_words($row['reason'], 10)); ?></td>
+                                <td class="actions-col">
                                     <?php if ($row['status'] === 'pending' && $this->can_approve_resignation($row)): ?>
                                         <a href="#" onclick="return showApproveModal(<?php echo esc_attr($row['id']); ?>);" class="button button-small">
                                             <?php esc_html_e('Approve', 'sfs-hr'); ?>
