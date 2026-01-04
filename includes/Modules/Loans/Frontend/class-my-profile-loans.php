@@ -117,31 +117,6 @@ class MyProfileLoans {
         echo '<div id="sfs-loan-request-form" style="display:none;background:#fff;padding:20px;border:1px solid #ccc;border-radius:4px;margin-bottom:20px;max-width:600px;">';
         echo '<h3>' . esc_html__( 'Request New Loan', 'sfs-hr' ) . ' <span style="color:#999;font-size:11px;font-weight:normal;">(v2.0 - Monthly Amount)</span></h3>';
 
-        // Add mobile-specific CSS to match leave form styling
-        echo '<style>
-            @media screen and (max-width: 782px) {
-                #sfs-loan-request-form {
-                    padding: 15px !important;
-                }
-                #sfs-loan-request-form textarea {
-                    min-height: 80px !important;
-                    height: auto !important;
-                }
-                #sfs-loan-request-form .form-table th,
-                #sfs-loan-request-form .form-table td {
-                    padding: 10px 0;
-                }
-                #sfs-loan-request-form input[type="number"],
-                #sfs-loan-request-form input[type="date"],
-                #sfs-loan-request-form select,
-                #sfs-loan-request-form textarea {
-                    width: 100% !important;
-                    max-width: 100% !important;
-                    box-sizing: border-box !important;
-                }
-            }
-        </style>';
-
         echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
         wp_nonce_field( 'sfs_hr_submit_loan_request_' . $employee->id );
         echo '<input type="hidden" name="action" value="sfs_hr_submit_loan_request" />';
