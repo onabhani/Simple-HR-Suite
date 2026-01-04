@@ -139,9 +139,6 @@ echo '<style>
 
 echo '<hr class="wp-header-end" />';
 
-
-        echo '<hr class="wp-header-end" />';
-
         // ----- Tabs -----
         $base_url = admin_url( 'admin.php?page=sfs-hr-my-profile' );
 
