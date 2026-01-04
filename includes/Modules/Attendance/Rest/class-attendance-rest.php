@@ -643,6 +643,29 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
         'action'    => $punch_type,
     ], 15 );
 
+    // ---- FINAL DUPLICATE CHECK: Prevent exact duplicate within last 10 seconds
+    // This catches race conditions where multiple requests arrive simultaneously
+    $duplicate_check = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, punch_time FROM {$punchT}
+         WHERE employee_id = %d
+           AND punch_type = %s
+           AND punch_time >= DATE_SUB(%s, INTERVAL 10 SECOND)
+         ORDER BY punch_time DESC
+         LIMIT 1",
+        (int) $emp,
+        $punch_type,
+        $nowUtc
+    ) );
+
+    if ( $duplicate_check ) {
+        $dup_time = wp_date( 'H:i:s', strtotime( $duplicate_check->punch_time ) );
+        return new \WP_Error(
+            'duplicate',
+            sprintf( 'This punch was already recorded at %s. Please wait before trying again.', $dup_time ),
+            [ 'status' => 409 ]
+        );
+    }
+
     // ---- Insert immutable punch
     $nowUtc = current_time( 'mysql', true );
     $punchT = $wpdb->prefix . 'sfs_hr_attendance_punches';
