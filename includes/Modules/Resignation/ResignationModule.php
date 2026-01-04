@@ -385,6 +385,44 @@ class ResignationModule {
             </div>
         </div>
 
+        <style>
+            /* Mobile responsive styles for resignation details modal */
+            @media (max-width: 782px) {
+                #details-modal > div {
+                    margin: 20px 10px !important;
+                    padding: 20px !important;
+                    max-height: 95% !important;
+                }
+
+                #details-actions h3 {
+                    font-size: 16px;
+                    margin-bottom: 12px !important;
+                }
+
+                #details-actions > div {
+                    flex-direction: column !important;
+                    gap: 8px !important;
+                }
+
+                #details-actions .button {
+                    width: 100% !important;
+                    display: block !important;
+                    text-align: center !important;
+                    margin: 0 !important;
+                    padding: 10px 15px !important;
+                    box-sizing: border-box !important;
+                }
+
+                #details-content {
+                    font-size: 14px;
+                }
+
+                #details-content > div {
+                    grid-template-columns: 1fr !important;
+                }
+            }
+        </style>
+
         <!-- Final Exit Modal -->
         <div id="final-exit-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;">
             <div style="background:#fff;padding:30px;max-width:900px;margin:50px auto;border-radius:5px;max-height:90%;overflow-y:auto;">
