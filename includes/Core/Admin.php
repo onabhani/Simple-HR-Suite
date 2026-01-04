@@ -890,6 +890,65 @@ echo '</a>';
   .sfs-hr-emp-add-footer {
     margin-top: 16px;
   }
+
+  /* Mobile responsive styles */
+  @media (max-width: 782px) {
+    /* Stack filter forms */
+    form[method="get"], form[method="post"] {
+      display: block !important;
+      margin: 8px 0 !important;
+    }
+
+    form[method="get"] input[type="search"],
+    form[method="get"] select {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin-bottom: 8px !important;
+      display: block !important;
+    }
+
+    /* Hide less important columns on mobile */
+    .widefat thead th.hide-mobile,
+    .widefat tbody td.hide-mobile {
+      display: none !important;
+    }
+
+    /* Make employee rows clickable cards on mobile */
+    .widefat tbody tr {
+      cursor: pointer;
+      position: relative;
+    }
+
+    .widefat tbody tr:hover {
+      background-color: #f0f0f1;
+    }
+
+    /* Stack action buttons on mobile */
+    .sfs-hr-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .sfs-hr-actions .button {
+      width: 100%;
+      margin: 0 !important;
+      text-align: center;
+    }
+
+    /* Reduce font sizes on mobile */
+    .widefat {
+      font-size: 13px;
+    }
+
+    .widefat th, .widefat td {
+      padding: 8px 4px;
+    }
+
+    code {
+      font-size: 11px;
+    }
+  }
 </style>
 
 
@@ -928,14 +987,14 @@ echo '</a>';
           <h2><?php echo esc_html__('Employees List','sfs-hr'); ?></h2>
           <table class="widefat striped">
             <thead><tr>
-              <th><?php esc_html_e('ID','sfs-hr'); ?></th>
+              <th class="hide-mobile"><?php esc_html_e('ID','sfs-hr'); ?></th>
               <th><?php esc_html_e('Code','sfs-hr'); ?></th>
               <th><?php esc_html_e('Name','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Email','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Department','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Position','sfs-hr'); ?></th>
+              <th class="hide-mobile"><?php esc_html_e('Email','sfs-hr'); ?></th>
+              <th class="hide-mobile"><?php esc_html_e('Department','sfs-hr'); ?></th>
+              <th class="hide-mobile"><?php esc_html_e('Position','sfs-hr'); ?></th>
               <th><?php esc_html_e('Status','sfs-hr'); ?></th>
-              <th><?php esc_html_e('WP User','sfs-hr'); ?></th>
+              <th class="hide-mobile"><?php esc_html_e('WP User','sfs-hr'); ?></th>
               <th><?php esc_html_e('Actions','sfs-hr'); ?></th>
             </tr></thead>
             <tbody>
@@ -951,14 +1010,14 @@ echo '</a>';
                 $dept_name = empty($r['dept_id']) ? __('General','sfs-hr') : ($dept_map[(int)$r['dept_id']] ?? '#'.(int)$r['dept_id']);
             ?>
               <tr>
-                <td><?php echo (int)$r['id']; ?></td>
+                <td class="hide-mobile"><?php echo (int)$r['id']; ?></td>
                 <td><code><?php echo esc_html($r['employee_code']); ?></code></td>
                 <td><?php echo esc_html($name); ?></td>
-                <td><?php echo esc_html($r['email']); ?></td>
-                <td><?php echo esc_html($dept_name); ?></td>
-                <td><?php echo esc_html($r['position']); ?></td>
+                <td class="hide-mobile"><?php echo esc_html($r['email']); ?></td>
+                <td class="hide-mobile"><?php echo esc_html($dept_name); ?></td>
+                <td class="hide-mobile"><?php echo esc_html($r['position']); ?></td>
                 <td><span class="sfs-hr-badge status-<?php echo esc_attr($status); ?>"><?php echo esc_html(ucfirst($status)); ?></span></td>
-                <td><?php echo $r['user_id'] ? '<code>'.(int)$r['user_id'].'</code>' : '&ndash;'; ?></td>
+                <td class="hide-mobile"><?php echo $r['user_id'] ? '<code>'.(int)$r['user_id'].'</code>' : '&ndash;'; ?></td>
                 <td>
                   <div class="sfs-hr-actions">
                     <a class="button button-small" href="<?php echo esc_url($edit_url); ?>"><?php esc_html_e('Edit','sfs-hr'); ?></a>
