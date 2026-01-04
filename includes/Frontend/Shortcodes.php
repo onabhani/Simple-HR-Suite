@@ -1826,6 +1826,12 @@ private function render_frontend_leave_tab( array $emp ): void {
             width: 100%;
             text-align: center;
         }
+
+        /* Fix mobile form spacing - reduce textarea height */
+        .sfs-hr-leave-self-form textarea {
+            min-height: 80px !important;
+            height: auto !important;
+        }
     }
 
     .sfs-hr-my-profile-leave {
@@ -2447,8 +2453,21 @@ document.addEventListener("DOMContentLoaded", function() {
 
     echo '<div style="margin-bottom:16px;">';
     echo '<label style="display:block;margin-bottom:4px;font-weight:600;">' . esc_html__( 'Reason for Loan', 'sfs-hr' ) . ' <span style="color:red;">*</span></label>';
-    echo '<textarea name="reason" rows="4" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"></textarea>';
+    echo '<textarea name="reason" rows="3" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"></textarea>';
     echo '</div>';
+
+    // Add mobile CSS
+    echo '<style>
+        @media (max-width: 600px) {
+            #sfs-loan-request-form-frontend textarea {
+                min-height: 80px !important;
+                height: auto !important;
+            }
+            #sfs-loan-request-form-frontend input[type="number"] {
+                font-size: 16px; /* Prevent zoom on iOS */
+            }
+        }
+    </style>';
 
     echo '<div>';
     echo '<button type="submit" style="background:#2271b1;color:#fff;border:0;padding:8px 16px;border-radius:4px;cursor:pointer;margin-right:8px;">' .
