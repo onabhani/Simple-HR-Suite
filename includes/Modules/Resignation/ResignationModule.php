@@ -79,7 +79,7 @@ class ResignationModule {
         Helpers::render_admin_nav();
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e('Resignations Management', 'sfs-hr'); ?></h1>
+            <h1><?php esc_html_e('Resignations', 'sfs-hr'); ?></h1>
 
             <nav class="nav-tab-wrapper">
                 <a href="?page=sfs-hr-resignations&tab=resignations"
@@ -279,28 +279,6 @@ class ResignationModule {
                                 <td><?php echo $this->status_badge($row['status'], intval($row['approval_level'] ?? 1)); ?></td>
                                 <td class="hide-mobile"><?php echo esc_html(wp_trim_words($row['reason'], 10)); ?></td>
                                 <td class="actions-col">
-                                    <?php if ($row['status'] === 'pending' && $this->can_approve_resignation($row)): ?>
-                                        <a href="#" onclick="return showApproveModal(<?php echo esc_attr($row['id']); ?>);" class="button button-small">
-                                            <?php esc_html_e('Approve', 'sfs-hr'); ?>
-                                        </a>
-                                        <a href="#" onclick="return showRejectModal(<?php echo esc_attr($row['id']); ?>);" class="button button-small">
-                                            <?php esc_html_e('Reject', 'sfs-hr'); ?>
-                                        </a>
-                                    <?php endif; ?>
-                                    <?php if (in_array($row['status'], ['pending', 'approved']) && $this->can_approve_resignation($row)): ?>
-                                        <a href="#" onclick="return showCancelModal(<?php echo esc_attr($row['id']); ?>);" class="button button-small" style="background:#dc3545;border-color:#dc3545;color:#fff;margin-left:4px;">
-                                            <?php esc_html_e('Cancel', 'sfs-hr'); ?>
-                                        </a>
-                                    <?php endif; ?>
-                                    <?php
-                                    // Show Final Exit button only when at Final Exit processing stage (level 4)
-                                    $approval_level = intval($row['approval_level'] ?? 1);
-                                    if ($type === 'final_exit' && $approval_level === 4 && current_user_can('sfs_hr.manage')):
-                                    ?>
-                                        <a href="#" onclick="return showFinalExitModal(<?php echo esc_attr($row['id']); ?>);" class="button button-small">
-                                            <?php esc_html_e('Process Final Exit', 'sfs-hr'); ?>
-                                        </a>
-                                    <?php endif; ?>
                                     <a href="#" onclick="return showDetailsModal(<?php echo esc_attr($row['id']); ?>);" class="button button-small">
                                         <?php esc_html_e('Details', 'sfs-hr'); ?>
                                     </a>
@@ -398,6 +376,9 @@ class ResignationModule {
                 <div id="details-content">
                     <p><?php esc_html_e('Loading...', 'sfs-hr'); ?></p>
                 </div>
+                <div id="details-actions" style="margin-top:30px;padding-top:20px;border-top:1px solid #ddd;">
+                    <!-- Action buttons will be inserted here -->
+                </div>
                 <div style="margin-top:20px;">
                     <button type="button" onclick="hideDetailsModal();" class="button"><?php esc_html_e('Close', 'sfs-hr'); ?></button>
                 </div>
@@ -454,8 +435,10 @@ class ResignationModule {
                 success: function(response) {
                     if (response.success) {
                         document.getElementById('details-content').innerHTML = buildDetailsView(response.data);
+                        document.getElementById('details-actions').innerHTML = buildActionsView(response.data);
                     } else {
                         document.getElementById('details-content').innerHTML = '<p>Error loading resignation data.</p>';
+                        document.getElementById('details-actions').innerHTML = '';
                     }
                 },
                 error: function() {
@@ -522,6 +505,34 @@ class ResignationModule {
 
                 html += '<div><strong><?php esc_html_e('Ticket Booked:', 'sfs-hr'); ?></strong><br>' + (data.ticket_booked == 1 ? '<?php echo esc_js(__('Yes', 'sfs-hr')); ?>' : '<?php echo esc_js(__('No', 'sfs-hr')); ?>') + '</div>';
                 html += '<div><strong><?php esc_html_e('Exit Stamp Received:', 'sfs-hr'); ?></strong><br>' + (data.exit_stamp_received == 1 ? '<?php echo esc_js(__('Yes', 'sfs-hr')); ?>' : '<?php echo esc_js(__('No', 'sfs-hr')); ?>') + '</div>';
+            }
+
+            html += '</div>';
+            return html;
+        }
+        function buildActionsView(data) {
+            var html = '<h3 style="margin-bottom:15px;"><?php esc_html_e('Actions', 'sfs-hr'); ?></h3>';
+            html += '<div style="display:flex;gap:10px;flex-wrap:wrap;">';
+
+            // Approve and Reject buttons (show if status is pending and user can approve)
+            if (data.status === 'pending' && data.can_approve) {
+                html += '<a href="#" onclick="hideDetailsModal(); showApproveModal(' + data.id + ');" class="button button-primary">';
+                html += '<?php echo esc_js(__('Approve', 'sfs-hr')); ?></a>';
+
+                html += '<a href="#" onclick="hideDetailsModal(); showRejectModal(' + data.id + ');" class="button">';
+                html += '<?php echo esc_js(__('Reject', 'sfs-hr')); ?></a>';
+            }
+
+            // Cancel button (show if status is pending or approved and user can approve)
+            if ((data.status === 'pending' || data.status === 'approved') && data.can_approve) {
+                html += '<a href="#" onclick="hideDetailsModal(); showCancelModal(' + data.id + ');" class="button" style="background:#dc3545;border-color:#dc3545;color:#fff;">';
+                html += '<?php echo esc_js(__('Cancel', 'sfs-hr')); ?></a>';
+            }
+
+            // Process Final Exit button (show if final_exit type at level 4 and user has manage permission)
+            if (data.resignation_type === 'final_exit' && data.approval_level == 4 && data.can_manage) {
+                html += '<a href="#" onclick="hideDetailsModal(); showFinalExitModal(' + data.id + ');" class="button button-primary">';
+                html += '<?php echo esc_js(__('Process Final Exit', 'sfs-hr')); ?></a>';
             }
 
             html += '</div>';
@@ -1274,6 +1285,8 @@ class ResignationModule {
             'employee_code'              => $resignation['employee_code'],
             'resignation_date'           => $resignation['resignation_date'],
             'resignation_type'           => $resignation['resignation_type'] ?? 'regular',
+            'status'                     => $resignation['status'],
+            'approval_level'             => intval($resignation['approval_level'] ?? 1),
             'final_exit_status'          => $resignation['final_exit_status'] ?? 'not_required',
             'final_exit_number'          => $resignation['final_exit_number'] ?? '',
             'final_exit_date'            => $resignation['final_exit_date'] ?? '',
@@ -1283,6 +1296,8 @@ class ResignationModule {
             'actual_exit_date'           => $resignation['actual_exit_date'] ?? '',
             'ticket_booked'              => $resignation['ticket_booked'] ?? 0,
             'exit_stamp_received'        => $resignation['exit_stamp_received'] ?? 0,
+            'can_approve'                => $this->can_approve_resignation($resignation),
+            'can_manage'                 => current_user_can('sfs_hr.manage'),
         ];
 
         wp_send_json_success($data);
