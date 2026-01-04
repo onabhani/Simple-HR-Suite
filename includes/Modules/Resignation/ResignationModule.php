@@ -127,10 +127,11 @@ class ResignationModule {
         $where  = '1=1';
         $params = [];
 
-        if (in_array($status, ['pending', 'approved', 'rejected', 'cancelled'], true)) {
+        if (in_array($status, ['pending', 'approved', 'rejected', 'cancelled', 'completed'], true)) {
             $where   .= " AND r.status = %s";
             $params[] = $status;
         } elseif ($status === 'final_exit') {
+            // Show all Final Exit type resignations (includes pending, pending - final exit, and completed)
             $where   .= " AND r.resignation_type = %s";
             $params[] = 'final_exit';
         }
@@ -220,6 +221,9 @@ class ResignationModule {
                 <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&tab=resignations&status=cancelled')); ?>"
                     class="<?php echo $status === 'cancelled' ? 'current' : ''; ?>">
                     <?php esc_html_e('Cancelled', 'sfs-hr'); ?></a> | </li>
+                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&tab=resignations&status=completed')); ?>"
+                    class="<?php echo $status === 'completed' ? 'current' : ''; ?>">
+                    <?php esc_html_e('Completed', 'sfs-hr'); ?></a> | </li>
                 <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&tab=resignations&status=final_exit')); ?>"
                     class="<?php echo $status === 'final_exit' ? 'current' : ''; ?>">
                     <?php esc_html_e('Final Exit', 'sfs-hr'); ?></a></li>
@@ -236,7 +240,6 @@ class ResignationModule {
                         <th class="hide-mobile"><?php esc_html_e('Last Working Day', 'sfs-hr'); ?></th>
                         <th class="hide-mobile"><?php esc_html_e('Notice Period', 'sfs-hr'); ?></th>
                         <th><?php esc_html_e('Status', 'sfs-hr'); ?></th>
-                        <th><?php esc_html_e('Final Exit', 'sfs-hr'); ?></th>
                         <th class="hide-mobile"><?php esc_html_e('Reason', 'sfs-hr'); ?></th>
                         <th class="actions-col"><?php esc_html_e('Actions', 'sfs-hr'); ?></th>
                     </tr>
@@ -244,7 +247,7 @@ class ResignationModule {
                 <tbody>
                     <?php if (empty($rows)): ?>
                         <tr>
-                            <td colspan="10"><?php esc_html_e('No resignations found.', 'sfs-hr'); ?></td>
+                            <td colspan="9"><?php esc_html_e('No resignations found.', 'sfs-hr'); ?></td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($rows as $row): ?>
@@ -274,17 +277,6 @@ class ResignationModule {
                                 <td class="hide-mobile"><?php echo esc_html($row['last_working_day'] ?: 'N/A'); ?></td>
                                 <td class="hide-mobile"><?php echo esc_html($row['notice_period_days']) . ' ' . esc_html__('days', 'sfs-hr'); ?></td>
                                 <td><?php echo $this->status_badge($row['status'], intval($row['approval_level'] ?? 1)); ?></td>
-                                <td><?php
-                                    if ($type === 'final_exit') {
-                                        $fe_status = $row['final_exit_status'] ?? 'not_required';
-                                        echo $this->final_exit_status_badge($fe_status);
-                                        if (!empty($row['final_exit_number'])) {
-                                            echo '<br><small>' . esc_html($row['final_exit_number']) . '</small>';
-                                        }
-                                    } else {
-                                        echo '—';
-                                    }
-                                ?></td>
                                 <td class="hide-mobile"><?php echo esc_html(wp_trim_words($row['reason'], 10)); ?></td>
                                 <td class="actions-col">
                                     <?php if ($row['status'] === 'pending' && $this->can_approve_resignation($row)): ?>
@@ -300,9 +292,13 @@ class ResignationModule {
                                             <?php esc_html_e('Cancel', 'sfs-hr'); ?>
                                         </a>
                                     <?php endif; ?>
-                                    <?php if ($type === 'final_exit'): ?>
+                                    <?php
+                                    // Show Final Exit button only when at Final Exit processing stage (level 4)
+                                    $approval_level = intval($row['approval_level'] ?? 1);
+                                    if ($type === 'final_exit' && $approval_level === 4 && current_user_can('sfs_hr.manage')):
+                                    ?>
                                         <a href="#" onclick="return showFinalExitModal(<?php echo esc_attr($row['id']); ?>);" class="button button-small">
-                                            <?php esc_html_e('Final Exit', 'sfs-hr'); ?>
+                                            <?php esc_html_e('Process Final Exit', 'sfs-hr'); ?>
                                         </a>
                                     <?php endif; ?>
                                     <a href="#" onclick="return showDetailsModal(<?php echo esc_attr($row['id']); ?>);" class="button button-small">
@@ -818,10 +814,19 @@ class ResignationModule {
             $is_final_approval = true;
         }
 
-        // If final approval, mark as approved
+        // If final approval, determine next step based on resignation type
         if ($is_final_approval) {
-            $update_data['status'] = 'approved';
-            $update_data['decided_at'] = current_time('mysql');
+            $resignation_type = $resignation['resignation_type'] ?? 'regular';
+
+            if ($resignation_type === 'final_exit') {
+                // For Final Exit types, move to Final Exit processing stage (level 4)
+                $update_data['approval_level'] = 4;
+                $update_data['status'] = 'pending'; // Remains pending until Final Exit is completed
+            } else {
+                // For Regular resignations, mark as approved
+                $update_data['status'] = 'approved';
+                $update_data['decided_at'] = current_time('mysql');
+            }
 
             // NOTE: Employee status remains 'active' during notice period
             // They should only be terminated after their last working day
@@ -1045,6 +1050,7 @@ class ResignationModule {
         $colors = [
             'pending'   => '#f0ad4e',
             'approved'  => '#5cb85c',
+            'completed' => '#28a745',
             'rejected'  => '#d9534f',
             'cancelled' => '#6c757d',
         ];
@@ -1060,9 +1066,14 @@ class ResignationModule {
                 $label = __('Pending - HR', 'sfs-hr');
             } elseif ($approval_level === 3) {
                 $label = __('Pending - Finance', 'sfs-hr');
+            } elseif ($approval_level === 4) {
+                $label = __('Pending - Final Exit', 'sfs-hr');
+                $color = '#17a2b8'; // Different color for Final Exit stage
             } else {
                 $label = __('Pending', 'sfs-hr');
             }
+        } elseif ($status === 'completed') {
+            $label = __('Completed', 'sfs-hr');
         }
 
         return sprintf(
@@ -1301,8 +1312,10 @@ class ResignationModule {
             wp_die(__('Resignation not found', 'sfs-hr'));
         }
 
+        $final_exit_status = sanitize_text_field($_POST['final_exit_status'] ?? 'not_required');
+
         $update_data = [
-            'final_exit_status'          => sanitize_text_field($_POST['final_exit_status'] ?? 'not_required'),
+            'final_exit_status'          => $final_exit_status,
             'final_exit_number'          => sanitize_text_field($_POST['final_exit_number'] ?? ''),
             'final_exit_date'            => sanitize_text_field($_POST['final_exit_date'] ?? ''),
             'final_exit_submitted_date'  => sanitize_text_field($_POST['final_exit_submitted_date'] ?? ''),
@@ -1312,6 +1325,12 @@ class ResignationModule {
             'exit_stamp_received'        => isset($_POST['exit_stamp_received']) ? 1 : 0,
             'updated_at'                 => current_time('mysql'),
         ];
+
+        // If Final Exit is completed, mark the entire resignation as completed
+        if ($final_exit_status === 'completed') {
+            $update_data['status'] = 'completed';
+            $update_data['decided_at'] = current_time('mysql');
+        }
 
         // Remove empty dates
         foreach (['final_exit_date', 'final_exit_submitted_date', 'actual_exit_date'] as $date_field) {
