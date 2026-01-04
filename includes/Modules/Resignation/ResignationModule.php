@@ -10,6 +10,9 @@ class ResignationModule {
     public function hooks(): void {
         add_action('admin_menu', [$this, 'menu']);
 
+        // Register roles and capabilities
+        add_action('init', [$this, 'register_roles_and_caps']);
+
         // Form handlers
         add_action('admin_post_sfs_hr_resignation_submit',  [$this, 'handle_submit']);
         add_action('admin_post_sfs_hr_resignation_approve', [$this, 'handle_approve']);
@@ -32,6 +35,33 @@ class ResignationModule {
         add_shortcode('sfs_hr_my_resignations', [$this, 'shortcode_my_resignations']);
     }
 
+    public function register_roles_and_caps(): void {
+        // Add capability to Administrator role
+        $admin_role = get_role('administrator');
+        if ($admin_role) {
+            $admin_role->add_cap('sfs_hr_resignation_finance_approve');
+        }
+
+        // Create Finance Approver role if it doesn't exist
+        if (!get_role('sfs_hr_finance_approver')) {
+            add_role(
+                'sfs_hr_finance_approver',
+                __('HR Finance Approver', 'sfs-hr'),
+                [
+                    'read'                                  => true,  // Basic WordPress access
+                    'sfs_hr_resignation_finance_approve'    => true,  // Can approve resignations at finance stage
+                    'sfs_hr.view'                           => true,  // Can view HR data
+                ]
+            );
+        } else {
+            // Add resignation finance approve capability to existing role
+            $finance_role = get_role('sfs_hr_finance_approver');
+            if ($finance_role && !$finance_role->has_cap('sfs_hr_resignation_finance_approve')) {
+                $finance_role->add_cap('sfs_hr_resignation_finance_approve');
+            }
+        }
+    }
+
     public function menu(): void {
         add_submenu_page(
             'sfs-hr',
@@ -41,17 +71,49 @@ class ResignationModule {
             'sfs-hr-resignations',
             [$this, 'render_admin_page']
         );
-        add_submenu_page(
-            'sfs-hr',
-            __('Resignation Settings', 'sfs-hr'),
-            __('Resignation Settings', 'sfs-hr'),
-            'sfs_hr.manage',
-            'sfs-hr-resignation-settings',
-            [$this, 'render_settings']
-        );
     }
 
     public function render_admin_page(): void {
+        $tab = $_GET['tab'] ?? 'resignations';
+
+        Helpers::render_admin_nav();
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e('Resignations Management', 'sfs-hr'); ?></h1>
+
+            <nav class="nav-tab-wrapper">
+                <a href="?page=sfs-hr-resignations&tab=resignations"
+                   class="nav-tab <?php echo $tab === 'resignations' ? 'nav-tab-active' : ''; ?>">
+                    <?php esc_html_e('Resignations', 'sfs-hr'); ?>
+                </a>
+                <?php if (current_user_can('sfs_hr.manage')): ?>
+                <a href="?page=sfs-hr-resignations&tab=settings"
+                   class="nav-tab <?php echo $tab === 'settings' ? 'nav-tab-active' : ''; ?>">
+                    <?php esc_html_e('Settings', 'sfs-hr'); ?>
+                </a>
+                <?php endif; ?>
+            </nav>
+
+            <div class="tab-content" style="margin-top: 20px;">
+                <?php
+                switch ($tab) {
+                    case 'settings':
+                        if (current_user_can('sfs_hr.manage')) {
+                            $this->render_settings_tab();
+                        }
+                        break;
+                    case 'resignations':
+                    default:
+                        $this->render_resignations_tab();
+                        break;
+                }
+                ?>
+            </div>
+        </div>
+        <?php
+    }
+
+    private function render_resignations_tab(): void {
         global $wpdb;
 
         $status = isset($_GET['status']) ? sanitize_key($_GET['status']) : 'pending';
@@ -101,29 +163,62 @@ class ResignationModule {
         $params_all = array_merge($params, [$pp, $offset]);
         $rows = $wpdb->get_results($wpdb->prepare($sql, ...$params_all), ARRAY_A);
 
-        Helpers::render_admin_nav();
         ?>
-        <div class="wrap">
-            <h1 class="wp-heading-inline"><?php esc_html_e('Resignations', 'sfs-hr'); ?></h1>
+            <style>
+                .sfs-hr-resignations-table-wrapper {
+                    overflow-x: auto;
+                    -webkit-overflow-scrolling: touch;
+                }
+
+                @media (max-width: 782px) {
+                    .sfs-hr-resignations-table-wrapper {
+                        margin: 0 -10px;
+                        padding: 0 10px;
+                    }
+
+                    .sfs-hr-resignations-table-wrapper table.wp-list-table {
+                        min-width: 800px;
+                        font-size: 12px;
+                    }
+
+                    .sfs-hr-resignations-table-wrapper table.wp-list-table th,
+                    .sfs-hr-resignations-table-wrapper table.wp-list-table td {
+                        padding: 8px 4px;
+                    }
+
+                    .sfs-hr-resignations-table-wrapper table.wp-list-table .button {
+                        font-size: 11px;
+                        padding: 2px 6px;
+                        margin: 2px 0;
+                        display: inline-block;
+                        white-space: nowrap;
+                    }
+
+                    .sfs-hr-resignations-table-wrapper table.wp-list-table td small {
+                        font-size: 10px;
+                    }
+                }
+            </style>
 
             <ul class="subsubsub">
-                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&status=pending')); ?>"
+                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&tab=resignations&status=pending')); ?>"
                     class="<?php echo $status === 'pending' ? 'current' : ''; ?>">
                     <?php esc_html_e('Pending', 'sfs-hr'); ?></a> | </li>
-                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&status=approved')); ?>"
+                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&tab=resignations&status=approved')); ?>"
                     class="<?php echo $status === 'approved' ? 'current' : ''; ?>">
                     <?php esc_html_e('Approved', 'sfs-hr'); ?></a> | </li>
-                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&status=rejected')); ?>"
+                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&tab=resignations&status=rejected')); ?>"
                     class="<?php echo $status === 'rejected' ? 'current' : ''; ?>">
                     <?php esc_html_e('Rejected', 'sfs-hr'); ?></a> | </li>
-                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&status=cancelled')); ?>"
+                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&tab=resignations&status=cancelled')); ?>"
                     class="<?php echo $status === 'cancelled' ? 'current' : ''; ?>">
                     <?php esc_html_e('Cancelled', 'sfs-hr'); ?></a> | </li>
-                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&status=final_exit')); ?>"
+                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&tab=resignations&status=final_exit')); ?>"
                     class="<?php echo $status === 'final_exit' ? 'current' : ''; ?>">
                     <?php esc_html_e('Final Exit', 'sfs-hr'); ?></a></li>
             </ul>
 
+            <div class="sfs-hr-resignations-table-wrapper">
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
@@ -212,6 +307,7 @@ class ResignationModule {
                     <?php endif; ?>
                 </tbody>
             </table>
+            </div>
 
             <?php if ($total > $pp): ?>
                 <div class="tablenav">
@@ -228,7 +324,6 @@ class ResignationModule {
                     </div>
                 </div>
             <?php endif; ?>
-        </div>
 
         <!-- Approve Modal -->
         <div id="approve-modal" style="display:none;">
@@ -1337,7 +1432,7 @@ class ResignationModule {
 
     /* ---------------------------------- Settings ---------------------------------- */
 
-    public function render_settings(): void {
+    private function render_settings_tab(): void {
         if (!current_user_can('sfs_hr.manage')) {
             wp_die(__('Access denied', 'sfs-hr'));
         }
@@ -1352,11 +1447,7 @@ class ResignationModule {
             'orderby' => 'display_name',
         ]);
 
-        Helpers::render_admin_nav();
         ?>
-        <div class="wrap">
-            <h1><?php esc_html_e('Resignation Settings', 'sfs-hr'); ?></h1>
-
             <?php if (!empty($_GET['ok'])): ?>
                 <div class="notice notice-success"><p><?php esc_html_e('Settings saved successfully.', 'sfs-hr'); ?></p></div>
             <?php endif; ?>
@@ -1433,7 +1524,6 @@ class ResignationModule {
 
                 <?php submit_button(__('Save Settings', 'sfs-hr')); ?>
             </form>
-        </div>
         <?php
     }
 
@@ -1453,7 +1543,7 @@ class ResignationModule {
         $finance_approver = isset($_POST['finance_approver']) ? (int)$_POST['finance_approver'] : 0;
         update_option('sfs_hr_resignation_finance_approver', (string)$finance_approver);
 
-        wp_safe_redirect(admin_url('admin.php?page=sfs-hr-resignation-settings&ok=1'));
+        wp_safe_redirect(admin_url('admin.php?page=sfs-hr-resignations&tab=settings&ok=1'));
         exit;
     }
 }
