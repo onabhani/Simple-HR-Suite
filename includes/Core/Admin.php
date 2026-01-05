@@ -550,7 +550,7 @@ echo '</a>';
         $total = (int)($params ? $wpdb->get_var($wpdb->prepare($total_sql, ...$params)) : $wpdb->get_var($total_sql));
 
         $offset = max(0, ($page-1)*$per_page);
-        $rows_sql = "SELECT * FROM {$table} WHERE {$where} ORDER BY id DESC LIMIT %d OFFSET %d";
+        $rows_sql = "SELECT * FROM {$table} WHERE {$where} ORDER BY first_name ASC, last_name ASC LIMIT %d OFFSET %d";
         $rows = $params
             ? $wpdb->get_results($wpdb->prepare($rows_sql, ...array_merge($params, [$per_page, $offset])), ARRAY_A)
             : $wpdb->get_results($wpdb->prepare($rows_sql, $per_page, $offset), ARRAY_A);
