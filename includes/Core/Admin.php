@@ -429,14 +429,14 @@ echo '</a>';
         $loans_t = $wpdb->prefix . 'sfs_hr_loans';
         if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $loans_t ) ) ) {
             $pending_loans = (int) $wpdb->get_var(
-                "SELECT COUNT(*) FROM {$loans_t} WHERE status = 'pending'"
+                "SELECT COUNT(*) FROM {$loans_t} WHERE status IN ('pending_gm', 'pending_finance')"
             );
 
             if ( $pending_loans > 0 ) {
-                echo '<a class="sfs-hr-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-loans&tab=requests&status=pending' ) ) . '" style="border-left: 4px solid #0073aa;">';
+                echo '<a class="sfs-hr-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-loans&tab=loans' ) ) . '" style="border-left: 4px solid #0073aa;">';
                 echo '<h2>' . esc_html__( 'Pending Loans', 'sfs-hr' ) . '</h2>';
                 echo '<div class="sfs-hr-card-count" style="color:#0073aa;">' . esc_html( number_format_i18n( $pending_loans ) ) . '</div>';
-                echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting finance approval', 'sfs-hr' ) . '</div>';
+                echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting approval', 'sfs-hr' ) . '</div>';
                 echo '</a>';
             }
         }
