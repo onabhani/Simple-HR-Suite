@@ -3059,23 +3059,20 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         $dept_ids = array_values(array_unique(array_map('intval', $dept_ids)));
         $in = implode(',', $dept_ids);
 
-        $where  = "dept_id IN ($in)";
+        $where  = "dept_id IN ($in) AND status != 'terminated'";
         $params = [];
 
         if ($q !== '') {
             $like   = '%' . $wpdb->esc_like($q) . '%';
             $where .= " AND (employee_code LIKE %s OR first_name LIKE %s OR last_name LIKE %s OR email LIKE %s)";
-            $params = [$like,$like,$ike,$like]; // typo fix below
+            $params = [$like,$like,$like,$like];
         }
-
-        // fix minor typo from the line above:
-        if (!empty($params) && count($params)===3) { $params = [$params[0],$params[1],$params[1],$params[2]]; }
 
         $total_sql = "SELECT COUNT(*) FROM {$table} WHERE {$where}";
         $total = (int)($params ? $wpdb->get_var($wpdb->prepare($total_sql, ...$params)) : $wpdb->get_var($total_sql));
 
         $offset = max(0, ($page-1)*$per_page);
-        $rows_sql = "SELECT * FROM {$table} WHERE {$where} ORDER BY id DESC LIMIT %d OFFSET %d";
+        $rows_sql = "SELECT * FROM {$table} WHERE {$where} ORDER BY first_name ASC, last_name ASC LIMIT %d OFFSET %d";
         $rows = $params
             ? $wpdb->get_results($wpdb->prepare($rows_sql, ...array_merge($params, [$per_page, $offset])), ARRAY_A)
             : $wpdb->get_results($wpdb->prepare($rows_sql, $per_page, $offset), ARRAY_A);
@@ -3085,14 +3082,14 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
     public function render_my_team(): void {
         Helpers::require_cap('sfs_hr.leave.review');
-echo '<div class="wrap sfs-hr-wrap">';
-    echo '<h1 class="wp-heading-inline">' . esc_html__( 'Employees', 'sfs-hr' ) . '</h1>';
-    Helpers::render_admin_nav();
-    echo '<hr class="wp-header-end" />';
-    
+        echo '<div class="wrap sfs-hr-wrap">';
+        echo '<h1 class="wp-heading-inline">' . esc_html__( 'Employees', 'sfs-hr' ) . '</h1>';
+        Helpers::render_admin_nav();
+        echo '<hr class="wp-header-end" />';
+
         $dept_ids = $this->manager_dept_ids();
         if (!$dept_ids) {
-            echo '<div class="wrap"><h1>'.esc_html__('My Team','sfs-hr').'</h1>';
+            echo '<h2>'.esc_html__('My Team','sfs-hr').'</h2>';
             echo '<p>'.esc_html__('No managed departments found for your account.','sfs-hr').'</p></div>';
             return;
         }
@@ -3107,9 +3104,284 @@ echo '<div class="wrap sfs-hr-wrap">';
         $dept_map = $this->departments_map();
 
         ?>
-        <div class="wrap">
-          <h1><?php echo esc_html__('My Team','sfs-hr'); ?></h1>
-          <form method="get" style="margin:10px 0;">
+        <style>
+          /* My Team Styles */
+          .sfs-hr-team-toolbar {
+            background: #fff;
+            border: 1px solid #dcdcde;
+            border-radius: 6px;
+            padding: 16px;
+            margin: 16px 0;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+          }
+          .sfs-hr-team-toolbar input[type="search"] {
+            min-width: 250px;
+            height: 36px;
+            padding: 0 12px;
+            border-radius: 4px;
+          }
+          .sfs-hr-team-toolbar select {
+            height: 36px;
+            border-radius: 4px;
+          }
+          .sfs-hr-team-table {
+            background: #fff;
+            border: 1px solid #dcdcde;
+            border-radius: 6px;
+            margin-top: 16px;
+          }
+          .sfs-hr-team-table .widefat {
+            border: none;
+            border-radius: 6px;
+            margin: 0;
+          }
+          .sfs-hr-team-table .widefat th {
+            background: #f8f9fa;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #50575e;
+            padding: 12px 16px;
+          }
+          .sfs-hr-team-table .widefat td {
+            padding: 12px 16px;
+            vertical-align: middle;
+          }
+          .sfs-hr-team-table .widefat tbody tr:hover {
+            background: #f8f9fa;
+          }
+          .sfs-hr-team-table .emp-name {
+            font-weight: 500;
+            color: #1d2327;
+          }
+          .sfs-hr-team-table .emp-code {
+            font-family: monospace;
+            font-size: 12px;
+            background: #f0f0f1;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #50575e;
+          }
+
+          /* Mobile details button */
+          .sfs-hr-details-btn {
+            display: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #2271b1;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0;
+            align-items: center;
+            justify-content: center;
+          }
+          .sfs-hr-details-btn:hover {
+            background: #135e96;
+          }
+
+          /* Details Modal */
+          .sfs-hr-details-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 100000;
+            background: rgba(0,0,0,0.5);
+            align-items: flex-end;
+            justify-content: center;
+          }
+          .sfs-hr-details-modal.active {
+            display: flex;
+          }
+          .sfs-hr-details-modal-content {
+            background: #fff;
+            width: 100%;
+            max-width: 400px;
+            border-radius: 16px 16px 0 0;
+            padding: 20px;
+            animation: sfsSlideUp 0.2s ease-out;
+            max-height: 80vh;
+            overflow-y: auto;
+          }
+          @keyframes sfsSlideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+          }
+          .sfs-hr-details-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e5e5e5;
+          }
+          .sfs-hr-details-modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1d2327;
+            margin: 0;
+          }
+          .sfs-hr-details-modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #50575e;
+            padding: 0;
+            line-height: 1;
+          }
+          .sfs-hr-details-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+          }
+          .sfs-hr-details-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f1;
+          }
+          .sfs-hr-details-list li:last-child {
+            border-bottom: none;
+          }
+          .sfs-hr-details-label {
+            font-weight: 500;
+            color: #50575e;
+            font-size: 13px;
+          }
+          .sfs-hr-details-value {
+            color: #1d2327;
+            font-size: 13px;
+            text-align: right;
+          }
+
+          /* Pagination */
+          .sfs-hr-team-pagination {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 16px;
+            background: #fff;
+            border: 1px solid #dcdcde;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            flex-wrap: wrap;
+          }
+          .sfs-hr-team-pagination a,
+          .sfs-hr-team-pagination span {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 32px;
+            height: 32px;
+            padding: 0 10px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 13px;
+          }
+          .sfs-hr-team-pagination a {
+            background: #f0f0f1;
+            color: #50575e;
+          }
+          .sfs-hr-team-pagination a:hover {
+            background: #dcdcde;
+          }
+          .sfs-hr-team-pagination .current-page {
+            background: #2271b1;
+            color: #fff;
+            font-weight: 600;
+          }
+
+          /* Mobile responsive */
+          @media (max-width: 782px) {
+            .sfs-hr-team-toolbar {
+              flex-direction: column;
+              align-items: stretch;
+              padding: 12px;
+            }
+            .sfs-hr-team-toolbar input[type="search"] {
+              width: 100%;
+              min-width: auto;
+            }
+            .sfs-hr-team-toolbar select {
+              width: 100%;
+            }
+            .sfs-hr-team-toolbar .button {
+              width: 100%;
+              text-align: center;
+            }
+
+            /* Hide columns on mobile - only show Name and Details button */
+            .sfs-hr-team-table .widefat thead th.hide-mobile,
+            .sfs-hr-team-table .widefat tbody td.hide-mobile {
+              display: none !important;
+            }
+
+            .sfs-hr-team-table .widefat th,
+            .sfs-hr-team-table .widefat td {
+              padding: 10px 12px;
+            }
+
+            /* Show details button on mobile */
+            .sfs-hr-details-btn {
+              display: inline-flex;
+            }
+
+            .sfs-hr-team-pagination {
+              justify-content: center;
+            }
+          }
+        </style>
+
+        <!-- Details Modal -->
+        <div class="sfs-hr-details-modal" id="sfs-hr-details-modal">
+          <div class="sfs-hr-details-modal-content">
+            <div class="sfs-hr-details-modal-header">
+              <h3 class="sfs-hr-details-modal-title" id="sfs-hr-details-name">Employee Details</h3>
+              <button type="button" class="sfs-hr-details-modal-close" onclick="sfsHrCloseDetailsModal()">&times;</button>
+            </div>
+            <ul class="sfs-hr-details-list">
+              <li><span class="sfs-hr-details-label">Code</span><span class="sfs-hr-details-value" id="sfs-hr-details-code"></span></li>
+              <li><span class="sfs-hr-details-label">Email</span><span class="sfs-hr-details-value" id="sfs-hr-details-email"></span></li>
+              <li><span class="sfs-hr-details-label">Department</span><span class="sfs-hr-details-value" id="sfs-hr-details-dept"></span></li>
+              <li><span class="sfs-hr-details-label">Position</span><span class="sfs-hr-details-value" id="sfs-hr-details-position"></span></li>
+              <li><span class="sfs-hr-details-label">Status</span><span class="sfs-hr-details-value" id="sfs-hr-details-status"></span></li>
+            </ul>
+          </div>
+        </div>
+
+        <script>
+        function sfsHrOpenDetailsModal(name, code, email, dept, position, status) {
+          document.getElementById('sfs-hr-details-name').textContent = name || 'Employee Details';
+          document.getElementById('sfs-hr-details-code').textContent = code;
+          document.getElementById('sfs-hr-details-email').textContent = email || '-';
+          document.getElementById('sfs-hr-details-dept').textContent = dept;
+          document.getElementById('sfs-hr-details-position').textContent = position || '-';
+          document.getElementById('sfs-hr-details-status').textContent = status;
+          document.getElementById('sfs-hr-details-modal').classList.add('active');
+          document.body.style.overflow = 'hidden';
+        }
+        function sfsHrCloseDetailsModal() {
+          document.getElementById('sfs-hr-details-modal').classList.remove('active');
+          document.body.style.overflow = '';
+        }
+        document.getElementById('sfs-hr-details-modal').addEventListener('click', function(e) {
+          if (e.target === this) sfsHrCloseDetailsModal();
+        });
+        </script>
+
+          <h2><?php echo esc_html__('My Team','sfs-hr'); ?> <span style="font-weight:normal; font-size:14px; color:#50575e;">(<?php echo (int)$total; ?> <?php esc_html_e('members','sfs-hr'); ?>)</span></h2>
+
+          <form method="get" class="sfs-hr-team-toolbar">
             <input type="hidden" name="page" value="sfs-hr-my-team" />
             <input type="search" name="s" value="<?php echo esc_attr($q); ?>" placeholder="<?php echo esc_attr__('Search name/email/code','sfs-hr'); ?>"/>
             <select name="per_page">
@@ -3117,54 +3389,62 @@ echo '<div class="wrap sfs-hr-wrap">';
                 <option value="<?php echo (int)$pp; ?>" <?php selected($per_page,$pp); ?>><?php echo (int)$pp; ?>/page</option>
               <?php endforeach; ?>
             </select>
-            <?php submit_button(__('Filter','sfs-hr'),'secondary','',false); ?>
+            <?php submit_button(__('Search','sfs-hr'),'primary','',false); ?>
           </form>
 
-          <table class="widefat striped">
-            <thead><tr>
-              <th><?php esc_html_e('ID','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Code','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Name','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Email','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Department','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Position','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Status','sfs-hr'); ?></th>
-              <th><?php esc_html_e('WP User','sfs-hr'); ?></th>
-            </tr></thead>
-            <tbody>
-            <?php if (empty($rows)): ?>
-              <tr><td colspan="8"><?php esc_html_e('No employees in your departments.','sfs-hr'); ?></td></tr>
-            <?php else:
-              foreach ($rows as $r):
-                $name     = trim(($r['first_name']??'').' '.($r['last_name']??''));
-                $status   = $r['status'];
-                $dept_name = empty($r['dept_id'])
-                    ? __('General','sfs-hr')
-                    : ($dept_map[(int)$r['dept_id']] ?? ('#'.(int)$r['dept_id']));
-            ?>
-              <tr>
-                <td><?php echo (int)$r['id']; ?></td>
-                <td><code><?php echo esc_html($r['employee_code']); ?></code></td>
-                <td><?php echo esc_html($name); ?></td>
-                <td><?php echo esc_html($r['email']); ?></td>
-                <td><?php echo esc_html($dept_name); ?></td>
-                <td><?php echo esc_html($r['position']); ?></td>
-                <td><span class="sfs-hr-badge status-<?php echo esc_attr($status); ?>"><?php echo esc_html(ucfirst($status)); ?></span></td>
-                <td><?php echo $r['user_id'] ? '<code>'.(int)$r['user_id'].'</code>' : '&ndash;'; ?></td>
-              </tr>
-            <?php endforeach; endif; ?>
-            </tbody>
-          </table>
+          <div class="sfs-hr-team-table">
+            <table class="widefat striped">
+              <thead><tr>
+                <th class="hide-mobile"><?php esc_html_e('ID','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Code','sfs-hr'); ?></th>
+                <th><?php esc_html_e('Name','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Email','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Department','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Position','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Status','sfs-hr'); ?></th>
+                <th style="width:50px;"></th>
+              </tr></thead>
+              <tbody>
+              <?php if (empty($rows)): ?>
+                <tr><td colspan="8"><?php esc_html_e('No employees in your departments.','sfs-hr'); ?></td></tr>
+              <?php else:
+                foreach ($rows as $r):
+                  $name     = trim(($r['first_name']??'').' '.($r['last_name']??''));
+                  $status   = $r['status'];
+                  $dept_name = empty($r['dept_id'])
+                      ? __('General','sfs-hr')
+                      : ($dept_map[(int)$r['dept_id']] ?? ('#'.(int)$r['dept_id']));
+              ?>
+                <tr>
+                  <td class="hide-mobile"><?php echo (int)$r['id']; ?></td>
+                  <td class="hide-mobile"><span class="emp-code"><?php echo esc_html($r['employee_code']); ?></span></td>
+                  <td><span class="emp-name"><?php echo esc_html($name ?: $r['employee_code']); ?></span></td>
+                  <td class="hide-mobile"><?php echo esc_html($r['email']); ?></td>
+                  <td class="hide-mobile"><?php echo esc_html($dept_name); ?></td>
+                  <td class="hide-mobile"><?php echo esc_html($r['position']); ?></td>
+                  <td class="hide-mobile"><span class="sfs-hr-badge status-<?php echo esc_attr($status); ?>"><?php echo esc_html(ucfirst($status)); ?></span></td>
+                  <td>
+                    <button type="button" class="sfs-hr-details-btn" onclick="sfsHrOpenDetailsModal('<?php echo esc_js($name ?: $r['employee_code']); ?>', '<?php echo esc_js($r['employee_code']); ?>', '<?php echo esc_js($r['email']); ?>', '<?php echo esc_js($dept_name); ?>', '<?php echo esc_js($r['position']); ?>', '<?php echo esc_js(ucfirst($status)); ?>')">
+                      <span class="dashicons dashicons-info-outline"></span>
+                    </button>
+                  </td>
+                </tr>
+              <?php endforeach; endif; ?>
+              </tbody>
+            </table>
+          </div>
 
-          <div style="margin:10px 0;">
+          <?php if ($pages > 1): ?>
+          <div class="sfs-hr-team-pagination">
             <?php for($i=1;$i<=$pages;$i++): ?>
               <?php if ($i === $page): ?>
-                <span class="tablenav-pages-navspan" style="margin-right:6px;"><?php echo (int)$i; ?></span>
+                <span class="current-page"><?php echo (int)$i; ?></span>
               <?php else: ?>
-                <a href="<?php echo esc_url( add_query_arg(['paged'=>$i,'per_page'=>$per_page,'s'=>$q], admin_url('admin.php?page=sfs-hr-my-team')) ); ?>" style="margin-right:6px;"><?php echo (int)$i; ?></a>
+                <a href="<?php echo esc_url( add_query_arg(['paged'=>$i,'per_page'=>$per_page,'s'=>$q], admin_url('admin.php?page=sfs-hr-my-team')) ); ?>"><?php echo (int)$i; ?></a>
               <?php endif; ?>
             <?php endfor; ?>
           </div>
+          <?php endif; ?>
         </div>
         <?php
     }
