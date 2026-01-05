@@ -831,9 +831,6 @@ echo '</a>';
         $shift_groups = $this->attendance_shifts_grouped();
 
         ?>
-        <div class="wrap">
-          <h1><?php echo esc_html__('Employees','sfs-hr'); ?></h1>
-
           <style>
   /* General Styles */
   .sfs-hr-badge { display:inline-block; padding:3px 10px; border-radius:12px; background:#f0f0f1; font-size:12px; font-weight:500; }
@@ -1317,12 +1314,11 @@ document.getElementById('sfs-hr-action-modal').addEventListener('click', functio
                 <th class="hide-mobile"><?php esc_html_e('Department','sfs-hr'); ?></th>
                 <th class="hide-mobile"><?php esc_html_e('Position','sfs-hr'); ?></th>
                 <th><?php esc_html_e('Status','sfs-hr'); ?></th>
-                <th class="hide-mobile"><?php esc_html_e('WP User','sfs-hr'); ?></th>
                 <th><?php esc_html_e('Actions','sfs-hr'); ?></th>
               </tr></thead>
               <tbody>
               <?php if (empty($rows)): ?>
-                <tr><td colspan="9"><?php esc_html_e('No employees found.','sfs-hr'); ?></td></tr>
+                <tr><td colspan="8"><?php esc_html_e('No employees found.','sfs-hr'); ?></td></tr>
               <?php else:
                 foreach ($rows as $r):
                   $name     = trim(($r['first_name']??'').' '.($r['last_name']??''));
@@ -1340,7 +1336,6 @@ document.getElementById('sfs-hr-action-modal').addEventListener('click', functio
                   <td class="hide-mobile"><?php echo esc_html($dept_name); ?></td>
                   <td class="hide-mobile"><?php echo esc_html($r['position']); ?></td>
                   <td><span class="sfs-hr-badge status-<?php echo esc_attr($status); ?>"><?php echo esc_html(ucfirst($status)); ?></span></td>
-                  <td class="hide-mobile"><?php echo $r['user_id'] ? '<span class="emp-code">'.(int)$r['user_id'].'</span>' : '&ndash;'; ?></td>
                   <td>
                     <!-- Desktop action buttons -->
                     <div class="sfs-hr-actions">
