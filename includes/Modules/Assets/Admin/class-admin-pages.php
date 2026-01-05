@@ -1519,9 +1519,32 @@ class Admin_Pages {
 
         $file = $_FILES['import_file']['tmp_name'];
 
-        $handle = fopen($file, 'r');
-        if ( ! $handle ) {
+        // Read file content for encoding detection and BOM handling
+        $content = file_get_contents($file);
+        if ( $content === false ) {
             wp_die(__('Unable to read file.', 'sfs-hr'));
+        }
+
+        // Remove UTF-8 BOM if present (common in Excel exports)
+        $bom = "\xEF\xBB\xBF";
+        if ( substr($content, 0, 3) === $bom ) {
+            $content = substr($content, 3);
+        }
+
+        // Detect and convert encoding to UTF-8 for Arabic support
+        $encoding = mb_detect_encoding($content, ['UTF-8', 'Windows-1256', 'ISO-8859-6', 'ISO-8859-1', 'ASCII'], true);
+        if ( $encoding && $encoding !== 'UTF-8' ) {
+            $content = mb_convert_encoding($content, 'UTF-8', $encoding);
+        }
+
+        // Write cleaned content to temp file for CSV parsing
+        $temp_file = tempnam(sys_get_temp_dir(), 'csv_');
+        file_put_contents($temp_file, $content);
+
+        $handle = fopen($temp_file, 'r');
+        if ( ! $handle ) {
+            @unlink($temp_file);
+            wp_die(__('Unable to process file.', 'sfs-hr'));
         }
 
         global $wpdb;
@@ -1530,11 +1553,14 @@ class Admin_Pages {
         $header = fgetcsv($handle);
         if ( ! $header ) {
             fclose($handle);
+            @unlink($temp_file);
             wp_die(__('Empty CSV file.', 'sfs-hr'));
         }
 
-        // Normalize header
-        $header = array_map('trim', $header);
+        // Normalize header (trim and remove any remaining BOM artifacts)
+        $header = array_map(function($h) {
+            return trim(preg_replace('/[\x00-\x1F\x7F]/u', '', $h));
+        }, $header);
 
         while ( ( $row = fgetcsv($handle) ) !== false ) {
             if ( count($row) === 1 && $row[0] === '' ) {
@@ -1592,6 +1618,7 @@ class Admin_Pages {
         }
 
         fclose($handle);
+        @unlink($temp_file); // Clean up temp file
 
         $redirect = add_query_arg(
             [
