@@ -10,12 +10,16 @@ class ResignationModule {
     public function hooks(): void {
         add_action('admin_menu', [$this, 'menu']);
 
+        // Register roles and capabilities
+        add_action('init', [$this, 'register_roles_and_caps']);
+
         // Form handlers
         add_action('admin_post_sfs_hr_resignation_submit',  [$this, 'handle_submit']);
         add_action('admin_post_sfs_hr_resignation_approve', [$this, 'handle_approve']);
         add_action('admin_post_sfs_hr_resignation_reject',  [$this, 'handle_reject']);
         add_action('admin_post_sfs_hr_resignation_cancel',  [$this, 'handle_cancel']);
         add_action('admin_post_sfs_hr_final_exit_update',   [$this, 'handle_final_exit_update']);
+        add_action('admin_post_sfs_hr_resignation_settings', [$this, 'handle_settings']);
 
         // AJAX handlers
         add_action('wp_ajax_sfs_hr_get_resignation', [$this, 'ajax_get_resignation']);
@@ -31,6 +35,33 @@ class ResignationModule {
         add_shortcode('sfs_hr_my_resignations', [$this, 'shortcode_my_resignations']);
     }
 
+    public function register_roles_and_caps(): void {
+        // Add capability to Administrator role
+        $admin_role = get_role('administrator');
+        if ($admin_role) {
+            $admin_role->add_cap('sfs_hr_resignation_finance_approve');
+        }
+
+        // Create Finance Approver role if it doesn't exist
+        if (!get_role('sfs_hr_finance_approver')) {
+            add_role(
+                'sfs_hr_finance_approver',
+                __('HR Finance Approver', 'sfs-hr'),
+                [
+                    'read'                                  => true,  // Basic WordPress access
+                    'sfs_hr_resignation_finance_approve'    => true,  // Can approve resignations at finance stage
+                    'sfs_hr.view'                           => true,  // Can view HR data
+                ]
+            );
+        } else {
+            // Add resignation finance approve capability to existing role
+            $finance_role = get_role('sfs_hr_finance_approver');
+            if ($finance_role && !$finance_role->has_cap('sfs_hr_resignation_finance_approve')) {
+                $finance_role->add_cap('sfs_hr_resignation_finance_approve');
+            }
+        }
+    }
+
     public function menu(): void {
         add_submenu_page(
             'sfs-hr',
@@ -43,6 +74,46 @@ class ResignationModule {
     }
 
     public function render_admin_page(): void {
+        $tab = $_GET['tab'] ?? 'resignations';
+
+        Helpers::render_admin_nav();
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e('Resignations', 'sfs-hr'); ?></h1>
+
+            <nav class="nav-tab-wrapper">
+                <a href="?page=sfs-hr-resignations&tab=resignations"
+                   class="nav-tab <?php echo $tab === 'resignations' ? 'nav-tab-active' : ''; ?>">
+                    <?php esc_html_e('Resignations', 'sfs-hr'); ?>
+                </a>
+                <?php if (current_user_can('sfs_hr.manage')): ?>
+                <a href="?page=sfs-hr-resignations&tab=settings"
+                   class="nav-tab <?php echo $tab === 'settings' ? 'nav-tab-active' : ''; ?>">
+                    <?php esc_html_e('Settings', 'sfs-hr'); ?>
+                </a>
+                <?php endif; ?>
+            </nav>
+
+            <div class="tab-content" style="margin-top: 20px;">
+                <?php
+                switch ($tab) {
+                    case 'settings':
+                        if (current_user_can('sfs_hr.manage')) {
+                            $this->render_settings_tab();
+                        }
+                        break;
+                    case 'resignations':
+                    default:
+                        $this->render_resignations_tab();
+                        break;
+                }
+                ?>
+            </div>
+        </div>
+        <?php
+    }
+
+    private function render_resignations_tab(): void {
         global $wpdb;
 
         $status = isset($_GET['status']) ? sanitize_key($_GET['status']) : 'pending';
@@ -56,10 +127,11 @@ class ResignationModule {
         $where  = '1=1';
         $params = [];
 
-        if (in_array($status, ['pending', 'approved', 'rejected', 'cancelled'], true)) {
+        if (in_array($status, ['pending', 'approved', 'rejected', 'cancelled', 'completed'], true)) {
             $where   .= " AND r.status = %s";
             $params[] = $status;
         } elseif ($status === 'final_exit') {
+            // Show all Final Exit type resignations (includes pending, pending - final exit, and completed)
             $where   .= " AND r.resignation_type = %s";
             $params[] = 'final_exit';
         }
@@ -92,54 +164,96 @@ class ResignationModule {
         $params_all = array_merge($params, [$pp, $offset]);
         $rows = $wpdb->get_results($wpdb->prepare($sql, ...$params_all), ARRAY_A);
 
-        Helpers::render_admin_nav();
         ?>
-        <div class="wrap">
-            <h1 class="wp-heading-inline"><?php esc_html_e('Resignations', 'sfs-hr'); ?></h1>
+            <style>
+                @media (max-width: 782px) {
+                    /* Hide less important columns on mobile */
+                    .sfs-hr-resignations-table-wrapper table.wp-list-table th.hide-mobile,
+                    .sfs-hr-resignations-table-wrapper table.wp-list-table td.hide-mobile {
+                        display: none;
+                    }
+
+                    /* Adjust remaining columns */
+                    .sfs-hr-resignations-table-wrapper table.wp-list-table {
+                        font-size: 13px;
+                    }
+
+                    .sfs-hr-resignations-table-wrapper table.wp-list-table th,
+                    .sfs-hr-resignations-table-wrapper table.wp-list-table td {
+                        padding: 10px 8px;
+                    }
+
+                    /* Stack action buttons vertically */
+                    .sfs-hr-resignations-table-wrapper table.wp-list-table td.actions-col {
+                        white-space: normal;
+                    }
+
+                    .sfs-hr-resignations-table-wrapper table.wp-list-table .button {
+                        display: block;
+                        width: 100%;
+                        margin: 4px 0;
+                        text-align: center;
+                        font-size: 12px;
+                        padding: 4px 8px;
+                    }
+
+                    .sfs-hr-resignations-table-wrapper table.wp-list-table td small {
+                        font-size: 11px;
+                    }
+
+                    /* Make employee names more readable */
+                    .sfs-hr-resignations-table-wrapper table.wp-list-table td.employee-col {
+                        min-width: 120px;
+                    }
+                }
+            </style>
 
             <ul class="subsubsub">
-                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&status=pending')); ?>"
+                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&tab=resignations&status=pending')); ?>"
                     class="<?php echo $status === 'pending' ? 'current' : ''; ?>">
                     <?php esc_html_e('Pending', 'sfs-hr'); ?></a> | </li>
-                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&status=approved')); ?>"
+                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&tab=resignations&status=approved')); ?>"
                     class="<?php echo $status === 'approved' ? 'current' : ''; ?>">
                     <?php esc_html_e('Approved', 'sfs-hr'); ?></a> | </li>
-                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&status=rejected')); ?>"
+                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&tab=resignations&status=rejected')); ?>"
                     class="<?php echo $status === 'rejected' ? 'current' : ''; ?>">
                     <?php esc_html_e('Rejected', 'sfs-hr'); ?></a> | </li>
-                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&status=cancelled')); ?>"
+                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&tab=resignations&status=cancelled')); ?>"
                     class="<?php echo $status === 'cancelled' ? 'current' : ''; ?>">
                     <?php esc_html_e('Cancelled', 'sfs-hr'); ?></a> | </li>
-                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&status=final_exit')); ?>"
+                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&tab=resignations&status=completed')); ?>"
+                    class="<?php echo $status === 'completed' ? 'current' : ''; ?>">
+                    <?php esc_html_e('Completed', 'sfs-hr'); ?></a> | </li>
+                <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&tab=resignations&status=final_exit')); ?>"
                     class="<?php echo $status === 'final_exit' ? 'current' : ''; ?>">
                     <?php esc_html_e('Final Exit', 'sfs-hr'); ?></a></li>
             </ul>
 
+            <div class="sfs-hr-resignations-table-wrapper">
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
-                        <th><?php esc_html_e('ID', 'sfs-hr'); ?></th>
-                        <th><?php esc_html_e('Employee', 'sfs-hr'); ?></th>
+                        <th class="hide-mobile"><?php esc_html_e('ID', 'sfs-hr'); ?></th>
+                        <th class="employee-col"><?php esc_html_e('Employee', 'sfs-hr'); ?></th>
                         <th><?php esc_html_e('Type', 'sfs-hr'); ?></th>
-                        <th><?php esc_html_e('Resignation Date', 'sfs-hr'); ?></th>
-                        <th><?php esc_html_e('Last Working Day', 'sfs-hr'); ?></th>
-                        <th><?php esc_html_e('Notice Period', 'sfs-hr'); ?></th>
+                        <th class="hide-mobile"><?php esc_html_e('Resignation Date', 'sfs-hr'); ?></th>
+                        <th class="hide-mobile"><?php esc_html_e('Last Working Day', 'sfs-hr'); ?></th>
+                        <th class="hide-mobile"><?php esc_html_e('Notice Period', 'sfs-hr'); ?></th>
                         <th><?php esc_html_e('Status', 'sfs-hr'); ?></th>
-                        <th><?php esc_html_e('Final Exit', 'sfs-hr'); ?></th>
-                        <th><?php esc_html_e('Reason', 'sfs-hr'); ?></th>
-                        <th><?php esc_html_e('Actions', 'sfs-hr'); ?></th>
+                        <th class="hide-mobile"><?php esc_html_e('Reason', 'sfs-hr'); ?></th>
+                        <th class="actions-col"><?php esc_html_e('Actions', 'sfs-hr'); ?></th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($rows)): ?>
                         <tr>
-                            <td colspan="10"><?php esc_html_e('No resignations found.', 'sfs-hr'); ?></td>
+                            <td colspan="9"><?php esc_html_e('No resignations found.', 'sfs-hr'); ?></td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($rows as $row): ?>
                             <tr>
-                                <td><?php echo esc_html($row['id']); ?></td>
-                                <td>
+                                <td class="hide-mobile"><?php echo esc_html($row['id']); ?></td>
+                                <td class="employee-col">
                                     <?php echo esc_html($row['first_name'] . ' ' . $row['last_name']); ?><br>
                                     <small><?php echo esc_html($row['employee_code']); ?></small>
                                     <?php
@@ -159,41 +273,12 @@ class ResignationModule {
                                             . esc_html__('Regular', 'sfs-hr') . '</span>';
                                     }
                                 ?></td>
-                                <td><?php echo esc_html($row['resignation_date']); ?></td>
-                                <td><?php echo esc_html($row['last_working_day'] ?: 'N/A'); ?></td>
-                                <td><?php echo esc_html($row['notice_period_days']) . ' ' . esc_html__('days', 'sfs-hr'); ?></td>
-                                <td><?php echo $this->status_badge($row['status']); ?></td>
-                                <td><?php
-                                    if ($type === 'final_exit') {
-                                        $fe_status = $row['final_exit_status'] ?? 'not_required';
-                                        echo $this->final_exit_status_badge($fe_status);
-                                        if (!empty($row['final_exit_number'])) {
-                                            echo '<br><small>' . esc_html($row['final_exit_number']) . '</small>';
-                                        }
-                                    } else {
-                                        echo '—';
-                                    }
-                                ?></td>
-                                <td><?php echo esc_html(wp_trim_words($row['reason'], 10)); ?></td>
-                                <td>
-                                    <?php if ($row['status'] === 'pending' && $this->can_approve_resignation($row)): ?>
-                                        <a href="#" onclick="return showApproveModal(<?php echo esc_attr($row['id']); ?>);" class="button button-small">
-                                            <?php esc_html_e('Approve', 'sfs-hr'); ?>
-                                        </a>
-                                        <a href="#" onclick="return showRejectModal(<?php echo esc_attr($row['id']); ?>);" class="button button-small">
-                                            <?php esc_html_e('Reject', 'sfs-hr'); ?>
-                                        </a>
-                                    <?php endif; ?>
-                                    <?php if (in_array($row['status'], ['pending', 'approved']) && $this->can_approve_resignation($row)): ?>
-                                        <a href="#" onclick="return showCancelModal(<?php echo esc_attr($row['id']); ?>);" class="button button-small" style="background:#dc3545;border-color:#dc3545;color:#fff;margin-left:4px;">
-                                            <?php esc_html_e('Cancel', 'sfs-hr'); ?>
-                                        </a>
-                                    <?php endif; ?>
-                                    <?php if ($type === 'final_exit'): ?>
-                                        <a href="#" onclick="return showFinalExitModal(<?php echo esc_attr($row['id']); ?>);" class="button button-small">
-                                            <?php esc_html_e('Final Exit', 'sfs-hr'); ?>
-                                        </a>
-                                    <?php endif; ?>
+                                <td class="hide-mobile"><?php echo esc_html($row['resignation_date']); ?></td>
+                                <td class="hide-mobile"><?php echo esc_html($row['last_working_day'] ?: 'N/A'); ?></td>
+                                <td class="hide-mobile"><?php echo esc_html($row['notice_period_days']) . ' ' . esc_html__('days', 'sfs-hr'); ?></td>
+                                <td><?php echo $this->status_badge($row['status'], intval($row['approval_level'] ?? 1)); ?></td>
+                                <td class="hide-mobile"><?php echo esc_html(wp_trim_words($row['reason'], 10)); ?></td>
+                                <td class="actions-col">
                                     <a href="#" onclick="return showDetailsModal(<?php echo esc_attr($row['id']); ?>);" class="button button-small">
                                         <?php esc_html_e('Details', 'sfs-hr'); ?>
                                     </a>
@@ -203,6 +288,7 @@ class ResignationModule {
                     <?php endif; ?>
                 </tbody>
             </table>
+            </div>
 
             <?php if ($total > $pp): ?>
                 <div class="tablenav">
@@ -219,7 +305,6 @@ class ResignationModule {
                     </div>
                 </div>
             <?php endif; ?>
-        </div>
 
         <!-- Approve Modal -->
         <div id="approve-modal" style="display:none;">
@@ -291,11 +376,52 @@ class ResignationModule {
                 <div id="details-content">
                     <p><?php esc_html_e('Loading...', 'sfs-hr'); ?></p>
                 </div>
+                <div id="details-actions" style="margin-top:30px;padding-top:20px;border-top:1px solid #ddd;">
+                    <!-- Action buttons will be inserted here -->
+                </div>
                 <div style="margin-top:20px;">
                     <button type="button" onclick="hideDetailsModal();" class="button"><?php esc_html_e('Close', 'sfs-hr'); ?></button>
                 </div>
             </div>
         </div>
+
+        <style>
+            /* Mobile responsive styles for resignation details modal */
+            @media (max-width: 782px) {
+                #details-modal > div {
+                    margin: 20px 10px !important;
+                    padding: 20px !important;
+                    max-height: 95% !important;
+                }
+
+                #details-actions h3 {
+                    font-size: 16px;
+                    margin-bottom: 12px !important;
+                }
+
+                #details-actions > div {
+                    flex-direction: column !important;
+                    gap: 8px !important;
+                }
+
+                #details-actions .button {
+                    width: 100% !important;
+                    display: block !important;
+                    text-align: center !important;
+                    margin: 0 !important;
+                    padding: 10px 15px !important;
+                    box-sizing: border-box !important;
+                }
+
+                #details-content {
+                    font-size: 14px;
+                }
+
+                #details-content > div {
+                    grid-template-columns: 1fr !important;
+                }
+            }
+        </style>
 
         <!-- Final Exit Modal -->
         <div id="final-exit-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;">
@@ -347,8 +473,10 @@ class ResignationModule {
                 success: function(response) {
                     if (response.success) {
                         document.getElementById('details-content').innerHTML = buildDetailsView(response.data);
+                        document.getElementById('details-actions').innerHTML = buildActionsView(response.data);
                     } else {
                         document.getElementById('details-content').innerHTML = '<p>Error loading resignation data.</p>';
+                        document.getElementById('details-actions').innerHTML = '';
                     }
                 },
                 error: function() {
@@ -415,6 +543,34 @@ class ResignationModule {
 
                 html += '<div><strong><?php esc_html_e('Ticket Booked:', 'sfs-hr'); ?></strong><br>' + (data.ticket_booked == 1 ? '<?php echo esc_js(__('Yes', 'sfs-hr')); ?>' : '<?php echo esc_js(__('No', 'sfs-hr')); ?>') + '</div>';
                 html += '<div><strong><?php esc_html_e('Exit Stamp Received:', 'sfs-hr'); ?></strong><br>' + (data.exit_stamp_received == 1 ? '<?php echo esc_js(__('Yes', 'sfs-hr')); ?>' : '<?php echo esc_js(__('No', 'sfs-hr')); ?>') + '</div>';
+            }
+
+            html += '</div>';
+            return html;
+        }
+        function buildActionsView(data) {
+            var html = '<h3 style="margin-bottom:15px;"><?php esc_html_e('Actions', 'sfs-hr'); ?></h3>';
+            html += '<div style="display:flex;gap:10px;flex-wrap:wrap;">';
+
+            // Approve and Reject buttons (show if status is pending and user can approve)
+            if (data.status === 'pending' && data.can_approve) {
+                html += '<a href="#" onclick="hideDetailsModal(); showApproveModal(' + data.id + ');" class="button button-primary">';
+                html += '<?php echo esc_js(__('Approve', 'sfs-hr')); ?></a>';
+
+                html += '<a href="#" onclick="hideDetailsModal(); showRejectModal(' + data.id + ');" class="button">';
+                html += '<?php echo esc_js(__('Reject', 'sfs-hr')); ?></a>';
+            }
+
+            // Cancel button (show if status is pending or approved and user can approve)
+            if ((data.status === 'pending' || data.status === 'approved') && data.can_approve) {
+                html += '<a href="#" onclick="hideDetailsModal(); showCancelModal(' + data.id + ');" class="button" style="background:#dc3545;border-color:#dc3545;color:#fff;">';
+                html += '<?php echo esc_js(__('Cancel', 'sfs-hr')); ?></a>';
+            }
+
+            // Process Final Exit button (show if final_exit type at level 4 and user has manage permission)
+            if (data.resignation_type === 'final_exit' && data.approval_level == 4 && data.can_manage) {
+                html += '<a href="#" onclick="hideDetailsModal(); showFinalExitModal(' + data.id + ');" class="button button-primary">';
+                html += '<?php echo esc_js(__('Process Final Exit', 'sfs-hr')); ?></a>';
             }
 
             html += '</div>';
@@ -557,17 +713,26 @@ class ResignationModule {
         }
 
         $resignation_date = sanitize_text_field($_POST['resignation_date'] ?? '');
-        $notice_period = intval($_POST['notice_period_days'] ?? 30);
+        // Get notice period from settings
+        $notice_period = (int)get_option('sfs_hr_resignation_notice_period', 30);
         $reason = sanitize_textarea_field($_POST['reason'] ?? '');
         $resignation_type = sanitize_text_field($_POST['resignation_type'] ?? 'regular');
         $expected_country_exit_date = sanitize_text_field($_POST['expected_country_exit_date'] ?? '');
 
-        if (empty($resignation_date)) {
+        // Validation
+        if ($resignation_type !== 'final_exit' && empty($resignation_date)) {
             wp_die(__('Resignation date is required.', 'sfs-hr'));
         }
 
-        // Calculate last working day
-        $last_working_day = date('Y-m-d', strtotime($resignation_date . " +{$notice_period} days"));
+        if ($resignation_type === 'final_exit' && empty($expected_country_exit_date)) {
+            wp_die(__('Expected country exit date is required for Final Exit resignations.', 'sfs-hr'));
+        }
+
+        // Calculate last working day (only for regular resignations with a resignation date)
+        $last_working_day = null;
+        if (!empty($resignation_date)) {
+            $last_working_day = date('Y-m-d', strtotime($resignation_date . " +{$notice_period} days"));
+        }
 
         // Get department manager for approval
         $emp = Helpers::get_employee_row($employee_id);
@@ -646,11 +811,23 @@ class ResignationModule {
         $current_level = intval($resignation['approval_level']);
         $new_level = $current_level + 1;
 
+        // Check if Finance approver is configured
+        $finance_approver_id = (int)get_option('sfs_hr_resignation_finance_approver', 0);
+        $has_finance_approval = $finance_approver_id > 0;
+
+        // Determine current role based on approval level
+        $role = 'manager';
+        if ($current_level === 2) {
+            $role = 'hr';
+        } elseif ($current_level === 3) {
+            $role = 'finance';
+        }
+
         // Append to approval chain
         $chain = json_decode($resignation['approval_chain'] ?? '[]', true) ?: [];
         $chain[] = [
             'by'     => get_current_user_id(),
-            'role'   => $current_level === 1 ? 'manager' : 'hr',
+            'role'   => $role,
             'action' => 'approved',
             'note'   => $note,
             'at'     => current_time('mysql'),
@@ -663,16 +840,46 @@ class ResignationModule {
             'updated_at'     => current_time('mysql'),
         ];
 
-        // Check if this is final approval (HR level)
-        if ($new_level > 2 || current_user_can('sfs_hr.manage')) {
-            $update_data['status'] = 'approved';
-            $update_data['decided_at'] = current_time('mysql');
+        // Determine if this is final approval
+        // Level 1: Manager -> HR (level 2)
+        // Level 2: HR -> Finance (level 3) if configured, else approved
+        // Level 3: Finance -> approved
+        $is_final_approval = false;
+
+        if ($current_level === 1) {
+            // Manager approved, move to HR (level 2)
+            $update_data['approval_level'] = 2;
+        } elseif ($current_level === 2) {
+            // HR approved
+            if ($has_finance_approval) {
+                // Move to Finance (level 3)
+                $update_data['approval_level'] = 3;
+            } else {
+                // No Finance approval needed, mark as approved
+                $is_final_approval = true;
+            }
+        } elseif ($current_level === 3) {
+            // Finance approved (final)
+            $is_final_approval = true;
+        }
+
+        // If final approval, determine next step based on resignation type
+        if ($is_final_approval) {
+            $resignation_type = $resignation['resignation_type'] ?? 'regular';
+
+            if ($resignation_type === 'final_exit') {
+                // For Final Exit types, move to Final Exit processing stage (level 4)
+                $update_data['approval_level'] = 4;
+                $update_data['status'] = 'pending'; // Remains pending until Final Exit is completed
+            } else {
+                // For Regular resignations, mark as approved
+                $update_data['status'] = 'approved';
+                $update_data['decided_at'] = current_time('mysql');
+            }
 
             // NOTE: Employee status remains 'active' during notice period
             // They should only be terminated after their last working day
             // This allows them to work, attend, and access their profile during the notice period
-        } else {
-            $update_data['approval_level'] = $new_level;
         }
 
         $wpdb->update($table, $update_data, ['id' => $resignation_id]);
@@ -843,12 +1050,37 @@ class ResignationModule {
     /* ---------------------------------- Helper Methods ---------------------------------- */
 
     private function can_approve_resignation(array $resignation): bool {
+        $current_user_id = get_current_user_id();
+        $approval_level = intval($resignation['approval_level'] ?? 1);
+
+        // HR managers can always approve
         if (current_user_can('sfs_hr.manage')) {
             return true;
         }
 
-        $managed_depts = $this->manager_dept_ids_for_user(get_current_user_id());
-        return in_array($resignation['dept_id'], $managed_depts, true);
+        // Check if user is department manager (for level 1)
+        if ($approval_level === 1) {
+            $managed_depts = $this->manager_dept_ids_for_user($current_user_id);
+            return in_array($resignation['dept_id'], $managed_depts, true);
+        }
+
+        // Check if user is configured HR approver (for level 2)
+        if ($approval_level === 2) {
+            $hr_approver_id = (int)get_option('sfs_hr_resignation_hr_approver', 0);
+            if ($hr_approver_id > 0 && $hr_approver_id === $current_user_id) {
+                return true;
+            }
+        }
+
+        // Check if user is configured Finance approver (for level 3)
+        if ($approval_level === 3) {
+            $finance_approver_id = (int)get_option('sfs_hr_resignation_finance_approver', 0);
+            if ($finance_approver_id > 0 && $finance_approver_id === $current_user_id) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function manager_dept_ids_for_user(int $user_id): array {
@@ -863,19 +1095,40 @@ class ResignationModule {
         return array_column($rows, 'id');
     }
 
-    private function status_badge(string $status): string {
+    private function status_badge(string $status, int $approval_level = 1): string {
         $colors = [
             'pending'   => '#f0ad4e',
             'approved'  => '#5cb85c',
+            'completed' => '#28a745',
             'rejected'  => '#d9534f',
             'cancelled' => '#6c757d',
         ];
 
         $color = $colors[$status] ?? '#777';
+
+        // Make status clearer for pending resignations
+        $label = ucfirst($status);
+        if ($status === 'pending') {
+            if ($approval_level === 1) {
+                $label = __('Pending - Manager', 'sfs-hr');
+            } elseif ($approval_level === 2) {
+                $label = __('Pending - HR', 'sfs-hr');
+            } elseif ($approval_level === 3) {
+                $label = __('Pending - Finance', 'sfs-hr');
+            } elseif ($approval_level === 4) {
+                $label = __('Pending - Final Exit', 'sfs-hr');
+                $color = '#17a2b8'; // Different color for Final Exit stage
+            } else {
+                $label = __('Pending', 'sfs-hr');
+            }
+        } elseif ($status === 'completed') {
+            $label = __('Completed', 'sfs-hr');
+        }
+
         return sprintf(
             '<span style="background:%s;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">%s</span>',
             esc_attr($color),
-            esc_html(ucfirst($status))
+            esc_html($label)
         );
     }
 
@@ -1070,6 +1323,8 @@ class ResignationModule {
             'employee_code'              => $resignation['employee_code'],
             'resignation_date'           => $resignation['resignation_date'],
             'resignation_type'           => $resignation['resignation_type'] ?? 'regular',
+            'status'                     => $resignation['status'],
+            'approval_level'             => intval($resignation['approval_level'] ?? 1),
             'final_exit_status'          => $resignation['final_exit_status'] ?? 'not_required',
             'final_exit_number'          => $resignation['final_exit_number'] ?? '',
             'final_exit_date'            => $resignation['final_exit_date'] ?? '',
@@ -1079,6 +1334,8 @@ class ResignationModule {
             'actual_exit_date'           => $resignation['actual_exit_date'] ?? '',
             'ticket_booked'              => $resignation['ticket_booked'] ?? 0,
             'exit_stamp_received'        => $resignation['exit_stamp_received'] ?? 0,
+            'can_approve'                => $this->can_approve_resignation($resignation),
+            'can_manage'                 => current_user_can('sfs_hr.manage'),
         ];
 
         wp_send_json_success($data);
@@ -1108,8 +1365,10 @@ class ResignationModule {
             wp_die(__('Resignation not found', 'sfs-hr'));
         }
 
+        $final_exit_status = sanitize_text_field($_POST['final_exit_status'] ?? 'not_required');
+
         $update_data = [
-            'final_exit_status'          => sanitize_text_field($_POST['final_exit_status'] ?? 'not_required'),
+            'final_exit_status'          => $final_exit_status,
             'final_exit_number'          => sanitize_text_field($_POST['final_exit_number'] ?? ''),
             'final_exit_date'            => sanitize_text_field($_POST['final_exit_date'] ?? ''),
             'final_exit_submitted_date'  => sanitize_text_field($_POST['final_exit_submitted_date'] ?? ''),
@@ -1119,6 +1378,12 @@ class ResignationModule {
             'exit_stamp_received'        => isset($_POST['exit_stamp_received']) ? 1 : 0,
             'updated_at'                 => current_time('mysql'),
         ];
+
+        // If Final Exit is completed, mark the entire resignation as completed
+        if ($final_exit_status === 'completed') {
+            $update_data['status'] = 'completed';
+            $update_data['decided_at'] = current_time('mysql');
+        }
 
         // Remove empty dates
         foreach (['final_exit_date', 'final_exit_submitted_date', 'actual_exit_date'] as $date_field) {
@@ -1175,7 +1440,8 @@ class ResignationModule {
 
                 <p>
                     <label for="notice_period_days"><?php esc_html_e('Notice Period (days):', 'sfs-hr'); ?> <span style="color:red;">*</span></label><br>
-                    <input type="number" name="notice_period_days" id="notice_period_days" value="30" min="0" required style="width:100%;max-width:300px;">
+                    <input type="number" name="notice_period_days" id="notice_period_days" value="<?php echo esc_attr(get_option('sfs_hr_resignation_notice_period', '30')); ?>" min="0" readonly required style="width:100%;max-width:300px;background:#f5f5f5;cursor:not-allowed;">
+                    <br><small style="color:#666;"><?php esc_html_e('Set by HR based on company policy.', 'sfs-hr'); ?></small>
                 </p>
 
                 <p>
@@ -1231,7 +1497,7 @@ class ResignationModule {
                             <tr>
                                 <td style="border:1px solid #ddd;padding:8px;"><?php echo esc_html($r['resignation_date']); ?></td>
                                 <td style="border:1px solid #ddd;padding:8px;"><?php echo esc_html($r['last_working_day']); ?></td>
-                                <td style="border:1px solid #ddd;padding:8px;"><?php echo $this->status_badge($r['status']); ?></td>
+                                <td style="border:1px solid #ddd;padding:8px;"><?php echo $this->status_badge($r['status'], intval($r['approval_level'] ?? 1)); ?></td>
                                 <td style="border:1px solid #ddd;padding:8px;"><?php echo esc_html($r['created_at']); ?></td>
                             </tr>
                         <?php endforeach; ?>
@@ -1241,5 +1507,122 @@ class ResignationModule {
         </div>
         <?php
         return ob_get_clean();
+    }
+
+    /* ---------------------------------- Settings ---------------------------------- */
+
+    private function render_settings_tab(): void {
+        if (!current_user_can('sfs_hr.manage')) {
+            wp_die(__('Access denied', 'sfs-hr'));
+        }
+
+        $notice_period_days = (int)get_option('sfs_hr_resignation_notice_period', 30);
+        $hr_approver_id = (int)get_option('sfs_hr_resignation_hr_approver', 0);
+        $finance_approver_id = (int)get_option('sfs_hr_resignation_finance_approver', 0);
+
+        // Get list of users with HR management capabilities
+        $hr_users = get_users([
+            'capability' => 'sfs_hr.manage',
+            'orderby' => 'display_name',
+        ]);
+
+        ?>
+            <?php if (!empty($_GET['ok'])): ?>
+                <div class="notice notice-success"><p><?php esc_html_e('Settings saved successfully.', 'sfs-hr'); ?></p></div>
+            <?php endif; ?>
+
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                <?php wp_nonce_field('sfs_hr_resignation_settings'); ?>
+                <input type="hidden" name="action" value="sfs_hr_resignation_settings">
+
+                <table class="form-table">
+                    <tr>
+                        <th scope="row">
+                            <label for="notice_period_days">
+                                <?php esc_html_e('Default Notice Period (days)', 'sfs-hr'); ?>
+                            </label>
+                        </th>
+                        <td>
+                            <input
+                                type="number"
+                                name="notice_period_days"
+                                id="notice_period_days"
+                                value="<?php echo esc_attr($notice_period_days); ?>"
+                                min="0"
+                                max="365"
+                                style="width:100px;"
+                                required>
+                            <p class="description">
+                                <?php esc_html_e('The default notice period in days for employee resignations. This will be applied automatically and shown as read-only to employees when they submit their resignation.', 'sfs-hr'); ?>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="hr_approver">
+                                <?php esc_html_e('HR Approver', 'sfs-hr'); ?>
+                            </label>
+                        </th>
+                        <td>
+                            <select name="hr_approver" id="hr_approver" style="width:300px;">
+                                <option value="0"><?php esc_html_e('-- No specific HR approver --', 'sfs-hr'); ?></option>
+                                <?php foreach ($hr_users as $user): ?>
+                                    <option value="<?php echo esc_attr($user->ID); ?>" <?php selected($hr_approver_id, $user->ID); ?>>
+                                        <?php echo esc_html($user->display_name . ' (' . $user->user_email . ')'); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="description">
+                                <?php esc_html_e('Select a specific user for HR approval. If not set, any user with HR management capability can approve at HR level.', 'sfs-hr'); ?>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="finance_approver">
+                                <?php esc_html_e('Finance Approver', 'sfs-hr'); ?>
+                            </label>
+                        </th>
+                        <td>
+                            <select name="finance_approver" id="finance_approver" style="width:300px;">
+                                <option value="0"><?php esc_html_e('-- No Finance approval required --', 'sfs-hr'); ?></option>
+                                <?php foreach ($hr_users as $user): ?>
+                                    <option value="<?php echo esc_attr($user->ID); ?>" <?php selected($finance_approver_id, $user->ID); ?>>
+                                        <?php echo esc_html($user->display_name . ' (' . $user->user_email . ')'); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="description">
+                                <?php esc_html_e('Select a specific user for Finance approval. If not set, resignations will only require Manager and HR approval. Finance approval happens after HR approval.', 'sfs-hr'); ?>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+
+                <?php submit_button(__('Save Settings', 'sfs-hr')); ?>
+            </form>
+        <?php
+    }
+
+    public function handle_settings(): void {
+        if (!current_user_can('sfs_hr.manage')) {
+            wp_die(__('Access denied', 'sfs-hr'));
+        }
+
+        check_admin_referer('sfs_hr_resignation_settings');
+
+        $notice_period_days = isset($_POST['notice_period_days']) ? max(0, min(365, (int)$_POST['notice_period_days'])) : 30;
+        update_option('sfs_hr_resignation_notice_period', (string)$notice_period_days);
+
+        $hr_approver = isset($_POST['hr_approver']) ? (int)$_POST['hr_approver'] : 0;
+        update_option('sfs_hr_resignation_hr_approver', (string)$hr_approver);
+
+        $finance_approver = isset($_POST['finance_approver']) ? (int)$_POST['finance_approver'] : 0;
+        update_option('sfs_hr_resignation_finance_approver', (string)$finance_approver);
+
+        wp_safe_redirect(admin_url('admin.php?page=sfs-hr-resignations&tab=settings&ok=1'));
+        exit;
     }
 }

@@ -1826,6 +1826,12 @@ private function render_frontend_leave_tab( array $emp ): void {
             width: 100%;
             text-align: center;
         }
+
+        /* Fix mobile form spacing - reduce textarea height */
+        .sfs-hr-leave-self-form textarea {
+            min-height: 80px !important;
+            height: auto !important;
+        }
     }
 
     .sfs-hr-my-profile-leave {
@@ -2253,6 +2259,69 @@ private function render_frontend_loans_tab( array $emp, int $emp_id ): void {
     echo '<div class="sfs-hr-loans-tab" style="padding:20px;background:#fff;border:1px solid #ddd;border-radius:4px;margin-top:20px;">';
     echo '<h4 style="margin:0 0 16px;">' . esc_html__( 'My Loans', 'sfs-hr' ) . '</h4>';
 
+    // Styles for desktop/mobile display
+    echo '<style>
+        .sfs-hr-loans-desktop { display: block; }
+        .sfs-hr-loans-mobile { display: none; }
+
+        @media (max-width: 782px) {
+            .sfs-hr-loans-desktop { display: none; }
+            .sfs-hr-loans-mobile { display: block; }
+        }
+
+        .sfs-hr-loan-card {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            padding: 0;
+        }
+
+        .sfs-hr-loan-summary {
+            padding: 12px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            list-style: none;
+        }
+
+        .sfs-hr-loan-summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .sfs-hr-loan-summary-title {
+            font-weight: 600;
+            color: #1d2327;
+        }
+
+        .sfs-hr-loan-body {
+            padding: 0 12px 12px;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .sfs-hr-loan-field-row {
+            display: flex;
+            padding: 8px 0;
+            border-bottom: 1px solid #f5f5f5;
+        }
+
+        .sfs-hr-loan-field-row:last-child {
+            border-bottom: none;
+        }
+
+        .sfs-hr-loan-field-label {
+            font-weight: 600;
+            color: #646970;
+            min-width: 120px;
+        }
+
+        .sfs-hr-loan-field-value {
+            color: #1d2327;
+            flex: 1;
+        }
+    </style>';
+
     // Request new loan button (if enabled)
     if ( $settings['allow_employee_requests'] ) {
         echo '<div style="margin-bottom:16px;">';
@@ -2269,21 +2338,8 @@ private function render_frontend_loans_tab( array $emp, int $emp_id ): void {
     if ( empty( $loans ) ) {
         echo '<p>' . esc_html__( 'You have no loan records.', 'sfs-hr' ) . '</p>';
     } else {
-        // Loans table
-        echo '<div style="overflow-x:auto;">';
-        echo '<table style="width:100%;border-collapse:collapse;margin-top:16px;">';
-        echo '<thead>';
-        echo '<tr style="background:#f5f5f5;">';
-        echo '<th style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Loan #', 'sfs-hr' ) . '</th>';
-        echo '<th style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
-        echo '<th style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Remaining', 'sfs-hr' ) . '</th>';
-        echo '<th style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Installments', 'sfs-hr' ) . '</th>';
-        echo '<th style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
-        echo '<th style="padding:8px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Requested', 'sfs-hr' ) . '</th>';
-        echo '</tr>';
-        echo '</thead>';
-        echo '<tbody>';
-
+        // Prepare loan data
+        $loan_data = [];
         foreach ( $loans as $loan ) {
             // Get paid installments count
             $paid_count = (int) $wpdb->get_var( $wpdb->prepare(
@@ -2291,13 +2347,49 @@ private function render_frontend_loans_tab( array $emp, int $emp_id ): void {
                 $loan->id
             ) );
 
+            // Get payment schedule for active/completed loans
+            $payments = [];
+            if ( in_array( $loan->status, [ 'active', 'completed' ] ) ) {
+                $payments = $wpdb->get_results( $wpdb->prepare(
+                    "SELECT * FROM {$payments_table} WHERE loan_id = %d ORDER BY sequence ASC",
+                    $loan->id
+                ) );
+            }
+
+            $loan_data[] = [
+                'loan' => $loan,
+                'paid_count' => $paid_count,
+                'payments' => $payments,
+            ];
+        }
+
+        // ===== Desktop table =====
+        echo '<div class="sfs-hr-loans-desktop">';
+        echo '<table class="sfs-hr-table" style="width:100%;border-collapse:collapse;margin-top:8px;border:1px solid #ddd;">';
+        echo '<thead>';
+        echo '<tr style="background:#f5f5f5;">';
+        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Loan #', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Remaining', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Installments', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Requested', 'sfs-hr' ) . '</th>';
+        echo '</tr>';
+        echo '</thead>';
+        echo '<tbody>';
+
+        foreach ( $loan_data as $data ) {
+            $loan = $data['loan'];
+            $paid_count = $data['paid_count'];
+            $payments = $data['payments'];
+
             echo '<tr>';
-            echo '<td style="padding:8px;border:1px solid #ddd;"><strong>' . esc_html( $loan->loan_number ) . '</strong></td>';
-            echo '<td style="padding:8px;border:1px solid #ddd;">' . number_format( (float) $loan->principal_amount, 2 ) . ' ' . esc_html( $loan->currency ) . '</td>';
-            echo '<td style="padding:8px;border:1px solid #ddd;">' . number_format( (float) $loan->remaining_balance, 2 ) . ' ' . esc_html( $loan->currency ) . '</td>';
-            echo '<td style="padding:8px;border:1px solid #ddd;">' . (int) $paid_count . ' / ' . (int) $loan->installments_count . '</td>';
-            echo '<td style="padding:8px;border:1px solid #ddd;">' . $this->get_loan_status_badge( $loan->status ) . '</td>';
-            echo '<td style="padding:8px;border:1px solid #ddd;">' . esc_html( wp_date( 'M j, Y', strtotime( $loan->created_at ) ) ) . '</td>';
+            echo '<td style="padding:12px;border:1px solid #ddd;"><strong>' . esc_html( $loan->loan_number ) . '</strong></td>';
+            echo '<td style="padding:12px;border:1px solid #ddd;">' . number_format( (float) $loan->principal_amount, 2 ) . ' ' . esc_html( $loan->currency ) . '</td>';
+            echo '<td style="padding:12px;border:1px solid #ddd;">' . number_format( (float) $loan->remaining_balance, 2 ) . ' ' . esc_html( $loan->currency ) . '</td>';
+            echo '<td style="padding:12px;border:1px solid #ddd;">' . (int) $paid_count . ' / ' . (int) $loan->installments_count . '</td>';
+            echo '<td style="padding:12px;border:1px solid #ddd;">' . $this->get_loan_status_badge( $loan->status ) . '</td>';
+            echo '<td style="padding:12px;border:1px solid #ddd;">' . esc_html( wp_date( 'M j, Y', strtotime( $loan->created_at ) ) ) . '</td>';
             echo '</tr>';
 
             // Details row
@@ -2309,38 +2401,31 @@ private function render_frontend_loans_tab( array $emp, int $emp_id ): void {
                 echo '<p style="margin:0;color:#dc3545;"><strong>' . esc_html__( 'Rejection Reason:', 'sfs-hr' ) . '</strong> ' . esc_html( $loan->rejection_reason ) . '</p>';
             }
 
-            // Payment schedule for active/completed loans
-            if ( in_array( $loan->status, [ 'active', 'completed' ] ) ) {
-                $payments = $wpdb->get_results( $wpdb->prepare(
-                    "SELECT * FROM {$payments_table} WHERE loan_id = %d ORDER BY sequence ASC",
-                    $loan->id
-                ) );
+            // Payment schedule
+            if ( ! empty( $payments ) ) {
+                echo '<h5 style="margin:12px 0 8px;">' . esc_html__( 'Payment Schedule', 'sfs-hr' ) . '</h5>';
+                echo '<table style="width:100%;border-collapse:collapse;margin-top:8px;">';
+                echo '<thead>';
+                echo '<tr style="background:#eee;">';
+                echo '<th style="padding:8px;text-align:left;border:1px solid #ccc;width:50px;">#</th>';
+                echo '<th style="padding:8px;text-align:left;border:1px solid #ccc;">' . esc_html__( 'Due Date', 'sfs-hr' ) . '</th>';
+                echo '<th style="padding:8px;text-align:left;border:1px solid #ccc;">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
+                echo '<th style="padding:8px;text-align:left;border:1px solid #ccc;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+                echo '</tr>';
+                echo '</thead>';
+                echo '<tbody>';
 
-                if ( ! empty( $payments ) ) {
-                    echo '<h5 style="margin:12px 0 8px;">' . esc_html__( 'Payment Schedule', 'sfs-hr' ) . '</h5>';
-                    echo '<table style="width:100%;border-collapse:collapse;margin-top:8px;">';
-                    echo '<thead>';
-                    echo '<tr style="background:#eee;">';
-                    echo '<th style="padding:6px;text-align:left;border:1px solid #ccc;width:50px;">#</th>';
-                    echo '<th style="padding:6px;text-align:left;border:1px solid #ccc;">' . esc_html__( 'Due Date', 'sfs-hr' ) . '</th>';
-                    echo '<th style="padding:6px;text-align:left;border:1px solid #ccc;">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
-                    echo '<th style="padding:6px;text-align:left;border:1px solid #ccc;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+                foreach ( $payments as $payment ) {
+                    echo '<tr>';
+                    echo '<td style="padding:6px;border:1px solid #ccc;">' . (int) $payment->sequence . '</td>';
+                    echo '<td style="padding:6px;border:1px solid #ccc;">' . esc_html( wp_date( 'M Y', strtotime( $payment->due_date ) ) ) . '</td>';
+                    echo '<td style="padding:6px;border:1px solid #ccc;">' . number_format( (float) $payment->amount_planned, 2 ) . '</td>';
+                    echo '<td style="padding:6px;border:1px solid #ccc;">' . $this->get_payment_status_badge( $payment->status ) . '</td>';
                     echo '</tr>';
-                    echo '</thead>';
-                    echo '<tbody>';
-
-                    foreach ( $payments as $payment ) {
-                        echo '<tr>';
-                        echo '<td style="padding:6px;border:1px solid #ccc;">' . (int) $payment->sequence . '</td>';
-                        echo '<td style="padding:6px;border:1px solid #ccc;">' . esc_html( wp_date( 'M Y', strtotime( $payment->due_date ) ) ) . '</td>';
-                        echo '<td style="padding:6px;border:1px solid #ccc;">' . number_format( (float) $payment->amount_planned, 2 ) . '</td>';
-                        echo '<td style="padding:6px;border:1px solid #ccc;">' . $this->get_payment_status_badge( $payment->status ) . '</td>';
-                        echo '</tr>';
-                    }
-
-                    echo '</tbody>';
-                    echo '</table>';
                 }
+
+                echo '</tbody>';
+                echo '</table>';
             }
 
             echo '</td>';
@@ -2349,7 +2434,90 @@ private function render_frontend_loans_tab( array $emp, int $emp_id ): void {
 
         echo '</tbody>';
         echo '</table>';
-        echo '</div>';
+        echo '</div>'; // .sfs-hr-loans-desktop
+
+        // ===== Mobile cards =====
+        echo '<div class="sfs-hr-loans-mobile">';
+        foreach ( $loan_data as $data ) {
+            $loan = $data['loan'];
+            $paid_count = $data['paid_count'];
+            $payments = $data['payments'];
+
+            echo '<details class="sfs-hr-loan-card">';
+            echo '  <summary class="sfs-hr-loan-summary">';
+            echo '      <span class="sfs-hr-loan-summary-title">' . esc_html( $loan->loan_number ) . '</span>';
+            echo '      <span class="sfs-hr-loan-summary-status">';
+            echo            $this->get_loan_status_badge( $loan->status ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            echo '      </span>';
+            echo '  </summary>';
+
+            echo '  <div class="sfs-hr-loan-body">';
+
+            echo '      <div class="sfs-hr-loan-field-row">';
+            echo '          <div class="sfs-hr-loan-field-label">' . esc_html__( 'Amount', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-loan-field-value">' . number_format( (float) $loan->principal_amount, 2 ) . ' ' . esc_html( $loan->currency ) . '</div>';
+            echo '      </div>';
+
+            echo '      <div class="sfs-hr-loan-field-row">';
+            echo '          <div class="sfs-hr-loan-field-label">' . esc_html__( 'Remaining', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-loan-field-value">' . number_format( (float) $loan->remaining_balance, 2 ) . ' ' . esc_html( $loan->currency ) . '</div>';
+            echo '      </div>';
+
+            echo '      <div class="sfs-hr-loan-field-row">';
+            echo '          <div class="sfs-hr-loan-field-label">' . esc_html__( 'Installments', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-loan-field-value">' . (int) $paid_count . ' / ' . (int) $loan->installments_count . '</div>';
+            echo '      </div>';
+
+            echo '      <div class="sfs-hr-loan-field-row">';
+            echo '          <div class="sfs-hr-loan-field-label">' . esc_html__( 'Requested', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-loan-field-value">' . esc_html( wp_date( 'M j, Y', strtotime( $loan->created_at ) ) ) . '</div>';
+            echo '      </div>';
+
+            echo '      <div class="sfs-hr-loan-field-row">';
+            echo '          <div class="sfs-hr-loan-field-label">' . esc_html__( 'Reason', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-loan-field-value">' . esc_html( $loan->reason ) . '</div>';
+            echo '      </div>';
+
+            if ( $loan->status === 'rejected' && $loan->rejection_reason ) {
+                echo '      <div class="sfs-hr-loan-field-row">';
+                echo '          <div class="sfs-hr-loan-field-label" style="color:#dc3545;">' . esc_html__( 'Rejection', 'sfs-hr' ) . '</div>';
+                echo '          <div class="sfs-hr-loan-field-value" style="color:#dc3545;">' . esc_html( $loan->rejection_reason ) . '</div>';
+                echo '      </div>';
+            }
+
+            // Payment schedule
+            if ( ! empty( $payments ) ) {
+                echo '      <div style="margin-top:12px;padding-top:12px;border-top:1px solid #ddd;">';
+                echo '          <strong>' . esc_html__( 'Payment Schedule', 'sfs-hr' ) . '</strong>';
+                echo '          <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;">';
+                echo '          <thead>';
+                echo '          <tr style="background:#f5f5f5;">';
+                echo '          <th style="padding:6px;text-align:left;border:1px solid #ddd;">#</th>';
+                echo '          <th style="padding:6px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Due', 'sfs-hr' ) . '</th>';
+                echo '          <th style="padding:6px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
+                echo '          <th style="padding:6px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+                echo '          </tr>';
+                echo '          </thead>';
+                echo '          <tbody>';
+
+                foreach ( $payments as $payment ) {
+                    echo '          <tr>';
+                    echo '          <td style="padding:4px;border:1px solid #ddd;">' . (int) $payment->sequence . '</td>';
+                    echo '          <td style="padding:4px;border:1px solid #ddd;">' . esc_html( wp_date( 'M Y', strtotime( $payment->due_date ) ) ) . '</td>';
+                    echo '          <td style="padding:4px;border:1px solid #ddd;">' . number_format( (float) $payment->amount_planned, 2 ) . '</td>';
+                    echo '          <td style="padding:4px;border:1px solid #ddd;">' . $this->get_payment_status_badge( $payment->status ) . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+                    echo '          </tr>';
+                }
+
+                echo '          </tbody>';
+                echo '          </table>';
+                echo '      </div>';
+            }
+
+            echo '  </div>';
+            echo '</details>';
+        }
+        echo '</div>'; // .sfs-hr-loans-mobile
     }
 
     echo '</div>'; // .sfs-hr-loans-tab
@@ -2392,15 +2560,76 @@ private function render_frontend_loan_request_form( int $emp_id, array $settings
     echo '</div>';
 
     echo '<div style="margin-bottom:16px;">';
-    echo '<label style="display:block;margin-bottom:4px;font-weight:600;">' . esc_html__( 'Number of Installments', 'sfs-hr' ) . ' <span style="color:red;">*</span></label>';
-    echo '<input type="number" name="installments_count" min="1" max="60" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" />';
-    echo '<p style="margin:4px 0 0;font-size:12px;color:#666;">' . esc_html__( 'Monthly installments (1-60 months)', 'sfs-hr' ) . '</p>';
+    echo '<label style="display:block;margin-bottom:4px;font-weight:600;">' . esc_html__( 'Monthly Installment Amount (SAR)', 'sfs-hr' ) . ' <span style="color:red;">*</span></label>';
+    echo '<input type="number" name="monthly_amount" id="monthly_amount_frontend" step="0.01" min="1" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" oninput="calculateLoanFrontend()" />';
+    echo '<p style="margin:4px 0 0;font-size:12px;color:#666;">' . esc_html__( 'How much you can pay each month', 'sfs-hr' ) . '</p>';
+    echo '<p id="calculated_plan_frontend" style="margin:8px 0 0;font-weight:bold;color:#0073aa;"></p>';
     echo '</div>';
+
+    echo '<script>
+function calculateLoanFrontend() {
+    var principal = parseFloat(document.querySelector(\'input[name="principal_amount"]\').value) || 0;
+    var monthly = parseFloat(document.getElementById("monthly_amount_frontend").value) || 0;
+    var display = document.getElementById("calculated_plan_frontend");
+
+    if (principal > 0 && monthly > 0) {
+        var fullMonths = Math.floor(principal / monthly);
+        var lastPayment = principal - (fullMonths * monthly);
+
+        if (lastPayment > 0) {
+            // Has a final smaller payment
+            var totalMonths = fullMonths + 1;
+            var totalPaid = principal; // Always equals principal
+
+            if (totalMonths > 60) {
+                display.textContent = "⚠️ Would require " + totalMonths + " months (maximum is 60). Please increase monthly amount.";
+                display.style.color = "#dc3545";
+            } else {
+                display.textContent = fullMonths + " × " + monthly.toFixed(2) + " SAR + final payment " + lastPayment.toFixed(2) + " SAR = " + totalPaid.toFixed(2) + " SAR total (" + totalMonths + " months)";
+                display.style.color = "#0073aa";
+            }
+        } else {
+            // Divides evenly
+            var months = fullMonths;
+            if (months > 60) {
+                display.textContent = "⚠️ Would require " + months + " months (maximum is 60). Please increase monthly amount.";
+                display.style.color = "#dc3545";
+            } else {
+                display.textContent = months + " monthly payments of " + monthly.toFixed(2) + " SAR = " + principal.toFixed(2) + " SAR total";
+                display.style.color = "#0073aa";
+            }
+        }
+    } else {
+        display.textContent = "";
+    }
+}
+
+// Auto-calculate when principal changes
+document.addEventListener("DOMContentLoaded", function() {
+    var principalInput = document.querySelector(\'input[name="principal_amount"]\');
+    if (principalInput) {
+        principalInput.addEventListener("input", calculateLoanFrontend);
+    }
+});
+</script>';
 
     echo '<div style="margin-bottom:16px;">';
     echo '<label style="display:block;margin-bottom:4px;font-weight:600;">' . esc_html__( 'Reason for Loan', 'sfs-hr' ) . ' <span style="color:red;">*</span></label>';
-    echo '<textarea name="reason" rows="4" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"></textarea>';
+    echo '<textarea name="reason" rows="3" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"></textarea>';
     echo '</div>';
+
+    // Add mobile CSS
+    echo '<style>
+        @media (max-width: 600px) {
+            #sfs-loan-request-form-frontend textarea {
+                min-height: 80px !important;
+                height: auto !important;
+            }
+            #sfs-loan-request-form-frontend input[type="number"] {
+                font-size: 16px; /* Prevent zoom on iOS */
+            }
+        }
+    </style>';
 
     echo '<div>';
     echo '<button type="submit" style="background:#2271b1;color:#fff;border:0;padding:8px 16px;border-radius:4px;cursor:pointer;margin-right:8px;">' .
@@ -3305,6 +3534,21 @@ private function render_frontend_resignation_tab( array $emp ): void {
                 <input type="hidden" name="action" value="sfs_hr_resignation_submit">
 
                 <p>
+                    <label>
+                        <?php esc_html_e( 'Resignation Type:', 'sfs-hr' ); ?>
+                        <span style="color:red;">*</span>
+                    </label><br>
+                    <label style="display:inline-block;margin-right:20px;">
+                        <input type="radio" name="resignation_type" value="regular" checked onchange="toggleResignationFields()">
+                        <?php esc_html_e( 'Regular Resignation', 'sfs-hr' ); ?>
+                    </label>
+                    <label style="display:inline-block;">
+                        <input type="radio" name="resignation_type" value="final_exit" onchange="toggleResignationFields()">
+                        <?php esc_html_e( 'Final Exit (Foreign Employee)', 'sfs-hr' ); ?>
+                    </label>
+                </p>
+
+                <p id="resignation-date-field">
                     <label for="resignation_date">
                         <?php esc_html_e( 'Resignation Date:', 'sfs-hr' ); ?>
                         <span style="color:red;">*</span>
@@ -3326,12 +3570,13 @@ private function render_frontend_resignation_tab( array $emp ): void {
                         type="number"
                         name="notice_period_days"
                         id="notice_period_days"
-                        value="30"
+                        value="<?php echo esc_attr( get_option( 'sfs_hr_resignation_notice_period', '30' ) ); ?>"
                         min="0"
+                        readonly
                         required
-                        style="width:100%;max-width:300px;padding:8px;border:1px solid #ddd;border-radius:3px;">
+                        style="width:100%;max-width:300px;padding:8px;border:1px solid #ddd;border-radius:3px;background:#f5f5f5;cursor:not-allowed;">
                     <small style="color:#666;">
-                        <?php esc_html_e( 'Your last working day will be calculated based on this notice period.', 'sfs-hr' ); ?>
+                        <?php esc_html_e( 'Set by HR based on company policy. Your last working day will be calculated based on this.', 'sfs-hr' ); ?>
                     </small>
                 </p>
 
@@ -3343,30 +3588,16 @@ private function render_frontend_resignation_tab( array $emp ): void {
                     <textarea
                         name="reason"
                         id="reason"
-                        rows="5"
+                        rows="3"
                         required
                         style="width:100%;max-width:600px;padding:8px;border:1px solid #ddd;border-radius:3px;"></textarea>
-                </p>
-
-                <p>
-                    <label>
-                        <?php esc_html_e( 'Resignation Type:', 'sfs-hr' ); ?>
-                        <span style="color:red;">*</span>
-                    </label><br>
-                    <label style="display:inline-block;margin-right:20px;">
-                        <input type="radio" name="resignation_type" value="regular" checked onchange="toggleFEFinalExitFields()">
-                        <?php esc_html_e( 'Regular Resignation', 'sfs-hr' ); ?>
-                    </label>
-                    <label style="display:inline-block;">
-                        <input type="radio" name="resignation_type" value="final_exit" onchange="toggleFEFinalExitFields()">
-                        <?php esc_html_e( 'Final Exit (Foreign Employee)', 'sfs-hr' ); ?>
-                    </label>
                 </p>
 
                 <div id="fe-final-exit-fields" style="display:none;">
                     <p>
                         <label for="expected_country_exit_date">
                             <?php esc_html_e( 'Expected Country Exit Date:', 'sfs-hr' ); ?>
+                            <span style="color:red;">*</span>
                         </label><br>
                         <input
                             type="date"
@@ -3379,14 +3610,39 @@ private function render_frontend_resignation_tab( array $emp ): void {
                     </p>
                 </div>
 
+                <style>
+                    @media (max-width: 600px) {
+                        .sfs-hr-resignation-form textarea {
+                            min-height: 80px !important;
+                            height: auto !important;
+                        }
+                    }
+                </style>
+
                 <script>
-                function toggleFEFinalExitFields() {
+                function toggleResignationFields() {
                     var finalExitRadio = document.querySelector('input[name="resignation_type"][value="final_exit"]');
+                    var resignationDateField = document.getElementById('resignation-date-field');
+                    var resignationDateInput = document.getElementById('resignation_date');
                     var finalExitFields = document.getElementById('fe-final-exit-fields');
+                    var expectedExitDateInput = document.getElementById('expected_country_exit_date');
+
                     if (finalExitRadio && finalExitRadio.checked) {
+                        // Final Exit selected: hide resignation date, show final exit fields
+                        resignationDateField.style.display = 'none';
+                        resignationDateInput.removeAttribute('required');
                         finalExitFields.style.display = 'block';
+                        if (expectedExitDateInput) {
+                            expectedExitDateInput.setAttribute('required', 'required');
+                        }
                     } else {
+                        // Regular Resignation: show resignation date, hide final exit fields
+                        resignationDateField.style.display = 'block';
+                        resignationDateInput.setAttribute('required', 'required');
                         finalExitFields.style.display = 'none';
+                        if (expectedExitDateInput) {
+                            expectedExitDateInput.removeAttribute('required');
+                        }
                     }
                 }
                 </script>
@@ -3416,28 +3672,46 @@ private function render_frontend_resignation_tab( array $emp ): void {
         echo '<div class="sfs-hr-resignation-history">';
         echo '<h4>' . esc_html__( 'My Resignations', 'sfs-hr' ) . '</h4>';
 
+        // Add mobile CSS
+        echo '<style>
+            @media screen and (max-width: 782px) {
+                .sfs-hr-resignations-table th.hide-mobile,
+                .sfs-hr-resignations-table td.hide-mobile {
+                    display: none !important;
+                }
+                .sfs-hr-resignations-table {
+                    font-size: 12px;
+                }
+                .sfs-hr-resignations-table th,
+                .sfs-hr-resignations-table td {
+                    padding: 6px 4px !important;
+                    white-space: nowrap;
+                }
+            }
+        </style>';
+
         echo '<div class="sfs-hr-resignations-desktop" style="overflow-x:auto;">';
-        echo '<table style="width:100%;border-collapse:collapse;background:#fff;">';
+        echo '<table class="sfs-hr-resignations-table" style="width:100%;border-collapse:collapse;background:#fff;">';
         echo '<thead>';
         echo '<tr style="background:#f5f5f5;">';
-        echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Type', 'sfs-hr' ) . '</th>';
+        echo '<th class="hide-mobile" style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Type', 'sfs-hr' ) . '</th>';
         echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Resignation Date', 'sfs-hr' ) . '</th>';
         echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Last Working Day', 'sfs-hr' ) . '</th>';
-        echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Notice Period', 'sfs-hr' ) . '</th>';
+        echo '<th class="hide-mobile" style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Notice Period', 'sfs-hr' ) . '</th>';
         echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
-        echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Submitted', 'sfs-hr' ) . '</th>';
+        echo '<th class="hide-mobile" style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Submitted', 'sfs-hr' ) . '</th>';
         echo '</tr>';
         echo '</thead>';
         echo '<tbody>';
 
         foreach ( $resignations as $r ) {
-            $status_badge = $this->resignation_status_badge( $r['status'] );
+            $status_badge = $this->resignation_status_badge( $r['status'], intval( $r['approval_level'] ?? 1 ) );
             $type = $r['resignation_type'] ?? 'regular';
 
             echo '<tr>';
 
             // Type column
-            echo '<td style="border:1px solid #ddd;padding:12px;">';
+            echo '<td class="hide-mobile" style="border:1px solid #ddd;padding:12px;">';
             if ( $type === 'final_exit' ) {
                 echo '<span style="background:#673ab7;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">'
                     . esc_html__( 'Final Exit', 'sfs-hr' ) . '</span>';
@@ -3449,9 +3723,9 @@ private function render_frontend_resignation_tab( array $emp ): void {
 
             echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['resignation_date'] ) . '</td>';
             echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['last_working_day'] ?: 'N/A' ) . '</td>';
-            echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['notice_period_days'] ) . ' ' . esc_html__( 'days', 'sfs-hr' ) . '</td>';
+            echo '<td class="hide-mobile" style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['notice_period_days'] ) . ' ' . esc_html__( 'days', 'sfs-hr' ) . '</td>';
             echo '<td style="border:1px solid #ddd;padding:12px;">' . $status_badge . '</td>';
-            echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['created_at'] ) . '</td>';
+            echo '<td class="hide-mobile" style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['created_at'] ) . '</td>';
             echo '</tr>';
 
             // Show reason, notes, and Final Exit info in expanded row
@@ -3523,18 +3797,34 @@ private function render_frontend_resignation_tab( array $emp ): void {
 /**
  * Helper to render resignation status badge
  */
-private function resignation_status_badge( string $status ): string {
+private function resignation_status_badge( string $status, int $approval_level = 1 ): string {
     $colors = [
-        'pending'  => '#f0ad4e',
-        'approved' => '#5cb85c',
-        'rejected' => '#d9534f',
+        'pending'   => '#f0ad4e',
+        'approved'  => '#5cb85c',
+        'rejected'  => '#d9534f',
+        'cancelled' => '#6c757d',
     ];
 
     $color = $colors[ $status ] ?? '#777';
+
+    // Make status clearer for pending resignations
+    $label = ucfirst( $status );
+    if ( $status === 'pending' ) {
+        if ( $approval_level === 1 ) {
+            $label = __( 'Pending - Manager', 'sfs-hr' );
+        } elseif ( $approval_level === 2 ) {
+            $label = __( 'Pending - HR', 'sfs-hr' );
+        } elseif ( $approval_level === 3 ) {
+            $label = __( 'Pending - Finance', 'sfs-hr' );
+        } else {
+            $label = __( 'Pending', 'sfs-hr' );
+        }
+    }
+
     return sprintf(
         '<span style="background:%s;color:#fff;padding:6px 12px;border-radius:3px;font-size:12px;font-weight:500;">%s</span>',
         esc_attr( $color ),
-        esc_html( ucfirst( $status ) )
+        esc_html( $label )
     );
 }
 

@@ -63,6 +63,71 @@ class My_Profile_Page {
         echo '<div class="wrap sfs-hr-wrap sfs-hr-my-profile-wrap">';
 echo '<h1 class="wp-heading-inline">' . esc_html__( 'My Profile', 'sfs-hr' ) . '</h1>';
 
+// Add mobile-specific CSS for all forms in My Profile tabs
+echo '<style>
+    @media screen and (max-width: 782px) {
+        /* Leave form */
+        .sfs-hr-leave-self-form textarea.large-text,
+        .sfs-hr-leave-self-form textarea {
+            min-height: 80px !important;
+            height: auto !important;
+        }
+        .sfs-hr-leave-self-form .form-table th,
+        .sfs-hr-leave-self-form .form-table td {
+            padding: 10px 0;
+        }
+        .sfs-hr-leave-self-form input[type="date"],
+        .sfs-hr-leave-self-form select,
+        .sfs-hr-leave-self-form textarea {
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
+        /* Loan form */
+        #sfs-loan-request-form {
+            padding: 15px !important;
+        }
+        #sfs-loan-request-form textarea {
+            min-height: 80px !important;
+            height: auto !important;
+        }
+        #sfs-loan-request-form .form-table th,
+        #sfs-loan-request-form .form-table td {
+            padding: 10px 0;
+        }
+        #sfs-loan-request-form input[type="number"],
+        #sfs-loan-request-form input[type="date"],
+        #sfs-loan-request-form select,
+        #sfs-loan-request-form textarea {
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
+        /* General form-table improvements for mobile */
+        .sfs-hr-my-profile-wrap .form-table th,
+        .sfs-hr-my-profile-wrap .form-table td {
+            display: block;
+            width: 100%;
+            padding: 8px 0;
+        }
+        .sfs-hr-my-profile-wrap .form-table th {
+            padding-bottom: 4px;
+        }
+        .sfs-hr-my-profile-wrap .form-table input[type="text"],
+        .sfs-hr-my-profile-wrap .form-table input[type="email"],
+        .sfs-hr-my-profile-wrap .form-table input[type="number"],
+        .sfs-hr-my-profile-wrap .form-table input[type="date"],
+        .sfs-hr-my-profile-wrap .form-table select,
+        .sfs-hr-my-profile-wrap .form-table textarea {
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+        }
+    }
+</style>';
+
 // IMPORTANT:
 // Do NOT render the full HR admin nav here for normal employees.
 // It usually enforces HR caps and can trigger auth_redirect() loops.
@@ -73,9 +138,6 @@ echo '<h1 class="wp-heading-inline">' . esc_html__( 'My Profile', 'sfs-hr' ) . '
 // }
 
 echo '<hr class="wp-header-end" />';
-
-
-        echo '<hr class="wp-header-end" />';
 
         // ----- Tabs -----
         $base_url = admin_url( 'admin.php?page=sfs-hr-my-profile' );

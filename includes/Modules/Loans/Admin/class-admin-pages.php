@@ -166,17 +166,47 @@ class AdminPages {
             </div>
         </div>
 
-        <table class="wp-list-table widefat fixed striped">
+        <style>
+            /* Mobile responsive table for loans */
+            @media screen and (max-width: 782px) {
+                .sfs-loans-table-wrapper {
+                    overflow-x: auto;
+                    -webkit-overflow-scrolling: touch;
+                }
+                .sfs-loans-table {
+                    min-width: 100%;
+                    font-size: 12px;
+                }
+                .sfs-loans-table th,
+                .sfs-loans-table td {
+                    padding: 8px 4px;
+                    white-space: nowrap;
+                }
+                /* Hide less important columns on mobile */
+                .sfs-loans-table .hide-mobile {
+                    display: none;
+                }
+                /* Make employee names shorter on mobile */
+                .sfs-loans-table .employee-name {
+                    max-width: 100px;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+            }
+        </style>
+
+        <div class="sfs-loans-table-wrapper">
+        <table class="wp-list-table widefat fixed striped sfs-loans-table">
             <thead>
                 <tr>
-                    <th><?php esc_html_e( 'Loan #', 'sfs-hr' ); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e( 'Loan #', 'sfs-hr' ); ?></th>
                     <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
                     <th><?php esc_html_e( 'Principal', 'sfs-hr' ); ?></th>
-                    <th><?php esc_html_e( 'Remaining', 'sfs-hr' ); ?></th>
-                    <th><?php esc_html_e( 'Installments', 'sfs-hr' ); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e( 'Remaining', 'sfs-hr' ); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e( 'Installments', 'sfs-hr' ); ?></th>
                     <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
-                    <th><?php esc_html_e( 'First Due', 'sfs-hr' ); ?></th>
-                    <th><?php esc_html_e( 'Created', 'sfs-hr' ); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e( 'First Due', 'sfs-hr' ); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e( 'Created', 'sfs-hr' ); ?></th>
                     <th><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
                 </tr>
             </thead>
@@ -188,26 +218,26 @@ class AdminPages {
                 <?php else : ?>
                     <?php foreach ( $loans as $loan ) : ?>
                         <tr>
-                            <td>
+                            <td class="hide-mobile">
                                 <a href="?page=sfs-hr-loans&action=view&id=<?php echo (int) $loan->id; ?>" style="text-decoration:none;">
                                     <strong><?php echo esc_html( $loan->loan_number ); ?></strong>
                                 </a>
                             </td>
-                            <td>
+                            <td class="employee-name">
                                 <a href="?page=sfs-hr-employee-profile&employee_id=<?php echo (int) $loan->employee_id; ?>" style="text-decoration:none;">
                                     <?php echo esc_html( $loan->employee_name ); ?>
                                 </a>
                                 <br><small><?php echo esc_html( $loan->employee_code ); ?></small>
                             </td>
                             <td><?php echo number_format( (float) $loan->principal_amount, 2 ); ?> <?php echo esc_html( $loan->currency ); ?></td>
-                            <td><?php echo number_format( (float) $loan->remaining_balance, 2 ); ?> <?php echo esc_html( $loan->currency ); ?></td>
-                            <td>
+                            <td class="hide-mobile"><?php echo number_format( (float) $loan->remaining_balance, 2 ); ?> <?php echo esc_html( $loan->currency ); ?></td>
+                            <td class="hide-mobile">
                                 <?php echo (int) $loan->installments_count; ?> ×
                                 <?php echo number_format( (float) $loan->installment_amount, 2 ); ?>
                             </td>
                             <td><?php echo $this->get_status_badge( $loan->status ); ?></td>
-                            <td><?php echo $loan->first_due_date ? esc_html( wp_date( 'Y-m-d', strtotime( $loan->first_due_date ) ) ) : '—'; ?></td>
-                            <td><?php echo esc_html( wp_date( 'Y-m-d', strtotime( $loan->created_at ) ) ); ?></td>
+                            <td class="hide-mobile"><?php echo $loan->first_due_date ? esc_html( wp_date( 'Y-m-d', strtotime( $loan->first_due_date ) ) ) : '—'; ?></td>
+                            <td class="hide-mobile"><?php echo esc_html( wp_date( 'Y-m-d', strtotime( $loan->created_at ) ) ); ?></td>
                             <td>
                                 <a href="?page=sfs-hr-loans&action=view&id=<?php echo (int) $loan->id; ?>" class="button button-small">
                                     <?php esc_html_e( 'View', 'sfs-hr' ); ?>
@@ -218,6 +248,7 @@ class AdminPages {
                 <?php endif; ?>
             </tbody>
         </table>
+        </div>
         <?php
     }
 
@@ -677,9 +708,9 @@ class AdminPages {
                     <th><?php esc_html_e( 'GM Approvers', 'sfs-hr' ); ?></th>
                     <td>
                         <?php
-                        // Get all users with manage capability
+                        // Get all users with GM approval capability
                         $all_users = get_users( [
-                            'role__in' => [ 'administrator' ],
+                            'role__in' => [ 'administrator', 'sfs_hr_gm_approver' ],
                             'orderby'  => 'display_name',
                         ] );
 
@@ -694,7 +725,18 @@ class AdminPages {
                             ],
                         ] );
 
-                        $available_users = array_merge( $all_users, $manage_users );
+                        // Get users with GM approval capability (custom role)
+                        $gm_users = get_users( [
+                            'meta_query' => [
+                                [
+                                    'key'     => 'wp_capabilities',
+                                    'value'   => 'sfs_hr_loans_gm_approve',
+                                    'compare' => 'LIKE',
+                                ],
+                            ],
+                        ] );
+
+                        $available_users = array_merge( $all_users, $manage_users, $gm_users );
                         $available_users = array_unique( $available_users, SORT_REGULAR );
 
                         $gm_user_ids = $settings['gm_user_ids'] ?? [];
@@ -716,11 +758,31 @@ class AdminPages {
                     <th><?php esc_html_e( 'Finance Approvers', 'sfs-hr' ); ?></th>
                     <td>
                         <?php
+                        // Get all users with Finance approval capability
+                        $finance_all = get_users( [
+                            'role__in' => [ 'administrator', 'sfs_hr_finance_approver' ],
+                            'orderby'  => 'display_name',
+                        ] );
+
+                        // Get users with finance approval capability (custom capability)
+                        $finance_cap_users = get_users( [
+                            'meta_query' => [
+                                [
+                                    'key'     => 'wp_capabilities',
+                                    'value'   => 'sfs_hr_loans_finance_approve',
+                                    'compare' => 'LIKE',
+                                ],
+                            ],
+                        ] );
+
+                        $available_finance_users = array_merge( $finance_all, $manage_users, $finance_cap_users );
+                        $available_finance_users = array_unique( $available_finance_users, SORT_REGULAR );
+
                         $finance_user_ids = $settings['finance_user_ids'] ?? [];
                         ?>
 
                         <select name="finance_user_ids[]" multiple style="min-width:400px;height:150px;">
-                            <?php foreach ( $available_users as $user ) : ?>
+                            <?php foreach ( $available_finance_users as $user ) : ?>
                                 <option value="<?php echo (int) $user->ID; ?>" <?php selected( in_array( $user->ID, $finance_user_ids, true ), true ); ?>>
                                     <?php echo esc_html( $user->display_name . ' (' . $user->user_email . ')' ); ?>
                                 </option>

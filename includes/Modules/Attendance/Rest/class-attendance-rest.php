@@ -88,6 +88,17 @@ public static function routes(): void {
             'device' => [ 'type'=>'integer', 'required'=>false ],
         ],
     ]);
+
+    // POST /sfs-hr/v1/attendance/verify-pin  (verify manager PIN for kiosk)
+    register_rest_route('sfs-hr/v1', '/attendance/verify-pin', [
+        'methods'  => 'POST',
+        'callback' => [ __CLASS__, 'verify_pin' ],
+        'permission_callback' => '__return_true', // Public endpoint, PIN itself provides auth
+        'args' => [
+            'device_id' => [ 'type'=>'integer', 'required'=>true ],
+            'pin'       => [ 'type'=>'string',  'required'=>true ],
+        ],
+    ]);
 }
 
 
@@ -453,17 +464,26 @@ if ( $last ) {
 }
 // ===========================================================================
 
-// Also block if last attempt (success OR failure) was too recent
+// Smart cooldown: Only block if attempting the SAME action type within cooldown period
 $last_attempt_key = 'sfs_att_last_attempt_' . (int)$emp;
-$last_attempt_ts  = (int) get_transient( $last_attempt_key );
-$now_ts = time();
+$last_attempt     = get_transient( $last_attempt_key );
+$now_ts           = time();
 
-if ( $last_attempt_ts > 0 && ( $now_ts - $last_attempt_ts ) < 10 ) { // 10-sec global cooldown
-    return new \WP_Error( 'cooldown', 'Please wait 10 seconds between attempts.', [ 'status' => 429 ] );
+if ( $last_attempt && is_array( $last_attempt ) ) {
+    $last_ts     = (int) ( $last_attempt['timestamp'] ?? 0 );
+    $last_action = (string) ( $last_attempt['action'] ?? '' );
+    $elapsed     = $now_ts - $last_ts;
+
+    // Only block if attempting SAME action AND within cooldown period (5 seconds)
+    if ( $last_action === $punch_type && $elapsed < 5 ) {
+        $action_label = str_replace( '_', ' ', strtoupper( $punch_type ) );
+        return new \WP_Error(
+            'cooldown',
+            sprintf( 'Please wait %d seconds before attempting %s again.', 5 - $elapsed, $action_label ),
+            [ 'status' => 429 ]
+        );
+    }
 }
-
-// SET TRANSIENT IMMEDIATELY to block concurrent requests (moved before insert)
-set_transient( $last_attempt_key, $now_ts, 15 );
 
     // ---- Resolve effective shift for today (Assignments override Automation)
     $dateYmd = wp_date( 'Y-m-d' );
@@ -616,12 +636,35 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
     return new \WP_Error( 'sfs_att_selfie_required', 'Selfie is required for this punch.', [ 'status' => 400 ] );
 }
 
+    // ---- Set cooldown transient RIGHT BEFORE insert (after all validations pass)
+    // This prevents failed validations from locking the employee
+    set_transient( $last_attempt_key, [
+        'timestamp' => $now_ts,
+        'action'    => $punch_type,
+    ], 15 );
 
+    // ---- FINAL DUPLICATE CHECK: Prevent exact duplicate within last 10 seconds
+    // This catches race conditions where multiple requests arrive simultaneously
+    $duplicate_check = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, punch_time FROM {$punchT}
+         WHERE employee_id = %d
+           AND punch_type = %s
+           AND punch_time >= DATE_SUB(%s, INTERVAL 10 SECOND)
+         ORDER BY punch_time DESC
+         LIMIT 1",
+        (int) $emp,
+        $punch_type,
+        $nowUtc
+    ) );
 
-
-    // ---- Set transient RIGHT BEFORE insert to prevent race conditions
-    // Placed here (after all validations pass) so failed validations don't lock employee
-    set_transient( $last_attempt_key, $now_ts, 15 );
+    if ( $duplicate_check ) {
+        $dup_time = wp_date( 'H:i:s', strtotime( $duplicate_check->punch_time ) );
+        return new \WP_Error(
+            'duplicate',
+            sprintf( 'This punch was already recorded at %s. Please wait before trying again.', $dup_time ),
+            [ 'status' => 409 ]
+        );
+    }
 
     // ---- Insert immutable punch
     $nowUtc = current_time( 'mysql', true );
@@ -711,18 +754,6 @@ if ( $selfie_media_id ) {
         $resp['selfie_media_id'] = $selfie_media_id;
         $resp['selfie_url']      = wp_get_attachment_url( $selfie_media_id );
     }
-
-    // لوج واضح: ماذا كان مطلوب لهذا البنش، وماذا سيكون المطلوب للبنش التالي
-    error_log('[SFS-HR/Attendance] punch selfie | ' . wp_json_encode([
-        'required_for_this_punch' => (bool) $require_selfie,       // منطق التحقق اللي فوق
-        'selfie_mode_next'        => $mode_next,
-        'requires_selfie_next'    => (bool) $requires_selfie_next, // اللي رجعناه للواجهة
-        'saved_attachment'        => (int) $selfie_media_id,
-        'valid_selfie'            => (int) $valid_selfie,
-        'source'                  => $source,
-        'device_id'               => (int) $device_id,
-        'emp'                     => (int) $emp,
-    ]));
 
     return rest_ensure_response( $resp );
 
@@ -865,5 +896,69 @@ private static function save_selfie_attachment( array $src ): int {
         $a = sin($dLat/2)*sin($dLat/2) + cos(deg2rad($lat1))*cos(deg2rad($lat2))*sin($dLng/2)*sin($dLng/2);
         $c = 2 * atan2(sqrt($a), sqrt(1-$a));
         return $R * $c;
+    }
+
+    /**
+     * Verify Manager PIN for kiosk device
+     * POST /sfs-hr/v1/attendance/verify-pin
+     */
+    public static function verify_pin( \WP_REST_Request $req ) {
+        $device_id = (int) $req->get_param( 'device_id' );
+        $pin = (string) $req->get_param( 'pin' );
+
+        if ( ! $device_id || ! $pin ) {
+            return new \WP_Error( 'invalid_params', 'Device ID and PIN are required', [ 'status' => 400 ] );
+        }
+
+        global $wpdb;
+        $devices_table = $wpdb->prefix . 'sfs_hr_attendance_devices';
+
+        // Get device with PIN
+        $device = $wpdb->get_row( $wpdb->prepare(
+            "SELECT id, label, kiosk_pin FROM {$devices_table} WHERE id = %d AND active = 1",
+            $device_id
+        ) );
+
+        if ( ! $device ) {
+            return new \WP_Error( 'device_not_found', 'Device not found or inactive', [ 'status' => 404 ] );
+        }
+
+        if ( ! $device->kiosk_pin ) {
+            return new \WP_Error( 'no_pin_set', 'No PIN configured for this device', [ 'status' => 400 ] );
+        }
+
+        // Verify PIN using WordPress password functions
+        if ( ! wp_check_password( $pin, $device->kiosk_pin ) ) {
+            // Rate limiting: track failed attempts
+            $transient_key = 'sfs_hr_pin_fail_' . $device_id;
+            $failures = (int) get_transient( $transient_key );
+            $failures++;
+            set_transient( $transient_key, $failures, 300 ); // 5 minute window
+
+            if ( $failures >= 5 ) {
+                return new \WP_Error( 'too_many_attempts', 'Too many failed attempts. Please wait 5 minutes.', [ 'status' => 429 ] );
+            }
+
+            return new \WP_Error( 'invalid_pin', 'Invalid PIN', [ 'status' => 401 ] );
+        }
+
+        // Success - clear failures and return success token
+        delete_transient( 'sfs_hr_pin_fail_' . $device_id );
+
+        // Generate a short-lived session token for manager actions
+        $token = wp_generate_password( 32, false );
+        $session_key = 'sfs_hr_mgr_session_' . $device_id;
+        set_transient( $session_key, [
+            'token' => $token,
+            'device_id' => $device_id,
+            'verified_at' => time(),
+        ], 3600 ); // 1 hour session
+
+        return rest_ensure_response( [
+            'success' => true,
+            'token' => $token,
+            'device_label' => $device->label,
+            'expires_in' => 3600,
+        ] );
     }
 }

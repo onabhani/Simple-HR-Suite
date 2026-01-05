@@ -631,6 +631,7 @@ add_action('rest_api_init', function () {
         let requiresSelfie = false;
         let refreshing     = false;
         let queued         = false;
+        let punchInProgress = false; // Prevent duplicate submissions
 
         const STATUS_URL = '<?php echo esc_js( $status_url ); ?>';
         const PUNCH_URL  = '<?php echo esc_js( $punch_url ); ?>';
@@ -867,6 +868,13 @@ setInterval(tickClock, 1000);
                 geo = await getGeo();
             } catch(e){
                 // geo_blocked → do not hit the REST API
+                punchInProgress = false;
+                if (actionsWrap) {
+                    actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
+                        const t = btn.getAttribute('data-type');
+                        btn.disabled = !allowed[t];
+                    });
+                }
                 return;
             }
 
@@ -935,6 +943,7 @@ setInterval(tickClock, 1000);
 
             // Start the camera UI for the same action (in/out/...)
             await startSelfie(type);
+            // Don't clear punchInProgress yet - selfie capture will handle it
             return; // don't fall through to generic error
         }
 
@@ -944,13 +953,33 @@ setInterval(tickClock, 1000);
 
 
                 await refresh();
+                punchInProgress = false;
 
             } catch (e) {
                 setStat('Error: ' + e.message, 'error');
+                punchInProgress = false;
+                if (actionsWrap) {
+                    actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
+                        const t = btn.getAttribute('data-type');
+                        btn.disabled = !allowed[t];
+                    });
+                }
             }
         }
 
         async function punch(type){
+            // Prevent duplicate submissions
+            if (punchInProgress) {
+                setStat('Please wait, processing...', 'busy');
+                return;
+            }
+            punchInProgress = true;
+
+            // Disable all action buttons
+            if (actionsWrap) {
+                actionsWrap.querySelectorAll('button[data-type]').forEach(btn => btn.disabled = true);
+            }
+
             // Refresh status to ensure latest state before punch attempt
             setStat('Checking status…', 'busy');
             await refresh();
@@ -963,6 +992,14 @@ setInterval(tickClock, 1000);
                 else if (type==='break_start' && state!=='in')  msg = 'You can start a break only while clocked in.';
                 else if (type==='break_end'   && state!=='break')msg = 'You have no active break to end.';
                 setStat('Error: ' + msg, 'error');
+                punchInProgress = false;
+                // Re-enable allowed buttons
+                if (actionsWrap) {
+                    actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
+                        const t = btn.getAttribute('data-type');
+                        btn.disabled = !allowed[t];
+                    });
+                }
                 return;
             }
 
@@ -975,6 +1012,13 @@ setInterval(tickClock, 1000);
                     geo = await getGeo();
                 } catch(e) {
                     // geo blocked, show error without opening camera
+                    punchInProgress = false;
+                    if (actionsWrap) {
+                        actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
+                            const t = btn.getAttribute('data-type');
+                            btn.disabled = !allowed[t];
+                        });
+                    }
                     return;
                 }
 
@@ -1006,12 +1050,14 @@ setInterval(tickClock, 1000);
                     // If server says "selfie required", open camera
                     if (!resp.ok && errCode === 'sfs_att_selfie_required') {
                         await startSelfie(type);
+                        // Don't clear punchInProgress yet - selfie capture will handle the actual punch
                         return;
                     }
 
                     // If success (no selfie needed), we're done
                     if (resp.ok) {
                         setStat('Success!', 'success');
+                        punchInProgress = false;
                         setTimeout(refresh, 1000);
                         return;
                     }
@@ -1019,10 +1065,24 @@ setInterval(tickClock, 1000);
                     // Any other error: show it without opening camera
                     const msg = (j && j.message) || 'Punch failed';
                     setStat('Error: ' + msg, 'error');
+                    punchInProgress = false;
+                    if (actionsWrap) {
+                        actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
+                            const t = btn.getAttribute('data-type');
+                            btn.disabled = !allowed[t];
+                        });
+                    }
                     return;
 
                 } catch(e) {
                     setStat('Error: ' + e.message, 'error');
+                    punchInProgress = false;
+                    if (actionsWrap) {
+                        actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
+                            const t = btn.getAttribute('data-type');
+                            btn.disabled = !allowed[t];
+                        });
+                    }
                     return;
                 }
             } else {
@@ -1052,6 +1112,13 @@ setInterval(tickClock, 1000);
             selfieCanvas.toBlob(async function(blob){
                 if (!blob) {
                     setStat('Could not capture selfie. Try again.', 'error');
+                    punchInProgress = false;
+                    if (actionsWrap) {
+                        actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
+                            const t = btn.getAttribute('data-type');
+                            btn.disabled = !allowed[t];
+                        });
+                    }
                     return;
                 }
                 await doPunch(pendingType, blob);
@@ -1070,8 +1137,16 @@ setInterval(tickClock, 1000);
         selfieCapture && selfieCapture.addEventListener('click', captureAndSubmit);
         selfieCancel  && selfieCancel.addEventListener('click', ()=>{
             pendingType = null;
+            punchInProgress = false;
             stopSelfiePreview();
             setStat('Cancelled.', 'idle');
+            // Re-enable buttons
+            if (actionsWrap) {
+                actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
+                    const t = btn.getAttribute('data-type');
+                    btn.disabled = !allowed[t];
+                });
+            }
         });
 
         // Fallback: if user selects file manually (no live camera), submit
@@ -2892,7 +2967,7 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
             overtime_after_minutes SMALLINT UNSIGNED NULL,
             require_selfie TINYINT(1) NOT NULL DEFAULT 0,
             active TINYINT(1) NOT NULL DEFAULT 1,
-            dept ENUM('office','showroom','warehouse','factory') NOT NULL,
+            dept VARCHAR(100) NOT NULL COMMENT 'Department slug from departments table or legacy values',
             notes TEXT NULL,
             weekly_overrides TEXT NULL,
             PRIMARY KEY (id),
@@ -2938,7 +3013,7 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
             geo_lock_lat DECIMAL(10,7) NULL,
             geo_lock_lng DECIMAL(10,7) NULL,
             geo_lock_radius_m SMALLINT UNSIGNED NULL,
-            allowed_dept ENUM('office','showroom','warehouse','factory','any') NOT NULL DEFAULT 'any',
+            allowed_dept VARCHAR(100) NOT NULL DEFAULT 'any' COMMENT 'Department slug or any for all',
             fingerprint_hash VARCHAR(64) NULL,
             active TINYINT(1) NOT NULL DEFAULT 1,
             meta_json LONGTEXT NULL,
@@ -2958,7 +3033,7 @@ self::add_column_if_missing($wpdb, $t, 'kiosk_offline',     "kiosk_offline TINYI
 self::add_column_if_missing($wpdb, $t, 'geo_lock_lat',      "geo_lock_lat DECIMAL(10,7) NULL");
 self::add_column_if_missing($wpdb, $t, 'geo_lock_lng',      "geo_lock_lng DECIMAL(10,7) NULL");
 self::add_column_if_missing($wpdb, $t, 'geo_lock_radius_m', "geo_lock_radius_m SMALLINT UNSIGNED NULL");
-self::add_column_if_missing($wpdb, $t, 'allowed_dept',      "allowed_dept ENUM('office','showroom','warehouse','factory','any') NOT NULL DEFAULT 'any'");
+self::add_column_if_missing($wpdb, $t, 'allowed_dept',      "allowed_dept VARCHAR(100) NOT NULL DEFAULT 'any'");
 self::add_column_if_missing($wpdb, $t, 'active',            "active TINYINT(1) NOT NULL DEFAULT 1");
 self::add_column_if_missing($wpdb, $t, 'qr_enabled',        "qr_enabled TINYINT(1) NOT NULL DEFAULT 1");
 self::add_column_if_missing($wpdb, $t, 'selfie_mode',       "selfie_mode ENUM('inherit','never','in_only','in_out','all') NOT NULL DEFAULT 'inherit'");
@@ -3272,9 +3347,6 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
      * Applies: grace (late/early), rounding (nearest N), unpaid break, OT threshold.
      */
     public static function recalc_session_for( int $employee_id, string $ymd, \wpdb $wpdb = null ): void {
-    // FORCE DEBUG - Shows we entered the function
-    error_log('>>> recalc_session_for CALLED: emp=' . $employee_id . ', date=' . $ymd);
-
     $wpdb = $wpdb ?: $GLOBALS['wpdb'];
     $pT   = $wpdb->prefix . 'sfs_hr_attendance_punches';
     $sT   = $wpdb->prefix . 'sfs_hr_attendance_sessions';
@@ -3338,9 +3410,7 @@ foreach ($rows as $r) {
     $roundN   = ($round === 'none') ? 0 : (int)$round;
 
     // Evaluate
-    error_log('>>> BEFORE evaluate_segments: punches=' . count($rows) . ', segments=' . count($segments));
     $ev = self::evaluate_segments($segments, $rows, $grLate, $grEarly);
-    error_log('>>> AFTER evaluate_segments: worked_total=' . $ev['worked_total'] . ', break_total=' . ($ev['break_total'] ?? 0));
     $net = (int)$ev['worked_total'];
     if ($roundN > 0) $net = (int)round($net / $roundN) * $roundN;
 
@@ -3866,16 +3936,6 @@ public static function resolve_shift_for_date(
         }
     }
 
-    // DEBUG (safe; remove later)
-    if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
-        error_log(
-            '[SFS ATT] auto.source='.$auto['source'].
-            ' keytype='.$keytype.
-            ' candidates='.implode('|',$candidates).
-            ' hit='.( $conf ? 'yes':'no' )
-        );
-    }
-
     if ($conf) {
         // default shift id
         $shift_id = null;
@@ -3922,9 +3982,6 @@ public static function resolve_shift_for_date(
                 $sh->is_holiday = 0;
                 $sh->dept       = $dept_slug ?: ($dept_name ?: 'office');
                 return self::apply_weekly_override( $sh, $ymd, $wpdb );
-            }
-            if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
-                error_log('[SFS ATT] automation shift_id '.$shift_id.' not found/active');
             }
         }
     }
@@ -4140,13 +4197,6 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
     foreach ($intervals as [$start, $end]) {
         $actual_worked_minutes += (int)round(($end - $start) / 60);
     }
-
-    // FORCE DEBUG - will log regardless of WP_DEBUG setting
-    error_log('=== SFS ATTENDANCE DEBUG ===');
-    error_log('Intervals count: ' . count($intervals));
-    error_log('Actual worked minutes: ' . $actual_worked_minutes);
-    error_log('Segments count: ' . count($segments));
-    error_log('===========================');
 
     foreach ($segments as $seg) {
         $S = strtotime($seg['start_utc'].' UTC');

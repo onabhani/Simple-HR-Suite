@@ -8,6 +8,7 @@ class Admin {
     add_action( 'admin_init',  [ $this, 'maybe_add_employee_photo_column' ] );
     add_action( 'admin_init',  [ $this, 'maybe_install_qr_cols' ] );
     add_action( 'admin_init',  [ $this, 'maybe_install_employee_extra_cols' ] );
+    add_action( 'admin_head',  [ $this, 'remove_menu_separator_css' ] );
 
     add_action( 'admin_post_sfs_hr_add_employee',       [ $this, 'handle_add_employee' ] );
     add_action( 'admin_post_sfs_hr_link_user',          [ $this, 'handle_link_user' ] );
@@ -50,6 +51,16 @@ class Admin {
             56
         );
 
+        // Override the auto-generated duplicate submenu with "Dashboard"
+        add_submenu_page(
+            'sfs-hr',
+            __('Dashboard','sfs-hr'),
+            __('Dashboard','sfs-hr'),
+            'sfs_hr.view',
+            'sfs-hr',
+            [$this, 'render_dashboard']
+        );
+
         add_submenu_page(
             'sfs-hr',
             __('Employees','sfs-hr'),
@@ -67,6 +78,15 @@ class Admin {
             'sfs-hr-my-team',
             [$this, 'render_my_team']
         );
+    }
+
+    public function remove_menu_separator_css(): void {
+        echo '<style>
+            /* Remove separator after HR menu */
+            #adminmenu li.toplevel_page_sfs-hr + li.wp-menu-separator {
+                display: none !important;
+            }
+        </style>';
     }
 
     public function maybe_install_qr_cols(): void {
@@ -401,6 +421,111 @@ echo '</a>';
     echo '<div class="sfs-hr-card-count">' . esc_html( number_format_i18n( $departments_count ) ) . '</div>';
     echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Structure & approver routing', 'sfs-hr' ) . '</div>';
     echo '</a>';
+
+    // --- NEW: Approval Cards (role-based) ---
+
+    // LOANS: Pending approvals (Finance approvers and HR managers)
+    if ( current_user_can('sfs_hr_loan_finance_approve') || current_user_can('sfs_hr.manage') ) {
+        $loans_t = $wpdb->prefix . 'sfs_hr_loans';
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $loans_t ) ) ) {
+            $pending_loans = (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM {$loans_t} WHERE status = 'pending'"
+            );
+
+            if ( $pending_loans > 0 ) {
+                echo '<a class="sfs-hr-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-loans&tab=requests&status=pending' ) ) . '" style="border-left: 4px solid #0073aa;">';
+                echo '<h2>' . esc_html__( 'Pending Loans', 'sfs-hr' ) . '</h2>';
+                echo '<div class="sfs-hr-card-count" style="color:#0073aa;">' . esc_html( number_format_i18n( $pending_loans ) ) . '</div>';
+                echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting finance approval', 'sfs-hr' ) . '</div>';
+                echo '</a>';
+            }
+        }
+    }
+
+    // LEAVES: Pending approvals (Department Managers and HR)
+    if ( current_user_can('sfs_hr.leave.review') || current_user_can('sfs_hr.manage') ) {
+        $user_id = get_current_user_id();
+        $managed_dept_ids = [];
+
+        // Get departments managed by current user
+        if ( ! current_user_can('sfs_hr.manage') ) {
+            $managed_dept_ids = $wpdb->get_col( $wpdb->prepare(
+                "SELECT id FROM {$dept_t} WHERE manager_user_id = %d",
+                $user_id
+            ) );
+        }
+
+        // Build query based on role
+        if ( current_user_can('sfs_hr.manage') ) {
+            // HR sees all pending leaves
+            $pending_leaves_count = (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM {$req_t} WHERE status = 'pending'"
+            );
+        } elseif ( ! empty( $managed_dept_ids ) ) {
+            // Managers see pending leaves in their departments
+            $placeholders = implode( ',', array_fill( 0, count( $managed_dept_ids ), '%d' ) );
+            $pending_leaves_count = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$req_t} r
+                 INNER JOIN {$emp_t} e ON e.id = r.employee_id
+                 WHERE r.status = 'pending' AND e.dept_id IN ({$placeholders})",
+                ...$managed_dept_ids
+            ) );
+        } else {
+            $pending_leaves_count = 0;
+        }
+
+        if ( $pending_leaves_count > 0 ) {
+            echo '<a class="sfs-hr-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-leave&status=pending' ) ) . '" style="border-left: 4px solid #f0ad4e;">';
+            echo '<h2>' . esc_html__( 'Pending Leave Requests', 'sfs-hr' ) . '</h2>';
+            echo '<div class="sfs-hr-card-count" style="color:#f0ad4e;">' . esc_html( number_format_i18n( $pending_leaves_count ) ) . '</div>';
+            echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting your approval', 'sfs-hr' ) . '</div>';
+            echo '</a>';
+        }
+    }
+
+    // RESIGNATIONS: Pending approvals (Managers, HR, Finance)
+    if ( current_user_can('sfs_hr.view') ) {
+        $resignations_t = $wpdb->prefix . 'sfs_hr_resignations';
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $resignations_t ) ) ) {
+            $user_id = get_current_user_id();
+            $managed_dept_ids = [];
+
+            // Get departments managed by current user
+            if ( ! current_user_can('sfs_hr.manage') ) {
+                $managed_dept_ids = $wpdb->get_col( $wpdb->prepare(
+                    "SELECT id FROM {$dept_t} WHERE manager_user_id = %d",
+                    $user_id
+                ) );
+            }
+
+            // Build query based on role
+            if ( current_user_can('sfs_hr.manage') || current_user_can('sfs_hr_resignation_finance_approve') ) {
+                // HR and Finance see all pending resignations
+                $pending_resignations = (int) $wpdb->get_var(
+                    "SELECT COUNT(*) FROM {$resignations_t} WHERE status = 'pending'"
+                );
+            } elseif ( ! empty( $managed_dept_ids ) ) {
+                // Managers see pending resignations in their departments
+                $placeholders = implode( ',', array_fill( 0, count( $managed_dept_ids ), '%d' ) );
+                $pending_resignations = (int) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$resignations_t} r
+                     INNER JOIN {$emp_t} e ON e.id = r.employee_id
+                     WHERE r.status = 'pending' AND e.dept_id IN ({$placeholders})",
+                    ...$managed_dept_ids
+                ) );
+            } else {
+                $pending_resignations = 0;
+            }
+
+            if ( $pending_resignations > 0 ) {
+                echo '<a class="sfs-hr-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-resignations&tab=resignations&status=pending' ) ) . '" style="border-left: 4px solid #dc3545;">';
+                echo '<h2>' . esc_html__( 'Pending Resignations', 'sfs-hr' ) . '</h2>';
+                echo '<div class="sfs-hr-card-count" style="color:#dc3545;">' . esc_html( number_format_i18n( $pending_resignations ) ) . '</div>';
+                echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting approval', 'sfs-hr' ) . '</div>';
+                echo '</a>';
+            }
+        }
+    }
 
     echo '</div>'; // .sfs-hr-dashboard-grid
     echo '</div>'; // .wrap
@@ -765,6 +890,65 @@ echo '</a>';
   .sfs-hr-emp-add-footer {
     margin-top: 16px;
   }
+
+  /* Mobile responsive styles */
+  @media (max-width: 782px) {
+    /* Stack filter forms */
+    form[method="get"], form[method="post"] {
+      display: block !important;
+      margin: 8px 0 !important;
+    }
+
+    form[method="get"] input[type="search"],
+    form[method="get"] select {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin-bottom: 8px !important;
+      display: block !important;
+    }
+
+    /* Hide less important columns on mobile */
+    .widefat thead th.hide-mobile,
+    .widefat tbody td.hide-mobile {
+      display: none !important;
+    }
+
+    /* Make employee rows clickable cards on mobile */
+    .widefat tbody tr {
+      cursor: pointer;
+      position: relative;
+    }
+
+    .widefat tbody tr:hover {
+      background-color: #f0f0f1;
+    }
+
+    /* Stack action buttons on mobile */
+    .sfs-hr-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .sfs-hr-actions .button {
+      width: 100%;
+      margin: 0 !important;
+      text-align: center;
+    }
+
+    /* Reduce font sizes on mobile */
+    .widefat {
+      font-size: 13px;
+    }
+
+    .widefat th, .widefat td {
+      padding: 8px 4px;
+    }
+
+    code {
+      font-size: 11px;
+    }
+  }
 </style>
 
 
@@ -803,14 +987,14 @@ echo '</a>';
           <h2><?php echo esc_html__('Employees List','sfs-hr'); ?></h2>
           <table class="widefat striped">
             <thead><tr>
-              <th><?php esc_html_e('ID','sfs-hr'); ?></th>
+              <th class="hide-mobile"><?php esc_html_e('ID','sfs-hr'); ?></th>
               <th><?php esc_html_e('Code','sfs-hr'); ?></th>
               <th><?php esc_html_e('Name','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Email','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Department','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Position','sfs-hr'); ?></th>
+              <th class="hide-mobile"><?php esc_html_e('Email','sfs-hr'); ?></th>
+              <th class="hide-mobile"><?php esc_html_e('Department','sfs-hr'); ?></th>
+              <th class="hide-mobile"><?php esc_html_e('Position','sfs-hr'); ?></th>
               <th><?php esc_html_e('Status','sfs-hr'); ?></th>
-              <th><?php esc_html_e('WP User','sfs-hr'); ?></th>
+              <th class="hide-mobile"><?php esc_html_e('WP User','sfs-hr'); ?></th>
               <th><?php esc_html_e('Actions','sfs-hr'); ?></th>
             </tr></thead>
             <tbody>
@@ -826,14 +1010,14 @@ echo '</a>';
                 $dept_name = empty($r['dept_id']) ? __('General','sfs-hr') : ($dept_map[(int)$r['dept_id']] ?? '#'.(int)$r['dept_id']);
             ?>
               <tr>
-                <td><?php echo (int)$r['id']; ?></td>
+                <td class="hide-mobile"><?php echo (int)$r['id']; ?></td>
                 <td><code><?php echo esc_html($r['employee_code']); ?></code></td>
                 <td><?php echo esc_html($name); ?></td>
-                <td><?php echo esc_html($r['email']); ?></td>
-                <td><?php echo esc_html($dept_name); ?></td>
-                <td><?php echo esc_html($r['position']); ?></td>
+                <td class="hide-mobile"><?php echo esc_html($r['email']); ?></td>
+                <td class="hide-mobile"><?php echo esc_html($dept_name); ?></td>
+                <td class="hide-mobile"><?php echo esc_html($r['position']); ?></td>
                 <td><span class="sfs-hr-badge status-<?php echo esc_attr($status); ?>"><?php echo esc_html(ucfirst($status)); ?></span></td>
-                <td><?php echo $r['user_id'] ? '<code>'.(int)$r['user_id'].'</code>' : '&ndash;'; ?></td>
+                <td class="hide-mobile"><?php echo $r['user_id'] ? '<code>'.(int)$r['user_id'].'</code>' : '&ndash;'; ?></td>
                 <td>
                   <div class="sfs-hr-actions">
                     <a class="button button-small" href="<?php echo esc_url($edit_url); ?>"><?php esc_html_e('Edit','sfs-hr'); ?></a>
