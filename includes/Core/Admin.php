@@ -1421,7 +1421,13 @@ document.getElementById('sfs-hr-action-modal').addEventListener('click', functio
 
                   <div class="sfs-hr-field">
                     <label for="sfs-hr-marital-status"><?php esc_html_e( 'Marital Status', 'sfs-hr' ); ?></label>
-                    <input id="sfs-hr-marital-status" name="marital_status" class="regular-text" />
+                    <select id="sfs-hr-marital-status" name="marital_status">
+                      <option value=""><?php esc_html_e( '— Select —', 'sfs-hr' ); ?></option>
+                      <option value="single"><?php esc_html_e( 'Single', 'sfs-hr' ); ?></option>
+                      <option value="married"><?php esc_html_e( 'Married', 'sfs-hr' ); ?></option>
+                      <option value="divorced"><?php esc_html_e( 'Divorced', 'sfs-hr' ); ?></option>
+                      <option value="widowed"><?php esc_html_e( 'Widowed', 'sfs-hr' ); ?></option>
+                    </select>
                   </div>
 
                   <div class="sfs-hr-field">
@@ -2320,7 +2326,21 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                         </tr>
                         <?php
                         $render_input_row( 'nationality', __( 'Nationality', 'sfs-hr' ) );
-                        $render_input_row( 'marital_status', __( 'Marital Status', 'sfs-hr' ) );
+                        ?>
+                        <tr>
+                            <th><?php esc_html_e( 'Marital Status', 'sfs-hr' ); ?></th>
+                            <td>
+                                <?php $ms = strtolower( (string) ( $emp['marital_status'] ?? '' ) ); ?>
+                                <select name="marital_status">
+                                    <option value=""><?php esc_html_e( '— Select —', 'sfs-hr' ); ?></option>
+                                    <option value="single"   <?php selected( $ms === 'single' ); ?>><?php esc_html_e( 'Single', 'sfs-hr' ); ?></option>
+                                    <option value="married"  <?php selected( $ms === 'married' ); ?>><?php esc_html_e( 'Married', 'sfs-hr' ); ?></option>
+                                    <option value="divorced" <?php selected( $ms === 'divorced' ); ?>><?php esc_html_e( 'Divorced', 'sfs-hr' ); ?></option>
+                                    <option value="widowed"  <?php selected( $ms === 'widowed' ); ?>><?php esc_html_e( 'Widowed', 'sfs-hr' ); ?></option>
+                                </select>
+                            </td>
+                        </tr>
+                        <?php
                         $render_input_row( 'date_of_birth', __( 'Date of Birth', 'sfs-hr' ) );
                         $render_input_row( 'work_location', __( 'Work Location', 'sfs-hr' ) );
                         ?>
