@@ -835,14 +835,273 @@ echo '</a>';
           <h1><?php echo esc_html__('Employees','sfs-hr'); ?></h1>
 
           <style>
-  .sfs-hr-actions .button { margin-right:6px; }
-  .sfs-hr-actions .button-danger { background:#d63638; border-color:#d63638; color:#fff; }
-  .sfs-hr-actions .button-danger:hover { background:#b32d2e; border-color:#b32d2e; color:#fff; }
-  .sfs-hr-badge { display:inline-block; padding:2px 8px; border-radius:12px; background:#f0f0f1; font-size:11px; }
-  .sfs-hr-badge.status-active { background:#ecfccb; }
-  .sfs-hr-badge.status-inactive { background:#fee2e2; }
-  .sfs-hr-badge.status-terminated { background:#ffe4e6; }
+  /* General Styles */
+  .sfs-hr-badge { display:inline-block; padding:3px 10px; border-radius:12px; background:#f0f0f1; font-size:12px; font-weight:500; }
+  .sfs-hr-badge.status-active { background:#dcfce7; color:#166534; }
+  .sfs-hr-badge.status-inactive { background:#fef3c7; color:#92400e; }
+  .sfs-hr-badge.status-terminated { background:#fee2e2; color:#991b1b; }
   .sfs-hr-select { min-width: 240px; }
+
+  /* Toolbar section */
+  .sfs-hr-toolbar {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    padding: 16px;
+    margin: 16px 0;
+  }
+  .sfs-hr-toolbar-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .sfs-hr-toolbar-row:last-child {
+    margin-bottom: 0;
+  }
+  .sfs-hr-toolbar-row.search-row {
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e5e5e5;
+  }
+  .sfs-hr-toolbar input[type="search"] {
+    min-width: 250px;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 4px;
+  }
+  .sfs-hr-toolbar select {
+    height: 36px;
+    border-radius: 4px;
+    min-width: 100px;
+  }
+  .sfs-hr-toolbar .button {
+    height: 36px;
+    line-height: 34px;
+  }
+  .sfs-hr-toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sfs-hr-toolbar-divider {
+    width: 1px;
+    height: 24px;
+    background: #dcdcde;
+    margin: 0 4px;
+  }
+  .sfs-hr-toolbar label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  /* Employee list table styles */
+  .sfs-hr-emp-table {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    margin-top: 16px;
+  }
+  .sfs-hr-emp-table .widefat {
+    border: none;
+    border-radius: 6px;
+    margin: 0;
+  }
+  .sfs-hr-emp-table .widefat th {
+    background: #f8f9fa;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #50575e;
+    padding: 12px 16px;
+  }
+  .sfs-hr-emp-table .widefat td {
+    padding: 12px 16px;
+    vertical-align: middle;
+  }
+  .sfs-hr-emp-table .widefat tbody tr:hover {
+    background: #f8f9fa;
+  }
+  .sfs-hr-emp-table .emp-name {
+    font-weight: 500;
+    color: #1d2327;
+  }
+  .sfs-hr-emp-table .emp-code {
+    font-family: monospace;
+    font-size: 12px;
+    background: #f0f0f1;
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: #50575e;
+  }
+
+  /* Desktop action buttons */
+  .sfs-hr-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .sfs-hr-actions .button {
+    font-size: 12px;
+    padding: 4px 10px;
+    height: auto;
+    line-height: 1.4;
+    border-radius: 4px;
+  }
+  .sfs-hr-actions .button-danger {
+    background: #d63638;
+    border-color: #d63638;
+    color: #fff;
+  }
+  .sfs-hr-actions .button-danger:hover {
+    background: #b32d2e;
+    border-color: #b32d2e;
+    color: #fff;
+  }
+
+  /* Mobile action button (single button that opens modal) */
+  .sfs-hr-action-mobile-btn {
+    display: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #2271b1;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0;
+    line-height: 36px;
+    text-align: center;
+  }
+  .sfs-hr-action-mobile-btn:hover {
+    background: #135e96;
+  }
+
+  /* Action Modal */
+  .sfs-hr-action-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100000;
+    background: rgba(0,0,0,0.5);
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .sfs-hr-action-modal.active {
+    display: flex;
+  }
+  .sfs-hr-action-modal-content {
+    background: #fff;
+    width: 100%;
+    max-width: 400px;
+    border-radius: 16px 16px 0 0;
+    padding: 20px;
+    animation: slideUp 0.2s ease-out;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  .sfs-hr-action-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e5e5e5;
+  }
+  .sfs-hr-action-modal-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1d2327;
+    margin: 0;
+  }
+  .sfs-hr-action-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #50575e;
+    padding: 0;
+    line-height: 1;
+  }
+  .sfs-hr-action-modal-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .sfs-hr-action-modal-buttons .button {
+    width: 100%;
+    padding: 14px 20px;
+    font-size: 15px;
+    border-radius: 8px;
+    text-align: center;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .sfs-hr-action-modal-buttons .button-primary {
+    background: #2271b1;
+    border-color: #2271b1;
+    color: #fff;
+  }
+  .sfs-hr-action-modal-buttons .button-secondary {
+    background: #f0f0f1;
+    border-color: #dcdcde;
+    color: #50575e;
+  }
+  .sfs-hr-action-modal-buttons .button-danger {
+    background: #d63638;
+    border-color: #d63638;
+    color: #fff;
+  }
+
+  /* Pagination */
+  .sfs-hr-pagination {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px;
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    flex-wrap: wrap;
+  }
+  .sfs-hr-pagination a,
+  .sfs-hr-pagination span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 13px;
+  }
+  .sfs-hr-pagination a {
+    background: #f0f0f1;
+    color: #50575e;
+  }
+  .sfs-hr-pagination a:hover {
+    background: #dcdcde;
+  }
+  .sfs-hr-pagination .current-page {
+    background: #2271b1;
+    color: #fff;
+    font-weight: 600;
+  }
 
   /* Add Employee layout */
   .sfs-hr-emp-add-wrap {
@@ -893,152 +1152,224 @@ echo '</a>';
 
   /* Mobile responsive styles */
   @media (max-width: 782px) {
-    /* Stack filter forms */
-    form[method="get"], form[method="post"] {
-      display: block !important;
-      margin: 8px 0 !important;
+    /* Toolbar mobile */
+    .sfs-hr-toolbar {
+      padding: 12px;
+    }
+    .sfs-hr-toolbar-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .sfs-hr-toolbar-row.search-row {
+      gap: 8px;
+    }
+    .sfs-hr-toolbar input[type="search"] {
+      width: 100%;
+      min-width: auto;
+    }
+    .sfs-hr-toolbar select {
+      width: 100%;
+    }
+    .sfs-hr-toolbar .button {
+      width: 100%;
+      text-align: center;
+    }
+    .sfs-hr-toolbar-group {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .sfs-hr-toolbar-divider {
+      display: none;
+    }
+    .sfs-hr-toolbar label {
+      padding: 8px 0;
     }
 
-    form[method="get"] input[type="search"],
-    form[method="get"] select {
-      width: 100% !important;
-      max-width: 100% !important;
-      margin-bottom: 8px !important;
-      display: block !important;
-    }
-
-    /* Hide less important columns on mobile */
-    .widefat thead th.hide-mobile,
-    .widefat tbody td.hide-mobile {
+    /* Hide columns on mobile - only show Name, Status, Actions */
+    .sfs-hr-emp-table .widefat thead th.hide-mobile,
+    .sfs-hr-emp-table .widefat tbody td.hide-mobile {
       display: none !important;
     }
 
-    /* Make employee rows clickable cards on mobile */
-    .widefat tbody tr {
-      cursor: pointer;
-      position: relative;
+    /* Table mobile */
+    .sfs-hr-emp-table .widefat th,
+    .sfs-hr-emp-table .widefat td {
+      padding: 10px 8px;
+    }
+    .sfs-hr-emp-table .widefat th:first-child,
+    .sfs-hr-emp-table .widefat td:first-child {
+      padding-left: 12px;
+    }
+    .sfs-hr-emp-table .widefat th:last-child,
+    .sfs-hr-emp-table .widefat td:last-child {
+      padding-right: 12px;
     }
 
-    .widefat tbody tr:hover {
-      background-color: #f0f0f1;
-    }
-
-    /* Stack action buttons on mobile */
+    /* Hide desktop actions, show mobile action button */
     .sfs-hr-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
+      display: none !important;
+    }
+    .sfs-hr-action-mobile-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    .sfs-hr-actions .button {
-      width: 100%;
-      margin: 0 !important;
-      text-align: center;
-    }
-
-    /* Reduce font sizes on mobile */
-    .widefat {
-      font-size: 13px;
-    }
-
-    .widefat th, .widefat td {
-      padding: 8px 4px;
-    }
-
-    code {
-      font-size: 11px;
+    /* Pagination mobile */
+    .sfs-hr-pagination {
+      justify-content: center;
     }
   }
 </style>
 
+<!-- Action Modal HTML -->
+<div class="sfs-hr-action-modal" id="sfs-hr-action-modal">
+  <div class="sfs-hr-action-modal-content">
+    <div class="sfs-hr-action-modal-header">
+      <h3 class="sfs-hr-action-modal-title" id="sfs-hr-modal-emp-name">Employee Actions</h3>
+      <button type="button" class="sfs-hr-action-modal-close" onclick="sfsHrCloseModal()">&times;</button>
+    </div>
+    <div class="sfs-hr-action-modal-buttons">
+      <a href="#" class="button button-primary" id="sfs-hr-modal-edit">
+        <span class="dashicons dashicons-edit"></span> Edit Employee
+      </a>
+      <a href="#" class="button button-secondary" id="sfs-hr-modal-terminate" onclick="return confirm('Terminate this employee?');">
+        <span class="dashicons dashicons-dismiss"></span> Terminate Employee
+      </a>
+      <a href="#" class="button button-danger" id="sfs-hr-modal-delete" onclick="return confirm('Delete permanently? This cannot be undone.');">
+        <span class="dashicons dashicons-trash"></span> Delete Employee
+      </a>
+    </div>
+  </div>
+</div>
 
-          <form method="get" style="margin:10px 0;">
-            <input type="hidden" name="page" value="sfs-hr-employees" />
-            <input type="search" name="s" value="<?php echo esc_attr($q); ?>" placeholder="<?php echo esc_attr__('Search name/email/code','sfs-hr'); ?>"/>
-            <select name="per_page">
-              <?php foreach ([10,20,50,100] as $pp): ?>
-                <option value="<?php echo (int)$pp; ?>" <?php selected($per_page,$pp); ?>><?php echo (int)$pp; ?>/page</option>
-              <?php endforeach; ?>
-            </select>
-            <?php submit_button(__('Filter','sfs-hr'),'secondary','',false); ?>
-          </form>
+<script>
+function sfsHrOpenModal(name, editUrl, termUrl, delUrl) {
+  document.getElementById('sfs-hr-modal-emp-name').textContent = name || 'Employee Actions';
+  document.getElementById('sfs-hr-modal-edit').href = editUrl;
+  document.getElementById('sfs-hr-modal-terminate').href = termUrl;
+  document.getElementById('sfs-hr-modal-delete').href = delUrl;
+  document.getElementById('sfs-hr-action-modal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+function sfsHrCloseModal() {
+  document.getElementById('sfs-hr-action-modal').classList.remove('active');
+  document.body.style.overflow = '';
+}
+// Close modal when clicking outside
+document.getElementById('sfs-hr-action-modal').addEventListener('click', function(e) {
+  if (e.target === this) sfsHrCloseModal();
+});
+</script>
 
-          <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin:10px 0;">
-            <input type="hidden" name="action" value="sfs_hr_export_employees" />
-            <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce_export); ?>" />
-            <?php submit_button(__('Export CSV','sfs-hr'),'secondary','',false); ?>
-          </form>
 
-          <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" enctype="multipart/form-data" style="margin:10px 0;">
-            <input type="hidden" name="action" value="sfs_hr_import_employees" />
-            <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce_import); ?>" />
-            <input type="file" name="csv" accept=".csv" required />
-            <?php submit_button(__('Import CSV','sfs-hr'),'secondary','',false); ?>
-          </form>
+          <div class="sfs-hr-toolbar">
+            <!-- Search Row -->
+            <form method="get" class="sfs-hr-toolbar-row search-row">
+              <input type="hidden" name="page" value="sfs-hr-employees" />
+              <input type="search" name="s" value="<?php echo esc_attr($q); ?>" placeholder="<?php echo esc_attr__('Search name/email/code','sfs-hr'); ?>"/>
+              <select name="per_page">
+                <?php foreach ([10,20,50,100] as $pp): ?>
+                  <option value="<?php echo (int)$pp; ?>" <?php selected($per_page,$pp); ?>><?php echo (int)$pp; ?>/page</option>
+                <?php endforeach; ?>
+              </select>
+              <?php submit_button(__('Search','sfs-hr'),'primary','',false); ?>
+            </form>
 
-          <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin:10px 0;">
-            <input type="hidden" name="action" value="sfs_hr_sync_users" />
-            <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce_sync); ?>" />
-            <label><input type="checkbox" name="role_filter[]" value="subscriber" checked /> <?php echo esc_html__('Include Subscribers','sfs-hr'); ?></label>
-            <label style="margin-left:10px;"><input type="checkbox" name="role_filter[]" value="administrator" /> <?php echo esc_html__('Include Administrators','sfs-hr'); ?></label>
-            <?php submit_button(__('Run Sync','sfs-hr'),'secondary','',false); ?>
-          </form>
+            <!-- Actions Row -->
+            <div class="sfs-hr-toolbar-row">
+              <div class="sfs-hr-toolbar-group">
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline-flex;">
+                  <input type="hidden" name="action" value="sfs_hr_export_employees" />
+                  <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce_export); ?>" />
+                  <?php submit_button(__('Export CSV','sfs-hr'),'secondary','',false); ?>
+                </form>
 
-          <h2><?php echo esc_html__('Employees List','sfs-hr'); ?></h2>
-          <table class="widefat striped">
-            <thead><tr>
-              <th class="hide-mobile"><?php esc_html_e('ID','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Code','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Name','sfs-hr'); ?></th>
-              <th class="hide-mobile"><?php esc_html_e('Email','sfs-hr'); ?></th>
-              <th class="hide-mobile"><?php esc_html_e('Department','sfs-hr'); ?></th>
-              <th class="hide-mobile"><?php esc_html_e('Position','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Status','sfs-hr'); ?></th>
-              <th class="hide-mobile"><?php esc_html_e('WP User','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Actions','sfs-hr'); ?></th>
-            </tr></thead>
-            <tbody>
-            <?php if (empty($rows)): ?>
-              <tr><td colspan="9"><?php esc_html_e('No employees found.','sfs-hr'); ?></td></tr>
-            <?php else:
-              foreach ($rows as $r):
-                $name     = trim(($r['first_name']??'').' '.($r['last_name']??''));
-                $status   = $r['status'];
-                $edit_url = wp_nonce_url( admin_url('admin.php?page=sfs-hr-employees&action=edit&id='.(int)$r['id']), 'sfs_hr_edit_'.(int)$r['id'] );
-                $term_url = wp_nonce_url( admin_url('admin-post.php?action=sfs_hr_terminate_employee&id='.(int)$r['id']), 'sfs_hr_term_'.(int)$r['id'] );
-                $del_url  = wp_nonce_url( admin_url('admin-post.php?action=sfs_hr_delete_employee&id='.(int)$r['id']), 'sfs_hr_del_'.(int)$r['id'] );
-                $dept_name = empty($r['dept_id']) ? __('General','sfs-hr') : ($dept_map[(int)$r['dept_id']] ?? '#'.(int)$r['dept_id']);
-            ?>
-              <tr>
-                <td class="hide-mobile"><?php echo (int)$r['id']; ?></td>
-                <td><code><?php echo esc_html($r['employee_code']); ?></code></td>
-                <td><?php echo esc_html($name); ?></td>
-                <td class="hide-mobile"><?php echo esc_html($r['email']); ?></td>
-                <td class="hide-mobile"><?php echo esc_html($dept_name); ?></td>
-                <td class="hide-mobile"><?php echo esc_html($r['position']); ?></td>
-                <td><span class="sfs-hr-badge status-<?php echo esc_attr($status); ?>"><?php echo esc_html(ucfirst($status)); ?></span></td>
-                <td class="hide-mobile"><?php echo $r['user_id'] ? '<code>'.(int)$r['user_id'].'</code>' : '&ndash;'; ?></td>
-                <td>
-                  <div class="sfs-hr-actions">
-                    <a class="button button-small" href="<?php echo esc_url($edit_url); ?>"><?php esc_html_e('Edit','sfs-hr'); ?></a>
-                    <a class="button button-small" href="<?php echo esc_url($term_url); ?>" onclick="return confirm('Terminate this employee?');"><?php esc_html_e('Terminate','sfs-hr'); ?></a>
-                    <a class="button button-small button-danger" href="<?php echo esc_url($del_url); ?>" onclick="return confirm('Delete permanently? This cannot be undone.');"><?php esc_html_e('Delete','sfs-hr'); ?></a>
-                  </div>
-                </td>
-              </tr>
-            <?php endforeach; endif; ?>
-            </tbody>
-          </table>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" enctype="multipart/form-data" style="display:inline-flex; align-items:center; gap:8px;">
+                  <input type="hidden" name="action" value="sfs_hr_import_employees" />
+                  <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce_import); ?>" />
+                  <input type="file" name="csv" accept=".csv" required style="max-width:200px;" />
+                  <?php submit_button(__('Import','sfs-hr'),'secondary','',false); ?>
+                </form>
+              </div>
 
-          <div style="margin:10px 0;">
+              <div class="sfs-hr-toolbar-divider"></div>
+
+              <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="sfs-hr-toolbar-group">
+                <input type="hidden" name="action" value="sfs_hr_sync_users" />
+                <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce_sync); ?>" />
+                <label><input type="checkbox" name="role_filter[]" value="subscriber" checked /> <?php echo esc_html__('Subscribers','sfs-hr'); ?></label>
+                <label><input type="checkbox" name="role_filter[]" value="administrator" /> <?php echo esc_html__('Administrators','sfs-hr'); ?></label>
+                <?php submit_button(__('Sync Users','sfs-hr'),'secondary','',false); ?>
+              </form>
+            </div>
+          </div>
+
+          <h2><?php echo esc_html__('Employees List','sfs-hr'); ?> <span style="font-weight:normal; font-size:14px; color:#50575e;">(<?php echo (int)$total; ?> <?php esc_html_e('total','sfs-hr'); ?>)</span></h2>
+
+          <div class="sfs-hr-emp-table">
+            <table class="widefat striped">
+              <thead><tr>
+                <th class="hide-mobile"><?php esc_html_e('ID','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Code','sfs-hr'); ?></th>
+                <th><?php esc_html_e('Name','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Email','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Department','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Position','sfs-hr'); ?></th>
+                <th><?php esc_html_e('Status','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('WP User','sfs-hr'); ?></th>
+                <th><?php esc_html_e('Actions','sfs-hr'); ?></th>
+              </tr></thead>
+              <tbody>
+              <?php if (empty($rows)): ?>
+                <tr><td colspan="9"><?php esc_html_e('No employees found.','sfs-hr'); ?></td></tr>
+              <?php else:
+                foreach ($rows as $r):
+                  $name     = trim(($r['first_name']??'').' '.($r['last_name']??''));
+                  $status   = $r['status'];
+                  $edit_url = wp_nonce_url( admin_url('admin.php?page=sfs-hr-employees&action=edit&id='.(int)$r['id']), 'sfs_hr_edit_'.(int)$r['id'] );
+                  $term_url = wp_nonce_url( admin_url('admin-post.php?action=sfs_hr_terminate_employee&id='.(int)$r['id']), 'sfs_hr_term_'.(int)$r['id'] );
+                  $del_url  = wp_nonce_url( admin_url('admin-post.php?action=sfs_hr_delete_employee&id='.(int)$r['id']), 'sfs_hr_del_'.(int)$r['id'] );
+                  $dept_name = empty($r['dept_id']) ? __('General','sfs-hr') : ($dept_map[(int)$r['dept_id']] ?? '#'.(int)$r['dept_id']);
+              ?>
+                <tr>
+                  <td class="hide-mobile"><?php echo (int)$r['id']; ?></td>
+                  <td class="hide-mobile"><span class="emp-code"><?php echo esc_html($r['employee_code']); ?></span></td>
+                  <td><span class="emp-name"><?php echo esc_html($name ?: $r['employee_code']); ?></span></td>
+                  <td class="hide-mobile"><?php echo esc_html($r['email']); ?></td>
+                  <td class="hide-mobile"><?php echo esc_html($dept_name); ?></td>
+                  <td class="hide-mobile"><?php echo esc_html($r['position']); ?></td>
+                  <td><span class="sfs-hr-badge status-<?php echo esc_attr($status); ?>"><?php echo esc_html(ucfirst($status)); ?></span></td>
+                  <td class="hide-mobile"><?php echo $r['user_id'] ? '<span class="emp-code">'.(int)$r['user_id'].'</span>' : '&ndash;'; ?></td>
+                  <td>
+                    <!-- Desktop action buttons -->
+                    <div class="sfs-hr-actions">
+                      <a class="button button-small" href="<?php echo esc_url($edit_url); ?>"><?php esc_html_e('Edit','sfs-hr'); ?></a>
+                      <a class="button button-small" href="<?php echo esc_url($term_url); ?>" onclick="return confirm('Terminate this employee?');"><?php esc_html_e('Terminate','sfs-hr'); ?></a>
+                      <a class="button button-small button-danger" href="<?php echo esc_url($del_url); ?>" onclick="return confirm('Delete permanently? This cannot be undone.');"><?php esc_html_e('Delete','sfs-hr'); ?></a>
+                    </div>
+                    <!-- Mobile action button -->
+                    <button type="button" class="sfs-hr-action-mobile-btn" onclick="sfsHrOpenModal('<?php echo esc_js($name ?: $r['employee_code']); ?>', '<?php echo esc_js($edit_url); ?>', '<?php echo esc_js($term_url); ?>', '<?php echo esc_js($del_url); ?>')">
+                      <span class="dashicons dashicons-ellipsis"></span>
+                    </button>
+                  </td>
+                </tr>
+              <?php endforeach; endif; ?>
+              </tbody>
+            </table>
+          </div>
+
+          <?php if ($pages > 1): ?>
+          <div class="sfs-hr-pagination">
             <?php for($i=1;$i<=$pages;$i++): ?>
               <?php if ($i === $page): ?>
-                <span class="tablenav-pages-navspan" style="margin-right:6px;"><?php echo (int)$i; ?></span>
+                <span class="current-page"><?php echo (int)$i; ?></span>
               <?php else: ?>
-                <a href="<?php echo esc_url( add_query_arg(['paged'=>$i,'per_page'=>$per_page,'s'=>$q], admin_url('admin.php?page=sfs-hr-employees')) ); ?>" style="margin-right:6px;"><?php echo (int)$i; ?></a>
+                <a href="<?php echo esc_url( add_query_arg(['paged'=>$i,'per_page'=>$per_page,'s'=>$q], admin_url('admin.php?page=sfs-hr-employees')) ); ?>"><?php echo (int)$i; ?></a>
               <?php endif; ?>
             <?php endfor; ?>
           </div>
+          <?php endif; ?>
 
                     <hr/>
           <h2><?php esc_html_e('Add Employee','sfs-hr'); ?></h2>
