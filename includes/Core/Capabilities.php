@@ -46,12 +46,24 @@ class Capabilities {
      * Dynamically grant:
      *  - sfs_hr.leave.request to any user that has an active employee row
      *  - sfs_hr.view + sfs_hr.leave.review to department managers (mapped in sfs_hr_departments)
+     *  - All HR capabilities to administrators (manage_options)
      */
     public static function dynamic_caps(array $allcaps, array $caps, array $args, \WP_User $user): array {
         if (empty($user->ID)) return $allcaps;
 
         global $wpdb;
         $uid = (int)$user->ID;
+
+        // Administrators get all HR capabilities (fallback if static caps weren't properly assigned)
+        if ( ! empty( $allcaps['manage_options'] ) ) {
+            $allcaps['sfs_hr.view']           = true;
+            $allcaps['sfs_hr.manage']         = true;
+            $allcaps['sfs_hr.leave.manage']   = true;
+            $allcaps['sfs_hr.leave.review']   = true;
+            $allcaps['sfs_hr.leave.request']  = true;
+            $allcaps['sfs_hr_loans_finance_approve'] = true;
+            $allcaps['sfs_hr_loans_gm_approve']      = true;
+        }
 
         // If an active employee row exists -> can request leave
         $emp_tbl = $wpdb->prefix . 'sfs_hr_employees';
@@ -72,7 +84,7 @@ class Capabilities {
         if ($is_mgr > 0) {
             $allcaps['sfs_hr.view']         = true; // shows HR menu if your menu uses this cap
             $allcaps['sfs_hr.leave.review'] = true;
-            // Deliberately NOT granting sfs_hr.manage here (that’s for HR admins).
+            // Deliberately NOT granting sfs_hr.manage here (that's for HR admins).
         }
 
         return $allcaps;

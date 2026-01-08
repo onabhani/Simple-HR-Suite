@@ -333,6 +333,169 @@ class Admin {
         }
     </style>';
 
+    // === APPROVAL CARDS SECTION (at the top) ===
+    $has_approval_cards = false;
+    ob_start(); // Buffer approval cards to check if any exist
+
+    // LOANS: Pending approvals (Finance/GM approvers and HR managers)
+    if ( current_user_can('sfs_hr_loans_finance_approve') || current_user_can('sfs_hr_loans_gm_approve') || current_user_can('sfs_hr.manage') ) {
+        $loans_t = $wpdb->prefix . 'sfs_hr_loans';
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $loans_t ) ) ) {
+            // Check which approvals the user can see
+            $can_approve_gm = current_user_can('sfs_hr_loans_gm_approve') || current_user_can('sfs_hr.manage');
+            $can_approve_finance = current_user_can('sfs_hr_loans_finance_approve') || current_user_can('sfs_hr.manage');
+
+            $status_conditions = [];
+            if ( $can_approve_gm ) {
+                $status_conditions[] = "'pending_gm'";
+            }
+            if ( $can_approve_finance ) {
+                $status_conditions[] = "'pending_finance'";
+            }
+
+            if ( ! empty( $status_conditions ) ) {
+                $status_list = implode( ',', $status_conditions );
+                $pending_loans = (int) $wpdb->get_var(
+                    "SELECT COUNT(*) FROM {$loans_t} WHERE status IN ({$status_list})"
+                );
+
+                if ( $pending_loans > 0 ) {
+                    $has_approval_cards = true;
+                    echo '<a class="sfs-hr-card sfs-hr-approval-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-loans&tab=loans' ) ) . '">';
+                    echo '<h2>' . esc_html__( 'Pending Loans', 'sfs-hr' ) . '</h2>';
+                    echo '<div class="sfs-hr-card-count">' . esc_html( number_format_i18n( $pending_loans ) ) . '</div>';
+                    echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting your approval', 'sfs-hr' ) . '</div>';
+                    echo '</a>';
+                }
+            }
+        }
+    }
+
+    // LEAVES: Pending approvals (Department Managers and HR)
+    if ( current_user_can('sfs_hr.leave.review') || current_user_can('sfs_hr.manage') ) {
+        $user_id = get_current_user_id();
+        $managed_dept_ids = [];
+
+        // Get departments managed by current user
+        if ( ! current_user_can('sfs_hr.manage') ) {
+            $managed_dept_ids = $wpdb->get_col( $wpdb->prepare(
+                "SELECT id FROM {$dept_t} WHERE manager_user_id = %d",
+                $user_id
+            ) );
+        }
+
+        // Build query based on role
+        if ( current_user_can('sfs_hr.manage') ) {
+            // HR sees all pending leaves
+            $pending_leaves_count = (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM {$req_t} WHERE status = 'pending'"
+            );
+        } elseif ( ! empty( $managed_dept_ids ) ) {
+            // Managers see pending leaves in their departments
+            $placeholders = implode( ',', array_fill( 0, count( $managed_dept_ids ), '%d' ) );
+            $pending_leaves_count = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$req_t} r
+                 INNER JOIN {$emp_t} e ON e.id = r.employee_id
+                 WHERE r.status = 'pending' AND e.dept_id IN ({$placeholders})",
+                ...$managed_dept_ids
+            ) );
+        } else {
+            $pending_leaves_count = 0;
+        }
+
+        if ( $pending_leaves_count > 0 ) {
+            $has_approval_cards = true;
+            echo '<a class="sfs-hr-card sfs-hr-approval-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-leave-requests&status=pending' ) ) . '">';
+            echo '<h2>' . esc_html__( 'Pending Leave Requests', 'sfs-hr' ) . '</h2>';
+            echo '<div class="sfs-hr-card-count">' . esc_html( number_format_i18n( $pending_leaves_count ) ) . '</div>';
+            echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting your approval', 'sfs-hr' ) . '</div>';
+            echo '</a>';
+        }
+    }
+
+    // RESIGNATIONS: Pending approvals (Managers, HR, Finance)
+    if ( current_user_can('sfs_hr.view') ) {
+        $resignations_t = $wpdb->prefix . 'sfs_hr_resignations';
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $resignations_t ) ) ) {
+            $user_id = get_current_user_id();
+            $managed_dept_ids = [];
+
+            // Get departments managed by current user
+            if ( ! current_user_can('sfs_hr.manage') ) {
+                $managed_dept_ids = $wpdb->get_col( $wpdb->prepare(
+                    "SELECT id FROM {$dept_t} WHERE manager_user_id = %d",
+                    $user_id
+                ) );
+            }
+
+            // Build query based on role
+            if ( current_user_can('sfs_hr.manage') || current_user_can('sfs_hr_resignation_finance_approve') ) {
+                // HR and Finance see all pending resignations
+                $pending_resignations = (int) $wpdb->get_var(
+                    "SELECT COUNT(*) FROM {$resignations_t} WHERE status = 'pending'"
+                );
+            } elseif ( ! empty( $managed_dept_ids ) ) {
+                // Managers see pending resignations in their departments
+                $placeholders = implode( ',', array_fill( 0, count( $managed_dept_ids ), '%d' ) );
+                $pending_resignations = (int) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$resignations_t} r
+                     INNER JOIN {$emp_t} e ON e.id = r.employee_id
+                     WHERE r.status = 'pending' AND e.dept_id IN ({$placeholders})",
+                    ...$managed_dept_ids
+                ) );
+            } else {
+                $pending_resignations = 0;
+            }
+
+            if ( $pending_resignations > 0 ) {
+                $has_approval_cards = true;
+                echo '<a class="sfs-hr-card sfs-hr-approval-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-resignations&tab=resignations&status=pending' ) ) . '">';
+                echo '<h2>' . esc_html__( 'Pending Resignations', 'sfs-hr' ) . '</h2>';
+                echo '<div class="sfs-hr-card-count">' . esc_html( number_format_i18n( $pending_resignations ) ) . '</div>';
+                echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting approval', 'sfs-hr' ) . '</div>';
+                echo '</a>';
+            }
+        }
+    }
+
+    $approval_cards_html = ob_get_clean();
+
+    // Only show approval section if there are pending requests
+    if ( $has_approval_cards ) {
+        echo '<style>
+            .sfs-hr-wrap .sfs-hr-approval-section {
+                margin-bottom: 24px;
+            }
+            .sfs-hr-wrap .sfs-hr-approval-section h2 {
+                font-size: 14px;
+                font-weight: 600;
+                color: #1d2327;
+                margin: 0 0 12px 0;
+                padding: 0;
+            }
+            .sfs-hr-wrap .sfs-hr-approval-grid {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 16px;
+            }
+            .sfs-hr-wrap .sfs-hr-approval-card {
+                border-left: 4px solid #d63638 !important;
+                background: linear-gradient(135deg, #fff 0%, #fef8f8 100%);
+            }
+            .sfs-hr-wrap .sfs-hr-approval-card .sfs-hr-card-count {
+                color: #d63638;
+            }
+        </style>';
+
+        echo '<div class="sfs-hr-approval-section">';
+        echo '<h2>' . esc_html__( 'Requests Awaiting Your Approval', 'sfs-hr' ) . '</h2>';
+        echo '<div class="sfs-hr-approval-grid">';
+        echo $approval_cards_html;
+        echo '</div>';
+        echo '</div>';
+    }
+
+    // === REGULAR DATA CARDS SECTION ===
     echo '<div class="sfs-hr-dashboard-grid">';
 
     // Employees
@@ -421,111 +584,6 @@ echo '</a>';
     echo '<div class="sfs-hr-card-count">' . esc_html( number_format_i18n( $departments_count ) ) . '</div>';
     echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Structure & approver routing', 'sfs-hr' ) . '</div>';
     echo '</a>';
-
-    // --- NEW: Approval Cards (role-based) ---
-
-    // LOANS: Pending approvals (Finance approvers and HR managers)
-    if ( current_user_can('sfs_hr_loan_finance_approve') || current_user_can('sfs_hr.manage') ) {
-        $loans_t = $wpdb->prefix . 'sfs_hr_loans';
-        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $loans_t ) ) ) {
-            $pending_loans = (int) $wpdb->get_var(
-                "SELECT COUNT(*) FROM {$loans_t} WHERE status IN ('pending_gm', 'pending_finance')"
-            );
-
-            if ( $pending_loans > 0 ) {
-                echo '<a class="sfs-hr-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-loans&tab=loans' ) ) . '" style="border-left: 4px solid #0073aa;">';
-                echo '<h2>' . esc_html__( 'Pending Loans', 'sfs-hr' ) . '</h2>';
-                echo '<div class="sfs-hr-card-count" style="color:#0073aa;">' . esc_html( number_format_i18n( $pending_loans ) ) . '</div>';
-                echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting approval', 'sfs-hr' ) . '</div>';
-                echo '</a>';
-            }
-        }
-    }
-
-    // LEAVES: Pending approvals (Department Managers and HR)
-    if ( current_user_can('sfs_hr.leave.review') || current_user_can('sfs_hr.manage') ) {
-        $user_id = get_current_user_id();
-        $managed_dept_ids = [];
-
-        // Get departments managed by current user
-        if ( ! current_user_can('sfs_hr.manage') ) {
-            $managed_dept_ids = $wpdb->get_col( $wpdb->prepare(
-                "SELECT id FROM {$dept_t} WHERE manager_user_id = %d",
-                $user_id
-            ) );
-        }
-
-        // Build query based on role
-        if ( current_user_can('sfs_hr.manage') ) {
-            // HR sees all pending leaves
-            $pending_leaves_count = (int) $wpdb->get_var(
-                "SELECT COUNT(*) FROM {$req_t} WHERE status = 'pending'"
-            );
-        } elseif ( ! empty( $managed_dept_ids ) ) {
-            // Managers see pending leaves in their departments
-            $placeholders = implode( ',', array_fill( 0, count( $managed_dept_ids ), '%d' ) );
-            $pending_leaves_count = (int) $wpdb->get_var( $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$req_t} r
-                 INNER JOIN {$emp_t} e ON e.id = r.employee_id
-                 WHERE r.status = 'pending' AND e.dept_id IN ({$placeholders})",
-                ...$managed_dept_ids
-            ) );
-        } else {
-            $pending_leaves_count = 0;
-        }
-
-        if ( $pending_leaves_count > 0 ) {
-            echo '<a class="sfs-hr-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-leave&status=pending' ) ) . '" style="border-left: 4px solid #f0ad4e;">';
-            echo '<h2>' . esc_html__( 'Pending Leave Requests', 'sfs-hr' ) . '</h2>';
-            echo '<div class="sfs-hr-card-count" style="color:#f0ad4e;">' . esc_html( number_format_i18n( $pending_leaves_count ) ) . '</div>';
-            echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting your approval', 'sfs-hr' ) . '</div>';
-            echo '</a>';
-        }
-    }
-
-    // RESIGNATIONS: Pending approvals (Managers, HR, Finance)
-    if ( current_user_can('sfs_hr.view') ) {
-        $resignations_t = $wpdb->prefix . 'sfs_hr_resignations';
-        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $resignations_t ) ) ) {
-            $user_id = get_current_user_id();
-            $managed_dept_ids = [];
-
-            // Get departments managed by current user
-            if ( ! current_user_can('sfs_hr.manage') ) {
-                $managed_dept_ids = $wpdb->get_col( $wpdb->prepare(
-                    "SELECT id FROM {$dept_t} WHERE manager_user_id = %d",
-                    $user_id
-                ) );
-            }
-
-            // Build query based on role
-            if ( current_user_can('sfs_hr.manage') || current_user_can('sfs_hr_resignation_finance_approve') ) {
-                // HR and Finance see all pending resignations
-                $pending_resignations = (int) $wpdb->get_var(
-                    "SELECT COUNT(*) FROM {$resignations_t} WHERE status = 'pending'"
-                );
-            } elseif ( ! empty( $managed_dept_ids ) ) {
-                // Managers see pending resignations in their departments
-                $placeholders = implode( ',', array_fill( 0, count( $managed_dept_ids ), '%d' ) );
-                $pending_resignations = (int) $wpdb->get_var( $wpdb->prepare(
-                    "SELECT COUNT(*) FROM {$resignations_t} r
-                     INNER JOIN {$emp_t} e ON e.id = r.employee_id
-                     WHERE r.status = 'pending' AND e.dept_id IN ({$placeholders})",
-                    ...$managed_dept_ids
-                ) );
-            } else {
-                $pending_resignations = 0;
-            }
-
-            if ( $pending_resignations > 0 ) {
-                echo '<a class="sfs-hr-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-resignations&tab=resignations&status=pending' ) ) . '" style="border-left: 4px solid #dc3545;">';
-                echo '<h2>' . esc_html__( 'Pending Resignations', 'sfs-hr' ) . '</h2>';
-                echo '<div class="sfs-hr-card-count" style="color:#dc3545;">' . esc_html( number_format_i18n( $pending_resignations ) ) . '</div>';
-                echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting approval', 'sfs-hr' ) . '</div>';
-                echo '</a>';
-            }
-        }
-    }
 
     echo '</div>'; // .sfs-hr-dashboard-grid
     echo '</div>'; // .wrap

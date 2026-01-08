@@ -24,11 +24,20 @@ class AdminPages {
     public function menu(): void {
         $parent_slug = 'sfs-hr';
 
+        // Allow access if user can manage, or is a GM/Finance approver
+        $can_access = current_user_can( 'sfs_hr.manage' )
+                   || current_user_can( 'sfs_hr_loans_gm_approve' )
+                   || current_user_can( 'sfs_hr_loans_finance_approve' );
+
+        if ( ! $can_access ) {
+            return;
+        }
+
         add_submenu_page(
             $parent_slug,
             __( 'Loans', 'sfs-hr' ),
             __( 'Loans', 'sfs-hr' ),
-            'sfs_hr.manage',
+            'read', // Use 'read' as base capability, we check permissions internally
             'sfs-hr-loans',
             [ $this, 'loans_page' ]
         );
@@ -38,6 +47,15 @@ class AdminPages {
      * Main loans page (list view or detail)
      */
     public function loans_page(): void {
+        // Verify access
+        $can_access = current_user_can( 'sfs_hr.manage' )
+                   || current_user_can( 'sfs_hr_loans_gm_approve' )
+                   || current_user_can( 'sfs_hr_loans_finance_approve' );
+
+        if ( ! $can_access ) {
+            wp_die( __( 'You do not have permission to access this page.', 'sfs-hr' ) );
+        }
+
         $action = $_GET['action'] ?? '';
         $loan_id = isset( $_GET['id'] ) ? (int) $_GET['id'] : 0;
 
