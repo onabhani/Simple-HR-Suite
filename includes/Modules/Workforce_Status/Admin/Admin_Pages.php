@@ -63,11 +63,10 @@ class Admin_Pages {
             $allowed_depts = $this->manager_dept_ids_for_current_user();
 
             if ( empty( $allowed_depts ) ) {
-                echo '<div class="wrap" id="sfs-hr-workforce-status-wrap">';
+                echo '<div id="sfs-hr-workforce-status-wrap">';
                 $this->output_inline_styles();
-                echo '<h1 class="wp-heading-inline">' . esc_html__( 'Workforce Status', 'sfs-hr' ) . '</h1>';
                 echo '<p>' . esc_html__( 'No departments assigned to you.', 'sfs-hr' ) . '</p>';
-                echo '</div>';
+                echo '</div></div>';
                 return;
             }
         }
@@ -110,21 +109,19 @@ class Admin_Pages {
             'per_page' => $per_page,
         ];
         ?>
-        <div class="wrap" id="sfs-hr-workforce-status-wrap">
+        <div id="sfs-hr-workforce-status-wrap">
             <?php $this->output_inline_styles(); ?>
-
-            <h1 class="wp-heading-inline"><?php echo esc_html__( 'Workforce Status', 'sfs-hr' ); ?></h1>
-            <hr class="wp-header-end" />
 
             <?php $this->render_filters( $dept_options, $dept_val, $search, $current_tab, $per_page ); ?>
             <?php $this->render_tabs( $tabs, $current_tab, $counts, $base_args ); ?>
             <?php $this->render_table( $rows_page, $total_for_tab, $page_num, $pages, $per_page, $current_tab, $base_args ); ?>
         </div>
+        </div><!-- .wrap -->
         <?php
     }
 
     /**
-     * Simple inline CSS for pills + compact table.
+     * Unified inline CSS for the workforce status page.
      */
     protected function output_inline_styles(): void {
         static $done = false;
@@ -134,54 +131,350 @@ class Admin_Pages {
         $done = true;
         ?>
         <style>
-            #sfs-hr-workforce-status-wrap .sfs-hr-workforce-table th,
-            #sfs-hr-workforce-status-wrap .sfs-hr-workforce-table td{
-                padding:4px 8px;
-                font-size:12px;
-                vertical-align:middle;
+            /* Toolbar */
+            .sfs-hr-workforce-toolbar {
+                background: #fff;
+                border: 1px solid #e2e4e7;
+                border-radius: 8px;
+                padding: 16px;
+                margin-bottom: 20px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.04);
             }
-            #sfs-hr-workforce-status-wrap .sfs-hr-pill{
-                display:inline-block;
-                padding:2px 8px;
-                border-radius:999px;
-                font-size:11px;
-                font-weight:500;
-                line-height:1.6;
-                border:1px solid rgba(0,0,0,.05);
+            .sfs-hr-workforce-toolbar form {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 12px;
+                align-items: center;
+                margin: 0;
             }
-            #sfs-hr-workforce-status-wrap .sfs-hr-pill--status-in{
-                background:#46b4501a;
-                color:#008a20;
-                border-color:#46b4504d;
+            .sfs-hr-workforce-toolbar select,
+            .sfs-hr-workforce-toolbar input[type="search"] {
+                height: 36px;
+                border: 1px solid #dcdcde;
+                border-radius: 4px;
+                padding: 0 12px;
+                font-size: 13px;
+                min-width: 160px;
             }
-            #sfs-hr-workforce-status-wrap .sfs-hr-pill--status-break{
-                background:#ffb9001a;
-                color:#aa7a00;
-                border-color:#ffb90066;
+            .sfs-hr-workforce-toolbar input[type="search"] {
+                min-width: 200px;
             }
-            #sfs-hr-workforce-status-wrap .sfs-hr-pill--status-out{
-                background:#ccd0d41a;
-                color:#555d66;
-                border-color:#ccd0d4;
+            .sfs-hr-workforce-toolbar .button {
+                height: 36px;
+                line-height: 34px;
+                padding: 0 16px;
             }
-            #sfs-hr-workforce-status-wrap .sfs-hr-pill--status-notin{
-                background:#f1f1f1;
-                color:#777;
-                border-color:#e2e4e7;
+
+            /* Status Tabs */
+            .sfs-hr-workforce-tabs {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin-bottom: 20px;
             }
-            #sfs-hr-workforce-status-wrap .sfs-hr-pill--leave-duty{
-                background:#46b4500f;
-                color:#008a20;
-                border-color:#46b45040;
+            .sfs-hr-workforce-tabs .sfs-tab {
+                display: inline-block;
+                padding: 8px 16px;
+                background: #f6f7f7;
+                border: 1px solid #dcdcde;
+                border-radius: 20px;
+                font-size: 13px;
+                font-weight: 500;
+                color: #50575e;
+                text-decoration: none;
+                transition: all 0.15s ease;
+                white-space: nowrap;
             }
-            #sfs-hr-workforce-status-wrap .sfs-hr-pill--leave-on{
-                background:#0073aa14;
-                color:#005177;
-                border-color:#0073aa40;
+            .sfs-hr-workforce-tabs .sfs-tab:hover {
+                background: #fff;
+                border-color: #2271b1;
+                color: #2271b1;
             }
-            #sfs-hr-workforce-status-wrap .sfs-hr-workforce-table code{
-                font-size:11px;
-                opacity:.8;
+            .sfs-hr-workforce-tabs .sfs-tab.active {
+                background: #2271b1;
+                border-color: #2271b1;
+                color: #fff;
+            }
+            .sfs-hr-workforce-tabs .sfs-tab .count {
+                display: inline-block;
+                background: rgba(0,0,0,0.1);
+                padding: 2px 8px;
+                border-radius: 10px;
+                font-size: 11px;
+                margin-left: 6px;
+            }
+            .sfs-hr-workforce-tabs .sfs-tab.active .count {
+                background: rgba(255,255,255,0.25);
+            }
+
+            /* Table Card */
+            .sfs-hr-workforce-table-wrap {
+                background: #fff;
+                border: 1px solid #e2e4e7;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            }
+            .sfs-hr-workforce-table-wrap .table-header {
+                padding: 16px 20px;
+                border-bottom: 1px solid #f0f0f1;
+                background: #f9fafb;
+            }
+            .sfs-hr-workforce-table-wrap .table-header h3 {
+                margin: 0;
+                font-size: 14px;
+                font-weight: 600;
+                color: #1d2327;
+            }
+            .sfs-hr-workforce-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 0;
+            }
+            .sfs-hr-workforce-table th {
+                background: #f9fafb;
+                padding: 12px 16px;
+                text-align: left;
+                font-weight: 600;
+                font-size: 12px;
+                color: #50575e;
+                text-transform: uppercase;
+                letter-spacing: 0.3px;
+                border-bottom: 1px solid #e2e4e7;
+            }
+            .sfs-hr-workforce-table td {
+                padding: 14px 16px;
+                font-size: 13px;
+                border-bottom: 1px solid #f0f0f1;
+                vertical-align: middle;
+            }
+            .sfs-hr-workforce-table tbody tr:hover {
+                background: #f9fafb;
+            }
+            .sfs-hr-workforce-table tbody tr:last-child td {
+                border-bottom: none;
+            }
+            .sfs-hr-workforce-table .emp-name {
+                font-weight: 500;
+                color: #2271b1;
+            }
+            .sfs-hr-workforce-table .emp-name:hover {
+                color: #135e96;
+            }
+            .sfs-hr-workforce-table .emp-code {
+                display: block;
+                font-size: 11px;
+                color: #787c82;
+                margin-top: 2px;
+            }
+
+            /* Status Pills */
+            .sfs-hr-pill {
+                display: inline-block;
+                padding: 4px 10px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 500;
+                line-height: 1.4;
+                border: 1px solid transparent;
+            }
+            .sfs-hr-pill--status-in {
+                background: #d4edda;
+                color: #155724;
+                border-color: #c3e6cb;
+            }
+            .sfs-hr-pill--status-break {
+                background: #fff3cd;
+                color: #856404;
+                border-color: #ffeeba;
+            }
+            .sfs-hr-pill--status-out {
+                background: #e2e3e5;
+                color: #383d41;
+                border-color: #d6d8db;
+            }
+            .sfs-hr-pill--status-notin {
+                background: #f8f9fa;
+                color: #6c757d;
+                border-color: #e9ecef;
+            }
+            .sfs-hr-pill--leave-duty {
+                background: #d4edda;
+                color: #155724;
+                border-color: #c3e6cb;
+            }
+            .sfs-hr-pill--leave-on {
+                background: #cce5ff;
+                color: #004085;
+                border-color: #b8daff;
+            }
+            .sfs-hr-pill--risk {
+                background: #f8d7da;
+                color: #721c24;
+                border-color: #f5c6cb;
+            }
+
+            /* Action Button */
+            .sfs-hr-action-btn {
+                background: #f6f7f7;
+                border: 1px solid #dcdcde;
+                border-radius: 4px;
+                padding: 6px 10px;
+                cursor: pointer;
+                font-size: 16px;
+                line-height: 1;
+                transition: all 0.15s ease;
+            }
+            .sfs-hr-action-btn:hover {
+                background: #fff;
+                border-color: #2271b1;
+            }
+
+            /* Mobile Modal */
+            .sfs-hr-workforce-modal {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 100000;
+            }
+            .sfs-hr-workforce-modal.active {
+                display: block;
+            }
+            .sfs-hr-workforce-modal-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+            }
+            .sfs-hr-workforce-modal-content {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: #fff;
+                border-radius: 16px 16px 0 0;
+                padding: 24px;
+                max-height: 80vh;
+                overflow-y: auto;
+                transform: translateY(100%);
+                transition: transform 0.3s ease;
+            }
+            .sfs-hr-workforce-modal.active .sfs-hr-workforce-modal-content {
+                transform: translateY(0);
+            }
+            .sfs-hr-workforce-modal-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+                padding-bottom: 16px;
+                border-bottom: 1px solid #e2e4e7;
+            }
+            .sfs-hr-workforce-modal-header h3 {
+                margin: 0;
+                font-size: 18px;
+                color: #1d2327;
+            }
+            .sfs-hr-workforce-modal-close {
+                background: #f6f7f7;
+                border: none;
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                cursor: pointer;
+                font-size: 18px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .sfs-hr-workforce-modal-row {
+                display: flex;
+                justify-content: space-between;
+                padding: 12px 0;
+                border-bottom: 1px solid #f0f0f1;
+            }
+            .sfs-hr-workforce-modal-row:last-child {
+                border-bottom: none;
+            }
+            .sfs-hr-workforce-modal-label {
+                color: #50575e;
+                font-size: 13px;
+            }
+            .sfs-hr-workforce-modal-value {
+                font-weight: 500;
+                color: #1d2327;
+                font-size: 13px;
+                text-align: right;
+            }
+
+            /* Pagination */
+            .sfs-hr-workforce-pagination {
+                padding: 16px 20px;
+                border-top: 1px solid #e2e4e7;
+                background: #f9fafb;
+                text-align: center;
+            }
+            .sfs-hr-workforce-pagination .page-numbers {
+                display: inline-block;
+                padding: 6px 12px;
+                margin: 0 2px;
+                border: 1px solid #dcdcde;
+                border-radius: 4px;
+                text-decoration: none;
+                color: #2271b1;
+                font-size: 13px;
+            }
+            .sfs-hr-workforce-pagination .page-numbers.current {
+                background: #2271b1;
+                border-color: #2271b1;
+                color: #fff;
+            }
+            .sfs-hr-workforce-pagination .page-numbers:hover:not(.current) {
+                background: #f6f7f7;
+            }
+
+            /* Mobile Responsive */
+            @media screen and (max-width: 782px) {
+                .sfs-hr-workforce-toolbar form {
+                    flex-direction: column;
+                    align-items: stretch;
+                }
+                .sfs-hr-workforce-toolbar select,
+                .sfs-hr-workforce-toolbar input[type="search"] {
+                    width: 100%;
+                    min-width: auto;
+                }
+                .sfs-hr-workforce-tabs {
+                    overflow-x: auto;
+                    flex-wrap: nowrap;
+                    padding-bottom: 8px;
+                    -webkit-overflow-scrolling: touch;
+                }
+                .sfs-hr-workforce-tabs .sfs-tab {
+                    flex-shrink: 0;
+                    padding: 6px 12px;
+                    font-size: 12px;
+                }
+                .hide-mobile {
+                    display: none !important;
+                }
+                .sfs-hr-workforce-table th,
+                .sfs-hr-workforce-table td {
+                    padding: 12px;
+                }
+                .show-mobile {
+                    display: table-cell !important;
+                }
+            }
+            @media screen and (min-width: 783px) {
+                .show-mobile {
+                    display: none !important;
+                }
             }
         </style>
         <?php
@@ -199,56 +492,55 @@ class Admin_Pages {
 
     protected function render_filters( array $dept_options, int $dept_val, string $search, string $current_tab, int $per_page ): void {
         ?>
-        <form method="get" style="margin: 10px 0 15px;">
-            <input type="hidden" name="page" value="sfs-hr-workforce-status" />
-            <input type="hidden" name="tab" value="<?php echo esc_attr( $current_tab ); ?>" />
+        <div class="sfs-hr-workforce-toolbar">
+            <form method="get">
+                <input type="hidden" name="page" value="sfs-hr-workforce-status" />
+                <input type="hidden" name="tab" value="<?php echo esc_attr( $current_tab ); ?>" />
 
-            <label for="sfs-hr-wfs-dept" class="screen-reader-text"><?php esc_html_e( 'Department', 'sfs-hr' ); ?></label>
-            <select name="dept" id="sfs-hr-wfs-dept">
-                <?php foreach ( $dept_options as $id => $label ) : ?>
-                    <option value="<?php echo (int) $id; ?>" <?php selected( $dept_val, $id ); ?>>
-                        <?php echo esc_html( $label ); ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
+                <select name="dept" id="sfs-hr-wfs-dept">
+                    <?php foreach ( $dept_options as $id => $label ) : ?>
+                        <option value="<?php echo (int) $id; ?>" <?php selected( $dept_val, $id ); ?>>
+                            <?php echo esc_html( $label ); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
 
-            <label for="sfs-hr-wfs-search" class="screen-reader-text"><?php esc_html_e( 'Search employees', 'sfs-hr' ); ?></label>
-            <input type="search"
-                   id="sfs-hr-wfs-search"
-                   name="s"
-                   value="<?php echo esc_attr( $search ); ?>"
-                   placeholder="<?php echo esc_attr__( 'Search name/code/email', 'sfs-hr' ); ?>"
-                   style="min-width:220px;" />
+                <input type="search"
+                       id="sfs-hr-wfs-search"
+                       name="s"
+                       value="<?php echo esc_attr( $search ); ?>"
+                       placeholder="<?php echo esc_attr__( 'Search name/code/email', 'sfs-hr' ); ?>" />
 
-            <select name="per_page">
-                <?php foreach ( [ 10, 20, 50, 100 ] as $pp ) : ?>
-                    <option value="<?php echo (int) $pp; ?>" <?php selected( $per_page, $pp ); ?>>
-                        <?php echo (int) $pp; ?>/<?php esc_html_e( 'page', 'sfs-hr' ); ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
+                <select name="per_page">
+                    <?php foreach ( [ 10, 20, 50, 100 ] as $pp ) : ?>
+                        <option value="<?php echo (int) $pp; ?>" <?php selected( $per_page, $pp ); ?>>
+                            <?php echo (int) $pp; ?>/<?php esc_html_e( 'page', 'sfs-hr' ); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
 
-            <?php submit_button( __( 'Filter', 'sfs-hr' ), 'secondary', '', false ); ?>
-        </form>
+                <button type="submit" class="button button-primary"><?php esc_html_e( 'Filter', 'sfs-hr' ); ?></button>
+            </form>
+        </div>
         <?php
     }
 
     protected function render_tabs( array $tabs, string $current_tab, array $counts, array $base_args ): void {
-        echo '<h2 class="nav-tab-wrapper" style="margin-bottom:10px;">';
+        echo '<div class="sfs-hr-workforce-tabs">';
 
         foreach ( $tabs as $key => $meta ) {
             $count   = isset( $counts[ $key ] ) ? (int) $counts[ $key ] : 0;
-            $label   = sprintf( '%s (%d)', $meta['label'], $count );
             $args    = array_merge( $base_args, [ 'tab' => $key, 'paged' => 1 ] );
             $url     = add_query_arg( array_filter( $args, static function ( $v ) { return $v !== null; } ) );
-            $classes = 'nav-tab' . ( $key === $current_tab ? ' nav-tab-active' : '' );
+            $classes = 'sfs-tab' . ( $key === $current_tab ? ' active' : '' );
 
             echo '<a href="' . esc_url( $url ) . '" class="' . esc_attr( $classes ) . '">';
-            echo esc_html( $label );
+            echo esc_html( $meta['label'] );
+            echo '<span class="count">' . esc_html( $count ) . '</span>';
             echo '</a>';
         }
 
-        echo '</h2>';
+        echo '</div>';
     }
 
     protected function render_table(
@@ -265,77 +557,182 @@ class Admin_Pages {
         $tab_label = $tabs[ $current_tab ]['label'] ?? '';
 
         ?>
-        <h2 class="title" style="margin-top:5px;"><?php echo esc_html( $tab_label ); ?></h2>
+        <div class="sfs-hr-workforce-table-wrap">
+            <div class="table-header">
+                <h3><?php echo esc_html( $tab_label ); ?> (<?php echo esc_html( $total ); ?>)</h3>
+            </div>
 
-        <table class="widefat striped sfs-hr-workforce-table">
-            <thead>
-            <tr>
-                <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
-                <th><?php esc_html_e( 'Department', 'sfs-hr' ); ?></th>
-                <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
-                <th><?php esc_html_e( 'Since', 'sfs-hr' ); ?></th>
-                <th><?php esc_html_e( 'Leave', 'sfs-hr' ); ?></th>
-                <th><?php esc_html_e( 'Last punch', 'sfs-hr' ); ?></th>
-                <th><?php esc_html_e( 'Risk', 'sfs-hr' ); ?></th>
-            </tr>
-            </thead>
-            <tbody>
-            <?php if ( empty( $rows ) ) : ?>
+            <table class="sfs-hr-workforce-table">
+                <thead>
                 <tr>
-                    <td colspan="7">
-                        <?php esc_html_e( 'No employees match the selected filters for today.', 'sfs-hr' ); ?>
-                    </td>
+                    <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e( 'Department', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e( 'Since', 'sfs-hr' ); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e( 'Leave', 'sfs-hr' ); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e( 'Last punch', 'sfs-hr' ); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e( 'Risk', 'sfs-hr' ); ?></th>
+                    <th class="show-mobile" style="width:50px;"></th>
                 </tr>
-            <?php else : ?>
-                <?php foreach ( $rows as $r ) : ?>
+                </thead>
+                <tbody>
+                <?php if ( empty( $rows ) ) : ?>
                     <tr>
-                        <td>
-                            <a href="<?php echo esc_url( $this->get_employee_edit_url( $r['employee_id'] ) ); ?>">
-                                <?php echo esc_html( $r['employee_name'] ); ?>
-                            </a>
-                            <?php if ( ! empty( $r['employee_code'] ) ) : ?>
-                                <br /><code><?php echo esc_html( $r['employee_code'] ); ?></code>
-                            <?php endif; ?>
+                        <td colspan="8">
+                            <?php esc_html_e( 'No employees match the selected filters for today.', 'sfs-hr' ); ?>
                         </td>
-                        <td><?php echo esc_html( $r['department'] ); ?></td>
-                        <td><?php echo $this->render_status_badge( $r['status_key'], $r['status_label'] ); ?></td>
-                        <td><?php echo esc_html( $this->format_time( $r['since'] ) ); ?></td>
-                        <td><?php echo $this->render_leave_badge( $r['leave_label'] ); ?></td>
-                        <td><?php echo esc_html( $this->format_time( $r['last_punch'] ) ); ?></td>
-                        <td><?php echo esc_html( $r['risk_flag'] ); ?></td>
                     </tr>
-                <?php endforeach; ?>
-            <?php endif; ?>
-            </tbody>
-        </table>
+                <?php else : ?>
+                    <?php foreach ( $rows as $idx => $r ) : ?>
+                        <tr>
+                            <td>
+                                <a href="<?php echo esc_url( $this->get_employee_edit_url( $r['employee_id'] ) ); ?>" class="emp-name">
+                                    <?php echo esc_html( $r['employee_name'] ); ?>
+                                </a>
+                                <?php if ( ! empty( $r['employee_code'] ) ) : ?>
+                                    <span class="emp-code"><?php echo esc_html( $r['employee_code'] ); ?></span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="hide-mobile"><?php echo esc_html( $r['department'] ); ?></td>
+                            <td><?php echo $this->render_status_badge( $r['status_key'], $r['status_label'] ); ?></td>
+                            <td class="hide-mobile"><?php echo esc_html( $this->format_time( $r['since'] ) ); ?></td>
+                            <td class="hide-mobile"><?php echo $this->render_leave_badge( $r['leave_label'] ); ?></td>
+                            <td class="hide-mobile"><?php echo esc_html( $this->format_time( $r['last_punch'] ) ); ?></td>
+                            <td class="hide-mobile">
+                                <?php if ( ! empty( $r['risk_flag'] ) ) : ?>
+                                    <span class="sfs-hr-pill sfs-hr-pill--risk"><?php echo esc_html( $r['risk_flag'] ); ?></span>
+                                <?php else : ?>
+                                    —
+                                <?php endif; ?>
+                            </td>
+                            <td class="show-mobile">
+                                <button type="button" class="sfs-hr-action-btn" onclick="sfsHrShowWorkforceModal(<?php echo esc_attr( $idx ); ?>)">&#8942;</button>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                </tbody>
+            </table>
 
-        <?php
-        if ( $pages > 1 ) {
-            $args = array_merge(
-                $base_args,
-                [
-                    'tab'   => $current_tab,
-                    'paged' => '%#%',
-                ]
-            );
+            <?php
+            if ( $pages > 1 ) {
+                $args = array_merge(
+                    $base_args,
+                    [
+                        'tab'   => $current_tab,
+                        'paged' => '%#%',
+                    ]
+                );
 
-            $page_links = paginate_links(
-                [
-                    'base'      => add_query_arg( array_filter( $args, static function ( $v ) { return $v !== null; } ) ),
-                    'format'    => '',
-                    'current'   => $page_num,
-                    'total'     => $pages,
-                    'mid_size'  => 1,
-                    'prev_text' => '&laquo;',
-                    'next_text' => '&raquo;',
-                    'type'      => 'plain',
-                ]
-            );
+                $page_links = paginate_links(
+                    [
+                        'base'      => add_query_arg( array_filter( $args, static function ( $v ) { return $v !== null; } ) ),
+                        'format'    => '',
+                        'current'   => $page_num,
+                        'total'     => $pages,
+                        'mid_size'  => 1,
+                        'prev_text' => '&laquo;',
+                        'next_text' => '&raquo;',
+                        'type'      => 'plain',
+                    ]
+                );
 
-            if ( $page_links ) {
-                echo '<div class="tablenav"><div class="tablenav-pages">' . $page_links . '</div></div>';
+                if ( $page_links ) {
+                    echo '<div class="sfs-hr-workforce-pagination">' . $page_links . '</div>';
+                }
             }
+            ?>
+        </div>
+
+        <!-- Mobile Modal -->
+        <div id="sfs-hr-workforce-modal" class="sfs-hr-workforce-modal">
+            <div class="sfs-hr-workforce-modal-overlay" onclick="sfsHrCloseWorkforceModal()"></div>
+            <div class="sfs-hr-workforce-modal-content">
+                <div class="sfs-hr-workforce-modal-header">
+                    <h3 id="sfs-hr-modal-name"></h3>
+                    <button type="button" class="sfs-hr-workforce-modal-close" onclick="sfsHrCloseWorkforceModal()">&times;</button>
+                </div>
+                <div class="sfs-hr-workforce-modal-row">
+                    <span class="sfs-hr-workforce-modal-label"><?php esc_html_e( 'Employee Code', 'sfs-hr' ); ?></span>
+                    <span class="sfs-hr-workforce-modal-value" id="sfs-hr-modal-code"></span>
+                </div>
+                <div class="sfs-hr-workforce-modal-row">
+                    <span class="sfs-hr-workforce-modal-label"><?php esc_html_e( 'Department', 'sfs-hr' ); ?></span>
+                    <span class="sfs-hr-workforce-modal-value" id="sfs-hr-modal-dept"></span>
+                </div>
+                <div class="sfs-hr-workforce-modal-row">
+                    <span class="sfs-hr-workforce-modal-label"><?php esc_html_e( 'Status', 'sfs-hr' ); ?></span>
+                    <span class="sfs-hr-workforce-modal-value" id="sfs-hr-modal-status"></span>
+                </div>
+                <div class="sfs-hr-workforce-modal-row">
+                    <span class="sfs-hr-workforce-modal-label"><?php esc_html_e( 'Since', 'sfs-hr' ); ?></span>
+                    <span class="sfs-hr-workforce-modal-value" id="sfs-hr-modal-since"></span>
+                </div>
+                <div class="sfs-hr-workforce-modal-row">
+                    <span class="sfs-hr-workforce-modal-label"><?php esc_html_e( 'Leave', 'sfs-hr' ); ?></span>
+                    <span class="sfs-hr-workforce-modal-value" id="sfs-hr-modal-leave"></span>
+                </div>
+                <div class="sfs-hr-workforce-modal-row">
+                    <span class="sfs-hr-workforce-modal-label"><?php esc_html_e( 'Last Punch', 'sfs-hr' ); ?></span>
+                    <span class="sfs-hr-workforce-modal-value" id="sfs-hr-modal-punch"></span>
+                </div>
+                <div class="sfs-hr-workforce-modal-row">
+                    <span class="sfs-hr-workforce-modal-label"><?php esc_html_e( 'Risk', 'sfs-hr' ); ?></span>
+                    <span class="sfs-hr-workforce-modal-value" id="sfs-hr-modal-risk"></span>
+                </div>
+                <div style="margin-top: 20px;">
+                    <a id="sfs-hr-modal-profile-link" href="#" class="button button-primary" style="width:100%; text-align:center;">
+                        <?php esc_html_e( 'View Profile', 'sfs-hr' ); ?>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        var sfsHrWorkforceData = <?php echo wp_json_encode( array_values( array_map( function( $r ) {
+            return [
+                'name'       => $r['employee_name'],
+                'code'       => $r['employee_code'] ?: '—',
+                'department' => $r['department'],
+                'status'     => $r['status_label'],
+                'since'      => $this->format_time( $r['since'] ),
+                'leave'      => $r['leave_label'],
+                'punch'      => $this->format_time( $r['last_punch'] ),
+                'risk'       => $r['risk_flag'] ?: '—',
+                'profileUrl' => $this->get_employee_edit_url( $r['employee_id'] ),
+            ];
+        }, $rows ) ) ); ?>;
+
+        function sfsHrShowWorkforceModal( idx ) {
+            var data = sfsHrWorkforceData[ idx ];
+            if ( ! data ) return;
+
+            document.getElementById( 'sfs-hr-modal-name' ).textContent = data.name;
+            document.getElementById( 'sfs-hr-modal-code' ).textContent = data.code;
+            document.getElementById( 'sfs-hr-modal-dept' ).textContent = data.department;
+            document.getElementById( 'sfs-hr-modal-status' ).textContent = data.status;
+            document.getElementById( 'sfs-hr-modal-since' ).textContent = data.since;
+            document.getElementById( 'sfs-hr-modal-leave' ).textContent = data.leave;
+            document.getElementById( 'sfs-hr-modal-punch' ).textContent = data.punch;
+            document.getElementById( 'sfs-hr-modal-risk' ).textContent = data.risk;
+            document.getElementById( 'sfs-hr-modal-profile-link' ).href = data.profileUrl;
+
+            document.getElementById( 'sfs-hr-workforce-modal' ).classList.add( 'active' );
+            document.body.style.overflow = 'hidden';
         }
+
+        function sfsHrCloseWorkforceModal() {
+            document.getElementById( 'sfs-hr-workforce-modal' ).classList.remove( 'active' );
+            document.body.style.overflow = '';
+        }
+
+        document.addEventListener( 'keydown', function( e ) {
+            if ( e.key === 'Escape' ) {
+                sfsHrCloseWorkforceModal();
+            }
+        });
+        </script>
+        <?php
     }
 
     /**
