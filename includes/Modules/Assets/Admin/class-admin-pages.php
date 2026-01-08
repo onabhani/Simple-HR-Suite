@@ -1532,9 +1532,26 @@ class Admin_Pages {
         }
 
         // Detect and convert encoding to UTF-8 for Arabic support
-        $encoding = mb_detect_encoding($content, ['UTF-8', 'Windows-1256', 'ISO-8859-6', 'ISO-8859-1', 'ASCII'], true);
+        // Use only commonly supported encodings to avoid errors
+        $supported_encodings = ['UTF-8', 'ISO-8859-1', 'ASCII'];
+
+        // Check if additional Arabic encodings are available
+        $available_encodings = mb_list_encodings();
+        if ( in_array('Windows-1256', $available_encodings, true) ) {
+            array_splice($supported_encodings, 1, 0, ['Windows-1256']);
+        }
+        if ( in_array('ISO-8859-6', $available_encodings, true) ) {
+            array_splice($supported_encodings, 1, 0, ['ISO-8859-6']);
+        }
+
+        $encoding = mb_detect_encoding($content, $supported_encodings, true);
         if ( $encoding && $encoding !== 'UTF-8' ) {
             $content = mb_convert_encoding($content, 'UTF-8', $encoding);
+        }
+
+        // Ensure content is valid UTF-8 (fallback conversion)
+        if ( ! mb_check_encoding($content, 'UTF-8') ) {
+            $content = mb_convert_encoding($content, 'UTF-8', 'ISO-8859-1');
         }
 
         // Write cleaned content to temp file for CSV parsing

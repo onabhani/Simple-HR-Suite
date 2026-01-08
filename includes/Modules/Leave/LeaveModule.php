@@ -101,6 +101,7 @@ public function render_requests(): void {
 
     $status = isset($_GET['status']) ? sanitize_key($_GET['status']) : 'pending';
     $page   = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
+    $search = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
     $pp     = 20;
     $offset = ($page-1)*$pp;
 
@@ -116,29 +117,51 @@ public function render_requests(): void {
         $params[] = $status;
     }
 
-    // Dept-manager scoping (HR/admins see all)
-    $managed_depts = [];
-    if ( ! current_user_can('sfs_hr.manage') ) {
-        $managed_depts = $this->manager_dept_ids_for_user( get_current_user_id() );
-            if (empty($managed_depts)) {
-        ?>
-        <h2 class="title"><?php esc_html_e('Leave Requests','sfs-hr'); ?></h2>
-        <p><?php esc_html_e('No departments assigned to you.', 'sfs-hr'); ?></p>
-        <?php
-        return;
+    // Search filter
+    if ( $search !== '' ) {
+        $like = '%' . $wpdb->esc_like($search) . '%';
+        $where .= " AND (e.first_name LIKE %s OR e.last_name LIKE %s OR e.employee_code LIKE %s)";
+        $params = array_merge($params, [$like, $like, $like]);
     }
 
+    // Dept-manager scoping (HR/admins see all)
+    $current_uid = get_current_user_id();
+    $is_hr = current_user_can('sfs_hr.manage');
+    $managed_depts = [];
+
+    if ( ! $is_hr ) {
+        $managed_depts = $this->manager_dept_ids_for_user($current_uid);
+        if (empty($managed_depts)) {
+            $this->output_leave_requests_styles();
+            ?>
+            <div class="sfs-hr-leave-table-wrap">
+                <p style="padding: 20px;"><?php esc_html_e('No departments assigned to you.', 'sfs-hr'); ?></p>
+            </div>
+            <?php
+            return;
+        }
         $placeholders = implode(',', array_fill(0, count($managed_depts), '%d'));
         $where .= " AND e.dept_id IN ($placeholders)";
-        $params = array_merge($params, array_map('intval',$managed_depts));
+        $params = array_merge($params, array_map('intval', $managed_depts));
     }
 
-    $sql_total = "SELECT COUNT(*) 
-                  FROM $req_t r 
-                  JOIN $emp_t e ON e.id = r.employee_id
-                  WHERE $where";
-    $total = $params ? (int)$wpdb->get_var($wpdb->prepare($sql_total, ...$params))
-                     : (int)$wpdb->get_var($sql_total);
+    // Count by status for tabs
+    $counts = ['pending' => 0, 'approved' => 0, 'rejected' => 0];
+    $count_where = '1=1';
+    $count_params = [];
+    if ( ! $is_hr && ! empty($managed_depts) ) {
+        $placeholders = implode(',', array_fill(0, count($managed_depts), '%d'));
+        $count_where = "e.dept_id IN ($placeholders)";
+        $count_params = array_map('intval', $managed_depts);
+    }
+    foreach (['pending', 'approved', 'rejected'] as $s) {
+        $sql_count = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id WHERE r.status = %s" . ($count_where !== '1=1' ? " AND $count_where" : "");
+        $c_params = array_merge([$s], $count_params);
+        $counts[$s] = (int) $wpdb->get_var($wpdb->prepare($sql_count, ...$c_params));
+    }
+
+    $sql_total = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id WHERE $where";
+    $total = $params ? (int)$wpdb->get_var($wpdb->prepare($sql_total, ...$params)) : (int)$wpdb->get_var($sql_total);
 
     $sql = "SELECT r.*, e.employee_code, e.first_name, e.last_name, e.user_id AS emp_user_id, e.dept_id,
                    t.name AS type_name, t.is_annual, t.annual_quota
@@ -148,182 +171,614 @@ public function render_requests(): void {
             WHERE $where
             ORDER BY r.id DESC
             LIMIT %d OFFSET %d";
-    $params_rows = $params ? array_merge($params, [$pp,$offset]) : [$pp,$offset];
-    $rows  = $wpdb->get_results( $wpdb->prepare($sql, ...$params_rows), ARRAY_A );
-    $pages = max(1, (int)ceil($total/$pp));
+    $params_rows = $params ? array_merge($params, [$pp, $offset]) : [$pp, $offset];
+    $rows  = $wpdb->get_results($wpdb->prepare($sql, ...$params_rows), ARRAY_A);
+    $pages = max(1, (int)ceil($total / $pp));
 
     $nonceA = wp_create_nonce('sfs_hr_leave_approve');
     $nonceR = wp_create_nonce('sfs_hr_leave_reject');
+
+    // Output styles
+    $this->output_leave_requests_styles();
+
+    // Toolbar
     ?>
-    <div class="wrap">
-      <h1><?php esc_html_e('Leave Requests','sfs-hr'); ?></h1>
+    <div class="sfs-hr-leave-toolbar">
+        <form method="get">
+            <input type="hidden" name="page" value="sfs-hr-leave-requests" />
+            <input type="hidden" name="tab" value="requests" />
+            <input type="hidden" name="status" value="<?php echo esc_attr($status); ?>" />
 
-      <ul class="subsubsub">
-        <?php
-          $tabs = ['pending'=>__('Pending','sfs-hr'),'approved'=>__('Approved','sfs-hr'),'rejected'=>__('Rejected','sfs-hr')];
-          $i=0; foreach($tabs as $k=>$lbl){
-            $url = esc_url(add_query_arg([
-    'page'  => 'sfs-hr-leave-requests',
-    'tab'   => 'requests',
-    'status'=> $k,
-    'paged' => 1,
-], admin_url('admin.php')));
+            <input type="search" name="s" value="<?php echo esc_attr($search); ?>" placeholder="<?php esc_attr_e('Search employee...', 'sfs-hr'); ?>" />
 
-            echo '<li><a href="'.$url.'" class="'.($status===$k?'current':'').'">'.$lbl.'</a>'.(++$i<count($tabs)?' | ':'').'</li>';
-          }
-        ?>
-      </ul>
-      <br class="clear"/>
-
-      <?php if (!empty($_GET['ok'])): ?>
-        <div class="notice notice-success"><p><?php esc_html_e('Action completed.','sfs-hr'); ?></p></div>
-      <?php endif; if (!empty($_GET['err'])): ?>
-        <div class="notice notice-error"><p><?php echo esc_html($_GET['err']); ?></p></div>
-      <?php endif; ?>
-
-      <table class="widefat striped">
-        <thead>
-          <tr>
-            <th><?php esc_html_e('ID','sfs-hr'); ?></th>
-            <th><?php esc_html_e('Employee','sfs-hr'); ?></th>
-            <th><?php esc_html_e('Type','sfs-hr'); ?></th>
-            <th><?php esc_html_e('Dates','sfs-hr'); ?></th>
-            <th><?php esc_html_e('Days','sfs-hr'); ?></th>
-            <th><?php esc_html_e('Now','sfs-hr'); ?></th>
-            <th><?php esc_html_e('Submitted','sfs-hr'); ?></th>
-            <th><?php esc_html_e('Decided','sfs-hr'); ?></th>
-            <th><?php esc_html_e('Reason','sfs-hr'); ?></th>
-            <th><?php esc_html_e('Status','sfs-hr'); ?></th>
-            <th><?php esc_html_e('Actions','sfs-hr'); ?></th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php if(!$rows): ?>
-            <tr><td colspan="10"><?php esc_html_e('No requests found.','sfs-hr'); ?></td></tr>
-          <?php else: foreach($rows as $r): ?>
-            <tr>
-              <td><?php echo (int)$r['id']; ?></td>
-              <td><?php echo esc_html(trim($r['first_name'].' '.$r['last_name']).' ('.$r['employee_code'].')'); ?></td>
-              <td><?php echo esc_html($r['type_name']); ?></td>
-              <td><?php echo esc_html($r['start_date'].' → '.$r['end_date']); ?></td>
-              <td><?php printf('%d', (int)$r['days']); ?></td>
-<?php
-    $today       = current_time( 'Y-m-d' );
-    $state_label = '—';
-    $state_color = 'gray';
-
-    if ( $r['status'] === 'approved' ) {
-        if ( $today < $r['start_date'] ) {
-            $state_label = __( 'Upcoming', 'sfs-hr' );
-            $state_color = 'blue';
-        } elseif ( $today > $r['end_date'] ) {
-            $state_label = __( 'Returned', 'sfs-hr' );
-            $state_color = 'green';
-        } else {
-            $state_label = __( 'On leave', 'sfs-hr' );
-            $state_color = 'yellow';
-        }
-    }
-?>
-<td>
-    <?php if ( $r['status'] === 'approved' ) : ?>
-        <span class="sfs-hr-status-chip sfs-hr-status-chip--<?php echo esc_attr( $state_color ); ?>">
-            <?php echo esc_html( $state_label ); ?>
-        </span>
-    <?php else : ?>
-        —
-    <?php endif; ?>
-</td>
-
-
-
-<td><?php echo $this->fmt_dt($r['created_at'] ?? ''); ?></td>
-
-              <td><?php echo $this->fmt_dt($r['decided_at'] ?? ''); ?></td>
-              <td><?php echo esc_html(wp_trim_words($r['reason'], 10)); ?></td>
-              <?php
-$status_key = (string) $r['status'];
-
-if ( $status_key === 'pending' ) {
-    $level      = (int) ( $r['approval_level'] ?? 1 );
-    $status_key = ( $level <= 1 ) ? 'pending_manager' : 'pending_hr';
-}
-?>
-<td>
-    <?php echo Leave_UI::leave_status_chip( $status_key ); ?>
-</td>
-
-
-              <td>
-    <?php if ( $r['status'] === 'pending' ): ?>
-        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
-            <input type="hidden" name="action" value="sfs_hr_leave_approve"/>
-            <input type="hidden" name="_wpnonce" value="<?php echo esc_attr( $nonceA ); ?>"/>
-            <input type="hidden" name="id" value="<?php echo (int) $r['id']; ?>"/>
-            <input type="text" name="note" placeholder="<?php esc_attr_e( 'Note (optional)', 'sfs-hr' ); ?>" style="width:180px"/>
-            <button class="button button-primary button-small"><?php esc_html_e( 'Approve', 'sfs-hr' ); ?></button>
+            <button type="submit" class="button button-primary"><?php esc_html_e('Search', 'sfs-hr'); ?></button>
         </form>
-
-        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;margin-left:6px;">
-            <input type="hidden" name="action" value="sfs_hr_leave_reject"/>
-            <input type="hidden" name="_wpnonce" value="<?php echo esc_attr( $nonceR ); ?>"/>
-            <input type="hidden" name="id" value="<?php echo (int) $r['id']; ?>"/>
-            <input type="text" name="note" placeholder="<?php esc_attr_e( 'Reason', 'sfs-hr' ); ?>" style="width:160px"/>
-            <button class="button button-small"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>
-        </form>
-    <?php else: ?>
-        <?php
-            $by = $r['approver_id'] ? get_user_by( 'id', (int) $r['approver_id'] ) : null;
-            echo esc_html( $by ? $by->display_name : '-' );
-        ?>
-
-        <?php if ( $r['status'] === 'approved' ): ?>
-            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:4px;">
-                <?php wp_nonce_field( 'sfs_hr_leave_early_return' ); ?>
-                <input type="hidden" name="action" value="sfs_hr_leave_early_return"/>
-                <input type="hidden" name="id" value="<?php echo (int) $r['id']; ?>"/>
-                <input type="date" name="actual_return" required style="width:140px;"/>
-                <input type="text" name="note" placeholder="<?php esc_attr_e( 'Note (optional)', 'sfs-hr' ); ?>" style="width:160px;"/>
-                <button class="button button-small"><?php esc_html_e( 'Early return', 'sfs-hr' ); ?></button>
-            </form>
-        <?php endif; ?>
-    <?php endif; ?>
-</td>
-
-            </tr>
-          <?php endforeach; endif; ?>
-        </tbody>
-      </table>
-
-      <?php echo $this->paginate_admin($page, $pages, [
-    'page'   => 'sfs-hr-leave-requests',
-    'tab'    => 'requests',
-    'status' => $status,
-]); ?>
-<style>
-.sfs-hr-leave-chip {
-    display:inline-flex;
-    align-items:center;
-    padding:2px 8px;
-    border-radius:999px;
-    font-size:11px;
-    font-weight:500;
-}
-.sfs-hr-leave-chip-upcoming {
-    background:#eff6ff;
-    color:#1d4ed8;
-}
-.sfs-hr-leave-chip-onleave {
-    background:#fef3c7;
-    color:#92400e;
-}
-.sfs-hr-leave-chip-returned {
-    background:#ecfdf3;
-    color:#166534;
-}
-</style>
-
     </div>
+
+    <!-- Status Tabs -->
+    <div class="sfs-hr-leave-tabs">
+        <?php
+        $tabs = [
+            'pending'  => __('Pending', 'sfs-hr'),
+            'approved' => __('Approved', 'sfs-hr'),
+            'rejected' => __('Rejected', 'sfs-hr'),
+        ];
+        foreach ($tabs as $k => $lbl) {
+            $url = add_query_arg([
+                'page'   => 'sfs-hr-leave-requests',
+                'tab'    => 'requests',
+                'status' => $k,
+                'paged'  => 1,
+            ], admin_url('admin.php'));
+            $active = ($status === $k) ? ' active' : '';
+            echo '<a href="' . esc_url($url) . '" class="sfs-tab' . $active . '">';
+            echo esc_html($lbl);
+            echo '<span class="count">' . esc_html($counts[$k]) . '</span>';
+            echo '</a>';
+        }
+        ?>
+    </div>
+
+    <?php if (!empty($_GET['ok'])): ?>
+        <div class="notice notice-success"><p><?php esc_html_e('Action completed.', 'sfs-hr'); ?></p></div>
+    <?php endif; if (!empty($_GET['err'])): ?>
+        <div class="notice notice-error"><p><?php echo esc_html($_GET['err']); ?></p></div>
+    <?php endif; ?>
+
+    <!-- Table Card -->
+    <div class="sfs-hr-leave-table-wrap">
+        <div class="table-header">
+            <h3><?php echo esc_html($tabs[$status] ?? ''); ?> (<?php echo esc_html($total); ?>)</h3>
+        </div>
+
+        <table class="sfs-hr-leave-table">
+            <thead>
+                <tr>
+                    <th><?php esc_html_e('Employee', 'sfs-hr'); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e('Type', 'sfs-hr'); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e('Dates', 'sfs-hr'); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e('Days', 'sfs-hr'); ?></th>
+                    <th><?php esc_html_e('Status', 'sfs-hr'); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e('Submitted', 'sfs-hr'); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e('Actions', 'sfs-hr'); ?></th>
+                    <th class="show-mobile" style="width:50px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (!$rows): ?>
+                    <tr><td colspan="8"><?php esc_html_e('No requests found.', 'sfs-hr'); ?></td></tr>
+                <?php else: foreach ($rows as $idx => $r):
+                    // Check if current user can approve this specific request
+                    $can_approve = false;
+                    if ($r['status'] === 'pending') {
+                        // HR can approve all
+                        if ($is_hr) {
+                            $can_approve = true;
+                        }
+                        // Department managers can approve requests from their departments
+                        elseif (!empty($managed_depts) && in_array((int)$r['dept_id'], $managed_depts, true)) {
+                            $can_approve = true;
+                        }
+                        // Cannot approve own request
+                        if ((int)($r['emp_user_id'] ?? 0) === $current_uid) {
+                            $can_approve = false;
+                        }
+                    }
+
+                    $today = current_time('Y-m-d');
+                    $state_label = '—';
+                    $state_class = '';
+                    if ($r['status'] === 'approved') {
+                        if ($today < $r['start_date']) {
+                            $state_label = __('Upcoming', 'sfs-hr');
+                            $state_class = 'sfs-hr-pill--status-upcoming';
+                        } elseif ($today > $r['end_date']) {
+                            $state_label = __('Returned', 'sfs-hr');
+                            $state_class = 'sfs-hr-pill--status-returned';
+                        } else {
+                            $state_label = __('On leave', 'sfs-hr');
+                            $state_class = 'sfs-hr-pill--status-onleave';
+                        }
+                    }
+
+                    $status_key = (string) $r['status'];
+                    if ($status_key === 'pending') {
+                        $level = (int)($r['approval_level'] ?? 1);
+                        $status_key = ($level <= 1) ? 'pending_manager' : 'pending_hr';
+                    }
+                ?>
+                    <tr>
+                        <td>
+                            <span class="emp-name"><?php echo esc_html(trim($r['first_name'] . ' ' . $r['last_name'])); ?></span>
+                            <span class="emp-code"><?php echo esc_html($r['employee_code']); ?></span>
+                        </td>
+                        <td class="hide-mobile"><?php echo esc_html($r['type_name']); ?></td>
+                        <td class="hide-mobile"><?php echo esc_html($r['start_date'] . ' → ' . $r['end_date']); ?></td>
+                        <td class="hide-mobile"><?php echo (int)$r['days']; ?></td>
+                        <td>
+                            <?php echo Leave_UI::leave_status_chip($status_key); ?>
+                            <?php if ($r['status'] === 'approved' && $state_class): ?>
+                                <span class="sfs-hr-pill <?php echo esc_attr($state_class); ?>" style="margin-left:4px;">
+                                    <?php echo esc_html($state_label); ?>
+                                </span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="hide-mobile"><?php echo $this->fmt_dt($r['created_at'] ?? ''); ?></td>
+                        <td class="hide-mobile">
+                            <?php if ($r['status'] === 'pending' && $can_approve): ?>
+                                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline;">
+                                    <input type="hidden" name="action" value="sfs_hr_leave_approve"/>
+                                    <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonceA); ?>"/>
+                                    <input type="hidden" name="id" value="<?php echo (int)$r['id']; ?>"/>
+                                    <button class="button button-primary button-small"><?php esc_html_e('Approve', 'sfs-hr'); ?></button>
+                                </form>
+                                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline;margin-left:4px;">
+                                    <input type="hidden" name="action" value="sfs_hr_leave_reject"/>
+                                    <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonceR); ?>"/>
+                                    <input type="hidden" name="id" value="<?php echo (int)$r['id']; ?>"/>
+                                    <button class="button button-small"><?php esc_html_e('Reject', 'sfs-hr'); ?></button>
+                                </form>
+                            <?php elseif ($r['status'] === 'pending'): ?>
+                                <span style="color:#666;"><?php esc_html_e('Not assigned to you', 'sfs-hr'); ?></span>
+                            <?php else: ?>
+                                <?php
+                                    $by = $r['approver_id'] ? get_user_by('id', (int)$r['approver_id']) : null;
+                                    echo esc_html($by ? $by->display_name : '—');
+                                ?>
+                            <?php endif; ?>
+                        </td>
+                        <td class="show-mobile">
+                            <button type="button" class="sfs-hr-action-btn" onclick="sfsHrShowLeaveModal(<?php echo esc_attr($idx); ?>)">&#8942;</button>
+                        </td>
+                    </tr>
+                <?php endforeach; endif; ?>
+            </tbody>
+        </table>
+
+        <?php if ($pages > 1): ?>
+            <div class="sfs-hr-leave-pagination">
+                <?php
+                echo paginate_links([
+                    'base'      => add_query_arg('paged', '%#%'),
+                    'format'    => '',
+                    'current'   => $page,
+                    'total'     => $pages,
+                    'mid_size'  => 1,
+                    'prev_text' => '&laquo;',
+                    'next_text' => '&raquo;',
+                    'type'      => 'plain',
+                ]);
+                ?>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <!-- Mobile Modal -->
+    <div id="sfs-hr-leave-modal" class="sfs-hr-leave-modal">
+        <div class="sfs-hr-leave-modal-overlay" onclick="sfsHrCloseLeaveModal()"></div>
+        <div class="sfs-hr-leave-modal-content">
+            <div class="sfs-hr-leave-modal-header">
+                <h3 id="sfs-hr-leave-modal-name"></h3>
+                <button type="button" class="sfs-hr-leave-modal-close" onclick="sfsHrCloseLeaveModal()">&times;</button>
+            </div>
+            <div class="sfs-hr-leave-modal-row">
+                <span class="sfs-hr-leave-modal-label"><?php esc_html_e('Type', 'sfs-hr'); ?></span>
+                <span class="sfs-hr-leave-modal-value" id="sfs-hr-leave-modal-type"></span>
+            </div>
+            <div class="sfs-hr-leave-modal-row">
+                <span class="sfs-hr-leave-modal-label"><?php esc_html_e('Dates', 'sfs-hr'); ?></span>
+                <span class="sfs-hr-leave-modal-value" id="sfs-hr-leave-modal-dates"></span>
+            </div>
+            <div class="sfs-hr-leave-modal-row">
+                <span class="sfs-hr-leave-modal-label"><?php esc_html_e('Days', 'sfs-hr'); ?></span>
+                <span class="sfs-hr-leave-modal-value" id="sfs-hr-leave-modal-days"></span>
+            </div>
+            <div class="sfs-hr-leave-modal-row">
+                <span class="sfs-hr-leave-modal-label"><?php esc_html_e('Status', 'sfs-hr'); ?></span>
+                <span class="sfs-hr-leave-modal-value" id="sfs-hr-leave-modal-status"></span>
+            </div>
+            <div class="sfs-hr-leave-modal-row">
+                <span class="sfs-hr-leave-modal-label"><?php esc_html_e('Reason', 'sfs-hr'); ?></span>
+                <span class="sfs-hr-leave-modal-value" id="sfs-hr-leave-modal-reason"></span>
+            </div>
+            <div class="sfs-hr-leave-modal-row">
+                <span class="sfs-hr-leave-modal-label"><?php esc_html_e('Submitted', 'sfs-hr'); ?></span>
+                <span class="sfs-hr-leave-modal-value" id="sfs-hr-leave-modal-submitted"></span>
+            </div>
+            <div id="sfs-hr-leave-modal-actions" style="margin-top: 20px;"></div>
+        </div>
+    </div>
+
+    <script>
+    var sfsHrLeaveData = <?php echo wp_json_encode(array_values(array_map(function($r) use ($nonceA, $nonceR, $is_hr, $managed_depts, $current_uid) {
+        $can_approve = false;
+        if ($r['status'] === 'pending') {
+            if ($is_hr) {
+                $can_approve = true;
+            } elseif (!empty($managed_depts) && in_array((int)$r['dept_id'], $managed_depts, true)) {
+                $can_approve = true;
+            }
+            if ((int)($r['emp_user_id'] ?? 0) === $current_uid) {
+                $can_approve = false;
+            }
+        }
+        return [
+            'id'        => (int)$r['id'],
+            'name'      => trim($r['first_name'] . ' ' . $r['last_name']),
+            'type'      => $r['type_name'],
+            'dates'     => $r['start_date'] . ' → ' . $r['end_date'],
+            'days'      => (int)$r['days'],
+            'status'    => $r['status'],
+            'reason'    => $r['reason'] ?: '—',
+            'submitted' => $this->fmt_dt($r['created_at'] ?? ''),
+            'canApprove'=> $can_approve,
+            'nonceA'    => $nonceA,
+            'nonceR'    => $nonceR,
+        ];
+    }, $rows))); ?>;
+
+    function sfsHrShowLeaveModal(idx) {
+        var data = sfsHrLeaveData[idx];
+        if (!data) return;
+
+        document.getElementById('sfs-hr-leave-modal-name').textContent = data.name;
+        document.getElementById('sfs-hr-leave-modal-type').textContent = data.type;
+        document.getElementById('sfs-hr-leave-modal-dates').textContent = data.dates;
+        document.getElementById('sfs-hr-leave-modal-days').textContent = data.days;
+        document.getElementById('sfs-hr-leave-modal-status').textContent = data.status;
+        document.getElementById('sfs-hr-leave-modal-reason').textContent = data.reason;
+        document.getElementById('sfs-hr-leave-modal-submitted').textContent = data.submitted;
+
+        var actionsDiv = document.getElementById('sfs-hr-leave-modal-actions');
+        if (data.status === 'pending' && data.canApprove) {
+            actionsDiv.innerHTML = '<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:flex;gap:8px;">' +
+                '<input type="hidden" name="action" value="sfs_hr_leave_approve"/>' +
+                '<input type="hidden" name="_wpnonce" value="' + data.nonceA + '"/>' +
+                '<input type="hidden" name="id" value="' + data.id + '"/>' +
+                '<button class="button button-primary" style="flex:1;"><?php esc_html_e('Approve', 'sfs-hr'); ?></button>' +
+                '</form>' +
+                '<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:flex;gap:8px;margin-top:8px;">' +
+                '<input type="hidden" name="action" value="sfs_hr_leave_reject"/>' +
+                '<input type="hidden" name="_wpnonce" value="' + data.nonceR + '"/>' +
+                '<input type="hidden" name="id" value="' + data.id + '"/>' +
+                '<button class="button" style="flex:1;"><?php esc_html_e('Reject', 'sfs-hr'); ?></button>' +
+                '</form>';
+        } else if (data.status === 'pending') {
+            actionsDiv.innerHTML = '<p style="text-align:center;color:#666;"><?php esc_html_e('Not assigned to you', 'sfs-hr'); ?></p>';
+        } else {
+            actionsDiv.innerHTML = '';
+        }
+
+        document.getElementById('sfs-hr-leave-modal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function sfsHrCloseLeaveModal() {
+        document.getElementById('sfs-hr-leave-modal').classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            sfsHrCloseLeaveModal();
+        }
+    });
+    </script>
+    <?php
+}
+
+private function output_leave_requests_styles(): void {
+    static $done = false;
+    if ($done) return;
+    $done = true;
+    ?>
+    <style>
+        /* Toolbar */
+        .sfs-hr-leave-toolbar {
+            background: #fff;
+            border: 1px solid #e2e4e7;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .sfs-hr-leave-toolbar form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            margin: 0;
+        }
+        .sfs-hr-leave-toolbar input[type="search"] {
+            height: 36px;
+            border: 1px solid #dcdcde;
+            border-radius: 4px;
+            padding: 0 12px;
+            font-size: 13px;
+            min-width: 200px;
+        }
+        .sfs-hr-leave-toolbar .button {
+            height: 36px;
+            line-height: 34px;
+            padding: 0 16px;
+        }
+
+        /* Status Tabs */
+        .sfs-hr-leave-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .sfs-hr-leave-tabs .sfs-tab {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #f6f7f7;
+            border: 1px solid #dcdcde;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #50575e;
+            text-decoration: none;
+            transition: all 0.15s ease;
+        }
+        .sfs-hr-leave-tabs .sfs-tab:hover {
+            background: #fff;
+            border-color: #2271b1;
+            color: #2271b1;
+        }
+        .sfs-hr-leave-tabs .sfs-tab.active {
+            background: #2271b1;
+            border-color: #2271b1;
+            color: #fff;
+        }
+        .sfs-hr-leave-tabs .sfs-tab .count {
+            display: inline-block;
+            background: rgba(0,0,0,0.1);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            margin-left: 6px;
+        }
+        .sfs-hr-leave-tabs .sfs-tab.active .count {
+            background: rgba(255,255,255,0.25);
+        }
+
+        /* Table Card */
+        .sfs-hr-leave-table-wrap {
+            background: #fff;
+            border: 1px solid #e2e4e7;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .sfs-hr-leave-table-wrap .table-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #f0f0f1;
+            background: #f9fafb;
+        }
+        .sfs-hr-leave-table-wrap .table-header h3 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #1d2327;
+        }
+        .sfs-hr-leave-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0;
+        }
+        .sfs-hr-leave-table th {
+            background: #f9fafb;
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            color: #50575e;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            border-bottom: 1px solid #e2e4e7;
+        }
+        .sfs-hr-leave-table td {
+            padding: 14px 16px;
+            font-size: 13px;
+            border-bottom: 1px solid #f0f0f1;
+            vertical-align: middle;
+        }
+        .sfs-hr-leave-table tbody tr:hover {
+            background: #f9fafb;
+        }
+        .sfs-hr-leave-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .sfs-hr-leave-table .emp-name {
+            display: block;
+            font-weight: 500;
+            color: #1d2327;
+        }
+        .sfs-hr-leave-table .emp-code {
+            display: block;
+            font-size: 11px;
+            color: #787c82;
+            margin-top: 2px;
+        }
+
+        /* Status Pills */
+        .sfs-hr-pill--status-upcoming {
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        .sfs-hr-pill--status-onleave {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .sfs-hr-pill--status-returned {
+            background: #ecfdf3;
+            color: #166534;
+        }
+
+        /* Action Button */
+        .sfs-hr-action-btn {
+            background: #f6f7f7;
+            border: 1px solid #dcdcde;
+            border-radius: 4px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            transition: all 0.15s ease;
+        }
+        .sfs-hr-action-btn:hover {
+            background: #fff;
+            border-color: #2271b1;
+        }
+
+        /* Mobile Modal */
+        .sfs-hr-leave-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 100000;
+        }
+        .sfs-hr-leave-modal.active {
+            display: block;
+        }
+        .sfs-hr-leave-modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+        }
+        .sfs-hr-leave-modal-content {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border-radius: 16px 16px 0 0;
+            padding: 24px;
+            max-height: 80vh;
+            overflow-y: auto;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+        }
+        .sfs-hr-leave-modal.active .sfs-hr-leave-modal-content {
+            transform: translateY(0);
+        }
+        .sfs-hr-leave-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e2e4e7;
+        }
+        .sfs-hr-leave-modal-header h3 {
+            margin: 0;
+            font-size: 18px;
+            color: #1d2327;
+        }
+        .sfs-hr-leave-modal-close {
+            background: #f6f7f7;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .sfs-hr-leave-modal-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f1;
+        }
+        .sfs-hr-leave-modal-row:last-child {
+            border-bottom: none;
+        }
+        .sfs-hr-leave-modal-label {
+            color: #50575e;
+            font-size: 13px;
+        }
+        .sfs-hr-leave-modal-value {
+            font-weight: 500;
+            color: #1d2327;
+            font-size: 13px;
+            text-align: right;
+        }
+
+        /* Pagination */
+        .sfs-hr-leave-pagination {
+            padding: 16px 20px;
+            border-top: 1px solid #e2e4e7;
+            background: #f9fafb;
+            text-align: center;
+        }
+        .sfs-hr-leave-pagination .page-numbers {
+            display: inline-block;
+            padding: 6px 12px;
+            margin: 0 2px;
+            border: 1px solid #dcdcde;
+            border-radius: 4px;
+            text-decoration: none;
+            color: #2271b1;
+            font-size: 13px;
+        }
+        .sfs-hr-leave-pagination .page-numbers.current {
+            background: #2271b1;
+            border-color: #2271b1;
+            color: #fff;
+        }
+        .sfs-hr-leave-pagination .page-numbers:hover:not(.current) {
+            background: #f6f7f7;
+        }
+
+        /* Mobile Responsive */
+        @media screen and (max-width: 782px) {
+            .sfs-hr-leave-toolbar form {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .sfs-hr-leave-toolbar input[type="search"] {
+                width: 100%;
+                min-width: auto;
+            }
+            .sfs-hr-leave-tabs {
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                padding-bottom: 8px;
+                -webkit-overflow-scrolling: touch;
+            }
+            .sfs-hr-leave-tabs .sfs-tab {
+                flex-shrink: 0;
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            .hide-mobile {
+                display: none !important;
+            }
+            .sfs-hr-leave-table th,
+            .sfs-hr-leave-table td {
+                padding: 12px;
+            }
+            .show-mobile {
+                display: table-cell !important;
+            }
+        }
+        @media screen and (min-width: 783px) {
+            .show-mobile {
+                display: none !important;
+            }
+        }
+    </style>
     <?php
 }
 
