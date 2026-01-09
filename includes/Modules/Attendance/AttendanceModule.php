@@ -3144,69 +3144,23 @@ if ($mgr = get_role('sfs_hr_manager')) {
     /** Seed global defaults (changeable later via Admin UI). */
     private function maybe_seed_defaults(): void {
         $defaults = [
-            'web_allowed_by_dept' => [
-                'office'    => true,
-                'showroom'  => true,
-                'warehouse' => false,
-                'factory'   => false,
+            // Department settings now use dept_id from sfs_hr_departments table
+            'web_allowed_by_dept_id'     => [], // dept_id => true/false
+            'selfie_required_by_dept_id' => [], // dept_id => true/false
+            'selfie_retention_days'      => 30,
+            'default_rounding_rule'      => '5',
+            'default_grace_late'         => 5,
+            'default_grace_early'        => 5,
+
+            // Weekly segments now keyed by dept_id
+            'dept_weekly_segments' => [], // dept_id => [ 'sun' => [...], ... ]
+
+            // Selfie policy (optional by default)
+            'selfie_policy' => [
+                'default'      => 'optional', // modes: never | optional | in_only | in_out | all
+                'by_dept_id'   => [],         // dept_id => mode
+                'by_employee'  => [],         // employee_id => mode
             ],
-            'selfie_retention_days' => 30,
-            'default_rounding_rule' => '5',
-            'default_grace_late'    => 5,
-            'default_grace_early'   => 5,
-            
-            // Add below 'default_grace_early'
-'dept_weekly_segments' => [
-  // All times are local (site timezone); engine converts to UTC.
-  'showroom' => [
-    'sun' => [ ['09:00','12:00'], ['16:00','22:00'] ],
-    'mon' => [ ['09:00','12:00'], ['16:00','22:00'] ],
-    'tue' => [ ['09:00','12:00'], ['16:00','22:00'] ],
-    'wed' => [ ['09:00','12:00'], ['16:00','22:00'] ],
-    'thu' => [ ['09:00','12:00'], ['16:00','20:00'] ], // short PM
-    'fri' => [ /* off */ ],
-    'sat' => [ ['09:00','12:00'], ['16:00','22:00'] ],
-  ],
-  'factory' => [
-    'sun' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'mon' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'tue' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'wed' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'thu' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'fri' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'sat' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-  ],
-  'warehouse' => [
-    'sun' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'mon' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'tue' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'wed' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'thu' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'fri' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'sat' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-  ],
-  'office' => [
-    'sun' => [ ['09:00','17:00'] ],
-    'mon' => [ ['09:00','17:00'] ],
-    'tue' => [ ['09:00','17:00'] ],
-    'wed' => [ ['09:00','17:00'] ],
-    'thu' => [ ['09:00','17:00'] ],
-    'fri' => [ ['09:00','17:00'] ],
-    'sat' => [ ['09:00','17:00'] ],
-  ],
-],
-// Selfie policy (optional by default)
-'selfie_policy' => [
-  // modes: never | in_only | in_out | all | outside_geofence
-  'dept' => [
-    'showroom'  => 'never',
-    'factory'   => 'in_only',
-    'warehouse' => 'in_only',
-    'office'    => 'never',
-  ],
-  'employee_overrides' => [ /* emp_id => mode */ ],
-  'kiosk_overrides'    => [ /* device_id => mode */ ],
-],
 
         ];
 
@@ -3227,9 +3181,10 @@ if ($mgr = get_role('sfs_hr_manager')) {
         if ( is_array( $existing ) && count( $existing ) > 0 ) return;
 
         $now = current_time( 'mysql', true );
+        // Create a sample kiosk with no department restriction (allowed_dept_id = null means all)
         $rows = [
             [
-                'label'            => 'Warehouse Kiosk #1',
+                'label'            => 'Main Kiosk #1',
                 'type'             => 'kiosk',
                 'kiosk_enabled'    => 1,
                 'kiosk_pin'        => null,
@@ -3238,22 +3193,7 @@ if ($mgr = get_role('sfs_hr_manager')) {
                 'geo_lock_lat'     => null,
                 'geo_lock_lng'     => null,
                 'geo_lock_radius_m'=> null,
-                'allowed_dept'     => 'warehouse',
-                'fingerprint_hash' => null,
-                'active'           => 1,
-                'meta_json'        => wp_json_encode( ['seeded_at'=>$now] ),
-            ],
-            [
-                'label'            => 'Factory Kiosk #1',
-                'type'             => 'kiosk',
-                'kiosk_enabled'    => 1,
-                'kiosk_pin'        => null,
-                'kiosk_offline'    => 1,
-                'last_sync_at'     => null,
-                'geo_lock_lat'     => null,
-                'geo_lock_lng'     => null,
-                'geo_lock_radius_m'=> null,
-                'allowed_dept'     => 'factory',
+                'allowed_dept_id'  => null, // null = all departments allowed
                 'fingerprint_hash' => null,
                 'active'           => 1,
                 'meta_json'        => wp_json_encode( ['seeded_at'=>$now] ),
@@ -3384,8 +3324,8 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
         return;
     }
 
-    // Dept slug
-$dept = self::get_employee_dept_for_attendance($employee_id, $wpdb) ?: 'office';
+    // Dept slug (empty string if not found - segments will be empty)
+$dept = self::get_employee_dept_for_attendance($employee_id, $wpdb);
 
 // Segments for this date
 $segments = self::build_segments_for_date_from_dept($dept, $ymd);
@@ -3562,43 +3502,15 @@ private static function load_automation_map(): array {
      * Normalize a string "work location" / dept name to a simple slug.
      * Examples:
      *   - "Head Office" / "Sales" / "HR" / "IT" → "office"
-     *   - "Showroom A" / "Branch" / "Store"   → "showroom"
-     *   - "Warehouse" / "Storehouse"          → "warehouse"
-     *   - "Factory" / "Production"            → "factory"
+     * Returns sanitized slug from work location string.
+     * Now simply sanitizes the input - no longer guesses department types.
      */
     private static function normalize_work_location( string $raw ): string {
-        $s = strtolower( trim( $raw ) );
+        $s = trim( $raw );
         if ( $s === '' ) {
             return '';
         }
-
-        // Showroom
-        if ( str_contains( $s, 'showroom' ) || str_contains( $s, 'branch' ) || str_contains( $s, 'shop' ) ) {
-            return 'showroom';
-        }
-
-        // Warehouse / stock
-        if (
-            str_contains( $s, 'warehouse' ) ||
-            str_contains( $s, 'storehouse' ) ||
-            str_contains( $s, 'inventory' ) ||
-            str_contains( $s, 'stock' )
-        ) {
-            return 'warehouse';
-        }
-
-        // Factory / production / install
-        if (
-            str_contains( $s, 'factory' ) ||
-            str_contains( $s, 'production' ) ||
-            str_contains( $s, 'plant' ) ||
-            str_contains( $s, 'install' )
-        ) {
-            return 'factory';
-        }
-
-        // Everything else treated as office by default
-        return 'office';
+        return sanitize_title( $s );
     }
 
     /**
@@ -3693,7 +3605,7 @@ private static function load_automation_map(): array {
 
     /**
      * Simple helper: best-effort dept slug for attendance logic.
-     * Example result: 'office', 'showroom', 'warehouse', 'factory', or ''.
+     * Example result: sanitized slug from department name, or empty string.
      */
     public static function get_employee_dept_for_attendance( int $employee_id ): string {
         $info = self::employee_department_info( $employee_id );
@@ -3870,11 +3782,10 @@ public static function resolve_shift_for_date(
     ));
     if ($row) {
         $row->__virtual  = 0;
-        if (!isset($row->dept) || $row->dept === null) {
-            // derive a readable label for downstream checks
-            $emp = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$empT} WHERE id=%d", $employee_id));
-            $label = $emp && isset($emp->department) && $emp->department !== '' ? (string)$emp->department : 'office';
-            $row->dept = sanitize_title($label);
+        // If shift doesn't have dept_id set, derive from employee
+        if ( ! isset( $row->dept_id ) || $row->dept_id === null ) {
+            $emp = $wpdb->get_row($wpdb->prepare("SELECT dept_id FROM {$empT} WHERE id=%d", $employee_id));
+            $row->dept_id = $emp && ! empty( $emp->dept_id ) ? (int) $emp->dept_id : null;
         }
         return self::apply_weekly_override( $row, $ymd, $wpdb );
     }
@@ -3882,12 +3793,11 @@ public static function resolve_shift_for_date(
     // --- 1.5) Employee-specific shift (from emp_shifts mapping)
     $emp_shift = self::lookup_emp_shift_for_date( $employee_id, $ymd );
     if ( $emp_shift ) {
-        // Get employee dept for context
-        $emp = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$empT} WHERE id=%d", $employee_id));
-        $dept_label = $emp && isset($emp->department) && $emp->department !== '' ? (string)$emp->department : 'office';
+        // Get employee dept_id for context
+        $emp = $wpdb->get_row($wpdb->prepare("SELECT dept_id FROM {$empT} WHERE id=%d", $employee_id));
 
-        // Set dept and other required fields
-        $emp_shift->dept       = sanitize_title($dept_label);
+        // Set dept_id and other required fields
+        $emp_shift->dept_id    = $emp && ! empty( $emp->dept_id ) ? (int) $emp->dept_id : null;
         $emp_shift->__virtual  = 0;
         $emp_shift->is_holiday = 0;
 
@@ -3992,18 +3902,18 @@ public static function resolve_shift_for_date(
             if ($sh) {
                 $sh->__virtual  = 1;
                 $sh->is_holiday = 0;
-                $sh->dept       = $dept_slug ?: ($dept_name ?: 'office');
+                $sh->dept_id    = $dept_id;
                 return self::apply_weekly_override( $sh, $ymd, $wpdb );
             }
         }
     }
 
-    // --- 4) Optional fallback by dept slug to keep system usable
-    if ($dept_slug) {
+    // --- 4) Optional fallback by dept_id to keep system usable
+    if ($dept_id) {
         $fb = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT * FROM {$shiftT} WHERE active=1 AND dept=%s ORDER BY id ASC LIMIT 1",
-                $dept_slug
+                "SELECT * FROM {$shiftT} WHERE active=1 AND dept_id=%d ORDER BY id ASC LIMIT 1",
+                $dept_id
             )
         );
         if ($fb) {
@@ -4068,17 +3978,19 @@ private static function apply_weekly_override( ?\stdClass $shift, string $ymd, \
     // Preserve key properties from original shift
     $override_shift->__virtual = $shift->__virtual ?? 0;
     $override_shift->is_holiday = $shift->is_holiday ?? 0;
-    $override_shift->dept = $shift->dept ?? 'office';
+    $override_shift->dept_id = $shift->dept_id ?? null;
 
     return $override_shift;
 }
 
 
-/** Build split segments for Y-m-d from dept + settings. */
-private static function build_segments_for_date_from_dept(string $dept, string $ymd): array {
+/** Build split segments for Y-m-d from dept_id + settings. */
+private static function build_segments_for_date_from_dept( $dept_id_or_slug, string $ymd ): array {
     $settings = get_option(self::OPT_SETTINGS) ?: [];
-    $map = $settings['dept_weekly_segments'][$dept] ?? null;
-    if (!$map) { $map = $settings['dept_weekly_segments']['office'] ?? []; }
+    // Support both dept_id (int) and legacy dept slug (string)
+    $key = is_numeric( $dept_id_or_slug ) ? (int) $dept_id_or_slug : (string) $dept_id_or_slug;
+    $map = $settings['dept_weekly_segments'][ $key ] ?? null;
+    if ( ! $map ) { $map = []; }
 
     // day-of-week as 'sun'..'sat' using site timezone
     $tz = wp_timezone();
