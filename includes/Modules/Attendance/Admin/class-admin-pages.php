@@ -131,10 +131,14 @@ private function get_table_columns( $table ): array {
 
     public function render_settings(): void {
         if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) { wp_die('Access denied'); }
-        $opt = get_option( AttendanceModule::OPT_SETTINGS, [] );
+        global $wpdb;
 
-        $web_allowed = $opt['web_allowed_by_dept'] ?? ['office'=>true,'showroom'=>true,'warehouse'=>false,'factory'=>false];
-        $selfie_req  = $opt['selfie_required_by_dept'] ?? ['office'=>true,'showroom'=>true,'warehouse'=>false,'factory'=>false];
+        $opt = get_option( AttendanceModule::OPT_SETTINGS, [] );
+        $departments = $this->get_departments( $wpdb );
+
+        // Settings stored by department ID
+        $web_allowed = $opt['web_allowed_by_dept_id'] ?? [];
+        $selfie_req  = $opt['selfie_required_by_dept_id'] ?? [];
         $ret_days    = isset($opt['selfie_retention_days']) ? (int)$opt['selfie_retention_days'] : 30;
         $def_round   = $opt['default_rounding_rule'] ?? '5';
         $def_gl      = isset($opt['default_grace_late']) ? (int)$opt['default_grace_late'] : 5;
@@ -142,70 +146,76 @@ private function get_table_columns( $table ): array {
 
         ?>
         <div class="wrap">
-            <h1>Attendance Settings</h1>
+            <h1><?php esc_html_e( 'Attendance Settings', 'sfs-hr' ); ?></h1>
             <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>">
                 <?php wp_nonce_field( 'sfs_hr_att_save_settings' ); ?>
                 <input type="hidden" name="action" value="sfs_hr_att_save_settings"/>
 
-                <h2>Web/Mobile Punch Allowed by Department</h2>
+                <?php if ( ! empty( $departments ) ) : ?>
+                <h2><?php esc_html_e( 'Web/Mobile Punch Allowed by Department', 'sfs-hr' ); ?></h2>
                 <table class="form-table">
-                    <?php foreach (['office','showroom','warehouse','factory'] as $dept): ?>
+                    <?php foreach ( $departments as $dept ) : ?>
                     <tr>
-                        <th><?php echo esc_html( ucfirst($dept) ); ?></th>
+                        <th><?php echo esc_html( $dept['name'] ); ?></th>
                         <td>
                             <label>
-                                <input type="checkbox" name="web_allowed_by_dept[<?php echo esc_attr($dept); ?>]" value="1" <?php checked( !empty($web_allowed[$dept]) ); ?>/>
-                                Allow web/mobile punches
+                                <input type="checkbox" name="web_allowed_by_dept_id[<?php echo esc_attr( $dept['id'] ); ?>]" value="1" <?php checked( ! empty( $web_allowed[ $dept['id'] ] ) ); ?>/>
+                                <?php esc_html_e( 'Allow web/mobile punches', 'sfs-hr' ); ?>
                             </label>
                         </td>
                     </tr>
                     <?php endforeach; ?>
                 </table>
 
-                <h2>Selfie Required by Department</h2>
+                <h2><?php esc_html_e( 'Selfie Required by Department', 'sfs-hr' ); ?></h2>
                 <table class="form-table">
-                    <?php foreach (['office','showroom','warehouse','factory'] as $dept): ?>
+                    <?php foreach ( $departments as $dept ) : ?>
                     <tr>
-                        <th><?php echo esc_html( ucfirst($dept) ); ?></th>
+                        <th><?php echo esc_html( $dept['name'] ); ?></th>
                         <td>
                             <label>
-                                <input type="checkbox" name="selfie_required_by_dept[<?php echo esc_attr($dept); ?>]" value="1" <?php checked( !empty($selfie_req[$dept]) ); ?>/>
-                                Require selfie on punch
+                                <input type="checkbox" name="selfie_required_by_dept_id[<?php echo esc_attr( $dept['id'] ); ?>]" value="1" <?php checked( ! empty( $selfie_req[ $dept['id'] ] ) ); ?>/>
+                                <?php esc_html_e( 'Require selfie on punch', 'sfs-hr' ); ?>
                             </label>
                         </td>
                     </tr>
                     <?php endforeach; ?>
                 </table>
+                <?php else : ?>
+                <div class="notice notice-warning">
+                    <p><?php esc_html_e( 'No departments found. Please create departments first in HR → Departments.', 'sfs-hr' ); ?></p>
+                </div>
+                <?php endif; ?>
 
-                <h2>Retention & Defaults</h2>
+                <h2><?php esc_html_e( 'Retention & Defaults', 'sfs-hr' ); ?></h2>
                 <table class="form-table">
                     <tr>
-                        <th>Selfie retention (days)</th>
+                        <th><?php esc_html_e( 'Selfie retention (days)', 'sfs-hr' ); ?></th>
                         <td><input type="number" name="selfie_retention_days" min="1" step="1" value="<?php echo esc_attr($ret_days); ?>"/></td>
                     </tr>
                     <tr>
-                        <th>Default rounding (nearest minutes)</th>
+                        <th><?php esc_html_e( 'Default rounding (nearest minutes)', 'sfs-hr' ); ?></th>
                         <td>
                             <select name="default_rounding_rule">
                                 <?php foreach (['none','5','10','15'] as $r): ?>
                                     <option value="<?php echo esc_attr($r); ?>" <?php selected($def_round,$r); ?>><?php echo esc_html($r); ?></option>
                                 <?php endforeach; ?>
                             </select>
-                            <p class="description">Rounding = snap worked minutes to nearest N for payroll.</p>
+                            <p class="description"><?php esc_html_e( 'Rounding = snap worked minutes to nearest N for payroll.', 'sfs-hr' ); ?></p>
                         </td>
                     </tr>
                     <tr>
-                        <th>Default grace (late / early-leave)</th>
+                        <th><?php esc_html_e( 'Default grace (late / early-leave)', 'sfs-hr' ); ?></th>
                         <td>
-                            <input type="number" min="0" step="1" name="default_grace_late"  value="<?php echo esc_attr($def_gl); ?>" style="width:80px"/> min
+                            <input type="number" min="0" step="1" name="default_grace_late"  value="<?php echo esc_attr($def_gl); ?>" style="width:80px"/> <?php esc_html_e( 'min', 'sfs-hr' ); ?>
                             /
-                            <input type="number" min="0" step="1" name="default_grace_early" value="<?php echo esc_attr($def_ge); ?>" style="width:80px"/> min
-                            <p class="description">Grace = tolerance before flagging late/early.</p>
+                            <input type="number" min="0" step="1" name="default_grace_early" value="<?php echo esc_attr($def_ge); ?>" style="width:80px"/> <?php esc_html_e( 'min', 'sfs-hr' ); ?>
+                            <p class="description"><?php esc_html_e( 'Grace = tolerance before flagging late/early.', 'sfs-hr' ); ?></p>
                         </td>
                     </tr>
                 </table>
 
-                <?php submit_button('Save Settings'); ?>
+                <?php submit_button( __( 'Save Settings', 'sfs-hr' ) ); ?>
             </form>
         </div>
         <?php
@@ -277,23 +287,29 @@ public function render_attendance_hub(): void {
         if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) { wp_die('Access denied'); }
         check_admin_referer( 'sfs_hr_att_save_settings' );
 
+        // Process department settings dynamically by ID
+        $web_allowed_by_dept_id = [];
+        $selfie_required_by_dept_id = [];
+
+        if ( ! empty( $_POST['web_allowed_by_dept_id'] ) && is_array( $_POST['web_allowed_by_dept_id'] ) ) {
+            foreach ( $_POST['web_allowed_by_dept_id'] as $dept_id => $val ) {
+                $web_allowed_by_dept_id[ (int) $dept_id ] = ! empty( $val );
+            }
+        }
+
+        if ( ! empty( $_POST['selfie_required_by_dept_id'] ) && is_array( $_POST['selfie_required_by_dept_id'] ) ) {
+            foreach ( $_POST['selfie_required_by_dept_id'] as $dept_id => $val ) {
+                $selfie_required_by_dept_id[ (int) $dept_id ] = ! empty( $val );
+            }
+        }
+
         $input = [
-            'web_allowed_by_dept' => [
-                'office'    => !empty($_POST['web_allowed_by_dept']['office']),
-                'showroom'  => !empty($_POST['web_allowed_by_dept']['showroom']),
-                'warehouse' => !empty($_POST['web_allowed_by_dept']['warehouse']),
-                'factory'   => !empty($_POST['web_allowed_by_dept']['factory']),
-            ],
-            'selfie_required_by_dept' => [
-                'office'    => !empty($_POST['selfie_required_by_dept']['office']),
-                'showroom'  => !empty($_POST['selfie_required_by_dept']['showroom']),
-                'warehouse' => !empty($_POST['selfie_required_by_dept']['warehouse']),
-                'factory'   => !empty($_POST['selfie_required_by_dept']['factory']),
-            ],
-            'selfie_retention_days' => max(1, (int)($_POST['selfie_retention_days'] ?? 30)),
-            'default_rounding_rule' => in_array(($_POST['default_rounding_rule'] ?? '5'), ['none','5','10','15'], true) ? $_POST['default_rounding_rule'] : '5',
-            'default_grace_late'    => max(0, (int)($_POST['default_grace_late'] ?? 5)),
-            'default_grace_early'   => max(0, (int)($_POST['default_grace_early'] ?? 5)),
+            'web_allowed_by_dept_id'     => $web_allowed_by_dept_id,
+            'selfie_required_by_dept_id' => $selfie_required_by_dept_id,
+            'selfie_retention_days'      => max( 1, (int) ( $_POST['selfie_retention_days'] ?? 30 ) ),
+            'default_rounding_rule'      => in_array( ( $_POST['default_rounding_rule'] ?? '5' ), [ 'none', '5', '10', '15' ], true ) ? $_POST['default_rounding_rule'] : '5',
+            'default_grace_late'         => max( 0, (int) ( $_POST['default_grace_late'] ?? 5 ) ),
+            'default_grace_early'        => max( 0, (int) ( $_POST['default_grace_early'] ?? 5 ) ),
         ];
 
         $existing = get_option( AttendanceModule::OPT_SETTINGS, [] );

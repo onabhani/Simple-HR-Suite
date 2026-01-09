@@ -502,11 +502,18 @@ if ( $last_attempt && is_array( $last_attempt ) ) {
 
     // ---- Department self-punch policy (web/mobile only; kiosk allowed regardless)
     if ( $source !== 'kiosk' ) {
-        $opt         = get_option( \SFS\HR\Modules\Attendance\AttendanceModule::OPT_SETTINGS, [] );
-        $web_allowed = $opt['web_allowed_by_dept'] ?? [ 'office' => true, 'showroom' => true, 'warehouse' => false, 'factory' => false ];
-        $dept        = (string) ( $assign->dept ?? 'office' );
-        if ( empty( $web_allowed[ $dept ] ) ) {
-            return new \WP_Error( 'blocked', 'Self punching not allowed for this department. Use kiosk.', [ 'status' => 403 ] );
+        $opt = get_option( \SFS\HR\Modules\Attendance\AttendanceModule::OPT_SETTINGS, [] );
+
+        // Get employee's department ID
+        $empT    = $wpdb->prefix . 'sfs_hr_employees';
+        $emp_row = $wpdb->get_row( $wpdb->prepare( "SELECT dept_id FROM {$empT} WHERE id = %d", $emp ) );
+        $dept_id = $emp_row && ! empty( $emp_row->dept_id ) ? (int) $emp_row->dept_id : 0;
+
+        // Check by department ID (new system)
+        // If no settings configured yet, allow all by default
+        $web_allowed_by_id = $opt['web_allowed_by_dept_id'] ?? [];
+        if ( ! empty( $web_allowed_by_id ) && $dept_id > 0 && empty( $web_allowed_by_id[ $dept_id ] ) ) {
+            return new \WP_Error( 'blocked', __( 'Self punching not allowed for this department. Use kiosk.', 'sfs-hr' ), [ 'status' => 403 ] );
         }
     }
 
