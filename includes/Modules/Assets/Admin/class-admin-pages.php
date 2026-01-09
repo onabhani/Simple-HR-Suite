@@ -1593,8 +1593,23 @@ class Admin_Pages {
             return trim(preg_replace('/[\x00-\x1F\x7F]/u', '', $h));
         }, $header);
 
+        // Define allowed columns for import (exclude id, qr_code_path, timestamps)
+        $allowed_columns = [
+            'asset_code', 'name', 'category', 'department', 'serial_number',
+            'model', 'purchase_year', 'purchase_price', 'warranty_expiry',
+            'invoice_number', 'invoice_date', 'invoice_file', 'status',
+            'condition', 'notes'
+        ];
+
+        $imported_count = 0;
+
         while ( ( $row = fgetcsv($handle) ) !== false ) {
             if ( count($row) === 1 && $row[0] === '' ) {
+                continue;
+            }
+
+            // Handle row/header count mismatch
+            if ( count($row) !== count($header) ) {
                 continue;
             }
 
@@ -1617,8 +1632,13 @@ class Admin_Pages {
                 continue;
             }
 
-            // We **never** trust CSV for created_at / updated_at
-            unset( $data['created_at'], $data['updated_at'] );
+            // Filter to only allowed columns
+            $clean_data = [];
+            foreach ( $allowed_columns as $col ) {
+                if ( isset($data[$col]) ) {
+                    $clean_data[$col] = sanitize_text_field($data[$col]);
+                }
+            }
 
             // Upsert by asset_code
             $existing_id = $wpdb->get_var(
@@ -1629,23 +1649,25 @@ class Admin_Pages {
 
             if ( $existing_id ) {
                 // Existing asset: KEEP old created_at, only bump updated_at
-                $data['updated_at'] = $now;
+                $clean_data['updated_at'] = $now;
 
                 $wpdb->update(
                     $table,
-                    $data,
+                    $clean_data,
                     [ 'id' => (int) $existing_id ]
                 );
             } else {
-                // New asset: created_at = now, updated_at = now (ignore CSV values)
-                $data['created_at'] = $now;
-                $data['updated_at'] = $now;
+                // New asset: created_at = now, updated_at = now
+                $clean_data['created_at'] = $now;
+                $clean_data['updated_at'] = $now;
 
                 $wpdb->insert(
                     $table,
-                    $data
+                    $clean_data
                 );
             }
+
+            $imported_count++;
         }
 
         fclose($handle);

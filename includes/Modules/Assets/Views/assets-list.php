@@ -252,13 +252,16 @@ $total_count = count( $display_rows );
     margin: 0;
 }
 .sfs-hr-asset-modal-close {
-    background: none;
+    background: #f6f7f7;
     border: none;
-    font-size: 24px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
     cursor: pointer;
-    color: #50575e;
-    padding: 0;
-    line-height: 1;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 .sfs-hr-asset-details-list {
     list-style: none;
@@ -317,6 +320,22 @@ $total_count = count( $display_rows );
 .sfs-hr-asset-status.status-lost { background: #fee2e2; color: #991b1b; }
 .sfs-hr-asset-status.status-in_use { background: #dbeafe; color: #1e40af; }
 
+/* Action Button */
+.sfs-hr-action-btn {
+    background: #f6f7f7;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    transition: all 0.15s ease;
+}
+.sfs-hr-action-btn:hover {
+    background: #fff;
+    border-color: #2271b1;
+}
+
 /* Mobile responsive */
 @media (max-width: 782px) {
     .sfs-hr-assets-toolbar {
@@ -345,20 +364,29 @@ $total_count = count( $display_rows );
         margin-bottom: 4px;
     }
 
-    /* Hide columns on mobile - only show Name, Status, Actions */
-    .sfs-hr-assets-table .widefat thead th.hide-mobile,
-    .sfs-hr-assets-table .widefat tbody td.hide-mobile {
+    /* Hide columns on mobile */
+    .hide-mobile {
         display: none !important;
+    }
+
+    /* Show mobile-only columns */
+    .show-mobile {
+        display: table-cell !important;
     }
 
     .sfs-hr-assets-table .widefat th,
     .sfs-hr-assets-table .widefat td {
-        padding: 10px 12px;
+        padding: 12px;
     }
 
-    /* Show mobile button */
+    /* Mobile button always visible on mobile */
     .sfs-hr-asset-mobile-btn {
         display: inline-flex;
+    }
+}
+@media (min-width: 783px) {
+    .show-mobile {
+        display: none !important;
     }
 }
 </style>
@@ -526,7 +554,7 @@ if ( isset( $_GET['import_error'] ) ) {
                     <th class="hide-mobile"><?php esc_html_e('Assignee', 'sfs-hr'); ?></th>
                     <th><?php esc_html_e('Status', 'sfs-hr'); ?></th>
                     <th class="hide-mobile"><?php esc_html_e('Condition', 'sfs-hr'); ?></th>
-                    <th style="width:60px;"></th>
+                    <th class="show-mobile" style="width:50px;"></th>
                 </tr>
             </thead>
             <tbody>
@@ -581,10 +609,8 @@ if ( isset( $_GET['import_error'] ) ) {
                             </span>
                         </td>
                         <td class="hide-mobile"><?php echo esc_html( $condition_label ); ?></td>
-                        <td>
-                            <button type="button" class="sfs-hr-asset-mobile-btn" onclick="sfsHrOpenAssetModal('<?php echo esc_js( $row->name ); ?>', '<?php echo esc_js( $row->asset_code ); ?>', '<?php echo esc_js( $row->category ); ?>', '<?php echo esc_js( $row->department ); ?>', '<?php echo esc_js( $assignee_name ); ?>', '<?php echo esc_js( $status_label ); ?>', '<?php echo esc_js( $condition_label ); ?>', '<?php echo esc_js( $edit_url ); ?>')">
-                                <span class="dashicons dashicons-ellipsis"></span>
-                            </button>
+                        <td class="show-mobile">
+                            <button type="button" class="sfs-hr-action-btn" onclick="sfsHrOpenAssetModal('<?php echo esc_js( $row->name ); ?>', '<?php echo esc_js( $row->asset_code ); ?>', '<?php echo esc_js( $row->category ); ?>', '<?php echo esc_js( $row->department ); ?>', '<?php echo esc_js( $assignee_name ); ?>', '<?php echo esc_js( $status_label ); ?>', '<?php echo esc_js( $condition_label ); ?>', '<?php echo esc_js( $edit_url ); ?>')">&#8942;</button>
                         </td>
                     </tr>
                 <?php endforeach; ?>
