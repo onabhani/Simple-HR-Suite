@@ -643,13 +643,17 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
         'action'    => $punch_type,
     ], 15 );
 
-    // ---- FINAL DUPLICATE CHECK: Prevent exact duplicate within last 10 seconds
+    // ---- Define variables needed for duplicate check and insert
+    $nowUtc = current_time( 'mysql', true );
+    $punchT = $wpdb->prefix . 'sfs_hr_attendance_punches';
+
+    // ---- FINAL DUPLICATE CHECK: Prevent exact duplicate within last 30 seconds
     // This catches race conditions where multiple requests arrive simultaneously
     $duplicate_check = $wpdb->get_row( $wpdb->prepare(
         "SELECT id, punch_time FROM {$punchT}
          WHERE employee_id = %d
            AND punch_type = %s
-           AND punch_time >= DATE_SUB(%s, INTERVAL 10 SECOND)
+           AND punch_time >= DATE_SUB(%s, INTERVAL 30 SECOND)
          ORDER BY punch_time DESC
          LIMIT 1",
         (int) $emp,
@@ -667,8 +671,6 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
     }
 
     // ---- Insert immutable punch
-    $nowUtc = current_time( 'mysql', true );
-    $punchT = $wpdb->prefix . 'sfs_hr_attendance_punches';
 
     $wpdb->insert( $punchT, [
         'employee_id'     => (int) $emp,
