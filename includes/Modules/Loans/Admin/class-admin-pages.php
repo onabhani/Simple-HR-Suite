@@ -75,8 +75,9 @@ class AdminPages {
         $tab = $_GET['tab'] ?? 'loans';
 
         ?>
-        <div class="wrap">
+        <div class="wrap sfs-hr-wrap">
             <h1><?php esc_html_e( 'Loans Management', 'sfs-hr' ); ?></h1>
+            <?php \SFS\HR\Core\Helpers::render_admin_nav(); ?>
 
             <nav class="nav-tab-wrapper">
                 <a href="?page=sfs-hr-loans&tab=loans"

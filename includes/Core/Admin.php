@@ -283,6 +283,7 @@ class Admin {
     }
 
     echo '<div class="wrap sfs-hr-wrap">';
+    echo '<h1>' . esc_html__( 'HR Dashboard', 'sfs-hr' ) . '</h1>';
 
     echo '<hr class="wp-header-end" />';
 

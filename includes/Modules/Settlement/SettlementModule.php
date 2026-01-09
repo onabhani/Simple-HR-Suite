@@ -86,7 +86,6 @@ class SettlementModule {
         $params_all = array_merge($params, [$pp, $offset]);
         $rows = $wpdb->get_results($wpdb->prepare($sql, ...$params_all), ARRAY_A);
 
-        Helpers::render_admin_nav();
         ?>
         <style>
           /* Settlement Page Styles */
@@ -451,8 +450,9 @@ class SettlementModule {
         });
         </script>
 
-        <div class="wrap">
+        <div class="wrap sfs-hr-wrap">
             <h1 class="wp-heading-inline"><?php esc_html_e('End of Service Settlements', 'sfs-hr'); ?></h1>
+            <?php Helpers::render_admin_nav(); ?>
 
             <div class="sfs-hr-settlement-toolbar">
                 <ul class="sfs-hr-settlement-tabs">
@@ -568,10 +568,10 @@ class SettlementModule {
 
         $pending_resignations = $wpdb->get_results($sql, ARRAY_A);
 
-        Helpers::render_admin_nav();
         ?>
-        <div class="wrap">
+        <div class="wrap sfs-hr-wrap">
             <h1><?php esc_html_e('Create Settlement', 'sfs-hr'); ?></h1>
+            <?php Helpers::render_admin_nav(); ?>
 
             <?php if (empty($pending_resignations)): ?>
                 <div class="notice notice-info">
@@ -787,10 +787,10 @@ class SettlementModule {
             wp_die(__('Settlement not found.', 'sfs-hr'));
         }
 
-        Helpers::render_admin_nav();
         ?>
-        <div class="wrap">
+        <div class="wrap sfs-hr-wrap">
             <h1><?php esc_html_e('Settlement Details', 'sfs-hr'); ?> #<?php echo esc_html($settlement['id']); ?></h1>
+            <?php Helpers::render_admin_nav(); ?>
 
             <div style="background:#fff;padding:20px;border:1px solid #ddd;margin-top:20px;">
                 <h2><?php esc_html_e('Employee Information', 'sfs-hr'); ?></h2>

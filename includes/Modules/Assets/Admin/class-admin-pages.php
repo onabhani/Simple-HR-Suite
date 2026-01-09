@@ -64,8 +64,9 @@ class Admin_Pages {
         $view = isset($_GET['view']) ? sanitize_key($_GET['view']) : 'list';
 
         ?>
-        <div class="wrap">
+        <div class="wrap sfs-hr-wrap">
             <h1><?php esc_html_e('Assets', 'sfs-hr'); ?></h1>
+            <?php \SFS\HR\Core\Helpers::render_admin_nav(); ?>
 
             <h2 class="nav-tab-wrapper">
                 <?php
