@@ -586,6 +586,155 @@ echo '</a>';
     echo '</a>';
 
     echo '</div>'; // .sfs-hr-dashboard-grid
+
+    // === QUICK ACCESS NAVIGATION SECTION ===
+    echo '<style>
+        .sfs-hr-wrap .sfs-hr-quick-access-section {
+            margin-top: 32px;
+        }
+        .sfs-hr-wrap .sfs-hr-quick-access-section h2 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1d2327;
+            margin: 0 0 16px 0;
+            padding: 0;
+        }
+        .sfs-hr-wrap .sfs-hr-quick-access-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+            margin-right: 16px;
+        }
+        .sfs-hr-wrap .sfs-hr-nav-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #fff;
+            border: 1px solid #dcdcde;
+            border-radius: 8px;
+            padding: 14px 16px;
+            text-decoration: none;
+            color: #1d2327;
+            transition: all 0.15s ease;
+        }
+        .sfs-hr-wrap .sfs-hr-nav-card:hover {
+            border-color: #2271b1;
+            box-shadow: 0 2px 8px rgba(34, 113, 177, 0.15);
+            transform: translateY(-1px);
+        }
+        .sfs-hr-wrap .sfs-hr-nav-card .dashicons {
+            font-size: 24px;
+            width: 24px;
+            height: 24px;
+            color: #2271b1;
+        }
+        .sfs-hr-wrap .sfs-hr-nav-card span {
+            font-size: 13px;
+            font-weight: 500;
+        }
+        @media (max-width: 782px) {
+            .sfs-hr-wrap .sfs-hr-quick-access-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>';
+
+    echo '<div class="sfs-hr-quick-access-section">';
+    echo '<h2>' . esc_html__( 'Quick Access', 'sfs-hr' ) . '</h2>';
+    echo '<div class="sfs-hr-quick-access-grid">';
+
+    // Define navigation items with their pages, icons, and labels
+    $nav_items = [
+        [
+            'page'  => 'sfs-hr-employees',
+            'icon'  => 'dashicons-id-alt',
+            'label' => __( 'Employees', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.manage',
+        ],
+        [
+            'page'  => 'sfs-hr-departments',
+            'icon'  => 'dashicons-networking',
+            'label' => __( 'Departments', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.view',
+        ],
+        [
+            'page'  => 'sfs-hr-leave',
+            'icon'  => 'dashicons-calendar-alt',
+            'label' => __( 'Leave', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.view',
+        ],
+        [
+            'page'  => 'sfs-hr-leave-requests',
+            'icon'  => 'dashicons-clipboard',
+            'label' => __( 'Leave Requests', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.manage',
+        ],
+        [
+            'page'  => 'sfs_hr_attendance',
+            'icon'  => 'dashicons-clock',
+            'label' => __( 'Attendance', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.view',
+        ],
+        [
+            'page'  => 'sfs-hr-workforce-status',
+            'icon'  => 'dashicons-chart-area',
+            'label' => __( 'Workforce Status', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.view',
+        ],
+        [
+            'page'  => 'sfs-hr-loans',
+            'icon'  => 'dashicons-money-alt',
+            'label' => __( 'Loans', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.view',
+        ],
+        [
+            'page'  => 'sfs-hr-assets',
+            'icon'  => 'dashicons-laptop',
+            'label' => __( 'Assets', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.view',
+        ],
+        [
+            'page'  => 'sfs-hr-resignations',
+            'icon'  => 'dashicons-exit',
+            'label' => __( 'Resignations', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.view',
+        ],
+        [
+            'page'  => 'sfs-hr-settlements',
+            'icon'  => 'dashicons-calculator',
+            'label' => __( 'Settlements', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.manage',
+        ],
+        [
+            'page'  => 'sfs-hr-my-profile',
+            'icon'  => 'dashicons-admin-users',
+            'label' => __( 'My Profile', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.view',
+        ],
+        [
+            'page'  => 'sfs-hr-my-team',
+            'icon'  => 'dashicons-groups',
+            'label' => __( 'My Team', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.leave.review',
+        ],
+    ];
+
+    foreach ( $nav_items as $item ) {
+        // Skip if user doesn't have the required capability
+        if ( ! current_user_can( $item['cap'] ) ) {
+            continue;
+        }
+
+        $url = admin_url( 'admin.php?page=' . $item['page'] );
+        echo '<a class="sfs-hr-nav-card" href="' . esc_url( $url ) . '">';
+        echo '<span class="dashicons ' . esc_attr( $item['icon'] ) . '"></span>';
+        echo '<span>' . esc_html( $item['label'] ) . '</span>';
+        echo '</a>';
+    }
+
+    echo '</div>'; // .sfs-hr-quick-access-grid
+    echo '</div>'; // .sfs-hr-quick-access-section
+
     echo '</div>'; // .wrap
 }
 
