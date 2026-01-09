@@ -108,11 +108,14 @@ private function get_departments( \wpdb $wpdb ): array {
 
 private function get_active_shifts_indexed( $wpdb ): array {
     $t = $wpdb->prefix . 'sfs_hr_attendance_shifts';
-    $rows = $wpdb->get_results( "SELECT id, name, dept, location_label, start_time, end_time FROM {$t} WHERE active=1 ORDER BY dept,name", ARRAY_A ) ?: [];
-    $out = ['office'=>[], 'showroom'=>[], 'warehouse'=>[], 'factory'=>[]];
+    $rows = $wpdb->get_results( "SELECT id, name, dept_id, location_label, start_time, end_time FROM {$t} WHERE active=1 ORDER BY dept_id, name", ARRAY_A ) ?: [];
+    $out = [];
     foreach ( $rows as $r ) {
-        $key = in_array($r['dept'], ['office','showroom','warehouse','factory'], true) ? $r['dept'] : 'office';
-        $out[$key][] = $r;
+        $dept_id = (int) ( $r['dept_id'] ?? 0 );
+        if ( ! isset( $out[ $dept_id ] ) ) {
+            $out[ $dept_id ] = [];
+        }
+        $out[ $dept_id ][] = $r;
     }
     return $out;
 }
@@ -552,19 +555,20 @@ public function render_shifts(): void {
                 </tr>
 
                 <tr>
-                    <th>Department</th>
+                    <th><?php esc_html_e( 'Department', 'sfs-hr' ); ?></th>
                     <td>
-                        <select name="dept" required>
+                        <select name="dept_id" required>
                             <?php
-                            $current_dept = (string) ( $editing->dept ?? '' );
+                            $current_dept_id = (int) ( $editing->dept_id ?? 0 );
                             if ( empty( $dept_list ) ) : ?>
                                 <option value="">
                                     <?php esc_html_e( 'No departments defined', 'sfs-hr' ); ?>
                                 </option>
                             <?php else : ?>
-                                <?php foreach ( $dept_list as $slug => $dept ) : ?>
-                                    <option value="<?php echo esc_attr( $slug ); ?>"
-                                        <?php selected( $current_dept, $slug ); ?>>
+                                <option value=""><?php esc_html_e( '— Select Department —', 'sfs-hr' ); ?></option>
+                                <?php foreach ( $dept_list as $dept ) : ?>
+                                    <option value="<?php echo esc_attr( $dept['id'] ); ?>"
+                                        <?php selected( $current_dept_id, $dept['id'] ); ?>>
                                         <?php echo esc_html( $dept['name'] ); ?>
                                     </option>
                                 <?php endforeach; ?>
@@ -801,9 +805,9 @@ public function render_shifts(): void {
 
     global $wpdb; $t = $wpdb->prefix . 'sfs_hr_attendance_shifts';
 
-    $id   = isset($_POST['id']) ? (int)$_POST['id'] : 0;
-    $name = sanitize_text_field( $_POST['name'] ?? '' );
-    $dept = in_array( $_POST['dept'] ?? '', ['office','showroom','warehouse','factory'], true ) ? $_POST['dept'] : 'office';
+    $id      = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+    $name    = sanitize_text_field( $_POST['name'] ?? '' );
+    $dept_id = isset($_POST['dept_id']) ? (int)$_POST['dept_id'] : 0;
 
     $loc_label = sanitize_text_field( $_POST['location_label'] ?? '' );
     $lat = is_numeric($_POST['location_lat'] ?? null) ? (float)$_POST['location_lat'] : null;
@@ -881,7 +885,7 @@ $end   = $norm_time($_POST['end_time']   ?? '');
         'overtime_after_minutes'   => $ot_thr,
         'require_selfie'           => $selfie,
         'active'                   => $active,
-        'dept'                     => $dept,
+        'dept_id'                  => $dept_id > 0 ? $dept_id : null,
         'notes'                    => $notes,
         'weekly_overrides'         => $weekly_override_json,
     ];

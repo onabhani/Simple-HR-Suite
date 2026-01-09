@@ -2967,13 +2967,24 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
             overtime_after_minutes SMALLINT UNSIGNED NULL,
             require_selfie TINYINT(1) NOT NULL DEFAULT 0,
             active TINYINT(1) NOT NULL DEFAULT 1,
-            dept VARCHAR(100) NOT NULL COMMENT 'Department slug from departments table or legacy values',
+            dept_id BIGINT UNSIGNED NULL COMMENT 'References sfs_hr_departments.id',
             notes TEXT NULL,
             weekly_overrides TEXT NULL,
             PRIMARY KEY (id),
-            KEY active_dept (active, dept),
-            KEY dept (dept)
+            KEY active_dept_id (active, dept_id),
+            KEY dept_id (dept_id)
         ) $charset_collate;");
+
+        // Migration: Add dept_id column if missing (for existing installations)
+        $shifts_table = "{$p}sfs_hr_attendance_shifts";
+        $col_exists = $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'dept_id'",
+            $shifts_table
+        ) );
+        if ( ! $col_exists ) {
+            $wpdb->query( "ALTER TABLE {$shifts_table} ADD COLUMN dept_id BIGINT UNSIGNED NULL AFTER active" );
+            $wpdb->query( "ALTER TABLE {$shifts_table} ADD KEY dept_id (dept_id)" );
+        }
 
                 // 4) daily assignments (rota)
         dbDelta("CREATE TABLE {$p}sfs_hr_attendance_shift_assign (
@@ -3013,7 +3024,7 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
             geo_lock_lat DECIMAL(10,7) NULL,
             geo_lock_lng DECIMAL(10,7) NULL,
             geo_lock_radius_m SMALLINT UNSIGNED NULL,
-            allowed_dept VARCHAR(100) NOT NULL DEFAULT 'any' COMMENT 'Department slug or any for all',
+            allowed_dept_id BIGINT UNSIGNED NULL COMMENT 'References sfs_hr_departments.id, NULL means all departments',
             fingerprint_hash VARCHAR(64) NULL,
             active TINYINT(1) NOT NULL DEFAULT 1,
             meta_json LONGTEXT NULL,
@@ -3022,7 +3033,8 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
             PRIMARY KEY (id),
             KEY active_type (active, type),
             KEY fp (fingerprint_hash),
-            KEY kiosk_enabled (kiosk_enabled)
+            KEY kiosk_enabled (kiosk_enabled),
+            KEY allowed_dept_id (allowed_dept_id)
         ) $charset_collate;");
 
 
@@ -3033,7 +3045,7 @@ self::add_column_if_missing($wpdb, $t, 'kiosk_offline',     "kiosk_offline TINYI
 self::add_column_if_missing($wpdb, $t, 'geo_lock_lat',      "geo_lock_lat DECIMAL(10,7) NULL");
 self::add_column_if_missing($wpdb, $t, 'geo_lock_lng',      "geo_lock_lng DECIMAL(10,7) NULL");
 self::add_column_if_missing($wpdb, $t, 'geo_lock_radius_m', "geo_lock_radius_m SMALLINT UNSIGNED NULL");
-self::add_column_if_missing($wpdb, $t, 'allowed_dept',      "allowed_dept VARCHAR(100) NOT NULL DEFAULT 'any'");
+self::add_column_if_missing($wpdb, $t, 'allowed_dept_id',   "allowed_dept_id BIGINT UNSIGNED NULL");
 self::add_column_if_missing($wpdb, $t, 'active',            "active TINYINT(1) NOT NULL DEFAULT 1");
 self::add_column_if_missing($wpdb, $t, 'qr_enabled',        "qr_enabled TINYINT(1) NOT NULL DEFAULT 1");
 self::add_column_if_missing($wpdb, $t, 'selfie_mode',       "selfie_mode ENUM('inherit','never','in_only','in_out','all') NOT NULL DEFAULT 'inherit'");
@@ -4096,21 +4108,22 @@ private static function build_segments_for_date_from_dept(string $dept, string $
 /** Return selfie mode resolved by precedence; true/false for “require this punch now?” decision is made in REST. */
 // In class \SFS\HR\Modules\Attendance\AttendanceModule
 
-public static function selfie_mode_for( int $employee_id, string $dept, array $ctx = [] ): string {
+public static function selfie_mode_for( int $employee_id, $dept_id, array $ctx = [] ): string {
     // Global options
     $opt    = get_option( self::OPT_SETTINGS, [] );
     $policy = is_array( $opt ) ? ( $opt['selfie_policy'] ?? [] ) : [];
 
     $default_mode = $policy['default'] ?? 'optional'; // optional | never | in_only | in_out | all
-    $dept_modes   = $policy['by_dept'] ?? [];
+    $dept_modes   = $policy['by_dept_id'] ?? [];
     $emp_modes    = $policy['by_employee'] ?? [];
 
     // 1) Base: default
     $mode = $default_mode;
 
-    // 2) Department override
-    if ( $dept !== '' && ! empty( $dept_modes[ $dept ] ) ) {
-        $mode = (string) $dept_modes[ $dept ];
+    // 2) Department override by ID
+    $dept_id = (int) $dept_id;
+    if ( $dept_id > 0 && ! empty( $dept_modes[ $dept_id ] ) ) {
+        $mode = (string) $dept_modes[ $dept_id ];
     }
 
     // 3) Per-employee override (if you ever use it)

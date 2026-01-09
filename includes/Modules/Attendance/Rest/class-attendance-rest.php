@@ -307,10 +307,10 @@ public static function status( \WP_REST_Request $req ) {
                 $snap  = self::snapshot_for_today( (int) $emp );
                 $today = wp_date( 'Y-m-d' );
                 $shift = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $emp, $today );
-$dept  = $shift && ! empty( $shift->dept ) ? (string) $shift->dept : 'office';
+$dept_id = $shift && ! empty( $shift->dept_id ) ? (int) $shift->dept_id : 0;
 
 $resp = array_merge( $resp, $snap, [
-    'dept'     => $dept,
+    'dept_id'  => $dept_id,
     'employee' => [ 'id' => (int) $emp ],
 ] );
 
@@ -319,7 +319,7 @@ $shift_requires = $shift && ! empty( $shift->require_selfie );
 
 $mode_now = \SFS\HR\Modules\Attendance\AttendanceModule::selfie_mode_for(
     (int) $emp,
-    $dept,
+    $dept_id,
     [
         'device_id'      => $device_id ?: null,
         'shift_requires' => $shift_requires,
@@ -550,12 +550,12 @@ if ( $device_id > 0 ) {
     }
 }
 
-$dept = (string) ( $assign->dept ?? 'office' );
+$dept_id = (int) ( $assign->dept_id ?? 0 );
 
 // مصدر واحد للحقيقة
 $mode = \SFS\HR\Modules\Attendance\AttendanceModule::selfie_mode_for(
     (int) $emp,
-    $dept,
+    $dept_id,
     [
         'device_id'      => $device_id ?: null,
         'shift_requires' => ((int) $assign->require_selfie === 1),
@@ -741,12 +741,12 @@ if ( $selfie_media_id ) {
     $snap  = self::snapshot_for_today( (int) $emp );
     $today = wp_date( 'Y-m-d' );
     $shift = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $emp, $today );
-    $dept  = $shift && ! empty( $shift->dept ) ? (string) $shift->dept : 'office';
+    $dept_id = $shift && ! empty( $shift->dept_id ) ? (int) $shift->dept_id : 0;
 
     // نحسب المود / إلزامية السيلفي "للنقطة التالية" بنفس منطق /status
     $mode_next = \SFS\HR\Modules\Attendance\AttendanceModule::selfie_mode_for(
         (int) $emp,
-        $dept,
+        $dept_id,
         [
             'device_id' => $device_id ?: null,
         ]
@@ -756,7 +756,7 @@ if ( $selfie_media_id ) {
     $resp = array_merge( $snap, [
         'selfie_mode'     => $mode_next,
         'requires_selfie' => (bool) $requires_selfie_next,
-        'dept'            => $dept,
+        'dept_id'         => $dept_id,
     ] );
 
     if ( $selfie_media_id ) {
