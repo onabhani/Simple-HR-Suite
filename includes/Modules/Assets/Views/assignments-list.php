@@ -353,10 +353,14 @@ $employee_filter = isset( $_GET['emp'] ) ? (int) $_GET['emp'] : 0;
                     if ( $approve_selfie_id ) {
                         $selfie_url = wp_get_attachment_image_url( $approve_selfie_id, 'thumbnail' );
                         $selfie_full = wp_get_attachment_url( $approve_selfie_id );
+                        // Fall back to full URL if thumbnail not available
+                        if ( ! $selfie_url && $selfie_full ) {
+                            $selfie_url = $selfie_full;
+                        }
                         if ( $selfie_url ) {
                             echo sprintf(
                                 '<a href="%1$s" target="_blank" rel="noopener noreferrer"><img src="%2$s" class="sfs-hr-asset-photo-thumb sfs-hr-asset-photo-thumb--selfie" style="width:28px;height:28px;border-radius:999px;object-fit:cover;display:inline-block;" alt="%3$s" /></a>',
-                                esc_url( $selfie_full ),
+                                esc_url( $selfie_full ?: $selfie_url ),
                                 esc_url( $selfie_url ),
                                 esc_attr__( 'Selfie (receive)', 'sfs-hr' )
                             );
@@ -366,10 +370,14 @@ $employee_filter = isset( $_GET['emp'] ) ? (int) $_GET['emp'] : 0;
                     if ( $approve_asset_id ) {
                         $asset_url = wp_get_attachment_image_url( $approve_asset_id, 'thumbnail' );
                         $asset_full = wp_get_attachment_url( $approve_asset_id );
+                        // Fall back to full URL if thumbnail not available
+                        if ( ! $asset_url && $asset_full ) {
+                            $asset_url = $asset_full;
+                        }
                         if ( $asset_url ) {
                             echo sprintf(
                                 '<a href="%1$s" target="_blank" rel="noopener noreferrer"><img src="%2$s" class="sfs-hr-asset-photo-thumb sfs-hr-asset-photo-thumb--asset" style="width:28px;height:28px;border-radius:6px;object-fit:cover;display:inline-block;" alt="%3$s" /></a>',
-                                esc_url( $asset_full ),
+                                esc_url( $asset_full ?: $asset_url ),
                                 esc_url( $asset_url ),
                                 esc_attr__( 'Asset photo (receive)', 'sfs-hr' )
                             );
@@ -388,10 +396,14 @@ $employee_filter = isset( $_GET['emp'] ) ? (int) $_GET['emp'] : 0;
                     if ( $return_selfie_id ) {
                         $return_selfie_url = wp_get_attachment_image_url( $return_selfie_id, 'thumbnail' );
                         $return_selfie_full = wp_get_attachment_url( $return_selfie_id );
+                        // Fall back to full URL if thumbnail not available
+                        if ( ! $return_selfie_url && $return_selfie_full ) {
+                            $return_selfie_url = $return_selfie_full;
+                        }
                         if ( $return_selfie_url ) {
                             echo sprintf(
                                 '<a href="%1$s" target="_blank" rel="noopener noreferrer"><img src="%2$s" class="sfs-hr-asset-photo-thumb sfs-hr-asset-photo-thumb--selfie" style="width:28px;height:28px;border-radius:999px;object-fit:cover;display:inline-block;" alt="%3$s" /></a>',
-                                esc_url( $return_selfie_full ),
+                                esc_url( $return_selfie_full ?: $return_selfie_url ),
                                 esc_url( $return_selfie_url ),
                                 esc_attr__( 'Selfie (return)', 'sfs-hr' )
                             );
@@ -401,10 +413,14 @@ $employee_filter = isset( $_GET['emp'] ) ? (int) $_GET['emp'] : 0;
                     if ( $return_asset_id ) {
                         $return_asset_url = wp_get_attachment_image_url( $return_asset_id, 'thumbnail' );
                         $return_asset_full = wp_get_attachment_url( $return_asset_id );
+                        // Fall back to full URL if thumbnail not available
+                        if ( ! $return_asset_url && $return_asset_full ) {
+                            $return_asset_url = $return_asset_full;
+                        }
                         if ( $return_asset_url ) {
                             echo sprintf(
                                 '<a href="%1$s" target="_blank" rel="noopener noreferrer"><img src="%2$s" class="sfs-hr-asset-photo-thumb sfs-hr-asset-photo-thumb--asset" style="width:28px;height:28px;border-radius:6px;object-fit:cover;display:inline-block;" alt="%3$s" /></a>',
-                                esc_url( $return_asset_full ),
+                                esc_url( $return_asset_full ?: $return_asset_url ),
                                 esc_url( $return_asset_url ),
                                 esc_attr__( 'Asset photo (return)', 'sfs-hr' )
                             );

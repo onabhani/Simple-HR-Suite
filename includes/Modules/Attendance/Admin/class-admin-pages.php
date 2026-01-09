@@ -1839,14 +1839,14 @@ $debug = !empty($_GET['debug']);
   // 2) Employees for the dropdown (build BEFORE echoing the form)
   $empRows = $wpdb->get_results("
     SELECT e.id,
-           COALESCE(NULLIF(TRIM(CONCAT(e.first_name,' ',e.last_name)),''),
-                    NULLIF(TRIM(e.full_name),''),
-                    NULLIF(TRIM(e.name),''),
-                    NULLIF(TRIM(u.display_name),''),
-                    NULLIF(TRIM(u.user_login),''),
-                    CONCAT('#',e.id)) AS name
+           COALESCE(
+               NULLIF(TRIM(CONCAT(COALESCE(e.first_name,''), ' ', COALESCE(e.last_name,''))), ''),
+               NULLIF(TRIM(u.display_name), ''),
+               CONCAT('#', e.id)
+           ) AS name
     FROM {$eT} e
     LEFT JOIN {$uT} u ON u.ID = e.user_id
+    WHERE e.status = 'active'
     ORDER BY name ASC
   ");
 
