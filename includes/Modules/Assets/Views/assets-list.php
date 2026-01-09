@@ -444,6 +444,9 @@ if ( isset( $_GET['import'] ) && $_GET['import'] === '1' ) {
 if ( isset( $_GET['saved'] ) && $_GET['saved'] === '1' ) {
     echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Asset saved successfully.', 'sfs-hr' ) . '</p></div>';
 }
+if ( isset( $_GET['deleted'] ) && $_GET['deleted'] === '1' ) {
+    echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Asset deleted successfully.', 'sfs-hr' ) . '</p></div>';
+}
 if ( isset( $_GET['import_error'] ) ) {
     $error_code = sanitize_key( $_GET['import_error'] );
     $error_messages = [
@@ -453,6 +456,14 @@ if ( isset( $_GET['import_error'] ) ) {
         'empty_csv'     => __( 'The CSV file is empty or invalid.', 'sfs-hr' ),
     ];
     $error_msg = $error_messages[ $error_code ] ?? __( 'An error occurred during import.', 'sfs-hr' );
+    echo '<div class="notice notice-error is-dismissible"><p>' . esc_html( $error_msg ) . '</p></div>';
+}
+if ( isset( $_GET['delete_error'] ) ) {
+    $error_code = sanitize_key( $_GET['delete_error'] );
+    $error_messages = [
+        'has_assignments' => __( 'Cannot delete asset with active assignments. Please complete or cancel all assignments first.', 'sfs-hr' ),
+    ];
+    $error_msg = $error_messages[ $error_code ] ?? __( 'An error occurred while deleting the asset.', 'sfs-hr' );
     echo '<div class="notice notice-error is-dismissible"><p>' . esc_html( $error_msg ) . '</p></div>';
 }
 ?>
