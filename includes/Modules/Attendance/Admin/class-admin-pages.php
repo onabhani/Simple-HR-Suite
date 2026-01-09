@@ -1652,10 +1652,176 @@ exit;
 
 
     /* ========================= Punches & Session ========================= */
-    
+
+    /**
+     * Output unified CSS styles for attendance pages
+     */
+    private function output_attendance_styles(): void {
+        static $done = false;
+        if ( $done ) { return; }
+        $done = true;
+        ?>
+        <style>
+            /* Toolbar Card */
+            .sfs-hr-att-toolbar {
+                background: #fff;
+                border: 1px solid #e2e4e7;
+                border-radius: 8px;
+                padding: 16px;
+                margin-bottom: 20px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            }
+            .sfs-hr-att-toolbar form {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 12px;
+                align-items: center;
+                margin: 0;
+            }
+            .sfs-hr-att-toolbar label {
+                font-weight: 500;
+                font-size: 13px;
+                color: #50575e;
+                margin-right: 4px;
+            }
+            .sfs-hr-att-toolbar select,
+            .sfs-hr-att-toolbar input[type="date"],
+            .sfs-hr-att-toolbar input[type="month"],
+            .sfs-hr-att-toolbar input[type="number"] {
+                height: 36px;
+                border: 1px solid #dcdcde;
+                border-radius: 4px;
+                padding: 0 10px;
+                font-size: 13px;
+            }
+            .sfs-hr-att-toolbar .button {
+                height: 36px;
+                line-height: 34px;
+                padding: 0 16px;
+            }
+            .sfs-hr-att-toolbar .description {
+                font-size: 12px;
+                color: #787c82;
+            }
+
+            /* Table Card */
+            .sfs-hr-att-table-wrap {
+                background: #fff;
+                border: 1px solid #e2e4e7;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            }
+            .sfs-hr-att-table-wrap .table-header {
+                padding: 16px 20px;
+                border-bottom: 1px solid #f0f0f1;
+                background: #f9fafb;
+            }
+            .sfs-hr-att-table-wrap .table-header h3 {
+                margin: 0;
+                font-size: 14px;
+                font-weight: 600;
+                color: #1d2327;
+            }
+            .sfs-hr-att-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 0;
+            }
+            .sfs-hr-att-table th {
+                background: #f9fafb;
+                padding: 12px 14px;
+                text-align: left;
+                font-weight: 600;
+                font-size: 12px;
+                color: #50575e;
+                text-transform: uppercase;
+                letter-spacing: 0.3px;
+                border-bottom: 1px solid #e2e4e7;
+            }
+            .sfs-hr-att-table td {
+                padding: 12px 14px;
+                font-size: 13px;
+                border-bottom: 1px solid #f0f0f1;
+                vertical-align: middle;
+            }
+            .sfs-hr-att-table tbody tr:hover {
+                background: #f9fafb;
+            }
+            .sfs-hr-att-table tbody tr:last-child td {
+                border-bottom: none;
+            }
+            .sfs-hr-att-table .empty-state {
+                text-align: center;
+                padding: 40px 20px;
+                color: #787c82;
+            }
+            .sfs-hr-att-table .empty-state p {
+                margin: 0;
+                font-size: 14px;
+            }
+            .sfs-hr-att-table .emp-name {
+                display: block;
+                font-weight: 500;
+                color: #1d2327;
+            }
+            .sfs-hr-att-table .emp-code {
+                display: block;
+                font-size: 11px;
+                color: #787c82;
+                margin-top: 2px;
+            }
+
+            /* Status Pills */
+            .sfs-hr-att-pill {
+                display: inline-block;
+                padding: 4px 10px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 500;
+                line-height: 1.4;
+            }
+            .sfs-hr-att-pill--in { background: #e8f5e9; color: #2e7d32; }
+            .sfs-hr-att-pill--out { background: #fff3e0; color: #e65100; }
+            .sfs-hr-att-pill--break { background: #e3f2fd; color: #1565c0; }
+            .sfs-hr-att-pill--ok { background: #e8f5e9; color: #2e7d32; }
+            .sfs-hr-att-pill--issue { background: #ffebee; color: #c62828; }
+
+            /* Mobile Responsive */
+            @media screen and (max-width: 782px) {
+                .sfs-hr-att-toolbar form {
+                    flex-direction: column;
+                    align-items: stretch;
+                }
+                .sfs-hr-att-toolbar select,
+                .sfs-hr-att-toolbar input {
+                    width: 100%;
+                }
+                .sfs-hr-att-toolbar .button {
+                    width: 100%;
+                    text-align: center;
+                }
+                .sfs-hr-att-table-wrap {
+                    overflow-x: auto;
+                }
+                .sfs-hr-att-table {
+                    min-width: 800px;
+                }
+                .sfs-hr-att-table th,
+                .sfs-hr-att-table td {
+                    padding: 10px 8px;
+                    font-size: 12px;
+                }
+            }
+        </style>
+        <?php
+    }
+
     private function render_punches(): void {
   if ( ! current_user_can('sfs_hr_attendance_view_team') ) { wp_die('Access denied'); }
   global $wpdb;
+
+  $this->output_attendance_styles();
 
   $pT = $wpdb->prefix . 'sfs_hr_attendance_punches';
   $eT = $wpdb->prefix . 'sfs_hr_employees';
@@ -1748,32 +1914,44 @@ $this->att_log('Punches query done', [
 
 
   // 5) UI
-  echo '<div class="wrap"><h1>Punches</h1>';
-  echo '<form method="get" style="margin:10px 0">';
+  $totalPunches = is_array($rows) ? count($rows) : 0;
+  echo '<div class="wrap"><h1>' . esc_html__('Punches', 'sfs-hr') . '</h1>';
+
+  // Toolbar Card
+  echo '<div class="sfs-hr-att-toolbar">';
+  echo '<form method="get">';
   echo '<input type="hidden" name="page" value="sfs_hr_attendance"/><input type="hidden" name="tab" value="punches"/>';
 
-  echo 'View: <select name="mode" onchange="this.form.submit()">';
-  echo '<option value="day"'.selected($mode,'day',false).'>Day</option>';
-  echo '<option value="month"'.selected($mode,'month',false).'>Month</option>';
-  echo '</select> ';
+  echo '<label>' . esc_html__('View:', 'sfs-hr') . '</label>';
+  echo '<select name="mode" onchange="this.form.submit()">';
+  echo '<option value="day"'.selected($mode,'day',false).'>' . esc_html__('Day', 'sfs-hr') . '</option>';
+  echo '<option value="month"'.selected($mode,'month',false).'>' . esc_html__('Month', 'sfs-hr') . '</option>';
+  echo '</select>';
 
   if ($mode==='day') {
-    echo 'Date: <input type="date" name="date" value="'.esc_attr($date).'"/> ';
+    echo '<label>' . esc_html__('Date:', 'sfs-hr') . '</label>';
+    echo '<input type="date" name="date" value="'.esc_attr($date).'"/>';
   } else {
-    echo 'Month: <input type="month" name="month" value="'.esc_attr($month).'"/> ';
+    echo '<label>' . esc_html__('Month:', 'sfs-hr') . '</label>';
+    echo '<input type="month" name="month" value="'.esc_attr($month).'"/>';
   }
 
-  echo 'Employee: <select name="employee_id"><option value="0">— All —</option>';
+  echo '<label>' . esc_html__('Employee:', 'sfs-hr') . '</label>';
+  echo '<select name="employee_id"><option value="0">— ' . esc_html__('All', 'sfs-hr') . ' —</option>';
   foreach ($empRows as $r) {
     printf('<option value="%d"%s>%s</option>', (int)$r->id, selected($emp,(int)$r->id,false), esc_html($r->name));
   }
-  echo '</select> <button class="button">Filter</button></form>';
+  echo '</select>';
+  echo '<button class="button">' . esc_html__('Filter', 'sfs-hr') . '</button>';
+  echo '</form></div>';
 
-  // Table
- $showDebug = !empty($_GET['debug']);
-echo '<table class="widefat striped"><thead><tr>
-        <th>ID</th><th>Employee</th><th>Employee Code</th><th>Type</th><th>Time (local)</th>
-        <th>Source</th><th>Geo</th><th>Selfie</th>';
+  // Table Card
+  $showDebug = !empty($_GET['debug']);
+  echo '<div class="sfs-hr-att-table-wrap">';
+  echo '<div class="table-header"><h3>' . esc_html__('Punches', 'sfs-hr') . ' (' . esc_html($totalPunches) . ')</h3></div>';
+  echo '<table class="sfs-hr-att-table"><thead><tr>
+        <th>ID</th><th>' . esc_html__('Employee', 'sfs-hr') . '</th><th>' . esc_html__('Employee Code', 'sfs-hr') . '</th><th>' . esc_html__('Type', 'sfs-hr') . '</th><th>' . esc_html__('Time (local)', 'sfs-hr') . '</th>
+        <th>' . esc_html__('Source', 'sfs-hr') . '</th><th>' . esc_html__('Geo', 'sfs-hr') . '</th><th>' . esc_html__('Selfie', 'sfs-hr') . '</th>';
 if ($debug) { echo '<th>Selfie debug</th>'; }
 echo '</tr></thead><tbody>';
 
@@ -2021,15 +2199,17 @@ echo '</tr>';
 
     }
   } else {
-    echo '<tr><td colspan="7">No punches.</td></tr>';
+    echo '<tr><td colspan="8" class="empty-state"><p>' . esc_html__('No punches found for this selection.', 'sfs-hr') . '</p></td></tr>';
   }
-  echo '</tbody></table></div>';
+  echo '</tbody></table></div></div>';
 }
 
 
 private function render_sessions(): void {
     if ( ! current_user_can('sfs_hr_attendance_view_team') ) { wp_die('Access denied'); }
     global $wpdb;
+
+    $this->output_attendance_styles();
 
     $sT = $wpdb->prefix . 'sfs_hr_attendance_sessions';
     $eT = $wpdb->prefix . 'sfs_hr_employees';
@@ -2137,19 +2317,23 @@ $export_url = esc_url( wp_nonce_url(
 
 
 
-    echo '<div class="wrap"><h1>Sessions</h1>';
+    $totalSessions = is_array($rows) ? count($rows) : 0;
+    echo '<div class="wrap"><h1>' . esc_html__('Sessions', 'sfs-hr') . '</h1>';
 
-    // Filters
-    echo '<form method="get" style="margin:10px 0">';
+    // Toolbar Card
+    echo '<div class="sfs-hr-att-toolbar">';
+    echo '<form method="get">';
     echo '<input type="hidden" name="page" value="sfs_hr_attendance"/><input type="hidden" name="tab" value="sessions"/>';
 
-    echo 'View: <select name="mode" onchange="this.form.submit()">';
-    echo '<option value="day"'.selected($mode,'day',false).'>Day</option>';
-    echo '<option value="period_25"'.selected($mode,'period_25',false).'>Period (25→25)</option>';
-    echo '</select> ';
+    echo '<label>' . esc_html__('View:', 'sfs-hr') . '</label>';
+    echo '<select name="mode" onchange="this.form.submit()">';
+    echo '<option value="day"'.selected($mode,'day',false).'>' . esc_html__('Day', 'sfs-hr') . '</option>';
+    echo '<option value="period_25"'.selected($mode,'period_25',false).'>' . esc_html__('Period (25→25)', 'sfs-hr') . '</option>';
+    echo '</select>';
 
     if ( $mode === 'day' ) {
-        echo 'Date: <input type="date" id="sfs-sessions-date" name="date" value="' . esc_attr($date) . '"/> ';
+        echo '<label>' . esc_html__('Date:', 'sfs-hr') . '</label>';
+        echo '<input type="date" id="sfs-sessions-date" name="date" value="' . esc_attr($date) . '"/>';
     } else {
     // month/year inputs for Period (25→25): prev-month 25 → selected-month 24
     $prevY = $year - ($month === 1 ? 1 : 0);
@@ -2158,33 +2342,35 @@ $export_url = esc_url( wp_nonce_url(
     $from  = sprintf('%04d-%02d-25', $prevY, $prevM);
     $to    = sprintf('%04d-%02d-24', $year, $month);
 
-    echo 'Month: <select name="month">';
+    echo '<label>' . esc_html__('Month:', 'sfs-hr') . '</label>';
+    echo '<select name="month">';
     for ($m = 1; $m <= 12; $m++) {
         printf('<option value="%d"%s>%02d</option>', $m, selected($month, $m, false), $m);
     }
-    echo '</select> ';
+    echo '</select>';
 
-    echo 'Year: <input type="number" name="year" min="2000" step="1" value="'.esc_attr($year).'" style="width:90px" /> ';
-    echo '<span class="description" style="margin-left:6px">Range: '.$from.' → '.$to.'</span> ';
+    echo '<label>' . esc_html__('Year:', 'sfs-hr') . '</label>';
+    echo '<input type="number" name="year" min="2000" step="1" value="'.esc_attr($year).'" style="width:90px"/>';
+    echo '<span class="description">' . esc_html__('Range:', 'sfs-hr') . ' '.$from.' → '.$to.'</span>';
 }
 
-
-    echo 'Employee: <select name="employee_id"><option value="0">— All —</option>';
+    echo '<label>' . esc_html__('Employee:', 'sfs-hr') . '</label>';
+    echo '<select name="employee_id"><option value="0">— ' . esc_html__('All', 'sfs-hr') . ' —</option>';
     foreach ( (array) $emps as $r ) {
         printf('<option value="%d"%s>%s</option>', (int) $r->id, selected($emp, (int) $r->id, false), esc_html($r->name));
     }
-    echo '</select> ';
+    echo '</select>';
 
-    echo '<button class="button">Filter</button> ';
-    echo '<a class="button" style="margin-left:8px" href="'.$export_url.'">Export CSV</a>';
-    
+    echo '<button class="button">' . esc_html__('Filter', 'sfs-hr') . '</button>';
+    echo '<a class="button" href="'.$export_url.'">' . esc_html__('Export CSV', 'sfs-hr') . '</a>';
+
 // Rebuild button — Day view ONLY
 if ( $mode === 'day' ) {
     $rebuild_url = esc_url( wp_nonce_url(
         add_query_arg(['action' => 'sfs_hr_att_rebuild_sessions_day', 'date' => $date], admin_url('admin-post.php')),
         'sfs_hr_att_rebuild_sessions_day'
     ) );
-    echo '<a class="button button-primary" id="sfs-rebuild-link" href="'.$rebuild_url.'" style="margin-left:8px">Rebuild Sessions for '.esc_html($date).'</a>';
+    echo '<a class="button button-primary" id="sfs-rebuild-link" href="'.$rebuild_url.'">' . esc_html__('Rebuild Sessions for', 'sfs-hr') . ' '.esc_html($date).'</a>';
 
     // Keep the link in sync when date changes
     echo "<script>
@@ -2197,23 +2383,22 @@ if ( $mode === 'day' ) {
           var url = new URL(a.href, window.location.origin);
           url.searchParams.set('date', this.value || '".esc_js($date)."');
           a.href = url.toString();
-          a.textContent = 'Rebuild Sessions for ' + (this.value || '".esc_js($date)."');
+          a.textContent = '".esc_js(__('Rebuild Sessions for', 'sfs-hr'))." ' + (this.value || '".esc_js($date)."');
         } catch(e) {}
       });
     })();
     </script>";
-} else {
-    // Optional disabled hint in Period view
-    // echo '<button class="button" disabled title="Rebuild is available in Day view only" style="margin-left:8px">Rebuild (Day only)</button>';
 }
-    echo '</form>';
+    echo '</form></div>';
 
-    // Table (remove Worked (rounded), add Employee code, remove (#User_ID) after name)
-    echo '<table class="widefat striped"><thead><tr>
-  <th>Employee</th><th>Employee code</th>
-  <th>In</th><th>Out</th><th>Break</th>
-  <th>Worked (net)</th><th>OT</th>
-  <th>Status</th><th>Geo</th><th>Selfie</th><th>Flags</th>
+    // Table Card
+    echo '<div class="sfs-hr-att-table-wrap">';
+    echo '<div class="table-header"><h3>' . esc_html__('Sessions', 'sfs-hr') . ' (' . esc_html($totalSessions) . ')</h3></div>';
+    echo '<table class="sfs-hr-att-table"><thead><tr>
+  <th>' . esc_html__('Employee', 'sfs-hr') . '</th><th>' . esc_html__('Employee Code', 'sfs-hr') . '</th>
+  <th>' . esc_html__('In', 'sfs-hr') . '</th><th>' . esc_html__('Out', 'sfs-hr') . '</th><th>' . esc_html__('Break', 'sfs-hr') . '</th>
+  <th>' . esc_html__('Worked (net)', 'sfs-hr') . '</th><th>' . esc_html__('OT', 'sfs-hr') . '</th>
+  <th>' . esc_html__('Status', 'sfs-hr') . '</th><th>' . esc_html__('Geo', 'sfs-hr') . '</th><th>' . esc_html__('Selfie', 'sfs-hr') . '</th><th>' . esc_html__('Flags', 'sfs-hr') . '</th>
 </tr></thead><tbody>';
 
 if ( $rows ) {
@@ -2260,10 +2445,10 @@ if ( $rows ) {
         );
     }
 } else {
-    echo '<tr><td colspan="11">No sessions for this selection.</td></tr>';
+    echo '<tr><td colspan="11" class="empty-state"><p>' . esc_html__('No sessions found for this selection.', 'sfs-hr') . '</p></td></tr>';
 }
 
-echo '</tbody></table></div>';
+echo '</tbody></table></div></div>';
 
 }
 
