@@ -1513,8 +1513,22 @@ class Admin_Pages {
 
         check_admin_referer('sfs_hr_assets_import');
 
+        // Helper to redirect with error
+        $redirect_error = function( string $error_code ) {
+            $redirect = add_query_arg(
+                [
+                    'page'         => 'sfs-hr-assets',
+                    'tab'          => 'assets',
+                    'import_error' => $error_code,
+                ],
+                admin_url('admin.php')
+            );
+            wp_safe_redirect($redirect);
+            exit;
+        };
+
         if ( empty($_FILES['import_file']['tmp_name']) ) {
-            wp_die(__('No file uploaded.', 'sfs-hr'));
+            $redirect_error('no_file');
         }
 
         $file = $_FILES['import_file']['tmp_name'];
@@ -1522,7 +1536,7 @@ class Admin_Pages {
         // Read file content for encoding detection and BOM handling
         $content = file_get_contents($file);
         if ( $content === false ) {
-            wp_die(__('Unable to read file.', 'sfs-hr'));
+            $redirect_error('read_error');
         }
 
         // Remove UTF-8 BOM if present (common in Excel exports)
@@ -1561,7 +1575,7 @@ class Admin_Pages {
         $handle = fopen($temp_file, 'r');
         if ( ! $handle ) {
             @unlink($temp_file);
-            wp_die(__('Unable to process file.', 'sfs-hr'));
+            $redirect_error('process_error');
         }
 
         global $wpdb;
@@ -1571,7 +1585,7 @@ class Admin_Pages {
         if ( ! $header ) {
             fclose($handle);
             @unlink($temp_file);
-            wp_die(__('Empty CSV file.', 'sfs-hr'));
+            $redirect_error('empty_csv');
         }
 
         // Normalize header (trim and remove any remaining BOM artifacts)

@@ -408,6 +408,27 @@ document.getElementById('sfs-hr-asset-modal').addEventListener('click', function
 });
 </script>
 
+<?php
+// Show success/error notices
+if ( isset( $_GET['import'] ) && $_GET['import'] === '1' ) {
+    echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'CSV import completed successfully.', 'sfs-hr' ) . '</p></div>';
+}
+if ( isset( $_GET['saved'] ) && $_GET['saved'] === '1' ) {
+    echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Asset saved successfully.', 'sfs-hr' ) . '</p></div>';
+}
+if ( isset( $_GET['import_error'] ) ) {
+    $error_code = sanitize_key( $_GET['import_error'] );
+    $error_messages = [
+        'no_file'       => __( 'Please select a CSV file to import.', 'sfs-hr' ),
+        'read_error'    => __( 'Unable to read the uploaded file.', 'sfs-hr' ),
+        'process_error' => __( 'Unable to process the uploaded file.', 'sfs-hr' ),
+        'empty_csv'     => __( 'The CSV file is empty or invalid.', 'sfs-hr' ),
+    ];
+    $error_msg = $error_messages[ $error_code ] ?? __( 'An error occurred during import.', 'sfs-hr' );
+    echo '<div class="notice notice-error is-dismissible"><p>' . esc_html( $error_msg ) . '</p></div>';
+}
+?>
+
 <div style="margin-top:20px;">
 
     <div class="sfs-hr-assets-toolbar">
@@ -485,7 +506,7 @@ document.getElementById('sfs-hr-asset-modal').addEventListener('click', function
                 <form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" style="display:inline-flex;align-items:center;gap:8px;">
                     <?php wp_nonce_field('sfs_hr_assets_import'); ?>
                     <input type="hidden" name="action" value="sfs_hr_assets_import" />
-                    <input type="file" name="import_file" accept=".csv" style="max-width:200px;" />
+                    <input type="file" name="import_file" accept=".csv" required style="max-width:200px;" />
                     <button type="submit" class="button"><?php esc_html_e('Import', 'sfs-hr'); ?></button>
                 </form>
             </div>
