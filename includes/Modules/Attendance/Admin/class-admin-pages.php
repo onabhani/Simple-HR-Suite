@@ -237,14 +237,15 @@ public function render_attendance_hub(): void {
 
     $tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'settings';
     $tabs = [
-        'settings'   => 'Settings',
-        'automation' => 'Automation',
-        'shifts'     => 'Shifts',
-        'assign'     => 'Assignments',
-        'exceptions'=>'Exceptions',
-        'devices'    => 'Devices (Kiosk)',
-        'punches'    => 'Punches',
-        'sessions'   => 'Sessions',
+        'settings'    => __( 'Settings', 'sfs-hr' ),
+        'automation'  => __( 'Automation', 'sfs-hr' ),
+        'shifts'      => __( 'Shifts', 'sfs-hr' ),
+        'assign'      => __( 'Assignments', 'sfs-hr' ),
+        'early_leave' => __( 'Early Leave Requests', 'sfs-hr' ),
+        'exceptions'  => __( 'Exceptions', 'sfs-hr' ),
+        'devices'     => __( 'Devices (Kiosk)', 'sfs-hr' ),
+        'punches'     => __( 'Punches', 'sfs-hr' ),
+        'sessions'    => __( 'Sessions', 'sfs-hr' ),
     ];
     if ( ! isset($tabs[$tab]) ) { $tab = 'settings'; }
 
@@ -281,6 +282,7 @@ public function render_attendance_hub(): void {
             break;
             case 'punches':  $this->render_punches();  break;
             case 'sessions': $this->render_sessions(); break;
+            case 'early_leave': $this->render_early_leave(); break;
     }
     echo '</div>';
 }
@@ -2761,6 +2763,354 @@ private function rebuild_sessions_for_date(string $date): void {
         if ($existing) { $wpdb->update($sT, $data, ['id'=>$existing]); }
         else           { $wpdb->insert($sT, $data); }
     }
+}
+
+/**
+ * Render Early Leave Requests tab - Admin view for managing early leave requests
+ */
+private function render_early_leave(): void {
+    global $wpdb;
+    $table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+    $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+
+    // Get filter parameters
+    $status_filter = isset($_GET['status']) ? sanitize_text_field($_GET['status']) : 'pending';
+    $date_from = isset($_GET['date_from']) ? sanitize_text_field($_GET['date_from']) : '';
+    $date_to = isset($_GET['date_to']) ? sanitize_text_field($_GET['date_to']) : '';
+
+    // Build query
+    $where = "WHERE 1=1";
+    $params = [];
+
+    if ($status_filter && $status_filter !== 'all') {
+        $where .= " AND r.status = %s";
+        $params[] = $status_filter;
+    }
+
+    if ($date_from) {
+        $where .= " AND r.request_date >= %s";
+        $params[] = $date_from;
+    }
+
+    if ($date_to) {
+        $where .= " AND r.request_date <= %s";
+        $params[] = $date_to;
+    }
+
+    // Count by status for tabs
+    $counts = $wpdb->get_results("
+        SELECT status, COUNT(*) as cnt
+        FROM {$table}
+        GROUP BY status
+    ", OBJECT_K);
+
+    $pending_count = isset($counts['pending']) ? $counts['pending']->cnt : 0;
+    $approved_count = isset($counts['approved']) ? $counts['approved']->cnt : 0;
+    $rejected_count = isset($counts['rejected']) ? $counts['rejected']->cnt : 0;
+    $cancelled_count = isset($counts['cancelled']) ? $counts['cancelled']->cnt : 0;
+    $total_count = $pending_count + $approved_count + $rejected_count + $cancelled_count;
+
+    // Get requests with employee names
+    $sql = "
+        SELECT r.*, e.full_name as employee_name, e.emp_number,
+               reviewer.display_name as reviewer_name
+        FROM {$table} r
+        LEFT JOIN {$emp_table} e ON r.employee_id = e.id
+        LEFT JOIN {$wpdb->users} reviewer ON r.reviewed_by = reviewer.ID
+        {$where}
+        ORDER BY
+            CASE r.status
+                WHEN 'pending' THEN 1
+                WHEN 'approved' THEN 2
+                WHEN 'rejected' THEN 3
+                WHEN 'cancelled' THEN 4
+            END,
+            r.created_at DESC
+        LIMIT 100
+    ";
+
+    if (!empty($params)) {
+        $sql = $wpdb->prepare($sql, $params);
+    }
+
+    $requests = $wpdb->get_results($sql);
+
+    $reason_labels = [
+        'sick' => __('Sickness', 'sfs-hr'),
+        'external_task' => __('External Task', 'sfs-hr'),
+        'personal' => __('Personal', 'sfs-hr'),
+        'emergency' => __('Emergency', 'sfs-hr'),
+        'other' => __('Other', 'sfs-hr'),
+    ];
+
+    $status_labels = [
+        'pending' => __('Pending', 'sfs-hr'),
+        'approved' => __('Approved', 'sfs-hr'),
+        'rejected' => __('Rejected', 'sfs-hr'),
+        'cancelled' => __('Cancelled', 'sfs-hr'),
+    ];
+
+    $base_url = admin_url('admin.php?page=sfs-hr-attendance&tab=early_leave');
+    ?>
+    <div class="wrap">
+        <h2><?php esc_html_e('Early Leave Requests', 'sfs-hr'); ?></h2>
+        <p class="description"><?php esc_html_e('Manage employee early leave requests. Approved requests do not affect salary calculations.', 'sfs-hr'); ?></p>
+
+        <!-- Status Filter Tabs -->
+        <ul class="subsubsub">
+            <li>
+                <a href="<?php echo esc_url(add_query_arg('status', 'all', $base_url)); ?>"
+                   class="<?php echo $status_filter === 'all' ? 'current' : ''; ?>">
+                    <?php esc_html_e('All', 'sfs-hr'); ?> <span class="count">(<?php echo intval($total_count); ?>)</span>
+                </a> |
+            </li>
+            <li>
+                <a href="<?php echo esc_url(add_query_arg('status', 'pending', $base_url)); ?>"
+                   class="<?php echo $status_filter === 'pending' ? 'current' : ''; ?>">
+                    <?php esc_html_e('Pending', 'sfs-hr'); ?> <span class="count">(<?php echo intval($pending_count); ?>)</span>
+                </a> |
+            </li>
+            <li>
+                <a href="<?php echo esc_url(add_query_arg('status', 'approved', $base_url)); ?>"
+                   class="<?php echo $status_filter === 'approved' ? 'current' : ''; ?>">
+                    <?php esc_html_e('Approved', 'sfs-hr'); ?> <span class="count">(<?php echo intval($approved_count); ?>)</span>
+                </a> |
+            </li>
+            <li>
+                <a href="<?php echo esc_url(add_query_arg('status', 'rejected', $base_url)); ?>"
+                   class="<?php echo $status_filter === 'rejected' ? 'current' : ''; ?>">
+                    <?php esc_html_e('Rejected', 'sfs-hr'); ?> <span class="count">(<?php echo intval($rejected_count); ?>)</span>
+                </a> |
+            </li>
+            <li>
+                <a href="<?php echo esc_url(add_query_arg('status', 'cancelled', $base_url)); ?>"
+                   class="<?php echo $status_filter === 'cancelled' ? 'current' : ''; ?>">
+                    <?php esc_html_e('Cancelled', 'sfs-hr'); ?> <span class="count">(<?php echo intval($cancelled_count); ?>)</span>
+                </a>
+            </li>
+        </ul>
+
+        <br class="clear" />
+
+        <!-- Date Range Filter -->
+        <form method="get" class="early-leave-filters" style="margin: 15px 0; padding: 10px; background: #f9f9f9; border: 1px solid #e5e5e5;">
+            <input type="hidden" name="page" value="sfs-hr-attendance" />
+            <input type="hidden" name="tab" value="early_leave" />
+            <input type="hidden" name="status" value="<?php echo esc_attr($status_filter); ?>" />
+
+            <label>
+                <?php esc_html_e('From:', 'sfs-hr'); ?>
+                <input type="date" name="date_from" value="<?php echo esc_attr($date_from); ?>" />
+            </label>
+
+            <label style="margin-left: 10px;">
+                <?php esc_html_e('To:', 'sfs-hr'); ?>
+                <input type="date" name="date_to" value="<?php echo esc_attr($date_to); ?>" />
+            </label>
+
+            <button type="submit" class="button" style="margin-left: 10px;"><?php esc_html_e('Filter', 'sfs-hr'); ?></button>
+            <a href="<?php echo esc_url($base_url); ?>" class="button" style="margin-left: 5px;"><?php esc_html_e('Reset', 'sfs-hr'); ?></a>
+        </form>
+
+        <?php if (empty($requests)): ?>
+            <div class="notice notice-info">
+                <p><?php esc_html_e('No early leave requests found.', 'sfs-hr'); ?></p>
+            </div>
+        <?php else: ?>
+            <table class="wp-list-table widefat fixed striped">
+                <thead>
+                    <tr>
+                        <th style="width: 60px;"><?php esc_html_e('ID', 'sfs-hr'); ?></th>
+                        <th><?php esc_html_e('Employee', 'sfs-hr'); ?></th>
+                        <th><?php esc_html_e('Date', 'sfs-hr'); ?></th>
+                        <th><?php esc_html_e('Scheduled End', 'sfs-hr'); ?></th>
+                        <th><?php esc_html_e('Requested Leave', 'sfs-hr'); ?></th>
+                        <th><?php esc_html_e('Reason', 'sfs-hr'); ?></th>
+                        <th><?php esc_html_e('Status', 'sfs-hr'); ?></th>
+                        <th><?php esc_html_e('Reviewed By', 'sfs-hr'); ?></th>
+                        <th style="width: 150px;"><?php esc_html_e('Actions', 'sfs-hr'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($requests as $req): ?>
+                        <tr data-request-id="<?php echo intval($req->id); ?>">
+                            <td><?php echo intval($req->id); ?></td>
+                            <td>
+                                <strong><?php echo esc_html($req->employee_name ?: __('Unknown', 'sfs-hr')); ?></strong>
+                                <?php if ($req->emp_number): ?>
+                                    <br><small class="description"><?php echo esc_html($req->emp_number); ?></small>
+                                <?php endif; ?>
+                            </td>
+                            <td><?php echo esc_html(date_i18n(get_option('date_format'), strtotime($req->request_date))); ?></td>
+                            <td><?php echo $req->scheduled_end_time ? esc_html(date_i18n('H:i', strtotime($req->scheduled_end_time))) : '—'; ?></td>
+                            <td>
+                                <strong><?php echo esc_html(date_i18n('H:i', strtotime($req->requested_leave_time))); ?></strong>
+                                <?php if ($req->actual_leave_time): ?>
+                                    <br><small><?php esc_html_e('Actual:', 'sfs-hr'); ?> <?php echo esc_html(date_i18n('H:i', strtotime($req->actual_leave_time))); ?></small>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <span class="reason-type reason-<?php echo esc_attr($req->reason_type); ?>">
+                                    <?php echo esc_html($reason_labels[$req->reason_type] ?? $req->reason_type); ?>
+                                </span>
+                                <?php if ($req->reason_note): ?>
+                                    <br><small class="description" title="<?php echo esc_attr($req->reason_note); ?>">
+                                        <?php echo esc_html(wp_trim_words($req->reason_note, 8)); ?>
+                                    </small>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php
+                                $status_class = 'status-' . $req->status;
+                                $status_colors = [
+                                    'pending' => '#f0ad4e',
+                                    'approved' => '#5cb85c',
+                                    'rejected' => '#d9534f',
+                                    'cancelled' => '#777',
+                                ];
+                                ?>
+                                <span class="<?php echo esc_attr($status_class); ?>" style="color: <?php echo esc_attr($status_colors[$req->status] ?? '#333'); ?>; font-weight: 600;">
+                                    <?php echo esc_html($status_labels[$req->status] ?? $req->status); ?>
+                                </span>
+                                <?php if ($req->reviewed_at): ?>
+                                    <br><small class="description"><?php echo esc_html(date_i18n('M j, H:i', strtotime($req->reviewed_at))); ?></small>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ($req->reviewer_name): ?>
+                                    <?php echo esc_html($req->reviewer_name); ?>
+                                    <?php if ($req->manager_note): ?>
+                                        <br><small class="description" title="<?php echo esc_attr($req->manager_note); ?>">
+                                            "<?php echo esc_html(wp_trim_words($req->manager_note, 5)); ?>"
+                                        </small>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    —
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ($req->status === 'pending'): ?>
+                                    <button type="button" class="button button-primary button-small early-leave-approve"
+                                            data-id="<?php echo intval($req->id); ?>"
+                                            title="<?php esc_attr_e('Approve', 'sfs-hr'); ?>">
+                                        <span class="dashicons dashicons-yes" style="margin-top: 3px;"></span>
+                                    </button>
+                                    <button type="button" class="button button-small early-leave-reject"
+                                            data-id="<?php echo intval($req->id); ?>"
+                                            title="<?php esc_attr_e('Reject', 'sfs-hr'); ?>">
+                                        <span class="dashicons dashicons-no" style="margin-top: 3px;"></span>
+                                    </button>
+                                <?php elseif ($req->status === 'approved' || $req->status === 'rejected'): ?>
+                                    <small class="description"><?php esc_html_e('Reviewed', 'sfs-hr'); ?></small>
+                                <?php else: ?>
+                                    <small class="description"><?php esc_html_e('Cancelled', 'sfs-hr'); ?></small>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
+
+        <!-- Review Modal -->
+        <div id="early-leave-review-modal" style="display: none;">
+            <div class="early-leave-modal-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 100000;"></div>
+            <div class="early-leave-modal-content" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 20px; border-radius: 5px; z-index: 100001; min-width: 400px; max-width: 500px;">
+                <h3 id="early-leave-modal-title"><?php esc_html_e('Review Early Leave Request', 'sfs-hr'); ?></h3>
+                <input type="hidden" id="early-leave-request-id" value="" />
+                <input type="hidden" id="early-leave-action" value="" />
+
+                <p>
+                    <label for="early-leave-note"><?php esc_html_e('Manager Note (optional):', 'sfs-hr'); ?></label>
+                    <textarea id="early-leave-note" rows="3" style="width: 100%;"></textarea>
+                </p>
+
+                <p class="submit" style="text-align: right;">
+                    <button type="button" class="button early-leave-modal-cancel"><?php esc_html_e('Cancel', 'sfs-hr'); ?></button>
+                    <button type="button" class="button button-primary early-leave-modal-submit"><?php esc_html_e('Submit', 'sfs-hr'); ?></button>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    jQuery(function($) {
+        var $modal = $('#early-leave-review-modal');
+
+        // Approve button click
+        $('.early-leave-approve').on('click', function() {
+            var id = $(this).data('id');
+            $('#early-leave-request-id').val(id);
+            $('#early-leave-action').val('approved');
+            $('#early-leave-modal-title').text('<?php echo esc_js(__('Approve Early Leave Request', 'sfs-hr')); ?>');
+            $modal.show();
+        });
+
+        // Reject button click
+        $('.early-leave-reject').on('click', function() {
+            var id = $(this).data('id');
+            $('#early-leave-request-id').val(id);
+            $('#early-leave-action').val('rejected');
+            $('#early-leave-modal-title').text('<?php echo esc_js(__('Reject Early Leave Request', 'sfs-hr')); ?>');
+            $modal.show();
+        });
+
+        // Modal cancel
+        $('.early-leave-modal-cancel, .early-leave-modal-overlay').on('click', function() {
+            $modal.hide();
+            $('#early-leave-note').val('');
+        });
+
+        // Modal submit
+        $('.early-leave-modal-submit').on('click', function() {
+            var id = $('#early-leave-request-id').val();
+            var action = $('#early-leave-action').val();
+            var note = $('#early-leave-note').val();
+
+            $(this).prop('disabled', true).text('<?php echo esc_js(__('Processing...', 'sfs-hr')); ?>');
+
+            $.ajax({
+                url: '<?php echo esc_url(rest_url('sfs-hr/v1/early-leave/review/')); ?>' + id,
+                method: 'POST',
+                beforeSend: function(xhr) {
+                    xhr.setRequestHeader('X-WP-Nonce', '<?php echo wp_create_nonce('wp_rest'); ?>');
+                },
+                data: {
+                    status: action,
+                    manager_note: note
+                },
+                success: function(response) {
+                    if (response.success) {
+                        location.reload();
+                    } else {
+                        alert(response.message || '<?php echo esc_js(__('An error occurred', 'sfs-hr')); ?>');
+                        $('.early-leave-modal-submit').prop('disabled', false).text('<?php echo esc_js(__('Submit', 'sfs-hr')); ?>');
+                    }
+                },
+                error: function(xhr) {
+                    var msg = xhr.responseJSON && xhr.responseJSON.message
+                        ? xhr.responseJSON.message
+                        : '<?php echo esc_js(__('An error occurred', 'sfs-hr')); ?>';
+                    alert(msg);
+                    $('.early-leave-modal-submit').prop('disabled', false).text('<?php echo esc_js(__('Submit', 'sfs-hr')); ?>');
+                }
+            });
+        });
+    });
+    </script>
+
+    <style>
+    .reason-sick { color: #d9534f; }
+    .reason-external_task { color: #5bc0de; }
+    .reason-personal { color: #f0ad4e; }
+    .reason-emergency { color: #d9534f; font-weight: bold; }
+    .reason-other { color: #777; }
+
+    .early-leave-filters label {
+        font-weight: 600;
+    }
+    </style>
+    <?php
 }
 
 

@@ -592,6 +592,37 @@ class Admin {
         }
     }
 
+    // EARLY LEAVE: Pending approvals (Department Managers and HR)
+    if ( current_user_can('sfs_hr_attendance_view_team') || current_user_can('sfs_hr_attendance_admin') || current_user_can('sfs_hr.manage') ) {
+        $early_leave_t = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $early_leave_t ) ) ) {
+            $user_id = get_current_user_id();
+
+            // Build query based on role
+            if ( current_user_can('sfs_hr_attendance_admin') || current_user_can('sfs_hr.manage') ) {
+                // HR/Admin sees all pending early leave requests
+                $pending_early_leaves = (int) $wpdb->get_var(
+                    "SELECT COUNT(*) FROM {$early_leave_t} WHERE status = 'pending'"
+                );
+            } else {
+                // Managers see pending early leave requests where they are the assigned manager
+                $pending_early_leaves = (int) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$early_leave_t} WHERE status = 'pending' AND manager_id = %d",
+                    $user_id
+                ) );
+            }
+
+            if ( $pending_early_leaves > 0 ) {
+                $has_approval_cards = true;
+                echo '<a class="sfs-hr-card sfs-hr-approval-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-attendance&tab=early_leave&status=pending' ) ) . '">';
+                echo '<h2>' . esc_html__( 'Early Leave Requests', 'sfs-hr' ) . '</h2>';
+                echo '<div class="sfs-hr-card-count">' . esc_html( number_format_i18n( $pending_early_leaves ) ) . '</div>';
+                echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting your approval', 'sfs-hr' ) . '</div>';
+                echo '</a>';
+            }
+        }
+    }
+
     $approval_cards_html = ob_get_clean();
 
     // Only show approval section if there are pending requests

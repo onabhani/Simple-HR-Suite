@@ -50,6 +50,9 @@ add_action('rest_api_init', function () {
 
     // Public REST — call register() so nocache headers are attached
     \SFS\HR\Modules\Attendance\Rest\Public_REST::register();
+
+    // Early Leave Requests REST
+    \SFS\HR\Modules\Attendance\Rest\Early_Leave_Rest::register_routes();
 }, 10);
 
 
@@ -3087,6 +3090,37 @@ self::add_column_if_missing($wpdb, $t, 'suggest_out_time',        "suggest_out_t
             KEY act_time (action_type, created_at),
             KEY emp_time (target_employee_id, created_at)
         ) $charset_collate;");
+
+        // 8) Early Leave Requests - for manager approval workflow
+        dbDelta("CREATE TABLE {$p}sfs_hr_early_leave_requests (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            employee_id BIGINT UNSIGNED NOT NULL,
+            session_id BIGINT UNSIGNED NULL COMMENT 'Links to attendance session if exists',
+            request_date DATE NOT NULL,
+            scheduled_end_time TIME NULL COMMENT 'Original shift end time',
+            requested_leave_time TIME NOT NULL COMMENT 'Time employee wants to leave',
+            actual_leave_time TIME NULL COMMENT 'Actual punch out time',
+            reason_type ENUM('sick','external_task','personal','emergency','other') NOT NULL DEFAULT 'other',
+            reason_note TEXT NULL COMMENT 'Employee explanation',
+            status ENUM('pending','approved','rejected','cancelled') NOT NULL DEFAULT 'pending',
+            manager_id BIGINT UNSIGNED NULL COMMENT 'Department manager to approve',
+            reviewed_by BIGINT UNSIGNED NULL COMMENT 'Who actually reviewed',
+            reviewed_at DATETIME NULL,
+            manager_note TEXT NULL COMMENT 'Manager response/comment',
+            affects_salary TINYINT(1) NOT NULL DEFAULT 0 COMMENT '0=no deduction, 1=normal deduction',
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            KEY emp_date (employee_id, request_date),
+            KEY status_date (status, request_date),
+            KEY manager_status (manager_id, status),
+            KEY session_id (session_id)
+        ) $charset_collate;");
+
+        // Add early_leave_approved column to sessions if missing
+        $sessions_table = "{$p}sfs_hr_attendance_sessions";
+        self::add_column_if_missing($wpdb, $sessions_table, 'early_leave_approved', "early_leave_approved TINYINT(1) NOT NULL DEFAULT 0");
+        self::add_column_if_missing($wpdb, $sessions_table, 'early_leave_request_id', "early_leave_request_id BIGINT UNSIGNED NULL");
 
         // Caps + defaults + seed kiosks
         $this->register_caps();
