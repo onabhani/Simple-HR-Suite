@@ -21,7 +21,7 @@ class Admin {
     add_action( 'admin_post_sfs_hr_regen_qr',           [ $this, 'handle_regen_qr' ] );
     add_action( 'admin_post_sfs_hr_toggle_qr',          [ $this, 'handle_toggle_qr' ] );
     add_action( 'admin_post_sfs_hr_download_qr_card',   [ $this, 'handle_download_qr_card' ] );
-
+    add_action( 'admin_post_sfs_hr_save_notification_settings', [ $this, 'handle_save_notification_settings' ] );
 
     // Role→Department sync
     add_action( 'admin_post_sfs_hr_sync_dept_members',  [ $this, 'handle_sync_dept_members' ] );
@@ -77,6 +77,16 @@ class Admin {
             'sfs_hr.leave.review',
             'sfs-hr-my-team',
             [$this, 'render_my_team']
+        );
+
+        // Add Settings submenu (last item)
+        add_submenu_page(
+            'sfs-hr',
+            __('Settings','sfs-hr'),
+            __('Settings','sfs-hr'),
+            'manage_options',
+            'sfs-hr-settings',
+            [$this, 'render_settings']
         );
     }
 
@@ -4245,5 +4255,512 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
           <?php endif; ?>
         </div>
         <?php
+    }
+
+    /**
+     * Render Settings page
+     */
+    public function render_settings(): void {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'Permission denied', 'sfs-hr' ) );
+        }
+
+        $tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'notifications';
+        $settings = Notifications::get_settings();
+
+        ?>
+        <div class="wrap sfs-hr-wrap">
+            <?php Helpers::render_admin_nav(); ?>
+            <?php Helpers::render_admin_notice_bar(); ?>
+
+            <h1><?php esc_html_e( 'HR Settings', 'sfs-hr' ); ?></h1>
+
+            <nav class="nav-tab-wrapper">
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-settings&tab=notifications' ) ); ?>"
+                   class="nav-tab <?php echo $tab === 'notifications' ? 'nav-tab-active' : ''; ?>">
+                    <?php esc_html_e( 'Notifications', 'sfs-hr' ); ?>
+                </a>
+            </nav>
+
+            <div class="sfs-hr-settings-content" style="margin-top: 20px;">
+                <?php
+                if ( $tab === 'notifications' ) {
+                    $this->render_notification_settings( $settings );
+                }
+                ?>
+            </div>
+        </div>
+        <?php
+    }
+
+    /**
+     * Render notification settings form
+     *
+     * @param array $settings Current settings
+     */
+    private function render_notification_settings( array $settings ): void {
+        ?>
+        <style>
+            .sfs-hr-settings-form { max-width: 800px; }
+            .sfs-hr-settings-section {
+                background: #fff;
+                border: 1px solid #c3c4c7;
+                border-radius: 4px;
+                padding: 20px;
+                margin-bottom: 20px;
+            }
+            .sfs-hr-settings-section h2 {
+                margin: 0 0 15px 0;
+                padding: 0 0 10px 0;
+                border-bottom: 1px solid #eee;
+                font-size: 16px;
+            }
+            .sfs-hr-settings-section table.form-table {
+                margin: 0;
+            }
+            .sfs-hr-settings-section table.form-table th {
+                padding: 10px 10px 10px 0;
+                width: 200px;
+            }
+            .sfs-hr-settings-section table.form-table td {
+                padding: 10px 0;
+            }
+            .sfs-hr-settings-section .description {
+                color: #666;
+                font-size: 12px;
+                margin-top: 4px;
+            }
+            .sfs-hr-toggle-row {
+                display: flex;
+                align-items: center;
+                gap: 20px;
+                flex-wrap: wrap;
+            }
+            .sfs-hr-toggle-row label {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .sfs-hr-sms-provider-settings {
+                margin-top: 15px;
+                padding: 15px;
+                background: #f9f9f9;
+                border-radius: 4px;
+                display: none;
+            }
+            .sfs-hr-sms-provider-settings.active {
+                display: block;
+            }
+            .sfs-hr-hr-emails-list {
+                margin-top: 10px;
+            }
+            .sfs-hr-hr-emails-list input {
+                width: 300px;
+                margin-bottom: 5px;
+            }
+        </style>
+
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="sfs-hr-settings-form">
+            <?php wp_nonce_field( 'sfs_hr_notification_settings', '_wpnonce' ); ?>
+            <input type="hidden" name="action" value="sfs_hr_save_notification_settings">
+
+            <!-- Global Settings -->
+            <div class="sfs-hr-settings-section">
+                <h2><?php esc_html_e( 'Global Settings', 'sfs-hr' ); ?></h2>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Enable Notifications', 'sfs-hr' ); ?></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="enabled" value="1" <?php checked( $settings['enabled'] ); ?>>
+                                <?php esc_html_e( 'Enable the notification system', 'sfs-hr' ); ?>
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Channels', 'sfs-hr' ); ?></th>
+                        <td>
+                            <div class="sfs-hr-toggle-row">
+                                <label>
+                                    <input type="checkbox" name="email_enabled" value="1" <?php checked( $settings['email_enabled'] ); ?>>
+                                    <?php esc_html_e( 'Email', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="sms_enabled" value="1" <?php checked( $settings['sms_enabled'] ); ?> id="sms_enabled_toggle">
+                                    <?php esc_html_e( 'SMS', 'sfs-hr' ); ?>
+                                </label>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Recipient Groups', 'sfs-hr' ); ?></th>
+                        <td>
+                            <div class="sfs-hr-toggle-row">
+                                <label>
+                                    <input type="checkbox" name="employee_notification" value="1" <?php checked( $settings['employee_notification'] ); ?>>
+                                    <?php esc_html_e( 'Employees', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="manager_notification" value="1" <?php checked( $settings['manager_notification'] ); ?>>
+                                    <?php esc_html_e( 'Managers', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="hr_notification" value="1" <?php checked( $settings['hr_notification'] ); ?>>
+                                    <?php esc_html_e( 'HR Team', 'sfs-hr' ); ?>
+                                </label>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'HR Email Addresses', 'sfs-hr' ); ?></th>
+                        <td>
+                            <p class="description"><?php esc_html_e( 'Enter HR team email addresses (one per line)', 'sfs-hr' ); ?></p>
+                            <textarea name="hr_emails" rows="4" style="width: 350px;"><?php
+                                echo esc_textarea( implode( "\n", (array) $settings['hr_emails'] ) );
+                            ?></textarea>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- SMS Provider Settings -->
+            <div class="sfs-hr-settings-section" id="sms-settings-section" style="<?php echo $settings['sms_enabled'] ? '' : 'display:none;'; ?>">
+                <h2><?php esc_html_e( 'SMS Provider Settings', 'sfs-hr' ); ?></h2>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'SMS Provider', 'sfs-hr' ); ?></th>
+                        <td>
+                            <select name="sms_provider" id="sms_provider_select">
+                                <option value="none" <?php selected( $settings['sms_provider'], 'none' ); ?>><?php esc_html_e( 'None', 'sfs-hr' ); ?></option>
+                                <option value="twilio" <?php selected( $settings['sms_provider'], 'twilio' ); ?>><?php esc_html_e( 'Twilio', 'sfs-hr' ); ?></option>
+                                <option value="nexmo" <?php selected( $settings['sms_provider'], 'nexmo' ); ?>><?php esc_html_e( 'Nexmo / Vonage', 'sfs-hr' ); ?></option>
+                                <option value="custom" <?php selected( $settings['sms_provider'], 'custom' ); ?>><?php esc_html_e( 'Custom API', 'sfs-hr' ); ?></option>
+                            </select>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Twilio Settings -->
+                <div class="sfs-hr-sms-provider-settings" id="twilio-settings" <?php echo $settings['sms_provider'] === 'twilio' ? 'class="active"' : ''; ?>>
+                    <h4><?php esc_html_e( 'Twilio Configuration', 'sfs-hr' ); ?></h4>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row"><?php esc_html_e( 'Account SID', 'sfs-hr' ); ?></th>
+                            <td><input type="text" name="twilio_sid" value="<?php echo esc_attr( $settings['twilio_sid'] ); ?>" class="regular-text"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php esc_html_e( 'Auth Token', 'sfs-hr' ); ?></th>
+                            <td><input type="password" name="twilio_token" value="<?php echo esc_attr( $settings['twilio_token'] ); ?>" class="regular-text"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php esc_html_e( 'From Number', 'sfs-hr' ); ?></th>
+                            <td><input type="text" name="twilio_from" value="<?php echo esc_attr( $settings['twilio_from'] ); ?>" class="regular-text" placeholder="+1234567890"></td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Nexmo Settings -->
+                <div class="sfs-hr-sms-provider-settings" id="nexmo-settings" <?php echo $settings['sms_provider'] === 'nexmo' ? 'class="active"' : ''; ?>>
+                    <h4><?php esc_html_e( 'Nexmo / Vonage Configuration', 'sfs-hr' ); ?></h4>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row"><?php esc_html_e( 'API Key', 'sfs-hr' ); ?></th>
+                            <td><input type="text" name="nexmo_api_key" value="<?php echo esc_attr( $settings['nexmo_api_key'] ); ?>" class="regular-text"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php esc_html_e( 'API Secret', 'sfs-hr' ); ?></th>
+                            <td><input type="password" name="nexmo_api_secret" value="<?php echo esc_attr( $settings['nexmo_api_secret'] ); ?>" class="regular-text"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php esc_html_e( 'From Name/Number', 'sfs-hr' ); ?></th>
+                            <td><input type="text" name="nexmo_from" value="<?php echo esc_attr( $settings['nexmo_from'] ); ?>" class="regular-text" placeholder="CompanyName"></td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Custom API Settings -->
+                <div class="sfs-hr-sms-provider-settings" id="custom-settings" <?php echo $settings['sms_provider'] === 'custom' ? 'class="active"' : ''; ?>>
+                    <h4><?php esc_html_e( 'Custom API Configuration', 'sfs-hr' ); ?></h4>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row"><?php esc_html_e( 'API Endpoint', 'sfs-hr' ); ?></th>
+                            <td><input type="url" name="custom_sms_endpoint" value="<?php echo esc_attr( $settings['custom_sms_endpoint'] ); ?>" class="regular-text" placeholder="https://api.example.com/sms"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php esc_html_e( 'API Key', 'sfs-hr' ); ?></th>
+                            <td><input type="password" name="custom_sms_api_key" value="<?php echo esc_attr( $settings['custom_sms_api_key'] ); ?>" class="regular-text"></td>
+                        </tr>
+                    </table>
+                    <p class="description"><?php esc_html_e( 'The API will receive POST requests with "phone" and "message" fields.', 'sfs-hr' ); ?></p>
+                </div>
+            </div>
+
+            <!-- Leave Notifications -->
+            <div class="sfs-hr-settings-section">
+                <h2><?php esc_html_e( 'Leave Notifications', 'sfs-hr' ); ?></h2>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Leave Events', 'sfs-hr' ); ?></th>
+                        <td>
+                            <div class="sfs-hr-toggle-row">
+                                <label>
+                                    <input type="checkbox" name="notify_leave_created" value="1" <?php checked( $settings['notify_leave_created'] ); ?>>
+                                    <?php esc_html_e( 'New Request', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="notify_leave_approved" value="1" <?php checked( $settings['notify_leave_approved'] ); ?>>
+                                    <?php esc_html_e( 'Approved', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="notify_leave_rejected" value="1" <?php checked( $settings['notify_leave_rejected'] ); ?>>
+                                    <?php esc_html_e( 'Rejected', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="notify_leave_cancelled" value="1" <?php checked( $settings['notify_leave_cancelled'] ); ?>>
+                                    <?php esc_html_e( 'Cancelled', 'sfs-hr' ); ?>
+                                </label>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Attendance Notifications -->
+            <div class="sfs-hr-settings-section">
+                <h2><?php esc_html_e( 'Attendance Notifications', 'sfs-hr' ); ?></h2>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Attendance Events', 'sfs-hr' ); ?></th>
+                        <td>
+                            <div class="sfs-hr-toggle-row">
+                                <label>
+                                    <input type="checkbox" name="notify_late_arrival" value="1" <?php checked( $settings['notify_late_arrival'] ); ?>>
+                                    <?php esc_html_e( 'Late Arrival', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="notify_early_leave" value="1" <?php checked( $settings['notify_early_leave'] ); ?>>
+                                    <?php esc_html_e( 'Early Leave', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="notify_missed_punch" value="1" <?php checked( $settings['notify_missed_punch'] ); ?>>
+                                    <?php esc_html_e( 'Missed Punch', 'sfs-hr' ); ?>
+                                </label>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Late Threshold', 'sfs-hr' ); ?></th>
+                        <td>
+                            <input type="number" name="late_arrival_threshold" value="<?php echo esc_attr( $settings['late_arrival_threshold'] ); ?>" min="1" max="120" style="width: 80px;">
+                            <span class="description"><?php esc_html_e( 'minutes (notify only if late by more than this)', 'sfs-hr' ); ?></span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Employee Milestone Notifications -->
+            <div class="sfs-hr-settings-section">
+                <h2><?php esc_html_e( 'Employee Milestones', 'sfs-hr' ); ?></h2>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Events', 'sfs-hr' ); ?></th>
+                        <td>
+                            <div class="sfs-hr-toggle-row">
+                                <label>
+                                    <input type="checkbox" name="notify_new_employee" value="1" <?php checked( $settings['notify_new_employee'] ); ?>>
+                                    <?php esc_html_e( 'New Employee', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="notify_birthday" value="1" <?php checked( $settings['notify_birthday'] ); ?>>
+                                    <?php esc_html_e( 'Birthday', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="notify_anniversary" value="1" <?php checked( $settings['notify_anniversary'] ); ?>>
+                                    <?php esc_html_e( 'Work Anniversary', 'sfs-hr' ); ?>
+                                </label>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Birthday Reminder', 'sfs-hr' ); ?></th>
+                        <td>
+                            <input type="number" name="birthday_days_before" value="<?php echo esc_attr( $settings['birthday_days_before'] ); ?>" min="0" max="30" style="width: 80px;">
+                            <span class="description"><?php esc_html_e( 'days before (0 = on the day)', 'sfs-hr' ); ?></span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Anniversary Reminder', 'sfs-hr' ); ?></th>
+                        <td>
+                            <input type="number" name="anniversary_days_before" value="<?php echo esc_attr( $settings['anniversary_days_before'] ); ?>" min="0" max="30" style="width: 80px;">
+                            <span class="description"><?php esc_html_e( 'days before (0 = on the day)', 'sfs-hr' ); ?></span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Contract & Document Alerts -->
+            <div class="sfs-hr-settings-section">
+                <h2><?php esc_html_e( 'Contract & Document Alerts', 'sfs-hr' ); ?></h2>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Events', 'sfs-hr' ); ?></th>
+                        <td>
+                            <div class="sfs-hr-toggle-row">
+                                <label>
+                                    <input type="checkbox" name="notify_contract_expiry" value="1" <?php checked( $settings['notify_contract_expiry'] ); ?>>
+                                    <?php esc_html_e( 'Contract Expiry', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="notify_probation_end" value="1" <?php checked( $settings['notify_probation_end'] ); ?>>
+                                    <?php esc_html_e( 'Probation End', 'sfs-hr' ); ?>
+                                </label>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Contract Expiry Days', 'sfs-hr' ); ?></th>
+                        <td>
+                            <input type="text" name="contract_expiry_days" value="<?php echo esc_attr( implode( ', ', (array) $settings['contract_expiry_days'] ) ); ?>" class="regular-text" placeholder="30, 14, 7">
+                            <p class="description"><?php esc_html_e( 'Send notifications when contracts expire in X days (comma-separated)', 'sfs-hr' ); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Probation Review', 'sfs-hr' ); ?></th>
+                        <td>
+                            <input type="number" name="probation_days_before" value="<?php echo esc_attr( $settings['probation_days_before'] ); ?>" min="1" max="30" style="width: 80px;">
+                            <span class="description"><?php esc_html_e( 'days before probation ends', 'sfs-hr' ); ?></span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Payroll Notifications -->
+            <div class="sfs-hr-settings-section">
+                <h2><?php esc_html_e( 'Payroll Notifications', 'sfs-hr' ); ?></h2>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Events', 'sfs-hr' ); ?></th>
+                        <td>
+                            <div class="sfs-hr-toggle-row">
+                                <label>
+                                    <input type="checkbox" name="notify_payslip_ready" value="1" <?php checked( $settings['notify_payslip_ready'] ); ?>>
+                                    <?php esc_html_e( 'Payslip Ready', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="notify_payroll_processed" value="1" <?php checked( $settings['notify_payroll_processed'] ); ?>>
+                                    <?php esc_html_e( 'Payroll Processed', 'sfs-hr' ); ?>
+                                </label>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <p class="submit">
+                <button type="submit" class="button button-primary"><?php esc_html_e( 'Save Settings', 'sfs-hr' ); ?></button>
+            </p>
+        </form>
+
+        <script>
+        jQuery(function($) {
+            // Toggle SMS settings section
+            $('#sms_enabled_toggle').on('change', function() {
+                $('#sms-settings-section').toggle(this.checked);
+            });
+
+            // Toggle SMS provider settings
+            $('#sms_provider_select').on('change', function() {
+                $('.sfs-hr-sms-provider-settings').removeClass('active');
+                var provider = $(this).val();
+                if (provider !== 'none') {
+                    $('#' + provider + '-settings').addClass('active');
+                }
+            });
+        });
+        </script>
+        <?php
+    }
+
+    /**
+     * Handle saving notification settings
+     */
+    public function handle_save_notification_settings(): void {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'Permission denied', 'sfs-hr' ) );
+        }
+
+        check_admin_referer( 'sfs_hr_notification_settings' );
+
+        // Parse HR emails from textarea
+        $hr_emails_raw = isset( $_POST['hr_emails'] ) ? sanitize_textarea_field( wp_unslash( $_POST['hr_emails'] ) ) : '';
+        $hr_emails = array_filter( array_map( 'sanitize_email', array_map( 'trim', explode( "\n", $hr_emails_raw ) ) ) );
+
+        // Parse contract expiry days
+        $contract_days_raw = isset( $_POST['contract_expiry_days'] ) ? sanitize_text_field( wp_unslash( $_POST['contract_expiry_days'] ) ) : '30, 14, 7';
+        $contract_expiry_days = array_filter( array_map( 'intval', array_map( 'trim', explode( ',', $contract_days_raw ) ) ) );
+        if ( empty( $contract_expiry_days ) ) {
+            $contract_expiry_days = [ 30, 14, 7 ];
+        }
+
+        $settings = [
+            // Global
+            'enabled'              => isset( $_POST['enabled'] ),
+            'email_enabled'        => isset( $_POST['email_enabled'] ),
+            'sms_enabled'          => isset( $_POST['sms_enabled'] ),
+            'sms_provider'         => isset( $_POST['sms_provider'] ) ? sanitize_key( $_POST['sms_provider'] ) : 'none',
+
+            // SMS Providers
+            'twilio_sid'           => isset( $_POST['twilio_sid'] ) ? sanitize_text_field( wp_unslash( $_POST['twilio_sid'] ) ) : '',
+            'twilio_token'         => isset( $_POST['twilio_token'] ) ? sanitize_text_field( wp_unslash( $_POST['twilio_token'] ) ) : '',
+            'twilio_from'          => isset( $_POST['twilio_from'] ) ? sanitize_text_field( wp_unslash( $_POST['twilio_from'] ) ) : '',
+            'nexmo_api_key'        => isset( $_POST['nexmo_api_key'] ) ? sanitize_text_field( wp_unslash( $_POST['nexmo_api_key'] ) ) : '',
+            'nexmo_api_secret'     => isset( $_POST['nexmo_api_secret'] ) ? sanitize_text_field( wp_unslash( $_POST['nexmo_api_secret'] ) ) : '',
+            'nexmo_from'           => isset( $_POST['nexmo_from'] ) ? sanitize_text_field( wp_unslash( $_POST['nexmo_from'] ) ) : '',
+            'custom_sms_endpoint'  => isset( $_POST['custom_sms_endpoint'] ) ? esc_url_raw( wp_unslash( $_POST['custom_sms_endpoint'] ) ) : '',
+            'custom_sms_api_key'   => isset( $_POST['custom_sms_api_key'] ) ? sanitize_text_field( wp_unslash( $_POST['custom_sms_api_key'] ) ) : '',
+
+            // Recipients
+            'hr_emails'            => $hr_emails,
+            'manager_notification' => isset( $_POST['manager_notification'] ),
+            'employee_notification' => isset( $_POST['employee_notification'] ),
+            'hr_notification'      => isset( $_POST['hr_notification'] ),
+
+            // Leave
+            'notify_leave_created'   => isset( $_POST['notify_leave_created'] ),
+            'notify_leave_approved'  => isset( $_POST['notify_leave_approved'] ),
+            'notify_leave_rejected'  => isset( $_POST['notify_leave_rejected'] ),
+            'notify_leave_cancelled' => isset( $_POST['notify_leave_cancelled'] ),
+
+            // Attendance
+            'notify_late_arrival'      => isset( $_POST['notify_late_arrival'] ),
+            'late_arrival_threshold'   => isset( $_POST['late_arrival_threshold'] ) ? absint( $_POST['late_arrival_threshold'] ) : 15,
+            'notify_early_leave'       => isset( $_POST['notify_early_leave'] ),
+            'notify_missed_punch'      => isset( $_POST['notify_missed_punch'] ),
+
+            // Milestones
+            'notify_new_employee'      => isset( $_POST['notify_new_employee'] ),
+            'notify_birthday'          => isset( $_POST['notify_birthday'] ),
+            'birthday_days_before'     => isset( $_POST['birthday_days_before'] ) ? absint( $_POST['birthday_days_before'] ) : 1,
+            'notify_anniversary'       => isset( $_POST['notify_anniversary'] ),
+            'anniversary_days_before'  => isset( $_POST['anniversary_days_before'] ) ? absint( $_POST['anniversary_days_before'] ) : 1,
+
+            // Contracts
+            'notify_contract_expiry'   => isset( $_POST['notify_contract_expiry'] ),
+            'contract_expiry_days'     => $contract_expiry_days,
+            'notify_probation_end'     => isset( $_POST['notify_probation_end'] ),
+            'probation_days_before'    => isset( $_POST['probation_days_before'] ) ? absint( $_POST['probation_days_before'] ) : 7,
+
+            // Payroll
+            'notify_payslip_ready'     => isset( $_POST['notify_payslip_ready'] ),
+            'notify_payroll_processed' => isset( $_POST['notify_payroll_processed'] ),
+        ];
+
+        Notifications::save_settings( $settings );
+
+        Helpers::redirect_with_notice(
+            admin_url( 'admin.php?page=sfs-hr-settings&tab=notifications' ),
+            'success',
+            __( 'Notification settings saved successfully.', 'sfs-hr' )
+        );
     }
 }

@@ -248,6 +248,9 @@ add_action('plugins_loaded', function(){
 
     // Audit Trail (logging system)
     \SFS\HR\Core\AuditTrail::init();
+
+    // Notification System (email/SMS alerts)
+    \SFS\HR\Core\Notifications::init();
 });
 
 /**
