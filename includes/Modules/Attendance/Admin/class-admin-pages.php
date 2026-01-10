@@ -40,6 +40,12 @@ class Admin_Pages {
     add_action( 'admin_post_sfs_hr_att_save_automation', [ $this, 'handle_save_automation' ] );
     add_action( 'admin_post_sfs_hr_att_export_csv', [ $this, 'handle_export_csv' ] );
     add_action( 'admin_post_sfs_hr_att_rebuild_sessions_day', [ $this, 'handle_rebuild_sessions_day' ] );
+    add_action( 'admin_post_sfs_hr_att_save_auto_rules', [ $this, 'handle_save_auto_rules' ] );
+    add_action( 'admin_post_sfs_hr_att_run_auto_rules', [ $this, 'handle_run_auto_rules' ] );
+    add_action( 'admin_post_sfs_hr_att_delete_auto_rule', [ $this, 'handle_delete_auto_rule' ] );
+
+    // Auto-assign on new employee
+    add_action( 'sfs_hr_employee_created', [ $this, 'auto_assign_on_employee_created' ], 10, 2 );
 }
 
     
@@ -443,6 +449,268 @@ public function render_automation(): void {
 
             <?php submit_button( 'Save Automation' ); ?>
         </form>
+
+        <?php $this->render_auto_assignment_rules( $all_shifts, $departments ); ?>
+    </div>
+    <?php
+}
+
+/**
+ * Render Auto-Assignment Rules section
+ *
+ * @param array $all_shifts Available shifts
+ * @param array $departments Available departments
+ */
+private function render_auto_assignment_rules( array $all_shifts, array $departments ): void {
+    $opt   = get_option( AttendanceModule::OPT_SETTINGS, [] );
+    $rules = $opt['auto_assignment_rules'] ?? [];
+
+    // Get unique job titles for dropdown
+    global $wpdb;
+    $emp_table  = $wpdb->prefix . 'sfs_hr_employees';
+    $job_titles = $wpdb->get_col( "SELECT DISTINCT position FROM {$emp_table} WHERE position IS NOT NULL AND position != '' ORDER BY position" );
+
+    // Get unique work locations
+    $work_locations = $wpdb->get_col( "SELECT DISTINCT work_location FROM {$emp_table} WHERE work_location IS NOT NULL AND work_location != '' ORDER BY work_location" );
+
+    // Get contract types
+    $contract_types = [ 'full-time', 'part-time', 'contract', 'temporary', 'intern' ];
+
+    ?>
+    <hr style="margin: 30px 0;">
+
+    <h2><?php esc_html_e( 'Auto-Assignment Rules', 'sfs-hr' ); ?></h2>
+    <p><?php esc_html_e( 'Define rules to automatically assign shifts to employees based on their attributes. Rules are evaluated in priority order (lowest number first).', 'sfs-hr' ); ?></p>
+
+    <style>
+        .sfs-hr-rules-table { width: 100%; border-collapse: collapse; }
+        .sfs-hr-rules-table th,
+        .sfs-hr-rules-table td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        .sfs-hr-rules-table th { background: #f9f9f9; }
+        .sfs-hr-rule-conditions { display: flex; flex-wrap: wrap; gap: 10px; }
+        .sfs-hr-rule-condition {
+            background: #f0f6fc;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .sfs-hr-rule-form { background: #fff; border: 1px solid #c3c4c7; padding: 20px; margin-bottom: 20px; border-radius: 4px; }
+        .sfs-hr-rule-form-row { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; }
+        .sfs-hr-rule-form-field { flex: 1; min-width: 200px; }
+        .sfs-hr-rule-form-field label { display: block; margin-bottom: 5px; font-weight: 600; }
+        .sfs-hr-rule-form-field select,
+        .sfs-hr-rule-form-field input { width: 100%; }
+        .sfs-hr-no-rules { padding: 20px; text-align: center; color: #666; background: #f9f9f9; }
+        .sfs-hr-rule-actions { display: flex; gap: 10px; }
+    </style>
+
+    <!-- Add New Rule Form -->
+    <div class="sfs-hr-rule-form">
+        <h3 style="margin-top:0;"><?php esc_html_e( 'Add New Rule', 'sfs-hr' ); ?></h3>
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+            <?php wp_nonce_field( 'sfs_hr_att_save_auto_rules' ); ?>
+            <input type="hidden" name="action" value="sfs_hr_att_save_auto_rules">
+
+            <div class="sfs-hr-rule-form-row">
+                <div class="sfs-hr-rule-form-field">
+                    <label><?php esc_html_e( 'Rule Name', 'sfs-hr' ); ?></label>
+                    <input type="text" name="rule_name" placeholder="<?php esc_attr_e( 'e.g., Office Staff Morning Shift', 'sfs-hr' ); ?>" required>
+                </div>
+                <div class="sfs-hr-rule-form-field" style="flex: 0 0 100px;">
+                    <label><?php esc_html_e( 'Priority', 'sfs-hr' ); ?></label>
+                    <input type="number" name="rule_priority" value="10" min="1" max="100" style="width: 80px;">
+                </div>
+                <div class="sfs-hr-rule-form-field">
+                    <label><?php esc_html_e( 'Assign Shift', 'sfs-hr' ); ?></label>
+                    <select name="rule_shift_id" required>
+                        <option value=""><?php esc_html_e( '— Select Shift —', 'sfs-hr' ); ?></option>
+                        <?php foreach ( $all_shifts as $s ) : ?>
+                            <option value="<?php echo (int) $s['id']; ?>">
+                                <?php echo esc_html( "{$s['name']} ({$s['start_time']}→{$s['end_time']})" ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+
+            <div class="sfs-hr-rule-form-row">
+                <div class="sfs-hr-rule-form-field">
+                    <label><?php esc_html_e( 'Department (optional)', 'sfs-hr' ); ?></label>
+                    <select name="rule_department">
+                        <option value=""><?php esc_html_e( '— Any Department —', 'sfs-hr' ); ?></option>
+                        <?php foreach ( $departments as $d ) : ?>
+                            <option value="<?php echo (int) $d['id']; ?>">
+                                <?php echo esc_html( $d['name'] ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="sfs-hr-rule-form-field">
+                    <label><?php esc_html_e( 'Job Title (optional)', 'sfs-hr' ); ?></label>
+                    <select name="rule_job_title">
+                        <option value=""><?php esc_html_e( '— Any Job Title —', 'sfs-hr' ); ?></option>
+                        <?php foreach ( $job_titles as $jt ) : ?>
+                            <option value="<?php echo esc_attr( $jt ); ?>">
+                                <?php echo esc_html( $jt ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="sfs-hr-rule-form-field">
+                    <label><?php esc_html_e( 'Work Location (optional)', 'sfs-hr' ); ?></label>
+                    <select name="rule_work_location">
+                        <option value=""><?php esc_html_e( '— Any Location —', 'sfs-hr' ); ?></option>
+                        <?php foreach ( $work_locations as $loc ) : ?>
+                            <option value="<?php echo esc_attr( $loc ); ?>">
+                                <?php echo esc_html( $loc ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+
+            <div class="sfs-hr-rule-form-row">
+                <div class="sfs-hr-rule-form-field">
+                    <label><?php esc_html_e( 'Contract Type (optional)', 'sfs-hr' ); ?></label>
+                    <select name="rule_contract_type">
+                        <option value=""><?php esc_html_e( '— Any Contract —', 'sfs-hr' ); ?></option>
+                        <?php foreach ( $contract_types as $ct ) : ?>
+                            <option value="<?php echo esc_attr( $ct ); ?>">
+                                <?php echo esc_html( ucfirst( $ct ) ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="sfs-hr-rule-form-field">
+                    <label><?php esc_html_e( 'Hired After (optional)', 'sfs-hr' ); ?></label>
+                    <input type="date" name="rule_hired_after">
+                </div>
+                <div class="sfs-hr-rule-form-field">
+                    <label><?php esc_html_e( 'Hired Before (optional)', 'sfs-hr' ); ?></label>
+                    <input type="date" name="rule_hired_before">
+                </div>
+            </div>
+
+            <div class="sfs-hr-rule-form-row">
+                <div class="sfs-hr-rule-form-field">
+                    <label>
+                        <input type="checkbox" name="rule_apply_on_create" value="1" checked>
+                        <?php esc_html_e( 'Apply automatically when new employee is created', 'sfs-hr' ); ?>
+                    </label>
+                </div>
+            </div>
+
+            <button type="submit" class="button button-primary"><?php esc_html_e( 'Add Rule', 'sfs-hr' ); ?></button>
+        </form>
+    </div>
+
+    <!-- Existing Rules -->
+    <?php if ( empty( $rules ) ) : ?>
+        <div class="sfs-hr-no-rules">
+            <p><?php esc_html_e( 'No auto-assignment rules defined yet.', 'sfs-hr' ); ?></p>
+        </div>
+    <?php else : ?>
+        <table class="widefat sfs-hr-rules-table">
+            <thead>
+                <tr>
+                    <th style="width: 60px;"><?php esc_html_e( 'Priority', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Rule Name', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Conditions', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Shift', 'sfs-hr' ); ?></th>
+                    <th style="width: 100px;"><?php esc_html_e( 'Auto', 'sfs-hr' ); ?></th>
+                    <th style="width: 80px;"><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php
+                // Sort by priority
+                usort( $rules, fn( $a, $b ) => ( $a['priority'] ?? 10 ) <=> ( $b['priority'] ?? 10 ) );
+
+                foreach ( $rules as $idx => $rule ) :
+                    // Find shift name
+                    $shift_name = '—';
+                    foreach ( $all_shifts as $s ) {
+                        if ( (int) $s['id'] === (int) $rule['shift_id'] ) {
+                            $shift_name = $s['name'] . " ({$s['start_time']}→{$s['end_time']})";
+                            break;
+                        }
+                    }
+
+                    // Build conditions display
+                    $conditions = [];
+                    if ( ! empty( $rule['department'] ) ) {
+                        foreach ( $departments as $d ) {
+                            if ( (int) $d['id'] === (int) $rule['department'] ) {
+                                $conditions[] = __( 'Dept:', 'sfs-hr' ) . ' ' . $d['name'];
+                                break;
+                            }
+                        }
+                    }
+                    if ( ! empty( $rule['job_title'] ) ) {
+                        $conditions[] = __( 'Title:', 'sfs-hr' ) . ' ' . $rule['job_title'];
+                    }
+                    if ( ! empty( $rule['work_location'] ) ) {
+                        $conditions[] = __( 'Location:', 'sfs-hr' ) . ' ' . $rule['work_location'];
+                    }
+                    if ( ! empty( $rule['contract_type'] ) ) {
+                        $conditions[] = __( 'Contract:', 'sfs-hr' ) . ' ' . ucfirst( $rule['contract_type'] );
+                    }
+                    if ( ! empty( $rule['hired_after'] ) ) {
+                        $conditions[] = __( 'Hired after:', 'sfs-hr' ) . ' ' . $rule['hired_after'];
+                    }
+                    if ( ! empty( $rule['hired_before'] ) ) {
+                        $conditions[] = __( 'Hired before:', 'sfs-hr' ) . ' ' . $rule['hired_before'];
+                    }
+                    if ( empty( $conditions ) ) {
+                        $conditions[] = __( 'All employees', 'sfs-hr' );
+                    }
+                    ?>
+                    <tr>
+                        <td><strong><?php echo (int) ( $rule['priority'] ?? 10 ); ?></strong></td>
+                        <td><?php echo esc_html( $rule['name'] ?? __( 'Unnamed Rule', 'sfs-hr' ) ); ?></td>
+                        <td>
+                            <div class="sfs-hr-rule-conditions">
+                                <?php foreach ( $conditions as $cond ) : ?>
+                                    <span class="sfs-hr-rule-condition"><?php echo esc_html( $cond ); ?></span>
+                                <?php endforeach; ?>
+                            </div>
+                        </td>
+                        <td><?php echo esc_html( $shift_name ); ?></td>
+                        <td>
+                            <?php if ( ! empty( $rule['apply_on_create'] ) ) : ?>
+                                <span style="color: green;">✓</span>
+                            <?php else : ?>
+                                <span style="color: #999;">—</span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display: inline;">
+                                <?php wp_nonce_field( 'sfs_hr_att_delete_auto_rule' ); ?>
+                                <input type="hidden" name="action" value="sfs_hr_att_delete_auto_rule">
+                                <input type="hidden" name="rule_index" value="<?php echo (int) $idx; ?>">
+                                <button type="submit" class="button button-small" onclick="return confirm('<?php esc_attr_e( 'Delete this rule?', 'sfs-hr' ); ?>');">
+                                    <?php esc_html_e( 'Delete', 'sfs-hr' ); ?>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php endif; ?>
+
+    <!-- Run Rules Button -->
+    <div style="margin-top: 20px;">
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display: inline;">
+            <?php wp_nonce_field( 'sfs_hr_att_run_auto_rules' ); ?>
+            <input type="hidden" name="action" value="sfs_hr_att_run_auto_rules">
+            <button type="submit" class="button button-secondary" onclick="return confirm('<?php esc_attr_e( 'This will apply rules to all employees who do not have a default shift assigned. Continue?', 'sfs-hr' ); ?>');">
+                <?php esc_html_e( 'Run Rules on Existing Employees', 'sfs-hr' ); ?>
+            </button>
+            <span class="description" style="margin-left: 10px;">
+                <?php esc_html_e( 'Apply rules to employees who do not have a default shift assigned yet.', 'sfs-hr' ); ?>
+            </span>
+        </form>
     </div>
     <?php
 }
@@ -505,6 +773,277 @@ public function handle_save_automation(): void {
     exit;
 }
 
+/**
+ * Handle saving new auto-assignment rule
+ */
+public function handle_save_auto_rules(): void {
+    if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
+        wp_die( 'Access denied' );
+    }
+    check_admin_referer( 'sfs_hr_att_save_auto_rules' );
+
+    $rule_name        = sanitize_text_field( wp_unslash( $_POST['rule_name'] ?? '' ) );
+    $rule_priority    = absint( $_POST['rule_priority'] ?? 10 );
+    $rule_shift_id    = absint( $_POST['rule_shift_id'] ?? 0 );
+    $rule_department  = absint( $_POST['rule_department'] ?? 0 );
+    $rule_job_title   = sanitize_text_field( wp_unslash( $_POST['rule_job_title'] ?? '' ) );
+    $rule_work_loc    = sanitize_text_field( wp_unslash( $_POST['rule_work_location'] ?? '' ) );
+    $rule_contract    = sanitize_text_field( wp_unslash( $_POST['rule_contract_type'] ?? '' ) );
+    $rule_hired_after = sanitize_text_field( wp_unslash( $_POST['rule_hired_after'] ?? '' ) );
+    $rule_hired_before = sanitize_text_field( wp_unslash( $_POST['rule_hired_before'] ?? '' ) );
+    $rule_apply_on_create = ! empty( $_POST['rule_apply_on_create'] );
+
+    if ( empty( $rule_name ) || empty( $rule_shift_id ) ) {
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs_hr_attendance&tab=automation&error=missing_fields' ) );
+        exit;
+    }
+
+    // Build rule array
+    $new_rule = [
+        'name'            => $rule_name,
+        'priority'        => $rule_priority,
+        'shift_id'        => $rule_shift_id,
+        'department'      => $rule_department ?: '',
+        'job_title'       => $rule_job_title,
+        'work_location'   => $rule_work_loc,
+        'contract_type'   => $rule_contract,
+        'hired_after'     => $rule_hired_after,
+        'hired_before'    => $rule_hired_before,
+        'apply_on_create' => $rule_apply_on_create,
+        'created_at'      => current_time( 'mysql' ),
+    ];
+
+    // Load existing rules
+    $opt   = get_option( AttendanceModule::OPT_SETTINGS, [] );
+    $rules = $opt['auto_assignment_rules'] ?? [];
+
+    // Add new rule
+    $rules[] = $new_rule;
+
+    // Save back
+    $opt['auto_assignment_rules'] = $rules;
+    update_option( AttendanceModule::OPT_SETTINGS, $opt, false );
+
+    wp_safe_redirect( admin_url( 'admin.php?page=sfs_hr_attendance&tab=automation&rule_saved=1' ) );
+    exit;
+}
+
+/**
+ * Handle deleting an auto-assignment rule
+ */
+public function handle_delete_auto_rule(): void {
+    if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
+        wp_die( 'Access denied' );
+    }
+    check_admin_referer( 'sfs_hr_att_delete_auto_rule' );
+
+    $rule_index = absint( $_POST['rule_index'] ?? -1 );
+
+    $opt   = get_option( AttendanceModule::OPT_SETTINGS, [] );
+    $rules = $opt['auto_assignment_rules'] ?? [];
+
+    if ( isset( $rules[ $rule_index ] ) ) {
+        array_splice( $rules, $rule_index, 1 );
+        $opt['auto_assignment_rules'] = array_values( $rules );
+        update_option( AttendanceModule::OPT_SETTINGS, $opt, false );
+    }
+
+    wp_safe_redirect( admin_url( 'admin.php?page=sfs_hr_attendance&tab=automation&rule_deleted=1' ) );
+    exit;
+}
+
+/**
+ * Handle running auto-assignment rules on existing employees
+ */
+public function handle_run_auto_rules(): void {
+    if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
+        wp_die( 'Access denied' );
+    }
+    check_admin_referer( 'sfs_hr_att_run_auto_rules' );
+
+    global $wpdb;
+
+    $opt   = get_option( AttendanceModule::OPT_SETTINGS, [] );
+    $rules = $opt['auto_assignment_rules'] ?? [];
+
+    if ( empty( $rules ) ) {
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs_hr_attendance&tab=automation&no_rules=1' ) );
+        exit;
+    }
+
+    // Sort rules by priority
+    usort( $rules, fn( $a, $b ) => ( $a['priority'] ?? 10 ) <=> ( $b['priority'] ?? 10 ) );
+
+    // Get all active employees
+    $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+    $emp_shifts_table = $wpdb->prefix . 'sfs_hr_attendance_emp_shifts';
+    $dept_table = $wpdb->prefix . 'sfs_hr_departments';
+
+    // Get employees who don't have a default shift assigned
+    $employees = $wpdb->get_results(
+        "SELECT e.*, d.id as dept_id
+         FROM {$emp_table} e
+         LEFT JOIN {$dept_table} d ON e.department = d.name
+         WHERE e.status = 'active'
+         AND NOT EXISTS (
+             SELECT 1 FROM {$emp_shifts_table} es
+             WHERE es.employee_id = e.id
+         )"
+    );
+
+    $assigned_count = 0;
+
+    foreach ( $employees as $emp ) {
+        $matched_shift = $this->find_matching_rule_for_employee( $emp, $rules );
+
+        if ( $matched_shift ) {
+            // Assign the shift
+            $wpdb->insert(
+                $emp_shifts_table,
+                [
+                    'employee_id' => $emp->id,
+                    'shift_id'    => $matched_shift,
+                    'start_date'  => current_time( 'Y-m-d' ),
+                    'created_at'  => current_time( 'mysql' ),
+                    'created_by'  => get_current_user_id(),
+                ],
+                [ '%d', '%d', '%s', '%s', '%d' ]
+            );
+            $assigned_count++;
+        }
+    }
+
+    wp_safe_redirect( admin_url( "admin.php?page=sfs_hr_attendance&tab=automation&rules_run=1&assigned={$assigned_count}" ) );
+    exit;
+}
+
+/**
+ * Find matching rule for an employee
+ *
+ * @param object $employee Employee data
+ * @param array  $rules    Rules sorted by priority
+ * @return int|null Shift ID if matched, null otherwise
+ */
+private function find_matching_rule_for_employee( $employee, array $rules ): ?int {
+    foreach ( $rules as $rule ) {
+        $matches = true;
+
+        // Check department
+        if ( ! empty( $rule['department'] ) ) {
+            if ( (int) ( $employee->dept_id ?? 0 ) !== (int) $rule['department'] ) {
+                $matches = false;
+            }
+        }
+
+        // Check job title
+        if ( $matches && ! empty( $rule['job_title'] ) ) {
+            if ( strtolower( $employee->position ?? '' ) !== strtolower( $rule['job_title'] ) ) {
+                $matches = false;
+            }
+        }
+
+        // Check work location
+        if ( $matches && ! empty( $rule['work_location'] ) ) {
+            if ( strtolower( $employee->work_location ?? '' ) !== strtolower( $rule['work_location'] ) ) {
+                $matches = false;
+            }
+        }
+
+        // Check contract type
+        if ( $matches && ! empty( $rule['contract_type'] ) ) {
+            if ( strtolower( $employee->contract_type ?? '' ) !== strtolower( $rule['contract_type'] ) ) {
+                $matches = false;
+            }
+        }
+
+        // Check hired after
+        if ( $matches && ! empty( $rule['hired_after'] ) ) {
+            $hire_date = $employee->hire_date ?? $employee->hired_at ?? '';
+            if ( empty( $hire_date ) || $hire_date < $rule['hired_after'] ) {
+                $matches = false;
+            }
+        }
+
+        // Check hired before
+        if ( $matches && ! empty( $rule['hired_before'] ) ) {
+            $hire_date = $employee->hire_date ?? $employee->hired_at ?? '';
+            if ( empty( $hire_date ) || $hire_date > $rule['hired_before'] ) {
+                $matches = false;
+            }
+        }
+
+        if ( $matches ) {
+            return (int) $rule['shift_id'];
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Auto-assign shift when a new employee is created
+ *
+ * @param int   $employee_id Employee ID
+ * @param array $data        Employee data
+ */
+public function auto_assign_on_employee_created( int $employee_id, array $data ): void {
+    global $wpdb;
+
+    $opt   = get_option( AttendanceModule::OPT_SETTINGS, [] );
+    $rules = $opt['auto_assignment_rules'] ?? [];
+
+    // Filter only rules with apply_on_create enabled
+    $rules = array_filter( $rules, fn( $r ) => ! empty( $r['apply_on_create'] ) );
+
+    if ( empty( $rules ) ) {
+        return;
+    }
+
+    // Sort rules by priority
+    usort( $rules, fn( $a, $b ) => ( $a['priority'] ?? 10 ) <=> ( $b['priority'] ?? 10 ) );
+
+    // Get employee with department info
+    $emp_table  = $wpdb->prefix . 'sfs_hr_employees';
+    $dept_table = $wpdb->prefix . 'sfs_hr_departments';
+
+    $employee = $wpdb->get_row( $wpdb->prepare(
+        "SELECT e.*, d.id as dept_id
+         FROM {$emp_table} e
+         LEFT JOIN {$dept_table} d ON e.department = d.name
+         WHERE e.id = %d",
+        $employee_id
+    ) );
+
+    if ( ! $employee ) {
+        return;
+    }
+
+    $matched_shift = $this->find_matching_rule_for_employee( $employee, $rules );
+
+    if ( $matched_shift ) {
+        $emp_shifts_table = $wpdb->prefix . 'sfs_hr_attendance_emp_shifts';
+
+        // Check if employee already has a shift assigned
+        $existing = $wpdb->get_var( $wpdb->prepare(
+            "SELECT id FROM {$emp_shifts_table} WHERE employee_id = %d LIMIT 1",
+            $employee_id
+        ) );
+
+        if ( ! $existing ) {
+            $wpdb->insert(
+                $emp_shifts_table,
+                [
+                    'employee_id' => $employee_id,
+                    'shift_id'    => $matched_shift,
+                    'start_date'  => current_time( 'Y-m-d' ),
+                    'created_at'  => current_time( 'mysql' ),
+                    'created_by'  => get_current_user_id(),
+                ],
+                [ '%d', '%d', '%s', '%s', '%d' ]
+            );
+        }
+    }
+}
 
 
 /* ========================= SHIFTS ========================= */
