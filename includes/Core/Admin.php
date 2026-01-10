@@ -761,6 +761,9 @@ echo '</a>';
     // === CONTRACT & DOCUMENT EXPIRY ALERTS SECTION ===
     $this->render_expiry_alerts_section( $wpdb, $emp_t, $today );
 
+    // === OVERTIME ALERTS SECTION ===
+    $this->render_overtime_alerts_section( $wpdb, $emp_t, $today );
+
     echo '</div>'; // .wrap
 }
 
@@ -1120,6 +1123,181 @@ private function render_expiry_list( string $id, array $alerts, bool $active ): 
     echo '</div>';
 }
 
+/**
+ * Render overtime alerts section
+ */
+private function render_overtime_alerts_section( $wpdb, string $emp_t, string $today ): void {
+    $sessions_t = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+
+    // Check if sessions table exists
+    if ( ! $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $sessions_t ) ) ) {
+        return;
+    }
+
+    // Get overtime threshold from settings (default: 40 hours/month = 2400 minutes)
+    $att_settings = get_option( 'sfs_hr_attendance_settings', [] );
+    $monthly_ot_threshold = (int) ( $att_settings['monthly_ot_threshold'] ?? 2400 ); // minutes
+
+    // Warning threshold is 80% of limit
+    $warning_threshold = (int) ( $monthly_ot_threshold * 0.8 );
+
+    // Get current month date range
+    $month_start = date( 'Y-m-01' );
+    $month_end   = date( 'Y-m-t' );
+
+    // Query employees with high overtime this month
+    $high_ot_employees = $wpdb->get_results( $wpdb->prepare(
+        "SELECT
+            e.id, e.employee_code, e.first_name, e.last_name, e.dept_id,
+            SUM(s.overtime_minutes) as total_ot_minutes,
+            COUNT(DISTINCT s.work_date) as days_worked
+         FROM {$emp_t} e
+         INNER JOIN {$sessions_t} s ON s.employee_id = e.id
+         WHERE e.status = 'active'
+           AND s.work_date BETWEEN %s AND %s
+           AND s.overtime_minutes > 0
+         GROUP BY e.id
+         HAVING total_ot_minutes >= %d
+         ORDER BY total_ot_minutes DESC
+         LIMIT 20",
+        $month_start,
+        $month_end,
+        $warning_threshold
+    ), ARRAY_A );
+
+    if ( empty( $high_ot_employees ) ) {
+        return; // No overtime alerts to show
+    }
+
+    // Get department names
+    $dept_t = $wpdb->prefix . 'sfs_hr_departments';
+    $depts = [];
+    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $dept_t ) ) ) {
+        $dept_rows = $wpdb->get_results( "SELECT id, name FROM {$dept_t}", ARRAY_A );
+        foreach ( $dept_rows as $d ) {
+            $depts[ (int) $d['id'] ] = $d['name'];
+        }
+    }
+
+    echo '<style>
+        .sfs-hr-ot-section {
+            margin-top: 24px;
+            padding: 20px;
+            background: #fff;
+            border: 1px solid #dcdcde;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.04);
+        }
+        .sfs-hr-ot-section h2 {
+            margin: 0 0 16px 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #1d2327;
+        }
+        .sfs-hr-ot-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .sfs-hr-ot-table th {
+            text-align: left;
+            padding: 10px 12px;
+            background: #f6f7f7;
+            font-weight: 600;
+            color: #50575e;
+            border-bottom: 1px solid #dcdcde;
+        }
+        .sfs-hr-ot-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #f0f0f1;
+        }
+        .sfs-hr-ot-table tr:hover td {
+            background: #f9fafb;
+        }
+        .sfs-hr-ot-bar {
+            width: 100%;
+            max-width: 150px;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .sfs-hr-ot-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+        }
+        .sfs-hr-ot-bar-fill.warning { background: #f59e0b; }
+        .sfs-hr-ot-bar-fill.danger { background: #dc2626; }
+        .sfs-hr-ot-status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .sfs-hr-ot-status.warning { background: #fef3c7; color: #b45309; }
+        .sfs-hr-ot-status.danger { background: #fee2e2; color: #b91c1c; }
+        .sfs-hr-ot-hours {
+            font-weight: 600;
+            font-size: 14px;
+        }
+    </style>';
+
+    echo '<div class="sfs-hr-ot-section">';
+    echo '<h2><span class="dashicons dashicons-clock" style="color:#f59e0b;margin-right:8px;"></span>' . esc_html__( 'Overtime Alerts', 'sfs-hr' );
+    echo ' <small style="font-weight:normal;font-size:12px;color:#787c82;">(' . esc_html( date_i18n( 'F Y' ) ) . ')</small></h2>';
+
+    echo '<p style="margin-bottom:16px;color:#50575e;font-size:13px;">';
+    printf(
+        esc_html__( 'Employees approaching or exceeding %s hours of overtime this month:', 'sfs-hr' ),
+        '<strong>' . number_format( $monthly_ot_threshold / 60, 1 ) . '</strong>'
+    );
+    echo '</p>';
+
+    echo '<table class="sfs-hr-ot-table">';
+    echo '<thead><tr>';
+    echo '<th>' . esc_html__( 'Employee', 'sfs-hr' ) . '</th>';
+    echo '<th>' . esc_html__( 'Department', 'sfs-hr' ) . '</th>';
+    echo '<th>' . esc_html__( 'Days Worked', 'sfs-hr' ) . '</th>';
+    echo '<th>' . esc_html__( 'Overtime Hours', 'sfs-hr' ) . '</th>';
+    echo '<th>' . esc_html__( 'Progress', 'sfs-hr' ) . '</th>';
+    echo '<th>' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+    echo '</tr></thead>';
+    echo '<tbody>';
+
+    foreach ( $high_ot_employees as $emp ) {
+        $ot_minutes = (int) $emp['total_ot_minutes'];
+        $ot_hours = $ot_minutes / 60;
+        $percentage = min( 100, ( $ot_minutes / $monthly_ot_threshold ) * 100 );
+        $is_over = $ot_minutes >= $monthly_ot_threshold;
+        $status_class = $is_over ? 'danger' : 'warning';
+        $status_label = $is_over ? __( 'Over Limit', 'sfs-hr' ) : __( 'Near Limit', 'sfs-hr' );
+
+        $dept_name = isset( $depts[ (int) $emp['dept_id'] ] ) ? $depts[ (int) $emp['dept_id'] ] : '—';
+        $edit_url = admin_url( 'admin.php?page=sfs-hr-employees&action=edit&id=' . intval( $emp['id'] ) );
+
+        echo '<tr>';
+        echo '<td>';
+        echo '<a href="' . esc_url( $edit_url ) . '"><strong>' . esc_html( trim( $emp['first_name'] . ' ' . $emp['last_name'] ) ) . '</strong></a>';
+        echo '<br><small class="description">' . esc_html( $emp['employee_code'] ) . '</small>';
+        echo '</td>';
+        echo '<td>' . esc_html( $dept_name ) . '</td>';
+        echo '<td>' . esc_html( $emp['days_worked'] ) . '</td>';
+        echo '<td><span class="sfs-hr-ot-hours">' . esc_html( number_format( $ot_hours, 1 ) ) . ' ' . esc_html__( 'hrs', 'sfs-hr' ) . '</span></td>';
+        echo '<td>';
+        echo '<div class="sfs-hr-ot-bar">';
+        echo '<div class="sfs-hr-ot-bar-fill ' . esc_attr( $status_class ) . '" style="width:' . esc_attr( $percentage ) . '%;"></div>';
+        echo '</div>';
+        echo '<small style="color:#787c82;">' . esc_html( round( $percentage ) ) . '%</small>';
+        echo '</td>';
+        echo '<td><span class="sfs-hr-ot-status ' . esc_attr( $status_class ) . '">' . esc_html( $status_label ) . '</span></td>';
+        echo '</tr>';
+    }
+
+    echo '</tbody>';
+    echo '</table>';
+    echo '</div>';
+}
 
 
     private function query_employees(string $q, int $page, int $per_page): array {

@@ -18,6 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 require_once __DIR__ . '/Admin/class-admin-pages.php';
 require_once __DIR__ . '/Rest/class-attendance-admin-rest.php';
 require_once __DIR__ . '/Rest/class-attendance-rest.php';
+require_once __DIR__ . '/Rest/class-early-leave-rest.php';
 
 class AttendanceModule {
 
