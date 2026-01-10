@@ -2938,6 +2938,9 @@ if (!$has_idx) {
 
     // Render the inner content (existing logic)
     switch ( $tab ) {
+        case 'calendar':
+            $this->render_calendar();
+            break;
         case 'types':
             $this->render_types();
             break;
@@ -3575,8 +3578,466 @@ private function redirect_back_with_msg( string $key, string $value ): void {
     exit;
 }
 
+/**
+ * Render the Leave Calendar tab - visual monthly calendar showing team availability
+ */
+public function render_calendar(): void {
+    global $wpdb;
 
+    // Get selected month/year from query params (default to current month)
+    $year  = isset( $_GET['cal_year'] ) ? (int) $_GET['cal_year'] : (int) date('Y');
+    $month = isset( $_GET['cal_month'] ) ? (int) $_GET['cal_month'] : (int) date('m');
 
+    // Validate
+    if ( $year < 2000 || $year > 2100 ) $year = (int) date('Y');
+    if ( $month < 1 || $month > 12 ) $month = (int) date('m');
 
+    // Filter by department
+    $filter_dept = isset( $_GET['dept'] ) ? (int) $_GET['dept'] : 0;
+
+    // Get departments for filter dropdown
+    $dept_table = $wpdb->prefix . 'sfs_hr_departments';
+    $departments = $wpdb->get_results( "SELECT id, name FROM {$dept_table} ORDER BY name ASC" );
+
+    // Calculate month boundaries
+    $first_day = sprintf( '%04d-%02d-01', $year, $month );
+    $last_day  = date( 'Y-m-t', strtotime( $first_day ) );
+    $days_in_month = (int) date( 't', strtotime( $first_day ) );
+    $start_weekday = (int) date( 'w', strtotime( $first_day ) ); // 0=Sun, 6=Sat
+
+    // Navigation URLs
+    $prev_month = $month - 1;
+    $prev_year  = $year;
+    if ( $prev_month < 1 ) {
+        $prev_month = 12;
+        $prev_year--;
+    }
+    $next_month = $month + 1;
+    $next_year  = $year;
+    if ( $next_month > 12 ) {
+        $next_month = 1;
+        $next_year++;
+    }
+
+    $base_url = admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=calendar' );
+    $prev_url = add_query_arg( [ 'cal_year' => $prev_year, 'cal_month' => $prev_month, 'dept' => $filter_dept ], $base_url );
+    $next_url = add_query_arg( [ 'cal_year' => $next_year, 'cal_month' => $next_month, 'dept' => $filter_dept ], $base_url );
+    $today_url = add_query_arg( [ 'cal_year' => date('Y'), 'cal_month' => date('m'), 'dept' => $filter_dept ], $base_url );
+
+    // Get approved leave requests for this month
+    $req_table = $wpdb->prefix . 'sfs_hr_leave_requests';
+    $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+    $type_table = $wpdb->prefix . 'sfs_hr_leave_types';
+
+    $dept_where = '';
+    if ( $filter_dept > 0 ) {
+        $dept_where = $wpdb->prepare( " AND e.department_id = %d", $filter_dept );
+    }
+
+    $leaves = $wpdb->get_results( $wpdb->prepare(
+        "SELECT r.id, r.employee_id, r.start_date, r.end_date, r.status,
+                COALESCE( NULLIF( TRIM( CONCAT( e.first_name, ' ', e.last_name ) ), '' ), e.employee_code, CONCAT('Emp #', r.employee_id) ) AS emp_name,
+                e.employee_code,
+                t.name AS leave_type,
+                t.color AS leave_color
+         FROM {$req_table} r
+         LEFT JOIN {$emp_table} e ON r.employee_id = e.id
+         LEFT JOIN {$type_table} t ON r.leave_type_id = t.id
+         WHERE r.status = 'approved'
+           AND r.start_date <= %s
+           AND r.end_date >= %s
+           {$dept_where}
+         ORDER BY r.start_date ASC, emp_name ASC",
+        $last_day,
+        $first_day
+    ) );
+
+    // Build a map of date -> leaves
+    $leaves_by_date = [];
+    foreach ( $leaves as $leave ) {
+        $start = new \DateTime( $leave->start_date );
+        $end   = new \DateTime( $leave->end_date );
+        $end->modify( '+1 day' ); // Include end date
+
+        $interval = new \DateInterval( 'P1D' );
+        $period   = new \DatePeriod( $start, $interval, $end );
+
+        foreach ( $period as $date ) {
+            $ymd = $date->format( 'Y-m-d' );
+            // Only include dates within current month
+            if ( $ymd >= $first_day && $ymd <= $last_day ) {
+                if ( ! isset( $leaves_by_date[ $ymd ] ) ) {
+                    $leaves_by_date[ $ymd ] = [];
+                }
+                $leaves_by_date[ $ymd ][] = $leave;
+            }
+        }
+    }
+
+    // Get company holidays
+    $holidays = get_option( 'sfs_hr_holidays', [] );
+    $holiday_dates = [];
+    if ( is_array( $holidays ) ) {
+        foreach ( $holidays as $h ) {
+            $hs = isset( $h['start_date'] ) ? $h['start_date'] : null;
+            $he = isset( $h['end_date'] ) ? $h['end_date'] : null;
+            $hn = isset( $h['name'] ) ? $h['name'] : __( 'Holiday', 'sfs-hr' );
+            if ( $hs && $he ) {
+                $start = new \DateTime( $hs );
+                $end   = new \DateTime( $he );
+                $end->modify( '+1 day' );
+                $interval = new \DateInterval( 'P1D' );
+                $period   = new \DatePeriod( $start, $interval, $end );
+                foreach ( $period as $date ) {
+                    $ymd = $date->format( 'Y-m-d' );
+                    if ( $ymd >= $first_day && $ymd <= $last_day ) {
+                        $holiday_dates[ $ymd ] = $hn;
+                    }
+                }
+            }
+        }
+    }
+
+    // Get count of employees (for coverage stats)
+    $total_employees = (int) $wpdb->get_var(
+        "SELECT COUNT(*) FROM {$emp_table} WHERE status = 'active'"
+        . ( $filter_dept > 0 ? $wpdb->prepare( " AND department_id = %d", $filter_dept ) : '' )
+    );
+
+    ?>
+    <div class="sfs-leave-calendar-wrap" style="margin-top: 20px;">
+
+        <!-- Header: Navigation and Filters -->
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <a href="<?php echo esc_url( $prev_url ); ?>" class="button">
+                    &laquo; <?php esc_html_e( 'Prev', 'sfs-hr' ); ?>
+                </a>
+                <h2 style="margin: 0; font-size: 1.3em;">
+                    <?php echo esc_html( date_i18n( 'F Y', strtotime( $first_day ) ) ); ?>
+                </h2>
+                <a href="<?php echo esc_url( $next_url ); ?>" class="button">
+                    <?php esc_html_e( 'Next', 'sfs-hr' ); ?> &raquo;
+                </a>
+                <a href="<?php echo esc_url( $today_url ); ?>" class="button button-secondary">
+                    <?php esc_html_e( 'Today', 'sfs-hr' ); ?>
+                </a>
+            </div>
+
+            <!-- Department Filter -->
+            <form method="get" style="display: flex; align-items: center; gap: 8px;">
+                <input type="hidden" name="page" value="sfs-hr-leave-requests" />
+                <input type="hidden" name="tab" value="calendar" />
+                <input type="hidden" name="cal_year" value="<?php echo esc_attr( $year ); ?>" />
+                <input type="hidden" name="cal_month" value="<?php echo esc_attr( $month ); ?>" />
+                <label for="dept-filter"><?php esc_html_e( 'Department:', 'sfs-hr' ); ?></label>
+                <select name="dept" id="dept-filter" onchange="this.form.submit()">
+                    <option value="0"><?php esc_html_e( 'All Departments', 'sfs-hr' ); ?></option>
+                    <?php foreach ( $departments as $dept ) : ?>
+                        <option value="<?php echo esc_attr( $dept->id ); ?>" <?php selected( $filter_dept, $dept->id ); ?>>
+                            <?php echo esc_html( $dept->name ); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </form>
+        </div>
+
+        <!-- Legend -->
+        <div style="margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 15px; font-size: 13px;">
+            <span style="display: flex; align-items: center; gap: 4px;">
+                <span style="display: inline-block; width: 12px; height: 12px; background: #f0f6fc; border: 1px solid #d0d7de; border-radius: 2px;"></span>
+                <?php esc_html_e( 'Weekend', 'sfs-hr' ); ?>
+            </span>
+            <span style="display: flex; align-items: center; gap: 4px;">
+                <span style="display: inline-block; width: 12px; height: 12px; background: #ffe5e5; border: 1px solid #ffb3b3; border-radius: 2px;"></span>
+                <?php esc_html_e( 'Holiday', 'sfs-hr' ); ?>
+            </span>
+            <span style="display: flex; align-items: center; gap: 4px;">
+                <span style="display: inline-block; width: 12px; height: 12px; background: #e6f3ff; border: 1px solid #0073aa; border-radius: 2px;"></span>
+                <?php esc_html_e( 'Today', 'sfs-hr' ); ?>
+            </span>
+            <span style="display: flex; align-items: center; gap: 4px;">
+                <span style="display: inline-block; padding: 2px 6px; background: #3498db; color: #fff; border-radius: 3px; font-size: 11px;">Name</span>
+                <?php esc_html_e( 'On Leave', 'sfs-hr' ); ?>
+            </span>
+        </div>
+
+        <!-- Calendar Grid -->
+        <style>
+            .sfs-leave-cal-table {
+                width: 100%;
+                border-collapse: collapse;
+                table-layout: fixed;
+                background: #fff;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+            .sfs-leave-cal-table th {
+                background: #f7f7f7;
+                padding: 10px;
+                text-align: center;
+                font-weight: 600;
+                border: 1px solid #ddd;
+                font-size: 13px;
+            }
+            .sfs-leave-cal-table td {
+                border: 1px solid #ddd;
+                padding: 5px;
+                vertical-align: top;
+                min-height: 100px;
+                height: 100px;
+                font-size: 12px;
+            }
+            .sfs-leave-cal-table td.cal-empty {
+                background: #fafafa;
+            }
+            .sfs-leave-cal-table td.cal-weekend {
+                background: #f0f6fc;
+            }
+            .sfs-leave-cal-table td.cal-holiday {
+                background: #ffe5e5;
+            }
+            .sfs-leave-cal-table td.cal-today {
+                background: #e6f3ff;
+                border: 2px solid #0073aa;
+            }
+            .sfs-leave-cal-day-num {
+                font-weight: 600;
+                color: #333;
+                margin-bottom: 5px;
+                font-size: 14px;
+            }
+            .sfs-leave-cal-holiday-name {
+                font-size: 10px;
+                color: #c00;
+                font-style: italic;
+                margin-bottom: 3px;
+            }
+            .sfs-leave-cal-leaves {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                max-height: 70px;
+                overflow-y: auto;
+            }
+            .sfs-leave-cal-badge {
+                display: inline-block;
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-size: 10px;
+                color: #fff;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                cursor: default;
+            }
+            .sfs-leave-cal-more {
+                font-size: 10px;
+                color: #666;
+                font-style: italic;
+                margin-top: 2px;
+            }
+        </style>
+
+        <table class="sfs-leave-cal-table">
+            <thead>
+                <tr>
+                    <th><?php esc_html_e( 'Sun', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Mon', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Tue', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Wed', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Thu', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Fri', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Sat', 'sfs-hr' ); ?></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php
+                $today_ymd = date( 'Y-m-d' );
+                $max_visible_leaves = 3;
+
+                // Calculate number of rows needed
+                $total_cells = $start_weekday + $days_in_month;
+                $rows = ceil( $total_cells / 7 );
+                $day = 1;
+
+                for ( $row = 0; $row < $rows; $row++ ) :
+                    echo '<tr>';
+                    for ( $col = 0; $col < 7; $col++ ) :
+                        $cell_index = $row * 7 + $col;
+
+                        if ( $cell_index < $start_weekday || $day > $days_in_month ) :
+                            echo '<td class="cal-empty"></td>';
+                        else :
+                            $ymd = sprintf( '%04d-%02d-%02d', $year, $month, $day );
+                            $is_weekend = ( $col === 0 || $col === 6 );
+                            $is_holiday = isset( $holiday_dates[ $ymd ] );
+                            $is_today   = ( $ymd === $today_ymd );
+
+                            $classes = [];
+                            if ( $is_weekend ) $classes[] = 'cal-weekend';
+                            if ( $is_holiday ) $classes[] = 'cal-holiday';
+                            if ( $is_today )   $classes[] = 'cal-today';
+
+                            $class_str = implode( ' ', $classes );
+                            ?>
+                            <td class="<?php echo esc_attr( $class_str ); ?>">
+                                <div class="sfs-leave-cal-day-num"><?php echo esc_html( $day ); ?></div>
+
+                                <?php if ( $is_holiday ) : ?>
+                                    <div class="sfs-leave-cal-holiday-name">
+                                        <?php echo esc_html( $holiday_dates[ $ymd ] ); ?>
+                                    </div>
+                                <?php endif; ?>
+
+                                <?php if ( isset( $leaves_by_date[ $ymd ] ) && ! empty( $leaves_by_date[ $ymd ] ) ) : ?>
+                                    <div class="sfs-leave-cal-leaves">
+                                        <?php
+                                        $day_leaves = $leaves_by_date[ $ymd ];
+                                        $shown = 0;
+                                        foreach ( $day_leaves as $lv ) :
+                                            if ( $shown >= $max_visible_leaves ) break;
+                                            $color = ! empty( $lv->leave_color ) ? $lv->leave_color : '#3498db';
+                                            $title = sprintf(
+                                                '%s - %s (%s to %s)',
+                                                esc_attr( $lv->emp_name ),
+                                                esc_attr( $lv->leave_type ),
+                                                esc_attr( date_i18n( get_option( 'date_format' ), strtotime( $lv->start_date ) ) ),
+                                                esc_attr( date_i18n( get_option( 'date_format' ), strtotime( $lv->end_date ) ) )
+                                            );
+                                            ?>
+                                            <span class="sfs-leave-cal-badge"
+                                                  style="background-color: <?php echo esc_attr( $color ); ?>;"
+                                                  title="<?php echo esc_attr( $title ); ?>">
+                                                <?php echo esc_html( $lv->emp_name ); ?>
+                                            </span>
+                                            <?php
+                                            $shown++;
+                                        endforeach;
+
+                                        if ( count( $day_leaves ) > $max_visible_leaves ) :
+                                            $remaining = count( $day_leaves ) - $max_visible_leaves;
+                                            ?>
+                                            <span class="sfs-leave-cal-more">
+                                                +<?php echo esc_html( $remaining ); ?> <?php esc_html_e( 'more', 'sfs-hr' ); ?>
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
+                            </td>
+                            <?php
+                            $day++;
+                        endif;
+                    endfor;
+                    echo '</tr>';
+                endfor;
+                ?>
+            </tbody>
+        </table>
+
+        <!-- Monthly Summary Stats -->
+        <div style="margin-top: 20px; background: #fff; padding: 15px 20px; border: 1px solid #ddd; border-radius: 4px;">
+            <h3 style="margin: 0 0 15px 0; font-size: 14px; color: #333;">
+                <?php esc_html_e( 'Monthly Summary', 'sfs-hr' ); ?>
+            </h3>
+
+            <?php
+            $unique_employees_on_leave = [];
+            $total_leave_days = 0;
+            $leave_type_counts = [];
+
+            foreach ( $leaves as $lv ) {
+                $unique_employees_on_leave[ $lv->employee_id ] = true;
+                $ls = max( strtotime( $lv->start_date ), strtotime( $first_day ) );
+                $le = min( strtotime( $lv->end_date ), strtotime( $last_day ) );
+                $days = max( 0, ( $le - $ls ) / 86400 + 1 );
+                $total_leave_days += $days;
+
+                if ( ! isset( $leave_type_counts[ $lv->leave_type ] ) ) {
+                    $leave_type_counts[ $lv->leave_type ] = [ 'count' => 0, 'color' => $lv->leave_color ?: '#3498db' ];
+                }
+                $leave_type_counts[ $lv->leave_type ]['count']++;
+            }
+
+            $emp_count_on_leave = count( $unique_employees_on_leave );
+            ?>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 30px; font-size: 13px;">
+                <div>
+                    <strong><?php esc_html_e( 'Total Employees:', 'sfs-hr' ); ?></strong>
+                    <?php echo esc_html( $total_employees ); ?>
+                </div>
+                <div>
+                    <strong><?php esc_html_e( 'Employees with Leave:', 'sfs-hr' ); ?></strong>
+                    <?php echo esc_html( $emp_count_on_leave ); ?>
+                    (<?php echo esc_html( $total_employees > 0 ? round( $emp_count_on_leave / $total_employees * 100, 1 ) : 0 ); ?>%)
+                </div>
+                <div>
+                    <strong><?php esc_html_e( 'Total Leave Days:', 'sfs-hr' ); ?></strong>
+                    <?php echo esc_html( round( $total_leave_days ) ); ?>
+                </div>
+            </div>
+
+            <?php if ( ! empty( $leave_type_counts ) ) : ?>
+                <div style="margin-top: 15px;">
+                    <strong><?php esc_html_e( 'By Leave Type:', 'sfs-hr' ); ?></strong>
+                    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px;">
+                        <?php foreach ( $leave_type_counts as $type_name => $data ) : ?>
+                            <span style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; background: #f5f5f5; border-radius: 4px; font-size: 12px;">
+                                <span style="display: inline-block; width: 10px; height: 10px; background: <?php echo esc_attr( $data['color'] ); ?>; border-radius: 2px;"></span>
+                                <?php echo esc_html( $type_name ?: __( 'Unknown', 'sfs-hr' ) ); ?>: <?php echo esc_html( $data['count'] ); ?>
+                            </span>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Detailed List for Current Month -->
+        <?php if ( ! empty( $leaves ) ) : ?>
+        <div style="margin-top: 20px;">
+            <h3 style="font-size: 14px; color: #333; margin-bottom: 10px;">
+                <?php esc_html_e( 'Leave Details', 'sfs-hr' ); ?>
+            </h3>
+            <table class="widefat striped" style="font-size: 13px;">
+                <thead>
+                    <tr>
+                        <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Leave Type', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Start Date', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'End Date', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Days', 'sfs-hr' ); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ( $leaves as $lv ) :
+                        $days_count = ( strtotime( $lv->end_date ) - strtotime( $lv->start_date ) ) / 86400 + 1;
+                        $color = ! empty( $lv->leave_color ) ? $lv->leave_color : '#3498db';
+                        ?>
+                        <tr>
+                            <td>
+                                <strong><?php echo esc_html( $lv->emp_name ); ?></strong>
+                                <?php if ( $lv->employee_code ) : ?>
+                                    <br><small style="color: #666;"><?php echo esc_html( $lv->employee_code ); ?></small>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <span style="display: inline-flex; align-items: center; gap: 5px;">
+                                    <span style="display: inline-block; width: 10px; height: 10px; background: <?php echo esc_attr( $color ); ?>; border-radius: 2px;"></span>
+                                    <?php echo esc_html( $lv->leave_type ?: __( 'Unknown', 'sfs-hr' ) ); ?>
+                                </span>
+                            </td>
+                            <td><?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $lv->start_date ) ) ); ?></td>
+                            <td><?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $lv->end_date ) ) ); ?></td>
+                            <td><?php echo esc_html( round( $days_count ) ); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
+
+    </div>
+    <?php
+}
 
 }
