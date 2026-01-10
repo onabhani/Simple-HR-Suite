@@ -440,6 +440,12 @@ class Admin {
             'cap'   => 'sfs_hr.manage',
         ],
         [
+            'page'  => 'sfs-hr-payroll',
+            'icon'  => 'dashicons-money',
+            'label' => __( 'Payroll', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.view',
+        ],
+        [
             'page'  => 'sfs-hr-my-profile',
             'icon'  => 'dashicons-admin-users',
             'label' => __( 'My Profile', 'sfs-hr' ),

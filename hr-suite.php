@@ -242,6 +242,9 @@ add_action('plugins_loaded', function(){
 
     // From second version – Loans (Cash Advances)
     new \SFS\HR\Modules\Loans\LoansModule();
+
+    // Payroll Module
+    \SFS\HR\Modules\Payroll\PayrollModule::init();
 });
 
 /**
