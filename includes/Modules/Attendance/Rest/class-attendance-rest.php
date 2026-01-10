@@ -654,32 +654,49 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
     $nowUtc = current_time( 'mysql', true );
     $punchT = $wpdb->prefix . 'sfs_hr_attendance_punches';
 
-    // ---- FINAL DUPLICATE CHECK: Prevent exact duplicate within last 30 seconds
-    // This catches race conditions where multiple requests arrive simultaneously
-    $duplicate_check = $wpdb->get_row( $wpdb->prepare(
-        "SELECT id, punch_time FROM {$punchT}
-         WHERE employee_id = %d
-           AND punch_type = %s
-           AND punch_time >= DATE_SUB(%s, INTERVAL 30 SECOND)
-         ORDER BY punch_time DESC
-         LIMIT 1",
-        (int) $emp,
-        $punch_type,
-        $nowUtc
+    // ---- ACQUIRE DATABASE LOCK to prevent race conditions
+    // This ensures only one request per employee can insert a punch at a time
+    $lock_name = 'sfs_hr_punch_' . (int) $emp;
+    $lock_acquired = $wpdb->get_var( $wpdb->prepare(
+        "SELECT GET_LOCK(%s, 5)",
+        $lock_name
     ) );
 
-    if ( $duplicate_check ) {
-        $dup_time = wp_date( 'H:i:s', strtotime( $duplicate_check->punch_time ) );
+    if ( ! $lock_acquired ) {
         return new \WP_Error(
-            'duplicate',
-            sprintf( 'This punch was already recorded at %s. Please wait before trying again.', $dup_time ),
-            [ 'status' => 409 ]
+            'lock_timeout',
+            'System is busy. Please try again.',
+            [ 'status' => 503 ]
         );
     }
 
-    // ---- Insert immutable punch
+    try {
+        // ---- FINAL DUPLICATE CHECK: Prevent exact duplicate within last 30 seconds
+        // Now protected by database lock, this check is atomic
+        $duplicate_check = $wpdb->get_row( $wpdb->prepare(
+            "SELECT id, punch_time FROM {$punchT}
+             WHERE employee_id = %d
+               AND punch_type = %s
+               AND punch_time >= DATE_SUB(%s, INTERVAL 30 SECOND)
+             ORDER BY punch_time DESC
+             LIMIT 1",
+            (int) $emp,
+            $punch_type,
+            $nowUtc
+        ) );
 
-    $wpdb->insert( $punchT, [
+        if ( $duplicate_check ) {
+            $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
+            $dup_time = wp_date( 'H:i:s', strtotime( $duplicate_check->punch_time ) );
+            return new \WP_Error(
+                'duplicate',
+                sprintf( 'This punch was already recorded at %s. Please wait before trying again.', $dup_time ),
+                [ 'status' => 409 ]
+            );
+        }
+
+        // ---- Insert immutable punch (inside lock)
+        $wpdb->insert( $punchT, [
         'employee_id'     => (int) $emp,
         'punch_type'      => $punch_type,
         'punch_time'      => $nowUtc,
@@ -764,8 +781,16 @@ if ( $selfie_media_id ) {
         $resp['selfie_url']      = wp_get_attachment_url( $selfie_media_id );
     }
 
+    // Release the database lock before returning
+    $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
+
     return rest_ensure_response( $resp );
 
+    } catch ( \Throwable $e ) {
+        // Ensure lock is released even on error
+        $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
+        throw $e;
+    }
 
 }
 
