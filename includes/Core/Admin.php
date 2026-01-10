@@ -2021,6 +2021,20 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
                 $employee_id = (int) $wpdb->insert_id;
 
+        // Audit log: employee created
+        $employee_data = [
+            'employee_code' => $code,
+            'first_name' => $first,
+            'last_name' => $last,
+            'email' => $email,
+            'dept_id' => $dept,
+            'position' => $pos,
+            'gender' => $gender,
+            'hired_at' => $hired,
+            'base_salary' => $base,
+        ];
+        do_action( 'sfs_hr_employee_created', $employee_id, $employee_data );
+
                 // Base attendance shift mapping
         $map_table = $wpdb->prefix . 'sfs_hr_attendance_emp_shifts';
         $map_exists = (int) $wpdb->get_var(
@@ -2396,8 +2410,18 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         if ($has>0){
             wp_safe_redirect( admin_url('admin.php?page=sfs-hr-employees&err=hasloans') ); exit;
         }
+
+        // Get employee data before deletion for audit log
         $emp_table = $wpdb->prefix.'sfs_hr_employees';
+        $employee = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$emp_table} WHERE id = %d", $id ), ARRAY_A );
+
         $wpdb->delete($emp_table, ['id'=>$id]);
+
+        // Audit log: employee deleted
+        if ( $employee ) {
+            do_action( 'sfs_hr_employee_deleted', $id, $employee );
+        }
+
         wp_safe_redirect( admin_url('admin.php?page=sfs-hr-employees&ok=deleted') ); exit;
     }
 
@@ -2952,7 +2976,16 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
     global $wpdb;
     $table = $wpdb->prefix.'sfs_hr_employees';
+
+    // Get old data for audit log before update
+    $old_data = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $id ), ARRAY_A );
+
     $wpdb->update($table, $payload, ['id'=>$id]);
+
+    // Audit log: employee updated
+    if ( $old_data ) {
+        do_action( 'sfs_hr_employee_updated', $id, $old_data, $payload );
+    }
            // Attendance default shift mapping (optional change from edit screen)
     $shift_id_in = isset( $_POST['attendance_shift_id'] ) ? (int) $_POST['attendance_shift_id'] : 0;
     $shift_id    = $this->validate_shift_id( $shift_id_in );

@@ -245,6 +245,9 @@ add_action('plugins_loaded', function(){
 
     // Payroll Module
     \SFS\HR\Modules\Payroll\PayrollModule::init();
+
+    // Audit Trail (logging system)
+    \SFS\HR\Core\AuditTrail::init();
 });
 
 /**

@@ -907,6 +907,13 @@ class Admin_Pages {
             'updated_at'      => $now,
         ], [ 'id' => $run_id ] );
 
+        // Audit Trail: payroll run created
+        do_action( 'sfs_hr_payroll_run_created', $run_id, [
+            'period_id'      => $period_id,
+            'employee_count' => $employee_count,
+            'total_net'      => $total_net,
+        ] );
+
         // Update period status
         $wpdb->update( $periods_table, [
             'status'     => 'processing',
@@ -951,6 +958,11 @@ class Admin_Pages {
             'approved_by' => $user_id,
             'updated_at'  => $now,
         ], [ 'id' => $run_id ] );
+
+        // Audit Trail: payroll run approved
+        do_action( 'sfs_hr_payroll_run_approved', $run_id, [
+            'total_net' => $run->total_net ?? 0,
+        ] );
 
         // Generate payslips
         $items = $wpdb->get_results( $wpdb->prepare(

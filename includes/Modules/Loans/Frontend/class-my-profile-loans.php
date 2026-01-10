@@ -436,6 +436,14 @@ class MyProfileLoans {
             'request_source'  => 'employee_portal',
         ] );
 
+        // Audit Trail: loan created
+        do_action( 'sfs_hr_loan_created', $loan_id, [
+            'employee_id'   => $employee_id,
+            'amount'        => $principal,
+            'installments'  => $installments,
+            'source'        => 'employee_portal',
+        ] );
+
         // Send notification to GM
         \SFS\HR\Modules\Loans\Notifications::notify_new_loan_request( $loan_id );
 

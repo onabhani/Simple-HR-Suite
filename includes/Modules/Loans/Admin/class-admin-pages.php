@@ -1751,6 +1751,9 @@ class AdminPages {
                     'status' => 'pending_gm → pending_finance',
                 ] );
 
+                // Audit Trail: loan status changed
+                do_action( 'sfs_hr_loan_status_changed', $loan_id, 'pending_gm', 'pending_finance' );
+
                 // Send notification to Finance
                 \SFS\HR\Modules\Loans\Notifications::notify_gm_approved( $loan_id );
 
@@ -1795,6 +1798,9 @@ class AdminPages {
                     'installments' => $installments,
                 ] );
 
+                // Audit Trail: loan status changed
+                do_action( 'sfs_hr_loan_status_changed', $loan_id, 'pending_finance', 'active' );
+
                 // Send notification to Employee
                 \SFS\HR\Modules\Loans\Notifications::notify_finance_approved( $loan_id );
 
@@ -1825,6 +1831,9 @@ class AdminPages {
                 \SFS\HR\Modules\Loans\LoansModule::log_event( $loan_id, 'rejected', [
                     'reason' => $reason,
                 ] );
+
+                // Audit Trail: loan status changed to rejected
+                do_action( 'sfs_hr_loan_status_changed', $loan_id, 'pending', 'rejected' );
 
                 // Send notification to Employee
                 \SFS\HR\Modules\Loans\Notifications::notify_loan_rejected( $loan_id );
@@ -1927,6 +1936,14 @@ class AdminPages {
                     'principal'       => $principal,
                     'installments'    => $installments,
                     'request_source'  => 'admin_portal',
+                ] );
+
+                // Audit Trail: loan created
+                do_action( 'sfs_hr_loan_created', $new_loan_id, [
+                    'employee_id'   => $employee_id,
+                    'amount'        => $principal,
+                    'installments'  => $installments,
+                    'source'        => 'admin_portal',
                 ] );
 
                 // Send notification to GM

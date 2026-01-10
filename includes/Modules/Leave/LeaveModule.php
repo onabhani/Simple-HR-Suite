@@ -1002,6 +1002,9 @@ public function handle_approve(): void {
         ['id' => $id]
     );
 
+    // Audit Trail: leave request approved
+    do_action('sfs_hr_leave_request_status_changed', $id, 'pending', 'approved');
+
     // Recalculate yearly used + closing balance for this type
     $used = (int) $wpdb->get_var(
         $wpdb->prepare(
@@ -1116,6 +1119,9 @@ public function handle_reject(): void {
         'decided_at'   => Helpers::now_mysql(),
         'updated_at'   => Helpers::now_mysql(),
     ], ['id'=>$id]);
+
+    // Audit Trail: leave request rejected
+    do_action('sfs_hr_leave_request_status_changed', $id, 'pending', 'rejected');
 
     $this->notify_requester((int)$row['employee_id'], __('Leave Rejected','sfs-hr'),
         sprintf(__('Your leave request (%s → %s) has been rejected. Reason: %s','sfs-hr'),
@@ -2257,6 +2263,14 @@ if ($special === 'MATERNITY') {
             error_log('[SFS HR] Leave request insert failed: ' . $wpdb->last_error);
             $target = add_query_arg('sfs_hr_err', rawurlencode($wpdb->last_error ?: __('Save failed', 'sfs-hr')), $target);
         } else {
+            // Audit Trail: leave request created
+            do_action('sfs_hr_leave_request_created', $wpdb->insert_id, [
+                'employee_id' => (int)$emp['id'],
+                'type_id'     => (int)$type['id'],
+                'start_date'  => $start,
+                'end_date'    => $end,
+                'days'        => $days,
+            ]);
             if (get_option('sfs_hr_leave_email', '1') === '1') {
 $this->email_approvers_for_employee(
     (int)$emp['id'],
