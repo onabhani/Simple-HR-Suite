@@ -21,6 +21,9 @@ class Admin_Pages {
         add_action( 'admin_post_sfs_hr_payroll_approve_run', [ $this, 'handle_approve_run' ] );
         add_action( 'admin_post_sfs_hr_payroll_save_component', [ $this, 'handle_save_component' ] );
         add_action( 'admin_post_sfs_hr_payroll_export_bank', [ $this, 'handle_export_bank' ] );
+        add_action( 'admin_post_sfs_hr_payroll_export_attendance', [ $this, 'handle_export_attendance' ] );
+        add_action( 'admin_post_sfs_hr_payroll_export_wps', [ $this, 'handle_export_wps' ] );
+        add_action( 'admin_post_sfs_hr_payroll_export_detailed', [ $this, 'handle_export_detailed' ] );
     }
 
     public function menu(): void {
@@ -51,6 +54,7 @@ class Admin_Pages {
             'runs'       => __( 'Payroll Runs', 'sfs-hr' ),
             'components' => __( 'Salary Components', 'sfs-hr' ),
             'payslips'   => __( 'Payslips', 'sfs-hr' ),
+            'export'     => __( 'Export', 'sfs-hr' ),
         ];
 
         $active_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'overview';
@@ -83,6 +87,9 @@ class Admin_Pages {
                 break;
             case 'payslips':
                 $this->render_payslips();
+                break;
+            case 'export':
+                $this->render_export();
                 break;
         }
 
@@ -994,6 +1001,712 @@ class Admin_Pages {
 
     public function handle_save_component(): void {
         // TODO: Implement component editing
+    }
+
+    /**
+     * Render Export tab with multiple export options
+     */
+    private function render_export(): void {
+        global $wpdb;
+
+        $periods_table = $wpdb->prefix . 'sfs_hr_payroll_periods';
+        $runs_table = $wpdb->prefix . 'sfs_hr_payroll_runs';
+
+        // Get available periods
+        $periods = $wpdb->get_results(
+            "SELECT * FROM {$periods_table} ORDER BY start_date DESC LIMIT 24"
+        );
+
+        // Get approved/paid runs
+        $runs = $wpdb->get_results(
+            "SELECT r.*, p.name as period_name FROM {$runs_table} r
+             LEFT JOIN {$periods_table} p ON p.id = r.period_id
+             WHERE r.status IN ('approved', 'paid')
+             ORDER BY r.approved_at DESC LIMIT 24"
+        );
+
+        ?>
+        <div class="sfs-hr-export-hub">
+            <h2><?php esc_html_e( 'Export Center', 'sfs-hr' ); ?></h2>
+            <p style="color: #666; margin-bottom: 25px;">
+                <?php esc_html_e( 'Export payroll and attendance data in various formats for external systems.', 'sfs-hr' ); ?>
+            </p>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px;">
+
+                <!-- Attendance Summary Export -->
+                <div style="background: #fff; border: 1px solid #dcdcde; border-radius: 8px; padding: 20px;">
+                    <h3 style="margin: 0 0 10px; display: flex; align-items: center; gap: 8px;">
+                        <span class="dashicons dashicons-clock" style="color: #2271b1;"></span>
+                        <?php esc_html_e( 'Attendance Summary', 'sfs-hr' ); ?>
+                    </h3>
+                    <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
+                        <?php esc_html_e( 'Export attendance data including work hours, overtime, late arrivals, and absences for a date range.', 'sfs-hr' ); ?>
+                    </p>
+                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                        <input type="hidden" name="action" value="sfs_hr_payroll_export_attendance" />
+                        <?php wp_nonce_field( 'sfs_hr_payroll_export_attendance' ); ?>
+
+                        <table class="form-table" style="margin: 0;">
+                            <tr>
+                                <th scope="row" style="padding: 8px 0; width: 100px;"><?php esc_html_e( 'Period', 'sfs-hr' ); ?></th>
+                                <td style="padding: 8px 0;">
+                                    <select name="period_id" style="width: 100%;">
+                                        <option value="custom"><?php esc_html_e( '— Custom Date Range —', 'sfs-hr' ); ?></option>
+                                        <?php foreach ( $periods as $p ) : ?>
+                                            <option value="<?php echo esc_attr( $p->id ); ?>">
+                                                <?php echo esc_html( $p->name ); ?>
+                                                (<?php echo esc_html( date_i18n( 'M j', strtotime( $p->start_date ) ) ); ?> -
+                                                <?php echo esc_html( date_i18n( 'M j, Y', strtotime( $p->end_date ) ) ); ?>)
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr class="custom-dates" style="display: none;">
+                                <th scope="row" style="padding: 8px 0;"><?php esc_html_e( 'From', 'sfs-hr' ); ?></th>
+                                <td style="padding: 8px 0;">
+                                    <input type="date" name="start_date" value="<?php echo esc_attr( date( 'Y-m-01' ) ); ?>" style="width: 100%;" />
+                                </td>
+                            </tr>
+                            <tr class="custom-dates" style="display: none;">
+                                <th scope="row" style="padding: 8px 0;"><?php esc_html_e( 'To', 'sfs-hr' ); ?></th>
+                                <td style="padding: 8px 0;">
+                                    <input type="date" name="end_date" value="<?php echo esc_attr( date( 'Y-m-t' ) ); ?>" style="width: 100%;" />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row" style="padding: 8px 0;"><?php esc_html_e( 'Format', 'sfs-hr' ); ?></th>
+                                <td style="padding: 8px 0;">
+                                    <select name="format" style="width: 100%;">
+                                        <option value="csv"><?php esc_html_e( 'CSV (Excel Compatible)', 'sfs-hr' ); ?></option>
+                                        <option value="xlsx"><?php esc_html_e( 'Excel (XLSX)', 'sfs-hr' ); ?></option>
+                                    </select>
+                                </td>
+                            </tr>
+                        </table>
+                        <button type="submit" class="button button-primary" style="margin-top: 15px;">
+                            <span class="dashicons dashicons-download" style="margin-top: 4px;"></span>
+                            <?php esc_html_e( 'Export Attendance', 'sfs-hr' ); ?>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Bank Transfer / WPS Export -->
+                <div style="background: #fff; border: 1px solid #dcdcde; border-radius: 8px; padding: 20px;">
+                    <h3 style="margin: 0 0 10px; display: flex; align-items: center; gap: 8px;">
+                        <span class="dashicons dashicons-bank" style="color: #00a32a;"></span>
+                        <?php esc_html_e( 'Bank Transfer (WPS)', 'sfs-hr' ); ?>
+                    </h3>
+                    <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
+                        <?php esc_html_e( 'Export salary data for bank transfers in Wage Protection System (WPS) format used in Saudi Arabia and UAE.', 'sfs-hr' ); ?>
+                    </p>
+                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                        <input type="hidden" name="action" value="sfs_hr_payroll_export_wps" />
+                        <?php wp_nonce_field( 'sfs_hr_payroll_export_wps' ); ?>
+
+                        <table class="form-table" style="margin: 0;">
+                            <tr>
+                                <th scope="row" style="padding: 8px 0; width: 100px;"><?php esc_html_e( 'Payroll Run', 'sfs-hr' ); ?></th>
+                                <td style="padding: 8px 0;">
+                                    <select name="run_id" style="width: 100%;" required>
+                                        <option value=""><?php esc_html_e( '— Select Run —', 'sfs-hr' ); ?></option>
+                                        <?php foreach ( $runs as $r ) : ?>
+                                            <option value="<?php echo esc_attr( $r->id ); ?>">
+                                                <?php echo esc_html( $r->period_name ); ?>
+                                                (<?php echo esc_html( number_format( (float) $r->total_net, 2 ) ); ?> SAR,
+                                                <?php echo esc_html( $r->employee_count ); ?> <?php esc_html_e( 'employees', 'sfs-hr' ); ?>)
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row" style="padding: 8px 0;"><?php esc_html_e( 'Format', 'sfs-hr' ); ?></th>
+                                <td style="padding: 8px 0;">
+                                    <select name="format" style="width: 100%;">
+                                        <option value="wps_sif"><?php esc_html_e( 'WPS SIF (Standard)', 'sfs-hr' ); ?></option>
+                                        <option value="csv"><?php esc_html_e( 'CSV (Bank Upload)', 'sfs-hr' ); ?></option>
+                                    </select>
+                                </td>
+                            </tr>
+                        </table>
+                        <button type="submit" class="button button-primary" style="margin-top: 15px;">
+                            <span class="dashicons dashicons-download" style="margin-top: 4px;"></span>
+                            <?php esc_html_e( 'Export WPS File', 'sfs-hr' ); ?>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Detailed Payroll Export -->
+                <div style="background: #fff; border: 1px solid #dcdcde; border-radius: 8px; padding: 20px;">
+                    <h3 style="margin: 0 0 10px; display: flex; align-items: center; gap: 8px;">
+                        <span class="dashicons dashicons-media-spreadsheet" style="color: #dba617;"></span>
+                        <?php esc_html_e( 'Detailed Payroll Report', 'sfs-hr' ); ?>
+                    </h3>
+                    <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
+                        <?php esc_html_e( 'Export comprehensive payroll data including all earnings, deductions, and net pay breakdown.', 'sfs-hr' ); ?>
+                    </p>
+                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                        <input type="hidden" name="action" value="sfs_hr_payroll_export_detailed" />
+                        <?php wp_nonce_field( 'sfs_hr_payroll_export_detailed' ); ?>
+
+                        <table class="form-table" style="margin: 0;">
+                            <tr>
+                                <th scope="row" style="padding: 8px 0; width: 100px;"><?php esc_html_e( 'Payroll Run', 'sfs-hr' ); ?></th>
+                                <td style="padding: 8px 0;">
+                                    <select name="run_id" style="width: 100%;" required>
+                                        <option value=""><?php esc_html_e( '— Select Run —', 'sfs-hr' ); ?></option>
+                                        <?php foreach ( $runs as $r ) : ?>
+                                            <option value="<?php echo esc_attr( $r->id ); ?>">
+                                                <?php echo esc_html( $r->period_name ); ?>
+                                                (<?php echo esc_html( number_format( (float) $r->total_net, 2 ) ); ?> SAR)
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row" style="padding: 8px 0;"><?php esc_html_e( 'Format', 'sfs-hr' ); ?></th>
+                                <td style="padding: 8px 0;">
+                                    <select name="format" style="width: 100%;">
+                                        <option value="csv"><?php esc_html_e( 'CSV (Excel Compatible)', 'sfs-hr' ); ?></option>
+                                        <option value="xlsx"><?php esc_html_e( 'Excel (XLSX)', 'sfs-hr' ); ?></option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row" style="padding: 8px 0;"><?php esc_html_e( 'Include', 'sfs-hr' ); ?></th>
+                                <td style="padding: 8px 0;">
+                                    <label style="display: block; margin-bottom: 5px;">
+                                        <input type="checkbox" name="include_attendance" value="1" checked />
+                                        <?php esc_html_e( 'Attendance data', 'sfs-hr' ); ?>
+                                    </label>
+                                    <label style="display: block; margin-bottom: 5px;">
+                                        <input type="checkbox" name="include_deductions" value="1" checked />
+                                        <?php esc_html_e( 'Deductions breakdown', 'sfs-hr' ); ?>
+                                    </label>
+                                    <label style="display: block;">
+                                        <input type="checkbox" name="include_loans" value="1" checked />
+                                        <?php esc_html_e( 'Loan deductions', 'sfs-hr' ); ?>
+                                    </label>
+                                </td>
+                            </tr>
+                        </table>
+                        <button type="submit" class="button button-primary" style="margin-top: 15px;">
+                            <span class="dashicons dashicons-download" style="margin-top: 4px;"></span>
+                            <?php esc_html_e( 'Export Detailed Report', 'sfs-hr' ); ?>
+                        </button>
+                    </form>
+                </div>
+
+            </div>
+
+            <?php if ( empty( $runs ) ) : ?>
+            <div style="margin-top: 20px; padding: 15px; background: #fff8e5; border-left: 4px solid #dba617; color: #654b00;">
+                <strong><?php esc_html_e( 'Note:', 'sfs-hr' ); ?></strong>
+                <?php esc_html_e( 'No approved payroll runs found. Run and approve a payroll first to enable bank transfer and detailed exports.', 'sfs-hr' ); ?>
+            </div>
+            <?php endif; ?>
+        </div>
+
+        <script>
+        jQuery(function($) {
+            $('select[name="period_id"]').on('change', function() {
+                if ($(this).val() === 'custom') {
+                    $(this).closest('form').find('.custom-dates').show();
+                } else {
+                    $(this).closest('form').find('.custom-dates').hide();
+                }
+            });
+        });
+        </script>
+        <?php
+    }
+
+    /**
+     * Handle Attendance Summary Export
+     */
+    public function handle_export_attendance(): void {
+        if ( ! current_user_can( 'sfs_hr.view' ) ) {
+            wp_die( 'Access denied' );
+        }
+        check_admin_referer( 'sfs_hr_payroll_export_attendance' );
+
+        global $wpdb;
+
+        $period_id = sanitize_text_field( $_POST['period_id'] ?? '' );
+        $format = sanitize_key( $_POST['format'] ?? 'csv' );
+
+        $sessions_table = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+        $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+        $periods_table = $wpdb->prefix . 'sfs_hr_payroll_periods';
+        $dept_table = $wpdb->prefix . 'sfs_hr_departments';
+
+        // Determine date range
+        if ( $period_id === 'custom' ) {
+            $start_date = sanitize_text_field( $_POST['start_date'] ?? date( 'Y-m-01' ) );
+            $end_date = sanitize_text_field( $_POST['end_date'] ?? date( 'Y-m-t' ) );
+            $period_name = 'Custom';
+        } else {
+            $period = $wpdb->get_row( $wpdb->prepare(
+                "SELECT * FROM {$periods_table} WHERE id = %d",
+                (int) $period_id
+            ) );
+            if ( ! $period ) {
+                wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&tab=export&error=invalid_period' ) );
+                exit;
+            }
+            $start_date = $period->start_date;
+            $end_date = $period->end_date;
+            $period_name = $period->name;
+        }
+
+        // Get attendance summary per employee
+        $data = $wpdb->get_results( $wpdb->prepare(
+            "SELECT
+                e.id AS employee_id,
+                e.employee_code,
+                CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
+                d.name AS department,
+                e.job_title,
+                COUNT(s.id) AS total_days,
+                SUM(CASE WHEN s.status = 'present' THEN 1 ELSE 0 END) AS present_days,
+                SUM(CASE WHEN s.status = 'late' THEN 1 ELSE 0 END) AS late_days,
+                SUM(CASE WHEN s.status = 'absent' THEN 1 ELSE 0 END) AS absent_days,
+                SUM(CASE WHEN s.status = 'on_leave' THEN 1 ELSE 0 END) AS leave_days,
+                SUM(CASE WHEN s.status = 'left_early' THEN 1 ELSE 0 END) AS early_leave_days,
+                SUM(s.net_minutes) AS total_work_minutes,
+                SUM(s.overtime_minutes) AS total_overtime_minutes,
+                SUM(s.break_minutes) AS total_break_minutes
+            FROM {$emp_table} e
+            LEFT JOIN {$sessions_table} s ON s.employee_id = e.id
+                AND s.work_date BETWEEN %s AND %s
+            LEFT JOIN {$dept_table} d ON e.department_id = d.id
+            WHERE e.status = 'active'
+            GROUP BY e.id
+            ORDER BY e.first_name, e.last_name",
+            $start_date,
+            $end_date
+        ) );
+
+        $filename = sanitize_file_name( 'attendance-summary-' . sanitize_title( $period_name ) . '-' . wp_date( 'Y-m-d' ) );
+
+        if ( $format === 'xlsx' ) {
+            $this->export_xlsx( $filename, $this->format_attendance_data( $data ) );
+        } else {
+            $this->export_csv( $filename, $this->format_attendance_data( $data ) );
+        }
+    }
+
+    /**
+     * Format attendance data for export
+     */
+    private function format_attendance_data( array $data ): array {
+        $headers = [
+            __( 'Employee ID', 'sfs-hr' ),
+            __( 'Employee Name', 'sfs-hr' ),
+            __( 'Department', 'sfs-hr' ),
+            __( 'Job Title', 'sfs-hr' ),
+            __( 'Total Days', 'sfs-hr' ),
+            __( 'Present', 'sfs-hr' ),
+            __( 'Late', 'sfs-hr' ),
+            __( 'Absent', 'sfs-hr' ),
+            __( 'On Leave', 'sfs-hr' ),
+            __( 'Early Leave', 'sfs-hr' ),
+            __( 'Work Hours', 'sfs-hr' ),
+            __( 'Overtime Hours', 'sfs-hr' ),
+            __( 'Break Hours', 'sfs-hr' ),
+        ];
+
+        $rows = [ $headers ];
+
+        foreach ( $data as $row ) {
+            $rows[] = [
+                $row->employee_code ?: $row->employee_id,
+                $row->employee_name,
+                $row->department ?: '-',
+                $row->job_title ?: '-',
+                (int) $row->total_days,
+                (int) $row->present_days,
+                (int) $row->late_days,
+                (int) $row->absent_days,
+                (int) $row->leave_days,
+                (int) $row->early_leave_days,
+                number_format( ( (int) $row->total_work_minutes ) / 60, 2 ),
+                number_format( ( (int) $row->total_overtime_minutes ) / 60, 2 ),
+                number_format( ( (int) $row->total_break_minutes ) / 60, 2 ),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Handle WPS (Wage Protection System) Export
+     */
+    public function handle_export_wps(): void {
+        if ( ! current_user_can( 'sfs_hr_payroll_admin' ) && ! current_user_can( 'sfs_hr.manage' ) ) {
+            wp_die( 'Access denied' );
+        }
+        check_admin_referer( 'sfs_hr_payroll_export_wps' );
+
+        global $wpdb;
+
+        $run_id = intval( $_POST['run_id'] ?? 0 );
+        $format = sanitize_key( $_POST['format'] ?? 'wps_sif' );
+
+        $items_table = $wpdb->prefix . 'sfs_hr_payroll_items';
+        $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+        $runs_table = $wpdb->prefix . 'sfs_hr_payroll_runs';
+        $periods_table = $wpdb->prefix . 'sfs_hr_payroll_periods';
+
+        $run = $wpdb->get_row( $wpdb->prepare(
+            "SELECT r.*, p.name as period_name, p.start_date, p.end_date
+             FROM {$runs_table} r
+             LEFT JOIN {$periods_table} p ON p.id = r.period_id
+             WHERE r.id = %d",
+            $run_id
+        ) );
+
+        if ( ! $run || ! in_array( $run->status, [ 'approved', 'paid' ], true ) ) {
+            wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&tab=export&error=invalid_run' ) );
+            exit;
+        }
+
+        $items = $wpdb->get_results( $wpdb->prepare(
+            "SELECT i.*, e.first_name, e.last_name, e.emp_number, e.employee_code,
+                    e.national_id, e.iqama_number, e.passport_number,
+                    e.iban, e.bank_name, e.bank_account
+             FROM {$items_table} i
+             LEFT JOIN {$emp_table} e ON e.id = i.employee_id
+             WHERE i.run_id = %d
+             ORDER BY e.first_name",
+            $run_id
+        ) );
+
+        $filename = sanitize_file_name( 'wps-' . sanitize_title( $run->period_name ) . '-' . wp_date( 'Y-m-d' ) );
+
+        if ( $format === 'wps_sif' ) {
+            $this->export_wps_sif( $filename, $run, $items );
+        } else {
+            $this->export_csv( $filename . '.csv', $this->format_wps_csv_data( $run, $items ) );
+        }
+    }
+
+    /**
+     * Export WPS SIF (Salary Information File) format
+     */
+    private function export_wps_sif( string $filename, object $run, array $items ): void {
+        $site_name = get_bloginfo( 'name' );
+        $employer_code = get_option( 'sfs_hr_employer_code', '0000000000' ); // MOL registration
+        $bank_code = get_option( 'sfs_hr_bank_code', '00' );
+
+        // SIF file header
+        $year_month = date( 'Ym', strtotime( $run->start_date ) );
+        $record_count = count( $items );
+        $total_salaries = 0;
+        foreach ( $items as $item ) {
+            $total_salaries += (float) $item->net_salary;
+        }
+
+        header( 'Content-Type: text/plain; charset=utf-8' );
+        header( 'Content-Disposition: attachment; filename=' . $filename . '.sif' );
+        header( 'Pragma: no-cache' );
+        header( 'Expires: 0' );
+
+        // Header Record (EDH)
+        echo 'EDH';
+        echo str_pad( $employer_code, 13 );
+        echo str_pad( $bank_code, 4 );
+        echo $year_month;
+        echo str_pad( (string) $record_count, 6, '0', STR_PAD_LEFT );
+        echo str_pad( number_format( $total_salaries, 2, '', '' ), 15, '0', STR_PAD_LEFT );
+        echo 'SAR';
+        echo "\n";
+
+        // Employee Records (EDR)
+        foreach ( $items as $item ) {
+            $emp_name = trim( ( $item->first_name ?? '' ) . ' ' . ( $item->last_name ?? '' ) );
+            $emp_id = $item->iqama_number ?: $item->national_id ?: $item->emp_number;
+
+            echo 'EDR';
+            echo str_pad( $emp_id ?? '', 15 );
+            echo str_pad( $item->iban ?? '', 24 );
+            echo str_pad( date( 'Ymd', strtotime( $run->start_date ) ), 8 );
+            echo str_pad( date( 'Ymd', strtotime( $run->end_date ) ), 8 );
+            echo str_pad( '30', 4 ); // Days in period
+            echo str_pad( number_format( (float) $item->net_salary, 2, '', '' ), 15, '0', STR_PAD_LEFT );
+            echo str_pad( number_format( (float) $item->base_salary, 2, '', '' ), 15, '0', STR_PAD_LEFT );
+            echo str_pad( number_format( (float) ( $item->housing_allowance ?? 0 ), 2, '', '' ), 15, '0', STR_PAD_LEFT );
+            echo str_pad( number_format( (float) ( $item->other_allowances ?? 0 ), 2, '', '' ), 15, '0', STR_PAD_LEFT );
+            echo str_pad( number_format( (float) ( $item->total_deductions ?? 0 ), 2, '', '' ), 15, '0', STR_PAD_LEFT );
+            echo "\n";
+        }
+
+        exit;
+    }
+
+    /**
+     * Format WPS data for CSV export
+     */
+    private function format_wps_csv_data( object $run, array $items ): array {
+        $headers = [
+            'Employee ID',
+            'Employee Name',
+            'National ID / Iqama',
+            'IBAN',
+            'Bank Name',
+            'Days in Period',
+            'Basic Salary',
+            'Housing Allowance',
+            'Other Allowances',
+            'Total Deductions',
+            'Net Salary',
+            'Currency',
+        ];
+
+        $rows = [ $headers ];
+
+        foreach ( $items as $item ) {
+            $emp_name = trim( ( $item->first_name ?? '' ) . ' ' . ( $item->last_name ?? '' ) );
+            $emp_id = $item->iqama_number ?: $item->national_id ?: $item->emp_number;
+
+            $rows[] = [
+                $item->employee_code ?: $item->employee_id,
+                $emp_name,
+                $emp_id,
+                $item->iban ?? '',
+                $item->bank_name ?? '',
+                30,
+                number_format( (float) $item->base_salary, 2, '.', '' ),
+                number_format( (float) ( $item->housing_allowance ?? 0 ), 2, '.', '' ),
+                number_format( (float) ( $item->other_allowances ?? 0 ), 2, '.', '' ),
+                number_format( (float) ( $item->total_deductions ?? 0 ), 2, '.', '' ),
+                number_format( (float) $item->net_salary, 2, '.', '' ),
+                'SAR',
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Handle Detailed Payroll Export
+     */
+    public function handle_export_detailed(): void {
+        if ( ! current_user_can( 'sfs_hr_payroll_admin' ) && ! current_user_can( 'sfs_hr.manage' ) ) {
+            wp_die( 'Access denied' );
+        }
+        check_admin_referer( 'sfs_hr_payroll_export_detailed' );
+
+        global $wpdb;
+
+        $run_id = intval( $_POST['run_id'] ?? 0 );
+        $format = sanitize_key( $_POST['format'] ?? 'csv' );
+        $include_attendance = isset( $_POST['include_attendance'] );
+        $include_deductions = isset( $_POST['include_deductions'] );
+        $include_loans = isset( $_POST['include_loans'] );
+
+        $items_table = $wpdb->prefix . 'sfs_hr_payroll_items';
+        $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+        $runs_table = $wpdb->prefix . 'sfs_hr_payroll_runs';
+        $periods_table = $wpdb->prefix . 'sfs_hr_payroll_periods';
+        $sessions_table = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+        $loans_table = $wpdb->prefix . 'sfs_hr_loans';
+        $dept_table = $wpdb->prefix . 'sfs_hr_departments';
+
+        $run = $wpdb->get_row( $wpdb->prepare(
+            "SELECT r.*, p.name as period_name, p.start_date, p.end_date
+             FROM {$runs_table} r
+             LEFT JOIN {$periods_table} p ON p.id = r.period_id
+             WHERE r.id = %d",
+            $run_id
+        ) );
+
+        if ( ! $run || ! in_array( $run->status, [ 'approved', 'paid' ], true ) ) {
+            wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&tab=export&error=invalid_run' ) );
+            exit;
+        }
+
+        // Get payroll items with employee details
+        $items = $wpdb->get_results( $wpdb->prepare(
+            "SELECT i.*, e.first_name, e.last_name, e.emp_number, e.employee_code,
+                    e.job_title, d.name as department
+             FROM {$items_table} i
+             LEFT JOIN {$emp_table} e ON e.id = i.employee_id
+             LEFT JOIN {$dept_table} d ON e.department_id = d.id
+             WHERE i.run_id = %d
+             ORDER BY d.name, e.first_name",
+            $run_id
+        ) );
+
+        // Build headers
+        $headers = [
+            __( 'Employee ID', 'sfs-hr' ),
+            __( 'Employee Name', 'sfs-hr' ),
+            __( 'Department', 'sfs-hr' ),
+            __( 'Job Title', 'sfs-hr' ),
+            __( 'Basic Salary', 'sfs-hr' ),
+            __( 'Housing Allowance', 'sfs-hr' ),
+            __( 'Transport Allowance', 'sfs-hr' ),
+            __( 'Other Allowances', 'sfs-hr' ),
+            __( 'Gross Salary', 'sfs-hr' ),
+        ];
+
+        if ( $include_attendance ) {
+            $headers = array_merge( $headers, [
+                __( 'Work Days', 'sfs-hr' ),
+                __( 'Work Hours', 'sfs-hr' ),
+                __( 'Overtime Hours', 'sfs-hr' ),
+                __( 'Late Days', 'sfs-hr' ),
+                __( 'Absent Days', 'sfs-hr' ),
+            ] );
+        }
+
+        if ( $include_deductions ) {
+            $headers = array_merge( $headers, [
+                __( 'GOSI Deduction', 'sfs-hr' ),
+                __( 'Absence Deduction', 'sfs-hr' ),
+                __( 'Late Deduction', 'sfs-hr' ),
+                __( 'Other Deductions', 'sfs-hr' ),
+            ] );
+        }
+
+        if ( $include_loans ) {
+            $headers[] = __( 'Loan Deduction', 'sfs-hr' );
+        }
+
+        $headers = array_merge( $headers, [
+            __( 'Total Deductions', 'sfs-hr' ),
+            __( 'Net Salary', 'sfs-hr' ),
+        ] );
+
+        $rows = [ $headers ];
+
+        foreach ( $items as $item ) {
+            $emp_name = trim( ( $item->first_name ?? '' ) . ' ' . ( $item->last_name ?? '' ) );
+
+            $row = [
+                $item->employee_code ?: $item->employee_id,
+                $emp_name,
+                $item->department ?: '-',
+                $item->job_title ?: '-',
+                number_format( (float) $item->base_salary, 2, '.', '' ),
+                number_format( (float) ( $item->housing_allowance ?? 0 ), 2, '.', '' ),
+                number_format( (float) ( $item->transport_allowance ?? 0 ), 2, '.', '' ),
+                number_format( (float) ( $item->other_allowances ?? 0 ), 2, '.', '' ),
+                number_format( (float) $item->gross_salary, 2, '.', '' ),
+            ];
+
+            if ( $include_attendance ) {
+                // Get attendance summary for this employee in this period
+                $att = $wpdb->get_row( $wpdb->prepare(
+                    "SELECT
+                        COUNT(*) as total_days,
+                        SUM(net_minutes) as work_minutes,
+                        SUM(overtime_minutes) as ot_minutes,
+                        SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) as late_days,
+                        SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_days
+                     FROM {$sessions_table}
+                     WHERE employee_id = %d AND work_date BETWEEN %s AND %s",
+                    $item->employee_id,
+                    $run->start_date,
+                    $run->end_date
+                ) );
+
+                $row = array_merge( $row, [
+                    (int) ( $att->total_days ?? 0 ),
+                    number_format( ( (int) ( $att->work_minutes ?? 0 ) ) / 60, 2 ),
+                    number_format( ( (int) ( $att->ot_minutes ?? 0 ) ) / 60, 2 ),
+                    (int) ( $att->late_days ?? 0 ),
+                    (int) ( $att->absent_days ?? 0 ),
+                ] );
+            }
+
+            if ( $include_deductions ) {
+                $row = array_merge( $row, [
+                    number_format( (float) ( $item->gosi_deduction ?? 0 ), 2, '.', '' ),
+                    number_format( (float) ( $item->absence_deduction ?? 0 ), 2, '.', '' ),
+                    number_format( (float) ( $item->late_deduction ?? 0 ), 2, '.', '' ),
+                    number_format( (float) ( $item->other_deductions ?? 0 ), 2, '.', '' ),
+                ] );
+            }
+
+            if ( $include_loans ) {
+                $row[] = number_format( (float) ( $item->loan_deduction ?? 0 ), 2, '.', '' );
+            }
+
+            $row = array_merge( $row, [
+                number_format( (float) $item->total_deductions, 2, '.', '' ),
+                number_format( (float) $item->net_salary, 2, '.', '' ),
+            ] );
+
+            $rows[] = $row;
+        }
+
+        $filename = sanitize_file_name( 'payroll-detailed-' . sanitize_title( $run->period_name ) . '-' . wp_date( 'Y-m-d' ) );
+
+        if ( $format === 'xlsx' ) {
+            $this->export_xlsx( $filename, $rows );
+        } else {
+            $this->export_csv( $filename, $rows );
+        }
+    }
+
+    /**
+     * Export data as CSV
+     */
+    private function export_csv( string $filename, array $rows ): void {
+        if ( ! str_ends_with( $filename, '.csv' ) ) {
+            $filename .= '.csv';
+        }
+
+        header( 'Content-Type: text/csv; charset=utf-8' );
+        header( 'Content-Disposition: attachment; filename=' . $filename );
+        header( 'Pragma: no-cache' );
+        header( 'Expires: 0' );
+
+        $output = fopen( 'php://output', 'w' );
+
+        // BOM for Excel UTF-8 compatibility
+        fwrite( $output, "\xEF\xBB\xBF" );
+
+        foreach ( $rows as $row ) {
+            fputcsv( $output, $row );
+        }
+
+        fclose( $output );
+        exit;
+    }
+
+    /**
+     * Export data as XLSX (simple implementation using CSV-like format that Excel can open)
+     * For full XLSX support, consider using PhpSpreadsheet library
+     */
+    private function export_xlsx( string $filename, array $rows ): void {
+        // For now, export as tab-separated values with .xlsx extension
+        // Excel will open it correctly
+        if ( ! str_ends_with( $filename, '.xlsx' ) ) {
+            $filename .= '.xlsx';
+        }
+
+        header( 'Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' );
+        header( 'Content-Disposition: attachment; filename=' . $filename );
+        header( 'Pragma: no-cache' );
+        header( 'Expires: 0' );
+
+        $output = fopen( 'php://output', 'w' );
+
+        // BOM for Excel UTF-8 compatibility
+        fwrite( $output, "\xEF\xBB\xBF" );
+
+        foreach ( $rows as $row ) {
+            fputcsv( $output, $row, "\t" ); // Tab-separated for Excel
+        }
+
+        fclose( $output );
+        exit;
     }
 
     public function handle_export_bank(): void {
