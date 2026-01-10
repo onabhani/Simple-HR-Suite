@@ -66,6 +66,7 @@ add_action('admin_init', function(){
     $assets_table         = $wpdb->prefix . 'sfs_hr_assets';
     $assign_table         = $wpdb->prefix . 'sfs_hr_asset_assignments';
     $shifts_table         = $wpdb->prefix . 'sfs_hr_attendance_shifts';
+    $sessions_table       = $wpdb->prefix . 'sfs_hr_attendance_sessions';
     $loans_table          = $wpdb->prefix . 'sfs_hr_loans';
     $loan_payments_table  = $wpdb->prefix . 'sfs_hr_loan_payments';
     $loan_history_table   = $wpdb->prefix . 'sfs_hr_loan_history';
@@ -148,6 +149,26 @@ add_action('admin_init', function(){
     // Ensure global fallback approver role option exists
     if (get_option('sfs_hr_global_approver_role', '') === '') {
         add_option('sfs_hr_global_approver_role', 'sfs_hr_manager');
+    }
+
+    // Migrate attendance sessions ENUM to include 'day_off' (v0.1.8+ fix)
+    // This fixes incorrect 'holiday' status for days without shifts
+    if ($table_exists($sessions_table)) {
+        $col_type = $wpdb->get_var($wpdb->prepare(
+            "SELECT COLUMN_TYPE FROM information_schema.columns
+             WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'status'",
+            $sessions_table
+        ));
+        // Check if 'day_off' is NOT in the ENUM definition
+        if ($col_type && strpos($col_type, "'day_off'") === false) {
+            $wpdb->query("ALTER TABLE {$sessions_table}
+                          MODIFY COLUMN status ENUM('present','late','left_early','absent','incomplete','on_leave','holiday','day_off')
+                          NOT NULL DEFAULT 'present'");
+            // Update existing incorrect 'holiday' records where no shift was assigned
+            // These should be 'day_off' (no scheduled work) not 'holiday' (company holiday)
+            $wpdb->query("UPDATE {$sessions_table} SET status = 'day_off'
+                          WHERE status = 'holiday' AND shift_assign_id IS NULL");
+        }
     }
 
     // Self-heal Assets tables if missing - use direct SQL instead of dbDelta

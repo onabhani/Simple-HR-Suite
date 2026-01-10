@@ -2942,7 +2942,7 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
             break_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 0,
             net_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 0,
             rounded_net_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-            status ENUM('present','late','left_early','absent','incomplete','on_leave','holiday') NOT NULL DEFAULT 'present',
+            status ENUM('present','late','left_early','absent','incomplete','on_leave','holiday','day_off') NOT NULL DEFAULT 'present',
             overtime_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 0,
             flags_json LONGTEXT NULL,
             calc_meta_json LONGTEXT NULL,
@@ -3295,6 +3295,29 @@ public function ajax_dbg(): void {
         return (bool) apply_filters( 'sfs_hr_attendance_is_leave_or_holiday', $blocked, $employee_id, $dateYmd );
     }
 
+    /**
+     * Check if a date is a company holiday (not employee-specific leave)
+     *
+     * @param string $dateYmd Date in Y-m-d format
+     * @return bool
+     */
+    public static function is_company_holiday( string $dateYmd ): bool {
+        $ranges = get_option( 'sfs_hr_holidays' );
+        if ( ! is_array( $ranges ) ) {
+            return false;
+        }
+
+        foreach ( $ranges as $range ) {
+            $s = isset( $range['start_date'] ) ? $range['start_date'] : null;
+            $e = isset( $range['end_date'] )   ? $range['end_date']   : null;
+            if ( $s && $e && $dateYmd >= $s && $dateYmd <= $e ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
 
 /** Local Y-m-d → [start_utc, end_utc) */
 public static function local_day_window_to_utc(string $ymd): array {
@@ -3407,7 +3430,10 @@ foreach ($rows as $r) {
     // Status rollup
     $status = 'present';
     if (!$segments || count($segments)===0) {
-        $status = 'holiday'; // showroom Friday off → scheduled 0
+        // No shift scheduled for this day - could be day off or no shift assigned
+        // Check if it's an actual company holiday first
+        $is_company_holiday = self::is_company_holiday( $ymd );
+        $status = $is_company_holiday ? 'holiday' : 'day_off';
     } elseif (in_array('incomplete', $ev['flags'], true)) {
         $status = 'incomplete';
     } elseif (in_array('missed_segment', $ev['flags'], true) && $net === 0) {
