@@ -758,10 +758,367 @@ echo '</a>';
 
     echo '</div>'; // .sfs-hr-dashboard-grid
 
+    // === CONTRACT & DOCUMENT EXPIRY ALERTS SECTION ===
+    $this->render_expiry_alerts_section( $wpdb, $emp_t, $today );
+
     echo '</div>'; // .wrap
 }
 
+/**
+ * Render contract and document expiry alerts section
+ */
+private function render_expiry_alerts_section( $wpdb, string $emp_t, string $today ): void {
+    $alerts_30  = $this->get_expiring_items( $wpdb, $emp_t, $today, 30 );
+    $alerts_60  = $this->get_expiring_items( $wpdb, $emp_t, $today, 60, 31 );
+    $alerts_90  = $this->get_expiring_items( $wpdb, $emp_t, $today, 90, 61 );
 
+    $total_urgent   = count( $alerts_30 );
+    $total_soon     = count( $alerts_60 );
+    $total_upcoming = count( $alerts_90 );
+
+    if ( $total_urgent + $total_soon + $total_upcoming === 0 ) {
+        return; // No alerts to show
+    }
+
+    echo '<style>
+        .sfs-hr-expiry-section {
+            margin-top: 24px;
+            padding: 20px;
+            background: #fff;
+            border: 1px solid #dcdcde;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.04);
+        }
+        .sfs-hr-expiry-section h2 {
+            margin: 0 0 16px 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #1d2327;
+        }
+        .sfs-hr-expiry-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid #dcdcde;
+            padding-bottom: 12px;
+        }
+        .sfs-hr-expiry-tab {
+            padding: 8px 16px;
+            border: none;
+            background: #f6f7f7;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: #50575e;
+        }
+        .sfs-hr-expiry-tab:hover {
+            background: #e2e4e7;
+        }
+        .sfs-hr-expiry-tab.active {
+            background: #2271b1;
+            color: #fff;
+        }
+        .sfs-hr-expiry-tab .count {
+            background: rgba(0,0,0,.1);
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 11px;
+            margin-left: 4px;
+        }
+        .sfs-hr-expiry-tab.active .count {
+            background: rgba(255,255,255,.2);
+        }
+        .sfs-hr-expiry-tab.urgent {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        .sfs-hr-expiry-tab.urgent.active {
+            background: #dc2626;
+            color: #fff;
+        }
+        .sfs-hr-expiry-list {
+            display: none;
+        }
+        .sfs-hr-expiry-list.active {
+            display: block;
+        }
+        .sfs-hr-expiry-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .sfs-hr-expiry-table th {
+            text-align: left;
+            padding: 10px 12px;
+            background: #f6f7f7;
+            font-weight: 600;
+            color: #50575e;
+            border-bottom: 1px solid #dcdcde;
+        }
+        .sfs-hr-expiry-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #f0f0f1;
+        }
+        .sfs-hr-expiry-table tr:hover td {
+            background: #f9fafb;
+        }
+        .sfs-hr-expiry-type {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .sfs-hr-expiry-type.contract { background: #dbeafe; color: #1d4ed8; }
+        .sfs-hr-expiry-type.national-id { background: #fef3c7; color: #b45309; }
+        .sfs-hr-expiry-type.passport { background: #ede9fe; color: #7c3aed; }
+        .sfs-hr-expiry-type.probation { background: #dcfce7; color: #16a34a; }
+        .sfs-hr-expiry-days {
+            font-weight: 600;
+        }
+        .sfs-hr-expiry-days.urgent { color: #dc2626; }
+        .sfs-hr-expiry-days.soon { color: #d97706; }
+        .sfs-hr-expiry-days.normal { color: #2563eb; }
+        .sfs-hr-expiry-empty {
+            text-align: center;
+            padding: 20px;
+            color: #787c82;
+        }
+    </style>';
+
+    echo '<div class="sfs-hr-expiry-section">';
+    echo '<h2><span class="dashicons dashicons-warning" style="color:#d97706;margin-right:8px;"></span>' . esc_html__( 'Contract & Document Expiry Alerts', 'sfs-hr' ) . '</h2>';
+
+    echo '<div class="sfs-hr-expiry-tabs">';
+
+    if ( $total_urgent > 0 ) {
+        echo '<button type="button" class="sfs-hr-expiry-tab urgent active" data-target="expiry-30">';
+        echo esc_html__( 'Within 30 days', 'sfs-hr' );
+        echo '<span class="count">' . esc_html( $total_urgent ) . '</span>';
+        echo '</button>';
+    }
+
+    if ( $total_soon > 0 ) {
+        $active = ( $total_urgent === 0 ) ? ' active' : '';
+        echo '<button type="button" class="sfs-hr-expiry-tab' . $active . '" data-target="expiry-60">';
+        echo esc_html__( '31-60 days', 'sfs-hr' );
+        echo '<span class="count">' . esc_html( $total_soon ) . '</span>';
+        echo '</button>';
+    }
+
+    if ( $total_upcoming > 0 ) {
+        $active = ( $total_urgent === 0 && $total_soon === 0 ) ? ' active' : '';
+        echo '<button type="button" class="sfs-hr-expiry-tab' . $active . '" data-target="expiry-90">';
+        echo esc_html__( '61-90 days', 'sfs-hr' );
+        echo '<span class="count">' . esc_html( $total_upcoming ) . '</span>';
+        echo '</button>';
+    }
+
+    echo '</div>';
+
+    // Render lists
+    if ( $total_urgent > 0 ) {
+        $this->render_expiry_list( 'expiry-30', $alerts_30, true );
+    }
+    if ( $total_soon > 0 ) {
+        $this->render_expiry_list( 'expiry-60', $alerts_60, $total_urgent === 0 );
+    }
+    if ( $total_upcoming > 0 ) {
+        $this->render_expiry_list( 'expiry-90', $alerts_90, $total_urgent === 0 && $total_soon === 0 );
+    }
+
+    echo '</div>';
+
+    // Tab switching JS
+    echo '<script>
+    (function(){
+        var tabs = document.querySelectorAll(".sfs-hr-expiry-tab");
+        var lists = document.querySelectorAll(".sfs-hr-expiry-list");
+        tabs.forEach(function(tab) {
+            tab.addEventListener("click", function() {
+                tabs.forEach(function(t) { t.classList.remove("active"); });
+                lists.forEach(function(l) { l.classList.remove("active"); });
+                this.classList.add("active");
+                var target = document.getElementById(this.dataset.target);
+                if (target) target.classList.add("active");
+            });
+        });
+    })();
+    </script>';
+}
+
+/**
+ * Get expiring items (contracts, IDs, passports, probation)
+ */
+private function get_expiring_items( $wpdb, string $emp_t, string $today, int $days_ahead, int $days_from = 0 ): array {
+    $alerts = [];
+
+    $date_from = date( 'Y-m-d', strtotime( "+{$days_from} days", strtotime( $today ) ) );
+    $date_to   = date( 'Y-m-d', strtotime( "+{$days_ahead} days", strtotime( $today ) ) );
+
+    // Contract expiry
+    $contracts = $wpdb->get_results( $wpdb->prepare(
+        "SELECT id, employee_code, first_name, last_name, contract_end_date
+         FROM {$emp_t}
+         WHERE status = 'active'
+           AND contract_end_date IS NOT NULL
+           AND contract_end_date BETWEEN %s AND %s
+         ORDER BY contract_end_date ASC",
+        $date_from,
+        $date_to
+    ), ARRAY_A );
+
+    foreach ( $contracts as $c ) {
+        $alerts[] = [
+            'employee_id'   => $c['id'],
+            'employee_code' => $c['employee_code'],
+            'name'          => trim( $c['first_name'] . ' ' . $c['last_name'] ),
+            'type'          => 'contract',
+            'expiry_date'   => $c['contract_end_date'],
+            'days_left'     => $this->days_until( $today, $c['contract_end_date'] ),
+        ];
+    }
+
+    // National ID expiry
+    $nat_ids = $wpdb->get_results( $wpdb->prepare(
+        "SELECT id, employee_code, first_name, last_name, national_id_expiry
+         FROM {$emp_t}
+         WHERE status = 'active'
+           AND national_id_expiry IS NOT NULL
+           AND national_id_expiry BETWEEN %s AND %s
+         ORDER BY national_id_expiry ASC",
+        $date_from,
+        $date_to
+    ), ARRAY_A );
+
+    foreach ( $nat_ids as $n ) {
+        $alerts[] = [
+            'employee_id'   => $n['id'],
+            'employee_code' => $n['employee_code'],
+            'name'          => trim( $n['first_name'] . ' ' . $n['last_name'] ),
+            'type'          => 'national-id',
+            'expiry_date'   => $n['national_id_expiry'],
+            'days_left'     => $this->days_until( $today, $n['national_id_expiry'] ),
+        ];
+    }
+
+    // Passport expiry
+    $passports = $wpdb->get_results( $wpdb->prepare(
+        "SELECT id, employee_code, first_name, last_name, passport_expiry
+         FROM {$emp_t}
+         WHERE status = 'active'
+           AND passport_expiry IS NOT NULL
+           AND passport_expiry BETWEEN %s AND %s
+         ORDER BY passport_expiry ASC",
+        $date_from,
+        $date_to
+    ), ARRAY_A );
+
+    foreach ( $passports as $p ) {
+        $alerts[] = [
+            'employee_id'   => $p['id'],
+            'employee_code' => $p['employee_code'],
+            'name'          => trim( $p['first_name'] . ' ' . $p['last_name'] ),
+            'type'          => 'passport',
+            'expiry_date'   => $p['passport_expiry'],
+            'days_left'     => $this->days_until( $today, $p['passport_expiry'] ),
+        ];
+    }
+
+    // Probation end
+    $probations = $wpdb->get_results( $wpdb->prepare(
+        "SELECT id, employee_code, first_name, last_name, probation_end_date
+         FROM {$emp_t}
+         WHERE status = 'active'
+           AND probation_end_date IS NOT NULL
+           AND probation_end_date BETWEEN %s AND %s
+         ORDER BY probation_end_date ASC",
+        $date_from,
+        $date_to
+    ), ARRAY_A );
+
+    foreach ( $probations as $pr ) {
+        $alerts[] = [
+            'employee_id'   => $pr['id'],
+            'employee_code' => $pr['employee_code'],
+            'name'          => trim( $pr['first_name'] . ' ' . $pr['last_name'] ),
+            'type'          => 'probation',
+            'expiry_date'   => $pr['probation_end_date'],
+            'days_left'     => $this->days_until( $today, $pr['probation_end_date'] ),
+        ];
+    }
+
+    // Sort by days_left ascending
+    usort( $alerts, fn( $a, $b ) => $a['days_left'] <=> $b['days_left'] );
+
+    return $alerts;
+}
+
+/**
+ * Calculate days until a date
+ */
+private function days_until( string $today, string $target_date ): int {
+    $today_ts  = strtotime( $today );
+    $target_ts = strtotime( $target_date );
+    return (int) floor( ( $target_ts - $today_ts ) / 86400 );
+}
+
+/**
+ * Render expiry list table
+ */
+private function render_expiry_list( string $id, array $alerts, bool $active ): void {
+    $class = $active ? 'sfs-hr-expiry-list active' : 'sfs-hr-expiry-list';
+    echo '<div id="' . esc_attr( $id ) . '" class="' . esc_attr( $class ) . '">';
+
+    if ( empty( $alerts ) ) {
+        echo '<div class="sfs-hr-expiry-empty">' . esc_html__( 'No expiring items in this period.', 'sfs-hr' ) . '</div>';
+    } else {
+        echo '<table class="sfs-hr-expiry-table">';
+        echo '<thead><tr>';
+        echo '<th>' . esc_html__( 'Employee', 'sfs-hr' ) . '</th>';
+        echo '<th>' . esc_html__( 'Type', 'sfs-hr' ) . '</th>';
+        echo '<th>' . esc_html__( 'Expiry Date', 'sfs-hr' ) . '</th>';
+        echo '<th>' . esc_html__( 'Days Left', 'sfs-hr' ) . '</th>';
+        echo '<th></th>';
+        echo '</tr></thead>';
+        echo '<tbody>';
+
+        $type_labels = [
+            'contract'    => __( 'Contract', 'sfs-hr' ),
+            'national-id' => __( 'National ID', 'sfs-hr' ),
+            'passport'    => __( 'Passport', 'sfs-hr' ),
+            'probation'   => __( 'Probation', 'sfs-hr' ),
+        ];
+
+        foreach ( $alerts as $alert ) {
+            $days_class = 'normal';
+            if ( $alert['days_left'] <= 14 ) {
+                $days_class = 'urgent';
+            } elseif ( $alert['days_left'] <= 30 ) {
+                $days_class = 'soon';
+            }
+
+            $edit_url = admin_url( 'admin.php?page=sfs-hr-employees&action=edit&id=' . intval( $alert['employee_id'] ) );
+
+            echo '<tr>';
+            echo '<td>';
+            echo '<strong>' . esc_html( $alert['name'] ) . '</strong>';
+            echo '<br><small class="description">' . esc_html( $alert['employee_code'] ) . '</small>';
+            echo '</td>';
+            echo '<td><span class="sfs-hr-expiry-type ' . esc_attr( $alert['type'] ) . '">' . esc_html( $type_labels[ $alert['type'] ] ?? $alert['type'] ) . '</span></td>';
+            echo '<td>' . esc_html( date_i18n( 'M j, Y', strtotime( $alert['expiry_date'] ) ) ) . '</td>';
+            echo '<td><span class="sfs-hr-expiry-days ' . esc_attr( $days_class ) . '">' . esc_html( $alert['days_left'] ) . ' ' . esc_html__( 'days', 'sfs-hr' ) . '</span></td>';
+            echo '<td><a href="' . esc_url( $edit_url ) . '" class="button button-small">' . esc_html__( 'View', 'sfs-hr' ) . '</a></td>';
+            echo '</tr>';
+        }
+
+        echo '</tbody>';
+        echo '</table>';
+    }
+
+    echo '</div>';
+}
 
 
 
