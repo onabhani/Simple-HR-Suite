@@ -2894,6 +2894,7 @@ if (!$has_idx) {
 
     $tabs = [
         'requests' => __( 'Requests',  'sfs-hr' ),
+        'calendar' => __( 'Calendar',  'sfs-hr' ),
         'types'    => __( 'Types',     'sfs-hr' ),
         'balances' => __( 'Balances',  'sfs-hr' ),
         'settings' => __( 'Settings',  'sfs-hr' ),
