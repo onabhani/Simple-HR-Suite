@@ -238,13 +238,26 @@ private function get_table_columns( $table ): array {
  * One-page tabbed UI to reduce sidebar clutter.
  */
 public function render_attendance_hub(): void {
-    if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) { wp_die('Access denied'); }
+    // Allow attendance_admin OR attendance_view_team for certain tabs
+    $tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'settings';
+    $view_team_tabs = ['early_leave', 'punches', 'sessions'];
+
+    if ( in_array($tab, $view_team_tabs, true) ) {
+        if ( ! current_user_can( 'sfs_hr_attendance_view_team' ) && ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
+            wp_die( esc_html__( 'You do not have permission to access this page.', 'sfs-hr' ) );
+        }
+    } else {
+        if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
+            wp_die( esc_html__( 'You do not have permission to access this page.', 'sfs-hr' ) );
+        }
+    }
+
       echo '<div class="wrap sfs-hr-wrap">';
     echo '<h1 class="wp-heading-inline">' . esc_html__( 'Attendance', 'sfs-hr' ) . '</h1>';
     Helpers::render_admin_nav();
     echo '<hr class="wp-header-end" />';
 
-    $tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'settings';
+    // $tab already set at top of function for capability check
     $tabs = [
         'settings'    => __( 'Settings', 'sfs-hr' ),
         'automation'  => __( 'Automation', 'sfs-hr' ),

@@ -171,6 +171,42 @@ add_action('admin_init', function(){
         }
     }
 
+    // Migrate leave_types table to add gender filtering and attachment options
+    $leave_types_table = $wpdb->prefix . 'sfs_hr_leave_types';
+    if ($table_exists($leave_types_table)) {
+        // Add gender_required column
+        $has_gender = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'gender_required'",
+            $leave_types_table
+        ));
+        if (!$has_gender) {
+            $wpdb->query("ALTER TABLE {$leave_types_table} ADD COLUMN gender_required ENUM('any','male','female') DEFAULT 'any' AFTER special_code");
+            // Auto-set gender for existing maternity/paternity leaves based on special_code
+            $wpdb->query("UPDATE {$leave_types_table} SET gender_required = 'female' WHERE special_code = 'MATERNITY'");
+            $wpdb->query("UPDATE {$leave_types_table} SET gender_required = 'male' WHERE special_code = 'PATERNITY'");
+        }
+
+        // Add requires_attachment column
+        $has_attachment = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'requires_attachment'",
+            $leave_types_table
+        ));
+        if (!$has_attachment) {
+            $wpdb->query("ALTER TABLE {$leave_types_table} ADD COLUMN requires_attachment TINYINT(1) DEFAULT 0 AFTER gender_required");
+            // Auto-enable attachment for sick leave types
+            $wpdb->query("UPDATE {$leave_types_table} SET requires_attachment = 1 WHERE special_code IN ('SICK_SHORT', 'SICK_LONG')");
+        }
+
+        // Add color column if missing
+        $has_color = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'color'",
+            $leave_types_table
+        ));
+        if (!$has_color) {
+            $wpdb->query("ALTER TABLE {$leave_types_table} ADD COLUMN color VARCHAR(20) DEFAULT '#2271b1' AFTER requires_attachment");
+        }
+    }
+
     // Self-heal Assets tables if missing - use direct SQL instead of dbDelta
     if (!$table_exists($assets_table) || !$table_exists($assign_table)) {
         $charset_collate = $wpdb->get_charset_collate();

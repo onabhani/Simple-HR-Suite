@@ -1181,32 +1181,39 @@ public function handle_reject(): void {
             <div class="notice notice-success"><p><?php esc_html_e('Saved.','sfs-hr'); ?></p></div>
           <?php endif; ?>
 
+          <div style="overflow-x:auto;">
           <table class="widefat striped">
             <thead><tr>
               <th><?php esc_html_e('ID','sfs-hr'); ?></th>
               <th><?php esc_html_e('Name','sfs-hr'); ?></th>
               <th><?php esc_html_e('Paid','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Requires Approval','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Annual Quota','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Allow Negative','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Annual (Tenure)','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Special Policy','sfs-hr'); ?></th>
+              <th><?php esc_html_e('Approval','sfs-hr'); ?></th>
+              <th><?php esc_html_e('Quota','sfs-hr'); ?></th>
+              <th><?php esc_html_e('Gender','sfs-hr'); ?></th>
+              <th><?php esc_html_e('Attachment','sfs-hr'); ?></th>
+              <th><?php esc_html_e('Special','sfs-hr'); ?></th>
               <th><?php esc_html_e('Actions','sfs-hr'); ?></th>
             </tr></thead>
             <tbody>
               <?php if(!$rows): ?>
                 <tr><td colspan="9"><?php esc_html_e('No types.','sfs-hr'); ?></td></tr>
-              <?php else: foreach($rows as $r): 
+              <?php else: foreach($rows as $r):
                 $looks_annual = (stripos($r['name'],'annual') !== false);
+                $gender_label = ['any' => __('All','sfs-hr'), 'male' => __('Male','sfs-hr'), 'female' => __('Female','sfs-hr')];
               ?>
                 <tr>
                   <td><?php echo (int)$r['id']; ?></td>
-                  <td><?php echo esc_html($r['name']); ?></td>
+                  <td>
+                    <?php if (!empty($r['color'])): ?>
+                    <span style="display:inline-block;width:12px;height:12px;background:<?php echo esc_attr($r['color']); ?>;border-radius:2px;margin-right:5px;vertical-align:middle;"></span>
+                    <?php endif; ?>
+                    <?php echo esc_html($r['name']); ?>
+                  </td>
                   <td><?php echo $r['is_paid']?'✔':'—'; ?></td>
                   <td><?php echo $r['requires_approval']?'✔':'—'; ?></td>
                   <td><?php printf('%d', (int)$r['annual_quota']); ?></td>
-                  <td><?php echo !empty($r['allow_negative'])?'✔':'—'; ?></td>
-                  <td><?php echo !empty($r['is_annual'])?'✔':'—'; ?></td>
+                  <td><?php echo esc_html($gender_label[$r['gender_required'] ?? 'any'] ?? __('All','sfs-hr')); ?></td>
+                  <td><?php echo !empty($r['requires_attachment'])?'✔':'—'; ?></td>
                   <td><?php echo esc_html($r['special_code'] ?: '—'); ?></td>
                   <td>
                     <div style="display:flex;gap:6px;">
@@ -1233,6 +1240,7 @@ public function handle_reject(): void {
             </tbody>
 
           </table>
+          </div><!-- overflow wrapper -->
 
           <h2 style="margin-top:18px;"><?php esc_html_e('Add Type','sfs-hr'); ?></h2>
           <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
@@ -1240,11 +1248,27 @@ public function handle_reject(): void {
             <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce_add); ?>"/>
             <table class="form-table">
               <tr><th><?php esc_html_e('Name','sfs-hr'); ?></th><td><input name="name" class="regular-text" required/></td></tr>
+              <tr><th><?php esc_html_e('Color','sfs-hr'); ?></th><td><input type="color" name="color" value="#2271b1" style="width:60px;height:30px;padding:0;border:1px solid #8c8f94;"/></td></tr>
               <tr><th><?php esc_html_e('Paid','sfs-hr'); ?></th><td><label><input type="checkbox" name="is_paid" value="1" checked/> <?php esc_html_e('Paid leave','sfs-hr'); ?></label></td></tr>
               <tr><th><?php esc_html_e('Requires Approval','sfs-hr'); ?></th><td><label><input type="checkbox" name="requires_approval" value="1" checked/> <?php esc_html_e('Yes','sfs-hr'); ?></label></td></tr>
               <tr><th><?php esc_html_e('Annual Quota (fallback)','sfs-hr'); ?></th><td><input type="number" name="annual_quota" min="0" value="30" style="width:120px"/><br><small><?php esc_html_e('Used for non-annual types or when hire date is missing.','sfs-hr'); ?></small></td></tr>
               <tr><th><?php esc_html_e('Allow Negative','sfs-hr'); ?></th><td><label><input type="checkbox" name="allow_negative" value="1"/> <?php esc_html_e('Allow going below 0','sfs-hr'); ?></label></td></tr>
               <tr><th><?php esc_html_e('Annual (Tenure-based)','sfs-hr'); ?></th><td><label><input type="checkbox" name="is_annual" value="1"/> <?php esc_html_e('Apply <5y/≥5y policy','sfs-hr'); ?></label></td></tr>
+              <tr>
+                <th><?php esc_html_e('Gender Required','sfs-hr'); ?></th>
+                <td>
+                  <select name="gender_required">
+                    <option value="any"><?php esc_html_e('Any (All Employees)','sfs-hr'); ?></option>
+                    <option value="male"><?php esc_html_e('Male Only','sfs-hr'); ?></option>
+                    <option value="female"><?php esc_html_e('Female Only','sfs-hr'); ?></option>
+                  </select>
+                  <br><small><?php esc_html_e('Maternity leave for female, Paternity for male employees.','sfs-hr'); ?></small>
+                </td>
+              </tr>
+              <tr>
+                <th><?php esc_html_e('Requires Attachment','sfs-hr'); ?></th>
+                <td><label><input type="checkbox" name="requires_attachment" value="1"/> <?php esc_html_e('Employee must upload supporting document','sfs-hr'); ?></label></td>
+              </tr>
               <tr>
   <th><?php esc_html_e('Special Policy','sfs-hr'); ?></th>
   <td>
@@ -1374,10 +1398,23 @@ public function handle_reject(): void {
     $allow_n = !empty($_POST['allow_negative']) ? 1 : 0;
     $is_ann  = !empty($_POST['is_annual']) ? 1 : 0;
     $special = isset($_POST['special_code']) ? sanitize_text_field($_POST['special_code']) : '';
+    $gender_required = isset($_POST['gender_required']) ? sanitize_key($_POST['gender_required']) : 'any';
+    $requires_attachment = !empty($_POST['requires_attachment']) ? 1 : 0;
+    $color = isset($_POST['color']) ? sanitize_hex_color($_POST['color']) : '#2271b1';
 
     $allowed = ['', 'SICK_SHORT','SICK_LONG','HAJJ','MATERNITY','MARRIAGE','BEREAVEMENT','PATERNITY'];
     if ( ! in_array($special, $allowed, true) ) {
         $special = '';
+    }
+    $allowed_genders = ['any', 'male', 'female'];
+    if ( ! in_array($gender_required, $allowed_genders, true) ) {
+        $gender_required = 'any';
+    }
+    // Auto-set gender based on special code if not manually set
+    if ($gender_required === 'any' && $special === 'MATERNITY') {
+        $gender_required = 'female';
+    } elseif ($gender_required === 'any' && $special === 'PATERNITY') {
+        $gender_required = 'male';
     }
 
     if ( ! $name ) {
@@ -1406,17 +1443,20 @@ public function handle_reject(): void {
     $ins = $wpdb->insert(
         $t,
         [
-            'name'           => $name,
-            'is_paid'        => $is_paid,
-            'code'           => $code,
-            'requires_approval' => $req,
-            'annual_quota'   => $quota,
-            'allow_negative' => $allow_n,
-            'is_annual'      => $is_ann,
-            'active'         => 1,
-            'created_at'     => $now,
-            'updated_at'     => $now,
-            'special_code'   => ($special ?: null),
+            'name'               => $name,
+            'is_paid'            => $is_paid,
+            'code'               => $code,
+            'requires_approval'  => $req,
+            'annual_quota'       => $quota,
+            'allow_negative'     => $allow_n,
+            'is_annual'          => $is_ann,
+            'active'             => 1,
+            'created_at'         => $now,
+            'updated_at'         => $now,
+            'special_code'       => ($special ?: null),
+            'gender_required'    => $gender_required,
+            'requires_attachment'=> $requires_attachment,
+            'color'              => $color,
         ]
     );
 
@@ -3659,7 +3699,7 @@ public function render_calendar(): void {
 
     $dept_where = '';
     if ( $filter_dept > 0 ) {
-        $dept_where = $wpdb->prepare( " AND e.department_id = %d", $filter_dept );
+        $dept_where = $wpdb->prepare( " AND e.dept_id = %d", $filter_dept );
     }
 
     $leaves = $wpdb->get_results( $wpdb->prepare(
@@ -3670,7 +3710,7 @@ public function render_calendar(): void {
                 t.color AS leave_color
          FROM {$req_table} r
          LEFT JOIN {$emp_table} e ON r.employee_id = e.id
-         LEFT JOIN {$type_table} t ON r.leave_type_id = t.id
+         LEFT JOIN {$type_table} t ON r.type_id = t.id
          WHERE r.status = 'approved'
            AND r.start_date <= %s
            AND r.end_date >= %s
