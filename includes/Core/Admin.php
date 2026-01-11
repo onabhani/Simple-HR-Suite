@@ -774,6 +774,9 @@ echo '</a>';
     // === OVERTIME ALERTS SECTION ===
     $this->render_overtime_alerts_section( $wpdb, $emp_t, $today );
 
+    // === ANALYTICS CHARTS SECTION ===
+    $this->render_analytics_section( $wpdb, $emp_t, $dept_t, $sessions_t, $req_t );
+
     echo '</div>'; // .wrap
 }
 
@@ -1578,6 +1581,299 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
         $base = home_url('/wp-json/sfs-hr/v1/attendance/scan');
         return add_query_arg(['emp' => $emp_id, 'token' => $token], $base);
     }
+
+/**
+ * Render analytics charts section on dashboard
+ */
+private function render_analytics_section( $wpdb, string $emp_t, string $dept_t, string $sessions_t, string $req_t ): void {
+    // Check if HR Manager or has view permission
+    if ( ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'sfs_hr.view' ) ) {
+        return;
+    }
+
+    // --- Data: Department Headcount ---
+    $dept_headcount = [];
+    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $dept_t ) ) ) {
+        $dept_headcount = $wpdb->get_results(
+            "SELECT d.name AS dept_name, COUNT(e.id) AS count
+             FROM {$dept_t} d
+             LEFT JOIN {$emp_t} e ON e.dept_id = d.id AND e.status = 'active'
+             GROUP BY d.id, d.name
+             ORDER BY count DESC
+             LIMIT 10",
+            ARRAY_A
+        );
+    }
+
+    // --- Data: Attendance Trend (Last 7 days) ---
+    $attendance_trend = [];
+    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $sessions_t ) ) ) {
+        $attendance_trend = $wpdb->get_results(
+            "SELECT
+                work_date,
+                SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) AS present,
+                SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) AS late,
+                SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) AS absent
+             FROM {$sessions_t}
+             WHERE work_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+             GROUP BY work_date
+             ORDER BY work_date ASC",
+            ARRAY_A
+        );
+    }
+
+    // --- Data: Leave Trend (Last 30 days by week) ---
+    $leave_trend = [];
+    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $req_t ) ) ) {
+        $leave_trend = $wpdb->get_results(
+            "SELECT
+                YEARWEEK(start_date, 1) AS week_num,
+                MIN(start_date) AS week_start,
+                COUNT(*) AS total_requests,
+                SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) AS approved,
+                SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) AS rejected,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending
+             FROM {$req_t}
+             WHERE start_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+             GROUP BY YEARWEEK(start_date, 1)
+             ORDER BY week_num ASC",
+            ARRAY_A
+        );
+    }
+
+    // Skip if no data available
+    if ( empty( $dept_headcount ) && empty( $attendance_trend ) && empty( $leave_trend ) ) {
+        return;
+    }
+
+    // Prepare chart data for JavaScript
+    $dept_labels = wp_json_encode( array_column( $dept_headcount, 'dept_name' ) );
+    $dept_data   = wp_json_encode( array_map( 'intval', array_column( $dept_headcount, 'count' ) ) );
+
+    $att_labels  = wp_json_encode( array_map( function( $r ) {
+        return wp_date( 'D j', strtotime( $r['work_date'] ) );
+    }, $attendance_trend ) );
+    $att_present = wp_json_encode( array_map( 'intval', array_column( $attendance_trend, 'present' ) ) );
+    $att_late    = wp_json_encode( array_map( 'intval', array_column( $attendance_trend, 'late' ) ) );
+    $att_absent  = wp_json_encode( array_map( 'intval', array_column( $attendance_trend, 'absent' ) ) );
+
+    $leave_labels   = wp_json_encode( array_map( function( $r ) {
+        return wp_date( 'M j', strtotime( $r['week_start'] ) );
+    }, $leave_trend ) );
+    $leave_approved = wp_json_encode( array_map( 'intval', array_column( $leave_trend, 'approved' ) ) );
+    $leave_rejected = wp_json_encode( array_map( 'intval', array_column( $leave_trend, 'rejected' ) ) );
+    $leave_pending  = wp_json_encode( array_map( 'intval', array_column( $leave_trend, 'pending' ) ) );
+
+    ?>
+    <style>
+        .sfs-hr-analytics-section {
+            margin-top: 24px;
+        }
+        .sfs-hr-analytics-section h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1d2327;
+            margin: 0 0 16px 0;
+        }
+        .sfs-hr-analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 20px;
+            margin-right: 16px;
+        }
+        .sfs-hr-chart-card {
+            background: #fff;
+            border: 1px solid #dcdcde;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.04);
+        }
+        .sfs-hr-chart-card h3 {
+            margin: 0 0 16px 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #1d2327;
+        }
+        .sfs-hr-chart-container {
+            position: relative;
+            height: 250px;
+        }
+        @media (max-width: 782px) {
+            .sfs-hr-analytics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+
+    <div class="sfs-hr-analytics-section">
+        <h2><?php esc_html_e( 'Analytics Overview', 'sfs-hr' ); ?></h2>
+        <div class="sfs-hr-analytics-grid">
+            <?php if ( ! empty( $dept_headcount ) ) : ?>
+            <div class="sfs-hr-chart-card">
+                <h3><?php esc_html_e( 'Headcount by Department', 'sfs-hr' ); ?></h3>
+                <div class="sfs-hr-chart-container">
+                    <canvas id="sfs-hr-dept-chart"></canvas>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <?php if ( ! empty( $attendance_trend ) ) : ?>
+            <div class="sfs-hr-chart-card">
+                <h3><?php esc_html_e( 'Attendance Trend (Last 7 Days)', 'sfs-hr' ); ?></h3>
+                <div class="sfs-hr-chart-container">
+                    <canvas id="sfs-hr-attendance-chart"></canvas>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <?php if ( ! empty( $leave_trend ) ) : ?>
+            <div class="sfs-hr-chart-card">
+                <h3><?php esc_html_e( 'Leave Requests (Last 30 Days)', 'sfs-hr' ); ?></h3>
+                <div class="sfs-hr-chart-container">
+                    <canvas id="sfs-hr-leave-chart"></canvas>
+                </div>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        <?php if ( ! empty( $dept_headcount ) ) : ?>
+        // Department Headcount Chart
+        new Chart(document.getElementById('sfs-hr-dept-chart'), {
+            type: 'bar',
+            data: {
+                labels: <?php echo $dept_labels; ?>,
+                datasets: [{
+                    label: '<?php echo esc_js( __( 'Employees', 'sfs-hr' ) ); ?>',
+                    data: <?php echo $dept_data; ?>,
+                    backgroundColor: 'rgba(34, 113, 177, 0.8)',
+                    borderColor: 'rgba(34, 113, 177, 1)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 }
+                    }
+                }
+            }
+        });
+        <?php endif; ?>
+
+        <?php if ( ! empty( $attendance_trend ) ) : ?>
+        // Attendance Trend Chart
+        new Chart(document.getElementById('sfs-hr-attendance-chart'), {
+            type: 'line',
+            data: {
+                labels: <?php echo $att_labels; ?>,
+                datasets: [
+                    {
+                        label: '<?php echo esc_js( __( 'Present', 'sfs-hr' ) ); ?>',
+                        data: <?php echo $att_present; ?>,
+                        borderColor: 'rgba(34, 197, 94, 1)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        tension: 0.3,
+                        fill: true
+                    },
+                    {
+                        label: '<?php echo esc_js( __( 'Late', 'sfs-hr' ) ); ?>',
+                        data: <?php echo $att_late; ?>,
+                        borderColor: 'rgba(251, 191, 36, 1)',
+                        backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                        tension: 0.3,
+                        fill: true
+                    },
+                    {
+                        label: '<?php echo esc_js( __( 'Absent', 'sfs-hr' ) ); ?>',
+                        data: <?php echo $att_absent; ?>,
+                        borderColor: 'rgba(239, 68, 68, 1)',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        tension: 0.3,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { boxWidth: 12, padding: 15 }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 }
+                    }
+                }
+            }
+        });
+        <?php endif; ?>
+
+        <?php if ( ! empty( $leave_trend ) ) : ?>
+        // Leave Requests Chart
+        new Chart(document.getElementById('sfs-hr-leave-chart'), {
+            type: 'bar',
+            data: {
+                labels: <?php echo $leave_labels; ?>,
+                datasets: [
+                    {
+                        label: '<?php echo esc_js( __( 'Approved', 'sfs-hr' ) ); ?>',
+                        data: <?php echo $leave_approved; ?>,
+                        backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                        borderRadius: 4
+                    },
+                    {
+                        label: '<?php echo esc_js( __( 'Pending', 'sfs-hr' ) ); ?>',
+                        data: <?php echo $leave_pending; ?>,
+                        backgroundColor: 'rgba(251, 191, 36, 0.8)',
+                        borderRadius: 4
+                    },
+                    {
+                        label: '<?php echo esc_js( __( 'Rejected', 'sfs-hr' ) ); ?>',
+                        data: <?php echo $leave_rejected; ?>,
+                        backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { boxWidth: 12, padding: 15 }
+                    }
+                },
+                scales: {
+                    x: { stacked: true },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 }
+                    }
+                }
+            }
+        });
+        <?php endif; ?>
+    });
+    </script>
+    <?php
+}
 
     public function render_employees(): void {
         Helpers::require_cap('sfs_hr.manage');
