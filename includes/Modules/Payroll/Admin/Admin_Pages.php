@@ -382,6 +382,24 @@ class Admin_Pages {
         );
 
         ?>
+        <style>
+            .sfs-hr-table-responsive {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .sfs-hr-table-responsive table {
+                min-width: 600px;
+            }
+            .sfs-hr-table-responsive th {
+                white-space: nowrap;
+            }
+            @media (max-width: 782px) {
+                .sfs-hr-table-responsive {
+                    margin: 0 -12px;
+                    padding: 0 12px;
+                }
+            }
+        </style>
         <div class="sfs-hr-payroll-runs">
             <h2><?php esc_html_e( 'Payroll Runs', 'sfs-hr' ); ?></h2>
 
@@ -390,7 +408,8 @@ class Admin_Pages {
                 <p><?php esc_html_e( 'No payroll runs found. Run payroll from a period to create a run.', 'sfs-hr' ); ?></p>
             </div>
             <?php else: ?>
-            <table class="wp-list-table widefat fixed striped">
+            <div class="sfs-hr-table-responsive">
+            <table class="wp-list-table widefat striped">
                 <thead>
                     <tr>
                         <th style="width:60px;"><?php esc_html_e( 'ID', 'sfs-hr' ); ?></th>
@@ -460,6 +479,7 @@ class Admin_Pages {
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div><!-- .sfs-hr-table-responsive -->
             <?php endif; ?>
         </div>
         <?php
@@ -535,7 +555,8 @@ class Admin_Pages {
 
             <h3><?php esc_html_e( 'Employee Payroll Details', 'sfs-hr' ); ?></h3>
 
-            <table class="wp-list-table widefat fixed striped">
+            <div class="sfs-hr-table-responsive">
+            <table class="wp-list-table widefat striped">
                 <thead>
                     <tr>
                         <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
@@ -581,6 +602,7 @@ class Admin_Pages {
                     </tr>
                 </tfoot>
             </table>
+            </div><!-- .sfs-hr-table-responsive -->
         </div>
         <?php
     }
@@ -606,7 +628,8 @@ class Admin_Pages {
                 $type_components = array_filter( $components, fn( $c ) => $c->type === $type );
             ?>
             <h3 style="margin-top:20px;"><?php echo esc_html( $label ); ?></h3>
-            <table class="wp-list-table widefat fixed striped">
+            <div class="sfs-hr-table-responsive">
+            <table class="wp-list-table widefat striped">
                 <thead>
                     <tr>
                         <th style="width:80px;"><?php esc_html_e( 'Code', 'sfs-hr' ); ?></th>
@@ -656,6 +679,7 @@ class Admin_Pages {
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div><!-- .sfs-hr-table-responsive -->
             <?php endforeach; ?>
         </div>
         <?php

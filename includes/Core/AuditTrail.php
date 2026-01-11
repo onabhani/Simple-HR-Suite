@@ -538,12 +538,32 @@ class AuditTrail {
             <!-- Results -->
             <p class="description"><?php printf( esc_html__( 'Showing %d of %d entries', 'sfs-hr' ), count( $logs ), $total ); ?></p>
 
+            <style>
+                .sfs-hr-table-responsive {
+                    overflow-x: auto;
+                    -webkit-overflow-scrolling: touch;
+                }
+                .sfs-hr-table-responsive table {
+                    min-width: 700px;
+                }
+                .sfs-hr-table-responsive th {
+                    white-space: nowrap;
+                }
+                @media (max-width: 782px) {
+                    .sfs-hr-table-responsive {
+                        margin: 0 -12px;
+                        padding: 0 12px;
+                    }
+                }
+            </style>
+
             <?php if ( empty( $logs ) ): ?>
             <div class="notice notice-info">
                 <p><?php esc_html_e( 'No audit log entries found.', 'sfs-hr' ); ?></p>
             </div>
             <?php else: ?>
-            <table class="wp-list-table widefat fixed striped">
+            <div class="sfs-hr-table-responsive">
+            <table class="wp-list-table widefat striped">
                 <thead>
                     <tr>
                         <th style="width:140px;"><?php esc_html_e( 'Date/Time', 'sfs-hr' ); ?></th>
@@ -606,6 +626,7 @@ class AuditTrail {
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div><!-- .sfs-hr-table-responsive -->
 
             <!-- Pagination -->
             <?php
