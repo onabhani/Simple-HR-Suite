@@ -330,11 +330,174 @@ $print_row(
         echo '</tbody>';
         echo '</table>';
 
+$this->render_quick_punch_block( $employee );
 $this->render_assets_block( $employee );
 $this->render_attendance_block( $employee );
 
         echo '</div>'; // .sfs-hr-my-profile-overview
-        
+
+    }
+
+    /**
+     * Render Quick Punch block for mobile-optimized clock in/out
+     */
+    private function render_quick_punch_block( \stdClass $employee ): void {
+        global $wpdb;
+
+        $punches_table = $wpdb->prefix . 'sfs_hr_attendance_punches';
+        $today = wp_date('Y-m-d');
+
+        // Get last punch to determine current state
+        $last_punch = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$punches_table}
+             WHERE employee_id = %d AND DATE(punch_time) = %s
+             ORDER BY punch_time DESC LIMIT 1",
+            (int)$employee->id,
+            $today
+        ));
+
+        $current_status = 'not_clocked_in';
+        $can_punch_in = true;
+        $can_punch_out = false;
+        $can_start_break = false;
+        $can_end_break = false;
+
+        if ($last_punch) {
+            switch ($last_punch->punch_type) {
+                case 'in':
+                case 'break_end':
+                    $current_status = 'clocked_in';
+                    $can_punch_in = false;
+                    $can_punch_out = true;
+                    $can_start_break = true;
+                    break;
+                case 'break_start':
+                    $current_status = 'on_break';
+                    $can_punch_in = false;
+                    $can_punch_out = false;
+                    $can_end_break = true;
+                    break;
+                case 'out':
+                    $current_status = 'clocked_out';
+                    $can_punch_in = true;
+                    $can_punch_out = false;
+                    break;
+            }
+        }
+
+        $status_labels = [
+            'not_clocked_in' => __('Not Clocked In', 'sfs-hr'),
+            'clocked_in' => __('Clocked In', 'sfs-hr'),
+            'on_break' => __('On Break', 'sfs-hr'),
+            'clocked_out' => __('Clocked Out', 'sfs-hr'),
+        ];
+
+        $status_colors = [
+            'not_clocked_in' => '#666',
+            'clocked_in' => '#059669',
+            'on_break' => '#d97706',
+            'clocked_out' => '#dc2626',
+        ];
+
+        ?>
+        <div class="sfs-hr-quick-punch" style="margin-top:24px; padding:20px; background:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius:12px; border:1px solid #e2e8f0;">
+            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;">
+                <div>
+                    <h3 style="margin:0 0 8px; font-size:16px;"><?php esc_html_e('Quick Punch', 'sfs-hr'); ?></h3>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <span id="quick-punch-time" style="font-size:32px; font-weight:300; font-variant-numeric:tabular-nums;"><?php echo esc_html(wp_date('H:i:s')); ?></span>
+                        <span style="display:inline-block; padding:4px 12px; border-radius:20px; font-size:12px; font-weight:600; background:<?php echo esc_attr($status_colors[$current_status]); ?>1a; color:<?php echo esc_attr($status_colors[$current_status]); ?>;" id="quick-punch-status">
+                            <?php echo esc_html($status_labels[$current_status]); ?>
+                        </span>
+                    </div>
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;" id="quick-punch-buttons">
+                    <button type="button" class="button button-primary sfs-quick-punch-btn" data-action="in" <?php disabled(!$can_punch_in); ?> style="<?php echo $can_punch_in ? 'background:#059669; border-color:#047857;' : ''; ?>">
+                        <?php esc_html_e('Punch In', 'sfs-hr'); ?>
+                    </button>
+                    <button type="button" class="button sfs-quick-punch-btn" data-action="break_start" <?php disabled(!$can_start_break); ?> style="<?php echo $can_start_break ? 'background:#f59e0b; border-color:#d97706; color:#fff;' : ''; ?>">
+                        <?php esc_html_e('Start Break', 'sfs-hr'); ?>
+                    </button>
+                    <button type="button" class="button sfs-quick-punch-btn" data-action="break_end" <?php disabled(!$can_end_break); ?> style="<?php echo $can_end_break ? 'background:#2271b1; border-color:#135e96; color:#fff;' : ''; ?>">
+                        <?php esc_html_e('End Break', 'sfs-hr'); ?>
+                    </button>
+                    <button type="button" class="button sfs-quick-punch-btn" data-action="out" <?php disabled(!$can_punch_out); ?> style="<?php echo $can_punch_out ? 'background:#dc2626; border-color:#b91c1c; color:#fff;' : ''; ?>">
+                        <?php esc_html_e('Punch Out', 'sfs-hr'); ?>
+                    </button>
+                </div>
+            </div>
+            <div id="quick-punch-message" style="margin-top:12px; display:none;"></div>
+        </div>
+
+        <script>
+        (function() {
+            // Update clock
+            setInterval(function() {
+                var el = document.getElementById('quick-punch-time');
+                if (el) {
+                    var now = new Date();
+                    el.textContent = now.toLocaleTimeString('en-GB');
+                }
+            }, 1000);
+
+            // Handle punch buttons
+            document.querySelectorAll('.sfs-quick-punch-btn').forEach(function(btn) {
+                btn.addEventListener('click', async function() {
+                    if (this.disabled) return;
+
+                    var action = this.dataset.action;
+                    var message = document.getElementById('quick-punch-message');
+                    var originalText = this.textContent;
+
+                    this.disabled = true;
+                    this.textContent = '<?php echo esc_js(__('Processing...', 'sfs-hr')); ?>';
+
+                    try {
+                        var response = await fetch('<?php echo esc_url(rest_url('sfs-hr/v1/attendance/punch')); ?>', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-WP-Nonce': '<?php echo wp_create_nonce('wp_rest'); ?>'
+                            },
+                            body: JSON.stringify({ punch_type: action })
+                        });
+
+                        var data = await response.json();
+
+                        if (data.success) {
+                            message.style.display = 'block';
+                            message.style.padding = '10px';
+                            message.style.borderRadius = '6px';
+                            message.style.background = '#d1fae5';
+                            message.style.color = '#059669';
+                            message.textContent = data.message || '<?php echo esc_js(__('Punch recorded!', 'sfs-hr')); ?>';
+
+                            setTimeout(function() { location.reload(); }, 1200);
+                        } else {
+                            message.style.display = 'block';
+                            message.style.padding = '10px';
+                            message.style.borderRadius = '6px';
+                            message.style.background = '#fee2e2';
+                            message.style.color = '#dc2626';
+                            message.textContent = data.message || '<?php echo esc_js(__('An error occurred.', 'sfs-hr')); ?>';
+                            this.disabled = false;
+                            this.textContent = originalText;
+                        }
+                    } catch (error) {
+                        message.style.display = 'block';
+                        message.style.padding = '10px';
+                        message.style.borderRadius = '6px';
+                        message.style.background = '#fee2e2';
+                        message.style.color = '#dc2626';
+                        message.textContent = '<?php echo esc_js(__('Connection error. Please try again.', 'sfs-hr')); ?>';
+                        this.disabled = false;
+                        this.textContent = originalText;
+                    }
+                });
+            });
+        })();
+        </script>
+        <?php
     }
 
     /**

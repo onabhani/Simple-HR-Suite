@@ -306,6 +306,9 @@ add_action('plugins_loaded', function(){
     // Documents Module (employee document management)
     (new \SFS\HR\Modules\Documents\DocumentsModule())->hooks();
 
+    // PWA Module (Progressive Web App for mobile punch in/out)
+    (new \SFS\HR\Modules\PWA\PWAModule())->hooks();
+
     // Audit Trail (logging system)
     \SFS\HR\Core\AuditTrail::init();
 
