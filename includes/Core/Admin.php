@@ -79,6 +79,16 @@ class Admin {
             [$this, 'render_my_team']
         );
 
+        // Reports submenu
+        add_submenu_page(
+            'sfs-hr',
+            __('Reports','sfs-hr'),
+            __('Reports','sfs-hr'),
+            'sfs_hr.manage',
+            'sfs-hr-reports',
+            [$this, 'render_reports']
+        );
+
         // Add Settings submenu (last item)
         add_submenu_page(
             'sfs-hr',
@@ -4551,6 +4561,386 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
           <?php endif; ?>
         </div>
         <?php
+    }
+    /**
+     * Render Reports page - Custom Report Builder
+     */
+    public function render_reports(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'Permission denied', 'sfs-hr' ) );
+        }
+
+        global $wpdb;
+
+        // Get departments for filter
+        $dept_table = $wpdb->prefix . 'sfs_hr_departments';
+        $departments = $wpdb->get_results( "SELECT id, name FROM {$dept_table} WHERE active = 1 ORDER BY name ASC" );
+
+        // Handle report generation
+        $report_data = [];
+        $report_type = '';
+        $generated = false;
+
+        if ( isset( $_GET['generate'] ) && wp_verify_nonce( $_GET['_wpnonce'] ?? '', 'sfs_hr_generate_report' ) ) {
+            $report_type = sanitize_key( $_GET['report_type'] ?? '' );
+            $date_from = sanitize_text_field( $_GET['date_from'] ?? '' );
+            $date_to = sanitize_text_field( $_GET['date_to'] ?? '' );
+            $dept_filter = intval( $_GET['dept'] ?? 0 );
+            $export_csv = ! empty( $_GET['export'] );
+
+            $report_data = $this->generate_report( $report_type, $date_from, $date_to, $dept_filter );
+            $generated = true;
+
+            if ( $export_csv && ! empty( $report_data['rows'] ) ) {
+                $this->export_report_csv( $report_type, $report_data );
+                return;
+            }
+        }
+
+        ?>
+        <div class="wrap sfs-hr-wrap">
+            <?php Helpers::render_admin_nav(); ?>
+
+            <h1><?php esc_html_e( 'Report Builder', 'sfs-hr' ); ?></h1>
+            <p class="description"><?php esc_html_e( 'Generate custom reports with filters and export to CSV.', 'sfs-hr' ); ?></p>
+
+            <div style="background:#fff; border:1px solid #dcdcde; border-radius:8px; padding:20px; margin:20px 0; max-width:800px;">
+                <form method="get" action="">
+                    <input type="hidden" name="page" value="sfs-hr-reports" />
+                    <input type="hidden" name="generate" value="1" />
+                    <?php wp_nonce_field( 'sfs_hr_generate_report', '_wpnonce', false ); ?>
+
+                    <table class="form-table" style="margin:0;">
+                        <tr>
+                            <th scope="row"><label for="report_type"><?php esc_html_e( 'Report Type', 'sfs-hr' ); ?></label></th>
+                            <td>
+                                <select name="report_type" id="report_type" required style="min-width:250px;">
+                                    <option value=""><?php esc_html_e( '— Select Report —', 'sfs-hr' ); ?></option>
+                                    <option value="attendance_summary" <?php selected( $report_type, 'attendance_summary' ); ?>><?php esc_html_e( 'Attendance Summary', 'sfs-hr' ); ?></option>
+                                    <option value="leave_report" <?php selected( $report_type, 'leave_report' ); ?>><?php esc_html_e( 'Leave Report', 'sfs-hr' ); ?></option>
+                                    <option value="employee_directory" <?php selected( $report_type, 'employee_directory' ); ?>><?php esc_html_e( 'Employee Directory', 'sfs-hr' ); ?></option>
+                                    <option value="headcount_by_dept" <?php selected( $report_type, 'headcount_by_dept' ); ?>><?php esc_html_e( 'Headcount by Department', 'sfs-hr' ); ?></option>
+                                    <option value="contract_expiry" <?php selected( $report_type, 'contract_expiry' ); ?>><?php esc_html_e( 'Contract Expiry Report', 'sfs-hr' ); ?></option>
+                                    <option value="tenure_report" <?php selected( $report_type, 'tenure_report' ); ?>><?php esc_html_e( 'Employee Tenure Report', 'sfs-hr' ); ?></option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><label><?php esc_html_e( 'Date Range', 'sfs-hr' ); ?></label></th>
+                            <td>
+                                <input type="date" name="date_from" value="<?php echo esc_attr( $_GET['date_from'] ?? date( 'Y-m-01' ) ); ?>" style="width:150px;" />
+                                <span style="margin:0 8px;"><?php esc_html_e( 'to', 'sfs-hr' ); ?></span>
+                                <input type="date" name="date_to" value="<?php echo esc_attr( $_GET['date_to'] ?? date( 'Y-m-d' ) ); ?>" style="width:150px;" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><label for="dept"><?php esc_html_e( 'Department', 'sfs-hr' ); ?></label></th>
+                            <td>
+                                <select name="dept" id="dept" style="min-width:250px;">
+                                    <option value="0"><?php esc_html_e( 'All Departments', 'sfs-hr' ); ?></option>
+                                    <?php foreach ( $departments as $d ): ?>
+                                        <option value="<?php echo intval( $d->id ); ?>" <?php selected( intval( $_GET['dept'] ?? 0 ), $d->id ); ?>><?php echo esc_html( $d->name ); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <div style="margin-top:20px; display:flex; gap:10px;">
+                        <button type="submit" class="button button-primary"><?php esc_html_e( 'Generate Report', 'sfs-hr' ); ?></button>
+                        <button type="submit" name="export" value="csv" class="button"><?php esc_html_e( 'Export CSV', 'sfs-hr' ); ?></button>
+                    </div>
+                </form>
+            </div>
+
+            <?php if ( $generated && ! empty( $report_data ) ): ?>
+            <div style="background:#fff; border:1px solid #dcdcde; border-radius:8px; padding:20px; margin:20px 0;">
+                <h2 style="margin-top:0;"><?php echo esc_html( $report_data['title'] ?? __( 'Report Results', 'sfs-hr' ) ); ?></h2>
+                <p class="description"><?php echo esc_html( $report_data['description'] ?? '' ); ?></p>
+
+                <?php if ( empty( $report_data['rows'] ) ): ?>
+                    <div class="notice notice-info" style="margin:15px 0;"><p><?php esc_html_e( 'No data found for the selected criteria.', 'sfs-hr' ); ?></p></div>
+                <?php else: ?>
+                    <p><strong><?php printf( esc_html__( 'Total Records: %d', 'sfs-hr' ), count( $report_data['rows'] ) ); ?></strong></p>
+
+                    <div style="overflow-x:auto;">
+                        <table class="wp-list-table widefat striped" style="margin-top:15px;">
+                            <thead>
+                                <tr>
+                                    <?php foreach ( $report_data['columns'] as $col ): ?>
+                                        <th><?php echo esc_html( $col ); ?></th>
+                                    <?php endforeach; ?>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ( $report_data['rows'] as $row ): ?>
+                                    <tr>
+                                        <?php foreach ( $row as $val ): ?>
+                                            <td><?php echo esc_html( $val ); ?></td>
+                                        <?php endforeach; ?>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+
+    /**
+     * Generate report data based on type and filters
+     */
+    private function generate_report( string $type, string $date_from, string $date_to, int $dept_id ): array {
+        global $wpdb;
+
+        $emp_t = $wpdb->prefix . 'sfs_hr_employees';
+        $dept_t = $wpdb->prefix . 'sfs_hr_departments';
+        $sessions_t = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+        $leave_t = $wpdb->prefix . 'sfs_hr_leave_requests';
+        $type_t = $wpdb->prefix . 'sfs_hr_leave_types';
+
+        $dept_where = $dept_id > 0 ? $wpdb->prepare( " AND e.dept_id = %d", $dept_id ) : '';
+
+        switch ( $type ) {
+            case 'attendance_summary':
+                $rows = $wpdb->get_results( $wpdb->prepare(
+                    "SELECT
+                        e.employee_code,
+                        CONCAT(e.first_name, ' ', e.last_name) AS name,
+                        d.name AS department,
+                        SUM(CASE WHEN s.status = 'present' THEN 1 ELSE 0 END) AS present_days,
+                        SUM(CASE WHEN s.status = 'late' THEN 1 ELSE 0 END) AS late_days,
+                        SUM(CASE WHEN s.status = 'absent' THEN 1 ELSE 0 END) AS absent_days,
+                        SUM(CASE WHEN s.status = 'on_leave' THEN 1 ELSE 0 END) AS leave_days,
+                        SUM(COALESCE(s.overtime_minutes, 0)) AS total_ot_minutes
+                     FROM {$emp_t} e
+                     LEFT JOIN {$dept_t} d ON d.id = e.dept_id
+                     LEFT JOIN {$sessions_t} s ON s.employee_id = e.id AND s.work_date BETWEEN %s AND %s
+                     WHERE e.status = 'active' {$dept_where}
+                     GROUP BY e.id
+                     ORDER BY d.name, e.first_name",
+                    $date_from, $date_to
+                ), ARRAY_A );
+
+                return [
+                    'title' => __( 'Attendance Summary Report', 'sfs-hr' ),
+                    'description' => sprintf( __( 'Period: %s to %s', 'sfs-hr' ), $date_from, $date_to ),
+                    'columns' => [ __('Code','sfs-hr'), __('Name','sfs-hr'), __('Department','sfs-hr'), __('Present','sfs-hr'), __('Late','sfs-hr'), __('Absent','sfs-hr'), __('Leave','sfs-hr'), __('OT Hours','sfs-hr') ],
+                    'rows' => array_map( function( $r ) {
+                        return [
+                            $r['employee_code'] ?? '',
+                            $r['name'] ?? '',
+                            $r['department'] ?? '',
+                            $r['present_days'] ?? 0,
+                            $r['late_days'] ?? 0,
+                            $r['absent_days'] ?? 0,
+                            $r['leave_days'] ?? 0,
+                            round( ( $r['total_ot_minutes'] ?? 0 ) / 60, 1 ),
+                        ];
+                    }, $rows ),
+                ];
+
+            case 'leave_report':
+                $rows = $wpdb->get_results( $wpdb->prepare(
+                    "SELECT
+                        e.employee_code,
+                        CONCAT(e.first_name, ' ', e.last_name) AS name,
+                        d.name AS department,
+                        t.name AS leave_type,
+                        r.start_date,
+                        r.end_date,
+                        r.days,
+                        r.status,
+                        r.reason
+                     FROM {$leave_t} r
+                     JOIN {$emp_t} e ON e.id = r.employee_id
+                     LEFT JOIN {$dept_t} d ON d.id = e.dept_id
+                     LEFT JOIN {$type_t} t ON t.id = r.type_id
+                     WHERE r.start_date <= %s AND r.end_date >= %s {$dept_where}
+                     ORDER BY r.start_date DESC",
+                    $date_to, $date_from
+                ), ARRAY_A );
+
+                return [
+                    'title' => __( 'Leave Report', 'sfs-hr' ),
+                    'description' => sprintf( __( 'Period: %s to %s', 'sfs-hr' ), $date_from, $date_to ),
+                    'columns' => [ __('Code','sfs-hr'), __('Name','sfs-hr'), __('Department','sfs-hr'), __('Type','sfs-hr'), __('From','sfs-hr'), __('To','sfs-hr'), __('Days','sfs-hr'), __('Status','sfs-hr') ],
+                    'rows' => array_map( function( $r ) {
+                        return [
+                            $r['employee_code'] ?? '',
+                            $r['name'] ?? '',
+                            $r['department'] ?? '',
+                            $r['leave_type'] ?? '',
+                            $r['start_date'] ?? '',
+                            $r['end_date'] ?? '',
+                            $r['days'] ?? 0,
+                            ucfirst( $r['status'] ?? '' ),
+                        ];
+                    }, $rows ),
+                ];
+
+            case 'employee_directory':
+                $rows = $wpdb->get_results(
+                    "SELECT
+                        e.employee_code,
+                        CONCAT(e.first_name, ' ', e.last_name) AS name,
+                        e.email,
+                        e.phone,
+                        d.name AS department,
+                        e.position,
+                        e.hired_at,
+                        e.status
+                     FROM {$emp_t} e
+                     LEFT JOIN {$dept_t} d ON d.id = e.dept_id
+                     WHERE 1=1 {$dept_where}
+                     ORDER BY d.name, e.first_name",
+                    ARRAY_A
+                );
+
+                return [
+                    'title' => __( 'Employee Directory', 'sfs-hr' ),
+                    'description' => __( 'Complete employee listing', 'sfs-hr' ),
+                    'columns' => [ __('Code','sfs-hr'), __('Name','sfs-hr'), __('Email','sfs-hr'), __('Phone','sfs-hr'), __('Department','sfs-hr'), __('Position','sfs-hr'), __('Hire Date','sfs-hr'), __('Status','sfs-hr') ],
+                    'rows' => array_map( function( $r ) {
+                        return [
+                            $r['employee_code'] ?? '',
+                            $r['name'] ?? '',
+                            $r['email'] ?? '',
+                            $r['phone'] ?? '',
+                            $r['department'] ?? '',
+                            $r['position'] ?? '',
+                            $r['hired_at'] ?? '',
+                            ucfirst( $r['status'] ?? '' ),
+                        ];
+                    }, $rows ),
+                ];
+
+            case 'headcount_by_dept':
+                $rows = $wpdb->get_results(
+                    "SELECT
+                        d.name AS department,
+                        COUNT(CASE WHEN e.status = 'active' THEN 1 END) AS active,
+                        COUNT(CASE WHEN e.status = 'inactive' THEN 1 END) AS inactive,
+                        COUNT(CASE WHEN e.status = 'terminated' THEN 1 END) AS terminated,
+                        COUNT(e.id) AS total
+                     FROM {$dept_t} d
+                     LEFT JOIN {$emp_t} e ON e.dept_id = d.id
+                     WHERE d.active = 1
+                     GROUP BY d.id
+                     ORDER BY d.name",
+                    ARRAY_A
+                );
+
+                return [
+                    'title' => __( 'Headcount by Department', 'sfs-hr' ),
+                    'description' => __( 'Employee count breakdown by department', 'sfs-hr' ),
+                    'columns' => [ __('Department','sfs-hr'), __('Active','sfs-hr'), __('Inactive','sfs-hr'), __('Terminated','sfs-hr'), __('Total','sfs-hr') ],
+                    'rows' => array_map( function( $r ) {
+                        return [ $r['department'] ?? '', $r['active'] ?? 0, $r['inactive'] ?? 0, $r['terminated'] ?? 0, $r['total'] ?? 0 ];
+                    }, $rows ),
+                ];
+
+            case 'contract_expiry':
+                $rows = $wpdb->get_results( $wpdb->prepare(
+                    "SELECT
+                        e.employee_code,
+                        CONCAT(e.first_name, ' ', e.last_name) AS name,
+                        d.name AS department,
+                        e.contract_type,
+                        e.contract_end_date,
+                        DATEDIFF(e.contract_end_date, CURDATE()) AS days_remaining
+                     FROM {$emp_t} e
+                     LEFT JOIN {$dept_t} d ON d.id = e.dept_id
+                     WHERE e.status = 'active'
+                       AND e.contract_end_date IS NOT NULL
+                       AND e.contract_end_date BETWEEN %s AND %s
+                       {$dept_where}
+                     ORDER BY e.contract_end_date ASC",
+                    $date_from, $date_to
+                ), ARRAY_A );
+
+                return [
+                    'title' => __( 'Contract Expiry Report', 'sfs-hr' ),
+                    'description' => sprintf( __( 'Contracts expiring between %s and %s', 'sfs-hr' ), $date_from, $date_to ),
+                    'columns' => [ __('Code','sfs-hr'), __('Name','sfs-hr'), __('Department','sfs-hr'), __('Contract Type','sfs-hr'), __('End Date','sfs-hr'), __('Days Left','sfs-hr') ],
+                    'rows' => array_map( function( $r ) {
+                        return [
+                            $r['employee_code'] ?? '',
+                            $r['name'] ?? '',
+                            $r['department'] ?? '',
+                            $r['contract_type'] ?? '',
+                            $r['contract_end_date'] ?? '',
+                            $r['days_remaining'] ?? '',
+                        ];
+                    }, $rows ),
+                ];
+
+            case 'tenure_report':
+                $rows = $wpdb->get_results(
+                    "SELECT
+                        e.employee_code,
+                        CONCAT(e.first_name, ' ', e.last_name) AS name,
+                        d.name AS department,
+                        e.hired_at,
+                        TIMESTAMPDIFF(YEAR, e.hired_at, CURDATE()) AS years,
+                        TIMESTAMPDIFF(MONTH, e.hired_at, CURDATE()) % 12 AS months
+                     FROM {$emp_t} e
+                     LEFT JOIN {$dept_t} d ON d.id = e.dept_id
+                     WHERE e.status = 'active' AND e.hired_at IS NOT NULL {$dept_where}
+                     ORDER BY e.hired_at ASC",
+                    ARRAY_A
+                );
+
+                return [
+                    'title' => __( 'Employee Tenure Report', 'sfs-hr' ),
+                    'description' => __( 'Employee service duration', 'sfs-hr' ),
+                    'columns' => [ __('Code','sfs-hr'), __('Name','sfs-hr'), __('Department','sfs-hr'), __('Hire Date','sfs-hr'), __('Tenure','sfs-hr') ],
+                    'rows' => array_map( function( $r ) {
+                        $tenure = sprintf( __( '%d years, %d months', 'sfs-hr' ), $r['years'] ?? 0, $r['months'] ?? 0 );
+                        return [
+                            $r['employee_code'] ?? '',
+                            $r['name'] ?? '',
+                            $r['department'] ?? '',
+                            $r['hired_at'] ?? '',
+                            $tenure,
+                        ];
+                    }, $rows ),
+                ];
+
+            default:
+                return [];
+        }
+    }
+
+    /**
+     * Export report to CSV
+     */
+    private function export_report_csv( string $type, array $report_data ): void {
+        $filename = sanitize_file_name( $type . '_' . date( 'Y-m-d_His' ) . '.csv' );
+
+        header( 'Content-Type: text/csv; charset=utf-8' );
+        header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+        header( 'Pragma: no-cache' );
+        header( 'Expires: 0' );
+
+        $output = fopen( 'php://output', 'w' );
+
+        // BOM for Excel UTF-8
+        fprintf( $output, chr(0xEF) . chr(0xBB) . chr(0xBF) );
+
+        // Header row
+        fputcsv( $output, $report_data['columns'] );
+
+        // Data rows
+        foreach ( $report_data['rows'] as $row ) {
+            fputcsv( $output, $row );
+        }
+
+        fclose( $output );
+        exit;
     }
 
     /**
