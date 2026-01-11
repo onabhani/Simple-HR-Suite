@@ -1554,28 +1554,38 @@ public function render_shifts(): void {
                 </tr>
 
                 <tr>
-                    <th><?php esc_html_e( 'Department', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Departments', 'sfs-hr' ); ?></th>
                     <td>
-                        <select name="dept_id" required>
-                            <?php
-                            $current_dept_id = (int) ( $editing->dept_id ?? 0 );
-                            if ( empty( $dept_list ) ) : ?>
-                                <option value="">
-                                    <?php esc_html_e( 'No departments defined', 'sfs-hr' ); ?>
-                                </option>
-                            <?php else : ?>
-                                <option value=""><?php esc_html_e( '— Select Department —', 'sfs-hr' ); ?></option>
+                        <?php
+                        // Get current dept_ids (JSON array) or fall back to single dept_id
+                        $current_dept_ids = [];
+                        if ( ! empty( $editing->dept_ids ) ) {
+                            $decoded = json_decode( $editing->dept_ids, true );
+                            if ( is_array( $decoded ) ) {
+                                $current_dept_ids = array_map( 'intval', $decoded );
+                            }
+                        } elseif ( ! empty( $editing->dept_id ) ) {
+                            $current_dept_ids = [ (int) $editing->dept_id ];
+                        }
+
+                        if ( empty( $dept_list ) ) : ?>
+                            <p style="color: #d63638;">
+                                <?php esc_html_e( 'No departments defined. Please create departments first.', 'sfs-hr' ); ?>
+                            </p>
+                        <?php else : ?>
+                            <div style="display: flex; flex-wrap: wrap; gap: 10px 20px; max-height: 200px; overflow-y: auto; padding: 10px; border: 1px solid #dcdcde; border-radius: 4px; background: #f9f9f9;">
                                 <?php foreach ( $dept_list as $dept ) : ?>
-                                    <option value="<?php echo esc_attr( $dept['id'] ); ?>"
-                                        <?php selected( $current_dept_id, $dept['id'] ); ?>>
+                                    <label style="display: flex; align-items: center; gap: 5px; white-space: nowrap;">
+                                        <input type="checkbox" name="dept_ids[]" value="<?php echo esc_attr( $dept['id'] ); ?>"
+                                            <?php checked( in_array( (int) $dept['id'], $current_dept_ids, true ) ); ?> />
                                         <?php echo esc_html( $dept['name'] ); ?>
-                                    </option>
+                                    </label>
                                 <?php endforeach; ?>
-                            <?php endif; ?>
-                        </select>
-                        <p class="description">
-                            <?php esc_html_e( 'Departments are managed under HR → Departments.', 'sfs-hr' ); ?>
-                        </p>
+                            </div>
+                            <p class="description" style="margin-top: 8px;">
+                                <?php esc_html_e( 'Select one or more departments this shift applies to. Employees in any selected department can use this shift.', 'sfs-hr' ); ?>
+                            </p>
+                        <?php endif; ?>
                     </td>
                 </tr>
 
@@ -1754,6 +1764,7 @@ public function render_shifts(): void {
             <tr>
                 <th>ID</th>
                 <th>Name</th>
+                <th>Departments</th>
                 <th>Start→End</th>
                 <th>Geo (m)</th>
                 <th>Break</th>
@@ -1768,6 +1779,24 @@ public function render_shifts(): void {
                 <tr>
                     <td><?php echo (int)$r->id; ?></td>
                     <td><?php echo esc_html($r->name); ?></td>
+                    <td><?php
+                        $dept_names = [];
+                        if ( ! empty( $r->dept_ids ) ) {
+                            $ids = json_decode( $r->dept_ids, true );
+                            if ( is_array( $ids ) ) {
+                                foreach ( $ids as $did ) {
+                                    if ( isset( $depts[ $did ] ) ) {
+                                        $dept_names[] = $depts[ $did ];
+                                    }
+                                }
+                            }
+                        } elseif ( ! empty( $r->dept_id ) && isset( $depts[ $r->dept_id ] ) ) {
+                            $dept_names[] = $depts[ $r->dept_id ];
+                        }
+                        echo ! empty( $dept_names )
+                            ? esc_html( implode( ', ', $dept_names ) )
+                            : '<em style="color:#999;">All Departments</em>';
+                    ?></td>
                     <td><?php echo esc_html($r->start_time . ' → ' . $r->end_time); ?></td>
                     <td><?php echo esc_html($r->location_label . ' (' . (float)$r->location_radius_m . 'm)'); ?></td>
                     <td><?php echo esc_html($r->break_policy . ' / ' . (int)$r->unpaid_break_minutes . 'm'); ?></td>
@@ -1806,7 +1835,13 @@ public function render_shifts(): void {
 
     $id      = isset($_POST['id']) ? (int)$_POST['id'] : 0;
     $name    = sanitize_text_field( $_POST['name'] ?? '' );
-    $dept_id = isset($_POST['dept_id']) ? (int)$_POST['dept_id'] : 0;
+
+    // Handle multiple department selection
+    $dept_ids_raw = isset( $_POST['dept_ids'] ) && is_array( $_POST['dept_ids'] ) ? $_POST['dept_ids'] : [];
+    $dept_ids = array_filter( array_map( 'intval', $dept_ids_raw ) );
+    $dept_ids_json = ! empty( $dept_ids ) ? wp_json_encode( array_values( $dept_ids ) ) : null;
+    // Keep first dept_id for backward compatibility
+    $dept_id = ! empty( $dept_ids ) ? $dept_ids[0] : 0;
 
     $loc_label = sanitize_text_field( $_POST['location_label'] ?? '' );
     $lat = is_numeric($_POST['location_lat'] ?? null) ? (float)$_POST['location_lat'] : null;
@@ -1885,6 +1920,7 @@ $end   = $norm_time($_POST['end_time']   ?? '');
         'require_selfie'           => $selfie,
         'active'                   => $active,
         'dept_id'                  => $dept_id > 0 ? $dept_id : null,
+        'dept_ids'                 => $dept_ids_json,
         'notes'                    => $notes,
         'weekly_overrides'         => $weekly_override_json,
     ];
@@ -3457,7 +3493,7 @@ if ( $rows ) {
             (int) $r->break_minutes,
             (int) $r->net_minutes,
             (int) $r->overtime_minutes,
-            esc_html( $r->status ?: '-' ),
+            esc_html( $r->status ? $this->get_status_label( $r->status ) : '-' ),
             esc_html( (string) $geoTxt ),
             esc_html( (string) $selfieTxt ),
             esc_html( $flagsTxt )
@@ -3478,6 +3514,23 @@ private function att_log(string $msg, array $ctx = []): void {
     if (defined('WP_DEBUG') && WP_DEBUG) {
         error_log('[SFS-HR/Attendance] ' . $msg . ($ctx ? ' | ' . wp_json_encode($ctx) : ''));
     }
+}
+
+/**
+ * Get human-readable status label for attendance session status
+ */
+private function get_status_label( string $status ): string {
+    $labels = [
+        'present'    => __( 'Present', 'sfs-hr' ),
+        'late'       => __( 'Late', 'sfs-hr' ),
+        'left_early' => __( 'Left Early', 'sfs-hr' ),
+        'absent'     => __( 'Absent', 'sfs-hr' ),
+        'incomplete' => __( 'Incomplete', 'sfs-hr' ),
+        'on_leave'   => __( 'On Leave', 'sfs-hr' ),
+        'holiday'    => __( 'Holiday', 'sfs-hr' ),
+        'day_off'    => __( 'No Shift Assigned', 'sfs-hr' ),
+    ];
+    return $labels[ $status ] ?? ucfirst( str_replace( '_', ' ', $status ) );
 }
 
 

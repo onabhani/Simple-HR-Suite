@@ -2974,6 +2974,7 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
             dept_id BIGINT UNSIGNED NULL COMMENT 'References sfs_hr_departments.id',
             notes TEXT NULL,
             weekly_overrides TEXT NULL,
+            dept_ids TEXT NULL COMMENT 'JSON array of department IDs for multi-department shifts',
             PRIMARY KEY (id),
             KEY active_dept_id (active, dept_id),
             KEY dept_id (dept_id)
@@ -2988,6 +2989,17 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
         if ( ! $col_exists ) {
             $wpdb->query( "ALTER TABLE {$shifts_table} ADD COLUMN dept_id BIGINT UNSIGNED NULL AFTER active" );
             $wpdb->query( "ALTER TABLE {$shifts_table} ADD KEY dept_id (dept_id)" );
+        }
+
+        // Migration: Add dept_ids column for multi-department support
+        $dept_ids_exists = $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'dept_ids'",
+            $shifts_table
+        ) );
+        if ( ! $dept_ids_exists ) {
+            $wpdb->query( "ALTER TABLE {$shifts_table} ADD COLUMN dept_ids TEXT NULL COMMENT 'JSON array of department IDs'" );
+            // Migrate existing single dept_id to dept_ids JSON
+            $wpdb->query( "UPDATE {$shifts_table} SET dept_ids = CONCAT('[', dept_id, ']') WHERE dept_id IS NOT NULL AND dept_ids IS NULL" );
         }
 
                 // 4) daily assignments (rota)
@@ -3970,13 +3982,29 @@ public static function resolve_shift_for_date(
     }
 
     // --- 4) Optional fallback by dept_id to keep system usable
+    // Check both old dept_id column and new dept_ids JSON array
     if ($dept_id) {
+        // First try: match dept_ids JSON array (multi-department support)
         $fb = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT * FROM {$shiftT} WHERE active=1 AND dept_id=%d ORDER BY id ASC LIMIT 1",
-                $dept_id
+                "SELECT * FROM {$shiftT}
+                 WHERE active=1
+                   AND (dept_ids IS NOT NULL AND JSON_CONTAINS(dept_ids, %s))
+                 ORDER BY id ASC LIMIT 1",
+                (string) $dept_id
             )
         );
+
+        // Fallback: match legacy single dept_id column
+        if ( ! $fb ) {
+            $fb = $wpdb->get_row(
+                $wpdb->prepare(
+                    "SELECT * FROM {$shiftT} WHERE active=1 AND dept_id=%d ORDER BY id ASC LIMIT 1",
+                    $dept_id
+                )
+            );
+        }
+
         if ($fb) {
             $fb->__virtual  = 1;
             $fb->is_holiday = 0;
