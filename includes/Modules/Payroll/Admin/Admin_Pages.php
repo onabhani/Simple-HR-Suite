@@ -457,7 +457,7 @@ class Admin_Pages {
                                 <?php esc_html_e( 'View', 'sfs-hr' ); ?>
                             </a>
 
-                            <?php if ( $run->status === 'review' && ( current_user_can( 'sfs_hr_payroll_admin' ) || current_user_can( 'sfs_hr.manage' ) ) ): ?>
+                            <?php if ( $run->status === 'review' && ( current_user_can( 'sfs_hr_payroll_admin' ) || current_user_can( 'sfs_hr.manage' ) || current_user_can( 'manage_options' ) ) ): ?>
                             <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
                                 <?php wp_nonce_field( 'sfs_hr_payroll_approve_run' ); ?>
                                 <input type="hidden" name="action" value="sfs_hr_payroll_approve_run" />
@@ -542,7 +542,7 @@ class Admin_Pages {
                 </div>
             </div>
 
-            <?php if ( $run->status === 'review' && ( current_user_can( 'sfs_hr_payroll_admin' ) || current_user_can( 'sfs_hr.manage' ) ) ): ?>
+            <?php if ( $run->status === 'review' && ( current_user_can( 'sfs_hr_payroll_admin' ) || current_user_can( 'sfs_hr.manage' ) || current_user_can( 'manage_options' ) ) ): ?>
             <div style="margin-bottom:20px;">
                 <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
                     <?php wp_nonce_field( 'sfs_hr_payroll_approve_run' ); ?>
@@ -956,7 +956,7 @@ class Admin_Pages {
     }
 
     public function handle_approve_run(): void {
-        if ( ! current_user_can( 'sfs_hr_payroll_admin' ) && ! current_user_can( 'sfs_hr.manage' ) ) {
+        if ( ! current_user_can( 'sfs_hr_payroll_admin' ) && ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'manage_options' ) ) {
             wp_die( 'Access denied' );
         }
         check_admin_referer( 'sfs_hr_payroll_approve_run' );
