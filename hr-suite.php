@@ -207,6 +207,17 @@ add_action('admin_init', function(){
         }
     }
 
+    // Migrate employees table to add birth_date column for birthday reminders
+    if ($table_exists($emp_table)) {
+        $has_birth_date = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'birth_date'",
+            $emp_table
+        ));
+        if (!$has_birth_date) {
+            $wpdb->query("ALTER TABLE {$emp_table} ADD COLUMN birth_date DATE DEFAULT NULL AFTER gender");
+        }
+    }
+
     // Self-heal Assets tables if missing - use direct SQL instead of dbDelta
     if (!$table_exists($assets_table) || !$table_exists($assign_table)) {
         $charset_collate = $wpdb->get_charset_collate();
@@ -311,6 +322,9 @@ add_action('plugins_loaded', function(){
 
     // Shift Swap Module (employees can request shift swaps)
     (new \SFS\HR\Modules\ShiftSwap\ShiftSwapModule())->hooks();
+
+    // Reminders Module (birthday/anniversary notifications)
+    (new \SFS\HR\Modules\Reminders\RemindersModule())->hooks();
 
     // Audit Trail (logging system)
     \SFS\HR\Core\AuditTrail::init();

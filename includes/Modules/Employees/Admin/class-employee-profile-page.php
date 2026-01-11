@@ -511,6 +511,14 @@ echo '<div class="wrap sfs-hr-wrap">';
                                 </td>
                             </tr>
                             <tr>
+                                <th><?php esc_html_e( 'Date of Birth', 'sfs-hr' ); ?></th>
+                                <td>
+                                    <input type="date" name="birth_date" class="regular-text sfs-hr-date"
+                                           value="<?php echo esc_attr( $emp['birth_date'] ?? '' ); ?>" />
+                                    <p class="description"><?php esc_html_e( 'Used for birthday reminders', 'sfs-hr' ); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
                                 <th><?php esc_html_e( 'Department', 'sfs-hr' ); ?></th>
                                 <td>
                                     <select name="dept_id" class="sfs-hr-select">
