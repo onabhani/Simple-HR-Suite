@@ -312,10 +312,11 @@ public function render_requests(): void {
                                     <input type="hidden" name="id" value="<?php echo (int)$r['id']; ?>"/>
                                     <button class="button button-primary button-small"><?php esc_html_e('Approve', 'sfs-hr'); ?></button>
                                 </form>
-                                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline;margin-left:4px;">
+                                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline;margin-left:4px;" id="reject-form-<?php echo (int)$r['id']; ?>" onsubmit="return sfsHrPromptRejectReason(this);">
                                     <input type="hidden" name="action" value="sfs_hr_leave_reject"/>
                                     <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonceR); ?>"/>
                                     <input type="hidden" name="id" value="<?php echo (int)$r['id']; ?>"/>
+                                    <input type="hidden" name="note" class="reject-note-input" value=""/>
                                     <button class="button button-small"><?php esc_html_e('Reject', 'sfs-hr'); ?></button>
                                 </form>
                             <?php elseif ($r['status'] === 'pending'): ?>
@@ -323,8 +324,13 @@ public function render_requests(): void {
                             <?php else: ?>
                                 <?php
                                     $by = $r['approver_id'] ? get_user_by('id', (int)$r['approver_id']) : null;
-                                    echo esc_html($by ? $by->display_name : '—');
+                                    $byName = $by ? $by->display_name : '—';
+                                    echo esc_html($byName);
+                                    // Show rejection reason if rejected
+                                    if ($r['status'] === 'rejected' && !empty($r['approver_note'])):
                                 ?>
+                                    <br><small style="color:#b32d2e;"><strong><?php esc_html_e('Reason:', 'sfs-hr'); ?></strong> <?php echo esc_html($r['approver_note']); ?></small>
+                                <?php endif; ?>
                             <?php endif; ?>
                         </td>
                         <td class="show-mobile">
@@ -437,10 +443,11 @@ public function render_requests(): void {
                 '<input type="hidden" name="id" value="' + data.id + '"/>' +
                 '<button class="button button-primary" style="flex:1;"><?php esc_html_e('Approve', 'sfs-hr'); ?></button>' +
                 '</form>' +
-                '<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:flex;gap:8px;margin-top:8px;">' +
+                '<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:flex;gap:8px;margin-top:8px;" onsubmit="return sfsHrPromptRejectReason(this);">' +
                 '<input type="hidden" name="action" value="sfs_hr_leave_reject"/>' +
                 '<input type="hidden" name="_wpnonce" value="' + data.nonceR + '"/>' +
                 '<input type="hidden" name="id" value="' + data.id + '"/>' +
+                '<input type="hidden" name="note" class="reject-note-input" value=""/>' +
                 '<button class="button" style="flex:1;"><?php esc_html_e('Reject', 'sfs-hr'); ?></button>' +
                 '</form>';
         } else if (data.status === 'pending') {
@@ -456,6 +463,20 @@ public function render_requests(): void {
     function sfsHrCloseLeaveModal() {
         document.getElementById('sfs-hr-leave-modal').classList.remove('active');
         document.body.style.overflow = '';
+    }
+
+    function sfsHrPromptRejectReason(form) {
+        var reason = prompt('<?php echo esc_js(__('Please enter a reason for rejection (required):', 'sfs-hr')); ?>');
+        if (reason === null) {
+            return false; // User cancelled
+        }
+        reason = reason.trim();
+        if (reason === '') {
+            alert('<?php echo esc_js(__('Rejection reason is required.', 'sfs-hr')); ?>');
+            return false;
+        }
+        form.querySelector('.reject-note-input').value = reason;
+        return true;
     }
 
     document.addEventListener('keydown', function(e) {
@@ -1090,6 +1111,13 @@ public function handle_reject(): void {
 
     $id   = isset($_POST['id']) ? (int)$_POST['id'] : 0;
     $note = isset($_POST['note']) ? sanitize_text_field($_POST['note']) : '';
+
+    // Require rejection reason
+    if (empty(trim($note))) {
+        wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending&err=' . rawurlencode(__('Rejection reason is required.', 'sfs-hr'))));
+        exit;
+    }
+
     if ($id<=0) wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending'));
 
     global $wpdb;
