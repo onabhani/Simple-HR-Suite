@@ -4622,6 +4622,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                                     <option value="headcount_by_dept" <?php selected( $report_type, 'headcount_by_dept' ); ?>><?php esc_html_e( 'Headcount by Department', 'sfs-hr' ); ?></option>
                                     <option value="contract_expiry" <?php selected( $report_type, 'contract_expiry' ); ?>><?php esc_html_e( 'Contract Expiry Report', 'sfs-hr' ); ?></option>
                                     <option value="tenure_report" <?php selected( $report_type, 'tenure_report' ); ?>><?php esc_html_e( 'Employee Tenure Report', 'sfs-hr' ); ?></option>
+                                    <option value="document_expiry" <?php selected( $report_type, 'document_expiry' ); ?>><?php esc_html_e( 'Document Expiry Report', 'sfs-hr' ); ?></option>
                                 </select>
                             </td>
                         </tr>
@@ -4906,6 +4907,74 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                             $r['department'] ?? '',
                             $r['hired_at'] ?? '',
                             $tenure,
+                        ];
+                    }, $rows ),
+                ];
+
+            case 'document_expiry':
+                $doc_t = $wpdb->prefix . 'sfs_hr_employee_documents';
+                $doc_exists = (bool) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
+                    $doc_t
+                ) );
+                if ( ! $doc_exists ) {
+                    return [
+                        'title' => __( 'Document Expiry Report', 'sfs-hr' ),
+                        'description' => __( 'Documents table not found.', 'sfs-hr' ),
+                        'columns' => [],
+                        'rows' => [],
+                    ];
+                }
+
+                $doc_types = \SFS\HR\Modules\Documents\DocumentsModule::get_document_types();
+
+                $rows = $wpdb->get_results(
+                    $wpdb->prepare(
+                        "SELECT
+                            doc.document_type,
+                            doc.document_name,
+                            doc.expiry_date,
+                            e.employee_code,
+                            CONCAT(e.first_name, ' ', e.last_name) AS emp_name,
+                            d.name AS department,
+                            DATEDIFF(doc.expiry_date, CURDATE()) AS days_until
+                         FROM {$doc_t} doc
+                         JOIN {$emp_t} e ON e.id = doc.employee_id
+                         LEFT JOIN {$dept_t} d ON d.id = e.dept_id
+                         WHERE doc.status = 'active'
+                           AND doc.expiry_date IS NOT NULL
+                           AND doc.expiry_date BETWEEN %s AND %s
+                           AND e.status = 'active' {$dept_where}
+                         ORDER BY doc.expiry_date ASC",
+                        $date_from,
+                        $date_to
+                    ),
+                    ARRAY_A
+                );
+
+                return [
+                    'title' => __( 'Document Expiry Report', 'sfs-hr' ),
+                    'description' => sprintf( __( 'Documents expiring between %s and %s', 'sfs-hr' ), $date_from, $date_to ),
+                    'columns' => [ __('Employee','sfs-hr'), __('Code','sfs-hr'), __('Department','sfs-hr'), __('Document Type','sfs-hr'), __('Document Name','sfs-hr'), __('Expiry Date','sfs-hr'), __('Status','sfs-hr') ],
+                    'rows' => array_map( function( $r ) use ( $doc_types ) {
+                        $days = (int)$r['days_until'];
+                        if ( $days < 0 ) {
+                            $status = __( 'EXPIRED', 'sfs-hr' );
+                        } elseif ( $days <= 7 ) {
+                            $status = sprintf( __( 'Expires in %d days', 'sfs-hr' ), $days );
+                        } elseif ( $days <= 30 ) {
+                            $status = sprintf( __( 'Expires in %d days', 'sfs-hr' ), $days );
+                        } else {
+                            $status = sprintf( __( '%d days remaining', 'sfs-hr' ), $days );
+                        }
+                        return [
+                            $r['emp_name'] ?? '',
+                            $r['employee_code'] ?? '',
+                            $r['department'] ?? '',
+                            $doc_types[ $r['document_type'] ] ?? ucfirst( str_replace( '_', ' ', $r['document_type'] ) ),
+                            $r['document_name'] ?? '',
+                            $r['expiry_date'] ?? '',
+                            $status,
                         ];
                     }, $rows ),
                 ];

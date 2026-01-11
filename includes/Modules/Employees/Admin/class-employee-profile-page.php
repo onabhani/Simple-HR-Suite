@@ -689,6 +689,7 @@ echo '<div class="wrap sfs-hr-wrap">';
                     </table>
                 </div>
                 <?php $this->render_assets_card( $employee_id ); ?>
+                <?php $this->render_documents_card( $employee_id ); ?>
             </div>
         </div>
 
@@ -1582,5 +1583,128 @@ echo '<div class="wrap sfs-hr-wrap">';
         );
 
         return array_map( 'intval', $ids ?: [] );
+    }
+
+    /**
+     * Render Documents summary card for employee profile
+     */
+    protected function render_documents_card( int $employee_id ): void {
+        global $wpdb;
+
+        $doc_table = $wpdb->prefix . 'sfs_hr_employee_documents';
+
+        // Check if documents table exists
+        $table_exists = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
+                $doc_table
+            )
+        );
+
+        if ( ! $table_exists ) {
+            return;
+        }
+
+        // Get document counts by type
+        $documents = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT document_type, COUNT(*) as count, MIN(expiry_date) as earliest_expiry
+                 FROM {$doc_table}
+                 WHERE employee_id = %d AND status = 'active'
+                 GROUP BY document_type
+                 ORDER BY count DESC",
+                $employee_id
+            ),
+            ARRAY_A
+        );
+
+        $total_docs = 0;
+        $expiring_soon = 0;
+        $expired = 0;
+        $today = wp_date( 'Y-m-d' );
+        $thirty_days = wp_date( 'Y-m-d', strtotime( '+30 days' ) );
+
+        // Check for expiring/expired documents
+        $expiry_check = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT expiry_date FROM {$doc_table}
+                 WHERE employee_id = %d AND status = 'active' AND expiry_date IS NOT NULL",
+                $employee_id
+            ),
+            ARRAY_A
+        );
+
+        foreach ( $expiry_check as $row ) {
+            if ( $row['expiry_date'] < $today ) {
+                $expired++;
+            } elseif ( $row['expiry_date'] <= $thirty_days ) {
+                $expiring_soon++;
+            }
+        }
+
+        foreach ( $documents as $doc ) {
+            $total_docs += (int) $doc['count'];
+        }
+
+        $doc_types = \SFS\HR\Modules\Documents\DocumentsModule::get_document_types();
+
+        $docs_tab_url = add_query_arg(
+            [
+                'page'        => 'sfs-hr-employee-profile',
+                'employee_id' => $employee_id,
+                'tab'         => 'documents',
+            ],
+            admin_url( 'admin.php' )
+        );
+
+        echo '<div class="sfs-hr-emp-card">';
+        echo '<h3>' . esc_html__( 'Documents', 'sfs-hr' ) . '</h3>';
+
+        if ( empty( $documents ) ) {
+            echo '<p class="description">' . esc_html__( 'No documents uploaded.', 'sfs-hr' ) . '</p>';
+        } else {
+            echo '<p>';
+            printf(
+                esc_html__( '%d document(s) on file.', 'sfs-hr' ),
+                (int) $total_docs
+            );
+            echo '</p>';
+
+            // Warnings for expiring/expired
+            if ( $expired > 0 ) {
+                echo '<p style="color:#dc2626; margin:4px 0;">';
+                printf(
+                    esc_html__( '%d document(s) expired!', 'sfs-hr' ),
+                    (int) $expired
+                );
+                echo '</p>';
+            }
+            if ( $expiring_soon > 0 ) {
+                echo '<p style="color:#d97706; margin:4px 0;">';
+                printf(
+                    esc_html__( '%d document(s) expiring within 30 days.', 'sfs-hr' ),
+                    (int) $expiring_soon
+                );
+                echo '</p>';
+            }
+
+            // Show type breakdown
+            echo '<p class="description" style="margin-top:6px;">';
+            $bits = [];
+            foreach ( $documents as $doc ) {
+                $type_label = $doc_types[ $doc['document_type'] ] ?? ucfirst( str_replace( '_', ' ', $doc['document_type'] ) );
+                $bits[] = $type_label . ': ' . (int) $doc['count'];
+            }
+            echo esc_html( implode( ' · ', $bits ) );
+            echo '</p>';
+        }
+
+        echo '<p style="margin-top:10px;">';
+        echo '<a href="' . esc_url( $docs_tab_url ) . '" class="button button-small">';
+        esc_html_e( 'View Documents', 'sfs-hr' );
+        echo '</a>';
+        echo '</p>';
+
+        echo '</div>';
     }
 }
