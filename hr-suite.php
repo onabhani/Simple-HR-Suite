@@ -309,6 +309,9 @@ add_action('plugins_loaded', function(){
     // PWA Module (Progressive Web App for mobile punch in/out)
     (new \SFS\HR\Modules\PWA\PWAModule())->hooks();
 
+    // Shift Swap Module (employees can request shift swaps)
+    (new \SFS\HR\Modules\ShiftSwap\ShiftSwapModule())->hooks();
+
     // Audit Trail (logging system)
     \SFS\HR\Core\AuditTrail::init();
 
