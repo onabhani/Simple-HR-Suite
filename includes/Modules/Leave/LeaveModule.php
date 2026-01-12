@@ -391,6 +391,14 @@ public function render_requests(): void {
                 <span class="sfs-hr-leave-modal-label"><?php esc_html_e('Submitted', 'sfs-hr'); ?></span>
                 <span class="sfs-hr-leave-modal-value" id="sfs-hr-leave-modal-submitted"></span>
             </div>
+            <div class="sfs-hr-leave-modal-row" id="sfs-hr-leave-modal-approver-row" style="display:none;">
+                <span class="sfs-hr-leave-modal-label" id="sfs-hr-leave-modal-approver-label"></span>
+                <span class="sfs-hr-leave-modal-value" id="sfs-hr-leave-modal-approver"></span>
+            </div>
+            <div class="sfs-hr-leave-modal-row" id="sfs-hr-leave-modal-reject-reason-row" style="display:none;">
+                <span class="sfs-hr-leave-modal-label"><?php esc_html_e('Rejection Reason', 'sfs-hr'); ?></span>
+                <span class="sfs-hr-leave-modal-value" id="sfs-hr-leave-modal-reject-reason" style="color:#b32d2e;"></span>
+            </div>
             <div id="sfs-hr-leave-modal-actions" style="margin-top: 20px;"></div>
         </div>
     </div>
@@ -408,18 +416,28 @@ public function render_requests(): void {
                 $can_approve = false;
             }
         }
+        // Get approver name for approved/rejected requests
+        $approver_name = '';
+        if (in_array($r['status'], ['approved', 'rejected'], true) && !empty($r['approver_id'])) {
+            $approver_user = get_user_by('id', (int)$r['approver_id']);
+            if ($approver_user) {
+                $approver_name = $approver_user->display_name;
+            }
+        }
         return [
-            'id'        => (int)$r['id'],
-            'name'      => trim($r['first_name'] . ' ' . $r['last_name']),
-            'type'      => $r['type_name'],
-            'dates'     => $r['start_date'] . ' → ' . $r['end_date'],
-            'days'      => (int)$r['days'],
-            'status'    => $r['status'],
-            'reason'    => $r['reason'] ?: '—',
-            'submitted' => $this->fmt_dt($r['created_at'] ?? ''),
-            'canApprove'=> $can_approve,
-            'nonceA'    => $nonceA,
-            'nonceR'    => $nonceR,
+            'id'            => (int)$r['id'],
+            'name'          => trim($r['first_name'] . ' ' . $r['last_name']),
+            'type'          => $r['type_name'],
+            'dates'         => $r['start_date'] . ' → ' . $r['end_date'],
+            'days'          => (int)$r['days'],
+            'status'        => $r['status'],
+            'reason'        => $r['reason'] ?: '—',
+            'submitted'     => $this->fmt_dt($r['created_at'] ?? ''),
+            'approverName'  => $approver_name,
+            'approverNote'  => $r['approver_note'] ?? '',
+            'canApprove'    => $can_approve,
+            'nonceA'        => $nonceA,
+            'nonceR'        => $nonceR,
         ];
     }, $rows))); ?>;
 
@@ -434,6 +452,25 @@ public function render_requests(): void {
         document.getElementById('sfs-hr-leave-modal-status').textContent = data.status;
         document.getElementById('sfs-hr-leave-modal-reason').textContent = data.reason;
         document.getElementById('sfs-hr-leave-modal-submitted').textContent = data.submitted;
+
+        // Show approver info for approved/rejected requests
+        var approverRow = document.getElementById('sfs-hr-leave-modal-approver-row');
+        var rejectReasonRow = document.getElementById('sfs-hr-leave-modal-reject-reason-row');
+        if (data.approverName && (data.status === 'approved' || data.status === 'rejected')) {
+            var label = data.status === 'rejected' ? '<?php echo esc_js(__('Rejected by', 'sfs-hr')); ?>' : '<?php echo esc_js(__('Approved by', 'sfs-hr')); ?>';
+            document.getElementById('sfs-hr-leave-modal-approver-label').textContent = label;
+            document.getElementById('sfs-hr-leave-modal-approver').textContent = data.approverName;
+            approverRow.style.display = '';
+        } else {
+            approverRow.style.display = 'none';
+        }
+        // Show rejection reason if rejected and note exists
+        if (data.status === 'rejected' && data.approverNote) {
+            document.getElementById('sfs-hr-leave-modal-reject-reason').textContent = data.approverNote;
+            rejectReasonRow.style.display = '';
+        } else {
+            rejectReasonRow.style.display = 'none';
+        }
 
         var actionsDiv = document.getElementById('sfs-hr-leave-modal-actions');
         if (data.status === 'pending' && data.canApprove) {

@@ -1302,11 +1302,11 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
         $status_label = $is_over ? __( 'Over Limit', 'sfs-hr' ) : __( 'Near Limit', 'sfs-hr' );
 
         $dept_name = isset( $depts[ (int) $emp['dept_id'] ] ) ? $depts[ (int) $emp['dept_id'] ] : '—';
-        $edit_url = admin_url( 'admin.php?page=sfs-hr-employees&action=edit&id=' . intval( $emp['id'] ) );
+        $profile_url = admin_url( 'admin.php?page=sfs-hr-employee-profile&id=' . intval( $emp['id'] ) );
 
         echo '<tr>';
         echo '<td>';
-        echo '<a href="' . esc_url( $edit_url ) . '"><strong>' . esc_html( trim( $emp['first_name'] . ' ' . $emp['last_name'] ) ) . '</strong></a>';
+        echo '<a href="' . esc_url( $profile_url ) . '"><strong>' . esc_html( trim( $emp['first_name'] . ' ' . $emp['last_name'] ) ) . '</strong></a>';
         echo '<br><small class="description">' . esc_html( $emp['employee_code'] ) . '</small>';
         echo '</td>';
         echo '<td>' . esc_html( $dept_name ) . '</td>';

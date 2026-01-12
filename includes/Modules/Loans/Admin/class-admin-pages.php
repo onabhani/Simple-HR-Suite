@@ -695,7 +695,9 @@ class AdminPages {
         ];
 
         $label = $labels[ $status ] ?? ucfirst( $status );
-        $class = 'sfs-hr-pill sfs-hr-pill--' . esc_attr( $status );
+        // Convert underscores to hyphens for CSS class (pending_gm -> pending-gm)
+        $status_class = str_replace( '_', '-', $status );
+        $class = 'sfs-hr-pill sfs-hr-pill--' . esc_attr( $status_class );
 
         return '<span class="' . $class . '">' . esc_html( $label ) . '</span>';
     }
