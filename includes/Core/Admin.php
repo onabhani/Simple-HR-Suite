@@ -1217,24 +1217,21 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
             font-weight: 600;
             color: #1d2327;
         }
-        .sfs-hr-ot-section { overflow-x: auto; }
         .sfs-hr-ot-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
-            min-width: 600px;
         }
         .sfs-hr-ot-table th {
             text-align: left;
-            padding: 10px 12px;
+            padding: 8px;
             background: #f6f7f7;
             font-weight: 600;
             color: #50575e;
             border-bottom: 1px solid #dcdcde;
-            white-space: nowrap;
         }
         .sfs-hr-ot-table td {
-            padding: 10px 12px;
+            padding: 8px;
             border-bottom: 1px solid #f0f0f1;
         }
         .sfs-hr-ot-table tr:hover td {
@@ -1242,33 +1239,35 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
         }
         .sfs-hr-ot-bar {
             width: 100%;
-            max-width: 150px;
-            min-width: 80px;
-            height: 8px;
+            max-width: 80px;
+            height: 6px;
             background: #e5e7eb;
-            border-radius: 4px;
+            border-radius: 3px;
             overflow: hidden;
         }
         .sfs-hr-ot-bar-fill {
             height: 100%;
-            border-radius: 4px;
+            border-radius: 3px;
         }
         .sfs-hr-ot-bar-fill.warning { background: #f59e0b; }
         .sfs-hr-ot-bar-fill.danger { background: #dc2626; }
         .sfs-hr-ot-status {
             display: inline-block;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
             font-weight: 500;
-            white-space: nowrap;
         }
         .sfs-hr-ot-status.warning { background: #fef3c7; color: #b45309; }
         .sfs-hr-ot-status.danger { background: #fee2e2; color: #b91c1c; }
         .sfs-hr-ot-hours {
             font-weight: 600;
-            font-size: 14px;
-            white-space: nowrap;
+            font-size: 13px;
+        }
+        @media (max-width: 782px) {
+            .sfs-hr-ot-table { font-size: 11px; }
+            .sfs-hr-ot-table th, .sfs-hr-ot-table td { padding: 6px 4px; }
+            .sfs-hr-ot-table .hide-mobile { display: none; }
         }
     </style>';
 

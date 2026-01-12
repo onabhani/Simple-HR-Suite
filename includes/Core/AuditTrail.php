@@ -200,20 +200,79 @@ class AuditTrail {
             return '';
         }
 
+        // Fields to exclude from summary (internal/timestamps)
+        $exclude_fields = [
+            'id', 'created_at', 'updated_at', 'deleted_at', 'last_recalc_at',
+            'calc_meta_json', 'flags_json', 'approval_chain', 'user_id',
+            'photo_id', 'doc_attachment_id', 'asset_attachment_id', 'selfie_attachment_id',
+        ];
+
+        // Human-readable status labels
+        $status_labels = [
+            'pending'          => __( 'Pending', 'sfs-hr' ),
+            'pending_gm'       => __( 'Pending GM Approval', 'sfs-hr' ),
+            'pending_finance'  => __( 'Pending Finance Approval', 'sfs-hr' ),
+            'pending_hr'       => __( 'Pending HR Approval', 'sfs-hr' ),
+            'pending_manager'  => __( 'Pending Manager Approval', 'sfs-hr' ),
+            'approved'         => __( 'Approved', 'sfs-hr' ),
+            'rejected'         => __( 'Rejected', 'sfs-hr' ),
+            'active'           => __( 'Active', 'sfs-hr' ),
+            'inactive'         => __( 'Inactive', 'sfs-hr' ),
+            'completed'        => __( 'Completed', 'sfs-hr' ),
+            'cancelled'        => __( 'Cancelled', 'sfs-hr' ),
+            'terminated'       => __( 'Terminated', 'sfs-hr' ),
+            'present'          => __( 'Present', 'sfs-hr' ),
+            'absent'           => __( 'Absent', 'sfs-hr' ),
+            'late'             => __( 'Late', 'sfs-hr' ),
+            'left_early'       => __( 'Left Early', 'sfs-hr' ),
+            'on_leave'         => __( 'On Leave', 'sfs-hr' ),
+            'day_off'          => __( 'Day Off', 'sfs-hr' ),
+            'holiday'          => __( 'Holiday', 'sfs-hr' ),
+        ];
+
         $parts = [];
         foreach ( $changes as $field => $change ) {
-            $label = $field_labels[ $field ] ?? ucfirst( str_replace( '_', ' ', $field ) );
-            $old = $change['old'] ?? 'empty';
-            $new = $change['new'] ?? 'empty';
+            // Skip excluded fields
+            if ( in_array( $field, $exclude_fields, true ) ) {
+                continue;
+            }
 
-            if ( is_array( $old ) ) $old = 'array';
-            if ( is_array( $new ) ) $new = 'array';
+            $label = $field_labels[ $field ] ?? ucfirst( str_replace( '_', ' ', $field ) );
+            $old = $change['old'] ?? '';
+            $new = $change['new'] ?? '';
+
+            // Convert arrays to skip
+            if ( is_array( $old ) || is_array( $new ) ) {
+                continue;
+            }
+
+            // Apply status labels if this is a status field
+            if ( $field === 'status' || strpos( $field, 'status' ) !== false ) {
+                $old = $status_labels[ $old ] ?? ucfirst( str_replace( '_', ' ', (string) $old ) );
+                $new = $status_labels[ $new ] ?? ucfirst( str_replace( '_', ' ', (string) $new ) );
+            }
+
+            // Skip if empty values
+            if ( $old === '' && $new === '' ) {
+                continue;
+            }
+
+            // Display format
+            $old_display = $old ?: __( 'empty', 'sfs-hr' );
+            $new_display = $new ?: __( 'empty', 'sfs-hr' );
 
             // Truncate long values
-            if ( strlen( (string) $old ) > 50 ) $old = substr( (string) $old, 0, 47 ) . '...';
-            if ( strlen( (string) $new ) > 50 ) $new = substr( (string) $new, 0, 47 ) . '...';
+            if ( strlen( (string) $old_display ) > 40 ) $old_display = substr( (string) $old_display, 0, 37 ) . '...';
+            if ( strlen( (string) $new_display ) > 40 ) $new_display = substr( (string) $new_display, 0, 37 ) . '...';
 
-            $parts[] = "{$label}: \"{$old}\" → \"{$new}\"";
+            $parts[] = "{$label}: {$old_display} → {$new_display}";
+        }
+
+        // Limit to first 3 changes to keep it concise
+        if ( count( $parts ) > 3 ) {
+            $more = count( $parts ) - 3;
+            $parts = array_slice( $parts, 0, 3 );
+            $parts[] = sprintf( __( '+%d more', 'sfs-hr' ), $more );
         }
 
         return implode( '; ', $parts );

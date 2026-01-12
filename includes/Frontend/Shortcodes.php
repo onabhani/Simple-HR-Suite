@@ -2481,14 +2481,28 @@ private function render_frontend_leave_tab( array $emp ): void {
 
         $created_at = $row->created_at ?? '';
 
+        // Approver info for approved/rejected requests
+        $approver_name = '';
+        $approver_note = '';
+        if ( in_array( $row->status, [ 'approved', 'rejected' ], true ) ) {
+            if ( ! empty( $row->approver_id ) ) {
+                $approver_user = get_user_by( 'id', (int) $row->approver_id );
+                $approver_name = $approver_user ? $approver_user->display_name : '';
+            }
+            $approver_note = $row->approver_note ?? '';
+        }
+
         $display_rows[] = [
-            'type_name'   => $type_name,
-            'period'      => $period,
-            'days'        => $days,
-            'status_key'  => $status_key,
-            'status_html' => $status_html,
-            'created_at'  => $created_at,
-            'doc_html'    => $doc_html,
+            'type_name'     => $type_name,
+            'period'        => $period,
+            'days'          => $days,
+            'status_key'    => $status_key,
+            'status_html'   => $status_html,
+            'created_at'    => $created_at,
+            'doc_html'      => $doc_html,
+            'approver_name' => $approver_name,
+            'approver_note' => $approver_note,
+            'raw_status'    => (string) $row->status,
         ];
     }
 
@@ -2509,7 +2523,17 @@ private function render_frontend_leave_tab( array $emp ): void {
         echo '<td>' . esc_html( $r['type_name'] ) . '</td>';
         echo '<td>' . esc_html( $r['period'] ) . '</td>';
         echo '<td>' . esc_html( (string) $r['days'] ) . '</td>';
-        echo '<td>' . $r['status_html'] . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+        echo '<td>';
+        echo $r['status_html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+        // Show approver info for approved/rejected
+        if ( ! empty( $r['approver_name'] ) ) {
+            $action_label = $r['raw_status'] === 'rejected' ? __( 'Rejected by', 'sfs-hr' ) : __( 'Approved by', 'sfs-hr' );
+            echo '<br><small style="color:#666;">' . esc_html( $action_label ) . ': ' . esc_html( $r['approver_name'] ) . '</small>';
+        }
+        if ( $r['raw_status'] === 'rejected' && ! empty( $r['approver_note'] ) ) {
+            echo '<br><small style="color:#b32d2e;"><strong>' . esc_html__( 'Reason:', 'sfs-hr' ) . '</strong> ' . esc_html( $r['approver_note'] ) . '</small>';
+        }
+        echo '</td>';
 
         echo '<td>';
         if ( ! empty( $r['doc_html'] ) ) {
@@ -2561,6 +2585,22 @@ private function render_frontend_leave_tab( array $emp ): void {
         echo '          <div class="sfs-hr-leave-field-label">' . esc_html__( 'Requested at', 'sfs-hr' ) . '</div>';
         echo '          <div class="sfs-hr-leave-field-value">' . esc_html( $r['created_at'] ) . '</div>';
         echo '      </div>';
+
+        // Show approver info for approved/rejected requests
+        if ( ! empty( $r['approver_name'] ) ) {
+            $action_label = $r['raw_status'] === 'rejected' ? __( 'Rejected by', 'sfs-hr' ) : __( 'Approved by', 'sfs-hr' );
+            echo '      <div class="sfs-hr-leave-field-row">';
+            echo '          <div class="sfs-hr-leave-field-label">' . esc_html( $action_label ) . '</div>';
+            echo '          <div class="sfs-hr-leave-field-value">' . esc_html( $r['approver_name'] ) . '</div>';
+            echo '      </div>';
+        }
+        if ( $r['raw_status'] === 'rejected' && ! empty( $r['approver_note'] ) ) {
+            echo '      <div class="sfs-hr-leave-field-row">';
+            echo '          <div class="sfs-hr-leave-field-label">' . esc_html__( 'Reason', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-leave-field-value" style="color:#b32d2e;">' . esc_html( $r['approver_note'] ) . '</div>';
+            echo '      </div>';
+        }
+
         echo '  </div>';
         echo '</details>';
     }
@@ -2705,10 +2745,24 @@ private function render_frontend_loans_tab( array $emp, int $emp_id ): void {
                 ) );
             }
 
+            // Get approver info
+            $approver_info = '';
+            if ( $loan->status === 'rejected' && ! empty( $loan->rejected_by ) ) {
+                $rejected_user = get_user_by( 'id', (int) $loan->rejected_by );
+                $approver_info = $rejected_user ? $rejected_user->display_name : '';
+            } elseif ( $loan->status === 'active' || $loan->status === 'completed' ) {
+                // Show Finance approver for active/completed loans
+                if ( ! empty( $loan->approved_finance_by ) ) {
+                    $finance_user = get_user_by( 'id', (int) $loan->approved_finance_by );
+                    $approver_info = $finance_user ? $finance_user->display_name : '';
+                }
+            }
+
             $loan_data[] = [
                 'loan' => $loan,
                 'paid_count' => $paid_count,
                 'payments' => $payments,
+                'approver_info' => $approver_info,
             ];
         }
 
@@ -2746,8 +2800,16 @@ private function render_frontend_loans_tab( array $emp, int $emp_id ): void {
             echo '<td colspan="6" style="padding:12px;border:1px solid #ddd;background:#f9f9f9;">';
             echo '<p style="margin:0 0 8px;"><strong>' . esc_html__( 'Reason:', 'sfs-hr' ) . '</strong> ' . esc_html( $loan->reason ) . '</p>';
 
-            if ( $loan->status === 'rejected' && $loan->rejection_reason ) {
-                echo '<p style="margin:0;color:#dc3545;"><strong>' . esc_html__( 'Rejection Reason:', 'sfs-hr' ) . '</strong> ' . esc_html( $loan->rejection_reason ) . '</p>';
+            // Show approver/rejector info
+            if ( $loan->status === 'rejected' ) {
+                if ( ! empty( $data['approver_info'] ) ) {
+                    echo '<p style="margin:0 0 8px;color:#dc3545;"><strong>' . esc_html__( 'Rejected by:', 'sfs-hr' ) . '</strong> ' . esc_html( $data['approver_info'] ) . '</p>';
+                }
+                if ( $loan->rejection_reason ) {
+                    echo '<p style="margin:0;color:#dc3545;"><strong>' . esc_html__( 'Rejection Reason:', 'sfs-hr' ) . '</strong> ' . esc_html( $loan->rejection_reason ) . '</p>';
+                }
+            } elseif ( in_array( $loan->status, [ 'active', 'completed' ], true ) && ! empty( $data['approver_info'] ) ) {
+                echo '<p style="margin:0 0 8px;color:#28a745;"><strong>' . esc_html__( 'Approved by:', 'sfs-hr' ) . '</strong> ' . esc_html( $data['approver_info'] ) . '</p>';
             }
 
             // Payment schedule
@@ -2827,10 +2889,24 @@ private function render_frontend_loans_tab( array $emp, int $emp_id ): void {
             echo '          <div class="sfs-hr-loan-field-value">' . esc_html( $loan->reason ) . '</div>';
             echo '      </div>';
 
-            if ( $loan->status === 'rejected' && $loan->rejection_reason ) {
+            // Show approver/rejector info
+            if ( $loan->status === 'rejected' ) {
+                if ( ! empty( $data['approver_info'] ) ) {
+                    echo '      <div class="sfs-hr-loan-field-row">';
+                    echo '          <div class="sfs-hr-loan-field-label" style="color:#dc3545;">' . esc_html__( 'Rejected by', 'sfs-hr' ) . '</div>';
+                    echo '          <div class="sfs-hr-loan-field-value" style="color:#dc3545;">' . esc_html( $data['approver_info'] ) . '</div>';
+                    echo '      </div>';
+                }
+                if ( $loan->rejection_reason ) {
+                    echo '      <div class="sfs-hr-loan-field-row">';
+                    echo '          <div class="sfs-hr-loan-field-label" style="color:#dc3545;">' . esc_html__( 'Reason', 'sfs-hr' ) . '</div>';
+                    echo '          <div class="sfs-hr-loan-field-value" style="color:#dc3545;">' . esc_html( $loan->rejection_reason ) . '</div>';
+                    echo '      </div>';
+                }
+            } elseif ( in_array( $loan->status, [ 'active', 'completed' ], true ) && ! empty( $data['approver_info'] ) ) {
                 echo '      <div class="sfs-hr-loan-field-row">';
-                echo '          <div class="sfs-hr-loan-field-label" style="color:#dc3545;">' . esc_html__( 'Rejection', 'sfs-hr' ) . '</div>';
-                echo '          <div class="sfs-hr-loan-field-value" style="color:#dc3545;">' . esc_html( $loan->rejection_reason ) . '</div>';
+                echo '          <div class="sfs-hr-loan-field-label" style="color:#28a745;">' . esc_html__( 'Approved by', 'sfs-hr' ) . '</div>';
+                echo '          <div class="sfs-hr-loan-field-value" style="color:#28a745;">' . esc_html( $data['approver_info'] ) . '</div>';
                 echo '      </div>';
             }
 
@@ -2997,15 +3073,25 @@ document.addEventListener("DOMContentLoaded", function() {
  * Get loan status badge
  */
 private function get_loan_status_badge( string $status ): string {
-    $badges = [
-        'pending_gm'      => '<span style="background:#ffa500;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">Pending GM</span>',
-        'pending_finance' => '<span style="background:#ff8c00;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">Pending Finance</span>',
-        'active'          => '<span style="background:#28a745;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">Active</span>',
-        'completed'       => '<span style="background:#6c757d;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">Completed</span>',
-        'rejected'        => '<span style="background:#dc3545;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">Rejected</span>',
-        'cancelled'       => '<span style="background:#6c757d;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">Cancelled</span>',
+    $labels = [
+        'pending_gm'      => __( 'Pending GM Approval', 'sfs-hr' ),
+        'pending_finance' => __( 'Pending Finance Approval', 'sfs-hr' ),
+        'active'          => __( 'Active', 'sfs-hr' ),
+        'completed'       => __( 'Completed', 'sfs-hr' ),
+        'rejected'        => __( 'Rejected', 'sfs-hr' ),
+        'cancelled'       => __( 'Cancelled', 'sfs-hr' ),
     ];
-    return $badges[ $status ] ?? esc_html( ucfirst( $status ) );
+    $colors = [
+        'pending_gm'      => 'background:#ffa500;color:#fff;',
+        'pending_finance' => 'background:#ff8c00;color:#fff;',
+        'active'          => 'background:#28a745;color:#fff;',
+        'completed'       => 'background:#6c757d;color:#fff;',
+        'rejected'        => 'background:#dc3545;color:#fff;',
+        'cancelled'       => 'background:#6c757d;color:#fff;',
+    ];
+    $label = $labels[ $status ] ?? ucfirst( str_replace( '_', ' ', $status ) );
+    $color = $colors[ $status ] ?? 'background:#888;color:#fff;';
+    return '<span style="' . esc_attr( $color ) . 'padding:4px 8px;border-radius:3px;font-size:11px;">' . esc_html( $label ) . '</span>';
 }
 
 /**
@@ -4039,7 +4125,7 @@ private function render_frontend_resignation_tab( array $emp ): void {
             }
         </style>';
 
-        echo '<div class="sfs-hr-resignations-desktop" style="overflow-x:auto;">';
+        echo '<div class="sfs-hr-resignations-desktop">';
         echo '<table class="sfs-hr-resignations-table" style="width:100%;border-collapse:collapse;background:#fff;">';
         echo '<thead>';
         echo '<tr style="background:#f5f5f5;">';
@@ -4077,8 +4163,9 @@ private function render_frontend_resignation_tab( array $emp ): void {
             echo '<td class="hide-mobile" style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['created_at'] ) . '</td>';
             echo '</tr>';
 
-            // Show reason, notes, and Final Exit info in expanded row
-            if ( ! empty( $r['reason'] ) || ! empty( $r['approver_note'] ) || $type === 'final_exit' ) {
+            // Show reason, notes, approver info, and Final Exit info in expanded row
+            $has_approver = in_array( $r['status'], [ 'approved', 'rejected' ], true ) && ! empty( $r['approver_id'] );
+            if ( ! empty( $r['reason'] ) || ! empty( $r['approver_note'] ) || $has_approver || $type === 'final_exit' ) {
                 echo '<tr>';
                 echo '<td colspan="6" style="border:1px solid #ddd;padding:12px;background:#f9f9f9;">';
 
@@ -4089,9 +4176,21 @@ private function render_frontend_resignation_tab( array $emp ): void {
                     echo '</div>';
                 }
 
+                // Show approver/rejector info
+                if ( in_array( $r['status'], [ 'approved', 'rejected' ], true ) && ! empty( $r['approver_id'] ) ) {
+                    $approver_user = get_user_by( 'id', (int) $r['approver_id'] );
+                    if ( $approver_user ) {
+                        $action_label = $r['status'] === 'rejected' ? __( 'Rejected by:', 'sfs-hr' ) : __( 'Approved by:', 'sfs-hr' );
+                        $color = $r['status'] === 'rejected' ? '#dc3545' : '#28a745';
+                        echo '<div style="margin-bottom:8px;color:' . esc_attr( $color ) . ';">';
+                        echo '<strong>' . esc_html( $action_label ) . '</strong> ' . esc_html( $approver_user->display_name );
+                        echo '</div>';
+                    }
+                }
+
                 if ( ! empty( $r['approver_note'] ) ) {
                     echo '<div style="margin-bottom:8px;">';
-                    echo '<strong>' . esc_html__( 'Approver Note:', 'sfs-hr' ) . '</strong><br>';
+                    echo '<strong>' . esc_html__( 'Note:', 'sfs-hr' ) . '</strong><br>';
                     echo '<div style="margin-top:4px;">' . nl2br( esc_html( $r['approver_note'] ) ) . '</div>';
                     echo '</div>';
                 }
