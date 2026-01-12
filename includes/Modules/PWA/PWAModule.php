@@ -5,8 +5,9 @@ if (!defined('ABSPATH')) { exit; }
 
 /**
  * PWA Module
- * Progressive Web App for mobile punch in/out
- * Version: 0.1.0
+ * Progressive Web App infrastructure for mobile attendance
+ * Provides: service worker, manifest, offline sync, install prompt
+ * Version: 0.1.1
  * Author: Omar Alnabhani (hdqah.com)
  */
 class PWAModule {
@@ -21,12 +22,9 @@ class PWAModule {
     }
 
     public function hooks(): void {
-        // Register PWA assets
+        // Register PWA assets (manifest, meta tags)
         add_action('wp_head', [$this, 'output_pwa_meta']);
         add_action('wp_enqueue_scripts', [$this, 'register_pwa_scripts']);
-
-        // Register shortcode for mobile punch interface
-        add_shortcode('sfs_hr_mobile_punch', [$this, 'render_mobile_punch_shortcode']);
 
         // Register REST route for PWA manifest
         add_action('rest_api_init', [$this, 'register_rest_routes']);
@@ -36,8 +34,11 @@ class PWAModule {
         add_filter('query_vars', [$this, 'add_query_vars']);
         add_action('template_redirect', [$this, 'serve_service_worker']);
 
-        // Add PWA install prompt on admin pages
+        // Add PWA install prompt on admin pages (My Profile)
         add_action('admin_footer', [$this, 'output_pwa_install_prompt']);
+
+        // Add PWA install prompt to frontend attendance pages
+        add_action('wp_footer', [$this, 'output_frontend_pwa_prompt']);
     }
 
     /**
@@ -187,459 +188,6 @@ class PWAModule {
     }
 
     /**
-     * Render mobile punch shortcode
-     */
-    public function render_mobile_punch_shortcode(array $atts = []): string {
-        if (!is_user_logged_in()) {
-            return '<p>' . esc_html__('Please log in to use the punch clock.', 'sfs-hr') . '</p>';
-        }
-
-        // Get current user's employee record
-        global $wpdb;
-        $emp_table = $wpdb->prefix . 'sfs_hr_employees';
-        $employee = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM {$emp_table} WHERE user_id = %d AND status = 'active'",
-            get_current_user_id()
-        ));
-
-        if (!$employee) {
-            return '<p>' . esc_html__('You are not linked to an active employee record.', 'sfs-hr') . '</p>';
-        }
-
-        // Get today's status
-        $sessions_table = $wpdb->prefix . 'sfs_hr_attendance_sessions';
-        $punches_table = $wpdb->prefix . 'sfs_hr_attendance_punches';
-        $today = wp_date('Y-m-d');
-
-        $session = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM {$sessions_table} WHERE employee_id = %d AND work_date = %s",
-            $employee->id,
-            $today
-        ));
-
-        // Get last punch to determine current state
-        $last_punch = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM {$punches_table}
-             WHERE employee_id = %d AND DATE(punch_time) = %s
-             ORDER BY punch_time DESC LIMIT 1",
-            $employee->id,
-            $today
-        ));
-
-        $current_status = 'not_clocked_in';
-        $can_punch_in = true;
-        $can_punch_out = false;
-        $can_start_break = false;
-        $can_end_break = false;
-
-        if ($last_punch) {
-            switch ($last_punch->punch_type) {
-                case 'in':
-                case 'break_end':
-                    $current_status = 'clocked_in';
-                    $can_punch_in = false;
-                    $can_punch_out = true;
-                    $can_start_break = true;
-                    break;
-                case 'break_start':
-                    $current_status = 'on_break';
-                    $can_punch_in = false;
-                    $can_punch_out = false;
-                    $can_end_break = true;
-                    break;
-                case 'out':
-                    $current_status = 'clocked_out';
-                    $can_punch_in = true;
-                    $can_punch_out = false;
-                    break;
-            }
-        }
-
-        $name = trim($employee->first_name . ' ' . $employee->last_name);
-
-        ob_start();
-        ?>
-        <div id="sfs-hr-mobile-punch" class="sfs-hr-mobile-punch-app" data-employee-id="<?php echo (int)$employee->id; ?>">
-            <style>
-                .sfs-hr-mobile-punch-app {
-                    max-width: 400px;
-                    margin: 0 auto;
-                    padding: 20px;
-                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                }
-                .sfs-hr-punch-header {
-                    text-align: center;
-                    margin-bottom: 30px;
-                }
-                .sfs-hr-punch-avatar {
-                    width: 80px;
-                    height: 80px;
-                    border-radius: 50%;
-                    background: linear-gradient(135deg, #2271b1 0%, #135e96 100%);
-                    color: #fff;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 32px;
-                    font-weight: 600;
-                    margin: 0 auto 15px;
-                }
-                .sfs-hr-punch-name {
-                    font-size: 18px;
-                    font-weight: 600;
-                    margin: 0;
-                }
-                .sfs-hr-punch-time {
-                    font-size: 48px;
-                    font-weight: 300;
-                    text-align: center;
-                    margin: 20px 0;
-                    font-variant-numeric: tabular-nums;
-                }
-                .sfs-hr-punch-date {
-                    text-align: center;
-                    color: #666;
-                    margin-bottom: 30px;
-                }
-                .sfs-hr-punch-status {
-                    text-align: center;
-                    margin-bottom: 30px;
-                }
-                .sfs-hr-punch-status-badge {
-                    display: inline-block;
-                    padding: 8px 20px;
-                    border-radius: 20px;
-                    font-size: 14px;
-                    font-weight: 600;
-                }
-                .sfs-hr-punch-status-badge.not_clocked_in {
-                    background: #f0f0f1;
-                    color: #666;
-                }
-                .sfs-hr-punch-status-badge.clocked_in {
-                    background: #d1fae5;
-                    color: #059669;
-                }
-                .sfs-hr-punch-status-badge.on_break {
-                    background: #fef3c7;
-                    color: #d97706;
-                }
-                .sfs-hr-punch-status-badge.clocked_out {
-                    background: #fee2e2;
-                    color: #dc2626;
-                }
-                .sfs-hr-punch-buttons {
-                    display: grid;
-                    gap: 12px;
-                }
-                .sfs-hr-punch-btn {
-                    display: block;
-                    width: 100%;
-                    padding: 16px;
-                    border: none;
-                    border-radius: 12px;
-                    font-size: 16px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                }
-                .sfs-hr-punch-btn:disabled {
-                    opacity: 0.5;
-                    cursor: not-allowed;
-                }
-                .sfs-hr-punch-btn:not(:disabled):hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                }
-                .sfs-hr-punch-btn:not(:disabled):active {
-                    transform: translateY(0);
-                }
-                .sfs-hr-punch-btn.punch-in {
-                    background: linear-gradient(135deg, #059669 0%, #047857 100%);
-                    color: #fff;
-                }
-                .sfs-hr-punch-btn.punch-out {
-                    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-                    color: #fff;
-                }
-                .sfs-hr-punch-btn.break-start {
-                    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-                    color: #fff;
-                }
-                .sfs-hr-punch-btn.break-end {
-                    background: linear-gradient(135deg, #2271b1 0%, #135e96 100%);
-                    color: #fff;
-                }
-                .sfs-hr-punch-message {
-                    text-align: center;
-                    padding: 12px;
-                    border-radius: 8px;
-                    margin-top: 20px;
-                    display: none;
-                }
-                .sfs-hr-punch-message.success {
-                    background: #d1fae5;
-                    color: #059669;
-                    display: block;
-                }
-                .sfs-hr-punch-message.error {
-                    background: #fee2e2;
-                    color: #dc2626;
-                    display: block;
-                }
-                .sfs-hr-punch-history {
-                    margin-top: 30px;
-                    border-top: 1px solid #e5e7eb;
-                    padding-top: 20px;
-                }
-                .sfs-hr-punch-history h4 {
-                    margin: 0 0 15px;
-                    font-size: 14px;
-                    color: #666;
-                    text-transform: uppercase;
-                    letter-spacing: 0.05em;
-                }
-                .sfs-hr-punch-history-list {
-                    list-style: none;
-                    padding: 0;
-                    margin: 0;
-                }
-                .sfs-hr-punch-history-item {
-                    display: flex;
-                    justify-content: space-between;
-                    padding: 10px 0;
-                    border-bottom: 1px solid #f3f4f6;
-                }
-                .sfs-hr-punch-history-item:last-child {
-                    border-bottom: none;
-                }
-                .sfs-hr-offline-indicator {
-                    text-align: center;
-                    padding: 8px;
-                    background: #fef3c7;
-                    color: #92400e;
-                    border-radius: 8px;
-                    margin-bottom: 20px;
-                    display: none;
-                }
-                .sfs-hr-offline-indicator.visible {
-                    display: block;
-                }
-            </style>
-
-            <div class="sfs-hr-offline-indicator" id="offline-indicator">
-                <?php esc_html_e('You are offline. Punches will sync when connected.', 'sfs-hr'); ?>
-            </div>
-
-            <div class="sfs-hr-punch-header">
-                <div class="sfs-hr-punch-avatar">
-                    <?php echo esc_html(mb_substr($employee->first_name, 0, 1) . mb_substr($employee->last_name, 0, 1)); ?>
-                </div>
-                <h2 class="sfs-hr-punch-name"><?php echo esc_html($name); ?></h2>
-            </div>
-
-            <div class="sfs-hr-punch-time" id="punch-clock">
-                <?php echo esc_html(wp_date('H:i:s')); ?>
-            </div>
-
-            <div class="sfs-hr-punch-date">
-                <?php echo esc_html(wp_date('l, F j, Y')); ?>
-            </div>
-
-            <div class="sfs-hr-punch-status">
-                <span class="sfs-hr-punch-status-badge <?php echo esc_attr($current_status); ?>" id="punch-status">
-                    <?php
-                    $status_labels = [
-                        'not_clocked_in' => __('Not Clocked In', 'sfs-hr'),
-                        'clocked_in' => __('Clocked In', 'sfs-hr'),
-                        'on_break' => __('On Break', 'sfs-hr'),
-                        'clocked_out' => __('Clocked Out', 'sfs-hr'),
-                    ];
-                    echo esc_html($status_labels[$current_status] ?? $current_status);
-                    ?>
-                </span>
-            </div>
-
-            <div class="sfs-hr-punch-buttons">
-                <button type="button" class="sfs-hr-punch-btn punch-in" id="btn-punch-in" <?php disabled(!$can_punch_in); ?> data-action="in">
-                    <?php esc_html_e('Punch In', 'sfs-hr'); ?>
-                </button>
-
-                <button type="button" class="sfs-hr-punch-btn break-start" id="btn-break-start" <?php disabled(!$can_start_break); ?> data-action="break_start">
-                    <?php esc_html_e('Start Break', 'sfs-hr'); ?>
-                </button>
-
-                <button type="button" class="sfs-hr-punch-btn break-end" id="btn-break-end" <?php disabled(!$can_end_break); ?> data-action="break_end">
-                    <?php esc_html_e('End Break', 'sfs-hr'); ?>
-                </button>
-
-                <button type="button" class="sfs-hr-punch-btn punch-out" id="btn-punch-out" <?php disabled(!$can_punch_out); ?> data-action="out">
-                    <?php esc_html_e('Punch Out', 'sfs-hr'); ?>
-                </button>
-            </div>
-
-            <div class="sfs-hr-punch-message" id="punch-message"></div>
-
-            <?php
-            // Get today's punches for history
-            $today_punches = $wpdb->get_results($wpdb->prepare(
-                "SELECT punch_type, punch_time FROM {$punches_table}
-                 WHERE employee_id = %d AND DATE(punch_time) = %s
-                 ORDER BY punch_time ASC",
-                $employee->id,
-                $today
-            ));
-            ?>
-
-            <?php if (!empty($today_punches)): ?>
-            <div class="sfs-hr-punch-history">
-                <h4><?php esc_html_e("Today's Activity", 'sfs-hr'); ?></h4>
-                <ul class="sfs-hr-punch-history-list" id="punch-history">
-                    <?php
-                    $punch_labels = [
-                        'in' => __('Punched In', 'sfs-hr'),
-                        'out' => __('Punched Out', 'sfs-hr'),
-                        'break_start' => __('Break Started', 'sfs-hr'),
-                        'break_end' => __('Break Ended', 'sfs-hr'),
-                    ];
-                    foreach ($today_punches as $p):
-                        $time = date_i18n('H:i', strtotime($p->punch_time));
-                        $label = $punch_labels[$p->punch_type] ?? $p->punch_type;
-                    ?>
-                    <li class="sfs-hr-punch-history-item">
-                        <span><?php echo esc_html($label); ?></span>
-                        <span><?php echo esc_html($time); ?></span>
-                    </li>
-                    <?php endforeach; ?>
-                </ul>
-            </div>
-            <?php endif; ?>
-        </div>
-
-        <script>
-        (function() {
-            // Update clock every second
-            function updateClock() {
-                const clock = document.getElementById('punch-clock');
-                if (clock) {
-                    const now = new Date();
-                    clock.textContent = now.toLocaleTimeString('en-GB');
-                }
-            }
-            setInterval(updateClock, 1000);
-
-            // Offline indicator
-            function updateOfflineIndicator() {
-                const indicator = document.getElementById('offline-indicator');
-                if (indicator) {
-                    indicator.classList.toggle('visible', !navigator.onLine);
-                }
-            }
-            window.addEventListener('online', updateOfflineIndicator);
-            window.addEventListener('offline', updateOfflineIndicator);
-            updateOfflineIndicator();
-
-            // Punch button handlers
-            document.querySelectorAll('.sfs-hr-punch-btn').forEach(btn => {
-                btn.addEventListener('click', async function() {
-                    if (this.disabled) return;
-
-                    const action = this.dataset.action;
-                    const message = document.getElementById('punch-message');
-                    const employeeId = document.getElementById('sfs-hr-mobile-punch').dataset.employeeId;
-
-                    this.disabled = true;
-                    this.textContent = '<?php echo esc_js(__('Processing...', 'sfs-hr')); ?>';
-
-                    try {
-                        const response = await fetch('<?php echo esc_url(rest_url('sfs-hr/v1/attendance/punch')); ?>', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-WP-Nonce': '<?php echo wp_create_nonce('wp_rest'); ?>'
-                            },
-                            body: JSON.stringify({
-                                punch_type: action
-                            })
-                        });
-
-                        const data = await response.json();
-
-                        if (data.success) {
-                            message.className = 'sfs-hr-punch-message success';
-                            message.textContent = data.message || '<?php echo esc_js(__('Punch recorded!', 'sfs-hr')); ?>';
-
-                            // Reload page to update status
-                            setTimeout(() => location.reload(), 1500);
-                        } else {
-                            message.className = 'sfs-hr-punch-message error';
-                            message.textContent = data.message || '<?php echo esc_js(__('An error occurred.', 'sfs-hr')); ?>';
-                            this.disabled = false;
-                            this.textContent = this.dataset.originalText || 'Punch';
-                        }
-                    } catch (error) {
-                        // Offline - queue for sync
-                        if (!navigator.onLine && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                            // Store in IndexedDB for later sync
-                            const db = await openDB();
-                            await storePunch(db, {
-                                url: '<?php echo esc_url(rest_url('sfs-hr/v1/attendance/punch')); ?>',
-                                nonce: '<?php echo wp_create_nonce('wp_rest'); ?>',
-                                data: { punch_type: action }
-                            });
-
-                            message.className = 'sfs-hr-punch-message success';
-                            message.textContent = '<?php echo esc_js(__('Offline. Punch will sync when connected.', 'sfs-hr')); ?>';
-
-                            if ('sync' in navigator.serviceWorker.registration) {
-                                navigator.serviceWorker.ready.then(reg => {
-                                    reg.sync.register('sfs-hr-punch-sync');
-                                });
-                            }
-                        } else {
-                            message.className = 'sfs-hr-punch-message error';
-                            message.textContent = '<?php echo esc_js(__('Connection error. Please try again.', 'sfs-hr')); ?>';
-                        }
-                        this.disabled = false;
-                        this.textContent = this.dataset.originalText || 'Punch';
-                    }
-                });
-
-                // Store original text
-                btn.dataset.originalText = btn.textContent;
-            });
-
-            // IndexedDB helpers
-            function openDB() {
-                return new Promise((resolve, reject) => {
-                    const request = indexedDB.open('sfs-hr-punches', 1);
-                    request.onerror = () => reject(request.error);
-                    request.onsuccess = () => resolve(request.result);
-                    request.onupgradeneeded = (event) => {
-                        const db = event.target.result;
-                        if (!db.objectStoreNames.contains('punches')) {
-                            db.createObjectStore('punches', { keyPath: 'id', autoIncrement: true });
-                        }
-                    };
-                });
-            }
-
-            function storePunch(db, punch) {
-                return new Promise((resolve, reject) => {
-                    const transaction = db.transaction('punches', 'readwrite');
-                    const store = transaction.objectStore('punches');
-                    const request = store.add(punch);
-                    request.onerror = () => reject(request.error);
-                    request.onsuccess = () => resolve(request.result);
-                });
-            }
-        })();
-        </script>
-        <?php
-        return ob_get_clean();
-    }
-
-    /**
      * Output PWA install prompt on admin pages
      */
     public function output_pwa_install_prompt(): void {
@@ -705,6 +253,108 @@ class PWAModule {
                 localStorage.setItem('sfs_hr_pwa_dismissed', '1');
                 document.getElementById('sfs-hr-pwa-install-banner').style.display = 'none';
             });
+        })();
+        </script>
+        <?php
+    }
+
+    /**
+     * Output PWA install prompt on frontend attendance pages
+     * Shows on pages with [sfs_hr_my_profile] or attendance widgets
+     */
+    public function output_frontend_pwa_prompt(): void {
+        if (!is_user_logged_in()) {
+            return;
+        }
+
+        // Only show on frontend pages (not admin)
+        if (is_admin()) {
+            return;
+        }
+
+        // Check if this page has attendance content
+        global $post;
+        if (!$post) {
+            return;
+        }
+
+        // Look for attendance-related shortcodes in content
+        $has_attendance = (
+            has_shortcode($post->post_content, 'sfs_hr_my_profile') ||
+            has_shortcode($post->post_content, 'sfs_hr_attendance_widget') ||
+            has_shortcode($post->post_content, 'sfs_hr_kiosk') ||
+            isset($_GET['sfs_hr_tab']) && $_GET['sfs_hr_tab'] === 'attendance'
+        );
+
+        if (!$has_attendance) {
+            return;
+        }
+
+        ?>
+        <div id="sfs-hr-pwa-frontend-banner" style="display:none; position:fixed; bottom:20px; left:20px; right:20px; max-width:400px; margin:0 auto; background:#fff; border-radius:16px; box-shadow:0 4px 24px rgba(0,0,0,0.18); padding:20px; z-index:999999; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+            <div style="display:flex; align-items:center; gap:14px;">
+                <div style="width:52px; height:52px; background:linear-gradient(135deg, #0f4c5c 0%, #135e96 100%); border-radius:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                </div>
+                <div style="flex:1;">
+                    <strong style="display:block; margin-bottom:3px; font-size:15px; color:#111827;"><?php esc_html_e('Install HR Suite', 'sfs-hr'); ?></strong>
+                    <span style="font-size:13px; color:#6b7280; line-height:1.4;"><?php esc_html_e('Add to home screen for quick punch in/out access', 'sfs-hr'); ?></span>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:16px;">
+                <button type="button" id="pwa-frontend-install-btn" style="flex:1; padding:12px 16px; background:linear-gradient(135deg, #0f4c5c 0%, #135e96 100%); color:#fff; border:none; border-radius:10px; font-size:14px; font-weight:600; cursor:pointer;"><?php esc_html_e('Install App', 'sfs-hr'); ?></button>
+                <button type="button" id="pwa-frontend-dismiss-btn" style="flex:1; padding:12px 16px; background:#f3f4f6; color:#374151; border:none; border-radius:10px; font-size:14px; font-weight:500; cursor:pointer;"><?php esc_html_e('Not Now', 'sfs-hr'); ?></button>
+            </div>
+        </div>
+
+        <script>
+        (function() {
+            let deferredPrompt;
+
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+
+                // Check if already dismissed
+                if (localStorage.getItem('sfs_hr_pwa_dismissed')) {
+                    return;
+                }
+
+                // Show install banner after a short delay
+                setTimeout(() => {
+                    const banner = document.getElementById('sfs-hr-pwa-frontend-banner');
+                    if (banner) {
+                        banner.style.display = 'block';
+                        banner.style.animation = 'sfs-pwa-slide-up 0.3s ease-out';
+                    }
+                }, 2000);
+            });
+
+            document.getElementById('pwa-frontend-install-btn')?.addEventListener('click', async () => {
+                if (!deferredPrompt) return;
+
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+
+                deferredPrompt = null;
+                document.getElementById('sfs-hr-pwa-frontend-banner').style.display = 'none';
+            });
+
+            document.getElementById('pwa-frontend-dismiss-btn')?.addEventListener('click', () => {
+                localStorage.setItem('sfs_hr_pwa_dismissed', '1');
+                document.getElementById('sfs-hr-pwa-frontend-banner').style.display = 'none';
+            });
+
+            // Add slide-up animation
+            if (!document.getElementById('sfs-pwa-animation-style')) {
+                const style = document.createElement('style');
+                style.id = 'sfs-pwa-animation-style';
+                style.textContent = '@keyframes sfs-pwa-slide-up { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }';
+                document.head.appendChild(style);
+            }
         })();
         </script>
         <?php
