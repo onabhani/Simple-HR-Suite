@@ -1981,6 +1981,28 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
     cursor: pointer;
   }
 
+  /* Advanced toggle button */
+  .sfs-hr-advanced-toggle {
+    display: inline-flex;
+    align-items: center;
+    background: #f6f7f7;
+    border-color: #dcdcde;
+  }
+  .sfs-hr-advanced-toggle.active {
+    background: #2271b1;
+    color: #fff;
+    border-color: #2271b1;
+  }
+  .sfs-hr-advanced-toggle.active .dashicons {
+    color: #fff;
+  }
+  .sfs-hr-advanced-section {
+    background: #f9f9f9;
+    border-radius: 4px;
+    padding: 12px 16px !important;
+    margin-top: 8px;
+  }
+
   /* Employee list table styles */
   .sfs-hr-emp-table {
     background: #fff;
@@ -2049,20 +2071,41 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
   /* Mobile action button (single button that opens modal) */
   .sfs-hr-action-mobile-btn {
     display: none;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: #2271b1;
-    color: #fff;
-    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: #f0f0f1;
+    border: 1px solid #dcdcde;
     cursor: pointer;
-    font-size: 16px;
     padding: 0;
-    line-height: 36px;
-    text-align: center;
+    position: relative;
+  }
+  .sfs-hr-action-mobile-btn::before,
+  .sfs-hr-action-mobile-btn::after,
+  .sfs-hr-action-mobile-btn span {
+    content: '';
+    display: block;
+    width: 5px;
+    height: 5px;
+    background: #2271b1;
+    border-radius: 50%;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .sfs-hr-action-mobile-btn::before {
+    top: 9px;
+  }
+  .sfs-hr-action-mobile-btn span {
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .sfs-hr-action-mobile-btn::after {
+    bottom: 9px;
   }
   .sfs-hr-action-mobile-btn:hover {
-    background: #135e96;
+    background: #e5e5e5;
+    border-color: #c3c4c7;
   }
 
   /* Action Modal */
@@ -2357,10 +2400,14 @@ document.getElementById('sfs-hr-action-modal').addEventListener('click', functio
                 <?php endforeach; ?>
               </select>
               <?php submit_button(__('Search','sfs-hr'),'primary','',false); ?>
+              <button type="button" class="button sfs-hr-advanced-toggle" onclick="sfsHrToggleAdvanced()">
+                <span class="dashicons dashicons-admin-tools" style="margin-right:4px;line-height:inherit;"></span>
+                <?php esc_html_e('Advanced','sfs-hr'); ?>
+              </button>
             </form>
 
-            <!-- Actions Row -->
-            <div class="sfs-hr-toolbar-row">
+            <!-- Advanced Actions (collapsible) -->
+            <div class="sfs-hr-toolbar-row sfs-hr-advanced-section" id="sfs-hr-advanced-section" style="display:none;">
               <div class="sfs-hr-toolbar-group">
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline-flex;">
                   <input type="hidden" name="action" value="sfs_hr_export_employees" />
@@ -2387,6 +2434,20 @@ document.getElementById('sfs-hr-action-modal').addEventListener('click', functio
               </form>
             </div>
           </div>
+
+          <script>
+          function sfsHrToggleAdvanced() {
+            var section = document.getElementById('sfs-hr-advanced-section');
+            var btn = document.querySelector('.sfs-hr-advanced-toggle');
+            if (section.style.display === 'none') {
+              section.style.display = 'flex';
+              btn.classList.add('active');
+            } else {
+              section.style.display = 'none';
+              btn.classList.remove('active');
+            }
+          }
+          </script>
 
           <h2><?php echo esc_html__('Employees List','sfs-hr'); ?> <span style="font-weight:normal; font-size:14px; color:#50575e;">(<?php echo (int)$total; ?> <?php esc_html_e('total','sfs-hr'); ?>)</span></h2>
 
@@ -2429,9 +2490,9 @@ document.getElementById('sfs-hr-action-modal').addEventListener('click', functio
                       <a class="button button-small" href="<?php echo esc_url($term_url); ?>" onclick="return confirm('Terminate this employee?');"><?php esc_html_e('Terminate','sfs-hr'); ?></a>
                       <a class="button button-small button-danger" href="<?php echo esc_url($del_url); ?>" onclick="return confirm('Delete permanently? This cannot be undone.');"><?php esc_html_e('Delete','sfs-hr'); ?></a>
                     </div>
-                    <!-- Mobile action button -->
+                    <!-- Mobile action button (vertical dots) -->
                     <button type="button" class="sfs-hr-action-mobile-btn" onclick="sfsHrOpenModal('<?php echo esc_js($name ?: $r['employee_code']); ?>', '<?php echo esc_js($edit_url); ?>', '<?php echo esc_js($term_url); ?>', '<?php echo esc_js($del_url); ?>')">
-                      <span class="dashicons dashicons-ellipsis"></span>
+                      <span></span>
                     </button>
                   </td>
                 </tr>
