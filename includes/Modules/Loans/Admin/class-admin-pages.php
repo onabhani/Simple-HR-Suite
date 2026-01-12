@@ -1722,12 +1722,39 @@ class AdminPages {
      * Handle loan actions (approve, reject, etc.)
      */
     public function handle_loan_actions(): void {
-        if ( ! isset( $_POST['action'] ) || ! current_user_can( 'sfs_hr.manage' ) ) {
+        if ( ! isset( $_POST['action'] ) ) {
             return;
         }
 
         $action = $_POST['action'];
         $loan_id = isset( $_POST['loan_id'] ) ? (int) $_POST['loan_id'] : 0;
+
+        // Check capability based on action type
+        $allowed = false;
+        switch ( $action ) {
+            case 'approve_gm':
+                $allowed = \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm();
+                break;
+            case 'approve_finance':
+                $allowed = \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_finance();
+                break;
+            case 'reject_loan':
+                // GM or Finance can reject
+                $allowed = \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm()
+                        || \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_finance();
+                break;
+            case 'create_loan':
+            case 'update_loan':
+            case 'record_payment':
+                $allowed = current_user_can( 'sfs_hr.manage' ) || current_user_can( 'sfs_hr_loans_manage' );
+                break;
+            default:
+                return;
+        }
+
+        if ( ! $allowed ) {
+            return;
+        }
 
         global $wpdb;
         $loans_table = $wpdb->prefix . 'sfs_hr_loans';
