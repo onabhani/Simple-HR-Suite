@@ -1217,10 +1217,12 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
             font-weight: 600;
             color: #1d2327;
         }
+        .sfs-hr-ot-section { overflow-x: auto; }
         .sfs-hr-ot-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
+            min-width: 600px;
         }
         .sfs-hr-ot-table th {
             text-align: left;
@@ -1229,6 +1231,7 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
             font-weight: 600;
             color: #50575e;
             border-bottom: 1px solid #dcdcde;
+            white-space: nowrap;
         }
         .sfs-hr-ot-table td {
             padding: 10px 12px;
@@ -1240,6 +1243,7 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
         .sfs-hr-ot-bar {
             width: 100%;
             max-width: 150px;
+            min-width: 80px;
             height: 8px;
             background: #e5e7eb;
             border-radius: 4px;
@@ -1257,12 +1261,14 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
             border-radius: 4px;
             font-size: 11px;
             font-weight: 500;
+            white-space: nowrap;
         }
         .sfs-hr-ot-status.warning { background: #fef3c7; color: #b45309; }
         .sfs-hr-ot-status.danger { background: #fee2e2; color: #b91c1c; }
         .sfs-hr-ot-hours {
             font-weight: 600;
             font-size: 14px;
+            white-space: nowrap;
         }
     </style>';
 

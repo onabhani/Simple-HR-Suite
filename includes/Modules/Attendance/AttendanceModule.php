@@ -3436,7 +3436,10 @@ foreach ($rows as $r) {
 
     // Evaluate
     $ev = self::evaluate_segments($segments, $rows, $grLate, $grEarly);
-    $net = (int)$ev['worked_total'];
+
+    // Net worked time = total worked minus break time
+    $net = (int)$ev['worked_total'] - (int)$ev['break_total'];
+    $net = max(0, $net); // Ensure non-negative
     if ($roundN > 0) $net = (int)round($net / $roundN) * $roundN;
 
     $scheduled = (int)$ev['scheduled_total'];

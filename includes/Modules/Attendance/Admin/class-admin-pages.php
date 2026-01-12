@@ -155,6 +155,7 @@ private function get_table_columns( $table ): array {
         $def_round   = $opt['default_rounding_rule'] ?? '5';
         $def_gl      = isset($opt['default_grace_late']) ? (int)$opt['default_grace_late'] : 5;
         $def_ge      = isset($opt['default_grace_early']) ? (int)$opt['default_grace_early'] : 5;
+        $monthly_ot  = isset($opt['monthly_ot_threshold']) ? (int)$opt['monthly_ot_threshold'] : 2400; // minutes (40 hours default)
 
         ?>
         <div class="wrap">
@@ -223,6 +224,14 @@ private function get_table_columns( $table ): array {
                             /
                             <input type="number" min="0" step="1" name="default_grace_early" value="<?php echo esc_attr($def_ge); ?>" style="width:80px"/> <?php esc_html_e( 'min', 'sfs-hr' ); ?>
                             <p class="description"><?php esc_html_e( 'Grace = tolerance before flagging late/early.', 'sfs-hr' ); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><?php esc_html_e( 'Monthly overtime threshold', 'sfs-hr' ); ?></th>
+                        <td>
+                            <input type="number" min="0" step="30" name="monthly_ot_threshold" value="<?php echo esc_attr($monthly_ot); ?>" style="width:100px"/> <?php esc_html_e( 'minutes', 'sfs-hr' ); ?>
+                            <span style="color:#666;margin-left:10px;">(<?php echo esc_html( number_format($monthly_ot / 60, 1) ); ?> <?php esc_html_e( 'hours', 'sfs-hr' ); ?>)</span>
+                            <p class="description"><?php esc_html_e( 'Overtime alert threshold per month. Dashboard will highlight employees approaching or exceeding this limit.', 'sfs-hr' ); ?></p>
                         </td>
                     </tr>
                 </table>
@@ -337,6 +346,7 @@ public function render_attendance_hub(): void {
             'default_rounding_rule'      => in_array( ( $_POST['default_rounding_rule'] ?? '5' ), [ 'none', '5', '10', '15' ], true ) ? $_POST['default_rounding_rule'] : '5',
             'default_grace_late'         => max( 0, (int) ( $_POST['default_grace_late'] ?? 5 ) ),
             'default_grace_early'        => max( 0, (int) ( $_POST['default_grace_early'] ?? 5 ) ),
+            'monthly_ot_threshold'       => max( 0, (int) ( $_POST['monthly_ot_threshold'] ?? 2400 ) ),
         ];
 
         $existing = get_option( AttendanceModule::OPT_SETTINGS, [] );

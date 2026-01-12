@@ -442,16 +442,20 @@ class Admin_Pages {
 
             $title_asset = $asset_name !== '' ? $asset_name : $asset_code;
 
+            // Build profile URL for easy access
+            $profile_url = home_url( '/my-profile/' );
+
             $subject = sprintf(
                 __( 'New asset assigned: %s', 'sfs-hr' ),
                 $title_asset !== '' ? $title_asset : __( 'Asset', 'sfs-hr' )
             );
 
             $body = sprintf(
-                __( "You have been assigned a new asset.\n\nAsset: %s\nCode: %s\nStart date: %s\n\nPlease log in to your HR portal to review and approve the assignment.", 'sfs-hr' ),
+                __( "You have been assigned a new asset.\n\nAsset: %s\nCode: %s\nStart date: %s\n\nPlease log in to your HR portal to review and approve the assignment.\n\nDirect link: %s", 'sfs-hr' ),
                 $asset_name !== '' ? $asset_name : '-',
                 $asset_code !== '' ? $asset_code : '-',
-                $start_date
+                $start_date,
+                $profile_url
             );
 
             $mail_sent = wp_mail( $user->user_email, $subject, $body );
@@ -963,14 +967,18 @@ class Admin_Pages {
                 $asset_label !== '' ? $asset_label : __( 'Asset', 'sfs-hr' )
             );
 
+            // Build profile URL for easy access
+            $profile_url = home_url( '/my-profile/' );
+
             $body = sprintf(
-                __( "Dear %1\$s,\n\nA return has been requested for an asset currently assigned to you.\n\nAsset: %2\$s\nCode: %3\$s\nAssignment ID: %4\$d\nRequested by: %5\$s\nRequest date: %6\$s\n\nPlease log in to your HR portal to review and complete the return process.", 'sfs-hr' ),
+                __( "Dear %1\$s,\n\nA return has been requested for an asset currently assigned to you.\n\nAsset: %2\$s\nCode: %3\$s\nAssignment ID: %4\$d\nRequested by: %5\$s\nRequest date: %6\$s\n\nPlease log in to your HR portal to review and complete the return process.\n\nDirect link: %7\$s", 'sfs-hr' ),
                 $employee_name,
                 $asset_name !== '' ? $asset_name : '-',
                 $asset_code !== '' ? $asset_code : '-',
                 $assignment_id,
                 $manager_name,
-                $now
+                $now,
+                $profile_url
             );
 
             wp_mail( $employee_user->user_email, $subject, $body );

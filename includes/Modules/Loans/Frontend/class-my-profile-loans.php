@@ -249,24 +249,36 @@ class MyProfileLoans {
 
                 if ( ! empty( $payments ) ) {
                     echo '<h4 style="margin:12px 0 8px;">' . esc_html__( 'Payment Schedule', 'sfs-hr' ) . '</h4>';
-                    echo '<table class="widefat" style="margin-top:8px;">';
+                    echo '<style>
+                        .sfs-payment-schedule { width:100%; border-collapse:collapse; font-size:13px; }
+                        .sfs-payment-schedule th { text-align:left; padding:8px; background:#f6f7f7; font-weight:600; white-space:nowrap; border-bottom:1px solid #dcdcde; }
+                        .sfs-payment-schedule td { padding:8px; border-bottom:1px solid #f0f0f1; white-space:nowrap; }
+                        .sfs-payment-schedule .col-num { width:40px; text-align:center; }
+                        .sfs-payment-schedule .col-date { min-width:80px; }
+                        .sfs-payment-schedule .col-amt { text-align:right; }
+                        @media (max-width: 480px) {
+                            .sfs-payment-schedule { font-size:12px; }
+                            .sfs-payment-schedule th, .sfs-payment-schedule td { padding:6px 4px; }
+                        }
+                    </style>';
+                    echo '<div style="overflow-x:auto;"><table class="sfs-payment-schedule">';
                     echo '<thead><tr>';
-                    echo '<th style="width:50px;">#</th>';
-                    echo '<th>' . esc_html__( 'Due Date', 'sfs-hr' ) . '</th>';
-                    echo '<th>' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
+                    echo '<th class="col-num">#</th>';
+                    echo '<th class="col-date">' . esc_html__( 'Due Date', 'sfs-hr' ) . '</th>';
+                    echo '<th class="col-amt">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
                     echo '<th>' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
                     echo '</tr></thead><tbody>';
 
                     foreach ( $payments as $payment ) {
                         echo '<tr>';
-                        echo '<td>' . (int) $payment->sequence . '</td>';
-                        echo '<td>' . esc_html( wp_date( 'M Y', strtotime( $payment->due_date ) ) ) . '</td>';
-                        echo '<td>' . number_format( (float) $payment->amount_planned, 2 ) . '</td>';
+                        echo '<td class="col-num">' . (int) $payment->sequence . '</td>';
+                        echo '<td class="col-date">' . esc_html( wp_date( 'M Y', strtotime( $payment->due_date ) ) ) . '</td>';
+                        echo '<td class="col-amt">' . number_format( (float) $payment->amount_planned, 2 ) . '</td>';
                         echo '<td>' . $this->get_payment_status_badge( $payment->status ) . '</td>';
                         echo '</tr>';
                     }
 
-                    echo '</tbody></table>';
+                    echo '</tbody></table></div>';
                 }
             }
 
