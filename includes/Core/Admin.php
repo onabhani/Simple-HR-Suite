@@ -2357,23 +2357,22 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
     </div>
     <div class="sfs-hr-action-modal-buttons">
       <a href="#" class="button button-primary" id="sfs-hr-modal-edit">
-        <span class="dashicons dashicons-edit"></span> Edit Employee
+        <span class="dashicons dashicons-edit"></span> <?php esc_html_e('Edit Employee', 'sfs-hr'); ?>
       </a>
-      <a href="#" class="button button-secondary" id="sfs-hr-modal-terminate" onclick="return confirm('Terminate this employee?');">
-        <span class="dashicons dashicons-dismiss"></span> Terminate Employee
-      </a>
-      <a href="#" class="button button-danger" id="sfs-hr-modal-delete" onclick="return confirm('Delete permanently? This cannot be undone.');">
-        <span class="dashicons dashicons-trash"></span> Delete Employee
+      <a href="#" class="button button-danger" id="sfs-hr-modal-delete" onclick="return confirm('<?php echo esc_js(__('Delete permanently? This cannot be undone.', 'sfs-hr')); ?>');">
+        <span class="dashicons dashicons-trash"></span> <?php esc_html_e('Delete Employee', 'sfs-hr'); ?>
       </a>
     </div>
+    <p class="description" style="margin-top:12px;text-align:center;font-size:12px;color:#666;">
+      <?php esc_html_e('To terminate an employee, use the Resignation workflow.', 'sfs-hr'); ?>
+    </p>
   </div>
 </div>
 
 <script>
-function sfsHrOpenModal(name, editUrl, termUrl, delUrl) {
+function sfsHrOpenModal(name, editUrl, delUrl) {
   document.getElementById('sfs-hr-modal-emp-name').textContent = name || 'Employee Actions';
   document.getElementById('sfs-hr-modal-edit').href = editUrl;
-  document.getElementById('sfs-hr-modal-terminate').href = termUrl;
   document.getElementById('sfs-hr-modal-delete').href = delUrl;
   document.getElementById('sfs-hr-action-modal').classList.add('active');
   document.body.style.overflow = 'hidden';
@@ -2471,7 +2470,6 @@ document.getElementById('sfs-hr-action-modal').addEventListener('click', functio
                   $name     = trim(($r['first_name']??'').' '.($r['last_name']??''));
                   $status   = $r['status'];
                   $edit_url = wp_nonce_url( admin_url('admin.php?page=sfs-hr-employees&action=edit&id='.(int)$r['id']), 'sfs_hr_edit_'.(int)$r['id'] );
-                  $term_url = wp_nonce_url( admin_url('admin-post.php?action=sfs_hr_terminate_employee&id='.(int)$r['id']), 'sfs_hr_term_'.(int)$r['id'] );
                   $del_url  = wp_nonce_url( admin_url('admin-post.php?action=sfs_hr_delete_employee&id='.(int)$r['id']), 'sfs_hr_del_'.(int)$r['id'] );
                   $dept_name = empty($r['dept_id']) ? __('General','sfs-hr') : ($dept_map[(int)$r['dept_id']] ?? '#'.(int)$r['dept_id']);
               ?>
@@ -2487,11 +2485,10 @@ document.getElementById('sfs-hr-action-modal').addEventListener('click', functio
                     <!-- Desktop action buttons -->
                     <div class="sfs-hr-actions">
                       <a class="button button-small" href="<?php echo esc_url($edit_url); ?>"><?php esc_html_e('Edit','sfs-hr'); ?></a>
-                      <a class="button button-small" href="<?php echo esc_url($term_url); ?>" onclick="return confirm('Terminate this employee?');"><?php esc_html_e('Terminate','sfs-hr'); ?></a>
-                      <a class="button button-small button-danger" href="<?php echo esc_url($del_url); ?>" onclick="return confirm('Delete permanently? This cannot be undone.');"><?php esc_html_e('Delete','sfs-hr'); ?></a>
+                      <a class="button button-small button-danger" href="<?php echo esc_url($del_url); ?>" onclick="return confirm('<?php echo esc_js(__('Delete permanently? This cannot be undone.', 'sfs-hr')); ?>');"><?php esc_html_e('Delete','sfs-hr'); ?></a>
                     </div>
                     <!-- Mobile action button (vertical dots) -->
-                    <button type="button" class="sfs-hr-action-mobile-btn" onclick="sfsHrOpenModal('<?php echo esc_js($name ?: $r['employee_code']); ?>', '<?php echo esc_js($edit_url); ?>', '<?php echo esc_js($term_url); ?>', '<?php echo esc_js($del_url); ?>')">
+                    <button type="button" class="sfs-hr-action-mobile-btn" onclick="sfsHrOpenModal('<?php echo esc_js($name ?: $r['employee_code']); ?>', '<?php echo esc_js($edit_url); ?>', '<?php echo esc_js($del_url); ?>')">
                       <span></span>
                     </button>
                   </td>
@@ -4347,23 +4344,46 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             color: #50575e;
           }
 
-          /* Mobile details button */
+          /* Mobile details button (vertical dots) */
           .sfs-hr-details-btn {
-            display: none;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: #2271b1;
-            color: #fff;
-            border: none;
+            display: inline-flex;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: #f0f0f1;
+            border: 1px solid #dcdcde;
             cursor: pointer;
-            font-size: 16px;
             padding: 0;
             align-items: center;
             justify-content: center;
+            position: relative;
+          }
+          .sfs-hr-details-btn::before,
+          .sfs-hr-details-btn::after,
+          .sfs-hr-details-btn span {
+            content: '';
+            display: block;
+            width: 5px;
+            height: 5px;
+            background: #2271b1;
+            border-radius: 50%;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+          }
+          .sfs-hr-details-btn::before {
+            top: 9px;
+          }
+          .sfs-hr-details-btn span {
+            top: 50%;
+            transform: translate(-50%, -50%);
+          }
+          .sfs-hr-details-btn::after {
+            bottom: 9px;
           }
           .sfs-hr-details-btn:hover {
-            background: #135e96;
+            background: #e5e5e5;
+            border-color: #c3c4c7;
           }
 
           /* Details Modal */
@@ -4605,7 +4625,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                   <td class="hide-mobile"><span class="sfs-hr-badge status-<?php echo esc_attr($status); ?>"><?php echo esc_html(ucfirst($status)); ?></span></td>
                   <td>
                     <button type="button" class="sfs-hr-details-btn" onclick="sfsHrOpenDetailsModal('<?php echo esc_js($name ?: $r['employee_code']); ?>', '<?php echo esc_js($r['employee_code']); ?>', '<?php echo esc_js($r['email']); ?>', '<?php echo esc_js($dept_name); ?>', '<?php echo esc_js($r['position']); ?>', '<?php echo esc_js(ucfirst($status)); ?>')">
-                      <span class="dashicons dashicons-info-outline"></span>
+                      <span></span>
                     </button>
                   </td>
                 </tr>
