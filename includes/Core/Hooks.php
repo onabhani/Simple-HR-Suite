@@ -38,6 +38,9 @@ class Hooks {
     /**
      * Block login for terminated employees
      *
+     * Only blocks login if the employee's last working day has passed.
+     * Employees with pending resignations can still access until their final exit date.
+     *
      * @param \WP_User|\WP_Error|null $user
      * @param string $username
      * @param string $password
@@ -49,32 +52,52 @@ class Hooks {
             return $user;
         }
 
-        // Check if user has terminated role
-        if (in_array(self::TERMINATED_ROLE, (array) $user->roles, true)) {
-            return new \WP_Error(
-                'terminated_employee',
-                __('Your employment has been terminated. Please contact HR for assistance.', 'sfs-hr')
-            );
-        }
-
-        // Also check employee status in database as backup
         global $wpdb;
-        $table = $wpdb->prefix . 'sfs_hr_employees';
-        $status = $wpdb->get_var(
-            $wpdb->prepare("SELECT status FROM {$table} WHERE user_id = %d LIMIT 1", $user->ID)
+        $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+        $resign_table = $wpdb->prefix . 'sfs_hr_resignations';
+        $today = current_time('Y-m-d');
+
+        // Get employee info
+        $employee = $wpdb->get_row(
+            $wpdb->prepare("SELECT id, status FROM {$emp_table} WHERE user_id = %d LIMIT 1", $user->ID),
+            ARRAY_A
         );
 
-        if ($status === 'terminated') {
-            // Ensure user has terminated role (fix any inconsistency)
-            self::demote_to_terminated_role($user->ID);
-
-            return new \WP_Error(
-                'terminated_employee',
-                __('Your employment has been terminated. Please contact HR for assistance.', 'sfs-hr')
-            );
+        if (!$employee) {
+            return $user; // No employee record, allow login
         }
 
-        return $user;
+        // Check if user has terminated role OR terminated status
+        $is_terminated = in_array(self::TERMINATED_ROLE, (array) $user->roles, true)
+            || $employee['status'] === 'terminated';
+
+        if (!$is_terminated) {
+            return $user; // Not terminated, allow login
+        }
+
+        // Check if there's an approved resignation with last_working_day still in the future or today
+        $last_working_day = $wpdb->get_var($wpdb->prepare(
+            "SELECT last_working_day FROM {$resign_table}
+             WHERE employee_id = %d AND status = 'approved'
+             ORDER BY last_working_day DESC LIMIT 1",
+            $employee['id']
+        ));
+
+        // Allow access if last_working_day hasn't passed yet (today or future)
+        if ($last_working_day && $last_working_day >= $today) {
+            return $user;
+        }
+
+        // Last working day has passed (or no resignation record) - block login
+        // Ensure user has terminated role for consistency
+        if (!in_array(self::TERMINATED_ROLE, (array) $user->roles, true)) {
+            self::demote_to_terminated_role($user->ID);
+        }
+
+        return new \WP_Error(
+            'terminated_employee',
+            __('Your employment has been terminated. Please contact HR for assistance.', 'sfs-hr')
+        );
     }
 
     /**
@@ -93,10 +116,13 @@ class Hooks {
     /**
      * Demote a user to terminated role (removes all other roles)
      *
+     * Only demotes if the employee's last working day has passed.
+     *
      * @param int $user_id WordPress user ID
+     * @param bool $force Force demotion even if last working day hasn't passed
      * @return bool True if successful
      */
-    public static function demote_to_terminated_role(int $user_id): bool {
+    public static function demote_to_terminated_role(int $user_id, bool $force = false): bool {
         $user = get_userdata($user_id);
         if (!$user) {
             return false;
@@ -105,6 +131,32 @@ class Hooks {
         // Don't demote administrators
         if (in_array('administrator', (array) $user->roles, true)) {
             return false;
+        }
+
+        // Check if last working day has passed (unless forced)
+        if (!$force) {
+            global $wpdb;
+            $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+            $resign_table = $wpdb->prefix . 'sfs_hr_resignations';
+            $today = current_time('Y-m-d');
+
+            $employee_id = $wpdb->get_var(
+                $wpdb->prepare("SELECT id FROM {$emp_table} WHERE user_id = %d LIMIT 1", $user_id)
+            );
+
+            if ($employee_id) {
+                $last_working_day = $wpdb->get_var($wpdb->prepare(
+                    "SELECT last_working_day FROM {$resign_table}
+                     WHERE employee_id = %d AND status = 'approved'
+                     ORDER BY last_working_day DESC LIMIT 1",
+                    $employee_id
+                ));
+
+                // Don't demote if last working day hasn't passed yet
+                if ($last_working_day && $last_working_day >= $today) {
+                    return false;
+                }
+            }
         }
 
         // Remove all existing roles and set to terminated

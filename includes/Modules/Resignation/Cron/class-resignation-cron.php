@@ -56,8 +56,9 @@ class Resignation_Cron {
             ], ['id' => $resignation['employee_id']]);
 
             // Demote WordPress user to terminated role (blocks login)
+            // Force=true since we've already validated last_working_day has passed
             if (!empty($resignation['user_id'])) {
-                Hooks::demote_to_terminated_role((int) $resignation['user_id']);
+                Hooks::demote_to_terminated_role((int) $resignation['user_id'], true);
             }
 
             // Log the termination
