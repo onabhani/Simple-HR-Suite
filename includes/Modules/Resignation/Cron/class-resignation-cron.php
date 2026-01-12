@@ -3,6 +3,8 @@ namespace SFS\HR\Modules\Resignation\Cron;
 
 if (!defined('ABSPATH')) { exit; }
 
+use SFS\HR\Core\Hooks;
+
 /**
  * Resignation Cron
  * Daily job to terminate employees after last working day
@@ -33,7 +35,7 @@ class Resignation_Cron {
 
         // Find approved resignations where last_working_day has passed and employee is still active
         $expired_resignations = $wpdb->get_results($wpdb->prepare(
-            "SELECT r.id, r.employee_id, r.last_working_day, e.status as employee_status
+            "SELECT r.id, r.employee_id, r.last_working_day, e.status as employee_status, e.user_id
              FROM {$resign_table} r
              JOIN {$emp_table} e ON e.id = r.employee_id
              WHERE r.status = 'approved'
@@ -52,6 +54,11 @@ class Resignation_Cron {
                 'status'     => 'terminated',
                 'updated_at' => current_time('mysql'),
             ], ['id' => $resignation['employee_id']]);
+
+            // Demote WordPress user to terminated role (blocks login)
+            if (!empty($resignation['user_id'])) {
+                Hooks::demote_to_terminated_role((int) $resignation['user_id']);
+            }
 
             // Log the termination
             if (class_exists('\SFS\HR\Core\AuditTrail')) {

@@ -3,12 +3,167 @@ namespace SFS\HR\Core;
 if ( ! defined('ABSPATH') ) { exit; }
 
 class Hooks {
+    /** Role slug for terminated employees */
+    const TERMINATED_ROLE = 'sfs_hr_terminated';
+
     public function hooks(): void {
         add_action('user_register', [$this, 'ensure_employee_for_user']);
         add_action('wp_login', [$this, 'ensure_employee_on_login'], 10, 2);
         add_action('profile_update', [$this, 'sync_employee_email_on_profile_update'], 10, 2);
         add_action('admin_notices', [Helpers::class, 'render_admin_notice_bar']);
+
+        // Register terminated employee role
+        add_action('init', [$this, 'register_terminated_role']);
+
+        // Block login for terminated employees
+        add_filter('authenticate', [$this, 'block_terminated_employee_login'], 30, 3);
+
+        // Show notice on login page for blocked users
+        add_filter('login_message', [$this, 'terminated_login_message']);
     }
+
+    /**
+     * Register the "Terminated Employee" role with zero capabilities
+     */
+    public function register_terminated_role(): void {
+        if (!get_role(self::TERMINATED_ROLE)) {
+            add_role(
+                self::TERMINATED_ROLE,
+                __('Terminated Employee', 'sfs-hr'),
+                [] // Zero capabilities
+            );
+        }
+    }
+
+    /**
+     * Block login for terminated employees
+     *
+     * @param \WP_User|\WP_Error|null $user
+     * @param string $username
+     * @param string $password
+     * @return \WP_User|\WP_Error|null
+     */
+    public function block_terminated_employee_login($user, $username, $password) {
+        // Only check if we have a valid user
+        if (!($user instanceof \WP_User)) {
+            return $user;
+        }
+
+        // Check if user has terminated role
+        if (in_array(self::TERMINATED_ROLE, (array) $user->roles, true)) {
+            return new \WP_Error(
+                'terminated_employee',
+                __('Your employment has been terminated. Please contact HR for assistance.', 'sfs-hr')
+            );
+        }
+
+        // Also check employee status in database as backup
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_employees';
+        $status = $wpdb->get_var(
+            $wpdb->prepare("SELECT status FROM {$table} WHERE user_id = %d LIMIT 1", $user->ID)
+        );
+
+        if ($status === 'terminated') {
+            // Ensure user has terminated role (fix any inconsistency)
+            self::demote_to_terminated_role($user->ID);
+
+            return new \WP_Error(
+                'terminated_employee',
+                __('Your employment has been terminated. Please contact HR for assistance.', 'sfs-hr')
+            );
+        }
+
+        return $user;
+    }
+
+    /**
+     * Show message on login page if blocked
+     *
+     * @param string $message
+     * @return string
+     */
+    public function terminated_login_message($message): string {
+        if (isset($_GET['terminated'])) {
+            $message .= '<div id="login_error">' . esc_html__('Your employment has been terminated. Please contact HR for assistance.', 'sfs-hr') . '</div>';
+        }
+        return $message;
+    }
+
+    /**
+     * Demote a user to terminated role (removes all other roles)
+     *
+     * @param int $user_id WordPress user ID
+     * @return bool True if successful
+     */
+    public static function demote_to_terminated_role(int $user_id): bool {
+        $user = get_userdata($user_id);
+        if (!$user) {
+            return false;
+        }
+
+        // Don't demote administrators
+        if (in_array('administrator', (array) $user->roles, true)) {
+            return false;
+        }
+
+        // Remove all existing roles and set to terminated
+        $user->set_role(self::TERMINATED_ROLE);
+
+        // Log the role change
+        if (class_exists('\SFS\HR\Core\AuditTrail')) {
+            AuditTrail::log(
+                'users',
+                $user_id,
+                'role_change',
+                [
+                    'action' => 'demoted_to_terminated',
+                    'new_role' => self::TERMINATED_ROLE,
+                ],
+                get_current_user_id() ?: $user_id
+            );
+        }
+
+        return true;
+    }
+
+    /**
+     * Restore a user's role (e.g., if termination was reversed)
+     *
+     * @param int $user_id WordPress user ID
+     * @param string $new_role Role to restore to (default: subscriber)
+     * @return bool True if successful
+     */
+    public static function restore_user_role(int $user_id, string $new_role = 'subscriber'): bool {
+        $user = get_userdata($user_id);
+        if (!$user) {
+            return false;
+        }
+
+        // Only restore if currently terminated
+        if (!in_array(self::TERMINATED_ROLE, (array) $user->roles, true)) {
+            return false;
+        }
+
+        $user->set_role($new_role);
+
+        // Log the role change
+        if (class_exists('\SFS\HR\Core\AuditTrail')) {
+            AuditTrail::log(
+                'users',
+                $user_id,
+                'role_change',
+                [
+                    'action' => 'restored_from_terminated',
+                    'new_role' => $new_role,
+                ],
+                get_current_user_id()
+            );
+        }
+
+        return true;
+    }
+
     public function ensure_employee_for_user(int $user_id): void { $this->ensure($user_id); }
     public function ensure_employee_on_login(string $user_login, \WP_User $user): void { $this->ensure((int)$user->ID); }
 
