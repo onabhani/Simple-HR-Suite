@@ -197,7 +197,267 @@ class Shortcodes {
     };
 
     ob_start();
+
+    // PWA App Shell for My HR Profile
+    $pwa_instance = 'pwa-' . substr(wp_hash((string)get_current_user_id() . microtime(true)), 0, 6);
     ?>
+    <!-- PWA App Shell Styles -->
+    <style id="sfs-hr-pwa-app-styles">
+    /* PWA App Shell - Makes the profile feel like a native app */
+    .sfs-hr-pwa-app {
+        --sfs-primary: #0f4c5c;
+        --sfs-primary-light: #135e96;
+        --sfs-surface: #ffffff;
+        --sfs-background: #f8fafc;
+        --sfs-border: #e5e7eb;
+        --sfs-text: #111827;
+        --sfs-text-muted: #6b7280;
+        --sfs-success: #059669;
+        --sfs-warning: #d97706;
+        --sfs-danger: #dc2626;
+        --sfs-safe-top: env(safe-area-inset-top, 0px);
+        --sfs-safe-bottom: env(safe-area-inset-bottom, 0px);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Offline indicator */
+    .sfs-hr-offline-banner {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        padding: 8px 16px;
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: #fff;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 500;
+        z-index: 999999;
+        padding-top: calc(8px + var(--sfs-safe-top));
+    }
+    .sfs-hr-offline-banner.visible {
+        display: block;
+    }
+
+    /* PWA Install Banner */
+    .sfs-hr-pwa-install-banner {
+        display: none;
+        position: fixed;
+        bottom: 20px;
+        left: 16px;
+        right: 16px;
+        max-width: 400px;
+        margin: 0 auto;
+        background: var(--sfs-surface);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+        padding: 16px 18px;
+        z-index: 999998;
+        animation: sfs-slide-up 0.3s ease-out;
+        margin-bottom: var(--sfs-safe-bottom);
+    }
+    .sfs-hr-pwa-install-banner.visible {
+        display: block;
+    }
+    @keyframes sfs-slide-up {
+        from { transform: translateY(100px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .sfs-hr-pwa-install-content {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+    .sfs-hr-pwa-install-icon {
+        width: 52px;
+        height: 52px;
+        background: linear-gradient(135deg, var(--sfs-primary) 0%, var(--sfs-primary-light) 100%);
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .sfs-hr-pwa-install-icon svg {
+        width: 28px;
+        height: 28px;
+        stroke: #fff;
+        fill: none;
+    }
+    .sfs-hr-pwa-install-text {
+        flex: 1;
+    }
+    .sfs-hr-pwa-install-text strong {
+        display: block;
+        font-size: 15px;
+        color: var(--sfs-text);
+        margin-bottom: 2px;
+    }
+    .sfs-hr-pwa-install-text span {
+        font-size: 13px;
+        color: var(--sfs-text-muted);
+        line-height: 1.4;
+    }
+    .sfs-hr-pwa-install-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 14px;
+    }
+    .sfs-hr-pwa-btn {
+        flex: 1;
+        padding: 12px 16px;
+        border: none;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    .sfs-hr-pwa-btn--primary {
+        background: linear-gradient(135deg, var(--sfs-primary) 0%, var(--sfs-primary-light) 100%);
+        color: #fff;
+    }
+    .sfs-hr-pwa-btn--primary:hover {
+        box-shadow: 0 4px 12px rgba(15, 76, 92, 0.3);
+        transform: translateY(-1px);
+    }
+    .sfs-hr-pwa-btn--secondary {
+        background: #f3f4f6;
+        color: #374151;
+    }
+    .sfs-hr-pwa-btn--secondary:hover {
+        background: #e5e7eb;
+    }
+
+    /* Mobile-optimized header */
+    @media (max-width: 768px) {
+        .sfs-hr-pwa-app .sfs-hr-profile > h3 {
+            position: sticky;
+            top: 0;
+            background: var(--sfs-surface);
+            margin: 0 -16px;
+            padding: 16px;
+            padding-top: calc(16px + var(--sfs-safe-top));
+            border-bottom: 1px solid var(--sfs-border);
+            z-index: 100;
+            font-size: 18px;
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-profile {
+            padding: 0 16px 100px;
+            background: var(--sfs-background);
+            min-height: 100vh;
+        }
+
+        /* Bottom tab navigation for mobile */
+        .sfs-hr-pwa-app .sfs-hr-profile-tabs {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--sfs-surface);
+            border-top: 1px solid var(--sfs-border);
+            border-bottom: none;
+            margin: 0;
+            padding: 8px 8px calc(8px + var(--sfs-safe-bottom));
+            display: flex;
+            justify-content: space-around;
+            z-index: 1000;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .sfs-hr-pwa-app .sfs-hr-profile-tabs::-webkit-scrollbar {
+            display: none;
+        }
+        .sfs-hr-pwa-app .sfs-hr-tab {
+            flex-direction: column;
+            align-items: center;
+            padding: 8px 12px;
+            font-size: 11px;
+            border-radius: 8px;
+            background: transparent;
+            border: none;
+            min-width: 60px;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .sfs-hr-pwa-app .sfs-hr-tab-active {
+            background: rgba(15, 76, 92, 0.1);
+            color: var(--sfs-primary);
+            border: none;
+        }
+    }
+
+    /* Card styles for app feel */
+    .sfs-hr-pwa-app .sfs-hr-profile-group {
+        background: var(--sfs-surface);
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border: 1px solid var(--sfs-border);
+    }
+
+    /* Smooth transitions */
+    .sfs-hr-pwa-app * {
+        -webkit-tap-highlight-color: transparent;
+    }
+    .sfs-hr-pwa-app a,
+    .sfs-hr-pwa-app button {
+        transition: all 0.15s ease;
+    }
+
+    /* Pull to refresh indicator (visual only) */
+    .sfs-hr-pwa-app::before {
+        content: '';
+        display: none;
+    }
+    </style>
+
+    <!-- PWA App Wrapper -->
+    <div class="sfs-hr-pwa-app" id="<?php echo esc_attr($pwa_instance); ?>">
+
+    <!-- Offline Indicator -->
+    <div class="sfs-hr-offline-banner" id="sfs-hr-offline-<?php echo esc_attr($pwa_instance); ?>">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 6px;">
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+            <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
+            <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
+            <path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path>
+            <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path>
+            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+            <line x1="12" y1="20" x2="12.01" y2="20"></line>
+        </svg>
+        <?php esc_html_e('You are offline. Some features may be limited.', 'sfs-hr'); ?>
+    </div>
+
+    <!-- PWA Install Banner -->
+    <div class="sfs-hr-pwa-install-banner" id="sfs-hr-pwa-banner-<?php echo esc_attr($pwa_instance); ?>">
+        <div class="sfs-hr-pwa-install-content">
+            <div class="sfs-hr-pwa-install-icon">
+                <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+            </div>
+            <div class="sfs-hr-pwa-install-text">
+                <strong><?php esc_html_e('Install HR Suite', 'sfs-hr'); ?></strong>
+                <span><?php esc_html_e('Add to home screen for quick access', 'sfs-hr'); ?></span>
+            </div>
+        </div>
+        <div class="sfs-hr-pwa-install-buttons">
+            <button type="button" class="sfs-hr-pwa-btn sfs-hr-pwa-btn--primary" id="sfs-hr-pwa-install-<?php echo esc_attr($pwa_instance); ?>">
+                <?php esc_html_e('Install App', 'sfs-hr'); ?>
+            </button>
+            <button type="button" class="sfs-hr-pwa-btn sfs-hr-pwa-btn--secondary" id="sfs-hr-pwa-dismiss-<?php echo esc_attr($pwa_instance); ?>">
+                <?php esc_html_e('Not Now', 'sfs-hr'); ?>
+            </button>
+        </div>
+    </div>
+
     <div class="sfs-hr sfs-hr-profile sfs-hr-profile--frontend">
         <h3><?php echo esc_html__( 'My HR Profile', 'sfs-hr' ); ?></h3>
 
@@ -1590,6 +1850,95 @@ class Shortcodes {
 
 
     </style>
+
+    </div><!-- /.sfs-hr-pwa-app -->
+
+    <!-- PWA JavaScript -->
+    <script>
+    (function() {
+        var inst = '<?php echo esc_js($pwa_instance); ?>';
+        var offlineBanner = document.getElementById('sfs-hr-offline-' + inst);
+        var pwaBanner = document.getElementById('sfs-hr-pwa-banner-' + inst);
+        var installBtn = document.getElementById('sfs-hr-pwa-install-' + inst);
+        var dismissBtn = document.getElementById('sfs-hr-pwa-dismiss-' + inst);
+        var deferredPrompt = null;
+
+        // Offline detection
+        function updateOfflineStatus() {
+            if (offlineBanner) {
+                offlineBanner.classList.toggle('visible', !navigator.onLine);
+            }
+        }
+        window.addEventListener('online', updateOfflineStatus);
+        window.addEventListener('offline', updateOfflineStatus);
+        updateOfflineStatus();
+
+        // PWA Install prompt
+        window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            deferredPrompt = e;
+
+            // Check if already dismissed
+            if (localStorage.getItem('sfs_hr_pwa_dismissed')) {
+                return;
+            }
+
+            // Show install banner after 2 seconds
+            setTimeout(function() {
+                if (pwaBanner) {
+                    pwaBanner.classList.add('visible');
+                }
+            }, 2000);
+        });
+
+        // Install button click
+        if (installBtn) {
+            installBtn.addEventListener('click', function() {
+                if (!deferredPrompt) {
+                    // Try to show iOS instructions
+                    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                        alert('<?php echo esc_js(__('To install: tap the Share button, then "Add to Home Screen"', 'sfs-hr')); ?>');
+                    }
+                    return;
+                }
+
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then(function(choice) {
+                    deferredPrompt = null;
+                    if (pwaBanner) {
+                        pwaBanner.classList.remove('visible');
+                    }
+                });
+            });
+        }
+
+        // Dismiss button click
+        if (dismissBtn) {
+            dismissBtn.addEventListener('click', function() {
+                localStorage.setItem('sfs_hr_pwa_dismissed', '1');
+                if (pwaBanner) {
+                    pwaBanner.classList.remove('visible');
+                }
+            });
+        }
+
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('<?php echo esc_js(home_url('/sfs-hr-sw.js')); ?>')
+                .then(function(reg) {
+                    console.log('HR Suite SW registered');
+                })
+                .catch(function(err) {
+                    console.log('HR Suite SW registration failed:', err);
+                });
+        }
+
+        // Viewport meta for standalone mode
+        if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+            document.documentElement.classList.add('sfs-hr-standalone');
+        }
+    })();
+    </script>
 
     <?php
 
