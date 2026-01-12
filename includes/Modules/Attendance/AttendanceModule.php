@@ -3394,11 +3394,14 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
         return;
     }
 
-    // Dept slug (empty string if not found - segments will be empty)
-$dept = self::get_employee_dept_for_attendance($employee_id, $wpdb);
+    // Resolve shift using the proper cascade: assignment → employee shift → dept automation → fallback
+    $shift = self::resolve_shift_for_date($employee_id, $ymd, [], $wpdb);
 
-// Segments for this date
-$segments = self::build_segments_for_date_from_dept($dept, $ymd);
+    // Build segments from resolved shift
+    $segments = self::build_segments_from_shift($shift, $ymd);
+
+    // Get dept for calc_meta
+    $dept = self::get_employee_dept_for_attendance($employee_id, $wpdb);
 
 // Local-day → UTC window
 $tz        = wp_timezone();
@@ -4073,7 +4076,46 @@ private static function apply_weekly_override( ?\stdClass $shift, string $ymd, \
 }
 
 
-/** Build split segments for Y-m-d from dept_id + settings. */
+/**
+ * Build segments from a resolved shift object.
+ * Returns an array of segment arrays with start/end times in UTC and local.
+ */
+private static function build_segments_from_shift( ?\stdClass $shift, string $ymd ): array {
+    if ( ! $shift || empty( $shift->start_time ) || empty( $shift->end_time ) ) {
+        return [];
+    }
+
+    $tz = wp_timezone();
+
+    // Format start_time and end_time (TIME columns like '09:00:00')
+    $start_time = $shift->start_time;
+    $end_time   = $shift->end_time;
+
+    // Build local datetime from date + shift times
+    $stLocal = new \DateTimeImmutable( $ymd . ' ' . $start_time, $tz );
+    $enLocal = new \DateTimeImmutable( $ymd . ' ' . $end_time, $tz );
+
+    // Handle overnight shifts (end_time < start_time means next day)
+    if ( $enLocal <= $stLocal ) {
+        $enLocal = $enLocal->modify( '+1 day' );
+    }
+
+    // Convert to UTC
+    $stUTC = $stLocal->setTimezone( new \DateTimeZone( 'UTC' ) );
+    $enUTC = $enLocal->setTimezone( new \DateTimeZone( 'UTC' ) );
+
+    return [
+        [
+            'start_utc' => $stUTC->format( 'Y-m-d H:i:s' ),
+            'end_utc'   => $enUTC->format( 'Y-m-d H:i:s' ),
+            'start_l'   => $stLocal->format( 'Y-m-d H:i:s' ),
+            'end_l'     => $enLocal->format( 'Y-m-d H:i:s' ),
+            'minutes'   => (int) round( ( $enUTC->getTimestamp() - $stUTC->getTimestamp() ) / 60 ),
+        ],
+    ];
+}
+
+/** Build split segments for Y-m-d from dept_id + settings (legacy, kept for backwards compatibility). */
 private static function build_segments_for_date_from_dept( $dept_id_or_slug, string $ymd ): array {
     $settings = get_option(self::OPT_SETTINGS) ?: [];
     // Support both dept_id (int) and legacy dept slug (string)
