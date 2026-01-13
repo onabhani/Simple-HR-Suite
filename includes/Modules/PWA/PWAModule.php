@@ -22,15 +22,18 @@ class PWAModule {
     }
 
     public function hooks(): void {
-        // Register PWA assets (manifest, meta tags)
+        // Register PWA assets (manifest, meta tags) - both frontend AND admin
         add_action('wp_head', [$this, 'output_pwa_meta']);
+        add_action('admin_head', [$this, 'output_pwa_meta']);
         add_action('wp_enqueue_scripts', [$this, 'register_pwa_scripts']);
+        add_action('admin_enqueue_scripts', [$this, 'register_admin_pwa_scripts']);
 
         // Register REST route for PWA manifest
         add_action('rest_api_init', [$this, 'register_rest_routes']);
 
         // Add rewrite rule for service worker
         add_action('init', [$this, 'add_rewrite_rules']);
+        add_action('init', [$this, 'maybe_flush_rewrite_rules']);
         add_filter('query_vars', [$this, 'add_query_vars']);
         add_action('template_redirect', [$this, 'serve_service_worker']);
 
@@ -61,13 +64,36 @@ class PWAModule {
     }
 
     /**
-     * Register PWA scripts
+     * Register PWA scripts (frontend)
      */
     public function register_pwa_scripts(): void {
         if (!is_user_logged_in()) {
             return;
         }
 
+        $this->enqueue_pwa_script();
+    }
+
+    /**
+     * Register PWA scripts (admin)
+     */
+    public function register_admin_pwa_scripts(string $hook): void {
+        if (!is_user_logged_in()) {
+            return;
+        }
+
+        // Only on HR Suite admin pages
+        if (strpos($hook, 'sfs-hr') === false && strpos($hook, 'sfs_hr') === false) {
+            return;
+        }
+
+        $this->enqueue_pwa_script();
+    }
+
+    /**
+     * Enqueue PWA script with localization
+     */
+    private function enqueue_pwa_script(): void {
         wp_enqueue_script(
             'sfs-hr-pwa',
             SFS_HR_URL . 'assets/pwa/pwa-app.js',
@@ -158,6 +184,26 @@ class PWAModule {
      */
     public function add_rewrite_rules(): void {
         add_rewrite_rule('^sfs-hr-sw\.js$', 'index.php?sfs_hr_sw=1', 'top');
+    }
+
+    /**
+     * Flush rewrite rules if our rule is not registered
+     * This ensures the service worker URL works after plugin activation
+     */
+    public function maybe_flush_rewrite_rules(): void {
+        // Only check once per day to avoid performance issues
+        $last_check = get_option('sfs_hr_pwa_rewrite_check', 0);
+        if (time() - $last_check < DAY_IN_SECONDS) {
+            return;
+        }
+
+        // Check if our rewrite rule exists
+        $rules = get_option('rewrite_rules');
+        if (!is_array($rules) || !isset($rules['^sfs-hr-sw\.js$'])) {
+            flush_rewrite_rules(false);
+        }
+
+        update_option('sfs_hr_pwa_rewrite_check', time());
     }
 
     /**
