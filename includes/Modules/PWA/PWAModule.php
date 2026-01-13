@@ -56,7 +56,7 @@ class PWAModule {
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="default">
         <meta name="apple-mobile-web-app-title" content="HR Suite">
-        <link rel="apple-touch-icon" href="<?php echo esc_url(SFS_HR_URL . 'assets/pwa/icon-192.png'); ?>">
+        <link rel="apple-touch-icon" href="<?php echo esc_url(SFS_HR_URL . 'assets/pwa/icon-192.svg'); ?>">
         <?php
     }
 
@@ -122,15 +122,15 @@ class PWAModule {
             'orientation' => 'portrait',
             'icons' => [
                 [
-                    'src' => SFS_HR_URL . 'assets/pwa/icon-192.png',
+                    'src' => SFS_HR_URL . 'assets/pwa/icon-192.svg',
                     'sizes' => '192x192',
-                    'type' => 'image/png',
+                    'type' => 'image/svg+xml',
                     'purpose' => 'any maskable',
                 ],
                 [
-                    'src' => SFS_HR_URL . 'assets/pwa/icon-512.png',
+                    'src' => SFS_HR_URL . 'assets/pwa/icon-192.svg',
                     'sizes' => '512x512',
-                    'type' => 'image/png',
+                    'type' => 'image/svg+xml',
                     'purpose' => 'any maskable',
                 ],
             ],

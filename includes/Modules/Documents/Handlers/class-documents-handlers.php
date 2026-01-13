@@ -271,11 +271,7 @@ class Documents_Handlers {
      * Redirect with error message
      */
     private function redirect_error(int $employee_id, string $page, string $message): void {
-        if ($page === 'sfs-hr-my-profile') {
-            $url = admin_url('admin.php?page=sfs-hr-my-profile&tab=documents&error=' . rawurlencode($message));
-        } else {
-            $url = admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . $employee_id . '&tab=documents&error=' . rawurlencode($message));
-        }
+        $url = $this->get_redirect_url($employee_id, $page, 'error', $message);
         wp_safe_redirect($url);
         exit;
     }
@@ -284,12 +280,34 @@ class Documents_Handlers {
      * Redirect with success message
      */
     private function redirect_success(int $employee_id, string $page, string $message): void {
-        if ($page === 'sfs-hr-my-profile') {
-            $url = admin_url('admin.php?page=sfs-hr-my-profile&tab=documents&success=' . rawurlencode($message));
-        } else {
-            $url = admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . $employee_id . '&tab=documents&success=' . rawurlencode($message));
-        }
+        $url = $this->get_redirect_url($employee_id, $page, 'success', $message);
         wp_safe_redirect($url);
         exit;
+    }
+
+    /**
+     * Get redirect URL based on context (admin vs frontend)
+     */
+    private function get_redirect_url(int $employee_id, string $page, string $type, string $message): string {
+        // Check if request came from frontend (referer check)
+        $referer = wp_get_referer();
+        $is_frontend = $referer && strpos($referer, admin_url()) === false;
+
+        if ($is_frontend && $referer) {
+            // Frontend: redirect back to referer with documents tab
+            $parsed = wp_parse_url($referer);
+            $base_url = $parsed['scheme'] . '://' . $parsed['host'] . ($parsed['path'] ?? '');
+            return add_query_arg([
+                'sfs_hr_tab' => 'documents',
+                $type => rawurlencode($message),
+            ], $base_url);
+        }
+
+        // Admin pages
+        if ($page === 'sfs-hr-my-profile') {
+            return admin_url('admin.php?page=sfs-hr-my-profile&tab=documents&' . $type . '=' . rawurlencode($message));
+        }
+
+        return admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . $employee_id . '&tab=documents&' . $type . '=' . rawurlencode($message));
     }
 }

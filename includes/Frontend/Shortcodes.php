@@ -127,6 +127,7 @@ class Shortcodes {
     $resignation_url = add_query_arg( 'sfs_hr_tab', 'resignation', $base_url );
     $settlement_url  = add_query_arg( 'sfs_hr_tab', 'settlement',  $base_url );
     $attendance_url  = add_query_arg( 'sfs_hr_tab', 'attendance',  $base_url );
+    $documents_url   = add_query_arg( 'sfs_hr_tab', 'documents',   $base_url );
 
     // Check if employee has settlements (to show Settlement tab)
     $settle_table = $wpdb->prefix . 'sfs_hr_settlements';
@@ -516,8 +517,11 @@ class Shortcodes {
     }
 
     /* ========== DARK MODE SUPPORT ========== */
+    /* Dark mode can be triggered by:
+       1. System preference (prefers-color-scheme: dark)
+       2. Manual toggle (adds .sfs-hr-dark-mode class) */
     @media (prefers-color-scheme: dark) {
-        .sfs-hr-pwa-app {
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) {
             --sfs-primary: #38bdf8;
             --sfs-primary-light: #7dd3fc;
             --sfs-surface: #1e293b;
@@ -653,13 +657,92 @@ class Shortcodes {
         }
 
         /* Cards/boxes in dark mode */
-        .sfs-hr-pwa-app .sfs-hr-my-profile-leave,
-        .sfs-hr-pwa-app .sfs-hr-my-assets-frontend,
-        .sfs-hr-pwa-app .sfs-hr-leave-card {
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-my-profile-leave,
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-my-assets-frontend,
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-card {
             background: var(--sfs-surface);
             border-color: var(--sfs-border);
         }
     }
+
+    /* Manual dark mode toggle - when user explicitly enables dark mode */
+    .sfs-hr-pwa-app.sfs-hr-dark-mode {
+        --sfs-primary: #38bdf8;
+        --sfs-primary-light: #7dd3fc;
+        --sfs-surface: #1e293b;
+        --sfs-background: #0f172a;
+        --sfs-border: #334155;
+        --sfs-text: #f1f5f9;
+        --sfs-text-muted: #94a3b8;
+        --sfs-success: #34d399;
+        --sfs-warning: #fbbf24;
+        --sfs-danger: #f87171;
+        color-scheme: dark;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-profile > h3 { color: var(--sfs-text); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-profile-name { color: var(--sfs-text); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-chip--code { background: #334155; color: #cbd5e1; }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-chip--status { background: #1e3a5f; color: #7dd3fc; }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-profile-meta-line { color: var(--sfs-text-muted); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-profile-group { background: var(--sfs-surface); border-color: var(--sfs-border); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-profile-group-title { color: var(--sfs-text-muted); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-field-row { border-bottom-color: #334155; }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-field-label { color: var(--sfs-text-muted); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-field-value { color: var(--sfs-text); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-emp-photo--empty { background: #334155; color: var(--sfs-text-muted); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-att-btn { background: var(--sfs-primary); border-color: var(--sfs-primary); color: #0f172a !important; }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-profile-tabs { background: var(--sfs-surface); border-top-color: var(--sfs-border); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-tab { color: var(--sfs-text-muted); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-tab-active { background: rgba(56, 189, 248, 0.15); color: var(--sfs-primary); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-profile-completion { background: linear-gradient(135deg, #0c4a6e 0%, #075985 100%); border-color: #0369a1; }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-completion-title,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-completion-pct,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-completion-hint { color: #7dd3fc; }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-completion-bar { background: #0c4a6e; }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode input,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode select,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode textarea { background: var(--sfs-surface); border-color: var(--sfs-border); color: var(--sfs-text); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-table th,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-table td { border-bottom-color: var(--sfs-border); color: var(--sfs-text); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-table th { color: var(--sfs-text-muted); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-alert { background: #422006; border-color: #a16207; color: #fef3c7; }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-my-profile-leave,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-my-assets-frontend,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-card { background: var(--sfs-surface); border-color: var(--sfs-border); }
+
+    /* Dark mode toggle button */
+    .sfs-hr-theme-toggle {
+        position: fixed;
+        bottom: 80px;
+        right: 16px;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: var(--sfs-surface);
+        border: 1px solid var(--sfs-border);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9997;
+        transition: all 0.2s ease;
+        padding-bottom: var(--sfs-safe-bottom);
+    }
+    .sfs-hr-theme-toggle:hover {
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .sfs-hr-theme-toggle svg {
+        width: 22px;
+        height: 22px;
+        stroke: var(--sfs-text);
+        fill: none;
+    }
+    .sfs-hr-theme-toggle .sfs-hr-icon-sun { display: none; }
+    .sfs-hr-theme-toggle .sfs-hr-icon-moon { display: block; }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-theme-toggle .sfs-hr-icon-sun { display: block; }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-theme-toggle .sfs-hr-icon-moon { display: none; }
     </style>
 
     <!-- PWA App Wrapper -->
@@ -757,6 +840,13 @@ class Shortcodes {
                     <span><?php esc_html_e( 'Attendance', 'sfs-hr' ); ?></span>
                 </a>
             <?php endif; ?>
+            <?php if ( ! $is_limited_access ) : ?>
+                <a href="<?php echo esc_url( $documents_url ); ?>"
+                   class="sfs-hr-tab <?php echo ( $active_tab === 'documents' ) ? 'sfs-hr-tab-active' : ''; ?>">
+                    <svg class="sfs-hr-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                    <span><?php esc_html_e( 'Documents', 'sfs-hr' ); ?></span>
+                </a>
+            <?php endif; ?>
         </div>
 
         <?php if ( $active_tab === 'leave' && ! $is_limited_access ) : ?>
@@ -783,6 +873,10 @@ class Shortcodes {
             echo do_shortcode( '[sfs_hr_attendance_widget immersive="0"]' );
             ?>
         </div>
+
+    <?php elseif ( $active_tab === 'documents' && ! $is_limited_access ) : ?>
+
+        <?php $this->render_frontend_documents_tab( $emp_id ); ?>
 
     <?php else : ?>
 
@@ -2179,6 +2273,24 @@ class Shortcodes {
 
     </style>
 
+    <!-- Dark Mode Toggle Button -->
+    <button type="button" class="sfs-hr-theme-toggle" id="sfs-hr-theme-toggle-<?php echo esc_attr($pwa_instance); ?>" title="<?php esc_attr_e('Toggle dark mode', 'sfs-hr'); ?>">
+        <svg class="sfs-hr-icon-moon" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+        <svg class="sfs-hr-icon-sun" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+    </button>
+
     </div><!-- /.sfs-hr-pwa-app -->
 
     <!-- PWA JavaScript -->
@@ -2256,6 +2368,47 @@ class Shortcodes {
         // Viewport meta for standalone mode
         if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
             document.documentElement.classList.add('sfs-hr-standalone');
+        }
+
+        // Dark mode toggle
+        var themeToggle = document.getElementById('sfs-hr-theme-toggle-' + inst);
+        var pwaApp = document.getElementById(inst);
+
+        if (themeToggle && pwaApp) {
+            // Check for saved preference
+            var savedTheme = localStorage.getItem('sfs_hr_theme');
+            if (savedTheme === 'dark') {
+                pwaApp.classList.add('sfs-hr-dark-mode');
+                pwaApp.classList.remove('sfs-hr-light-mode');
+            } else if (savedTheme === 'light') {
+                pwaApp.classList.add('sfs-hr-light-mode');
+                pwaApp.classList.remove('sfs-hr-dark-mode');
+            }
+
+            themeToggle.addEventListener('click', function() {
+                var isDark = pwaApp.classList.contains('sfs-hr-dark-mode');
+                var isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+                if (isDark) {
+                    // Currently dark (manual) -> switch to light
+                    pwaApp.classList.remove('sfs-hr-dark-mode');
+                    pwaApp.classList.add('sfs-hr-light-mode');
+                    localStorage.setItem('sfs_hr_theme', 'light');
+                } else if (pwaApp.classList.contains('sfs-hr-light-mode')) {
+                    // Currently light (manual) -> switch to dark
+                    pwaApp.classList.remove('sfs-hr-light-mode');
+                    pwaApp.classList.add('sfs-hr-dark-mode');
+                    localStorage.setItem('sfs_hr_theme', 'dark');
+                } else if (isSystemDark) {
+                    // System is dark, no manual preference -> switch to light
+                    pwaApp.classList.add('sfs-hr-light-mode');
+                    localStorage.setItem('sfs_hr_theme', 'light');
+                } else {
+                    // System is light, no manual preference -> switch to dark
+                    pwaApp.classList.add('sfs-hr-dark-mode');
+                    localStorage.setItem('sfs_hr_theme', 'dark');
+                }
+            });
         }
     })();
     </script>
@@ -4783,6 +4936,178 @@ private function render_settlement_row( string $label, string $value, bool $allo
         echo '<div>' . esc_html( $value ) . '</div>';
     }
     echo '</div>';
+}
+
+/**
+ * Render Documents tab for frontend My HR Profile
+ */
+private function render_frontend_documents_tab( int $emp_id ): void {
+    // Check if Documents module is available
+    if ( ! class_exists( '\SFS\HR\Modules\Documents\Services\Documents_Service' ) ) {
+        echo '<div class="sfs-hr-alert" style="margin-top:20px;">';
+        echo esc_html__( 'Documents module is not available.', 'sfs-hr' );
+        echo '</div>';
+        return;
+    }
+
+    $documents_service = '\SFS\HR\Modules\Documents\Services\Documents_Service';
+
+    // Get grouped documents
+    $grouped = $documents_service::get_documents_grouped( $emp_id );
+    $document_types = $documents_service::get_document_types();
+    $uploadable_types = $documents_service::get_uploadable_document_types_for_employee( $emp_id );
+
+    ?>
+    <div class="sfs-hr-documents-tab" style="margin-top:20px;">
+
+        <!-- Upload Form (for uploadable types only) -->
+        <?php if ( ! empty( $uploadable_types ) ) : ?>
+            <div class="sfs-hr-profile-group" style="margin-bottom:20px;">
+                <div class="sfs-hr-profile-group-title"><?php esc_html_e( 'Upload Document', 'sfs-hr' ); ?></div>
+                <div class="sfs-hr-profile-group-body">
+                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data">
+                        <input type="hidden" name="action" value="sfs_hr_upload_document" />
+                        <input type="hidden" name="employee_id" value="<?php echo (int)$emp_id; ?>" />
+                        <input type="hidden" name="redirect_page" value="sfs-hr-my-profile" />
+                        <?php wp_nonce_field( 'sfs_hr_upload_document_' . $emp_id, '_wpnonce' ); ?>
+
+                        <div class="sfs-hr-field-row" style="padding:12px 0;">
+                            <div class="sfs-hr-field-label"><?php esc_html_e( 'Document Type', 'sfs-hr' ); ?></div>
+                            <div class="sfs-hr-field-value">
+                                <select name="document_type" required style="width:100%;max-width:300px;padding:8px;border:1px solid var(--sfs-border);border-radius:6px;background:var(--sfs-surface);color:var(--sfs-text);">
+                                    <option value=""><?php esc_html_e( '— Select Type —', 'sfs-hr' ); ?></option>
+                                    <?php foreach ( $uploadable_types as $key => $info ) : ?>
+                                        <?php
+                                        $label = $info['label'];
+                                        $hint = '';
+                                        if ( $info['reason'] === 'expired' ) {
+                                            $hint = ' (' . __( 'expired - update required', 'sfs-hr' ) . ')';
+                                        } elseif ( $info['reason'] === 'update_requested' ) {
+                                            $hint = ' (' . __( 'update requested by HR', 'sfs-hr' ) . ')';
+                                        }
+                                        ?>
+                                        <option value="<?php echo esc_attr( $key ); ?>"><?php echo esc_html( $label . $hint ); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <div style="font-size:12px;color:var(--sfs-text-muted);margin-top:4px;"><?php esc_html_e( 'Only document types that need to be added or updated are shown.', 'sfs-hr' ); ?></div>
+                            </div>
+                        </div>
+
+                        <div class="sfs-hr-field-row" style="padding:12px 0;">
+                            <div class="sfs-hr-field-label"><?php esc_html_e( 'Document Name', 'sfs-hr' ); ?></div>
+                            <div class="sfs-hr-field-value">
+                                <input type="text" name="document_name" required style="width:100%;max-width:300px;padding:8px;border:1px solid var(--sfs-border);border-radius:6px;background:var(--sfs-surface);color:var(--sfs-text);" placeholder="<?php esc_attr_e( 'e.g., National ID Copy', 'sfs-hr' ); ?>" />
+                            </div>
+                        </div>
+
+                        <div class="sfs-hr-field-row" style="padding:12px 0;">
+                            <div class="sfs-hr-field-label"><?php esc_html_e( 'File', 'sfs-hr' ); ?></div>
+                            <div class="sfs-hr-field-value">
+                                <input type="file" name="document_file" required accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx" style="width:100%;max-width:300px;" />
+                                <div style="font-size:12px;color:var(--sfs-text-muted);margin-top:4px;"><?php esc_html_e( 'Accepted: PDF, Images, Word, Excel (max 10MB)', 'sfs-hr' ); ?></div>
+                            </div>
+                        </div>
+
+                        <div class="sfs-hr-field-row" style="padding:12px 0;">
+                            <div class="sfs-hr-field-label"><?php esc_html_e( 'Expiry Date', 'sfs-hr' ); ?></div>
+                            <div class="sfs-hr-field-value">
+                                <input type="date" name="expiry_date" style="width:100%;max-width:200px;padding:8px;border:1px solid var(--sfs-border);border-radius:6px;background:var(--sfs-surface);color:var(--sfs-text);" />
+                                <div style="font-size:12px;color:var(--sfs-text-muted);margin-top:4px;"><?php esc_html_e( 'Optional - for IDs, passports, licenses, etc.', 'sfs-hr' ); ?></div>
+                            </div>
+                        </div>
+
+                        <div class="sfs-hr-field-row" style="padding:12px 0;">
+                            <div class="sfs-hr-field-label"><?php esc_html_e( 'Notes', 'sfs-hr' ); ?></div>
+                            <div class="sfs-hr-field-value">
+                                <textarea name="description" rows="2" style="width:100%;max-width:300px;padding:8px;border:1px solid var(--sfs-border);border-radius:6px;background:var(--sfs-surface);color:var(--sfs-text);" placeholder="<?php esc_attr_e( 'Optional notes...', 'sfs-hr' ); ?>"></textarea>
+                            </div>
+                        </div>
+
+                        <div style="padding:12px 0;">
+                            <button type="submit" class="sfs-hr-att-btn" style="padding:10px 20px;border-radius:8px;border:none;cursor:pointer;"><?php esc_html_e( 'Upload Document', 'sfs-hr' ); ?></button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        <?php else : ?>
+            <div class="sfs-hr-profile-group" style="margin-bottom:20px;">
+                <div class="sfs-hr-profile-group-body" style="text-align:center;padding:20px;">
+                    <div style="font-size:14px;color:var(--sfs-text-muted);">
+                        <?php esc_html_e( 'All documents are up to date. If you need to update a document, please contact HR.', 'sfs-hr' ); ?>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <!-- Documents List -->
+        <div class="sfs-hr-profile-group">
+            <div class="sfs-hr-profile-group-title"><?php esc_html_e( 'My Documents', 'sfs-hr' ); ?></div>
+            <div class="sfs-hr-profile-group-body">
+                <?php if ( empty( $grouped ) ) : ?>
+                    <div style="padding:20px;text-align:center;color:var(--sfs-text-muted);">
+                        <?php esc_html_e( 'No documents uploaded yet.', 'sfs-hr' ); ?>
+                    </div>
+                <?php else : ?>
+                    <?php foreach ( $document_types as $type_key => $type_label ) : ?>
+                        <?php if ( ! empty( $grouped[ $type_key ] ) ) : ?>
+                            <div style="margin-bottom:16px;">
+                                <div style="font-weight:600;font-size:14px;color:var(--sfs-text);margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--sfs-border);">
+                                    <?php echo esc_html( $type_label ); ?> (<?php echo count( $grouped[ $type_key ] ); ?>)
+                                </div>
+
+                                <?php foreach ( $grouped[ $type_key ] as $doc ) : ?>
+                                    <?php
+                                    $file_url = wp_get_attachment_url( $doc->attachment_id );
+                                    $file_size = size_format( $doc->file_size, 1 );
+                                    $expiry = $documents_service::get_expiry_status( $doc->expiry_date );
+                                    $has_update_request = ! empty( $doc->update_requested_at );
+                                    ?>
+                                    <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:var(--sfs-background);border-radius:8px;margin-bottom:8px;">
+                                        <div style="flex:1;">
+                                            <div style="font-weight:500;color:var(--sfs-text);margin-bottom:4px;">
+                                                <?php echo esc_html( $doc->document_name ); ?>
+                                                <?php if ( $expiry['label'] ) : ?>
+                                                    <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;background:<?php echo $expiry['class'] === 'expired' ? '#fee2e2' : ( $expiry['class'] === 'expiring-soon' ? '#fef3c7' : '#d1fae5' ); ?>;color:<?php echo $expiry['class'] === 'expired' ? '#dc2626' : ( $expiry['class'] === 'expiring-soon' ? '#d97706' : '#059669' ); ?>;">
+                                                        <?php echo esc_html( $expiry['label'] ); ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                                <?php if ( $has_update_request ) : ?>
+                                                    <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:4px;background:#dbeafe;color:#1d4ed8;" title="<?php echo esc_attr( $doc->update_request_reason ?: __( 'Update requested by HR', 'sfs-hr' ) ); ?>">
+                                                        <?php esc_html_e( 'Update Requested', 'sfs-hr' ); ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                            </div>
+                                            <div style="font-size:12px;color:var(--sfs-text-muted);">
+                                                <?php echo esc_html( $doc->file_name ); ?> · <?php echo esc_html( $file_size ); ?> · <?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $doc->created_at ) ) ); ?>
+                                            </div>
+                                            <?php if ( $doc->description ) : ?>
+                                                <div style="font-size:12px;color:var(--sfs-text-muted);margin-top:4px;font-style:italic;">
+                                                    <?php echo esc_html( wp_trim_words( $doc->description, 15 ) ); ?>
+                                                </div>
+                                            <?php endif; ?>
+                                            <?php if ( $has_update_request && $doc->update_request_reason ) : ?>
+                                                <div style="font-size:12px;color:var(--sfs-text-muted);margin-top:4px;">
+                                                    <strong><?php esc_html_e( 'Reason:', 'sfs-hr' ); ?></strong> <?php echo esc_html( $doc->update_request_reason ); ?>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div style="flex-shrink:0;">
+                                            <?php if ( $file_url ) : ?>
+                                                <a href="<?php echo esc_url( $file_url ); ?>" download style="display:inline-block;padding:6px 12px;background:var(--sfs-primary);color:#fff;border-radius:6px;font-size:12px;text-decoration:none;">
+                                                    <?php esc_html_e( 'Download', 'sfs-hr' ); ?>
+                                                </a>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+    <?php
 }
 
 
