@@ -236,7 +236,84 @@ class Shortcodes {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
+        /* Full width - break out of container */
+        width: 100vw;
+        position: relative;
+        left: 50%;
+        right: 50%;
+        margin-left: -50vw;
+        margin-right: -50vw;
+        background: var(--sfs-background);
     }
+
+    /* App Header - Full width sticky header */
+    .sfs-hr-app-header {
+        position: sticky;
+        top: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        background: var(--sfs-surface);
+        border-bottom: 1px solid var(--sfs-border);
+        z-index: 1000;
+        padding: 12px 16px;
+        padding-top: calc(12px + var(--sfs-safe-top));
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-sizing: border-box;
+    }
+    .admin-bar .sfs-hr-app-header {
+        top: 32px;
+    }
+    @media (max-width: 782px) {
+        .admin-bar .sfs-hr-app-header {
+            top: 46px;
+        }
+    }
+    .sfs-hr-app-header-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--sfs-text);
+        margin: 0;
+    }
+    .sfs-hr-app-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Dark mode toggle in header */
+    .sfs-hr-theme-toggle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--sfs-background);
+        border: 1px solid var(--sfs-border);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        padding: 0;
+    }
+    .sfs-hr-theme-toggle:hover {
+        background: var(--sfs-border);
+    }
+    .sfs-hr-theme-toggle:active {
+        transform: scale(0.95);
+    }
+    .sfs-hr-theme-toggle svg {
+        width: 20px;
+        height: 20px;
+        stroke: var(--sfs-text);
+        fill: none;
+        stroke-width: 2;
+    }
+    .sfs-hr-theme-toggle .sfs-hr-icon-sun { display: none; }
+    .sfs-hr-theme-toggle .sfs-hr-icon-moon { display: block; }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-theme-toggle .sfs-hr-icon-sun { display: block; }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-theme-toggle .sfs-hr-icon-moon { display: none; }
 
     /* Offline indicator */
     .sfs-hr-offline-banner {
@@ -348,34 +425,11 @@ class Shortcodes {
         background: #e5e7eb;
     }
 
-    /* Mobile-optimized header */
+    /* Mobile-optimized layout */
     @media (max-width: 768px) {
         /* Full width on mobile - remove side padding */
         .sfs-hr-pwa-app {
             margin: 0 -15px; /* Compensate for WordPress content padding */
-        }
-
-        .sfs-hr-pwa-app .sfs-hr-profile > h3 {
-            position: sticky;
-            top: 0;
-            background: var(--sfs-surface);
-            margin: 0;
-            padding: 14px 16px;
-            padding-top: calc(14px + var(--sfs-safe-top));
-            border-bottom: 1px solid var(--sfs-border);
-            z-index: 100;
-            font-size: 18px;
-            font-weight: 600;
-        }
-
-        /* Account for WP admin bar when logged in */
-        .admin-bar .sfs-hr-pwa-app .sfs-hr-profile > h3 {
-            top: 32px;
-        }
-        @media (max-width: 782px) {
-            .admin-bar .sfs-hr-pwa-app .sfs-hr-profile > h3 {
-                top: 46px;
-            }
         }
 
         .sfs-hr-pwa-app .sfs-hr-profile {
@@ -489,6 +543,37 @@ class Shortcodes {
         border-radius: 12px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         border: 1px solid var(--sfs-border);
+    }
+
+    /* Quick links styling */
+    .sfs-hr-quick-links .sfs-hr-profile-group-body {
+        padding: 0;
+    }
+    .sfs-hr-quick-link {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        color: var(--sfs-text);
+        text-decoration: none;
+        transition: background 0.15s ease;
+        border-radius: 8px;
+    }
+    .sfs-hr-quick-link:hover {
+        background: var(--sfs-background);
+    }
+    .sfs-hr-quick-link svg {
+        width: 20px;
+        height: 20px;
+        stroke: var(--sfs-primary);
+        flex-shrink: 0;
+    }
+    .sfs-hr-quick-link span {
+        flex: 1;
+        font-weight: 500;
+    }
+    .sfs-hr-quick-link-arrow {
+        stroke: var(--sfs-text-muted);
     }
 
     /* Smooth transitions */
@@ -710,39 +795,7 @@ class Shortcodes {
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-my-assets-frontend,
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-card { background: var(--sfs-surface); border-color: var(--sfs-border); }
 
-    /* Dark mode toggle button */
-    .sfs-hr-theme-toggle {
-        position: fixed;
-        bottom: 80px;
-        right: 16px;
-        width: 44px;
-        height: 44px;
-        border-radius: 50%;
-        background: var(--sfs-surface);
-        border: 1px solid var(--sfs-border);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 9997;
-        transition: all 0.2s ease;
-        padding-bottom: var(--sfs-safe-bottom);
-    }
-    .sfs-hr-theme-toggle:hover {
-        transform: scale(1.1);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    }
-    .sfs-hr-theme-toggle svg {
-        width: 22px;
-        height: 22px;
-        stroke: var(--sfs-text);
-        fill: none;
-    }
-    .sfs-hr-theme-toggle .sfs-hr-icon-sun { display: none; }
-    .sfs-hr-theme-toggle .sfs-hr-icon-moon { display: block; }
-    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-theme-toggle .sfs-hr-icon-sun { display: block; }
-    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-theme-toggle .sfs-hr-icon-moon { display: none; }
+    /* Dark mode toggle - moved to header, no floating button */
     </style>
 
     <!-- PWA App Wrapper -->
@@ -786,8 +839,30 @@ class Shortcodes {
         </div>
     </div>
 
+    <!-- App Header with Title and Dark Mode Toggle -->
+    <header class="sfs-hr-app-header">
+        <h1 class="sfs-hr-app-header-title"><?php echo esc_html__( 'My HR Profile', 'sfs-hr' ); ?></h1>
+        <div class="sfs-hr-app-header-actions">
+            <button type="button" class="sfs-hr-theme-toggle" id="sfs-hr-theme-toggle-<?php echo esc_attr($pwa_instance); ?>" title="<?php esc_attr_e('Toggle dark mode', 'sfs-hr'); ?>">
+                <svg class="sfs-hr-icon-moon" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+                <svg class="sfs-hr-icon-sun" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+            </button>
+        </div>
+    </header>
+
     <div class="sfs-hr sfs-hr-profile sfs-hr-profile--frontend">
-        <h3><?php echo esc_html__( 'My HR Profile', 'sfs-hr' ); ?></h3>
 
         <?php if ( $is_terminated ) : ?>
             <div class="sfs-hr-alert" style="background:#fff3cd;color:#856404;padding:15px;border-radius:4px;margin-bottom:20px;">
@@ -838,13 +913,6 @@ class Shortcodes {
                    class="sfs-hr-tab <?php echo ( $active_tab === 'attendance' ) ? 'sfs-hr-tab-active' : ''; ?>">
                     <svg class="sfs-hr-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                     <span><?php esc_html_e( 'Attendance', 'sfs-hr' ); ?></span>
-                </a>
-            <?php endif; ?>
-            <?php if ( ! $is_limited_access ) : ?>
-                <a href="<?php echo esc_url( $documents_url ); ?>"
-                   class="sfs-hr-tab <?php echo ( $active_tab === 'documents' ) ? 'sfs-hr-tab-active' : ''; ?>">
-                    <svg class="sfs-hr-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-                    <span><?php esc_html_e( 'Documents', 'sfs-hr' ); ?></span>
                 </a>
             <?php endif; ?>
         </div>
@@ -1033,6 +1101,19 @@ class Shortcodes {
                             ?>
                         </div>
                     </div>
+
+                    <?php if ( ! $is_limited_access ) : ?>
+                    <div class="sfs-hr-profile-group sfs-hr-quick-links">
+                        <div class="sfs-hr-profile-group-title"><?php esc_html_e( 'Quick Links', 'sfs-hr' ); ?></div>
+                        <div class="sfs-hr-profile-group-body">
+                            <a href="<?php echo esc_url( $documents_url ); ?>" class="sfs-hr-quick-link">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                                <span><?php esc_html_e( 'My Documents', 'sfs-hr' ); ?></span>
+                                <svg class="sfs-hr-quick-link-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            </a>
+                        </div>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -2272,24 +2353,6 @@ class Shortcodes {
 
 
     </style>
-
-    <!-- Dark Mode Toggle Button -->
-    <button type="button" class="sfs-hr-theme-toggle" id="sfs-hr-theme-toggle-<?php echo esc_attr($pwa_instance); ?>" title="<?php esc_attr_e('Toggle dark mode', 'sfs-hr'); ?>">
-        <svg class="sfs-hr-icon-moon" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-        </svg>
-        <svg class="sfs-hr-icon-sun" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="5"></circle>
-            <line x1="12" y1="1" x2="12" y2="3"></line>
-            <line x1="12" y1="21" x2="12" y2="23"></line>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-            <line x1="1" y1="12" x2="3" y2="12"></line>
-            <line x1="21" y1="12" x2="23" y2="12"></line>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-        </svg>
-    </button>
 
     </div><!-- /.sfs-hr-pwa-app -->
 
