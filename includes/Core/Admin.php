@@ -3273,6 +3273,11 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         $payload['updated_at']             = Helpers::now_mysql();
 
         if ( $exists ) {
+            // Prevent setting status to 'terminated' if employee has future last_working_day
+            if ( $status === 'terminated' && !Helpers::can_terminate_employee($exists) ) {
+                // Keep existing status instead of terminating early
+                unset($payload['status']);
+            }
             $wpdb->update($table, $payload, ['id'=>$exists]);
             $employee_id = $exists;
             $updated++;
@@ -3306,6 +3311,15 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
         check_admin_referer('sfs_hr_term_'.$id);
         if ($id<=0) wp_safe_redirect( admin_url('admin.php?page=sfs-hr-employees&err=id') );
+
+        // Check if employee can be terminated (last_working_day must have passed)
+        if (!Helpers::can_terminate_employee($id)) {
+            Helpers::redirect_with_notice(
+                admin_url('admin.php?page=sfs-hr-employees'),
+                'error',
+                __('Cannot terminate: employee has an approved resignation with a future last working day.', 'sfs-hr')
+            );
+        }
 
         global $wpdb; $table = $wpdb->prefix.'sfs_hr_employees';
         $wpdb->update($table, ['status'=>'terminated','updated_at'=>Helpers::now_mysql()], ['id'=>$id]);
@@ -3893,6 +3907,17 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
     // Get old data for audit log before update
     $old_data = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $id ), ARRAY_A );
+
+    // Prevent setting status to 'terminated' if employee has future last_working_day
+    if ( isset($payload['status']) && $payload['status'] === 'terminated' ) {
+        if ( $old_data && ($old_data['status'] ?? '') !== 'terminated' && !Helpers::can_terminate_employee($id) ) {
+            Helpers::redirect_with_notice(
+                admin_url('admin.php?page=sfs-hr-employees&action=edit&id=' . $id),
+                'error',
+                __('Cannot terminate: employee has an approved resignation with a future last working day.', 'sfs-hr')
+            );
+        }
+    }
 
     $wpdb->update($table, $payload, ['id'=>$id]);
 

@@ -60,6 +60,30 @@ class Helpers {
         return $row ?: null;
     }
 
+    /**
+     * Check if an employee can be terminated.
+     * Returns true if termination is allowed, false if they have an approved resignation
+     * with a last_working_day that hasn't passed yet.
+     *
+     * @param int $employee_id Employee ID
+     * @return bool True if can be terminated, false if must wait for last_working_day
+     */
+    public static function can_terminate_employee(int $employee_id): bool {
+        global $wpdb;
+        $resign_table = $wpdb->prefix . 'sfs_hr_resignations';
+        $today = current_time('Y-m-d');
+
+        $last_working_day = $wpdb->get_var($wpdb->prepare(
+            "SELECT last_working_day FROM {$resign_table}
+             WHERE employee_id = %d AND status = 'approved'
+             ORDER BY last_working_day DESC LIMIT 1",
+            $employee_id
+        ));
+
+        // Can terminate if no approved resignation or last_working_day has passed
+        return !$last_working_day || $last_working_day < $today;
+    }
+
     public static function esc_html_if($v){ return $v !== null ? esc_html($v) : ''; }
     public static function esc_attr_if($v){ return $v !== null ? esc_attr($v) : ''; }
 
