@@ -236,22 +236,14 @@ class Shortcodes {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
-        /* Full width - break out of container */
-        width: 100vw;
-        position: relative;
-        left: 50%;
-        right: 50%;
-        margin-left: -50vw;
-        margin-right: -50vw;
         background: var(--sfs-background);
+        max-width: 100%;
     }
 
     /* App Header - Full width sticky header */
     .sfs-hr-app-header {
         position: sticky;
         top: 0;
-        left: 0;
-        right: 0;
         width: 100%;
         background: var(--sfs-surface);
         border-bottom: 1px solid var(--sfs-border);
@@ -427,21 +419,23 @@ class Shortcodes {
 
     /* Mobile-optimized layout */
     @media (max-width: 768px) {
-        /* Full width on mobile - remove side padding */
-        .sfs-hr-pwa-app {
-            margin: 0 -15px; /* Compensate for WordPress content padding */
-        }
-
         .sfs-hr-pwa-app .sfs-hr-profile {
             padding: 0 16px 100px;
             background: var(--sfs-background);
             min-height: 100vh;
         }
 
+        /* App header full width on mobile */
+        .sfs-hr-pwa-app .sfs-hr-app-header {
+            margin: 0;
+            width: 100%;
+            border-radius: 0;
+        }
+
         /* Profile header card on mobile */
         .sfs-hr-pwa-app .sfs-hr-profile-header {
             background: var(--sfs-surface);
-            margin: 16px -16px 0;
+            margin: 16px 0 0;
             padding: 20px 16px;
             border-bottom: 1px solid var(--sfs-border);
         }
@@ -457,7 +451,7 @@ class Shortcodes {
 
         /* Profile groups full width */
         .sfs-hr-pwa-app .sfs-hr-profile-grid {
-            margin: 16px -16px 0;
+            margin: 16px 0 0;
             gap: 0;
         }
         .sfs-hr-pwa-app .sfs-hr-profile-group {
@@ -594,10 +588,8 @@ class Shortcodes {
     /* Profile completion meter mobile */
     @media (max-width: 768px) {
         .sfs-hr-pwa-app .sfs-hr-profile-completion {
-            margin: 0 -16px;
-            border-radius: 0;
-            border-left: none;
-            border-right: none;
+            margin: 16px 0;
+            border-radius: 8px;
         }
     }
 
