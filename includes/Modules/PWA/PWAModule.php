@@ -7,7 +7,7 @@ if (!defined('ABSPATH')) { exit; }
  * PWA Module
  * Progressive Web App infrastructure for mobile attendance
  * Provides: service worker, manifest, offline sync, install prompt
- * Version: 0.1.1
+ * Version: 0.2.0
  * Author: Omar Alnabhani (hdqah.com)
  */
 class PWAModule {
@@ -28,14 +28,11 @@ class PWAModule {
         add_action('wp_enqueue_scripts', [$this, 'register_pwa_scripts']);
         add_action('admin_enqueue_scripts', [$this, 'register_admin_pwa_scripts']);
 
-        // Register REST route for PWA manifest
-        add_action('rest_api_init', [$this, 'register_rest_routes']);
-
-        // Add rewrite rule for service worker
-        add_action('init', [$this, 'add_rewrite_rules']);
-        add_action('init', [$this, 'maybe_flush_rewrite_rules']);
-        add_filter('query_vars', [$this, 'add_query_vars']);
-        add_action('template_redirect', [$this, 'serve_service_worker']);
+        // Serve manifest and service worker via admin-ajax (bypasses REST auth and rewrite issues)
+        add_action('wp_ajax_sfs_hr_pwa_manifest', [$this, 'ajax_serve_manifest']);
+        add_action('wp_ajax_nopriv_sfs_hr_pwa_manifest', [$this, 'ajax_serve_manifest']);
+        add_action('wp_ajax_sfs_hr_pwa_sw', [$this, 'ajax_serve_service_worker']);
+        add_action('wp_ajax_nopriv_sfs_hr_pwa_sw', [$this, 'ajax_serve_service_worker']);
 
         // Add PWA install prompt on admin pages (My Profile)
         add_action('admin_footer', [$this, 'output_pwa_install_prompt']);
@@ -52,10 +49,12 @@ class PWAModule {
             return;
         }
 
-        $manifest_url = rest_url('sfs-hr/v1/pwa/manifest.json');
+        // Use admin-ajax.php for manifest (bypasses REST API auth issues)
+        $manifest_url = admin_url('admin-ajax.php?action=sfs_hr_pwa_manifest');
         ?>
         <link rel="manifest" href="<?php echo esc_url($manifest_url); ?>">
         <meta name="theme-color" content="#2271b1">
+        <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="default">
         <meta name="apple-mobile-web-app-title" content="HR Suite">
@@ -102,8 +101,11 @@ class PWAModule {
             true
         );
 
+        // Use admin-ajax.php for service worker (bypasses rewrite rule issues)
+        $sw_url = admin_url('admin-ajax.php?action=sfs_hr_pwa_sw');
+
         wp_localize_script('sfs-hr-pwa', 'sfsHrPwa', [
-            'serviceWorkerUrl' => home_url('/sfs-hr-sw.js'),
+            'serviceWorkerUrl' => $sw_url,
             'restUrl' => rest_url('sfs-hr/v1/'),
             'nonce' => wp_create_nonce('wp_rest'),
             'isLoggedIn' => is_user_logged_in(),
@@ -122,21 +124,12 @@ class PWAModule {
     }
 
     /**
-     * Register REST routes for PWA
+     * Serve manifest via AJAX (bypasses REST API authentication)
      */
-    public function register_rest_routes(): void {
-        // Serve manifest.json dynamically
-        register_rest_route('sfs-hr/v1', '/pwa/manifest.json', [
-            'methods' => 'GET',
-            'callback' => [$this, 'rest_get_manifest'],
-            'permission_callback' => '__return_true',
-        ]);
-    }
+    public function ajax_serve_manifest(): void {
+        header('Content-Type: application/manifest+json');
+        header('Cache-Control: public, max-age=86400');
 
-    /**
-     * REST: Get dynamic manifest
-     */
-    public function rest_get_manifest(): \WP_REST_Response {
         $manifest = [
             'name' => get_bloginfo('name') . ' - HR Suite',
             'short_name' => 'HR Suite',
@@ -174,61 +167,24 @@ class PWAModule {
             ],
         ];
 
-        $response = new \WP_REST_Response($manifest, 200);
-        $response->header('Content-Type', 'application/manifest+json');
-        return $response;
+        echo wp_json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        exit;
     }
 
     /**
-     * Add rewrite rules for service worker
+     * Serve service worker via AJAX (bypasses rewrite rule issues)
      */
-    public function add_rewrite_rules(): void {
-        add_rewrite_rule('^sfs-hr-sw\.js$', 'index.php?sfs_hr_sw=1', 'top');
-    }
-
-    /**
-     * Flush rewrite rules if our rule is not registered
-     * This ensures the service worker URL works after plugin activation
-     */
-    public function maybe_flush_rewrite_rules(): void {
-        // Only check once per day to avoid performance issues
-        $last_check = get_option('sfs_hr_pwa_rewrite_check', 0);
-        if (time() - $last_check < DAY_IN_SECONDS) {
-            return;
-        }
-
-        // Check if our rewrite rule exists
-        $rules = get_option('rewrite_rules');
-        if (!is_array($rules) || !isset($rules['^sfs-hr-sw\.js$'])) {
-            flush_rewrite_rules(false);
-        }
-
-        update_option('sfs_hr_pwa_rewrite_check', time());
-    }
-
-    /**
-     * Add query vars
-     */
-    public function add_query_vars(array $vars): array {
-        $vars[] = 'sfs_hr_sw';
-        return $vars;
-    }
-
-    /**
-     * Serve service worker
-     */
-    public function serve_service_worker(): void {
-        if (!get_query_var('sfs_hr_sw')) {
-            return;
-        }
-
+    public function ajax_serve_service_worker(): void {
         header('Content-Type: application/javascript');
         header('Service-Worker-Allowed: /');
-        header('Cache-Control: no-cache');
+        header('Cache-Control: no-cache, no-store, must-revalidate');
 
         $sw_path = SFS_HR_DIR . 'assets/pwa/service-worker.js';
         if (file_exists($sw_path)) {
             readfile($sw_path);
+        } else {
+            // Minimal service worker if file doesn't exist
+            echo "// HR Suite Service Worker\nself.addEventListener('fetch', function(event) {});";
         }
         exit;
     }
