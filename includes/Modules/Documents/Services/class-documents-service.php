@@ -272,4 +272,191 @@ class Documents_Service {
         }
         return 'other';
     }
+
+    // =========================================================================
+    // Employee Upload Restrictions
+    // =========================================================================
+
+    /**
+     * Check if an active document of this type exists for the employee
+     */
+    public static function has_active_document_of_type(int $employee_id, string $document_type): bool {
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_employee_documents';
+
+        return (bool) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$table}
+             WHERE employee_id = %d AND document_type = %s AND status = 'active'",
+            $employee_id,
+            $document_type
+        ));
+    }
+
+    /**
+     * Get the active document of a specific type for an employee
+     */
+    public static function get_active_document_of_type(int $employee_id, string $document_type): ?object {
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_employee_documents';
+
+        return $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$table}
+             WHERE employee_id = %d AND document_type = %s AND status = 'active'
+             ORDER BY created_at DESC LIMIT 1",
+            $employee_id,
+            $document_type
+        ));
+    }
+
+    /**
+     * Check if a document is expired
+     */
+    public static function is_document_expired(?string $expiry_date): bool {
+        if (!$expiry_date) {
+            return false;
+        }
+        return strtotime($expiry_date) < strtotime(wp_date('Y-m-d'));
+    }
+
+    /**
+     * Check if an update has been requested for a document
+     */
+    public static function is_update_requested(object $document): bool {
+        return !empty($document->update_requested_at);
+    }
+
+    /**
+     * Check if employee can upload a specific document type
+     * Employee can upload if:
+     * - No active document of this type exists, OR
+     * - Existing document is expired, OR
+     * - HR has requested an update
+     *
+     * @return array ['allowed' => bool, 'reason' => string, 'existing_doc' => ?object]
+     */
+    public static function can_employee_upload_document_type(int $employee_id, string $document_type): array {
+        $existing = self::get_active_document_of_type($employee_id, $document_type);
+
+        if (!$existing) {
+            return [
+                'allowed' => true,
+                'reason' => 'no_existing',
+                'existing_doc' => null,
+            ];
+        }
+
+        // Check if expired
+        if (self::is_document_expired($existing->expiry_date)) {
+            return [
+                'allowed' => true,
+                'reason' => 'expired',
+                'existing_doc' => $existing,
+            ];
+        }
+
+        // Check if update requested
+        if (self::is_update_requested($existing)) {
+            return [
+                'allowed' => true,
+                'reason' => 'update_requested',
+                'existing_doc' => $existing,
+            ];
+        }
+
+        // Document exists, is valid, and no update requested
+        return [
+            'allowed' => false,
+            'reason' => 'already_exists',
+            'existing_doc' => $existing,
+        ];
+    }
+
+    /**
+     * Get document types available for employee to upload
+     * Returns only types that employee is allowed to upload (missing, expired, or update requested)
+     */
+    public static function get_uploadable_document_types_for_employee(int $employee_id): array {
+        $all_types = self::get_document_types();
+        $uploadable = [];
+
+        foreach ($all_types as $type_key => $type_label) {
+            $check = self::can_employee_upload_document_type($employee_id, $type_key);
+            if ($check['allowed']) {
+                $uploadable[$type_key] = [
+                    'label' => $type_label,
+                    'reason' => $check['reason'],
+                    'existing_doc' => $check['existing_doc'],
+                ];
+            }
+        }
+
+        return $uploadable;
+    }
+
+    /**
+     * Request an update for a document (HR/Admin action)
+     */
+    public static function request_document_update(int $document_id, int $requested_by, string $reason = ''): bool {
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_employee_documents';
+
+        $result = $wpdb->update(
+            $table,
+            [
+                'update_requested_at' => current_time('mysql'),
+                'update_requested_by' => $requested_by,
+                'update_request_reason' => $reason,
+                'updated_at' => current_time('mysql'),
+            ],
+            ['id' => $document_id],
+            ['%s', '%d', '%s', '%s'],
+            ['%d']
+        );
+
+        return $result !== false;
+    }
+
+    /**
+     * Clear update request (called when new document is uploaded)
+     */
+    public static function clear_update_request(int $document_id): bool {
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_employee_documents';
+
+        $result = $wpdb->update(
+            $table,
+            [
+                'update_requested_at' => null,
+                'update_requested_by' => null,
+                'update_request_reason' => null,
+                'updated_at' => current_time('mysql'),
+            ],
+            ['id' => $document_id],
+            ['%s', '%s', '%s', '%s'],
+            ['%d']
+        );
+
+        return $result !== false;
+    }
+
+    /**
+     * Get documents pending update for an employee
+     */
+    public static function get_documents_pending_update(int $employee_id): array {
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_employee_documents';
+
+        return $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$table}
+             WHERE employee_id = %d
+               AND status = 'active'
+               AND (
+                   update_requested_at IS NOT NULL
+                   OR (expiry_date IS NOT NULL AND expiry_date < %s)
+               )
+             ORDER BY update_requested_at DESC, expiry_date ASC",
+            $employee_id,
+            wp_date('Y-m-d')
+        ));
+    }
 }

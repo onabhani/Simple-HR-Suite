@@ -17,6 +17,7 @@ class Documents_Handlers {
     public function hooks(): void {
         add_action('admin_post_sfs_hr_upload_document', [$this, 'handle_upload']);
         add_action('admin_post_sfs_hr_delete_document', [$this, 'handle_delete']);
+        add_action('admin_post_sfs_hr_request_document_update', [$this, 'handle_request_update']);
         add_action('wp_ajax_sfs_hr_upload_document', [$this, 'ajax_upload']);
     }
 
@@ -46,7 +47,10 @@ class Documents_Handlers {
 
         // Check permissions
         $current_user_id = get_current_user_id();
-        if ((int)$employee->user_id !== $current_user_id && !current_user_can('sfs_hr.manage')) {
+        $is_hr_admin = current_user_can('sfs_hr.manage');
+        $is_self_upload = ((int)$employee->user_id === $current_user_id);
+
+        if (!$is_self_upload && !$is_hr_admin) {
             wp_die(esc_html__('You do not have permission to upload documents for this employee.', 'sfs-hr'));
         }
 
@@ -59,6 +63,20 @@ class Documents_Handlers {
         if (empty($document_type) || empty($document_name)) {
             $this->redirect_error($employee_id, $redirect_page, __('Document type and name are required.', 'sfs-hr'));
             return;
+        }
+
+        // Employee upload restrictions (HR/admin can always upload)
+        $existing_doc = null;
+        if ($is_self_upload && !$is_hr_admin) {
+            $check = Documents_Service::can_employee_upload_document_type($employee_id, $document_type);
+            if (!$check['allowed']) {
+                $this->redirect_error($employee_id, $redirect_page, __('You cannot upload this document type. A valid document already exists. Contact HR if you need to update it.', 'sfs-hr'));
+                return;
+            }
+            $existing_doc = $check['existing_doc'];
+        } else {
+            // HR/admin: check if there's an existing document to archive
+            $existing_doc = Documents_Service::get_active_document_of_type($employee_id, $document_type);
         }
 
         // Validate file
@@ -90,6 +108,22 @@ class Documents_Handlers {
             return;
         }
 
+        // If replacing an existing document, archive the old one first
+        if ($existing_doc) {
+            Documents_Service::archive_document($existing_doc->id);
+
+            // Log the replacement
+            if (class_exists('\SFS\HR\Core\AuditTrail')) {
+                \SFS\HR\Core\AuditTrail::log(
+                    'document_replaced',
+                    'employee_documents',
+                    $existing_doc->id,
+                    ['status' => 'active'],
+                    ['status' => 'archived', 'replaced_by_upload' => true]
+                );
+            }
+        }
+
         // Create document record
         $doc_id = Documents_Service::create_document([
             'employee_id'   => $employee_id,
@@ -115,15 +149,21 @@ class Documents_Handlers {
                     'employee_id'   => $employee_id,
                     'document_type' => $document_type,
                     'document_name' => $document_name,
+                    'replaced_existing' => $existing_doc ? true : false,
                 ]
             );
         }
 
-        $this->redirect_success($employee_id, $redirect_page, __('Document uploaded successfully.', 'sfs-hr'));
+        $message = $existing_doc
+            ? __('Document updated successfully.', 'sfs-hr')
+            : __('Document uploaded successfully.', 'sfs-hr');
+
+        $this->redirect_success($employee_id, $redirect_page, $message);
     }
 
     /**
      * Handle document deletion
+     * Only HR/Admin can delete documents - employees cannot delete their own documents
      */
     public function handle_delete(): void {
         $document_id = isset($_POST['document_id']) ? (int)$_POST['document_id'] : 0;
@@ -141,12 +181,9 @@ class Documents_Handlers {
             wp_die(esc_html__('Document not found.', 'sfs-hr'));
         }
 
-        // Check permissions
-        $current_user_id = get_current_user_id();
-        $can_delete = ((int)$document->uploaded_by === $current_user_id) || current_user_can('sfs_hr.manage');
-
-        if (!$can_delete) {
-            wp_die(esc_html__('You do not have permission to delete this document.', 'sfs-hr'));
+        // Only HR/Admin can delete documents
+        if (!current_user_can('sfs_hr.manage')) {
+            wp_die(esc_html__('You do not have permission to delete documents. Only HR administrators can delete documents.', 'sfs-hr'));
         }
 
         // Archive document
@@ -164,6 +201,59 @@ class Documents_Handlers {
         }
 
         $this->redirect_success($employee_id, $redirect_page, __('Document deleted.', 'sfs-hr'));
+    }
+
+    /**
+     * Handle document update request (HR/Admin action)
+     * This allows HR to flag a document for the employee to update
+     */
+    public function handle_request_update(): void {
+        $document_id = isset($_POST['document_id']) ? (int)$_POST['document_id'] : 0;
+        $employee_id = isset($_POST['employee_id']) ? (int)$_POST['employee_id'] : 0;
+        $redirect_page = isset($_POST['redirect_page']) ? sanitize_key($_POST['redirect_page']) : 'sfs-hr-employee-profile';
+        $reason = isset($_POST['update_reason']) ? sanitize_text_field($_POST['update_reason']) : '';
+
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['_wpnonce'] ?? '', 'sfs_hr_request_update_' . $document_id)) {
+            wp_die(esc_html__('Security check failed.', 'sfs-hr'));
+        }
+
+        // Only HR/Admin can request updates
+        if (!current_user_can('sfs_hr.manage')) {
+            wp_die(esc_html__('You do not have permission to request document updates.', 'sfs-hr'));
+        }
+
+        // Get document
+        $document = Documents_Service::get_document($document_id);
+        if (!$document) {
+            wp_die(esc_html__('Document not found.', 'sfs-hr'));
+        }
+
+        // Request update
+        $current_user_id = get_current_user_id();
+        $result = Documents_Service::request_document_update($document_id, $current_user_id, $reason);
+
+        if (!$result) {
+            $this->redirect_error($employee_id, $redirect_page, __('Failed to request document update.', 'sfs-hr'));
+            return;
+        }
+
+        // Log action
+        if (class_exists('\SFS\HR\Core\AuditTrail')) {
+            \SFS\HR\Core\AuditTrail::log(
+                'document_update_requested',
+                'employee_documents',
+                $document_id,
+                ['update_requested_at' => null],
+                [
+                    'update_requested_at' => current_time('mysql'),
+                    'update_requested_by' => $current_user_id,
+                    'reason' => $reason,
+                ]
+            );
+        }
+
+        $this->redirect_success($employee_id, $redirect_page, __('Update request sent. Employee can now upload a new version.', 'sfs-hr'));
     }
 
     /**

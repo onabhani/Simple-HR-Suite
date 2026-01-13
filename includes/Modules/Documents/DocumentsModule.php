@@ -81,6 +81,9 @@ class DocumentsModule {
                 expiry_date DATE DEFAULT NULL,
                 uploaded_by BIGINT(20) UNSIGNED NOT NULL,
                 status ENUM('active','archived','expired') DEFAULT 'active',
+                update_requested_at DATETIME DEFAULT NULL,
+                update_requested_by BIGINT(20) UNSIGNED DEFAULT NULL,
+                update_request_reason VARCHAR(255) DEFAULT NULL,
                 created_at DATETIME NOT NULL,
                 updated_at DATETIME NOT NULL,
                 PRIMARY KEY (id),
@@ -89,6 +92,30 @@ class DocumentsModule {
                 KEY status (status),
                 KEY expiry_date (expiry_date)
             ) {$charset_collate}");
+        } else {
+            // Add update_requested columns if they don't exist (migration)
+            $this->maybe_add_update_request_columns($table);
+        }
+    }
+
+    /**
+     * Add update request columns if they don't exist (migration for existing installs)
+     */
+    private function maybe_add_update_request_columns(string $table): void {
+        global $wpdb;
+
+        $column_exists = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.columns
+             WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'update_requested_at'",
+            $table
+        ));
+
+        if (!$column_exists) {
+            $wpdb->query("ALTER TABLE {$table}
+                ADD COLUMN update_requested_at DATETIME DEFAULT NULL AFTER status,
+                ADD COLUMN update_requested_by BIGINT(20) UNSIGNED DEFAULT NULL AFTER update_requested_at,
+                ADD COLUMN update_request_reason VARCHAR(255) DEFAULT NULL AFTER update_requested_by
+            ");
         }
     }
 
