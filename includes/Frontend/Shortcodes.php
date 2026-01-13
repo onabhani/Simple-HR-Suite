@@ -334,22 +334,71 @@ class Shortcodes {
 
     /* Mobile-optimized header */
     @media (max-width: 768px) {
+        /* Full width on mobile - remove side padding */
+        .sfs-hr-pwa-app {
+            margin: 0 -15px; /* Compensate for WordPress content padding */
+        }
+
         .sfs-hr-pwa-app .sfs-hr-profile > h3 {
             position: sticky;
             top: 0;
             background: var(--sfs-surface);
-            margin: 0 -16px;
-            padding: 16px;
-            padding-top: calc(16px + var(--sfs-safe-top));
+            margin: 0;
+            padding: 14px 16px;
+            padding-top: calc(14px + var(--sfs-safe-top));
             border-bottom: 1px solid var(--sfs-border);
             z-index: 100;
             font-size: 18px;
+            font-weight: 600;
+        }
+
+        /* Account for WP admin bar when logged in */
+        .admin-bar .sfs-hr-pwa-app .sfs-hr-profile > h3 {
+            top: 32px;
+        }
+        @media (max-width: 782px) {
+            .admin-bar .sfs-hr-pwa-app .sfs-hr-profile > h3 {
+                top: 46px;
+            }
         }
 
         .sfs-hr-pwa-app .sfs-hr-profile {
             padding: 0 16px 100px;
             background: var(--sfs-background);
             min-height: 100vh;
+        }
+
+        /* Profile header card on mobile */
+        .sfs-hr-pwa-app .sfs-hr-profile-header {
+            background: var(--sfs-surface);
+            margin: 16px -16px 0;
+            padding: 20px 16px;
+            border-bottom: 1px solid var(--sfs-border);
+        }
+
+        /* Profile photo - ensure circle */
+        .sfs-hr-pwa-app .sfs-hr-profile-photo img,
+        .sfs-hr-pwa-app .sfs-hr-emp-photo {
+            width: 80px !important;
+            height: 80px !important;
+            border-radius: 50% !important;
+            object-fit: cover !important;
+        }
+
+        /* Profile groups full width */
+        .sfs-hr-pwa-app .sfs-hr-profile-grid {
+            margin: 16px -16px 0;
+            gap: 0;
+        }
+        .sfs-hr-pwa-app .sfs-hr-profile-group {
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
+            margin-bottom: 0;
+            border-bottom: none;
+        }
+        .sfs-hr-pwa-app .sfs-hr-profile-group + .sfs-hr-profile-group {
+            border-top: 1px solid var(--sfs-border);
         }
 
         /* Bottom tab navigation for mobile */
@@ -393,6 +442,7 @@ class Shortcodes {
             text-decoration: none;
         }
         .sfs-hr-pwa-app .sfs-hr-tab-icon {
+            display: block !important; /* Override desktop hidden */
             width: 20px;
             height: 20px;
             stroke-width: 1.5;
@@ -1306,11 +1356,16 @@ class Shortcodes {
         gap:16px;
         margin:0 0 16px;
     }
+    .sfs-hr-profile-photo {
+        flex-shrink: 0;
+    }
+    .sfs-hr-profile-photo img,
     .sfs-hr-emp-photo {
         width:96px;
         height:96px;
         border-radius:50%;
         object-fit:cover;
+        display: block;
     }
     .sfs-hr-emp-photo--empty {
         width:96px;
