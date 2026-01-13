@@ -748,6 +748,46 @@ class Shortcodes {
             background: var(--sfs-surface);
             border-color: var(--sfs-border);
         }
+
+        /* Leave dashboard and history cards */
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-my-profile-leave h4,
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-my-assets-frontend h4 { color: var(--sfs-text); }
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-summary-title { color: var(--sfs-text); }
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-field-label { color: var(--sfs-text-muted); }
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-field-value { color: var(--sfs-text); }
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-body { border-top-color: var(--sfs-border); }
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-card { border-top-color: var(--sfs-border); }
+
+        /* Form labels */
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) label { color: var(--sfs-text); }
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-self-form label { color: var(--sfs-text); }
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-self-form small { color: var(--sfs-text-muted); }
+
+        /* Date input webkit fixes */
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+        }
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) input[type="date"],
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) input[type="text"],
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) input[type="number"] {
+            color-scheme: dark;
+        }
+
+        /* Stat cards in leave dashboard */
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-stat-card,
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-stat {
+            background: var(--sfs-background);
+            border-color: var(--sfs-border);
+        }
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-stat-card h5,
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-stat-label { color: var(--sfs-text-muted); }
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-stat-value { color: var(--sfs-text); }
+
+        /* Attendance widget */
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-attendance-today,
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-attendance-stats { background: var(--sfs-surface); border-color: var(--sfs-border); }
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-attendance-today h4,
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-attendance-stats h4 { color: var(--sfs-text); }
     }
 
     /* Manual dark mode toggle - when user explicitly enables dark mode */
@@ -794,6 +834,46 @@ class Shortcodes {
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-my-profile-leave,
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-my-assets-frontend,
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-card { background: var(--sfs-surface); border-color: var(--sfs-border); }
+
+    /* Dark mode: Leave dashboard and history cards */
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-my-profile-leave h4,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-my-assets-frontend h4 { color: var(--sfs-text); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-summary-title { color: var(--sfs-text); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-field-label { color: var(--sfs-text-muted); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-field-value { color: var(--sfs-text); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-body { border-top-color: var(--sfs-border); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-card { border-top-color: var(--sfs-border); }
+
+    /* Dark mode: Form labels */
+    .sfs-hr-pwa-app.sfs-hr-dark-mode label { color: var(--sfs-text); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-self-form label { color: var(--sfs-text); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-self-form small { color: var(--sfs-text-muted); }
+
+    /* Dark mode: Date input webkit fixes */
+    .sfs-hr-pwa-app.sfs-hr-dark-mode input[type="date"]::-webkit-calendar-picker-indicator {
+        filter: invert(1);
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode input[type="date"],
+    .sfs-hr-pwa-app.sfs-hr-dark-mode input[type="text"],
+    .sfs-hr-pwa-app.sfs-hr-dark-mode input[type="number"] {
+        color-scheme: dark;
+    }
+
+    /* Dark mode: Stat cards in leave dashboard */
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-stat-card,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-stat {
+        background: var(--sfs-background);
+        border-color: var(--sfs-border);
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-stat-card h5,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-stat-label { color: var(--sfs-text-muted); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-stat-value { color: var(--sfs-text); }
+
+    /* Dark mode: Attendance widget */
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-attendance-today,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-attendance-stats { background: var(--sfs-surface); border-color: var(--sfs-border); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-attendance-today h4,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-attendance-stats h4 { color: var(--sfs-text); }
 
     /* Dark mode toggle - moved to header, no floating button */
     </style>
