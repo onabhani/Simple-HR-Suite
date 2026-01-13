@@ -135,9 +135,24 @@ class Shortcodes {
         $emp_id
     ) ) > 0;
 
+    // Calculate profile completion percentage
+    $profile_fields = [
+        'photo'       => $photo_id > 0,
+        'name'        => $first_name !== '' && $last_name !== '',
+        'email'       => $email !== '',
+        'phone'       => $phone !== '',
+        'gender'      => $gender !== '',
+        'position'    => $position !== '',
+        'department'  => $dept_name !== '',
+        'hire_date'   => $hire_date !== '',
+        'national_id' => $national_id !== '',
+        'emergency'   => $emg_name !== '' && $emg_phone !== '',
+    ];
+    $profile_completed = array_filter($profile_fields);
+    $profile_completion_pct = round((count($profile_completed) / count($profile_fields)) * 100);
+    $profile_missing = array_keys(array_filter($profile_fields, fn($v) => !$v));
 
-
-    // Preload assets once – we’ll show them in both desktop table + mobile cards.
+    // Preload assets once – we'll show them in both desktop table + mobile cards.
     $assign_table = $wpdb->prefix . 'sfs_hr_asset_assignments';
     $asset_table  = $wpdb->prefix . 'sfs_hr_assets';
     $asset_rows   = $wpdb->get_results(
@@ -489,6 +504,162 @@ class Shortcodes {
         content: '';
         display: none;
     }
+
+    /* Profile completion meter mobile */
+    @media (max-width: 768px) {
+        .sfs-hr-pwa-app .sfs-hr-profile-completion {
+            margin: 0 -16px;
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
+        }
+    }
+
+    /* ========== DARK MODE SUPPORT ========== */
+    @media (prefers-color-scheme: dark) {
+        .sfs-hr-pwa-app {
+            --sfs-primary: #38bdf8;
+            --sfs-primary-light: #7dd3fc;
+            --sfs-surface: #1e293b;
+            --sfs-background: #0f172a;
+            --sfs-border: #334155;
+            --sfs-text: #f1f5f9;
+            --sfs-text-muted: #94a3b8;
+            --sfs-success: #34d399;
+            --sfs-warning: #fbbf24;
+            --sfs-danger: #f87171;
+            color-scheme: dark;
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-profile > h3 {
+            color: var(--sfs-text);
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-profile-name {
+            color: var(--sfs-text);
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-chip--code {
+            background: #334155;
+            color: #cbd5e1;
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-chip--status {
+            background: #1e3a5f;
+            color: #7dd3fc;
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-profile-meta-line {
+            color: var(--sfs-text-muted);
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-profile-group {
+            background: var(--sfs-surface);
+            border-color: var(--sfs-border);
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-profile-group-title {
+            color: var(--sfs-text-muted);
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-field-row {
+            border-bottom-color: #334155;
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-field-label {
+            color: var(--sfs-text-muted);
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-field-value {
+            color: var(--sfs-text);
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-emp-photo--empty {
+            background: #334155;
+            color: var(--sfs-text-muted);
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-att-btn {
+            background: var(--sfs-primary);
+            border-color: var(--sfs-primary);
+            color: #0f172a !important;
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-att-btn:hover {
+            background: var(--sfs-primary-light);
+            border-color: var(--sfs-primary-light);
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-profile-tabs {
+            background: var(--sfs-surface);
+            border-top-color: var(--sfs-border);
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-tab {
+            color: var(--sfs-text-muted);
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-tab-active {
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--sfs-primary);
+        }
+
+        /* Profile completion in dark mode */
+        .sfs-hr-pwa-app .sfs-hr-profile-completion {
+            background: linear-gradient(135deg, #0c4a6e 0%, #075985 100%);
+            border-color: #0369a1;
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-completion-title,
+        .sfs-hr-pwa-app .sfs-hr-completion-pct,
+        .sfs-hr-pwa-app .sfs-hr-completion-hint {
+            color: #7dd3fc;
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-completion-bar {
+            background: #0c4a6e;
+        }
+
+        /* Form inputs in dark mode */
+        .sfs-hr-pwa-app input,
+        .sfs-hr-pwa-app select,
+        .sfs-hr-pwa-app textarea {
+            background: var(--sfs-surface);
+            border-color: var(--sfs-border);
+            color: var(--sfs-text);
+        }
+
+        .sfs-hr-pwa-app input::placeholder,
+        .sfs-hr-pwa-app textarea::placeholder {
+            color: var(--sfs-text-muted);
+        }
+
+        /* Tables in dark mode */
+        .sfs-hr-pwa-app .sfs-hr-table th,
+        .sfs-hr-pwa-app .sfs-hr-table td {
+            border-bottom-color: var(--sfs-border);
+            color: var(--sfs-text);
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-table th {
+            color: var(--sfs-text-muted);
+        }
+
+        /* Alerts in dark mode */
+        .sfs-hr-pwa-app .sfs-hr-alert {
+            background: #422006;
+            border-color: #a16207;
+            color: #fef3c7;
+        }
+
+        /* Cards/boxes in dark mode */
+        .sfs-hr-pwa-app .sfs-hr-my-profile-leave,
+        .sfs-hr-pwa-app .sfs-hr-my-assets-frontend,
+        .sfs-hr-pwa-app .sfs-hr-leave-card {
+            background: var(--sfs-surface);
+            border-color: var(--sfs-border);
+        }
+    }
     </style>
 
     <!-- PWA App Wrapper -->
@@ -680,6 +851,38 @@ class Shortcodes {
 <?php endif; ?>
     </div>
 </div>
+
+<?php if ( $profile_completion_pct < 100 ) : ?>
+<div class="sfs-hr-profile-completion">
+    <div class="sfs-hr-completion-header">
+        <span class="sfs-hr-completion-title"><?php esc_html_e( 'Profile Completion', 'sfs-hr' ); ?></span>
+        <span class="sfs-hr-completion-pct"><?php echo esc_html( $profile_completion_pct ); ?>%</span>
+    </div>
+    <div class="sfs-hr-completion-bar">
+        <div class="sfs-hr-completion-fill" style="width:<?php echo esc_attr( $profile_completion_pct ); ?>%"></div>
+    </div>
+    <?php if ( ! empty( $profile_missing ) ) : ?>
+    <div class="sfs-hr-completion-hint">
+        <?php
+        $missing_labels = [
+            'photo' => __('Photo', 'sfs-hr'),
+            'name' => __('Full name', 'sfs-hr'),
+            'email' => __('Email', 'sfs-hr'),
+            'phone' => __('Phone', 'sfs-hr'),
+            'gender' => __('Gender', 'sfs-hr'),
+            'position' => __('Position', 'sfs-hr'),
+            'department' => __('Department', 'sfs-hr'),
+            'hire_date' => __('Hire date', 'sfs-hr'),
+            'national_id' => __('National ID', 'sfs-hr'),
+            'emergency' => __('Emergency contact', 'sfs-hr'),
+        ];
+        $missing_names = array_map(fn($k) => $missing_labels[$k] ?? $k, $profile_missing);
+        echo esc_html( sprintf( __( 'Missing: %s', 'sfs-hr' ), implode( ', ', $missing_names ) ) );
+        ?>
+    </div>
+    <?php endif; ?>
+</div>
+<?php endif; ?>
 
             <div class="sfs-hr-profile-grid">
                 <div class="sfs-hr-profile-col">
@@ -1473,6 +1676,48 @@ class Shortcodes {
         font-weight:600;
     }
 
+    /* Profile Completion Meter */
+    .sfs-hr-profile-completion {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border: 1px solid #bae6fd;
+        border-radius: 10px;
+        padding: 14px 16px;
+        margin: 16px 0;
+    }
+    .sfs-hr-completion-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+    .sfs-hr-completion-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: #0369a1;
+    }
+    .sfs-hr-completion-pct {
+        font-size: 14px;
+        font-weight: 700;
+        color: #0284c7;
+    }
+    .sfs-hr-completion-bar {
+        height: 8px;
+        background: #e0f2fe;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .sfs-hr-completion-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #0ea5e9 0%, #0284c7 100%);
+        border-radius: 4px;
+        transition: width 0.5s ease;
+    }
+    .sfs-hr-completion-hint {
+        margin-top: 8px;
+        font-size: 11px;
+        color: #0369a1;
+    }
+
     /* Overview grid layout */
     .sfs-hr-profile-grid {
         display:grid;
@@ -2005,16 +2250,8 @@ class Shortcodes {
             });
         }
 
-        // Register service worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('<?php echo esc_js(home_url('/sfs-hr-sw.js')); ?>')
-                .then(function(reg) {
-                    console.log('HR Suite SW registered');
-                })
-                .catch(function(err) {
-                    console.log('HR Suite SW registration failed:', err);
-                });
-        }
+        // Service worker is registered by PWAModule (pwa-app.js)
+        // Do not register here to avoid conflicts
 
         // Viewport meta for standalone mode
         if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
