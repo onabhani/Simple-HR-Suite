@@ -436,18 +436,28 @@ class Shortcodes {
 
     /* Mobile-optimized layout - ONLY when PWA app is present */
     @media (max-width: 768px) {
-        /* Background for body and all GeneratePress theme wrapper elements */
-        body:has(.sfs-hr-pwa-app),
-        body:has(.sfs-hr-pwa-app) #page,
-        body:has(.sfs-hr-pwa-app) .site-content,
-        body:has(.sfs-hr-pwa-app) .content-area,
-        body:has(.sfs-hr-pwa-app) .site-main,
-        body:has(.sfs-hr-pwa-app) article,
-        body:has(.sfs-hr-pwa-app) .inside-article,
-        body:has(.sfs-hr-pwa-app) .entry-content {
+        /* Background for body and GeneratePress wrapper elements - DARK MODE ONLY */
+        body:has(.sfs-hr-pwa-app:not(.sfs-hr-light-mode)),
+        body:has(.sfs-hr-pwa-app:not(.sfs-hr-light-mode)) #page,
+        body:has(.sfs-hr-pwa-app:not(.sfs-hr-light-mode)) .site-content,
+        body:has(.sfs-hr-pwa-app:not(.sfs-hr-light-mode)) .content-area,
+        body:has(.sfs-hr-pwa-app:not(.sfs-hr-light-mode)) .site-main,
+        body:has(.sfs-hr-pwa-app:not(.sfs-hr-light-mode)) article,
+        body:has(.sfs-hr-pwa-app:not(.sfs-hr-light-mode)) .inside-article,
+        body:has(.sfs-hr-pwa-app:not(.sfs-hr-light-mode)) .entry-content {
             background-color: #0f172a !important;
-            padding: 0 !important;
-            margin: 0 !important;
+        }
+
+        /* Light mode backgrounds */
+        body:has(.sfs-hr-pwa-app.sfs-hr-light-mode),
+        body:has(.sfs-hr-pwa-app.sfs-hr-light-mode) #page,
+        body:has(.sfs-hr-pwa-app.sfs-hr-light-mode) .site-content,
+        body:has(.sfs-hr-pwa-app.sfs-hr-light-mode) .content-area,
+        body:has(.sfs-hr-pwa-app.sfs-hr-light-mode) .site-main,
+        body:has(.sfs-hr-pwa-app.sfs-hr-light-mode) article,
+        body:has(.sfs-hr-pwa-app.sfs-hr-light-mode) .inside-article,
+        body:has(.sfs-hr-pwa-app.sfs-hr-light-mode) .entry-content {
+            background-color: #f8fafc !important;
         }
 
         /* Remove GeneratePress container padding */
@@ -456,9 +466,19 @@ class Shortcodes {
             padding-left: 0 !important;
             padding-right: 0 !important;
         }
+        body:has(.sfs-hr-pwa-app) #page,
+        body:has(.sfs-hr-pwa-app) .site-content,
+        body:has(.sfs-hr-pwa-app) .content-area,
+        body:has(.sfs-hr-pwa-app) .site-main,
+        body:has(.sfs-hr-pwa-app) article,
+        body:has(.sfs-hr-pwa-app) .inside-article,
+        body:has(.sfs-hr-pwa-app) .entry-content {
+            padding: 0 !important;
+            margin: 0 !important;
+        }
 
-        /* Full-width edge-to-edge layout on mobile */
-        .sfs-hr-pwa-app {
+        /* Full-width edge-to-edge layout on mobile - Dark mode */
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) {
             margin-left: calc(-50vw + 50%);
             margin-right: calc(-50vw + 50%);
             width: 100vw;
@@ -468,8 +488,19 @@ class Shortcodes {
             background: #0f172a !important;
         }
 
-        /* App header - fixed at viewport top */
-        .sfs-hr-pwa-app .sfs-hr-app-header {
+        /* Full-width edge-to-edge layout on mobile - Light mode */
+        .sfs-hr-pwa-app.sfs-hr-light-mode {
+            margin-left: calc(-50vw + 50%);
+            margin-right: calc(-50vw + 50%);
+            width: 100vw;
+            max-width: 100vw;
+            overflow-x: hidden;
+            min-height: 100vh;
+            background: #f8fafc !important;
+        }
+
+        /* App header - fixed at viewport top - Dark mode */
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-app-header {
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
@@ -480,6 +511,23 @@ class Shortcodes {
             padding: 14px 16px !important;
             margin: 0 !important;
             transition: top 0.2s ease;
+        }
+
+        /* App header - fixed at viewport top - Light mode */
+        .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-app-header {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            z-index: 99999 !important;
+            background-color: #ffffff !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+            padding: 14px 16px !important;
+            margin: 0 !important;
+            transition: top 0.2s ease;
+        }
+        .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-app-header-title {
+            color: #1e293b !important;
         }
 
         /* When admin bar is present, position header below it */
@@ -503,12 +551,20 @@ class Shortcodes {
             }
         }
 
-        /* Add top padding to content to account for fixed header */
-        .sfs-hr-pwa-app .sfs-hr-profile {
+        /* Add top padding to content - Dark mode */
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-profile {
             padding: 70px 16px 80px;
             background: #0f172a !important;
             min-height: 100vh;
         }
+
+        /* Add top padding to content - Light mode */
+        .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-profile {
+            padding: 70px 16px 80px;
+            background: #f8fafc !important;
+            min-height: 100vh;
+        }
+
         /* Extra padding when admin bar is present */
         .admin-bar .sfs-hr-pwa-app .sfs-hr-profile {
             padding-top: 102px;
@@ -778,19 +834,35 @@ class Shortcodes {
         }
 
         /* Profile completion in dark mode */
-        .sfs-hr-pwa-app .sfs-hr-profile-completion {
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-profile-completion {
             background: linear-gradient(135deg, #0c4a6e 0%, #075985 100%);
             border-color: #0369a1;
         }
 
-        .sfs-hr-pwa-app .sfs-hr-completion-title,
-        .sfs-hr-pwa-app .sfs-hr-completion-pct,
-        .sfs-hr-pwa-app .sfs-hr-completion-hint {
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-completion-title,
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-completion-pct,
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-completion-hint {
             color: #7dd3fc;
         }
 
-        .sfs-hr-pwa-app .sfs-hr-completion-bar {
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-completion-bar {
             background: #0c4a6e;
+        }
+
+        /* Profile completion in light mode - reset to base styles */
+        .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-profile-completion {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border-color: #bae6fd;
+        }
+        .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-completion-title,
+        .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-completion-pct {
+            color: #0369a1;
+        }
+        .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-completion-hint {
+            color: #0284c7;
+        }
+        .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-completion-bar {
+            background: #e0f2fe;
         }
 
         /* Form inputs in dark mode */
@@ -943,6 +1015,43 @@ class Shortcodes {
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-completion-pct,
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-completion-hint { color: #7dd3fc; }
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-completion-bar { background: #0c4a6e; }
+
+    /* Manual light mode toggle - forces light colors even when system prefers dark */
+    .sfs-hr-pwa-app.sfs-hr-light-mode {
+        --sfs-primary: #0284c7;
+        --sfs-primary-light: #135e96;
+        --sfs-surface: #ffffff;
+        --sfs-background: #f8fafc;
+        --sfs-border: #e5e7eb;
+        --sfs-text: #111827;
+        --sfs-text-muted: #6b7280;
+        --sfs-success: #059669;
+        --sfs-warning: #d97706;
+        --sfs-danger: #dc2626;
+        color-scheme: light;
+        background: #f8fafc !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-app-header {
+        background: #ffffff !important;
+        border-bottom-color: #e5e7eb !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-app-header-title { color: #111827 !important; }
+    .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-profile > h3 { color: #111827; }
+    .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-profile-name { color: #111827; }
+    .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-chip--code { background: #e5e7eb; color: #374151; }
+    .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-chip--status { background: #dbeafe; color: #1d4ed8; }
+    .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-profile-meta-line { color: #6b7280; }
+    .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-profile-group { background: #ffffff; border-color: #e5e7eb; }
+    .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-profile-header { background: #ffffff; border-color: #e5e7eb; }
+    .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-profile-group-title { color: #6b7280; }
+    .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-field-row { border-bottom-color: #e5e7eb; }
+    .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-field-label { color: #6b7280; }
+    .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-field-value { color: #111827; }
+    .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-emp-photo--empty { background: #f3f4f6; color: #6b7280; }
+    .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-att-btn { background: #0284c7; border-color: #0284c7; color: #ffffff !important; }
+    .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-profile-tabs { background: #ffffff; border-top-color: #e5e7eb; }
+    .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-tab { color: #6b7280; }
+    .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-tab-active { background: rgba(2, 132, 199, 0.1); color: #0284c7; }
     .sfs-hr-pwa-app.sfs-hr-dark-mode input,
     .sfs-hr-pwa-app.sfs-hr-dark-mode select,
     .sfs-hr-pwa-app.sfs-hr-dark-mode textarea { background: var(--sfs-surface); border-color: var(--sfs-border); color: var(--sfs-text); }
