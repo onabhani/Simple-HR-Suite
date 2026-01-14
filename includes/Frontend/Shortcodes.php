@@ -479,28 +479,27 @@ class Shortcodes {
             border-bottom: 1px solid #334155 !important;
             padding: 14px 16px !important;
             margin: 0 !important;
+            transition: top 0.2s ease;
         }
 
-        /* When admin bar is present, position header below it but extend color to top */
+        /* When admin bar is present, position header below it */
         .admin-bar .sfs-hr-pwa-app .sfs-hr-app-header {
             top: 32px !important;
-        }
-        .admin-bar .sfs-hr-pwa-app .sfs-hr-app-header::before {
-            content: '';
-            position: absolute;
-            top: -32px;
-            left: 0;
-            right: 0;
-            height: 32px;
-            background-color: #1e293b !important;
         }
         @media screen and (max-width: 782px) {
             .admin-bar .sfs-hr-pwa-app .sfs-hr-app-header {
                 top: 46px !important;
             }
-            .admin-bar .sfs-hr-pwa-app .sfs-hr-app-header::before {
-                top: -46px;
-                height: 46px;
+        }
+
+        /* When scrolled, move header to absolute top and fill gap with header color */
+        .admin-bar .sfs-hr-pwa-app.sfs-hr-scrolled .sfs-hr-app-header {
+            top: 0 !important;
+            padding-top: 46px !important;
+        }
+        @media screen and (min-width: 783px) {
+            .admin-bar .sfs-hr-pwa-app.sfs-hr-scrolled .sfs-hr-app-header {
+                padding-top: 46px !important;
             }
         }
 
@@ -2731,6 +2730,26 @@ class Shortcodes {
         // Viewport meta for standalone mode
         if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
             document.documentElement.classList.add('sfs-hr-standalone');
+        }
+
+        // Scroll detection for header positioning
+        var pwaAppEl = document.getElementById(inst);
+        if (pwaAppEl && document.body.classList.contains('admin-bar')) {
+            var scrollThreshold = 10;
+            var lastScrollY = 0;
+
+            function handleScroll() {
+                var currentScrollY = window.scrollY || window.pageYOffset;
+                if (currentScrollY > scrollThreshold) {
+                    pwaAppEl.classList.add('sfs-hr-scrolled');
+                } else {
+                    pwaAppEl.classList.remove('sfs-hr-scrolled');
+                }
+                lastScrollY = currentScrollY;
+            }
+
+            window.addEventListener('scroll', handleScroll, { passive: true });
+            handleScroll(); // Check initial state
         }
 
         // Dark mode toggle
