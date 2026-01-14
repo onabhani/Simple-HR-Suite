@@ -436,13 +436,9 @@ class Shortcodes {
 
     /* Mobile-optimized layout */
     @media (max-width: 768px) {
-        /* Simple background fix - match page to app */
-        html, body {
-            background: #0f172a !important;
-        }
-        body.sfs-hr-light-mode-page,
-        html:has(.sfs-hr-pwa-app.sfs-hr-light-mode) body {
-            background: #f8fafc !important;
+        /* Match page background to app */
+        html, body, body > * {
+            background-color: #0f172a !important;
         }
 
         /* Full-width edge-to-edge layout on mobile */
@@ -453,35 +449,27 @@ class Shortcodes {
             max-width: 100vw;
             overflow-x: hidden;
             min-height: 100vh;
-            background: var(--sfs-background) !important;
-        }
-
-        /* Ensure dark mode background covers everything */
-        .sfs-hr-pwa-app.sfs-hr-dark-mode,
-        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) {
             background: #0f172a !important;
         }
 
-        /* App header - sticky within app, not fixed to viewport */
+        /* App header - fixed to top of screen */
         .sfs-hr-pwa-app .sfs-hr-app-header {
-            position: sticky !important;
+            position: fixed !important;
             top: 0 !important;
-            z-index: 100 !important;
-            background-color: #ffffff !important;
-            border-bottom: 2px solid var(--sfs-border) !important;
+            left: 0 !important;
+            right: 0 !important;
+            z-index: 99999 !important;
+            background-color: #1e293b !important;
+            border-bottom: 1px solid #334155 !important;
             padding: 14px 16px !important;
             margin: 0 !important;
         }
-        .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-app-header,
-        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-app-header {
-            background-color: #1e293b !important;
-            border-bottom-color: #334155 !important;
-        }
 
+        /* Content padding to account for fixed header */
         .sfs-hr-pwa-app .sfs-hr-profile {
-            padding: 16px 16px 80px;
-            background: var(--sfs-background) !important;
-            min-height: calc(100vh - 56px);
+            padding: 70px 16px 80px;
+            background: #0f172a !important;
+            min-height: 100vh;
         }
 
         /* Profile header card on mobile - unified card style */
