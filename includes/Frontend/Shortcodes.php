@@ -5158,8 +5158,8 @@ private function render_frontend_resignation_tab( array $emp ): void {
                         min="0"
                         readonly
                         required
-                        style="width:100%;max-width:300px;padding:8px;border:1px solid #ddd;border-radius:3px;background:#f5f5f5;cursor:not-allowed;">
-                    <small style="color:#666;">
+                        style="width:100%;max-width:300px;padding:8px;border:1px solid #ddd;border-radius:3px;background:#f5f5f5;cursor:not-allowed;"><br>
+                    <small style="color:#666;display:block;margin-top:4px;">
                         <?php esc_html_e( 'Set by HR based on company policy. Your last working day will be calculated based on this.', 'sfs-hr' ); ?>
                     </small>
                 </p>
