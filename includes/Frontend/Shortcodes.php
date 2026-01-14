@@ -474,13 +474,26 @@ class Shortcodes {
             border-bottom-color: #334155 !important;
         }
         .admin-bar .sfs-hr-pwa-app .sfs-hr-app-header {
-            top: 46px;
+            top: 46px !important;
+        }
+        @media screen and (min-width: 783px) {
+            .admin-bar .sfs-hr-pwa-app .sfs-hr-app-header {
+                top: 32px !important;
+            }
         }
 
         .sfs-hr-pwa-app .sfs-hr-profile {
-            padding: 70px 16px 100px; /* Top padding to account for fixed header */
+            padding: 56px 16px 80px; /* Top padding to account for fixed header */
             background: var(--sfs-background) !important;
             min-height: 100vh;
+        }
+        .admin-bar .sfs-hr-pwa-app .sfs-hr-profile {
+            padding-top: 102px; /* 56px header + 46px admin bar */
+        }
+        @media screen and (min-width: 783px) {
+            .admin-bar .sfs-hr-pwa-app .sfs-hr-profile {
+                padding-top: 88px; /* 56px header + 32px admin bar */
+            }
         }
 
         /* Profile header card on mobile - unified card style */
@@ -2974,9 +2987,17 @@ private function render_frontend_leave_tab( array $emp ): void {
         .sfs-hr-leave-self-form-wrap {
             margin-left: 0;
             margin-right: 0;
+            padding: 14px 12px;
         }
         .sfs-hr-lf-group {
             padding: 0;
+        }
+        .sfs-hr-leave-form-fields {
+            max-width: 100%;
+        }
+        .sfs-hr-leave-self-form input[type="date"] {
+            width: calc(100% - 4px);
+            margin: 0 2px;
         }
     }
 
@@ -3176,10 +3197,12 @@ private function render_frontend_leave_tab( array $emp ): void {
         color: var(--sfs-text) !important;
     }
 
-    /* Leave history section header */
+    /* Leave history and request headers - white text in dark mode */
     .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-my-profile-leave h5,
-    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-my-profile-leave h5 {
-        color: #fbbf24 !important;
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-my-profile-leave h5,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-self-form-wrap h5,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-self-form-wrap h5 {
+        color: var(--sfs-text) !important;
     }
 
     /* Form inputs dark mode */
