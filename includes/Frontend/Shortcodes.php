@@ -2867,11 +2867,26 @@ private function render_frontend_leave_tab( array $emp ): void {
         width: 100%;
         max-width: 100%;
         box-sizing: border-box;
+        border-radius: 8px;
+        border: 1px solid #d1d5db;
+        padding: 10px 12px;
     }
 
     /* Date input styling with proper padding */
     .sfs-hr-leave-self-form input[type="date"] {
         padding: 10px 12px;
+        min-height: 44px;
+    }
+
+    /* Ensure form fields don't touch edges on mobile */
+    @media (max-width: 768px) {
+        .sfs-hr-leave-self-form-wrap {
+            margin-left: 0;
+            margin-right: 0;
+        }
+        .sfs-hr-lf-group {
+            padding: 0;
+        }
     }
 
     .sfs-hr-lf-actions {
@@ -2991,6 +3006,119 @@ private function render_frontend_leave_tab( array $emp ): void {
     @media (max-width: 768px) {
         .sfs-hr-leaves-desktop { display:none; }
         .sfs-hr-leaves-mobile  { display:block; }
+    }
+
+    /* Dark mode overrides for Leave Dashboard */
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-my-profile-leave,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-my-profile-leave {
+        background: var(--sfs-surface) !important;
+        border-color: var(--sfs-border) !important;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-my-profile-leave h4,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-my-profile-leave h4 {
+        color: var(--sfs-text) !important;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-lw-sub,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-lw-sub {
+        color: var(--sfs-text-muted) !important;
+    }
+
+    /* KPI Cards dark mode */
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-lw-kpi-card,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-lw-kpi-card {
+        background: var(--sfs-background) !important;
+        border-color: var(--sfs-border) !important;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-lw-kpi-label,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-lw-kpi-label {
+        color: var(--sfs-text-muted) !important;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-lw-kpi-value,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-lw-kpi-value {
+        color: var(--sfs-text) !important;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-lw-kpi-sub,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-lw-kpi-sub {
+        color: var(--sfs-text-muted) !important;
+    }
+
+    /* Leave form wrapper dark mode */
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-self-form-wrap,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-self-form-wrap {
+        background: var(--sfs-background) !important;
+        border-color: var(--sfs-border) !important;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-self-form-wrap h5,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-self-form-wrap h5 {
+        color: var(--sfs-text) !important;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-lf-label,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-lf-label {
+        color: var(--sfs-text) !important;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-lf-hint,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-lf-hint {
+        color: var(--sfs-text-muted) !important;
+    }
+
+    /* Leave history cards dark mode */
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-card,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-card {
+        background: var(--sfs-background) !important;
+        border-color: var(--sfs-border) !important;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-summary-title,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-summary-title {
+        color: var(--sfs-text) !important;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-field-label,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-field-label {
+        color: var(--sfs-text-muted) !important;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-field-value,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-field-value {
+        color: var(--sfs-text) !important;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-body,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-body {
+        border-top-color: var(--sfs-border) !important;
+        color: var(--sfs-text) !important;
+    }
+
+    /* Leave history section header */
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-my-profile-leave h5,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-my-profile-leave h5 {
+        color: #fbbf24 !important;
+    }
+
+    /* Form inputs dark mode */
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-self-form select,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-self-form input,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-self-form textarea,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-self-form select,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-self-form input,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-self-form textarea {
+        background: var(--sfs-surface) !important;
+        border-color: var(--sfs-border) !important;
+        color: var(--sfs-text) !important;
+    }
+
+    /* Submit button dark mode */
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-lf-submit,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-lf-submit {
+        background: #6b7280 !important;
+        color: #fff !important;
+    }
+
+    /* Status badges in leave history - ensure readability in dark mode */
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-summary-status .sfs-hr-status-chip,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-summary-status .sfs-hr-status-chip {
+        font-size: 11px;
+        padding: 2px 8px;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-card,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-card {
+        padding: 12px 14px;
     }
     </style>
     <?php
