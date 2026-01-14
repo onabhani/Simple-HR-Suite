@@ -436,6 +436,21 @@ class Shortcodes {
 
     /* Mobile-optimized layout */
     @media (max-width: 768px) {
+        /* Force body background to match app - light mode */
+        body:has(.sfs-hr-pwa-app.sfs-hr-light-mode) {
+            background: #f8fafc !important;
+        }
+        body:has(.sfs-hr-pwa-app.sfs-hr-light-mode) > *:not(.sfs-hr-pwa-app):not(#wpadminbar):not(script):not(style):not(link) {
+            background: #f8fafc !important;
+        }
+        /* Force body background to match app - dark mode (default for system dark preference) */
+        body:has(.sfs-hr-pwa-app:not(.sfs-hr-light-mode)) {
+            background: #0f172a !important;
+        }
+        body:has(.sfs-hr-pwa-app:not(.sfs-hr-light-mode)) > *:not(.sfs-hr-pwa-app):not(#wpadminbar):not(script):not(style):not(link) {
+            background: #0f172a !important;
+        }
+
         /* Full-width edge-to-edge layout on mobile */
         .sfs-hr-pwa-app {
             margin-left: calc(-50vw + 50%);
@@ -2987,17 +3002,14 @@ private function render_frontend_leave_tab( array $emp ): void {
         .sfs-hr-leave-self-form-wrap {
             margin-left: 0;
             margin-right: 0;
-            padding: 14px 12px;
-        }
-        .sfs-hr-lf-group {
-            padding: 0;
         }
         .sfs-hr-leave-form-fields {
             max-width: 100%;
+            width: 100%;
+            box-sizing: border-box;
         }
-        .sfs-hr-leave-self-form input[type="date"] {
-            width: calc(100% - 4px);
-            margin: 0 2px;
+        .sfs-hr-lf-row {
+            gap: 8px;
         }
     }
 
