@@ -816,6 +816,14 @@ class Shortcodes {
         .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-attendance-stats h4 { color: var(--sfs-text); }
 
         /* My Attendance section (frontend overview) */
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-my-attendance-frontend {
+            background: var(--sfs-surface) !important;
+            border-color: var(--sfs-border) !important;
+            color: var(--sfs-text);
+        }
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-my-attendance-frontend h4,
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-my-attendance-frontend strong { color: var(--sfs-text); }
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-my-attendance-frontend p { color: var(--sfs-text); }
         .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-att-grid,
         .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-att-card {
             background: var(--sfs-surface);
@@ -928,6 +936,14 @@ class Shortcodes {
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-attendance-stats h4 { color: var(--sfs-text); }
 
     /* Dark mode: My Attendance section (frontend overview) */
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-my-attendance-frontend {
+        background: var(--sfs-surface) !important;
+        border-color: var(--sfs-border) !important;
+        color: var(--sfs-text);
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-my-attendance-frontend h4,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-my-attendance-frontend strong { color: var(--sfs-text); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-my-attendance-frontend p { color: var(--sfs-text); }
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-att-grid,
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-att-card {
         background: var(--sfs-surface);
