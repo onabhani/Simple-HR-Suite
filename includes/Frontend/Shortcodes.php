@@ -489,14 +489,12 @@ class Shortcodes {
             gap: 0;
         }
         .sfs-hr-pwa-app .sfs-hr-profile-group {
-            border-radius: 0;
-            border-left: none;
-            border-right: none;
-            margin-bottom: 0;
-            border-bottom: none;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            border: 1px solid var(--sfs-border);
         }
-        .sfs-hr-pwa-app .sfs-hr-profile-group + .sfs-hr-profile-group {
-            border-top: 1px solid var(--sfs-border);
+        .sfs-hr-pwa-app .sfs-hr-profile-group:last-child {
+            margin-bottom: 0;
         }
 
         /* Bottom tab navigation for mobile */
