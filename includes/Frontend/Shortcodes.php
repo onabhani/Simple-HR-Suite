@@ -505,7 +505,7 @@ class Shortcodes {
             top: 0 !important;
             left: 0 !important;
             right: 0 !important;
-            z-index: 99999 !important;
+            z-index: 9999 !important;
             background-color: #1e293b !important;
             border-bottom: 1px solid #334155 !important;
             padding: 14px 16px !important;
@@ -519,7 +519,7 @@ class Shortcodes {
             top: 0 !important;
             left: 0 !important;
             right: 0 !important;
-            z-index: 99999 !important;
+            z-index: 9999 !important;
             background-color: #ffffff !important;
             border-bottom: 1px solid #e2e8f0 !important;
             padding: 14px 16px !important;
