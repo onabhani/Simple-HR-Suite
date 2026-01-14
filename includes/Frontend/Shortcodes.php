@@ -237,14 +237,12 @@ class Shortcodes {
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         background: var(--sfs-background);
-        max-width: 100%;
     }
 
     /* App Header - Full width sticky header */
     .sfs-hr-app-header {
         position: sticky;
         top: 0;
-        width: 100%;
         background: var(--sfs-surface);
         border-bottom: 1px solid var(--sfs-border);
         z-index: 1000;
@@ -306,6 +304,7 @@ class Shortcodes {
     .sfs-hr-theme-toggle .sfs-hr-icon-moon { display: block; }
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-theme-toggle .sfs-hr-icon-sun { display: block; }
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-theme-toggle .sfs-hr-icon-moon { display: none; }
+
 
     /* Offline indicator */
     .sfs-hr-offline-banner {
@@ -419,6 +418,15 @@ class Shortcodes {
 
     /* Mobile-optimized layout */
     @media (max-width: 768px) {
+        /* Full-width edge-to-edge layout on mobile */
+        .sfs-hr-pwa-app {
+            margin-left: calc(-50vw + 50%);
+            margin-right: calc(-50vw + 50%);
+            width: 100vw;
+            max-width: 100vw;
+            overflow-x: hidden;
+        }
+
         .sfs-hr-pwa-app .sfs-hr-profile {
             padding: 0 16px 100px;
             background: var(--sfs-background);
@@ -427,9 +435,9 @@ class Shortcodes {
 
         /* App header full width on mobile */
         .sfs-hr-pwa-app .sfs-hr-app-header {
-            margin: 0;
             width: 100%;
-            border-radius: 0;
+            padding-left: 16px;
+            padding-right: 16px;
         }
 
         /* Profile header card on mobile */
@@ -780,6 +788,32 @@ class Shortcodes {
         .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-attendance-stats { background: var(--sfs-surface); border-color: var(--sfs-border); }
         .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-attendance-today h4,
         .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-attendance-stats h4 { color: var(--sfs-text); }
+
+        /* My Attendance section (frontend overview) */
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-att-grid,
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-att-card {
+            background: var(--sfs-surface);
+            border-color: var(--sfs-border);
+            color: var(--sfs-text);
+        }
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-att-card h4,
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-att-card h5,
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-att-card strong { color: var(--sfs-text); }
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-att-card p { color: var(--sfs-text-muted); }
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-att-table th { color: var(--sfs-text-muted); background: var(--sfs-background); }
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-att-table td { color: var(--sfs-text); border-color: var(--sfs-border); }
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-att-table { border-color: var(--sfs-border); }
+
+        /* Generic white cards/boxes */
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) div[style*="background:#fff"],
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) div[style*="background: #fff"],
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) div[style*="background:white"],
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) div[style*="background: white"],
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) div[style*="background:#ffffff"],
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) div[style*="background: #ffffff"] {
+            background: var(--sfs-surface) !important;
+            color: var(--sfs-text) !important;
+        }
     }
 
     /* Manual dark mode toggle - when user explicitly enables dark mode */
@@ -866,6 +900,32 @@ class Shortcodes {
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-attendance-stats { background: var(--sfs-surface); border-color: var(--sfs-border); }
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-attendance-today h4,
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-attendance-stats h4 { color: var(--sfs-text); }
+
+    /* Dark mode: My Attendance section (frontend overview) */
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-att-grid,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-att-card {
+        background: var(--sfs-surface);
+        border-color: var(--sfs-border);
+        color: var(--sfs-text);
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-att-card h4,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-att-card h5,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-att-card strong { color: var(--sfs-text); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-att-card p { color: var(--sfs-text-muted); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-att-table th { color: var(--sfs-text-muted); background: var(--sfs-background); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-att-table td { color: var(--sfs-text); border-color: var(--sfs-border); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-att-table { border-color: var(--sfs-border); }
+
+    /* Dark mode: Generic white cards/boxes should use surface color */
+    .sfs-hr-pwa-app.sfs-hr-dark-mode div[style*="background:#fff"],
+    .sfs-hr-pwa-app.sfs-hr-dark-mode div[style*="background: #fff"],
+    .sfs-hr-pwa-app.sfs-hr-dark-mode div[style*="background:white"],
+    .sfs-hr-pwa-app.sfs-hr-dark-mode div[style*="background: white"],
+    .sfs-hr-pwa-app.sfs-hr-dark-mode div[style*="background:#ffffff"],
+    .sfs-hr-pwa-app.sfs-hr-dark-mode div[style*="background: #ffffff"] {
+        background: var(--sfs-surface) !important;
+        color: var(--sfs-text) !important;
+    }
 
     /* Dark mode toggle - moved to header, no floating button */
     </style>
