@@ -481,13 +481,26 @@ class Shortcodes {
             margin: 0 !important;
         }
 
-        /* Adjust header position when WP admin bar is present */
+        /* When admin bar is present, position header below it but extend color to top */
         .admin-bar .sfs-hr-pwa-app .sfs-hr-app-header {
             top: 32px !important;
+        }
+        .admin-bar .sfs-hr-pwa-app .sfs-hr-app-header::before {
+            content: '';
+            position: absolute;
+            top: -32px;
+            left: 0;
+            right: 0;
+            height: 32px;
+            background-color: #1e293b !important;
         }
         @media screen and (max-width: 782px) {
             .admin-bar .sfs-hr-pwa-app .sfs-hr-app-header {
                 top: 46px !important;
+            }
+            .admin-bar .sfs-hr-pwa-app .sfs-hr-app-header::before {
+                top: -46px;
+                height: 46px;
             }
         }
 
@@ -496,6 +509,15 @@ class Shortcodes {
             padding: 70px 16px 80px;
             background: #0f172a !important;
             min-height: 100vh;
+        }
+        /* Extra padding when admin bar is present */
+        .admin-bar .sfs-hr-pwa-app .sfs-hr-profile {
+            padding-top: 102px;
+        }
+        @media screen and (max-width: 782px) {
+            .admin-bar .sfs-hr-pwa-app .sfs-hr-profile {
+                padding-top: 116px;
+            }
         }
 
         /* Profile header card on mobile - unified card style */
