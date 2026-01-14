@@ -243,15 +243,33 @@ class Shortcodes {
     .sfs-hr-app-header {
         position: sticky;
         top: 0;
-        background: var(--sfs-surface);
-        border-bottom: 1px solid var(--sfs-border);
+        background: var(--sfs-surface) !important;
+        border-bottom: 2px solid var(--sfs-border) !important;
         z-index: 1000;
-        padding: 12px 16px;
-        padding-top: calc(12px + var(--sfs-safe-top));
-        display: flex;
+        padding: 14px 16px;
+        padding-top: calc(14px + var(--sfs-safe-top));
+        display: flex !important;
         align-items: center;
         justify-content: space-between;
         box-sizing: border-box;
+        min-height: 56px;
+    }
+    /* Dark mode header */
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-app-header {
+        background: #1e293b !important;
+        border-bottom-color: #334155 !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-app-header-title {
+        color: #f1f5f9 !important;
+    }
+    @media (prefers-color-scheme: dark) {
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-app-header {
+            background: #1e293b !important;
+            border-bottom-color: #334155 !important;
+        }
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-app-header-title {
+            color: #f1f5f9 !important;
+        }
     }
     .admin-bar .sfs-hr-app-header {
         top: 32px;
@@ -528,11 +546,11 @@ class Shortcodes {
             stroke-width: 2;
         }
 
-        /* Hide site header on mobile HR profile */
+        /* Hide site header on mobile HR profile (but not our app header) */
         .sfs-hr-pwa-app ~ header,
         .sfs-hr-pwa-app ~ .site-header,
         .sfs-hr-pwa-app ~ #masthead,
-        body:has(.sfs-hr-pwa-app) header:not(.sfs-hr-pwa-header),
+        body:has(.sfs-hr-pwa-app) header:not(.sfs-hr-app-header),
         body:has(.sfs-hr-pwa-app) .site-header,
         body:has(.sfs-hr-pwa-app) #masthead {
             display: none !important;
