@@ -1094,6 +1094,166 @@ class Shortcodes {
         background: var(--sfs-background) !important;
     }
 
+    /* Dark mode: Asset status pills - improved contrast */
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-asset-status-pill,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-asset-status-pill {
+        background: var(--sfs-background) !important;
+        border-color: var(--sfs-border) !important;
+        color: var(--sfs-text) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-asset-summary-status .sfs-hr-asset-status-pill[style*="background:#fef9c3"],
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-asset-summary-status .sfs-hr-asset-status-pill[style*="background:#fef9c3"] {
+        background: #422006 !important;
+        border-color: #a16207 !important;
+        color: #fbbf24 !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-asset-summary-status .sfs-hr-asset-status-pill[style*="background:#dcfce7"],
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-asset-summary-status .sfs-hr-asset-status-pill[style*="background:#dcfce7"] {
+        background: #052e16 !important;
+        border-color: #166534 !important;
+        color: #34d399 !important;
+    }
+    /* Generic status pill overrides */
+    .sfs-hr-pwa-app.sfs-hr-dark-mode span[style*="background:#fef9c3"],
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) span[style*="background:#fef9c3"] {
+        background: #422006 !important;
+        border-color: #a16207 !important;
+        color: #fbbf24 !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode span[style*="background:#dcfce7"],
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) span[style*="background:#dcfce7"] {
+        background: #052e16 !important;
+        border-color: #166534 !important;
+        color: #34d399 !important;
+    }
+
+    /* Dark mode: Profile group spacing - add more space between cards */
+    @media (max-width: 768px) {
+        .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-profile-group,
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-profile-group {
+            margin-bottom: 16px !important;
+        }
+    }
+
+    /* Dark mode: Date inputs - prevent overflow */
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-self-form input[type="date"],
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-self-form input[type="date"],
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-lf-row input[type="date"],
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-lf-row input[type="date"] {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Dark mode: File input button - improved styling */
+    .sfs-hr-pwa-app.sfs-hr-dark-mode input[type="file"],
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) input[type="file"] {
+        background: var(--sfs-surface) !important;
+        border: 1px solid var(--sfs-border) !important;
+        border-radius: 6px !important;
+        padding: 8px !important;
+        color: var(--sfs-text) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode input[type="file"]::file-selector-button,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) input[type="file"]::file-selector-button {
+        background: var(--sfs-primary) !important;
+        color: #0f172a !important;
+        border: none !important;
+        border-radius: 4px !important;
+        padding: 6px 12px !important;
+        margin-right: 10px !important;
+        cursor: pointer !important;
+        font-weight: 500 !important;
+    }
+
+    /* Dark mode: Submit buttons - improved styling */
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-lf-submit,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-lf-submit,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .button-primary,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .button-primary,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode button[type="submit"],
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) button[type="submit"] {
+        background: var(--sfs-primary) !important;
+        color: #0f172a !important;
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 12px 24px !important;
+        font-weight: 600 !important;
+        cursor: pointer !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-lf-submit:hover,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-lf-submit:hover {
+        background: #7dd3fc !important;
+    }
+
+    /* Dark mode: Loans tab - comprehensive styling */
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-loans-tab,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-loans-tab {
+        background: var(--sfs-surface) !important;
+        border-color: var(--sfs-border) !important;
+        color: var(--sfs-text) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-loans-tab h4,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-loans-tab h5,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-loans-tab h4,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-loans-tab h5 {
+        color: var(--sfs-text) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-loans-tab table,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-loans-tab table {
+        background: var(--sfs-surface) !important;
+        border-color: var(--sfs-border) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-loans-tab th,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-loans-tab th {
+        background: var(--sfs-background) !important;
+        border-color: var(--sfs-border) !important;
+        color: var(--sfs-text-muted) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-loans-tab td,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-loans-tab td {
+        border-color: var(--sfs-border) !important;
+        color: var(--sfs-text) !important;
+    }
+    /* Loan request form dark mode */
+    .sfs-hr-pwa-app.sfs-hr-dark-mode #sfs-loan-request-form-frontend,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) #sfs-loan-request-form-frontend {
+        background: var(--sfs-background) !important;
+        border-color: var(--sfs-border) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode #sfs-loan-request-form-frontend label,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) #sfs-loan-request-form-frontend label {
+        color: var(--sfs-text) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode #sfs-loan-request-form-frontend input,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode #sfs-loan-request-form-frontend textarea,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode #sfs-loan-request-form-frontend select,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) #sfs-loan-request-form-frontend input,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) #sfs-loan-request-form-frontend textarea,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) #sfs-loan-request-form-frontend select {
+        background: var(--sfs-surface) !important;
+        border-color: var(--sfs-border) !important;
+        color: var(--sfs-text) !important;
+    }
+    /* Loan card mobile */
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-loan-card,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-loan-card {
+        background: var(--sfs-surface) !important;
+        border-color: var(--sfs-border) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-loan-card-header,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-loan-card-header {
+        color: var(--sfs-text) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-loan-field-label,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-loan-field-label {
+        color: var(--sfs-text-muted) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-loan-field-value,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-loan-field-value {
+        color: var(--sfs-text) !important;
+    }
+
     /* Dark mode toggle - moved to header, no floating button */
     </style>
 
@@ -3707,21 +3867,17 @@ private function render_frontend_loans_tab( array $emp, int $emp_id ): void {
         }
     </style>';
 
-    // Request new loan button (if enabled)
+    // Request new loan section (if enabled) - Always visible like Leave tab
     if ( $settings['allow_employee_requests'] ) {
-        echo '<div style="margin-bottom:16px;">';
-        echo '<button type="button" class="button" style="background:#2271b1;color:#fff;border:0;padding:8px 16px;border-radius:4px;cursor:pointer;" onclick="document.getElementById(\'sfs-loan-request-form-frontend\').style.display=\'block\';this.style.display=\'none\';">';
-        esc_html_e( 'Request New Loan', 'sfs-hr' );
-        echo '</button>';
-        echo '</div>';
-
-        // Request form
         $this->render_frontend_loan_request_form( $emp_id, $settings );
     }
 
+    // Loan History section with title
+    echo '<h5 style="margin:24px 0 12px 0;font-size:15px;font-weight:600;color:inherit;">' . esc_html__( 'Loan history', 'sfs-hr' ) . '</h5>';
+
     // Display loans
     if ( empty( $loans ) ) {
-        echo '<p>' . esc_html__( 'You have no loan records.', 'sfs-hr' ) . '</p>';
+        echo '<p style="color:inherit;">' . esc_html__( 'You have no loan records.', 'sfs-hr' ) . '</p>';
     } else {
         // Prepare loan data
         $loan_data = [];
@@ -3948,8 +4104,8 @@ private function render_frontend_loans_tab( array $emp, int $emp_id ): void {
  * Render frontend loan request form
  */
 private function render_frontend_loan_request_form( int $emp_id, array $settings ): void {
-    echo '<div id="sfs-loan-request-form-frontend" style="display:none;background:#f9f9f9;padding:20px;border:1px solid #ddd;border-radius:4px;margin-bottom:20px;">';
-    echo '<h5 style="margin:0 0 16px;">' . esc_html__( 'Request New Loan', 'sfs-hr' ) . '</h5>';
+    echo '<div id="sfs-loan-request-form-frontend" class="sfs-hr-loan-request-form" style="background:var(--sfs-surface, #f9f9f9);padding:16px;border:1px solid var(--sfs-border, #ddd);border-radius:8px;margin-bottom:16px;">';
+    echo '<h5 style="margin:0 0 12px;font-size:15px;font-weight:600;color:inherit;">' . esc_html__( 'Request new loan', 'sfs-hr' ) . '</h5>';
 
     // Show messages
     if ( isset( $_GET['loan_request'] ) ) {
@@ -4052,12 +4208,9 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     </style>';
 
-    echo '<div>';
-    echo '<button type="submit" style="background:#2271b1;color:#fff;border:0;padding:8px 16px;border-radius:4px;cursor:pointer;margin-right:8px;">' .
-         esc_html__( 'Submit Request', 'sfs-hr' ) .
-         '</button>';
-    echo '<button type="button" onclick="document.getElementById(\'sfs-loan-request-form-frontend\').style.display=\'none\';document.querySelector(\'.button\').style.display=\'inline-block\';" style="background:#6c757d;color:#fff;border:0;padding:8px 16px;border-radius:4px;cursor:pointer;">' .
-         esc_html__( 'Cancel', 'sfs-hr' ) .
+    echo '<div style="margin-top:16px;">';
+    echo '<button type="submit" class="sfs-hr-lf-submit" style="width:100%;padding:12px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;">' .
+         esc_html__( 'Submit loan request', 'sfs-hr' ) .
          '</button>';
     echo '</div>';
 
