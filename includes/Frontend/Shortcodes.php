@@ -445,17 +445,25 @@ class Shortcodes {
             overflow-x: hidden;
         }
 
-        .sfs-hr-pwa-app .sfs-hr-profile {
-            padding: 0 16px 100px;
-            background: var(--sfs-background);
-            min-height: 100vh;
-        }
-
-        /* App header full width on mobile */
+        /* App header fixed to top on mobile */
         .sfs-hr-pwa-app .sfs-hr-app-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
             width: 100%;
             padding-left: 16px;
             padding-right: 16px;
+            z-index: 99999;
+        }
+        .admin-bar .sfs-hr-pwa-app .sfs-hr-app-header {
+            top: 46px;
+        }
+
+        .sfs-hr-pwa-app .sfs-hr-profile {
+            padding: 70px 16px 100px; /* Top padding to account for fixed header */
+            background: var(--sfs-background);
+            min-height: 100vh;
         }
 
         /* Profile header card on mobile */
