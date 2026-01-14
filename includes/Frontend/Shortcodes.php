@@ -967,6 +967,72 @@ class Shortcodes {
         color: var(--sfs-text) !important;
     }
 
+    /* Dark mode: Resignation tab */
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignation-tab,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignation-tab {
+        color: var(--sfs-text);
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignation-form,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignation-form {
+        background: var(--sfs-surface) !important;
+        border: 1px solid var(--sfs-border) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignation-form h4,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignation-form h4 {
+        color: var(--sfs-text) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignation-form label,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignation-form label {
+        color: var(--sfs-text) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignation-form input,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignation-form textarea,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignation-form select,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignation-form input,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignation-form textarea,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignation-form select {
+        background: var(--sfs-background) !important;
+        border-color: var(--sfs-border) !important;
+        color: var(--sfs-text) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignation-form small,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignation-form small {
+        color: var(--sfs-text-muted) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignation-form input[type="date"]::-webkit-calendar-picker-indicator,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignation-form input[type="date"]::-webkit-calendar-picker-indicator {
+        filter: invert(1);
+    }
+
+    /* Dark mode: Resignation history */
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignation-history,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignation-history {
+        color: var(--sfs-text);
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignation-history h4,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignation-history h4 {
+        color: var(--sfs-text) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignations-table,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignations-table {
+        background: var(--sfs-surface) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignations-table th,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignations-table th {
+        background: var(--sfs-background) !important;
+        border-color: var(--sfs-border) !important;
+        color: var(--sfs-text-muted) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignations-table td,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignations-table td {
+        border-color: var(--sfs-border) !important;
+        color: var(--sfs-text) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignations-table tr td[style*="background:#f9f9f9"],
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignations-table tr td[style*="background:#f9f9f9"] {
+        background: var(--sfs-background) !important;
+    }
+
     /* Dark mode toggle - moved to header, no floating button */
     </style>
 
