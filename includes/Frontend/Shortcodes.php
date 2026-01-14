@@ -443,6 +443,14 @@ class Shortcodes {
             width: 100vw;
             max-width: 100vw;
             overflow-x: hidden;
+            min-height: 100vh;
+            background: var(--sfs-background) !important;
+        }
+
+        /* Ensure dark mode background covers everything */
+        .sfs-hr-pwa-app.sfs-hr-dark-mode,
+        .sfs-hr-pwa-app:not(.sfs-hr-light-mode) {
+            background: #0f172a !important;
         }
 
         /* App header fixed to top on mobile */
@@ -471,16 +479,17 @@ class Shortcodes {
 
         .sfs-hr-pwa-app .sfs-hr-profile {
             padding: 70px 16px 100px; /* Top padding to account for fixed header */
-            background: var(--sfs-background);
+            background: var(--sfs-background) !important;
             min-height: 100vh;
         }
 
-        /* Profile header card on mobile */
+        /* Profile header card on mobile - unified card style */
         .sfs-hr-pwa-app .sfs-hr-profile-header {
             background: var(--sfs-surface);
-            margin: 16px 0 0;
+            margin: 16px 0 12px;
             padding: 20px 16px;
-            border-bottom: 1px solid var(--sfs-border);
+            border: 1px solid var(--sfs-border);
+            border-radius: 12px;
         }
 
         /* Profile photo - ensure circle */
@@ -676,6 +685,12 @@ class Shortcodes {
         }
 
         .sfs-hr-pwa-app .sfs-hr-profile-group {
+            background: var(--sfs-surface);
+            border-color: var(--sfs-border);
+        }
+
+        /* Profile header card dark mode */
+        .sfs-hr-pwa-app .sfs-hr-profile-header {
             background: var(--sfs-surface);
             border-color: var(--sfs-border);
         }
@@ -877,6 +892,7 @@ class Shortcodes {
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-chip--status { background: #1e3a5f; color: #7dd3fc; }
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-profile-meta-line { color: var(--sfs-text-muted); }
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-profile-group { background: var(--sfs-surface); border-color: var(--sfs-border); }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-profile-header { background: var(--sfs-surface); border-color: var(--sfs-border); }
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-profile-group-title { color: var(--sfs-text-muted); }
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-field-row { border-bottom-color: #334155; }
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-field-label { color: var(--sfs-text-muted); }
