@@ -436,9 +436,25 @@ class Shortcodes {
 
     /* Mobile-optimized layout - ONLY when PWA app is present */
     @media (max-width: 768px) {
-        /* Background only when PWA app exists on page */
-        body:has(.sfs-hr-pwa-app) {
+        /* Background for body and all GeneratePress theme wrapper elements */
+        body:has(.sfs-hr-pwa-app),
+        body:has(.sfs-hr-pwa-app) #page,
+        body:has(.sfs-hr-pwa-app) .site-content,
+        body:has(.sfs-hr-pwa-app) .content-area,
+        body:has(.sfs-hr-pwa-app) .site-main,
+        body:has(.sfs-hr-pwa-app) article,
+        body:has(.sfs-hr-pwa-app) .inside-article,
+        body:has(.sfs-hr-pwa-app) .entry-content {
             background-color: #0f172a !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        /* Remove GeneratePress container padding */
+        body:has(.sfs-hr-pwa-app) .grid-container {
+            max-width: 100% !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
         }
 
         /* Full-width edge-to-edge layout on mobile */
@@ -452,20 +468,32 @@ class Shortcodes {
             background: #0f172a !important;
         }
 
-        /* App header - sticky at top of app container */
+        /* App header - fixed at viewport top */
         .sfs-hr-pwa-app .sfs-hr-app-header {
-            position: sticky !important;
+            position: fixed !important;
             top: 0 !important;
-            z-index: 100 !important;
+            left: 0 !important;
+            right: 0 !important;
+            z-index: 99999 !important;
             background-color: #1e293b !important;
             border-bottom: 1px solid #334155 !important;
             padding: 14px 16px !important;
             margin: 0 !important;
         }
 
-        /* Content padding */
+        /* Adjust header position when WP admin bar is present */
+        .admin-bar .sfs-hr-pwa-app .sfs-hr-app-header {
+            top: 32px !important;
+        }
+        @media screen and (max-width: 782px) {
+            .admin-bar .sfs-hr-pwa-app .sfs-hr-app-header {
+                top: 46px !important;
+            }
+        }
+
+        /* Add top padding to content to account for fixed header */
         .sfs-hr-pwa-app .sfs-hr-profile {
-            padding: 16px 16px 80px;
+            padding: 70px 16px 80px;
             background: #0f172a !important;
             min-height: 100vh;
         }
