@@ -436,19 +436,13 @@ class Shortcodes {
 
     /* Mobile-optimized layout */
     @media (max-width: 768px) {
-        /* Force body background to match app - light mode */
-        body:has(.sfs-hr-pwa-app.sfs-hr-light-mode) {
-            background: #f8fafc !important;
-        }
-        body:has(.sfs-hr-pwa-app.sfs-hr-light-mode) > *:not(.sfs-hr-pwa-app):not(#wpadminbar):not(script):not(style):not(link) {
-            background: #f8fafc !important;
-        }
-        /* Force body background to match app - dark mode (default for system dark preference) */
-        body:has(.sfs-hr-pwa-app:not(.sfs-hr-light-mode)) {
+        /* Simple background fix - match page to app */
+        html, body {
             background: #0f172a !important;
         }
-        body:has(.sfs-hr-pwa-app:not(.sfs-hr-light-mode)) > *:not(.sfs-hr-pwa-app):not(#wpadminbar):not(script):not(style):not(link) {
-            background: #0f172a !important;
+        body.sfs-hr-light-mode-page,
+        html:has(.sfs-hr-pwa-app.sfs-hr-light-mode) body {
+            background: #f8fafc !important;
         }
 
         /* Full-width edge-to-edge layout on mobile */
@@ -468,47 +462,26 @@ class Shortcodes {
             background: #0f172a !important;
         }
 
-        /* App header fixed to top on mobile */
+        /* App header - sticky within app, not fixed to viewport */
         .sfs-hr-pwa-app .sfs-hr-app-header {
-            position: fixed !important;
+            position: sticky !important;
             top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            width: 100% !important;
-            padding: 14px 16px !important;
-            padding-top: calc(14px + env(safe-area-inset-top, 0px)) !important;
-            margin: 0 !important;
-            z-index: 99999 !important;
+            z-index: 100 !important;
             background-color: #ffffff !important;
             border-bottom: 2px solid var(--sfs-border) !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 14px 16px !important;
+            margin: 0 !important;
         }
         .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-app-header,
         .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-app-header {
             background-color: #1e293b !important;
             border-bottom-color: #334155 !important;
         }
-        .admin-bar .sfs-hr-pwa-app .sfs-hr-app-header {
-            top: 46px !important;
-        }
-        @media screen and (min-width: 783px) {
-            .admin-bar .sfs-hr-pwa-app .sfs-hr-app-header {
-                top: 32px !important;
-            }
-        }
 
         .sfs-hr-pwa-app .sfs-hr-profile {
-            padding: 56px 16px 80px; /* Top padding to account for fixed header */
+            padding: 16px 16px 80px;
             background: var(--sfs-background) !important;
-            min-height: 100vh;
-        }
-        .admin-bar .sfs-hr-pwa-app .sfs-hr-profile {
-            padding-top: 102px; /* 56px header + 46px admin bar */
-        }
-        @media screen and (min-width: 783px) {
-            .admin-bar .sfs-hr-pwa-app .sfs-hr-profile {
-                padding-top: 88px; /* 56px header + 32px admin bar */
-            }
+            min-height: calc(100vh - 56px);
         }
 
         /* Profile header card on mobile - unified card style */
