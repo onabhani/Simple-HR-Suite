@@ -3233,6 +3233,8 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         $payload = [
             'first_name'              => sanitize_text_field($data['first_name']              ?? ''),
             'last_name'               => sanitize_text_field($data['last_name']               ?? ''),
+            'first_name_ar'           => sanitize_text_field($data['first_name_ar']           ?? ''),
+            'last_name_ar'            => sanitize_text_field($data['last_name_ar']            ?? ''),
             'email'                   => sanitize_email($data['email']                        ?? ''),
             'phone'                   => sanitize_text_field($data['phone']                   ?? ''),
             'dept_id'                 => $dept_id,
@@ -3496,6 +3498,8 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                         $render_input_row( 'employee_code', __( 'Employee Code', 'sfs-hr' ) );
                         $render_input_row( 'first_name', __( 'First Name', 'sfs-hr' ) );
                         $render_input_row( 'last_name', __( 'Last Name', 'sfs-hr' ) );
+                        $render_input_row( 'first_name_ar', __( 'First Name (Arabic)', 'sfs-hr' ) );
+                        $render_input_row( 'last_name_ar', __( 'Last Name (Arabic)', 'sfs-hr' ) );
                         $render_input_row( 'email', __( 'Email', 'sfs-hr' ) );
                         $render_input_row( 'phone', __( 'Phone', 'sfs-hr' ) );
                         ?>

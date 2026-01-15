@@ -84,6 +84,11 @@ class Shortcodes {
         $full_name = '#' . (int) $emp_id;
     }
 
+    // Arabic name (for RTL display)
+    $first_name_ar = (string) ( $emp['first_name_ar'] ?? '' );
+    $last_name_ar  = (string) ( $emp['last_name_ar']  ?? '' );
+    $full_name_ar  = trim( $first_name_ar . ' ' . $last_name_ar );
+
     $code        = (string) ( $emp['employee_code']         ?? '' );
     $status      = (string) ( $emp['status']                ?? '' );
     $position    = (string) ( $emp['position']              ?? '' );
@@ -370,7 +375,7 @@ class Shortcodes {
     .sfs-hr-lang-dropdown {
         position: absolute;
         top: 100%;
-        right: 0;
+        left: 0;
         margin-top: 8px;
         background: var(--sfs-surface);
         border: 1px solid var(--sfs-border);
@@ -380,6 +385,11 @@ class Shortcodes {
         display: none;
         z-index: 1000;
         min-width: 140px;
+    }
+    /* RTL: dropdown opens to the right */
+    [dir="rtl"] .sfs-hr-lang-dropdown {
+        left: auto;
+        right: 0;
     }
     .sfs-hr-lang-dropdown.active {
         display: block;
@@ -397,6 +407,9 @@ class Shortcodes {
         background: none;
         width: 100%;
         text-align: left;
+    }
+    [dir="rtl"] .sfs-hr-lang-option {
+        text-align: right;
     }
     .sfs-hr-lang-option:hover {
         background: var(--sfs-background);
@@ -1674,7 +1687,7 @@ class Shortcodes {
     </div>
 
     <div class="sfs-hr-profile-header-main">
-        <h4 class="sfs-hr-profile-name">
+        <h4 class="sfs-hr-profile-name" data-name-en="<?php echo esc_attr( $full_name ); ?>" data-name-ar="<?php echo esc_attr( $full_name_ar ?: $full_name ); ?>">
             <?php echo esc_html( $full_name ); ?>
         </h4>
 
@@ -3369,6 +3382,16 @@ class Shortcodes {
                 } else {
                     pwaApp.setAttribute('dir', 'ltr');
                     pwaApp.style.textAlign = 'left';
+                }
+
+                // Switch profile name based on language
+                var profileName = pwaApp.querySelector('.sfs-hr-profile-name');
+                if (profileName && profileName.dataset.nameAr) {
+                    if (lang === 'ar' && profileName.dataset.nameAr !== profileName.dataset.nameEn) {
+                        profileName.textContent = profileName.dataset.nameAr;
+                    } else {
+                        profileName.textContent = profileName.dataset.nameEn;
+                    }
                 }
 
                 // Translate elements with data-i18n attribute
