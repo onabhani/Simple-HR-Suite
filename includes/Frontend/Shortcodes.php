@@ -3076,6 +3076,7 @@ class Shortcodes {
     <script>
     (function() {
         var inst = '<?php echo esc_js($pwa_instance); ?>';
+        var sfsHrLangUrl = '<?php echo esc_js(SFS_HR_PLUGIN_URL . "languages/"); ?>';
         var offlineBanner = document.getElementById('sfs-hr-offline-' + inst);
         var pwaBanner = document.getElementById('sfs-hr-pwa-banner-' + inst);
         var installBtn = document.getElementById('sfs-hr-pwa-install-' + inst);
@@ -3218,129 +3219,44 @@ class Shortcodes {
             var langOptions = langToggle.querySelectorAll('.sfs-hr-lang-option');
             var langCurrent = langToggle.querySelector('.sfs-hr-lang-current');
 
-            // Translation strings for My HR Profile
-            var translations = {
-                en: {
-                    my_hr_profile: 'My HR Profile',
-                    overview: 'Overview',
-                    leave: 'Leave',
-                    loans: 'Loans',
-                    resignation: 'Resignation',
-                    attendance: 'Attendance',
-                    profile_completion: 'Profile Completion',
-                    contact_information: 'Contact Information',
-                    identification: 'Identification',
-                    my_assets: 'My Assets',
-                    request_new_leave: 'Request new leave',
-                    leave_type: 'Leave type',
-                    select_type: 'Select type',
-                    start_date: 'Start date',
-                    end_date: 'End date',
-                    reason_note: 'Reason / note',
-                    supporting_document: 'Supporting document',
-                    submit_leave_request: 'Submit leave request',
-                    request_new_loan: 'Request new loan',
-                    loan_amount: 'Loan Amount',
-                    monthly_installment: 'Monthly Installment Amount',
-                    reason_for_loan: 'Reason for Loan',
-                    submit_loan_request: 'Submit loan request',
-                    loan_history: 'Loan history',
-                    next_approved_leave: 'Next Approved Leave',
-                    no_upcoming_leave: 'No upcoming leave.',
-                    leave_history: 'Leave History'
-                },
-                ar: {
-                    my_hr_profile: 'ملفي الشخصي',
-                    overview: 'نظرة عامة',
-                    leave: 'الإجازات',
-                    loans: 'القروض',
-                    resignation: 'الاستقالة',
-                    attendance: 'الحضور',
-                    profile_completion: 'اكتمال الملف',
-                    contact_information: 'معلومات الاتصال',
-                    identification: 'الهوية',
-                    my_assets: 'أصولي',
-                    request_new_leave: 'طلب إجازة جديدة',
-                    leave_type: 'نوع الإجازة',
-                    select_type: 'اختر النوع',
-                    start_date: 'تاريخ البداية',
-                    end_date: 'تاريخ النهاية',
-                    reason_note: 'السبب / ملاحظة',
-                    supporting_document: 'مستند داعم',
-                    submit_leave_request: 'تقديم طلب الإجازة',
-                    request_new_loan: 'طلب قرض جديد',
-                    loan_amount: 'مبلغ القرض',
-                    monthly_installment: 'مبلغ القسط الشهري',
-                    reason_for_loan: 'سبب القرض',
-                    submit_loan_request: 'تقديم طلب القرض',
-                    loan_history: 'سجل القروض',
-                    next_approved_leave: 'الإجازة المعتمدة التالية',
-                    no_upcoming_leave: 'لا توجد إجازة قادمة.',
-                    leave_history: 'سجل الإجازات'
-                },
-                ur: {
-                    my_hr_profile: 'میری پروفائل',
-                    overview: 'جائزہ',
-                    leave: 'چھٹی',
-                    loans: 'قرضے',
-                    resignation: 'استعفیٰ',
-                    attendance: 'حاضری',
-                    profile_completion: 'پروفائل کی تکمیل',
-                    contact_information: 'رابطہ کی معلومات',
-                    identification: 'شناخت',
-                    my_assets: 'میرے اثاثے',
-                    request_new_leave: 'نئی چھٹی کی درخواست',
-                    leave_type: 'چھٹی کی قسم',
-                    select_type: 'قسم منتخب کریں',
-                    start_date: 'شروع کی تاریخ',
-                    end_date: 'اختتامی تاریخ',
-                    reason_note: 'وجہ / نوٹ',
-                    supporting_document: 'معاون دستاویز',
-                    submit_leave_request: 'چھٹی کی درخواست جمع کریں',
-                    request_new_loan: 'نئے قرض کی درخواست',
-                    loan_amount: 'قرض کی رقم',
-                    monthly_installment: 'ماہانہ قسط کی رقم',
-                    reason_for_loan: 'قرض کی وجہ',
-                    submit_loan_request: 'قرض کی درخواست جمع کریں',
-                    loan_history: 'قرض کی تاریخ',
-                    next_approved_leave: 'اگلی منظور شدہ چھٹی',
-                    no_upcoming_leave: 'کوئی آنے والی چھٹی نہیں۔',
-                    leave_history: 'چھٹی کی تاریخ'
-                },
-                fil: {
-                    my_hr_profile: 'Aking HR Profile',
-                    overview: 'Pangkalahatang-tanaw',
-                    leave: 'Bakasyon',
-                    loans: 'Mga Utang',
-                    resignation: 'Pagbibitiw',
-                    attendance: 'Pagdalo',
-                    profile_completion: 'Pagkumpleto ng Profile',
-                    contact_information: 'Impormasyon sa Pakikipag-ugnayan',
-                    identification: 'Pagkakakilanlan',
-                    my_assets: 'Aking mga Asset',
-                    request_new_leave: 'Humiling ng bagong bakasyon',
-                    leave_type: 'Uri ng bakasyon',
-                    select_type: 'Pumili ng uri',
-                    start_date: 'Petsa ng simula',
-                    end_date: 'Petsa ng wakas',
-                    reason_note: 'Dahilan / tala',
-                    supporting_document: 'Sumusuportang dokumento',
-                    submit_leave_request: 'Isumite ang kahilingan',
-                    request_new_loan: 'Humiling ng bagong utang',
-                    loan_amount: 'Halaga ng Utang',
-                    monthly_installment: 'Buwanang Hulog',
-                    reason_for_loan: 'Dahilan ng Utang',
-                    submit_loan_request: 'Isumite ang kahilingan ng utang',
-                    loan_history: 'Kasaysayan ng utang',
-                    next_approved_leave: 'Susunod na Aprubadong Bakasyon',
-                    no_upcoming_leave: 'Walang paparating na bakasyon.',
-                    leave_history: 'Kasaysayan ng Bakasyon'
-                }
-            };
+            // Translation cache - loaded from JSON files
+            var translations = {};
 
-            // Load saved language
+            // Load translations from JSON file
+            function loadTranslations(lang) {
+                return new Promise(function(resolve) {
+                    if (translations[lang]) {
+                        resolve(translations[lang]);
+                        return;
+                    }
+                    fetch(sfsHrLangUrl + lang + '.json')
+                        .then(function(response) {
+                            if (!response.ok) throw new Error('Not found');
+                            return response.json();
+                        })
+                        .then(function(data) {
+                            translations[lang] = data;
+                            resolve(data);
+                        })
+                        .catch(function() {
+                            // Fallback to English if language file not found
+                            if (lang !== 'en' && translations['en']) {
+                                resolve(translations['en']);
+                            } else {
+                                resolve({});
+                            }
+                        });
+                });
+            }
+
+            // Load saved language and apply
             var savedLang = localStorage.getItem('sfs_hr_lang') || 'en';
-            applyLanguage(savedLang);
+            // Preload English as fallback, then apply saved language
+            loadTranslations('en').then(function() {
+                loadTranslations(savedLang).then(function() {
+                    applyLanguage(savedLang);
+                });
+            });
 
             // Toggle dropdown
             langBtn.addEventListener('click', function(e) {
@@ -3357,9 +3273,11 @@ class Shortcodes {
             langOptions.forEach(function(option) {
                 option.addEventListener('click', function() {
                     var lang = this.dataset.lang;
-                    applyLanguage(lang);
-                    localStorage.setItem('sfs_hr_lang', lang);
-                    langDropdown.classList.remove('active');
+                    loadTranslations(lang).then(function() {
+                        applyLanguage(lang);
+                        localStorage.setItem('sfs_hr_lang', lang);
+                        langDropdown.classList.remove('active');
+                    });
                 });
             });
 
