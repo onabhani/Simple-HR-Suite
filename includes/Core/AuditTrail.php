@@ -598,20 +598,71 @@ class AuditTrail {
             <p class="description"><?php printf( esc_html__( 'Showing %d of %d entries', 'sfs-hr' ), count( $logs ), $total ); ?></p>
 
             <style>
-                .sfs-hr-table-responsive {
-                    overflow-x: auto;
-                    -webkit-overflow-scrolling: touch;
+                .sfs-hr-audit-table {
+                    background: #fff;
+                    border: 1px solid #dcdcde;
+                    border-radius: 6px;
+                    margin-top: 16px;
                 }
-                .sfs-hr-table-responsive table {
-                    min-width: 700px;
+                .sfs-hr-audit-table table {
+                    border: none;
+                    border-radius: 6px;
+                    margin: 0;
+                    border-collapse: collapse;
+                    width: 100%;
                 }
-                .sfs-hr-table-responsive th {
-                    white-space: nowrap;
+                .sfs-hr-audit-table th {
+                    background: #f8f9fa;
+                    font-weight: 600;
+                    font-size: 12px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    color: #50575e;
+                    padding: 12px 16px;
+                    text-align: left;
+                    border-bottom: 1px solid #dcdcde;
                 }
+                .sfs-hr-audit-table td {
+                    padding: 14px 16px;
+                    vertical-align: middle;
+                    border-bottom: 1px solid #f0f0f1;
+                }
+                .sfs-hr-audit-table tbody tr:last-child td {
+                    border-bottom: none;
+                }
+                .sfs-hr-audit-table tbody tr:hover {
+                    background: #f8f9fa;
+                }
+                .sfs-hr-audit-user {
+                    font-weight: 500;
+                    color: #1d2327;
+                }
+                .sfs-hr-audit-email {
+                    font-size: 12px;
+                    color: #646970;
+                    margin-top: 2px;
+                }
+                .sfs-hr-audit-entity {
+                    color: #1d2327;
+                }
+                .sfs-hr-audit-entity-id {
+                    font-size: 12px;
+                    color: #646970;
+                }
+                .hide-mobile { }
                 @media (max-width: 782px) {
-                    .sfs-hr-table-responsive {
-                        margin: 0 -12px;
-                        padding: 0 12px;
+                    .sfs-hr-audit-table {
+                        margin: 16px -12px;
+                        border-radius: 0;
+                        border-left: none;
+                        border-right: none;
+                    }
+                    .sfs-hr-audit-table th,
+                    .sfs-hr-audit-table td {
+                        padding: 12px;
+                    }
+                    .hide-mobile {
+                        display: none !important;
                     }
                 }
             </style>
@@ -621,16 +672,15 @@ class AuditTrail {
                 <p><?php esc_html_e( 'No audit log entries found.', 'sfs-hr' ); ?></p>
             </div>
             <?php else: ?>
-            <div class="sfs-hr-table-responsive">
-            <table class="wp-list-table widefat striped">
+            <div class="sfs-hr-audit-table">
+            <table>
                 <thead>
                     <tr>
-                        <th style="width:140px;"><?php esc_html_e( 'Date/Time', 'sfs-hr' ); ?></th>
-                        <th style="width:120px;"><?php esc_html_e( 'User', 'sfs-hr' ); ?></th>
-                        <th style="width:80px;"><?php esc_html_e( 'Action', 'sfs-hr' ); ?></th>
-                        <th style="width:100px;"><?php esc_html_e( 'Entity', 'sfs-hr' ); ?></th>
-                        <th><?php esc_html_e( 'Details', 'sfs-hr' ); ?></th>
-                        <th style="width:100px;"><?php esc_html_e( 'IP', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Time', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'User', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Action', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Entity', 'sfs-hr' ); ?></th>
+                        <th class="hide-mobile"><?php esc_html_e( 'Details', 'sfs-hr' ); ?></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -650,13 +700,13 @@ class AuditTrail {
                     ?>
                     <tr>
                         <td>
-                            <strong><?php echo esc_html( date_i18n( 'M j, Y', strtotime( $log->created_at ) ) ); ?></strong>
-                            <br><small><?php echo esc_html( date_i18n( 'H:i:s', strtotime( $log->created_at ) ) ); ?></small>
+                            <?php echo esc_html( date_i18n( 'M j,', strtotime( $log->created_at ) ) ); ?><br>
+                            <small style="color:#646970;"><?php echo esc_html( date_i18n( 'H:i', strtotime( $log->created_at ) ) ); ?></small>
                         </td>
                         <td>
-                            <?php echo esc_html( $log->user_name ?: 'System' ); ?>
+                            <div class="sfs-hr-audit-user"><?php echo esc_html( $log->user_name ?: 'System' ); ?></div>
                             <?php if ( $log->user_email ): ?>
-                            <br><small class="description"><?php echo esc_html( $log->user_email ); ?></small>
+                            <div class="sfs-hr-audit-email"><?php echo esc_html( $log->user_email ); ?></div>
                             <?php endif; ?>
                         </td>
                         <td>
@@ -665,27 +715,25 @@ class AuditTrail {
                             </span>
                         </td>
                         <td>
-                            <?php echo esc_html( $entity_label ); ?>
+                            <div class="sfs-hr-audit-entity"><?php echo esc_html( $entity_label ); ?></div>
                             <?php if ( $log->entity_id ): ?>
-                            <br><small class="description">#<?php echo intval( $log->entity_id ); ?></small>
+                            <div class="sfs-hr-audit-entity-id">#<?php echo intval( $log->entity_id ); ?></div>
                             <?php endif; ?>
                         </td>
-                        <td>
-                            <?php if ( $log->entity_name ): ?>
-                            <strong><?php echo esc_html( $log->entity_name ); ?></strong><br>
-                            <?php endif; ?>
+                        <td class="hide-mobile">
                             <?php if ( $log->changes_summary ): ?>
                             <small><?php echo esc_html( $log->changes_summary ); ?></small>
+                            <?php elseif ( $log->entity_name ): ?>
+                            <small><?php echo esc_html( $log->entity_name ); ?></small>
+                            <?php else: ?>
+                            <small style="color:#999;">—</small>
                             <?php endif; ?>
-                        </td>
-                        <td>
-                            <small class="description"><?php echo esc_html( $log->ip_address ?: '—' ); ?></small>
                         </td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
-            </div><!-- .sfs-hr-table-responsive -->
+            </div><!-- .sfs-hr-audit-table -->
 
             <!-- Pagination -->
             <?php

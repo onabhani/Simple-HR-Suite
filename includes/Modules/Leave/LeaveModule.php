@@ -948,6 +948,9 @@ public function handle_approve(): void {
             ['%d']
         );
 
+        // Audit Trail: leave request escalated to HR
+        do_action('sfs_hr_leave_request_status_changed', $id, 'pending', 'pending_hr');
+
         // Notify HR approvers
         $this->email_approvers_for_employee(
             (int) $row['employee_id'],
