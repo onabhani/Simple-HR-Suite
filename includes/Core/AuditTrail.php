@@ -637,11 +637,6 @@ class AuditTrail {
                     font-weight: 500;
                     color: #1d2327;
                 }
-                .sfs-hr-audit-email {
-                    font-size: 12px;
-                    color: #646970;
-                    margin-top: 2px;
-                }
                 .sfs-hr-audit-entity {
                     color: #1d2327;
                 }
@@ -705,9 +700,6 @@ class AuditTrail {
                         </td>
                         <td>
                             <div class="sfs-hr-audit-user"><?php echo esc_html( $log->user_name ?: 'System' ); ?></div>
-                            <?php if ( $log->user_email ): ?>
-                            <div class="sfs-hr-audit-email"><?php echo esc_html( $log->user_email ); ?></div>
-                            <?php endif; ?>
                         </td>
                         <td>
                             <span style="color:<?php echo esc_attr( $action_color ); ?>; font-weight:600;">
