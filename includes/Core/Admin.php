@@ -2071,14 +2071,16 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
   /* Mobile action button (single button that opens modal) */
   .sfs-hr-action-mobile-btn {
     display: none;
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    background: #f0f0f1;
-    border: 1px solid #dcdcde;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: #f1f5f9;
+    border: none;
     cursor: pointer;
     padding: 0;
     position: relative;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    transition: all 0.2s ease;
   }
   .sfs-hr-action-mobile-btn::before,
   .sfs-hr-action-mobile-btn::after,
@@ -2087,25 +2089,27 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
     display: block;
     width: 5px;
     height: 5px;
-    background: #2271b1;
+    background: #475569;
     border-radius: 50%;
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
   }
   .sfs-hr-action-mobile-btn::before {
-    top: 9px;
+    top: 11px;
   }
   .sfs-hr-action-mobile-btn span {
     top: 50%;
     transform: translate(-50%, -50%);
   }
   .sfs-hr-action-mobile-btn::after {
-    bottom: 9px;
+    bottom: 11px;
   }
   .sfs-hr-action-mobile-btn:hover {
-    background: #e5e5e5;
-    border-color: #c3c4c7;
+    background: #e2e8f0;
+  }
+  .sfs-hr-action-mobile-btn:active {
+    transform: scale(0.95);
   }
 
   /* Action Modal */
