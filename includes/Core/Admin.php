@@ -3741,11 +3741,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                                         alt="QR" width="220" height="220"
                                         referrerpolicy="no-referrer"
                                         style="border:1px solid #c3c4c7;border-radius:6px;background:#fff;"/>
-                                    <p style="margin-top:8px;">
-                                        <code style="user-select:all;"><?php echo esc_html( $qr_url_raw ); ?></code>
-                                    </p>
-                                    <!-- New: Download QR Card button -->
-    <p style="margin-top:8px;">
+                                    <p style="margin-top:12px;">
         <a class="button button-secondary" href="<?php
             echo esc_url(
                 wp_nonce_url(
