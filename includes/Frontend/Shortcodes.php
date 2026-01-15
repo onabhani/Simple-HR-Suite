@@ -1244,14 +1244,14 @@ class Shortcodes {
         }
     }
 
-    /* Dark mode: Date inputs - prevent overflow */
-    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-self-form input[type="date"],
-    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-self-form input[type="date"],
-    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-lf-row input[type="date"],
-    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-lf-row input[type="date"] {
+    /* Date inputs - prevent overflow (all modes) */
+    .sfs-hr-pwa-app .sfs-hr-leave-self-form input[type="date"],
+    .sfs-hr-pwa-app .sfs-hr-lf-row input[type="date"] {
         width: 100% !important;
         max-width: 100% !important;
         box-sizing: border-box !important;
+        height: auto !important;
+        min-height: 44px !important;
     }
 
     /* Dark mode: File input button - improved styling */
@@ -1360,6 +1360,10 @@ class Shortcodes {
     }
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-loan-field-value,
     .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-loan-field-value {
+        color: var(--sfs-text) !important;
+    }
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-loan-summary-title,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-loan-summary-title {
         color: var(--sfs-text) !important;
     }
 
