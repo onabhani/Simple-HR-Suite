@@ -32,6 +32,8 @@ spl_autoload_register(function($class){
 register_activation_hook(__FILE__, function(){
     \SFS\HR\Core\Capabilities::ensure_roles_caps();
     \SFS\HR\Install\Migrations::run();
+    // Install Hiring module tables (candidates, trainees)
+    \SFS\HR\Modules\Hiring\HiringModule::install();
     update_option('sfs_hr_db_ver', SFS_HR_VER);
     flush_rewrite_rules();
 });
@@ -71,6 +73,10 @@ add_action('admin_init', function(){
     $loan_payments_table  = $wpdb->prefix . 'sfs_hr_loan_payments';
     $loan_history_table   = $wpdb->prefix . 'sfs_hr_loan_history';
 
+    // Hiring module tables
+    $candidates_table     = $wpdb->prefix . 'sfs_hr_candidates';
+    $trainees_table       = $wpdb->prefix . 'sfs_hr_trainees';
+
     $table_exists = function(string $table) use ($wpdb){
         return (bool) $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
@@ -104,7 +110,11 @@ add_action('admin_init', function(){
         !$table_exists($assign_table)         ||
         !$table_exists($loans_table)          ||
         !$table_exists($loan_payments_table)  ||
-        !$table_exists($loan_history_table)
+        !$table_exists($loan_history_table)   ||
+
+        // Hiring module
+        !$table_exists($candidates_table)     ||
+        !$table_exists($trainees_table)
     );
 
     $needs_columns = false;
@@ -120,7 +130,13 @@ add_action('admin_init', function(){
 
     if ($needs_migration || $needs_tables || $needs_columns) {
         \SFS\HR\Install\Migrations::run();
+        \SFS\HR\Modules\Hiring\HiringModule::install();
         update_option('sfs_hr_db_ver', SFS_HR_VER);
+    }
+
+    // Self-heal Hiring tables if missing
+    if (!$table_exists($candidates_table) || !$table_exists($trainees_table)) {
+        \SFS\HR\Modules\Hiring\HiringModule::install();
     }
 
     // Seed/mark data if tables already exist
@@ -325,6 +341,9 @@ add_action('plugins_loaded', function(){
 
     // Reminders Module (birthday/anniversary notifications)
     (new \SFS\HR\Modules\Reminders\RemindersModule())->hooks();
+
+    // Hiring Module (candidates and trainee students)
+    \SFS\HR\Modules\Hiring\HiringModule::instance()->hooks();
 
     // Audit Trail (logging system)
     \SFS\HR\Core\AuditTrail::init();

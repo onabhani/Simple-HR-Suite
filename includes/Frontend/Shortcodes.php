@@ -20,6 +20,21 @@ class Shortcodes {
         return '<div class="sfs-hr sfs-hr-alert">' . esc_html__( 'Please log in to view your profile.', 'sfs-hr' ) . '</div>';
     }
 
+    global $wpdb;
+    $current_user_id = get_current_user_id();
+
+    // Check if current user is a trainee
+    $trainees_table = $wpdb->prefix . 'sfs_hr_trainees';
+    $trainee = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$trainees_table} WHERE user_id = %d AND status = 'active'",
+        $current_user_id
+    ), ARRAY_A );
+
+    // If user is a trainee, render trainee profile instead
+    if ( $trainee ) {
+        return $this->render_trainee_profile( $trainee );
+    }
+
     // Use any-status version to allow terminated employees to access their profile
     $emp_id = Helpers::current_employee_id_any_status();
     if ( ! $emp_id ) {
@@ -36,7 +51,6 @@ class Shortcodes {
 
     // Check if employee has approved resignation (also limited access during notice period)
     $has_approved_resignation = false;
-    global $wpdb;
     if ( ! $is_terminated ) {
         $resignation_table = $wpdb->prefix . 'sfs_hr_resignations';
         $approved_resignation = $wpdb->get_var( $wpdb->prepare(
@@ -6252,6 +6266,243 @@ private function render_frontend_documents_tab( int $emp_id ): void {
         </div>
     </div>
     <?php
+}
+
+/**
+ * Render trainee profile with limited access (no leave, loans, resignation)
+ */
+private function render_trainee_profile( array $trainee ): string {
+    global $wpdb;
+
+    $dept_table = $wpdb->prefix . 'sfs_hr_departments';
+    $dept_name = '';
+    if ( ! empty( $trainee['dept_id'] ) ) {
+        $dept_name = (string) $wpdb->get_var( $wpdb->prepare(
+            "SELECT name FROM {$dept_table} WHERE id = %d",
+            (int) $trainee['dept_id']
+        ) );
+    }
+
+    // Supervisor name
+    $supervisor_name = '';
+    if ( ! empty( $trainee['supervisor_id'] ) ) {
+        $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+        $supervisor = $wpdb->get_row( $wpdb->prepare(
+            "SELECT first_name, last_name FROM {$emp_table} WHERE id = %d",
+            (int) $trainee['supervisor_id']
+        ) );
+        if ( $supervisor ) {
+            $supervisor_name = trim( $supervisor->first_name . ' ' . $supervisor->last_name );
+        }
+    }
+
+    // Core fields
+    $first_name = (string) ( $trainee['first_name'] ?? '' );
+    $last_name  = (string) ( $trainee['last_name']  ?? '' );
+    $full_name  = trim( $first_name . ' ' . $last_name );
+    $code       = (string) ( $trainee['trainee_code'] ?? '' );
+    $email      = (string) ( $trainee['email'] ?? '' );
+    $phone      = (string) ( $trainee['phone'] ?? '' );
+    $position   = (string) ( $trainee['position'] ?? '' );
+    $gender     = (string) ( $trainee['gender'] ?? '' );
+    $training_start = (string) ( $trainee['training_start'] ?? '' );
+    $training_end   = (string) ( $trainee['training_end'] ?? '' );
+    $university = (string) ( $trainee['university'] ?? '' );
+    $major      = (string) ( $trainee['major'] ?? '' );
+    $status     = (string) ( $trainee['status'] ?? '' );
+
+    // Active tab - only overview and attendance available for trainees
+    $active_tab = isset( $_GET['sfs_hr_tab'] ) ? sanitize_key( $_GET['sfs_hr_tab'] ) : 'overview';
+    if ( ! in_array( $active_tab, [ 'overview', 'attendance' ], true ) ) {
+        $active_tab = 'overview';
+    }
+
+    $base_url       = remove_query_arg( 'sfs_hr_tab' );
+    $overview_url   = add_query_arg( 'sfs_hr_tab', 'overview', $base_url );
+    $attendance_url = add_query_arg( 'sfs_hr_tab', 'attendance', $base_url );
+
+    // Check if self-clock is enabled
+    $shift_assigns_table = $wpdb->prefix . 'sfs_hr_shift_assignments';
+    $can_self_clock = (bool) $wpdb->get_var( $wpdb->prepare(
+        "SELECT allow_self_clock FROM {$shift_assigns_table}
+         WHERE user_id = %d AND status = 'active' LIMIT 1",
+        (int) $trainee['user_id']
+    ) );
+
+    ob_start();
+    ?>
+    <div class="sfs-hr sfs-hr-my-profile sfs-hr-pwa-app" id="sfs-hr-pwa-app">
+        <style>
+            :root {
+                --sfs-primary: #0f4c5c;
+                --sfs-primary-light: #1a6b7f;
+                --sfs-bg: #f8fafc;
+                --sfs-card-bg: #ffffff;
+                --sfs-text: #1e293b;
+                --sfs-text-muted: #64748b;
+                --sfs-border: #e2e8f0;
+            }
+            @media (prefers-color-scheme: dark) {
+                :root:not([data-theme="light"]) {
+                    --sfs-bg: #0f172a;
+                    --sfs-card-bg: #1e293b;
+                    --sfs-text: #f1f5f9;
+                    --sfs-text-muted: #94a3b8;
+                    --sfs-border: #334155;
+                }
+            }
+            [data-theme="dark"] {
+                --sfs-bg: #0f172a;
+                --sfs-card-bg: #1e293b;
+                --sfs-text: #f1f5f9;
+                --sfs-text-muted: #94a3b8;
+                --sfs-border: #334155;
+            }
+            .sfs-hr-my-profile { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+            .sfs-hr-profile-container { max-width: 800px; margin: 0 auto; background: var(--sfs-bg); padding: 24px; border-radius: 16px; }
+            .sfs-hr-profile-header { display: flex; align-items: center; gap: 20px; margin-bottom: 24px; }
+            .sfs-hr-profile-photo { width: 80px; height: 80px; background: linear-gradient(135deg, var(--sfs-primary), var(--sfs-primary-light)); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 32px; font-weight: 600; }
+            .sfs-hr-profile-info h2 { margin: 0 0 4px; color: var(--sfs-text); font-size: 22px; }
+            .sfs-hr-profile-info p { margin: 0; color: var(--sfs-text-muted); font-size: 14px; }
+            .sfs-hr-profile-tabs { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+            .sfs-hr-tab { display: flex; align-items: center; gap: 6px; padding: 10px 16px; background: var(--sfs-card-bg); border: 1px solid var(--sfs-border); border-radius: 10px; text-decoration: none; color: var(--sfs-text-muted); font-size: 14px; font-weight: 500; transition: all 0.2s; }
+            .sfs-hr-tab:hover { border-color: var(--sfs-primary); color: var(--sfs-primary); }
+            .sfs-hr-tab-active { background: var(--sfs-primary); border-color: var(--sfs-primary); color: #fff !important; }
+            .sfs-hr-tab-icon { width: 18px; height: 18px; }
+            .sfs-hr-profile-card { background: var(--sfs-card-bg); border: 1px solid var(--sfs-border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+            .sfs-hr-profile-card h3 { margin: 0 0 16px; color: var(--sfs-text); font-size: 16px; font-weight: 600; }
+            .sfs-hr-profile-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--sfs-border); }
+            .sfs-hr-profile-row:last-child { border-bottom: none; }
+            .sfs-hr-profile-row label { color: var(--sfs-text-muted); font-size: 14px; }
+            .sfs-hr-profile-row span { color: var(--sfs-text); font-size: 14px; font-weight: 500; }
+            .sfs-hr-trainee-badge { display: inline-block; padding: 4px 12px; background: #fef3c7; color: #92400e; border-radius: 20px; font-size: 12px; font-weight: 600; margin-left: 8px; }
+            .sfs-hr-trainee-notice { background: #fef3c7; color: #92400e; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
+            @media (max-width: 600px) {
+                .sfs-hr-profile-container { padding: 16px; }
+                .sfs-hr-profile-header { flex-direction: column; text-align: center; }
+                .sfs-hr-profile-row { flex-direction: column; gap: 4px; }
+                .sfs-hr-profile-row label { font-size: 12px; }
+            }
+        </style>
+
+        <div class="sfs-hr-profile-container">
+            <div class="sfs-hr-trainee-notice">
+                <strong><?php esc_html_e( 'Trainee Account', 'sfs-hr' ); ?>:</strong>
+                <?php esc_html_e( 'You are logged in as a trainee student. Some features are limited.', 'sfs-hr' ); ?>
+            </div>
+
+            <div class="sfs-hr-profile-tabs">
+                <a href="<?php echo esc_url( $overview_url ); ?>"
+                   class="sfs-hr-tab <?php echo ( $active_tab === 'overview' ) ? 'sfs-hr-tab-active' : ''; ?>">
+                    <svg class="sfs-hr-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <span><?php esc_html_e( 'Overview', 'sfs-hr' ); ?></span>
+                </a>
+                <?php if ( $can_self_clock ) : ?>
+                    <a href="<?php echo esc_url( $attendance_url ); ?>"
+                       class="sfs-hr-tab <?php echo ( $active_tab === 'attendance' ) ? 'sfs-hr-tab-active' : ''; ?>">
+                        <svg class="sfs-hr-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <span><?php esc_html_e( 'Attendance', 'sfs-hr' ); ?></span>
+                    </a>
+                <?php endif; ?>
+            </div>
+
+            <?php if ( $active_tab === 'attendance' && $can_self_clock ) : ?>
+                <div class="sfs-hr-profile-attendance-tab">
+                    <?php echo do_shortcode( '[sfs_hr_attendance_widget immersive="0"]' ); ?>
+                </div>
+            <?php else : ?>
+                <div class="sfs-hr-profile-header">
+                    <div class="sfs-hr-profile-photo">
+                        <?php echo esc_html( strtoupper( substr( $first_name, 0, 1 ) . substr( $last_name, 0, 1 ) ) ); ?>
+                    </div>
+                    <div class="sfs-hr-profile-info">
+                        <h2><?php echo esc_html( $full_name ); ?> <span class="sfs-hr-trainee-badge"><?php esc_html_e( 'Trainee', 'sfs-hr' ); ?></span></h2>
+                        <p><?php echo esc_html( $code ); ?><?php if ( $position ) : ?> • <?php echo esc_html( $position ); ?><?php endif; ?></p>
+                    </div>
+                </div>
+
+                <div class="sfs-hr-profile-card">
+                    <h3><?php esc_html_e( 'Personal Information', 'sfs-hr' ); ?></h3>
+                    <div class="sfs-hr-profile-row">
+                        <label><?php esc_html_e( 'Full Name', 'sfs-hr' ); ?></label>
+                        <span><?php echo esc_html( $full_name ); ?></span>
+                    </div>
+                    <?php if ( $email ) : ?>
+                        <div class="sfs-hr-profile-row">
+                            <label><?php esc_html_e( 'Email', 'sfs-hr' ); ?></label>
+                            <span><?php echo esc_html( $email ); ?></span>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ( $phone ) : ?>
+                        <div class="sfs-hr-profile-row">
+                            <label><?php esc_html_e( 'Phone', 'sfs-hr' ); ?></label>
+                            <span><?php echo esc_html( $phone ); ?></span>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ( $gender ) : ?>
+                        <div class="sfs-hr-profile-row">
+                            <label><?php esc_html_e( 'Gender', 'sfs-hr' ); ?></label>
+                            <span><?php echo esc_html( ucfirst( $gender ) ); ?></span>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <div class="sfs-hr-profile-card">
+                    <h3><?php esc_html_e( 'Training Information', 'sfs-hr' ); ?></h3>
+                    <?php if ( $dept_name ) : ?>
+                        <div class="sfs-hr-profile-row">
+                            <label><?php esc_html_e( 'Department', 'sfs-hr' ); ?></label>
+                            <span><?php echo esc_html( $dept_name ); ?></span>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ( $position ) : ?>
+                        <div class="sfs-hr-profile-row">
+                            <label><?php esc_html_e( 'Position', 'sfs-hr' ); ?></label>
+                            <span><?php echo esc_html( $position ); ?></span>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ( $supervisor_name ) : ?>
+                        <div class="sfs-hr-profile-row">
+                            <label><?php esc_html_e( 'Supervisor', 'sfs-hr' ); ?></label>
+                            <span><?php echo esc_html( $supervisor_name ); ?></span>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ( $training_start ) : ?>
+                        <div class="sfs-hr-profile-row">
+                            <label><?php esc_html_e( 'Training Start', 'sfs-hr' ); ?></label>
+                            <span><?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $training_start ) ) ); ?></span>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ( $training_end ) : ?>
+                        <div class="sfs-hr-profile-row">
+                            <label><?php esc_html_e( 'Training End', 'sfs-hr' ); ?></label>
+                            <span><?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $training_end ) ) ); ?></span>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <?php if ( $university || $major ) : ?>
+                    <div class="sfs-hr-profile-card">
+                        <h3><?php esc_html_e( 'Education', 'sfs-hr' ); ?></h3>
+                        <?php if ( $university ) : ?>
+                            <div class="sfs-hr-profile-row">
+                                <label><?php esc_html_e( 'University', 'sfs-hr' ); ?></label>
+                                <span><?php echo esc_html( $university ); ?></span>
+                            </div>
+                        <?php endif; ?>
+                        <?php if ( $major ) : ?>
+                            <div class="sfs-hr-profile-row">
+                                <label><?php esc_html_e( 'Major', 'sfs-hr' ); ?></label>
+                                <span><?php echo esc_html( $major ); ?></span>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php
+    return ob_get_clean();
 }
 
 
