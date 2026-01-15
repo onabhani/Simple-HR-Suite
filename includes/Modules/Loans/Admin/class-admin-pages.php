@@ -936,6 +936,62 @@ class AdminPages {
                 <p><?php esc_html_e( 'No installments found for the selected month.', 'sfs-hr' ); ?></p>
             </div>
         <?php else : ?>
+            <style>
+                /* Mobile responsive styles for installments table */
+                @media (max-width: 782px) {
+                    .sfs-hr-installments-table { border: 0; }
+                    .sfs-hr-installments-table thead { display: none; }
+                    .sfs-hr-installments-table tr {
+                        display: block;
+                        margin-bottom: 15px;
+                        border: 1px solid #ddd;
+                        border-radius: 8px;
+                        background: #fff;
+                        padding: 12px;
+                    }
+                    .sfs-hr-installments-table td {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 8px 0 !important;
+                        border: none !important;
+                        border-bottom: 1px solid #f0f0f0 !important;
+                    }
+                    .sfs-hr-installments-table td:last-child {
+                        border-bottom: none !important;
+                    }
+                    .sfs-hr-installments-table td::before {
+                        content: attr(data-label);
+                        font-weight: 600;
+                        color: #666;
+                        font-size: 12px;
+                        text-transform: uppercase;
+                    }
+                    .sfs-hr-installments-table td.check-column,
+                    .sfs-hr-installments-table th.check-column {
+                        display: none;
+                    }
+                    .sfs-hr-installments-table td.actions-column {
+                        flex-direction: column;
+                        align-items: stretch;
+                        gap: 8px;
+                        padding-top: 12px !important;
+                    }
+                    .sfs-hr-installments-table td.actions-column::before {
+                        display: none;
+                    }
+                    .sfs-hr-installments-table td.actions-column .row-actions {
+                        display: flex;
+                        gap: 8px;
+                        width: 100%;
+                    }
+                    .sfs-hr-installments-table td.actions-column .button {
+                        flex: 1;
+                        text-align: center;
+                    }
+                    .tablenav .bulkactions { display: none; }
+                }
+            </style>
             <form method="post" action="" id="bulk-installments-form">
                 <?php wp_nonce_field( 'sfs_hr_bulk_installments' ); ?>
                 <input type="hidden" name="action" value="bulk_update_installments" />
@@ -952,7 +1008,7 @@ class AdminPages {
                     </div>
                 </div>
 
-                <table class="wp-list-table widefat fixed striped">
+                <table class="wp-list-table widefat fixed striped sfs-hr-installments-table">
                     <thead>
                         <tr>
                             <td class="manage-column column-cb check-column">
@@ -980,24 +1036,24 @@ class AdminPages {
                                 <th scope="row" class="check-column">
                                     <input type="checkbox" name="payment_ids[]" value="<?php echo (int) $inst->id; ?>" />
                                 </th>
-                                <td>
+                                <td data-label="<?php esc_attr_e( 'Employee', 'sfs-hr' ); ?>">
                                     <a href="?page=sfs-hr-employee-profile&employee_id=<?php echo (int) $inst->employee_id; ?>" style="text-decoration:none;">
                                         <strong><?php echo esc_html( $inst->employee_name ); ?></strong>
                                     </a>
                                     <br><small><?php echo esc_html( $inst->employee_code ); ?></small>
                                 </td>
-                                <td>
+                                <td data-label="<?php esc_attr_e( 'Loan #', 'sfs-hr' ); ?>">
                                     <a href="?page=sfs-hr-loans&action=view&id=<?php echo (int) $inst->loan_id; ?>" style="text-decoration:none;">
                                         <strong><?php echo esc_html( $inst->loan_number ); ?></strong>
                                     </a>
                                 </td>
-                                <td><?php echo (int) $inst->sequence; ?></td>
-                                <td><?php echo esc_html( wp_date( 'M j, Y', strtotime( $inst->due_date ) ) ); ?></td>
-                                <td><?php echo number_format( (float) $inst->amount_planned, 2 ); ?></td>
-                                <td><?php echo number_format( (float) $inst->amount_paid, 2 ); ?></td>
-                                <td><?php echo $this->get_payment_status_badge( $inst->status ); ?></td>
-                                <td><?php echo number_format( (float) $inst->remaining_balance, 2 ); ?> <?php echo esc_html( $inst->currency ); ?></td>
-                                <td>
+                                <td data-label="<?php esc_attr_e( 'Installment', 'sfs-hr' ); ?>"><?php echo (int) $inst->sequence; ?></td>
+                                <td data-label="<?php esc_attr_e( 'Due Date', 'sfs-hr' ); ?>"><?php echo esc_html( wp_date( 'M j, Y', strtotime( $inst->due_date ) ) ); ?></td>
+                                <td data-label="<?php esc_attr_e( 'Planned', 'sfs-hr' ); ?>"><?php echo number_format( (float) $inst->amount_planned, 2 ); ?></td>
+                                <td data-label="<?php esc_attr_e( 'Paid', 'sfs-hr' ); ?>"><?php echo number_format( (float) $inst->amount_paid, 2 ); ?></td>
+                                <td data-label="<?php esc_attr_e( 'Status', 'sfs-hr' ); ?>"><?php echo $this->get_payment_status_badge( $inst->status ); ?></td>
+                                <td data-label="<?php esc_attr_e( 'Remaining', 'sfs-hr' ); ?>"><?php echo number_format( (float) $inst->remaining_balance, 2 ); ?> <?php echo esc_html( $inst->currency ); ?></td>
+                                <td class="actions-column">
                                     <?php if ( $inst->status === 'planned' || $inst->status === 'partial' ) : ?>
                                         <div class="row-actions" style="display:flex;gap:5px;">
                                             <form method="post" action="" style="display:inline-block;">
