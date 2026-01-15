@@ -4372,16 +4372,17 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
           /* Mobile details button (vertical dots) */
           .sfs-hr-details-btn {
             display: inline-flex;
-            width: 40px;
-            height: 40px;
-            border-radius: 8px;
-            background: #f0f0f1;
-            border: 1px solid #dcdcde;
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            background: #fff;
+            border: 1px solid #d1d5db;
             cursor: pointer;
             padding: 0;
             align-items: center;
             justify-content: center;
             position: relative;
+            transition: all 0.15s ease;
           }
           .sfs-hr-details-btn::before,
           .sfs-hr-details-btn::after,
@@ -4390,25 +4391,28 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             display: block;
             width: 5px;
             height: 5px;
-            background: #2271b1;
+            background: #2563eb;
             border-radius: 50%;
             position: absolute;
             left: 50%;
             transform: translateX(-50%);
           }
           .sfs-hr-details-btn::before {
-            top: 9px;
+            top: 11px;
           }
           .sfs-hr-details-btn span {
             top: 50%;
             transform: translate(-50%, -50%);
           }
           .sfs-hr-details-btn::after {
-            bottom: 9px;
+            bottom: 11px;
           }
           .sfs-hr-details-btn:hover {
-            background: #e5e5e5;
-            border-color: #c3c4c7;
+            background: #f9fafb;
+            border-color: #9ca3af;
+          }
+          .sfs-hr-details-btn:active {
+            transform: scale(0.95);
           }
 
           /* Details Modal */
