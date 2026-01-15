@@ -947,58 +947,88 @@ class AdminPages {
                  * ==========================================================
                  */
 
-                /* Desktop: show table, hide mobile list */
-                .sfs-hr-installments-desktop { display: block; }
-                .sfs-hr-installments-mobile { display: none; }
-
-                @media (max-width: 782px) {
-                    /* Mobile: hide table, show list */
-                    .sfs-hr-installments-desktop { display: none !important; }
-                    .sfs-hr-installments-mobile { display: block !important; }
-                    .tablenav .bulkactions { display: none; }
-                }
-
-                /* Mobile installment cards */
-                .sfs-hr-inst-card {
+                /* Mobile table styles - matching All Loans design */
+                .sfs-hr-installments-table-wrap {
                     background: #fff;
                     border: 1px solid #ddd;
-                    border-radius: 12px;
+                    border-radius: 8px;
+                    overflow: hidden;
+                }
+                .sfs-hr-installments-table-wrap .table-header {
                     padding: 16px;
-                    margin-bottom: 12px;
-                    cursor: pointer;
-                    transition: box-shadow 0.2s, border-color 0.2s;
+                    border-bottom: 1px solid #e2e4e7;
+                    background: #f9fafb;
                 }
-                .sfs-hr-inst-card:hover {
-                    border-color: #2271b1;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-                }
-                .sfs-hr-inst-card-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: flex-start;
-                    margin-bottom: 8px;
-                }
-                .sfs-hr-inst-card-employee {
+                .sfs-hr-installments-table-wrap .table-header h3 {
+                    margin: 0;
+                    font-size: 15px;
                     font-weight: 600;
                     color: #1d2327;
-                    font-size: 15px;
                 }
-                .sfs-hr-inst-card-code {
+                .sfs-hr-inst-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                }
+                .sfs-hr-inst-table th,
+                .sfs-hr-inst-table td {
+                    padding: 12px 16px;
+                    text-align: left;
+                    border-bottom: 1px solid #f0f0f0;
+                }
+                .sfs-hr-inst-table th {
+                    font-size: 11px;
+                    font-weight: 600;
+                    color: #666;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    background: #fafafa;
+                }
+                .sfs-hr-inst-table tbody tr:last-child td {
+                    border-bottom: none;
+                }
+                .sfs-hr-inst-table .emp-name {
+                    display: block;
+                    font-weight: 600;
+                    color: #1d2327;
+                }
+                .sfs-hr-inst-table .emp-code {
+                    display: block;
                     font-size: 12px;
                     color: #666;
                 }
-                .sfs-hr-inst-card-details {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-top: 8px;
-                    padding-top: 8px;
-                    border-top: 1px solid #f0f0f0;
+                .sfs-hr-inst-table .show-mobile {
+                    display: none;
                 }
-                .sfs-hr-inst-card-amount {
+                .sfs-hr-inst-action-btn {
+                    background: #f0f0f0;
+                    border: none;
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 50%;
+                    cursor: pointer;
                     font-size: 18px;
-                    font-weight: 600;
-                    color: #1d2327;
+                    color: #666;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .sfs-hr-inst-action-btn:hover {
+                    background: #e0e0e0;
+                }
+
+                @media (max-width: 782px) {
+                    .sfs-hr-inst-table .hide-mobile {
+                        display: none !important;
+                    }
+                    .sfs-hr-inst-table .show-mobile {
+                        display: table-cell !important;
+                    }
+                    .sfs-hr-inst-table th,
+                    .sfs-hr-inst-table td {
+                        padding: 10px 12px;
+                    }
+                    .tablenav .bulkactions { display: none; }
+                    .sfs-hr-installments-desktop { display: none !important; }
                 }
 
                 /* Slide-up Modal */
@@ -1240,40 +1270,54 @@ class AdminPages {
                 </form>
             </div>
 
-            <!-- Mobile Card View -->
-            <div class="sfs-hr-installments-mobile">
-                <?php foreach ( $installments as $inst ) : ?>
-                    <div class="sfs-hr-inst-card" onclick="openInstModal(<?php echo (int) $inst->id; ?>)"
-                         data-id="<?php echo (int) $inst->id; ?>"
-                         data-employee="<?php echo esc_attr( $inst->employee_name ); ?>"
-                         data-code="<?php echo esc_attr( $inst->employee_code ); ?>"
-                         data-loan="<?php echo esc_attr( $inst->loan_number ); ?>"
-                         data-loan-id="<?php echo (int) $inst->loan_id; ?>"
-                         data-sequence="<?php echo (int) $inst->sequence; ?>"
-                         data-due="<?php echo esc_attr( wp_date( 'M j, Y', strtotime( $inst->due_date ) ) ); ?>"
-                         data-planned="<?php echo number_format( (float) $inst->amount_planned, 2 ); ?>"
-                         data-paid="<?php echo number_format( (float) $inst->amount_paid, 2 ); ?>"
-                         data-status="<?php echo esc_attr( $inst->status ); ?>"
-                         data-remaining="<?php echo number_format( (float) $inst->remaining_balance, 2 ); ?>"
-                         data-currency="<?php echo esc_attr( $inst->currency ); ?>"
-                         data-max="<?php echo esc_attr( $inst->amount_planned ); ?>"
-                         data-nonce="<?php echo wp_create_nonce( 'sfs_hr_mark_installment_' . $inst->id ); ?>">
-                        <div class="sfs-hr-inst-card-header">
-                            <div>
-                                <div class="sfs-hr-inst-card-employee"><?php echo esc_html( $inst->employee_name ); ?></div>
-                                <div class="sfs-hr-inst-card-code"><?php echo esc_html( $inst->employee_code ); ?></div>
-                            </div>
-                            <?php echo $this->get_payment_status_badge( $inst->status ); ?>
-                        </div>
-                        <div class="sfs-hr-inst-card-details">
-                            <div>
-                                <div style="font-size:13px;color:#666;"><?php echo esc_html( $inst->loan_number ); ?></div>
-                                <div style="font-size:12px;color:#999;"><?php echo esc_html( wp_date( 'M j, Y', strtotime( $inst->due_date ) ) ); ?></div>
-                            </div>
-                            <div class="sfs-hr-inst-card-amount"><?php echo number_format( (float) $inst->amount_planned, 2 ); ?></div>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
+            <!-- Mobile Table View (matches All Loans design) -->
+            <div class="sfs-hr-installments-table-wrap">
+                <div class="table-header">
+                    <h3><?php printf( esc_html__( 'Installments (%d)', 'sfs-hr' ), count( $installments ) ); ?></h3>
+                </div>
+                <table class="sfs-hr-inst-table">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
+                            <th class="hide-mobile"><?php esc_html_e( 'Loan #', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Planned', 'sfs-hr' ); ?></th>
+                            <th class="hide-mobile"><?php esc_html_e( 'Due Date', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
+                            <th class="show-mobile" style="width:50px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ( $installments as $inst ) : ?>
+                            <tr class="sfs-hr-inst-row"
+                                data-id="<?php echo (int) $inst->id; ?>"
+                                data-employee="<?php echo esc_attr( $inst->employee_name ); ?>"
+                                data-code="<?php echo esc_attr( $inst->employee_code ); ?>"
+                                data-loan="<?php echo esc_attr( $inst->loan_number ); ?>"
+                                data-loan-id="<?php echo (int) $inst->loan_id; ?>"
+                                data-sequence="<?php echo (int) $inst->sequence; ?>"
+                                data-due="<?php echo esc_attr( wp_date( 'M j, Y', strtotime( $inst->due_date ) ) ); ?>"
+                                data-planned="<?php echo number_format( (float) $inst->amount_planned, 2 ); ?>"
+                                data-paid="<?php echo number_format( (float) $inst->amount_paid, 2 ); ?>"
+                                data-status="<?php echo esc_attr( $inst->status ); ?>"
+                                data-remaining="<?php echo number_format( (float) $inst->remaining_balance, 2 ); ?>"
+                                data-currency="<?php echo esc_attr( $inst->currency ); ?>"
+                                data-max="<?php echo esc_attr( $inst->amount_planned ); ?>"
+                                data-nonce="<?php echo wp_create_nonce( 'sfs_hr_mark_installment_' . $inst->id ); ?>">
+                                <td>
+                                    <span class="emp-name"><?php echo esc_html( $inst->employee_name ); ?></span>
+                                    <span class="emp-code"><?php echo esc_html( $inst->employee_code ); ?></span>
+                                </td>
+                                <td class="hide-mobile"><?php echo esc_html( $inst->loan_number ); ?></td>
+                                <td><?php echo number_format( (float) $inst->amount_planned, 2 ); ?></td>
+                                <td class="hide-mobile"><?php echo esc_html( wp_date( 'M j, Y', strtotime( $inst->due_date ) ) ); ?></td>
+                                <td><?php echo $this->get_payment_status_badge( $inst->status ); ?></td>
+                                <td class="show-mobile">
+                                    <button type="button" class="sfs-hr-inst-action-btn sfs-mobile-inst-btn">›</button>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
             </div>
 
             <!-- Slide-up Modal -->
@@ -1329,25 +1373,35 @@ class AdminPages {
                     'skipped': '<?php echo esc_js( __( 'Skipped', 'sfs-hr' ) ); ?>'
                 };
 
+                // Attach click event to mobile buttons
+                document.querySelectorAll('.sfs-mobile-inst-btn').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var row = this.closest('tr');
+                        if (row && row.dataset.id) {
+                            openInstModal(row.dataset.id);
+                        }
+                    });
+                });
+
                 function openInstModal(id) {
-                    var card = document.querySelector('.sfs-hr-inst-card[data-id="' + id + '"]');
-                    if (!card) return;
+                    var row = document.querySelector('.sfs-hr-inst-row[data-id="' + id + '"]');
+                    if (!row) return;
 
                     currentInstData = {
-                        id: card.dataset.id,
-                        employee: card.dataset.employee,
-                        code: card.dataset.code,
-                        loan: card.dataset.loan,
-                        loanId: card.dataset.loanId,
-                        sequence: card.dataset.sequence,
-                        due: card.dataset.due,
-                        planned: card.dataset.planned,
-                        paid: card.dataset.paid,
-                        status: card.dataset.status,
-                        remaining: card.dataset.remaining,
-                        currency: card.dataset.currency,
-                        max: card.dataset.max,
-                        nonce: card.dataset.nonce
+                        id: row.dataset.id,
+                        employee: row.dataset.employee,
+                        code: row.dataset.code,
+                        loan: row.dataset.loan,
+                        loanId: row.dataset.loanId,
+                        sequence: row.dataset.sequence,
+                        due: row.dataset.due,
+                        planned: row.dataset.planned,
+                        paid: row.dataset.paid,
+                        status: row.dataset.status,
+                        remaining: row.dataset.remaining,
+                        currency: row.dataset.currency,
+                        max: row.dataset.max,
+                        nonce: row.dataset.nonce
                     };
 
                     var html = '';

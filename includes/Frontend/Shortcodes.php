@@ -1244,14 +1244,30 @@ class Shortcodes {
         }
     }
 
-    /* Date inputs - prevent overflow (all modes) */
+    /* Date inputs - prevent overflow (all modes) - Safari fix */
     .sfs-hr-pwa-app .sfs-hr-leave-self-form input[type="date"],
     .sfs-hr-pwa-app .sfs-hr-lf-row input[type="date"] {
         width: 100% !important;
         max-width: 100% !important;
         box-sizing: border-box !important;
-        height: auto !important;
+        height: 44px !important;
         min-height: 44px !important;
+        max-height: 44px !important;
+        padding: 10px 12px !important;
+        font-size: 16px !important; /* Prevents iOS zoom on focus */
+        -webkit-appearance: none !important;
+        -moz-appearance: none !important;
+        appearance: none !important;
+        line-height: 1.2 !important;
+    }
+    /* Safari-specific date input fixes */
+    @supports (-webkit-touch-callout: none) {
+        .sfs-hr-pwa-app .sfs-hr-leave-self-form input[type="date"],
+        .sfs-hr-pwa-app .sfs-hr-lf-row input[type="date"] {
+            height: 44px !important;
+            padding: 0 12px !important;
+            line-height: 44px !important;
+        }
     }
 
     /* Dark mode: File input button - improved styling */

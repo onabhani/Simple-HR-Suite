@@ -43,10 +43,19 @@ class PWAModule {
 
     /**
      * Output PWA meta tags in head
+     * Only output on pages with HR Profile shortcode or HR admin pages
      */
     public function output_pwa_meta(): void {
         if (!is_user_logged_in()) {
             return;
+        }
+
+        // Check if this is a frontend page with HR Profile shortcode
+        if (!is_admin()) {
+            global $post;
+            if (!$post || !$this->page_has_hr_shortcode($post)) {
+                return;
+            }
         }
 
         // Use admin-ajax.php for manifest (bypasses REST API auth issues)
@@ -63,10 +72,32 @@ class PWAModule {
     }
 
     /**
+     * Check if a post contains HR-related shortcodes
+     */
+    private function page_has_hr_shortcode($post): bool {
+        if (!$post || empty($post->post_content)) {
+            return false;
+        }
+
+        return (
+            has_shortcode($post->post_content, 'sfs_hr_my_profile') ||
+            has_shortcode($post->post_content, 'sfs_hr_attendance_widget') ||
+            has_shortcode($post->post_content, 'sfs_hr_kiosk')
+        );
+    }
+
+    /**
      * Register PWA scripts (frontend)
+     * Only enqueue on pages with HR Profile shortcode
      */
     public function register_pwa_scripts(): void {
         if (!is_user_logged_in()) {
+            return;
+        }
+
+        // Only enqueue on pages with HR shortcodes
+        global $post;
+        if (!$post || !$this->page_has_hr_shortcode($post)) {
             return;
         }
 
