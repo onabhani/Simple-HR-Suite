@@ -3608,6 +3608,20 @@ private function render_frontend_leave_tab( array $emp ): void {
         padding: 10px 12px;
     }
 
+    /* Unified file input styling (same size for both light and dark mode) */
+    .sfs-hr-pwa-app input[type="file"] {
+        border-radius: 6px !important;
+        padding: 8px !important;
+    }
+    .sfs-hr-pwa-app input[type="file"]::file-selector-button {
+        border: none !important;
+        border-radius: 4px !important;
+        padding: 6px 12px !important;
+        margin-right: 10px !important;
+        cursor: pointer !important;
+        font-weight: 500 !important;
+    }
+
     /* Date input styling with proper padding */
     .sfs-hr-leave-self-form input[type="date"] {
         padding: 10px 12px;
@@ -3635,6 +3649,19 @@ private function render_frontend_leave_tab( array $emp ): void {
     }
     .sfs-hr-lf-submit {
         min-width: 180px;
+    }
+
+    /* Unified submit button styling (same size for both light and dark mode) */
+    .sfs-hr-pwa-app .sfs-hr-lf-submit,
+    .sfs-hr-pwa-app button[type="submit"].sfs-hr-lf-submit {
+        width: 100%;
+        padding: 12px 16px !important;
+        border-radius: 8px !important;
+        border: none !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        cursor: pointer !important;
+        min-height: 44px !important;
     }
 
     @media (max-width: 600px) {
@@ -3834,7 +3861,15 @@ private function render_frontend_leave_tab( array $emp ): void {
         color: var(--sfs-text) !important;
     }
 
-    /* Form inputs dark mode */
+    /* Unified form inputs sizing for both modes */
+    .sfs-hr-pwa-app .sfs-hr-leave-self-form select,
+    .sfs-hr-pwa-app .sfs-hr-leave-self-form input,
+    .sfs-hr-pwa-app .sfs-hr-leave-self-form textarea {
+        border-radius: 8px !important;
+        padding: 10px 12px !important;
+        font-size: 14px !important;
+    }
+    /* Form inputs dark mode colors */
     .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-self-form select,
     .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-self-form input,
     .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-self-form textarea,
@@ -3853,15 +3888,15 @@ private function render_frontend_leave_tab( array $emp ): void {
         color: #fff !important;
     }
 
-    /* Status badges in leave history - ensure readability in dark mode */
-    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-summary-status .sfs-hr-status-chip,
-    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-summary-status .sfs-hr-status-chip {
-        font-size: 11px;
-        padding: 2px 8px;
+    /* Unified status chip styling for both modes */
+    .sfs-hr-pwa-app .sfs-hr-leave-summary-status .sfs-hr-status-chip {
+        font-size: 11px !important;
+        padding: 2px 8px !important;
     }
-    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-leave-card,
-    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-leave-card {
-        padding: 12px 14px;
+    /* Unified leave card padding for both modes */
+    .sfs-hr-pwa-app .sfs-hr-leave-card {
+        padding: 10px 12px !important;
+        border-radius: 10px !important;
     }
     </style>
     <?php
