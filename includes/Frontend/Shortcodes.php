@@ -323,6 +323,79 @@ class Shortcodes {
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-theme-toggle .sfs-hr-icon-sun { display: block; }
     .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-theme-toggle .sfs-hr-icon-moon { display: none; }
 
+    /* Language toggle in header */
+    .sfs-hr-lang-toggle {
+        position: relative;
+    }
+    .sfs-hr-lang-btn {
+        height: 40px;
+        padding: 0 12px;
+        border-radius: 20px;
+        background: var(--sfs-background);
+        border: 1px solid var(--sfs-border);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        transition: all 0.2s ease;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--sfs-text);
+    }
+    .sfs-hr-lang-btn:hover {
+        background: var(--sfs-border);
+    }
+    .sfs-hr-lang-btn svg {
+        width: 14px;
+        height: 14px;
+        stroke: var(--sfs-text);
+        fill: none;
+        stroke-width: 2;
+    }
+    .sfs-hr-lang-dropdown {
+        position: absolute;
+        top: 100%;
+        right: 0;
+        margin-top: 8px;
+        background: var(--sfs-surface);
+        border: 1px solid var(--sfs-border);
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        overflow: hidden;
+        display: none;
+        z-index: 1000;
+        min-width: 140px;
+    }
+    .sfs-hr-lang-dropdown.active {
+        display: block;
+    }
+    .sfs-hr-lang-option {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        cursor: pointer;
+        transition: background 0.15s;
+        color: var(--sfs-text);
+        font-size: 14px;
+        border: none;
+        background: none;
+        width: 100%;
+        text-align: left;
+    }
+    .sfs-hr-lang-option:hover {
+        background: var(--sfs-background);
+    }
+    .sfs-hr-lang-option.active {
+        background: var(--sfs-primary);
+        color: #0f172a;
+    }
+    .sfs-hr-lang-option-code {
+        font-weight: 600;
+        min-width: 28px;
+    }
+
 
     /* Offline indicator */
     .sfs-hr-offline-banner {
@@ -1427,10 +1500,38 @@ class Shortcodes {
         </div>
     </div>
 
-    <!-- App Header with Title and Dark Mode Toggle -->
+    <!-- App Header with Title, Language and Dark Mode Toggle -->
     <header class="sfs-hr-app-header">
-        <h1 class="sfs-hr-app-header-title"><?php echo esc_html__( 'My HR Profile', 'sfs-hr' ); ?></h1>
+        <h1 class="sfs-hr-app-header-title" data-i18n="my_hr_profile"><?php echo esc_html__( 'My HR Profile', 'sfs-hr' ); ?></h1>
         <div class="sfs-hr-app-header-actions">
+            <!-- Language Toggle -->
+            <div class="sfs-hr-lang-toggle" id="sfs-hr-lang-toggle-<?php echo esc_attr($pwa_instance); ?>">
+                <button type="button" class="sfs-hr-lang-btn" title="<?php esc_attr_e('Change language', 'sfs-hr'); ?>">
+                    <span class="sfs-hr-lang-current">EN</span>
+                    <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </button>
+                <div class="sfs-hr-lang-dropdown">
+                    <button type="button" class="sfs-hr-lang-option active" data-lang="en">
+                        <span class="sfs-hr-lang-option-code">EN</span>
+                        <span>English</span>
+                    </button>
+                    <button type="button" class="sfs-hr-lang-option" data-lang="ar">
+                        <span class="sfs-hr-lang-option-code">AR</span>
+                        <span>العربية</span>
+                    </button>
+                    <button type="button" class="sfs-hr-lang-option" data-lang="ur">
+                        <span class="sfs-hr-lang-option-code">UR</span>
+                        <span>اردو</span>
+                    </button>
+                    <button type="button" class="sfs-hr-lang-option" data-lang="fil">
+                        <span class="sfs-hr-lang-option-code">FIL</span>
+                        <span>Filipino</span>
+                    </button>
+                </div>
+            </div>
+            <!-- Dark Mode Toggle -->
             <button type="button" class="sfs-hr-theme-toggle" id="sfs-hr-theme-toggle-<?php echo esc_attr($pwa_instance); ?>" title="<?php esc_attr_e('Toggle dark mode', 'sfs-hr'); ?>">
                 <svg class="sfs-hr-icon-moon" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
@@ -3080,6 +3181,250 @@ class Shortcodes {
                     localStorage.setItem('sfs_hr_theme', 'dark');
                 }
             });
+        }
+
+        // Language toggle functionality
+        var langToggle = document.getElementById('sfs-hr-lang-toggle-' + inst);
+        if (langToggle) {
+            var langBtn = langToggle.querySelector('.sfs-hr-lang-btn');
+            var langDropdown = langToggle.querySelector('.sfs-hr-lang-dropdown');
+            var langOptions = langToggle.querySelectorAll('.sfs-hr-lang-option');
+            var langCurrent = langToggle.querySelector('.sfs-hr-lang-current');
+
+            // Translation strings for My HR Profile
+            var translations = {
+                en: {
+                    my_hr_profile: 'My HR Profile',
+                    overview: 'Overview',
+                    leave: 'Leave',
+                    loans: 'Loans',
+                    resignation: 'Resignation',
+                    attendance: 'Attendance',
+                    profile_completion: 'Profile Completion',
+                    contact_information: 'Contact Information',
+                    identification: 'Identification',
+                    my_assets: 'My Assets',
+                    request_new_leave: 'Request new leave',
+                    leave_type: 'Leave type',
+                    select_type: 'Select type',
+                    start_date: 'Start date',
+                    end_date: 'End date',
+                    reason_note: 'Reason / note',
+                    supporting_document: 'Supporting document',
+                    submit_leave_request: 'Submit leave request',
+                    request_new_loan: 'Request new loan',
+                    loan_amount: 'Loan Amount',
+                    monthly_installment: 'Monthly Installment Amount',
+                    reason_for_loan: 'Reason for Loan',
+                    submit_loan_request: 'Submit loan request',
+                    loan_history: 'Loan history',
+                    next_approved_leave: 'Next Approved Leave',
+                    no_upcoming_leave: 'No upcoming leave.',
+                    leave_history: 'Leave History'
+                },
+                ar: {
+                    my_hr_profile: 'ملفي الشخصي',
+                    overview: 'نظرة عامة',
+                    leave: 'الإجازات',
+                    loans: 'القروض',
+                    resignation: 'الاستقالة',
+                    attendance: 'الحضور',
+                    profile_completion: 'اكتمال الملف',
+                    contact_information: 'معلومات الاتصال',
+                    identification: 'الهوية',
+                    my_assets: 'أصولي',
+                    request_new_leave: 'طلب إجازة جديدة',
+                    leave_type: 'نوع الإجازة',
+                    select_type: 'اختر النوع',
+                    start_date: 'تاريخ البداية',
+                    end_date: 'تاريخ النهاية',
+                    reason_note: 'السبب / ملاحظة',
+                    supporting_document: 'مستند داعم',
+                    submit_leave_request: 'تقديم طلب الإجازة',
+                    request_new_loan: 'طلب قرض جديد',
+                    loan_amount: 'مبلغ القرض',
+                    monthly_installment: 'مبلغ القسط الشهري',
+                    reason_for_loan: 'سبب القرض',
+                    submit_loan_request: 'تقديم طلب القرض',
+                    loan_history: 'سجل القروض',
+                    next_approved_leave: 'الإجازة المعتمدة التالية',
+                    no_upcoming_leave: 'لا توجد إجازة قادمة.',
+                    leave_history: 'سجل الإجازات'
+                },
+                ur: {
+                    my_hr_profile: 'میری پروفائل',
+                    overview: 'جائزہ',
+                    leave: 'چھٹی',
+                    loans: 'قرضے',
+                    resignation: 'استعفیٰ',
+                    attendance: 'حاضری',
+                    profile_completion: 'پروفائل کی تکمیل',
+                    contact_information: 'رابطہ کی معلومات',
+                    identification: 'شناخت',
+                    my_assets: 'میرے اثاثے',
+                    request_new_leave: 'نئی چھٹی کی درخواست',
+                    leave_type: 'چھٹی کی قسم',
+                    select_type: 'قسم منتخب کریں',
+                    start_date: 'شروع کی تاریخ',
+                    end_date: 'اختتامی تاریخ',
+                    reason_note: 'وجہ / نوٹ',
+                    supporting_document: 'معاون دستاویز',
+                    submit_leave_request: 'چھٹی کی درخواست جمع کریں',
+                    request_new_loan: 'نئے قرض کی درخواست',
+                    loan_amount: 'قرض کی رقم',
+                    monthly_installment: 'ماہانہ قسط کی رقم',
+                    reason_for_loan: 'قرض کی وجہ',
+                    submit_loan_request: 'قرض کی درخواست جمع کریں',
+                    loan_history: 'قرض کی تاریخ',
+                    next_approved_leave: 'اگلی منظور شدہ چھٹی',
+                    no_upcoming_leave: 'کوئی آنے والی چھٹی نہیں۔',
+                    leave_history: 'چھٹی کی تاریخ'
+                },
+                fil: {
+                    my_hr_profile: 'Aking HR Profile',
+                    overview: 'Pangkalahatang-tanaw',
+                    leave: 'Bakasyon',
+                    loans: 'Mga Utang',
+                    resignation: 'Pagbibitiw',
+                    attendance: 'Pagdalo',
+                    profile_completion: 'Pagkumpleto ng Profile',
+                    contact_information: 'Impormasyon sa Pakikipag-ugnayan',
+                    identification: 'Pagkakakilanlan',
+                    my_assets: 'Aking mga Asset',
+                    request_new_leave: 'Humiling ng bagong bakasyon',
+                    leave_type: 'Uri ng bakasyon',
+                    select_type: 'Pumili ng uri',
+                    start_date: 'Petsa ng simula',
+                    end_date: 'Petsa ng wakas',
+                    reason_note: 'Dahilan / tala',
+                    supporting_document: 'Sumusuportang dokumento',
+                    submit_leave_request: 'Isumite ang kahilingan',
+                    request_new_loan: 'Humiling ng bagong utang',
+                    loan_amount: 'Halaga ng Utang',
+                    monthly_installment: 'Buwanang Hulog',
+                    reason_for_loan: 'Dahilan ng Utang',
+                    submit_loan_request: 'Isumite ang kahilingan ng utang',
+                    loan_history: 'Kasaysayan ng utang',
+                    next_approved_leave: 'Susunod na Aprubadong Bakasyon',
+                    no_upcoming_leave: 'Walang paparating na bakasyon.',
+                    leave_history: 'Kasaysayan ng Bakasyon'
+                }
+            };
+
+            // Load saved language
+            var savedLang = localStorage.getItem('sfs_hr_lang') || 'en';
+            applyLanguage(savedLang);
+
+            // Toggle dropdown
+            langBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                langDropdown.classList.toggle('active');
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function() {
+                langDropdown.classList.remove('active');
+            });
+
+            // Language option click
+            langOptions.forEach(function(option) {
+                option.addEventListener('click', function() {
+                    var lang = this.dataset.lang;
+                    applyLanguage(lang);
+                    localStorage.setItem('sfs_hr_lang', lang);
+                    langDropdown.classList.remove('active');
+                });
+            });
+
+            function applyLanguage(lang) {
+                // Update current language display
+                langCurrent.textContent = lang.toUpperCase();
+
+                // Update active state
+                langOptions.forEach(function(opt) {
+                    opt.classList.remove('active');
+                    if (opt.dataset.lang === lang) {
+                        opt.classList.add('active');
+                    }
+                });
+
+                // Apply RTL for Arabic and Urdu
+                if (lang === 'ar' || lang === 'ur') {
+                    pwaApp.setAttribute('dir', 'rtl');
+                    pwaApp.style.textAlign = 'right';
+                } else {
+                    pwaApp.setAttribute('dir', 'ltr');
+                    pwaApp.style.textAlign = 'left';
+                }
+
+                // Translate elements with data-i18n attribute
+                var langStrings = translations[lang] || translations.en;
+                pwaApp.querySelectorAll('[data-i18n]').forEach(function(el) {
+                    var key = el.dataset.i18n;
+                    if (langStrings[key]) {
+                        el.textContent = langStrings[key];
+                    }
+                });
+
+                // Translate tab labels
+                var tabMap = {
+                    'Overview': langStrings.overview,
+                    'Leave': langStrings.leave,
+                    'Loans': langStrings.loans,
+                    'Resignation': langStrings.resignation,
+                    'Attendance': langStrings.attendance
+                };
+                pwaApp.querySelectorAll('.sfs-hr-tab span').forEach(function(span) {
+                    var original = span.dataset.original || span.textContent.trim();
+                    span.dataset.original = original;
+                    if (tabMap[original]) {
+                        span.textContent = tabMap[original];
+                    }
+                });
+
+                // Translate form labels and buttons
+                translateFormElements(pwaApp, langStrings);
+            }
+
+            function translateFormElements(container, strings) {
+                // Map of English text to translation keys
+                var textMap = {
+                    'Request new leave': 'request_new_leave',
+                    'Leave type': 'leave_type',
+                    'Select type': 'select_type',
+                    'Start date': 'start_date',
+                    'End date': 'end_date',
+                    'Reason / note': 'reason_note',
+                    'Supporting document': 'supporting_document',
+                    'Submit leave request': 'submit_leave_request',
+                    'Request new loan': 'request_new_loan',
+                    'Loan Amount': 'loan_amount',
+                    'Monthly Installment Amount': 'monthly_installment',
+                    'Reason for Loan': 'reason_for_loan',
+                    'Submit loan request': 'submit_loan_request',
+                    'Loan history': 'loan_history',
+                    'NEXT APPROVED LEAVE': 'next_approved_leave',
+                    'No upcoming leave.': 'no_upcoming_leave',
+                    'Leave History': 'leave_history',
+                    'Profile Completion': 'profile_completion',
+                    'Contact Information': 'contact_information',
+                    'Identification': 'identification',
+                    'My Assets': 'my_assets'
+                };
+
+                // Find and translate labels, headings, buttons
+                container.querySelectorAll('label, h3, h4, h5, button[type="submit"], .sfs-hr-profile-group-title').forEach(function(el) {
+                    var text = el.childNodes[0]?.textContent?.trim() || el.textContent.trim();
+                    var key = textMap[text];
+                    if (key && strings[key]) {
+                        if (el.childNodes[0]?.nodeType === 3) {
+                            el.childNodes[0].textContent = strings[key] + ' ';
+                        } else if (!el.querySelector('*')) {
+                            el.textContent = strings[key];
+                        }
+                    }
+                });
+            }
         }
     })();
     </script>
