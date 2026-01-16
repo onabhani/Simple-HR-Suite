@@ -35,7 +35,7 @@ class Shortcodes {
                 'sfs-hr-pwa-styles',
                 \SFS_HR_URL . 'assets/frontend/pwa-styles.css',
                 [],
-                \SFS_HR_VERSION
+                \SFS_HR_VER
             );
         }
     }
