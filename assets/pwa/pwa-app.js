@@ -69,7 +69,13 @@
     if ('Notification' in window && Notification.permission === 'default') {
         // Only ask after user interaction
         document.addEventListener('click', function askNotificationPermission() {
-            Notification.requestPermission();
+            try {
+                Notification.requestPermission().catch(function() {
+                    // Permission denied or error - silently ignore
+                });
+            } catch (e) {
+                // Older browsers may throw synchronously
+            }
             document.removeEventListener('click', askNotificationPermission);
         }, { once: true });
     }

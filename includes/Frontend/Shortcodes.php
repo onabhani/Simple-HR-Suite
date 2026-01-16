@@ -1876,13 +1876,19 @@ class Shortcodes {
         window.addEventListener('offline', updateOfflineStatus);
         updateOfflineStatus();
 
-        // PWA Install prompt
+        // Detect iOS Safari
+        var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        var isIOSSafari = isIOS && isSafari;
+        var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+        // PWA Install prompt for Chrome/Android
         window.addEventListener('beforeinstallprompt', function(e) {
             e.preventDefault();
             deferredPrompt = e;
 
-            // Check if already dismissed
-            if (localStorage.getItem('sfs_hr_pwa_dismissed')) {
+            // Check if already dismissed or in standalone mode
+            if (localStorage.getItem('sfs_hr_pwa_dismissed') || isStandalone) {
                 return;
             }
 
@@ -1894,13 +1900,26 @@ class Shortcodes {
             }, 2000);
         });
 
+        // For iOS Safari - show banner since beforeinstallprompt doesn't fire
+        if (isIOS && !isStandalone && !localStorage.getItem('sfs_hr_pwa_dismissed')) {
+            setTimeout(function() {
+                if (pwaBanner) {
+                    pwaBanner.classList.add('visible');
+                    // Update button text for iOS
+                    if (installBtn) {
+                        installBtn.textContent = '<?php echo esc_js(__('How to Install', 'sfs-hr')); ?>';
+                    }
+                }
+            }, 3000);
+        }
+
         // Install button click
         if (installBtn) {
             installBtn.addEventListener('click', function() {
                 if (!deferredPrompt) {
-                    // Try to show iOS instructions
-                    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-                        alert('<?php echo esc_js(__('To install: tap the Share button, then "Add to Home Screen"', 'sfs-hr')); ?>');
+                    // Show iOS instructions
+                    if (isIOS) {
+                        alert('<?php echo esc_js(__('To install: tap the Share button at the bottom of Safari, then tap "Add to Home Screen"', 'sfs-hr')); ?>');
                     }
                     return;
                 }

@@ -285,8 +285,9 @@
     "install_hr_suite": "Install HR Suite",
     "add_to_home_screen": "Add to home screen for quick access",
     "install_app": "Install App",
+    "how_to_install": "How to Install",
     "not_now": "Not Now",
-    "ios_install_hint": "To install: tap the Share button, then \"Add to Home Screen\"",
+    "ios_install_hint": "To install: tap the Share button at the bottom of Safari, then tap \"Add to Home Screen\"",
 
     "_comment_notices": "Notices",
     "terminated_notice": "Your employment has been terminated. You have limited access to view your profile, resignation, and settlement information only.",
