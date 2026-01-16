@@ -154,10 +154,10 @@
     z-index: 1000;
     min-width: 140px;
 }
-/* RTL: dropdown aligns to left edge of toggle in RTL mode */
+/* RTL: dropdown extends left (away from content) */
 [dir="rtl"] .sfs-hr-lang-dropdown {
-    right: auto;
-    left: 0;
+    right: 0 !important;
+    left: auto !important;
 }
 .sfs-hr-lang-dropdown.active {
     display: block;
@@ -874,7 +874,13 @@
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-field-label { color: var(--sfs-text-muted); }
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-field-value { color: var(--sfs-text); }
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-emp-photo--empty { background: #334155; color: var(--sfs-text-muted); }
-.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-att-btn { background: var(--sfs-primary); border-color: var(--sfs-primary); color: #0f172a !important; }
+/* Attendance button colors based on action */
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-att-btn,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-att-btn { background: var(--sfs-primary); border-color: var(--sfs-primary); color: #0f172a !important; }
+.sfs-hr-pwa-app .sfs-hr-att-btn[data-action="in"] { background: #16a34a !important; border-color: #16a34a !important; color: #fff !important; }
+.sfs-hr-pwa-app .sfs-hr-att-btn[data-action="out"] { background: #dc2626 !important; border-color: #dc2626 !important; color: #fff !important; }
+.sfs-hr-pwa-app .sfs-hr-att-btn[data-action="break_start"] { background: #d97706 !important; border-color: #d97706 !important; color: #fff !important; }
+.sfs-hr-pwa-app .sfs-hr-att-btn[data-action="break_end"] { background: #2563eb !important; border-color: #2563eb !important; color: #fff !important; }
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-profile-tabs { background: var(--sfs-surface); border-top-color: var(--sfs-border); }
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-tab { color: var(--sfs-text-muted); }
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-tab-active { background: rgba(56, 189, 248, 0.15); color: var(--sfs-primary); }

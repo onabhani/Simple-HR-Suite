@@ -1179,21 +1179,28 @@ class Shortcodes {
                 var label = '';
 
                 // Check what actions are allowed - priority order matters
+                var action = '';
                 if (allow.in) {
                     label = '<?php echo esc_js( __( 'Clock In', 'sfs-hr' ) ); ?>';
+                    action = 'in';
                 } else if (allow.break_start) {
                     label = '<?php echo esc_js( __( 'Start Break', 'sfs-hr' ) ); ?>';
+                    action = 'break_start';
                 } else if (allow.break_end) {
                     label = '<?php echo esc_js( __( 'End Break', 'sfs-hr' ) ); ?>';
+                    action = 'break_end';
                 } else if (allow.out) {
                     label = '<?php echo esc_js( __( 'Clock Out', 'sfs-hr' ) ); ?>';
+                    action = 'out';
                 }
 
-                // Update button text or fallback to default
+                // Update button text and action attribute
                 if (label) {
                     btn.textContent = label;
+                    btn.setAttribute('data-action', action);
                 } else {
                     btn.textContent = '<?php echo esc_js( __( 'Attendance', 'sfs-hr' ) ); ?>';
+                    btn.removeAttribute('data-action');
                 }
             })
             .catch(function (err) {
