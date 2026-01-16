@@ -3221,6 +3221,15 @@ class Shortcodes {
 
             // Translation cache - loaded from JSON files
             var translations = {};
+            var translationsLoaded = false;
+
+            // Inline fallback translations (essential keys only)
+            var fallbackTranslations = {
+                en: { overview: 'Overview', leave: 'Leave', loans: 'Loans', resignation: 'Resignation', attendance: 'Attendance' },
+                ar: { overview: 'نظرة عامة', leave: 'الإجازات', loans: 'القروض', resignation: 'الاستقالة', attendance: 'الحضور' },
+                ur: { overview: 'جائزہ', leave: 'چھٹی', loans: 'قرضے', resignation: 'استعفیٰ', attendance: 'حاضری' },
+                fil: { overview: 'Pangkalahatang-tanaw', leave: 'Leave', loans: 'Utang', resignation: 'Pagbibitiw', attendance: 'Attendance' }
+            };
 
             // Load translations from JSON file
             function loadTranslations(lang) {
@@ -3236,15 +3245,13 @@ class Shortcodes {
                         })
                         .then(function(data) {
                             translations[lang] = data;
+                            translationsLoaded = true;
                             resolve(data);
                         })
                         .catch(function() {
-                            // Fallback to English if language file not found
-                            if (lang !== 'en' && translations['en']) {
-                                resolve(translations['en']);
-                            } else {
-                                resolve({});
-                            }
+                            // Use fallback if fetch fails
+                            translations[lang] = fallbackTranslations[lang] || fallbackTranslations.en;
+                            resolve(translations[lang]);
                         });
                 });
             }
@@ -3252,11 +3259,17 @@ class Shortcodes {
             // Load saved language and apply
             var savedLang = localStorage.getItem('sfs_hr_lang') || 'en';
             // Preload English as fallback, then apply saved language
-            loadTranslations('en').then(function() {
-                loadTranslations(savedLang).then(function() {
-                    applyLanguage(savedLang);
-                });
-            });
+            try {
+                loadTranslations('en').then(function() {
+                    loadTranslations(savedLang).then(function() {
+                        applyLanguage(savedLang);
+                    }).catch(function() { applyLanguage(savedLang); });
+                }).catch(function() { applyLanguage(savedLang); });
+            } catch(e) {
+                // If promises fail, still apply language with fallback
+                translations = fallbackTranslations;
+                applyLanguage(savedLang);
+            }
 
             // Toggle dropdown
             langBtn.addEventListener('click', function(e) {
@@ -3283,7 +3296,7 @@ class Shortcodes {
 
             function applyLanguage(lang) {
                 // Update current language display
-                langCurrent.textContent = lang.toUpperCase();
+                if (langCurrent) langCurrent.textContent = lang.toUpperCase();
 
                 // Update active state
                 langOptions.forEach(function(opt) {
@@ -3313,7 +3326,7 @@ class Shortcodes {
                 }
 
                 // Translate elements with data-i18n attribute
-                var langStrings = translations[lang] || translations.en;
+                var langStrings = translations[lang] || translations['en'] || fallbackTranslations[lang] || fallbackTranslations.en || {};
                 pwaApp.querySelectorAll('[data-i18n]').forEach(function(el) {
                     var key = el.dataset.i18n;
                     if (langStrings[key]) {
