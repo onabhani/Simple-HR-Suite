@@ -3076,7 +3076,7 @@ class Shortcodes {
     <script>
     (function() {
         var inst = '<?php echo esc_js($pwa_instance); ?>';
-        var sfsHrLangUrl = '<?php echo esc_js(SFS_HR_PLUGIN_URL . "languages/"); ?>';
+        var sfsHrLangUrl = '<?php echo esc_js(SFS_HR_URL . "languages/"); ?>';
         var offlineBanner = document.getElementById('sfs-hr-offline-' + inst);
         var pwaBanner = document.getElementById('sfs-hr-pwa-banner-' + inst);
         var installBtn = document.getElementById('sfs-hr-pwa-install-' + inst);
