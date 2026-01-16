@@ -154,10 +154,13 @@
     z-index: 1000;
     min-width: 140px;
 }
-/* RTL: dropdown extends left (away from content) */
+/* RTL: dropdown positioning - keep within viewport */
 [dir="rtl"] .sfs-hr-lang-dropdown {
-    right: 0 !important;
-    left: auto !important;
+    right: auto;
+    left: 0;
+}
+[dir="rtl"] .sfs-hr-lang-option {
+    flex-direction: row-reverse;
 }
 .sfs-hr-lang-dropdown.active {
     display: block;
