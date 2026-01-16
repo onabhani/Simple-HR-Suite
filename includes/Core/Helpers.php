@@ -60,6 +60,30 @@ class Helpers {
         return $row ?: null;
     }
 
+    /**
+     * Check if an employee can be terminated.
+     * Returns true if termination is allowed, false if they have an approved resignation
+     * with a last_working_day that hasn't passed yet.
+     *
+     * @param int $employee_id Employee ID
+     * @return bool True if can be terminated, false if must wait for last_working_day
+     */
+    public static function can_terminate_employee(int $employee_id): bool {
+        global $wpdb;
+        $resign_table = $wpdb->prefix . 'sfs_hr_resignations';
+        $today = current_time('Y-m-d');
+
+        $last_working_day = $wpdb->get_var($wpdb->prepare(
+            "SELECT last_working_day FROM {$resign_table}
+             WHERE employee_id = %d AND status = 'approved'
+             ORDER BY last_working_day DESC LIMIT 1",
+            $employee_id
+        ));
+
+        // Can terminate if no approved resignation or last_working_day has passed
+        return !$last_working_day || $last_working_day < $today;
+    }
+
     public static function esc_html_if($v){ return $v !== null ? esc_html($v) : ''; }
     public static function esc_attr_if($v){ return $v !== null ? esc_attr($v) : ''; }
 
@@ -197,35 +221,53 @@ class Helpers {
         if ( ! $css_printed ) {
             $css_printed = true;
             echo '<style>
-                .sfs-hr-wrap .sfs-hr-nav {margin:12px 0 8px; display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
-                .sfs-hr-nav-links {display:flex; flex-wrap:wrap; gap:6px;}
-                .sfs-hr-nav-link a {text-decoration:none; padding:4px 8px; border-radius:4px; border:1px solid #dcdcde; background:#f6f7f7; font-size:12px; color:#1d2327;}
-                .sfs-hr-nav-link.is-current a {background:#2271b1; border-color:#2271b1; color:#fff;}
-                .sfs-hr-nav-breadcrumb {font-size:11px; color:#50575e; margin-top:2px;}
-                .sfs-hr-nav-breadcrumb span + span:before {content:"/"; padding:0 4px; color:#b0b4b8;}
+                .sfs-hr-wrap .sfs-hr-nav {margin:12px 0 8px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;}
+                .sfs-hr-nav-dashboard {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    text-decoration: none;
+                    padding: 6px 12px;
+                    border-radius: 4px;
+                    background: #2271b1;
+                    color: #fff;
+                    font-size: 13px;
+                    font-weight: 500;
+                    transition: background 0.15s ease;
+                }
+                .sfs-hr-nav-dashboard:hover {
+                    background: #135e96;
+                    color: #fff;
+                }
+                .sfs-hr-nav-dashboard .dashicons {
+                    font-size: 16px;
+                    width: 16px;
+                    height: 16px;
+                }
+                .sfs-hr-nav-breadcrumb {font-size:12px; color:#50575e;}
+                .sfs-hr-nav-breadcrumb span + span:before {content:" / "; color:#b0b4b8;}
+                .sfs-hr-nav-breadcrumb a {color:#2271b1; text-decoration:none;}
+                .sfs-hr-nav-breadcrumb a:hover {text-decoration:underline;}
             </style>';
         }
 
         echo '<div class="sfs-hr-nav" aria-label="HR navigation">';
-        echo '<div class="sfs-hr-nav-links">';
 
-        foreach ( $items as $slug_key => $item ) {
-            // Only top-level items as quick nav (parent === null)
-            if ( $item['parent'] !== null ) {
-                continue;
-            }
-            $is_current = ($slug_key === $page) || (isset($items[$page]) && $items[$page]['parent'] === $slug_key);
-            echo '<span class="sfs-hr-nav-link' . ( $is_current ? ' is-current' : '' ) . '">';
-            echo '<a href="' . esc_url( $item['url'] ) . '">' . esc_html( $item['label'] ) . '</a>';
-            echo '</span>';
-        }
+        // Dashboard button
+        echo '<a class="sfs-hr-nav-dashboard" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr' ) ) . '">';
+        echo '<span class="dashicons dashicons-dashboard"></span>';
+        echo esc_html__( 'Dashboard', 'sfs-hr' );
+        echo '</a>';
 
-        echo '</div>'; // .sfs-hr-nav-links
-
-        if ( ! empty( $trail ) ) {
+        // Breadcrumb trail (skip "HR Dashboard" since we have the button)
+        if ( ! empty( $trail ) && count( $trail ) > 1 ) {
             echo '<div class="sfs-hr-nav-breadcrumb">';
             $segments = [];
             foreach ( $trail as $i => $item ) {
+                // Skip the first item (HR Dashboard) since we have the button
+                if ( $i === 0 ) {
+                    continue;
+                }
                 if ( $i === count( $trail ) - 1 ) {
                     $segments[] = '<span>' . esc_html( $item['label'] ) . '</span>';
                 } else {

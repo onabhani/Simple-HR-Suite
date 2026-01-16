@@ -11,6 +11,9 @@ class Admin_Pages {
         // Asset create/update
         add_action('admin_post_sfs_hr_assets_save',            [ $this, 'handle_asset_save' ]);
 
+        // Asset delete
+        add_action('admin_post_sfs_hr_assets_delete',          [ $this, 'handle_asset_delete' ]);
+
         // Assignment create (manager)
         add_action('admin_post_sfs_hr_assets_assign',          [ $this, 'handle_assign' ]);
 
@@ -26,6 +29,10 @@ class Admin_Pages {
         // Export / Import
         add_action('admin_post_sfs_hr_assets_export', [ $this, 'handle_assets_export' ]);
         add_action('admin_post_sfs_hr_assets_import', [ $this, 'handle_assets_import' ]);
+
+        // Category management
+        add_action('admin_post_sfs_hr_assets_category_add',    [ $this, 'handle_category_add' ]);
+        add_action('admin_post_sfs_hr_assets_category_delete', [ $this, 'handle_category_delete' ]);
     }
 
     public function menu(): void {
@@ -57,17 +64,20 @@ class Admin_Pages {
         $view = isset($_GET['view']) ? sanitize_key($_GET['view']) : 'list';
 
         ?>
-        <div class="wrap">
+        <div class="wrap sfs-hr-wrap">
             <h1><?php esc_html_e('Assets', 'sfs-hr'); ?></h1>
+            <?php \SFS\HR\Core\Helpers::render_admin_nav(); ?>
 
             <h2 class="nav-tab-wrapper">
                 <?php
                 $base_url        = remove_query_arg( ['tab','view','id'] );
                 $assets_url      = add_query_arg( ['page' => 'sfs-hr-assets', 'tab' => 'assets'], $base_url );
                 $assignments_url = add_query_arg( ['page' => 'sfs-hr-assets', 'tab' => 'assignments'], $base_url );
+                $categories_url  = add_query_arg( ['page' => 'sfs-hr-assets', 'tab' => 'categories'], $base_url );
 
                 $assets_class      = ( $tab === 'assets' ) ? 'nav-tab nav-tab-active' : 'nav-tab';
                 $assignments_class = ( $tab === 'assignments' ) ? 'nav-tab nav-tab-active' : 'nav-tab';
+                $categories_class  = ( $tab === 'categories' ) ? 'nav-tab nav-tab-active' : 'nav-tab';
                 ?>
                 <a href="<?php echo esc_url( $assets_url ); ?>" class="<?php echo esc_attr( $assets_class ); ?>">
                     <?php esc_html_e('Assets', 'sfs-hr'); ?>
@@ -75,11 +85,16 @@ class Admin_Pages {
                 <a href="<?php echo esc_url( $assignments_url ); ?>" class="<?php echo esc_attr( $assignments_class ); ?>">
                     <?php esc_html_e('Assignments', 'sfs-hr'); ?>
                 </a>
+                <a href="<?php echo esc_url( $categories_url ); ?>" class="<?php echo esc_attr( $categories_class ); ?>">
+                    <?php esc_html_e('Categories', 'sfs-hr'); ?>
+                </a>
             </h2>
         <?php
 
         if ( $tab === 'assignments' ) {
             $this->render_assignments_list();
+        } elseif ( $tab === 'categories' ) {
+            $this->render_categories();
         } else {
             if ( $view === 'edit' ) {
                 $this->render_asset_edit();
@@ -427,16 +442,20 @@ class Admin_Pages {
 
             $title_asset = $asset_name !== '' ? $asset_name : $asset_code;
 
+            // Build profile URL for easy access
+            $profile_url = home_url( '/my-profile/' );
+
             $subject = sprintf(
                 __( 'New asset assigned: %s', 'sfs-hr' ),
                 $title_asset !== '' ? $title_asset : __( 'Asset', 'sfs-hr' )
             );
 
             $body = sprintf(
-                __( "You have been assigned a new asset.\n\nAsset: %s\nCode: %s\nStart date: %s\n\nPlease log in to your HR portal to review and approve the assignment.", 'sfs-hr' ),
+                __( "You have been assigned a new asset.\n\nAsset: %s\nCode: %s\nStart date: %s\n\nPlease log in to your HR portal to review and approve the assignment.\n\nDirect link: %s", 'sfs-hr' ),
                 $asset_name !== '' ? $asset_name : '-',
                 $asset_code !== '' ? $asset_code : '-',
-                $start_date
+                $start_date,
+                $profile_url
             );
 
             $mail_sent = wp_mail( $user->user_email, $subject, $body );
@@ -948,14 +967,18 @@ class Admin_Pages {
                 $asset_label !== '' ? $asset_label : __( 'Asset', 'sfs-hr' )
             );
 
+            // Build profile URL for easy access
+            $profile_url = home_url( '/my-profile/' );
+
             $body = sprintf(
-                __( "Dear %1\$s,\n\nA return has been requested for an asset currently assigned to you.\n\nAsset: %2\$s\nCode: %3\$s\nAssignment ID: %4\$d\nRequested by: %5\$s\nRequest date: %6\$s\n\nPlease log in to your HR portal to review and complete the return process.", 'sfs-hr' ),
+                __( "Dear %1\$s,\n\nA return has been requested for an asset currently assigned to you.\n\nAsset: %2\$s\nCode: %3\$s\nAssignment ID: %4\$d\nRequested by: %5\$s\nRequest date: %6\$s\n\nPlease log in to your HR portal to review and complete the return process.\n\nDirect link: %7\$s", 'sfs-hr' ),
                 $employee_name,
                 $asset_name !== '' ? $asset_name : '-',
                 $asset_code !== '' ? $asset_code : '-',
                 $assignment_id,
                 $manager_name,
-                $now
+                $now,
+                $profile_url
             );
 
             wp_mail( $employee_user->user_email, $subject, $body );
@@ -1513,15 +1536,69 @@ class Admin_Pages {
 
         check_admin_referer('sfs_hr_assets_import');
 
+        // Helper to redirect with error
+        $redirect_error = function( string $error_code ) {
+            $redirect = add_query_arg(
+                [
+                    'page'         => 'sfs-hr-assets',
+                    'tab'          => 'assets',
+                    'import_error' => $error_code,
+                ],
+                admin_url('admin.php')
+            );
+            wp_safe_redirect($redirect);
+            exit;
+        };
+
         if ( empty($_FILES['import_file']['tmp_name']) ) {
-            wp_die(__('No file uploaded.', 'sfs-hr'));
+            $redirect_error('no_file');
         }
 
         $file = $_FILES['import_file']['tmp_name'];
 
-        $handle = fopen($file, 'r');
+        // Read file content for encoding detection and BOM handling
+        $content = file_get_contents($file);
+        if ( $content === false ) {
+            $redirect_error('read_error');
+        }
+
+        // Remove UTF-8 BOM if present (common in Excel exports)
+        $bom = "\xEF\xBB\xBF";
+        if ( substr($content, 0, 3) === $bom ) {
+            $content = substr($content, 3);
+        }
+
+        // Detect and convert encoding to UTF-8 for Arabic support
+        // Use only commonly supported encodings to avoid errors
+        $supported_encodings = ['UTF-8', 'ISO-8859-1', 'ASCII'];
+
+        // Check if additional Arabic encodings are available
+        $available_encodings = mb_list_encodings();
+        if ( in_array('Windows-1256', $available_encodings, true) ) {
+            array_splice($supported_encodings, 1, 0, ['Windows-1256']);
+        }
+        if ( in_array('ISO-8859-6', $available_encodings, true) ) {
+            array_splice($supported_encodings, 1, 0, ['ISO-8859-6']);
+        }
+
+        $encoding = mb_detect_encoding($content, $supported_encodings, true);
+        if ( $encoding && $encoding !== 'UTF-8' ) {
+            $content = mb_convert_encoding($content, 'UTF-8', $encoding);
+        }
+
+        // Ensure content is valid UTF-8 (fallback conversion)
+        if ( ! mb_check_encoding($content, 'UTF-8') ) {
+            $content = mb_convert_encoding($content, 'UTF-8', 'ISO-8859-1');
+        }
+
+        // Write cleaned content to temp file for CSV parsing
+        $temp_file = tempnam(sys_get_temp_dir(), 'csv_');
+        file_put_contents($temp_file, $content);
+
+        $handle = fopen($temp_file, 'r');
         if ( ! $handle ) {
-            wp_die(__('Unable to read file.', 'sfs-hr'));
+            @unlink($temp_file);
+            $redirect_error('process_error');
         }
 
         global $wpdb;
@@ -1530,14 +1607,32 @@ class Admin_Pages {
         $header = fgetcsv($handle);
         if ( ! $header ) {
             fclose($handle);
-            wp_die(__('Empty CSV file.', 'sfs-hr'));
+            @unlink($temp_file);
+            $redirect_error('empty_csv');
         }
 
-        // Normalize header
-        $header = array_map('trim', $header);
+        // Normalize header (trim and remove any remaining BOM artifacts)
+        $header = array_map(function($h) {
+            return trim(preg_replace('/[\x00-\x1F\x7F]/u', '', $h));
+        }, $header);
+
+        // Define allowed columns for import (exclude id, qr_code_path, timestamps)
+        $allowed_columns = [
+            'asset_code', 'name', 'category', 'department', 'serial_number',
+            'model', 'purchase_year', 'purchase_price', 'warranty_expiry',
+            'invoice_number', 'invoice_date', 'invoice_file', 'status',
+            'condition', 'notes'
+        ];
+
+        $imported_count = 0;
 
         while ( ( $row = fgetcsv($handle) ) !== false ) {
             if ( count($row) === 1 && $row[0] === '' ) {
+                continue;
+            }
+
+            // Handle row/header count mismatch
+            if ( count($row) !== count($header) ) {
                 continue;
             }
 
@@ -1560,8 +1655,13 @@ class Admin_Pages {
                 continue;
             }
 
-            // We **never** trust CSV for created_at / updated_at
-            unset( $data['created_at'], $data['updated_at'] );
+            // Filter to only allowed columns
+            $clean_data = [];
+            foreach ( $allowed_columns as $col ) {
+                if ( isset($data[$col]) ) {
+                    $clean_data[$col] = sanitize_text_field($data[$col]);
+                }
+            }
 
             // Upsert by asset_code
             $existing_id = $wpdb->get_var(
@@ -1572,26 +1672,29 @@ class Admin_Pages {
 
             if ( $existing_id ) {
                 // Existing asset: KEEP old created_at, only bump updated_at
-                $data['updated_at'] = $now;
+                $clean_data['updated_at'] = $now;
 
                 $wpdb->update(
                     $table,
-                    $data,
+                    $clean_data,
                     [ 'id' => (int) $existing_id ]
                 );
             } else {
-                // New asset: created_at = now, updated_at = now (ignore CSV values)
-                $data['created_at'] = $now;
-                $data['updated_at'] = $now;
+                // New asset: created_at = now, updated_at = now
+                $clean_data['created_at'] = $now;
+                $clean_data['updated_at'] = $now;
 
                 $wpdb->insert(
                     $table,
-                    $data
+                    $clean_data
                 );
             }
+
+            $imported_count++;
         }
 
         fclose($handle);
+        @unlink($temp_file); // Clean up temp file
 
         $redirect = add_query_arg(
             [
@@ -1604,6 +1707,241 @@ class Admin_Pages {
 
         wp_safe_redirect($redirect);
         exit;
+    }
+
+    /**
+     * Handle asset deletion.
+     */
+    public function handle_asset_delete(): void {
+        if ( ! current_user_can('sfs_hr.manage') ) {
+            wp_die(__('Access denied', 'sfs-hr'));
+        }
+
+        check_admin_referer('sfs_hr_assets_delete');
+
+        $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+        if ( $id <= 0 ) {
+            wp_die(__('Invalid asset ID', 'sfs-hr'));
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_assets';
+        $assign_table = $wpdb->prefix . 'sfs_hr_asset_assignments';
+
+        // Check if asset has active assignments
+        $active_assignments = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$assign_table} WHERE asset_id = %d AND status IN ('pending_employee_approval', 'active', 'return_requested')",
+            $id
+        ));
+
+        if ( $active_assignments > 0 ) {
+            $redirect = add_query_arg(
+                [
+                    'page'         => 'sfs-hr-assets',
+                    'tab'          => 'assets',
+                    'delete_error' => 'has_assignments',
+                ],
+                admin_url('admin.php')
+            );
+            wp_safe_redirect($redirect);
+            exit;
+        }
+
+        // Delete asset
+        $wpdb->delete($table, ['id' => $id], ['%d']);
+
+        // Log deletion
+        $this->log_asset_event('asset_deleted', $id, null, ['deleted_by' => get_current_user_id()]);
+
+        $redirect = add_query_arg(
+            [
+                'page'    => 'sfs-hr-assets',
+                'tab'     => 'assets',
+                'deleted' => '1',
+            ],
+            admin_url('admin.php')
+        );
+
+        wp_safe_redirect($redirect);
+        exit;
+    }
+
+    /**
+     * Render categories management page.
+     */
+    private function render_categories(): void {
+        $categories = $this->get_asset_categories();
+
+        // Count assets per category
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_assets';
+        $counts = $wpdb->get_results("SELECT category, COUNT(*) as count FROM {$table} GROUP BY category", OBJECT_K);
+
+        // Show notices
+        if ( isset($_GET['category_added']) ) {
+            echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Category added successfully.', 'sfs-hr') . '</p></div>';
+        }
+        if ( isset($_GET['category_deleted']) ) {
+            echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Category deleted successfully.', 'sfs-hr') . '</p></div>';
+        }
+        if ( isset($_GET['category_error']) ) {
+            $error = sanitize_key($_GET['category_error']);
+            $messages = [
+                'exists'     => __('This category already exists.', 'sfs-hr'),
+                'in_use'     => __('Cannot delete category that is in use by assets.', 'sfs-hr'),
+                'empty_name' => __('Category name cannot be empty.', 'sfs-hr'),
+                'not_found'  => __('Category not found.', 'sfs-hr'),
+            ];
+            $msg = $messages[$error] ?? __('An error occurred.', 'sfs-hr');
+            echo '<div class="notice notice-error is-dismissible"><p>' . esc_html($msg) . '</p></div>';
+        }
+        ?>
+        <div style="margin-top:20px; max-width:600px;">
+            <h2><?php esc_html_e('Asset Categories', 'sfs-hr'); ?></h2>
+            <p class="description"><?php esc_html_e('Manage categories that can be assigned to assets.', 'sfs-hr'); ?></p>
+
+            <!-- Add Category Form -->
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin: 20px 0; display:flex; gap:10px; align-items:center;">
+                <?php wp_nonce_field('sfs_hr_assets_category_add'); ?>
+                <input type="hidden" name="action" value="sfs_hr_assets_category_add" />
+                <input type="text" name="category_name" placeholder="<?php esc_attr_e('New category name', 'sfs-hr'); ?>" class="regular-text" required />
+                <button type="submit" class="button button-primary"><?php esc_html_e('Add Category', 'sfs-hr'); ?></button>
+            </form>
+
+            <!-- Categories List -->
+            <table class="widefat striped">
+                <thead>
+                    <tr>
+                        <th><?php esc_html_e('Category', 'sfs-hr'); ?></th>
+                        <th><?php esc_html_e('Slug', 'sfs-hr'); ?></th>
+                        <th><?php esc_html_e('Assets', 'sfs-hr'); ?></th>
+                        <th style="width:100px;"><?php esc_html_e('Actions', 'sfs-hr'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if ( empty($categories) ) : ?>
+                        <tr><td colspan="4"><?php esc_html_e('No categories found.', 'sfs-hr'); ?></td></tr>
+                    <?php else : ?>
+                        <?php foreach ( $categories as $slug => $label ) :
+                            $asset_count = isset($counts[$slug]) ? (int) $counts[$slug]->count : 0;
+                        ?>
+                            <tr>
+                                <td><strong><?php echo esc_html($label); ?></strong></td>
+                                <td><code><?php echo esc_html($slug); ?></code></td>
+                                <td><?php echo esc_html($asset_count); ?></td>
+                                <td>
+                                    <?php if ( $asset_count === 0 ) : ?>
+                                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline;" onsubmit="return confirm('<?php esc_attr_e('Are you sure you want to delete this category?', 'sfs-hr'); ?>');">
+                                            <?php wp_nonce_field('sfs_hr_assets_category_delete'); ?>
+                                            <input type="hidden" name="action" value="sfs_hr_assets_category_delete" />
+                                            <input type="hidden" name="category_slug" value="<?php echo esc_attr($slug); ?>" />
+                                            <button type="submit" class="button button-link-delete"><?php esc_html_e('Delete', 'sfs-hr'); ?></button>
+                                        </form>
+                                    <?php else : ?>
+                                        <span class="description"><?php esc_html_e('In use', 'sfs-hr'); ?></span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php
+    }
+
+    /**
+     * Handle adding a new category.
+     */
+    public function handle_category_add(): void {
+        if ( ! current_user_can('sfs_hr.manage') ) {
+            wp_die(__('Access denied', 'sfs-hr'));
+        }
+
+        check_admin_referer('sfs_hr_assets_category_add');
+
+        $name = isset($_POST['category_name']) ? sanitize_text_field(wp_unslash($_POST['category_name'])) : '';
+        if ( $name === '' ) {
+            wp_safe_redirect(add_query_arg(['page' => 'sfs-hr-assets', 'tab' => 'categories', 'category_error' => 'empty_name'], admin_url('admin.php')));
+            exit;
+        }
+
+        $slug = sanitize_key($name);
+        $categories = $this->get_asset_categories();
+
+        if ( isset($categories[$slug]) ) {
+            wp_safe_redirect(add_query_arg(['page' => 'sfs-hr-assets', 'tab' => 'categories', 'category_error' => 'exists'], admin_url('admin.php')));
+            exit;
+        }
+
+        $categories[$slug] = $name;
+        update_option('sfs_hr_asset_categories', $categories);
+
+        wp_safe_redirect(add_query_arg(['page' => 'sfs-hr-assets', 'tab' => 'categories', 'category_added' => '1'], admin_url('admin.php')));
+        exit;
+    }
+
+    /**
+     * Handle deleting a category.
+     */
+    public function handle_category_delete(): void {
+        if ( ! current_user_can('sfs_hr.manage') ) {
+            wp_die(__('Access denied', 'sfs-hr'));
+        }
+
+        check_admin_referer('sfs_hr_assets_category_delete');
+
+        $slug = isset($_POST['category_slug']) ? sanitize_key($_POST['category_slug']) : '';
+        $categories = $this->get_asset_categories();
+
+        if ( ! isset($categories[$slug]) ) {
+            wp_safe_redirect(add_query_arg(['page' => 'sfs-hr-assets', 'tab' => 'categories', 'category_error' => 'not_found'], admin_url('admin.php')));
+            exit;
+        }
+
+        // Check if category is in use
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_assets';
+        $in_use = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table} WHERE category = %s", $slug));
+
+        if ( $in_use > 0 ) {
+            wp_safe_redirect(add_query_arg(['page' => 'sfs-hr-assets', 'tab' => 'categories', 'category_error' => 'in_use'], admin_url('admin.php')));
+            exit;
+        }
+
+        unset($categories[$slug]);
+        update_option('sfs_hr_asset_categories', $categories);
+
+        wp_safe_redirect(add_query_arg(['page' => 'sfs-hr-assets', 'tab' => 'categories', 'category_deleted' => '1'], admin_url('admin.php')));
+        exit;
+    }
+
+    /**
+     * Get asset categories from options (with defaults).
+     */
+    public function get_asset_categories(): array {
+        $default = [
+            'laptop'      => __('Laptop', 'sfs-hr'),
+            'desktop'     => __('Desktop', 'sfs-hr'),
+            'monitor'     => __('Monitor', 'sfs-hr'),
+            'phone'       => __('Phone', 'sfs-hr'),
+            'tablet'      => __('Tablet', 'sfs-hr'),
+            'printer'     => __('Printer', 'sfs-hr'),
+            'vehicle'     => __('Vehicle', 'sfs-hr'),
+            'access_card' => __('Access Card', 'sfs-hr'),
+            'tool'        => __('Tool', 'sfs-hr'),
+            'other'       => __('Other', 'sfs-hr'),
+        ];
+
+        $saved = get_option('sfs_hr_asset_categories', null);
+
+        // If no saved categories, save defaults and return
+        if ( $saved === null ) {
+            update_option('sfs_hr_asset_categories', $default);
+            return $default;
+        }
+
+        return is_array($saved) ? $saved : $default;
     }
 
     /**

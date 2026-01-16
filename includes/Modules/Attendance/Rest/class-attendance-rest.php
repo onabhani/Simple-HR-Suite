@@ -307,10 +307,10 @@ public static function status( \WP_REST_Request $req ) {
                 $snap  = self::snapshot_for_today( (int) $emp );
                 $today = wp_date( 'Y-m-d' );
                 $shift = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $emp, $today );
-$dept  = $shift && ! empty( $shift->dept ) ? (string) $shift->dept : 'office';
+$dept_id = $shift && ! empty( $shift->dept_id ) ? (int) $shift->dept_id : 0;
 
 $resp = array_merge( $resp, $snap, [
-    'dept'     => $dept,
+    'dept_id'  => $dept_id,
     'employee' => [ 'id' => (int) $emp ],
 ] );
 
@@ -319,7 +319,7 @@ $shift_requires = $shift && ! empty( $shift->require_selfie );
 
 $mode_now = \SFS\HR\Modules\Attendance\AttendanceModule::selfie_mode_for(
     (int) $emp,
-    $dept,
+    $dept_id,
     [
         'device_id'      => $device_id ?: null,
         'shift_requires' => $shift_requires,
@@ -502,11 +502,18 @@ if ( $last_attempt && is_array( $last_attempt ) ) {
 
     // ---- Department self-punch policy (web/mobile only; kiosk allowed regardless)
     if ( $source !== 'kiosk' ) {
-        $opt         = get_option( \SFS\HR\Modules\Attendance\AttendanceModule::OPT_SETTINGS, [] );
-        $web_allowed = $opt['web_allowed_by_dept'] ?? [ 'office' => true, 'showroom' => true, 'warehouse' => false, 'factory' => false ];
-        $dept        = (string) ( $assign->dept ?? 'office' );
-        if ( empty( $web_allowed[ $dept ] ) ) {
-            return new \WP_Error( 'blocked', 'Self punching not allowed for this department. Use kiosk.', [ 'status' => 403 ] );
+        $opt = get_option( \SFS\HR\Modules\Attendance\AttendanceModule::OPT_SETTINGS, [] );
+
+        // Get employee's department ID
+        $empT    = $wpdb->prefix . 'sfs_hr_employees';
+        $emp_row = $wpdb->get_row( $wpdb->prepare( "SELECT dept_id FROM {$empT} WHERE id = %d", $emp ) );
+        $dept_id = $emp_row && ! empty( $emp_row->dept_id ) ? (int) $emp_row->dept_id : 0;
+
+        // Check by department ID (new system)
+        // If no settings configured yet, allow all by default
+        $web_allowed_by_id = $opt['web_allowed_by_dept_id'] ?? [];
+        if ( ! empty( $web_allowed_by_id ) && $dept_id > 0 && empty( $web_allowed_by_id[ $dept_id ] ) ) {
+            return new \WP_Error( 'blocked', __( 'Self punching not allowed for this department. Use kiosk.', 'sfs-hr' ), [ 'status' => 403 ] );
         }
     }
 
@@ -543,12 +550,12 @@ if ( $device_id > 0 ) {
     }
 }
 
-$dept = (string) ( $assign->dept ?? 'office' );
+$dept_id = (int) ( $assign->dept_id ?? 0 );
 
 // مصدر واحد للحقيقة
 $mode = \SFS\HR\Modules\Attendance\AttendanceModule::selfie_mode_for(
     (int) $emp,
-    $dept,
+    $dept_id,
     [
         'device_id'      => $device_id ?: null,
         'shift_requires' => ((int) $assign->require_selfie === 1),
@@ -643,34 +650,53 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
         'action'    => $punch_type,
     ], 15 );
 
-    // ---- FINAL DUPLICATE CHECK: Prevent exact duplicate within last 10 seconds
-    // This catches race conditions where multiple requests arrive simultaneously
-    $duplicate_check = $wpdb->get_row( $wpdb->prepare(
-        "SELECT id, punch_time FROM {$punchT}
-         WHERE employee_id = %d
-           AND punch_type = %s
-           AND punch_time >= DATE_SUB(%s, INTERVAL 10 SECOND)
-         ORDER BY punch_time DESC
-         LIMIT 1",
-        (int) $emp,
-        $punch_type,
-        $nowUtc
-    ) );
-
-    if ( $duplicate_check ) {
-        $dup_time = wp_date( 'H:i:s', strtotime( $duplicate_check->punch_time ) );
-        return new \WP_Error(
-            'duplicate',
-            sprintf( 'This punch was already recorded at %s. Please wait before trying again.', $dup_time ),
-            [ 'status' => 409 ]
-        );
-    }
-
-    // ---- Insert immutable punch
+    // ---- Define variables needed for duplicate check and insert
     $nowUtc = current_time( 'mysql', true );
     $punchT = $wpdb->prefix . 'sfs_hr_attendance_punches';
 
-    $wpdb->insert( $punchT, [
+    // ---- ACQUIRE DATABASE LOCK to prevent race conditions
+    // This ensures only one request per employee can insert a punch at a time
+    $lock_name = 'sfs_hr_punch_' . (int) $emp;
+    $lock_acquired = $wpdb->get_var( $wpdb->prepare(
+        "SELECT GET_LOCK(%s, 5)",
+        $lock_name
+    ) );
+
+    if ( ! $lock_acquired ) {
+        return new \WP_Error(
+            'lock_timeout',
+            'System is busy. Please try again.',
+            [ 'status' => 503 ]
+        );
+    }
+
+    try {
+        // ---- FINAL DUPLICATE CHECK: Prevent exact duplicate within last 30 seconds
+        // Now protected by database lock, this check is atomic
+        $duplicate_check = $wpdb->get_row( $wpdb->prepare(
+            "SELECT id, punch_time FROM {$punchT}
+             WHERE employee_id = %d
+               AND punch_type = %s
+               AND punch_time >= DATE_SUB(%s, INTERVAL 30 SECOND)
+             ORDER BY punch_time DESC
+             LIMIT 1",
+            (int) $emp,
+            $punch_type,
+            $nowUtc
+        ) );
+
+        if ( $duplicate_check ) {
+            $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
+            $dup_time = wp_date( 'H:i:s', strtotime( $duplicate_check->punch_time ) );
+            return new \WP_Error(
+                'duplicate',
+                sprintf( 'This punch was already recorded at %s. Please wait before trying again.', $dup_time ),
+                [ 'status' => 409 ]
+            );
+        }
+
+        // ---- Insert immutable punch (inside lock)
+        $wpdb->insert( $punchT, [
         'employee_id'     => (int) $emp,
         'punch_type'      => $punch_type,
         'punch_time'      => $nowUtc,
@@ -732,12 +758,12 @@ if ( $selfie_media_id ) {
     $snap  = self::snapshot_for_today( (int) $emp );
     $today = wp_date( 'Y-m-d' );
     $shift = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $emp, $today );
-    $dept  = $shift && ! empty( $shift->dept ) ? (string) $shift->dept : 'office';
+    $dept_id = $shift && ! empty( $shift->dept_id ) ? (int) $shift->dept_id : 0;
 
     // نحسب المود / إلزامية السيلفي "للنقطة التالية" بنفس منطق /status
     $mode_next = \SFS\HR\Modules\Attendance\AttendanceModule::selfie_mode_for(
         (int) $emp,
-        $dept,
+        $dept_id,
         [
             'device_id' => $device_id ?: null,
         ]
@@ -747,7 +773,7 @@ if ( $selfie_media_id ) {
     $resp = array_merge( $snap, [
         'selfie_mode'     => $mode_next,
         'requires_selfie' => (bool) $requires_selfie_next,
-        'dept'            => $dept,
+        'dept_id'         => $dept_id,
     ] );
 
     if ( $selfie_media_id ) {
@@ -755,8 +781,16 @@ if ( $selfie_media_id ) {
         $resp['selfie_url']      = wp_get_attachment_url( $selfie_media_id );
     }
 
+    // Release the database lock before returning
+    $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
+
     return rest_ensure_response( $resp );
 
+    } catch ( \Throwable $e ) {
+        // Ensure lock is released even on error
+        $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
+        throw $e;
+    }
 
 }
 

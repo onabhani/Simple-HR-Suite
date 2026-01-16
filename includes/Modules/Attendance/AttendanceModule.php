@@ -18,6 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 require_once __DIR__ . '/Admin/class-admin-pages.php';
 require_once __DIR__ . '/Rest/class-attendance-admin-rest.php';
 require_once __DIR__ . '/Rest/class-attendance-rest.php';
+require_once __DIR__ . '/Rest/class-early-leave-rest.php';
 
 class AttendanceModule {
 
@@ -50,6 +51,9 @@ add_action('rest_api_init', function () {
 
     // Public REST — call register() so nocache headers are attached
     \SFS\HR\Modules\Attendance\Rest\Public_REST::register();
+
+    // Early Leave Requests REST
+    \SFS\HR\Modules\Attendance\Rest\Early_Leave_Rest::register_routes();
 }, 10);
 
 
@@ -2938,7 +2942,7 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
             break_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 0,
             net_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 0,
             rounded_net_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-            status ENUM('present','late','left_early','absent','incomplete','on_leave','holiday') NOT NULL DEFAULT 'present',
+            status ENUM('present','late','left_early','absent','incomplete','on_leave','holiday','day_off') NOT NULL DEFAULT 'present',
             overtime_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 0,
             flags_json LONGTEXT NULL,
             calc_meta_json LONGTEXT NULL,
@@ -2967,13 +2971,36 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
             overtime_after_minutes SMALLINT UNSIGNED NULL,
             require_selfie TINYINT(1) NOT NULL DEFAULT 0,
             active TINYINT(1) NOT NULL DEFAULT 1,
-            dept VARCHAR(100) NOT NULL COMMENT 'Department slug from departments table or legacy values',
+            dept_id BIGINT UNSIGNED NULL COMMENT 'References sfs_hr_departments.id',
             notes TEXT NULL,
             weekly_overrides TEXT NULL,
+            dept_ids TEXT NULL COMMENT 'JSON array of department IDs for multi-department shifts',
             PRIMARY KEY (id),
-            KEY active_dept (active, dept),
-            KEY dept (dept)
+            KEY active_dept_id (active, dept_id),
+            KEY dept_id (dept_id)
         ) $charset_collate;");
+
+        // Migration: Add dept_id column if missing (for existing installations)
+        $shifts_table = "{$p}sfs_hr_attendance_shifts";
+        $col_exists = $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'dept_id'",
+            $shifts_table
+        ) );
+        if ( ! $col_exists ) {
+            $wpdb->query( "ALTER TABLE {$shifts_table} ADD COLUMN dept_id BIGINT UNSIGNED NULL AFTER active" );
+            $wpdb->query( "ALTER TABLE {$shifts_table} ADD KEY dept_id (dept_id)" );
+        }
+
+        // Migration: Add dept_ids column for multi-department support
+        $dept_ids_exists = $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'dept_ids'",
+            $shifts_table
+        ) );
+        if ( ! $dept_ids_exists ) {
+            $wpdb->query( "ALTER TABLE {$shifts_table} ADD COLUMN dept_ids TEXT NULL COMMENT 'JSON array of department IDs'" );
+            // Migrate existing single dept_id to dept_ids JSON
+            $wpdb->query( "UPDATE {$shifts_table} SET dept_ids = CONCAT('[', dept_id, ']') WHERE dept_id IS NOT NULL AND dept_ids IS NULL" );
+        }
 
                 // 4) daily assignments (rota)
         dbDelta("CREATE TABLE {$p}sfs_hr_attendance_shift_assign (
@@ -3013,7 +3040,7 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
             geo_lock_lat DECIMAL(10,7) NULL,
             geo_lock_lng DECIMAL(10,7) NULL,
             geo_lock_radius_m SMALLINT UNSIGNED NULL,
-            allowed_dept VARCHAR(100) NOT NULL DEFAULT 'any' COMMENT 'Department slug or any for all',
+            allowed_dept_id BIGINT UNSIGNED NULL COMMENT 'References sfs_hr_departments.id, NULL means all departments',
             fingerprint_hash VARCHAR(64) NULL,
             active TINYINT(1) NOT NULL DEFAULT 1,
             meta_json LONGTEXT NULL,
@@ -3022,7 +3049,8 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
             PRIMARY KEY (id),
             KEY active_type (active, type),
             KEY fp (fingerprint_hash),
-            KEY kiosk_enabled (kiosk_enabled)
+            KEY kiosk_enabled (kiosk_enabled),
+            KEY allowed_dept_id (allowed_dept_id)
         ) $charset_collate;");
 
 
@@ -3033,7 +3061,7 @@ self::add_column_if_missing($wpdb, $t, 'kiosk_offline',     "kiosk_offline TINYI
 self::add_column_if_missing($wpdb, $t, 'geo_lock_lat',      "geo_lock_lat DECIMAL(10,7) NULL");
 self::add_column_if_missing($wpdb, $t, 'geo_lock_lng',      "geo_lock_lng DECIMAL(10,7) NULL");
 self::add_column_if_missing($wpdb, $t, 'geo_lock_radius_m', "geo_lock_radius_m SMALLINT UNSIGNED NULL");
-self::add_column_if_missing($wpdb, $t, 'allowed_dept',      "allowed_dept VARCHAR(100) NOT NULL DEFAULT 'any'");
+self::add_column_if_missing($wpdb, $t, 'allowed_dept_id',   "allowed_dept_id BIGINT UNSIGNED NULL");
 self::add_column_if_missing($wpdb, $t, 'active',            "active TINYINT(1) NOT NULL DEFAULT 1");
 self::add_column_if_missing($wpdb, $t, 'qr_enabled',        "qr_enabled TINYINT(1) NOT NULL DEFAULT 1");
 self::add_column_if_missing($wpdb, $t, 'selfie_mode',       "selfie_mode ENUM('inherit','never','in_only','in_out','all') NOT NULL DEFAULT 'inherit'");
@@ -3075,6 +3103,37 @@ self::add_column_if_missing($wpdb, $t, 'suggest_out_time',        "suggest_out_t
             KEY act_time (action_type, created_at),
             KEY emp_time (target_employee_id, created_at)
         ) $charset_collate;");
+
+        // 8) Early Leave Requests - for manager approval workflow
+        dbDelta("CREATE TABLE {$p}sfs_hr_early_leave_requests (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            employee_id BIGINT UNSIGNED NOT NULL,
+            session_id BIGINT UNSIGNED NULL COMMENT 'Links to attendance session if exists',
+            request_date DATE NOT NULL,
+            scheduled_end_time TIME NULL COMMENT 'Original shift end time',
+            requested_leave_time TIME NOT NULL COMMENT 'Time employee wants to leave',
+            actual_leave_time TIME NULL COMMENT 'Actual punch out time',
+            reason_type ENUM('sick','external_task','personal','emergency','other') NOT NULL DEFAULT 'other',
+            reason_note TEXT NULL COMMENT 'Employee explanation',
+            status ENUM('pending','approved','rejected','cancelled') NOT NULL DEFAULT 'pending',
+            manager_id BIGINT UNSIGNED NULL COMMENT 'Department manager to approve',
+            reviewed_by BIGINT UNSIGNED NULL COMMENT 'Who actually reviewed',
+            reviewed_at DATETIME NULL,
+            manager_note TEXT NULL COMMENT 'Manager response/comment',
+            affects_salary TINYINT(1) NOT NULL DEFAULT 0 COMMENT '0=no deduction, 1=normal deduction',
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            KEY emp_date (employee_id, request_date),
+            KEY status_date (status, request_date),
+            KEY manager_status (manager_id, status),
+            KEY session_id (session_id)
+        ) $charset_collate;");
+
+        // Add early_leave_approved column to sessions if missing
+        $sessions_table = "{$p}sfs_hr_attendance_sessions";
+        self::add_column_if_missing($wpdb, $sessions_table, 'early_leave_approved', "early_leave_approved TINYINT(1) NOT NULL DEFAULT 0");
+        self::add_column_if_missing($wpdb, $sessions_table, 'early_leave_request_id', "early_leave_request_id BIGINT UNSIGNED NULL");
 
         // Caps + defaults + seed kiosks
         $this->register_caps();
@@ -3132,69 +3191,23 @@ if ($mgr = get_role('sfs_hr_manager')) {
     /** Seed global defaults (changeable later via Admin UI). */
     private function maybe_seed_defaults(): void {
         $defaults = [
-            'web_allowed_by_dept' => [
-                'office'    => true,
-                'showroom'  => true,
-                'warehouse' => false,
-                'factory'   => false,
+            // Department settings now use dept_id from sfs_hr_departments table
+            'web_allowed_by_dept_id'     => [], // dept_id => true/false
+            'selfie_required_by_dept_id' => [], // dept_id => true/false
+            'selfie_retention_days'      => 30,
+            'default_rounding_rule'      => '5',
+            'default_grace_late'         => 5,
+            'default_grace_early'        => 5,
+
+            // Weekly segments now keyed by dept_id
+            'dept_weekly_segments' => [], // dept_id => [ 'sun' => [...], ... ]
+
+            // Selfie policy (optional by default)
+            'selfie_policy' => [
+                'default'      => 'optional', // modes: never | optional | in_only | in_out | all
+                'by_dept_id'   => [],         // dept_id => mode
+                'by_employee'  => [],         // employee_id => mode
             ],
-            'selfie_retention_days' => 30,
-            'default_rounding_rule' => '5',
-            'default_grace_late'    => 5,
-            'default_grace_early'   => 5,
-            
-            // Add below 'default_grace_early'
-'dept_weekly_segments' => [
-  // All times are local (site timezone); engine converts to UTC.
-  'showroom' => [
-    'sun' => [ ['09:00','12:00'], ['16:00','22:00'] ],
-    'mon' => [ ['09:00','12:00'], ['16:00','22:00'] ],
-    'tue' => [ ['09:00','12:00'], ['16:00','22:00'] ],
-    'wed' => [ ['09:00','12:00'], ['16:00','22:00'] ],
-    'thu' => [ ['09:00','12:00'], ['16:00','20:00'] ], // short PM
-    'fri' => [ /* off */ ],
-    'sat' => [ ['09:00','12:00'], ['16:00','22:00'] ],
-  ],
-  'factory' => [
-    'sun' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'mon' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'tue' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'wed' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'thu' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'fri' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'sat' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-  ],
-  'warehouse' => [
-    'sun' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'mon' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'tue' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'wed' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'thu' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'fri' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-    'sat' => [ ['07:00','12:00'], ['13:00','16:00'] ],
-  ],
-  'office' => [
-    'sun' => [ ['09:00','17:00'] ],
-    'mon' => [ ['09:00','17:00'] ],
-    'tue' => [ ['09:00','17:00'] ],
-    'wed' => [ ['09:00','17:00'] ],
-    'thu' => [ ['09:00','17:00'] ],
-    'fri' => [ ['09:00','17:00'] ],
-    'sat' => [ ['09:00','17:00'] ],
-  ],
-],
-// Selfie policy (optional by default)
-'selfie_policy' => [
-  // modes: never | in_only | in_out | all | outside_geofence
-  'dept' => [
-    'showroom'  => 'never',
-    'factory'   => 'in_only',
-    'warehouse' => 'in_only',
-    'office'    => 'never',
-  ],
-  'employee_overrides' => [ /* emp_id => mode */ ],
-  'kiosk_overrides'    => [ /* device_id => mode */ ],
-],
 
         ];
 
@@ -3215,9 +3228,10 @@ if ($mgr = get_role('sfs_hr_manager')) {
         if ( is_array( $existing ) && count( $existing ) > 0 ) return;
 
         $now = current_time( 'mysql', true );
+        // Create a sample kiosk with no department restriction (allowed_dept_id = null means all)
         $rows = [
             [
-                'label'            => 'Warehouse Kiosk #1',
+                'label'            => 'Main Kiosk #1',
                 'type'             => 'kiosk',
                 'kiosk_enabled'    => 1,
                 'kiosk_pin'        => null,
@@ -3226,22 +3240,7 @@ if ($mgr = get_role('sfs_hr_manager')) {
                 'geo_lock_lat'     => null,
                 'geo_lock_lng'     => null,
                 'geo_lock_radius_m'=> null,
-                'allowed_dept'     => 'warehouse',
-                'fingerprint_hash' => null,
-                'active'           => 1,
-                'meta_json'        => wp_json_encode( ['seeded_at'=>$now] ),
-            ],
-            [
-                'label'            => 'Factory Kiosk #1',
-                'type'             => 'kiosk',
-                'kiosk_enabled'    => 1,
-                'kiosk_pin'        => null,
-                'kiosk_offline'    => 1,
-                'last_sync_at'     => null,
-                'geo_lock_lat'     => null,
-                'geo_lock_lng'     => null,
-                'geo_lock_radius_m'=> null,
-                'allowed_dept'     => 'factory',
+                'allowed_dept_id'  => null, // null = all departments allowed
                 'fingerprint_hash' => null,
                 'active'           => 1,
                 'meta_json'        => wp_json_encode( ['seeded_at'=>$now] ),
@@ -3308,6 +3307,29 @@ public function ajax_dbg(): void {
         return (bool) apply_filters( 'sfs_hr_attendance_is_leave_or_holiday', $blocked, $employee_id, $dateYmd );
     }
 
+    /**
+     * Check if a date is a company holiday (not employee-specific leave)
+     *
+     * @param string $dateYmd Date in Y-m-d format
+     * @return bool
+     */
+    public static function is_company_holiday( string $dateYmd ): bool {
+        $ranges = get_option( 'sfs_hr_holidays' );
+        if ( ! is_array( $ranges ) ) {
+            return false;
+        }
+
+        foreach ( $ranges as $range ) {
+            $s = isset( $range['start_date'] ) ? $range['start_date'] : null;
+            $e = isset( $range['end_date'] )   ? $range['end_date']   : null;
+            if ( $s && $e && $dateYmd >= $s && $dateYmd <= $e ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
 
 /** Local Y-m-d → [start_utc, end_utc) */
 public static function local_day_window_to_utc(string $ymd): array {
@@ -3372,11 +3394,14 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
         return;
     }
 
-    // Dept slug
-$dept = self::get_employee_dept_for_attendance($employee_id, $wpdb) ?: 'office';
+    // Resolve shift using the proper cascade: assignment → employee shift → dept automation → fallback
+    $shift = self::resolve_shift_for_date($employee_id, $ymd, [], $wpdb);
 
-// Segments for this date
-$segments = self::build_segments_for_date_from_dept($dept, $ymd);
+    // Build segments from resolved shift
+    $segments = self::build_segments_from_shift($shift, $ymd);
+
+    // Get dept for calc_meta
+    $dept = self::get_employee_dept_for_attendance($employee_id, $wpdb);
 
 // Local-day → UTC window
 $tz        = wp_timezone();
@@ -3411,7 +3436,10 @@ foreach ($rows as $r) {
 
     // Evaluate
     $ev = self::evaluate_segments($segments, $rows, $grLate, $grEarly);
-    $net = (int)$ev['worked_total'];
+
+    // Net worked time = total worked minus break time
+    $net = (int)$ev['worked_total'] - (int)$ev['break_total'];
+    $net = max(0, $net); // Ensure non-negative
     if ($roundN > 0) $net = (int)round($net / $roundN) * $roundN;
 
     $scheduled = (int)$ev['scheduled_total'];
@@ -3420,7 +3448,10 @@ foreach ($rows as $r) {
     // Status rollup
     $status = 'present';
     if (!$segments || count($segments)===0) {
-        $status = 'holiday'; // showroom Friday off → scheduled 0
+        // No shift scheduled for this day - could be day off or no shift assigned
+        // Check if it's an actual company holiday first
+        $is_company_holiday = self::is_company_holiday( $ymd );
+        $status = $is_company_holiday ? 'holiday' : 'day_off';
     } elseif (in_array('incomplete', $ev['flags'], true)) {
         $status = 'incomplete';
     } elseif (in_array('missed_segment', $ev['flags'], true) && $net === 0) {
@@ -3550,43 +3581,15 @@ private static function load_automation_map(): array {
      * Normalize a string "work location" / dept name to a simple slug.
      * Examples:
      *   - "Head Office" / "Sales" / "HR" / "IT" → "office"
-     *   - "Showroom A" / "Branch" / "Store"   → "showroom"
-     *   - "Warehouse" / "Storehouse"          → "warehouse"
-     *   - "Factory" / "Production"            → "factory"
+     * Returns sanitized slug from work location string.
+     * Now simply sanitizes the input - no longer guesses department types.
      */
     private static function normalize_work_location( string $raw ): string {
-        $s = strtolower( trim( $raw ) );
+        $s = trim( $raw );
         if ( $s === '' ) {
             return '';
         }
-
-        // Showroom
-        if ( str_contains( $s, 'showroom' ) || str_contains( $s, 'branch' ) || str_contains( $s, 'shop' ) ) {
-            return 'showroom';
-        }
-
-        // Warehouse / stock
-        if (
-            str_contains( $s, 'warehouse' ) ||
-            str_contains( $s, 'storehouse' ) ||
-            str_contains( $s, 'inventory' ) ||
-            str_contains( $s, 'stock' )
-        ) {
-            return 'warehouse';
-        }
-
-        // Factory / production / install
-        if (
-            str_contains( $s, 'factory' ) ||
-            str_contains( $s, 'production' ) ||
-            str_contains( $s, 'plant' ) ||
-            str_contains( $s, 'install' )
-        ) {
-            return 'factory';
-        }
-
-        // Everything else treated as office by default
-        return 'office';
+        return sanitize_title( $s );
     }
 
     /**
@@ -3681,7 +3684,7 @@ private static function load_automation_map(): array {
 
     /**
      * Simple helper: best-effort dept slug for attendance logic.
-     * Example result: 'office', 'showroom', 'warehouse', 'factory', or ''.
+     * Example result: sanitized slug from department name, or empty string.
      */
     public static function get_employee_dept_for_attendance( int $employee_id ): string {
         $info = self::employee_department_info( $employee_id );
@@ -3858,11 +3861,10 @@ public static function resolve_shift_for_date(
     ));
     if ($row) {
         $row->__virtual  = 0;
-        if (!isset($row->dept) || $row->dept === null) {
-            // derive a readable label for downstream checks
-            $emp = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$empT} WHERE id=%d", $employee_id));
-            $label = $emp && isset($emp->department) && $emp->department !== '' ? (string)$emp->department : 'office';
-            $row->dept = sanitize_title($label);
+        // If shift doesn't have dept_id set, derive from employee
+        if ( ! isset( $row->dept_id ) || $row->dept_id === null ) {
+            $emp = $wpdb->get_row($wpdb->prepare("SELECT dept_id FROM {$empT} WHERE id=%d", $employee_id));
+            $row->dept_id = $emp && ! empty( $emp->dept_id ) ? (int) $emp->dept_id : null;
         }
         return self::apply_weekly_override( $row, $ymd, $wpdb );
     }
@@ -3870,12 +3872,11 @@ public static function resolve_shift_for_date(
     // --- 1.5) Employee-specific shift (from emp_shifts mapping)
     $emp_shift = self::lookup_emp_shift_for_date( $employee_id, $ymd );
     if ( $emp_shift ) {
-        // Get employee dept for context
-        $emp = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$empT} WHERE id=%d", $employee_id));
-        $dept_label = $emp && isset($emp->department) && $emp->department !== '' ? (string)$emp->department : 'office';
+        // Get employee dept_id for context
+        $emp = $wpdb->get_row($wpdb->prepare("SELECT dept_id FROM {$empT} WHERE id=%d", $employee_id));
 
-        // Set dept and other required fields
-        $emp_shift->dept       = sanitize_title($dept_label);
+        // Set dept_id and other required fields
+        $emp_shift->dept_id    = $emp && ! empty( $emp->dept_id ) ? (int) $emp->dept_id : null;
         $emp_shift->__virtual  = 0;
         $emp_shift->is_holiday = 0;
 
@@ -3980,20 +3981,36 @@ public static function resolve_shift_for_date(
             if ($sh) {
                 $sh->__virtual  = 1;
                 $sh->is_holiday = 0;
-                $sh->dept       = $dept_slug ?: ($dept_name ?: 'office');
+                $sh->dept_id    = $dept_id;
                 return self::apply_weekly_override( $sh, $ymd, $wpdb );
             }
         }
     }
 
-    // --- 4) Optional fallback by dept slug to keep system usable
-    if ($dept_slug) {
+    // --- 4) Optional fallback by dept_id to keep system usable
+    // Check both old dept_id column and new dept_ids JSON array
+    if ($dept_id) {
+        // First try: match dept_ids JSON array (multi-department support)
         $fb = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT * FROM {$shiftT} WHERE active=1 AND dept=%s ORDER BY id ASC LIMIT 1",
-                $dept_slug
+                "SELECT * FROM {$shiftT}
+                 WHERE active=1
+                   AND (dept_ids IS NOT NULL AND JSON_CONTAINS(dept_ids, %s))
+                 ORDER BY id ASC LIMIT 1",
+                (string) $dept_id
             )
         );
+
+        // Fallback: match legacy single dept_id column
+        if ( ! $fb ) {
+            $fb = $wpdb->get_row(
+                $wpdb->prepare(
+                    "SELECT * FROM {$shiftT} WHERE active=1 AND dept_id=%d ORDER BY id ASC LIMIT 1",
+                    $dept_id
+                )
+            );
+        }
+
         if ($fb) {
             $fb->__virtual  = 1;
             $fb->is_holiday = 0;
@@ -4056,17 +4073,58 @@ private static function apply_weekly_override( ?\stdClass $shift, string $ymd, \
     // Preserve key properties from original shift
     $override_shift->__virtual = $shift->__virtual ?? 0;
     $override_shift->is_holiday = $shift->is_holiday ?? 0;
-    $override_shift->dept = $shift->dept ?? 'office';
+    $override_shift->dept_id = $shift->dept_id ?? null;
 
     return $override_shift;
 }
 
 
-/** Build split segments for Y-m-d from dept + settings. */
-private static function build_segments_for_date_from_dept(string $dept, string $ymd): array {
+/**
+ * Build segments from a resolved shift object.
+ * Returns an array of segment arrays with start/end times in UTC and local.
+ */
+private static function build_segments_from_shift( ?\stdClass $shift, string $ymd ): array {
+    if ( ! $shift || empty( $shift->start_time ) || empty( $shift->end_time ) ) {
+        return [];
+    }
+
+    $tz = wp_timezone();
+
+    // Format start_time and end_time (TIME columns like '09:00:00')
+    $start_time = $shift->start_time;
+    $end_time   = $shift->end_time;
+
+    // Build local datetime from date + shift times
+    $stLocal = new \DateTimeImmutable( $ymd . ' ' . $start_time, $tz );
+    $enLocal = new \DateTimeImmutable( $ymd . ' ' . $end_time, $tz );
+
+    // Handle overnight shifts (end_time < start_time means next day)
+    if ( $enLocal <= $stLocal ) {
+        $enLocal = $enLocal->modify( '+1 day' );
+    }
+
+    // Convert to UTC
+    $stUTC = $stLocal->setTimezone( new \DateTimeZone( 'UTC' ) );
+    $enUTC = $enLocal->setTimezone( new \DateTimeZone( 'UTC' ) );
+
+    return [
+        [
+            'start_utc' => $stUTC->format( 'Y-m-d H:i:s' ),
+            'end_utc'   => $enUTC->format( 'Y-m-d H:i:s' ),
+            'start_l'   => $stLocal->format( 'Y-m-d H:i:s' ),
+            'end_l'     => $enLocal->format( 'Y-m-d H:i:s' ),
+            'minutes'   => (int) round( ( $enUTC->getTimestamp() - $stUTC->getTimestamp() ) / 60 ),
+        ],
+    ];
+}
+
+/** Build split segments for Y-m-d from dept_id + settings (legacy, kept for backwards compatibility). */
+private static function build_segments_for_date_from_dept( $dept_id_or_slug, string $ymd ): array {
     $settings = get_option(self::OPT_SETTINGS) ?: [];
-    $map = $settings['dept_weekly_segments'][$dept] ?? null;
-    if (!$map) { $map = $settings['dept_weekly_segments']['office'] ?? []; }
+    // Support both dept_id (int) and legacy dept slug (string)
+    $key = is_numeric( $dept_id_or_slug ) ? (int) $dept_id_or_slug : (string) $dept_id_or_slug;
+    $map = $settings['dept_weekly_segments'][ $key ] ?? null;
+    if ( ! $map ) { $map = []; }
 
     // day-of-week as 'sun'..'sat' using site timezone
     $tz = wp_timezone();
@@ -4096,21 +4154,22 @@ private static function build_segments_for_date_from_dept(string $dept, string $
 /** Return selfie mode resolved by precedence; true/false for “require this punch now?” decision is made in REST. */
 // In class \SFS\HR\Modules\Attendance\AttendanceModule
 
-public static function selfie_mode_for( int $employee_id, string $dept, array $ctx = [] ): string {
+public static function selfie_mode_for( int $employee_id, $dept_id, array $ctx = [] ): string {
     // Global options
     $opt    = get_option( self::OPT_SETTINGS, [] );
     $policy = is_array( $opt ) ? ( $opt['selfie_policy'] ?? [] ) : [];
 
     $default_mode = $policy['default'] ?? 'optional'; // optional | never | in_only | in_out | all
-    $dept_modes   = $policy['by_dept'] ?? [];
+    $dept_modes   = $policy['by_dept_id'] ?? [];
     $emp_modes    = $policy['by_employee'] ?? [];
 
     // 1) Base: default
     $mode = $default_mode;
 
-    // 2) Department override
-    if ( $dept !== '' && ! empty( $dept_modes[ $dept ] ) ) {
-        $mode = (string) $dept_modes[ $dept ];
+    // 2) Department override by ID
+    $dept_id = (int) $dept_id;
+    if ( $dept_id > 0 && ! empty( $dept_modes[ $dept_id ] ) ) {
+        $mode = (string) $dept_modes[ $dept_id ];
     }
 
     // 3) Per-employee override (if you ever use it)

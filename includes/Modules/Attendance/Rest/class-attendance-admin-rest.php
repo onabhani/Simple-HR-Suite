@@ -111,11 +111,11 @@ class Admin_REST {
     public static function shifts_list( \WP_REST_Request $req ) {
         global $wpdb; $t = $wpdb->prefix . 'sfs_hr_attendance_shifts';
         $where = []; $args = [];
-        $dept = $req->get_param('dept');
-        $act  = $req->get_param('active');
+        $dept_id = $req->get_param('dept_id');
+        $act     = $req->get_param('active');
 
-        if ( $dept && in_array( $dept, ['office','showroom','warehouse','factory'], true ) ) {
-            $where[] = "dept=%s"; $args[] = $dept;
+        if ( $dept_id && is_numeric( $dept_id ) ) {
+            $where[] = "dept_id=%d"; $args[] = (int) $dept_id;
         }
         if ( isset($act) ) {
             $where[] = "active=%d"; $args[] = $act ? 1 : 0;
@@ -123,7 +123,7 @@ class Admin_REST {
 
         $sql = "SELECT * FROM {$t}";
         if ( $where ) { $sql .= " WHERE " . implode(' AND ', array_map(fn($w)=>$w, $where) ); }
-        $sql .= " ORDER BY active DESC, dept, name";
+        $sql .= " ORDER BY active DESC, dept_id, name";
 
         $pre = $where ? $wpdb->prepare( $sql, ...$args ) : $sql;
         $rows = $wpdb->get_results( $pre );
@@ -134,9 +134,8 @@ class Admin_REST {
         global $wpdb; $t = $wpdb->prefix . 'sfs_hr_attendance_shifts';
         $id = (int)$req->get_param('id');
 
-        $name = sanitize_text_field( (string)$req['name'] );
-        $dept = (string)$req['dept'];
-        if ( ! in_array($dept, ['office','showroom','warehouse','factory'], true) ) { $dept='office'; }
+        $name    = sanitize_text_field( (string)$req['name'] );
+        $dept_id = isset( $req['dept_id'] ) ? (int) $req['dept_id'] : 0;
 
         $loc_label = sanitize_text_field( (string)$req['location_label'] );
         $lat = is_numeric($req['location_lat']) ? (float)$req['location_lat'] : null;
@@ -160,25 +159,25 @@ class Admin_REST {
             return new \WP_Error( 'invalid', 'Missing required fields.', [ 'status'=>400 ] );
         }
 
-        $data = compact('name','dept','location_label','location_lat','location_lng','location_radius_m',
-                        'start_time','end_time','break_policy','unpaid_break_minutes','grace_late_minutes',
-                        'grace_early_leave_minutes','rounding_rule','overtime_after_minutes','require_selfie',
-                        'active','notes');
-
-        // map compact
-        $data['location_label'] = $loc_label;
-        $data['location_lat'] = $lat;
-        $data['location_lng'] = $lng;
-        $data['location_radius_m'] = $rad;
-        $data['start_time'] = $start;
-        $data['end_time'] = $end;
-        $data['unpaid_break_minutes'] = $unpaid_break;
-        $data['grace_late_minutes'] = $grace_l;
-        $data['grace_early_leave_minutes'] = $grace_e;
-        $data['rounding_rule'] = $round;
-        $data['overtime_after_minutes'] = $ot_thr;
-        $data['require_selfie'] = $selfie;
-        $data['active'] = $active;
+        $data = [
+            'name'                      => $name,
+            'dept_id'                   => $dept_id > 0 ? $dept_id : null,
+            'location_label'            => $loc_label,
+            'location_lat'              => $lat,
+            'location_lng'              => $lng,
+            'location_radius_m'         => $rad,
+            'start_time'                => $start,
+            'end_time'                  => $end,
+            'break_policy'              => $break_policy,
+            'unpaid_break_minutes'      => $unpaid_break,
+            'grace_late_minutes'        => $grace_l,
+            'grace_early_leave_minutes' => $grace_e,
+            'rounding_rule'             => $round,
+            'overtime_after_minutes'    => $ot_thr,
+            'require_selfie'            => $selfie,
+            'active'                    => $active,
+            'notes'                     => $notes,
+        ];
 
         if ( $id ) {
             $wpdb->update( $t, $data, ['id'=>$id] );
@@ -206,15 +205,15 @@ class Admin_REST {
         if ( ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ) {
             return new \WP_Error('invalid','Bad date',[ 'status'=>400 ]);
         }
-        $dept = (string)$req->get_param('dept');
+        $dept_id = $req->get_param('dept_id');
 
-        $sql = "SELECT sa.*, sh.name AS shift_name, sh.dept
+        $sql = "SELECT sa.*, sh.name AS shift_name, sh.dept_id
                 FROM {$t} sa
                 JOIN {$wpdb->prefix}sfs_hr_attendance_shifts sh ON sh.id=sa.shift_id
                 WHERE sa.work_date=%s";
         $args = [ $date ];
-        if ( $dept && in_array($dept,['office','showroom','warehouse','factory'], true) ) {
-            $sql .= " AND sh.dept=%s"; $args[] = $dept;
+        if ( $dept_id && is_numeric( $dept_id ) ) {
+            $sql .= " AND sh.dept_id=%d"; $args[] = (int) $dept_id;
         }
         $rows = $wpdb->get_results( $wpdb->prepare($sql, ...$args) );
         return rest_ensure_response( $rows );
@@ -262,7 +261,7 @@ class Admin_REST {
 
     public static function devices_list( \WP_REST_Request $req ) {
         global $wpdb; $t = $wpdb->prefix . 'sfs_hr_attendance_devices';
-        $rows = $wpdb->get_results( "SELECT * FROM {$t} ORDER BY active DESC, allowed_dept, label" );
+        $rows = $wpdb->get_results( "SELECT * FROM {$t} ORDER BY active DESC, allowed_dept_id, label" );
         return rest_ensure_response( $rows );
     }
 
@@ -278,7 +277,7 @@ class Admin_REST {
         $lat = is_numeric($req['geo_lock_lat']) ? (float)$req['geo_lock_lat'] : null;
         $lng = is_numeric($req['geo_lock_lng']) ? (float)$req['geo_lock_lng'] : null;
         $rad = is_numeric($req['geo_lock_radius_m']) ? max(10,(int)$req['geo_lock_radius_m']) : null;
-        $allowed_dept = in_array( (string)$req['allowed_dept'], ['office','showroom','warehouse','factory','any'], true ) ? (string)$req['allowed_dept'] : 'any';
+        $allowed_dept_id = isset( $req['allowed_dept_id'] ) && is_numeric( $req['allowed_dept_id'] ) ? (int) $req['allowed_dept_id'] : null;
         $active = (int)!empty($req['active']);
 
 // read raw booleans/strings from request
@@ -310,7 +309,7 @@ $data['meta_json'] = wp_json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_UNESCAP
             'geo_lock_lat'      => $lat,
             'geo_lock_lng'      => $lng,
             'geo_lock_radius_m' => $rad,
-            'allowed_dept'      => $allowed_dept,
+            'allowed_dept_id'   => $allowed_dept_id,
             'active'            => $active,
         ];
         if ( $pin_raw !== '' ) { $data['kiosk_pin'] = wp_hash_password( $pin_raw ); }

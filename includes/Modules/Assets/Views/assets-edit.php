@@ -39,19 +39,9 @@ $conditions = [
     'lost'         => __('Lost', 'sfs-hr'),
 ];
 
-// Predefined categories (slugs)
-$category_options = [
-    'laptop'      => __('Laptop', 'sfs-hr'),
-    'desktop'     => __('Desktop', 'sfs-hr'),
-    'monitor'     => __('Monitor', 'sfs-hr'),
-    'phone'       => __('Phone', 'sfs-hr'),
-    'tablet'      => __('Tablet', 'sfs-hr'),
-    'printer'     => __('Printer', 'sfs-hr'),
-    'vehicle'     => __('Vehicle', 'sfs-hr'),
-    'access_card' => __('Access Card', 'sfs-hr'),
-    'tool'        => __('Tool', 'sfs-hr'),
-    'other'       => __('Other', 'sfs-hr'),
-];
+// Get categories from the Admin class
+$admin_pages = new \SFS\HR\Modules\Assets\Admin\Admin_Pages();
+$category_options = $admin_pages->get_asset_categories();
 
 // Departments: from departments table if exists, else distinct employee departments
 global $wpdb;
@@ -303,8 +293,36 @@ if ( $dept_table_exists === $dept_table ) {
     </tr>
 </table>
 
-<?php submit_button( $is_edit ? __('Save Asset', 'sfs-hr') : __('Create Asset', 'sfs-hr') ); ?>
+        <p class="submit" style="display:flex; gap:12px; align-items:center;">
+            <?php submit_button( $is_edit ? __('Save Asset', 'sfs-hr') : __('Create Asset', 'sfs-hr'), 'primary', 'submit', false ); ?>
+
+            <?php if ( $is_edit && $id > 0 ) : ?>
+                <span style="color:#999;">|</span>
+                <a href="#" onclick="document.getElementById('sfs-hr-delete-asset-form').style.display='block'; return false;" class="button button-link-delete">
+                    <?php esc_html_e('Delete Asset', 'sfs-hr'); ?>
+                </a>
+            <?php endif; ?>
+        </p>
     </form>
+
+    <?php if ( $is_edit && $id > 0 ) : ?>
+    <!-- Delete Asset Form (hidden) -->
+    <div id="sfs-hr-delete-asset-form" style="display:none; background:#fee; border:1px solid #c00; padding:15px; border-radius:4px; margin-top:20px;">
+        <p style="color:#c00; margin:0 0 10px;"><strong><?php esc_html_e('Are you sure you want to delete this asset?', 'sfs-hr'); ?></strong></p>
+        <p style="margin:0 0 15px;"><?php esc_html_e('This action cannot be undone. Assets with active assignments cannot be deleted.', 'sfs-hr'); ?></p>
+        <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" style="display:inline;">
+            <?php wp_nonce_field('sfs_hr_assets_delete'); ?>
+            <input type="hidden" name="action" value="sfs_hr_assets_delete" />
+            <input type="hidden" name="id" value="<?php echo (int) $id; ?>" />
+            <button type="submit" class="button button-link-delete" style="color:#fff; background:#c00; border-color:#c00;">
+                <?php esc_html_e('Yes, Delete This Asset', 'sfs-hr'); ?>
+            </button>
+            <button type="button" onclick="document.getElementById('sfs-hr-delete-asset-form').style.display='none';" class="button">
+                <?php esc_html_e('Cancel', 'sfs-hr'); ?>
+            </button>
+        </form>
+    </div>
+    <?php endif; ?>
 
 <?php if ( $is_edit && $id > 0 ) : ?>
     <hr />

@@ -24,11 +24,20 @@ class AdminPages {
     public function menu(): void {
         $parent_slug = 'sfs-hr';
 
+        // Allow access if user can manage, or is a GM/Finance approver
+        $can_access = current_user_can( 'sfs_hr.manage' )
+                   || current_user_can( 'sfs_hr_loans_gm_approve' )
+                   || current_user_can( 'sfs_hr_loans_finance_approve' );
+
+        if ( ! $can_access ) {
+            return;
+        }
+
         add_submenu_page(
             $parent_slug,
             __( 'Loans', 'sfs-hr' ),
             __( 'Loans', 'sfs-hr' ),
-            'sfs_hr.manage',
+            'read', // Use 'read' as base capability, we check permissions internally
             'sfs-hr-loans',
             [ $this, 'loans_page' ]
         );
@@ -38,6 +47,15 @@ class AdminPages {
      * Main loans page (list view or detail)
      */
     public function loans_page(): void {
+        // Verify access
+        $can_access = current_user_can( 'sfs_hr.manage' )
+                   || current_user_can( 'sfs_hr_loans_gm_approve' )
+                   || current_user_can( 'sfs_hr_loans_finance_approve' );
+
+        if ( ! $can_access ) {
+            wp_die( __( 'You do not have permission to access this page.', 'sfs-hr' ) );
+        }
+
         $action = $_GET['action'] ?? '';
         $loan_id = isset( $_GET['id'] ) ? (int) $_GET['id'] : 0;
 
@@ -57,8 +75,9 @@ class AdminPages {
         $tab = $_GET['tab'] ?? 'loans';
 
         ?>
-        <div class="wrap">
+        <div class="wrap sfs-hr-wrap">
             <h1><?php esc_html_e( 'Loans Management', 'sfs-hr' ); ?></h1>
+            <?php \SFS\HR\Core\Helpers::render_admin_nav(); ?>
 
             <nav class="nav-tab-wrapper">
                 <a href="?page=sfs-hr-loans&tab=loans"
@@ -103,16 +122,41 @@ class AdminPages {
         $table = $wpdb->prefix . 'sfs_hr_loans';
         $emp_table = $wpdb->prefix . 'sfs_hr_employees';
 
-        // Filters
-        $status = $_GET['filter_status'] ?? '';
-        $search = $_GET['s'] ?? '';
+        $this->output_loans_styles();
 
+        // Filters
+        $current_status = isset( $_GET['filter_status'] ) ? sanitize_key( $_GET['filter_status'] ) : '';
+        $search = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
+
+        // Get counts for each status
+        $status_tabs = [
+            ''                => __( 'All', 'sfs-hr' ),
+            'pending_gm'      => __( 'Pending GM', 'sfs-hr' ),
+            'pending_finance' => __( 'Pending Finance', 'sfs-hr' ),
+            'active'          => __( 'Active', 'sfs-hr' ),
+            'completed'       => __( 'Completed', 'sfs-hr' ),
+            'rejected'        => __( 'Rejected', 'sfs-hr' ),
+            'cancelled'       => __( 'Cancelled', 'sfs-hr' ),
+        ];
+
+        $counts = [];
+        foreach ( array_keys( $status_tabs ) as $st ) {
+            if ( $st === '' ) {
+                $count_sql = "SELECT COUNT(*) FROM {$table}";
+                $counts[ $st ] = (int) $wpdb->get_var( $count_sql );
+            } else {
+                $count_sql = $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE status = %s", $st );
+                $counts[ $st ] = (int) $wpdb->get_var( $count_sql );
+            }
+        }
+
+        // Build query
         $where = [ '1=1' ];
         $params = [];
 
-        if ( $status ) {
+        if ( $current_status ) {
             $where[] = 'l.status = %s';
-            $params[] = $status;
+            $params[] = $current_status;
         }
 
         if ( $search ) {
@@ -137,119 +181,525 @@ class AdminPages {
         }
 
         $loans = $wpdb->get_results( $query );
+        $total = count( $loans );
 
         ?>
-        <div style="margin-bottom: 15px;">
-            <a href="?page=sfs-hr-loans&action=create" class="button button-primary">
-                <?php esc_html_e( 'Add New Loan', 'sfs-hr' ); ?>
-            </a>
+        <!-- Toolbar -->
+        <div class="sfs-hr-loans-toolbar">
+            <form method="get">
+                <input type="hidden" name="page" value="sfs-hr-loans" />
+                <input type="hidden" name="filter_status" value="<?php echo esc_attr( $current_status ); ?>" />
+                <input type="search" name="s" value="<?php echo esc_attr( $search ); ?>" placeholder="<?php esc_attr_e( 'Search employee or loan #...', 'sfs-hr' ); ?>" />
+                <button type="submit" class="button"><?php esc_html_e( 'Search', 'sfs-hr' ); ?></button>
+                <?php if ( $search !== '' ) : ?>
+                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-loans' . ( $current_status ? '&filter_status=' . $current_status : '' ) ) ); ?>" class="button"><?php esc_html_e( 'Clear', 'sfs-hr' ); ?></a>
+                <?php endif; ?>
+                <a href="?page=sfs-hr-loans&action=create" class="button button-primary" style="margin-left:auto;"><?php esc_html_e( 'Add New Loan', 'sfs-hr' ); ?></a>
+            </form>
         </div>
 
-        <div class="tablenav top">
-            <div class="alignleft actions">
-                <select name="filter_status" onchange="location.href='?page=sfs-hr-loans&filter_status='+this.value">
-                    <option value=""><?php esc_html_e( 'All Statuses', 'sfs-hr' ); ?></option>
-                    <option value="pending_gm" <?php selected( $status, 'pending_gm' ); ?>><?php esc_html_e( 'Pending GM', 'sfs-hr' ); ?></option>
-                    <option value="pending_finance" <?php selected( $status, 'pending_finance' ); ?>><?php esc_html_e( 'Pending Finance', 'sfs-hr' ); ?></option>
-                    <option value="active" <?php selected( $status, 'active' ); ?>><?php esc_html_e( 'Active', 'sfs-hr' ); ?></option>
-                    <option value="completed" <?php selected( $status, 'completed' ); ?>><?php esc_html_e( 'Completed', 'sfs-hr' ); ?></option>
-                    <option value="rejected" <?php selected( $status, 'rejected' ); ?>><?php esc_html_e( 'Rejected', 'sfs-hr' ); ?></option>
-                    <option value="cancelled" <?php selected( $status, 'cancelled' ); ?>><?php esc_html_e( 'Cancelled', 'sfs-hr' ); ?></option>
-                </select>
+        <!-- Status Tabs -->
+        <div class="sfs-hr-loans-tabs">
+            <?php foreach ( $status_tabs as $key => $label ) : ?>
+                <?php
+                $url = add_query_arg( [
+                    'page'          => 'sfs-hr-loans',
+                    'filter_status' => $key !== '' ? $key : null,
+                    's'             => $search !== '' ? $search : null,
+                ], admin_url( 'admin.php' ) );
+                $classes = 'sfs-tab' . ( $key === $current_status ? ' active' : '' );
+                ?>
+                <a href="<?php echo esc_url( $url ); ?>" class="<?php echo esc_attr( $classes ); ?>">
+                    <?php echo esc_html( $label ); ?>
+                    <span class="count"><?php echo esc_html( $counts[ $key ] ); ?></span>
+                </a>
+            <?php endforeach; ?>
+        </div>
+
+        <!-- Table Card -->
+        <div class="sfs-hr-loans-table-wrap">
+            <div class="table-header">
+                <h3><?php echo esc_html( $status_tabs[ $current_status ] ?? __( 'All Loans', 'sfs-hr' ) ); ?> (<?php echo esc_html( $total ); ?>)</h3>
             </div>
-            <div class="alignleft actions">
-                <form method="get" style="display: inline-block;">
-                    <input type="hidden" name="page" value="sfs-hr-loans" />
-                    <input type="search" name="s" value="<?php echo esc_attr( $search ); ?>" placeholder="<?php esc_attr_e( 'Search...', 'sfs-hr' ); ?>" />
-                    <button type="submit" class="button"><?php esc_html_e( 'Search', 'sfs-hr' ); ?></button>
-                </form>
+
+            <table class="sfs-hr-loans-table">
+                <thead>
+                    <tr>
+                        <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
+                        <th class="hide-mobile"><?php esc_html_e( 'Loan #', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Principal', 'sfs-hr' ); ?></th>
+                        <th class="hide-mobile"><?php esc_html_e( 'Remaining', 'sfs-hr' ); ?></th>
+                        <th class="hide-mobile"><?php esc_html_e( 'Installments', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
+                        <th class="hide-mobile"><?php esc_html_e( 'First Due', 'sfs-hr' ); ?></th>
+                        <th class="show-mobile" style="width:50px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if ( empty( $loans ) ) : ?>
+                        <tr>
+                            <td colspan="8" class="empty-state">
+                                <p><?php esc_html_e( 'No loans found.', 'sfs-hr' ); ?></p>
+                            </td>
+                        </tr>
+                    <?php else : ?>
+                        <?php foreach ( $loans as $loan ) : ?>
+                            <tr data-id="<?php echo (int) $loan->id; ?>"
+                                data-number="<?php echo esc_attr( $loan->loan_number ); ?>"
+                                data-employee="<?php echo esc_attr( $loan->employee_name ); ?>"
+                                data-code="<?php echo esc_attr( $loan->employee_code ); ?>"
+                                data-principal="<?php echo esc_attr( number_format( (float) $loan->principal_amount, 2 ) ); ?>"
+                                data-remaining="<?php echo esc_attr( number_format( (float) $loan->remaining_balance, 2 ) ); ?>"
+                                data-currency="<?php echo esc_attr( $loan->currency ); ?>"
+                                data-installments="<?php echo (int) $loan->installments_count; ?>"
+                                data-installment-amount="<?php echo esc_attr( number_format( (float) $loan->installment_amount, 2 ) ); ?>"
+                                data-status="<?php echo esc_attr( $loan->status ); ?>"
+                                data-first-due="<?php echo esc_attr( $loan->first_due_date ?: '' ); ?>"
+                                data-created="<?php echo esc_attr( $loan->created_at ); ?>">
+                                <td>
+                                    <span class="emp-name"><?php echo esc_html( $loan->employee_name ); ?></span>
+                                    <span class="emp-code"><?php echo esc_html( $loan->employee_code ); ?></span>
+                                </td>
+                                <td class="hide-mobile">
+                                    <a href="?page=sfs-hr-loans&action=view&id=<?php echo (int) $loan->id; ?>" style="color:#2271b1;text-decoration:none;">
+                                        <?php echo esc_html( $loan->loan_number ); ?>
+                                    </a>
+                                </td>
+                                <td><?php echo number_format( (float) $loan->principal_amount, 2 ); ?></td>
+                                <td class="hide-mobile"><?php echo number_format( (float) $loan->remaining_balance, 2 ); ?></td>
+                                <td class="hide-mobile">
+                                    <?php echo (int) $loan->installments_count; ?> × <?php echo number_format( (float) $loan->installment_amount, 2 ); ?>
+                                </td>
+                                <td><?php echo $this->get_status_pill( $loan->status ); ?></td>
+                                <td class="hide-mobile"><?php echo $loan->first_due_date ? esc_html( wp_date( 'M j, Y', strtotime( $loan->first_due_date ) ) ) : '—'; ?></td>
+                                <td class="hide-mobile">
+                                    <a href="?page=sfs-hr-loans&action=view&id=<?php echo (int) $loan->id; ?>" class="sfs-hr-action-btn" title="<?php esc_attr_e( 'View Details', 'sfs-hr' ); ?>">👁</a>
+                                </td>
+                                <td class="show-mobile">
+                                    <button type="button" class="sfs-hr-action-btn sfs-mobile-loan-btn" title="<?php esc_attr_e( 'View Details', 'sfs-hr' ); ?>">›</button>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Mobile Slide-up Modal -->
+        <div id="sfs-hr-loan-modal" class="sfs-hr-loan-modal">
+            <div class="sfs-hr-loan-modal-overlay" onclick="closeLoanModal();"></div>
+            <div class="sfs-hr-loan-modal-content">
+                <div class="sfs-hr-loan-modal-header">
+                    <h3><?php esc_html_e( 'Loan Details', 'sfs-hr' ); ?></h3>
+                    <button type="button" class="sfs-hr-loan-modal-close" onclick="closeLoanModal();">×</button>
+                </div>
+                <div id="sfs-hr-loan-modal-body">
+                    <!-- Content loaded dynamically -->
+                </div>
+                <div id="sfs-hr-loan-modal-actions" style="margin-top:20px;">
+                    <!-- Actions loaded dynamically -->
+                </div>
             </div>
         </div>
 
+        <script>
+        (function() {
+            var modal = document.getElementById('sfs-hr-loan-modal');
+            var modalBody = document.getElementById('sfs-hr-loan-modal-body');
+            var modalActions = document.getElementById('sfs-hr-loan-modal-actions');
+
+            document.querySelectorAll('.sfs-mobile-loan-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var row = this.closest('tr');
+                    openLoanModal(row);
+                });
+            });
+
+            function openLoanModal(row) {
+                var data = row.dataset;
+                var statusLabels = {
+                    'pending_gm': '<?php echo esc_js( __( 'Pending GM', 'sfs-hr' ) ); ?>',
+                    'pending_finance': '<?php echo esc_js( __( 'Pending Finance', 'sfs-hr' ) ); ?>',
+                    'active': '<?php echo esc_js( __( 'Active', 'sfs-hr' ) ); ?>',
+                    'completed': '<?php echo esc_js( __( 'Completed', 'sfs-hr' ) ); ?>',
+                    'rejected': '<?php echo esc_js( __( 'Rejected', 'sfs-hr' ) ); ?>',
+                    'cancelled': '<?php echo esc_js( __( 'Cancelled', 'sfs-hr' ) ); ?>'
+                };
+
+                var html = '';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Loan #', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + data.number + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Employee', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + data.employee + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Employee Code', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + data.code + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Principal', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + data.principal + ' ' + data.currency + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Remaining', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + data.remaining + ' ' + data.currency + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Installments', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + data.installments + ' × ' + data.installmentAmount + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Status', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + (statusLabels[data.status] || data.status) + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'First Due', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + (data.firstDue || '—') + '</span></div>';
+
+                modalBody.innerHTML = html;
+                modalActions.innerHTML = '<a href="?page=sfs-hr-loans&action=view&id=' + data.id + '" class="button button-primary" style="width:100%;text-align:center;"><?php echo esc_js( __( 'View Full Details', 'sfs-hr' ) ); ?></a>';
+
+                modal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+
+            window.closeLoanModal = function() {
+                modal.classList.remove('active');
+                document.body.style.overflow = '';
+            };
+        })();
+        </script>
+        <?php
+    }
+
+    /**
+     * Output unified CSS styles for loans page
+     */
+    private function output_loans_styles(): void {
+        static $done = false;
+        if ( $done ) {
+            return;
+        }
+        $done = true;
+        ?>
         <style>
-            /* Mobile responsive table for loans */
+            /* Toolbar */
+            .sfs-hr-loans-toolbar {
+                background: #fff;
+                border: 1px solid #e2e4e7;
+                border-radius: 8px;
+                padding: 16px;
+                margin-bottom: 20px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            }
+            .sfs-hr-loans-toolbar form {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 12px;
+                align-items: center;
+                margin: 0;
+            }
+            .sfs-hr-loans-toolbar input[type="search"] {
+                height: 36px;
+                border: 1px solid #dcdcde;
+                border-radius: 4px;
+                padding: 0 12px;
+                font-size: 13px;
+                min-width: 220px;
+            }
+            .sfs-hr-loans-toolbar .button {
+                height: 36px;
+                line-height: 34px;
+                padding: 0 16px;
+            }
+
+            /* Status Tabs */
+            .sfs-hr-loans-tabs {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin-bottom: 20px;
+            }
+            .sfs-hr-loans-tabs .sfs-tab {
+                display: inline-block;
+                padding: 8px 16px;
+                background: #f6f7f7;
+                border: 1px solid #dcdcde;
+                border-radius: 20px;
+                font-size: 13px;
+                font-weight: 500;
+                color: #50575e;
+                text-decoration: none;
+                transition: all 0.15s ease;
+            }
+            .sfs-hr-loans-tabs .sfs-tab:hover {
+                background: #fff;
+                border-color: #2271b1;
+                color: #2271b1;
+            }
+            .sfs-hr-loans-tabs .sfs-tab.active {
+                background: #2271b1;
+                border-color: #2271b1;
+                color: #fff;
+            }
+            .sfs-hr-loans-tabs .sfs-tab .count {
+                display: inline-block;
+                background: rgba(0,0,0,0.1);
+                padding: 2px 8px;
+                border-radius: 10px;
+                font-size: 11px;
+                margin-left: 6px;
+            }
+            .sfs-hr-loans-tabs .sfs-tab.active .count {
+                background: rgba(255,255,255,0.25);
+            }
+
+            /* Table Card */
+            .sfs-hr-loans-table-wrap {
+                background: #fff;
+                border: 1px solid #e2e4e7;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            }
+            .sfs-hr-loans-table-wrap .table-header {
+                padding: 16px 20px;
+                border-bottom: 1px solid #f0f0f1;
+                background: #f9fafb;
+            }
+            .sfs-hr-loans-table-wrap .table-header h3 {
+                margin: 0;
+                font-size: 14px;
+                font-weight: 600;
+                color: #1d2327;
+            }
+            .sfs-hr-loans-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 0;
+            }
+            .sfs-hr-loans-table th {
+                background: #f9fafb;
+                padding: 12px 16px;
+                text-align: left;
+                font-weight: 600;
+                font-size: 12px;
+                color: #50575e;
+                text-transform: uppercase;
+                letter-spacing: 0.3px;
+                border-bottom: 1px solid #e2e4e7;
+            }
+            .sfs-hr-loans-table td {
+                padding: 14px 16px;
+                font-size: 13px;
+                border-bottom: 1px solid #f0f0f1;
+                vertical-align: middle;
+            }
+            .sfs-hr-loans-table tbody tr:hover {
+                background: #f9fafb;
+            }
+            .sfs-hr-loans-table tbody tr:last-child td {
+                border-bottom: none;
+            }
+            .sfs-hr-loans-table .emp-name {
+                display: block;
+                font-weight: 500;
+                color: #1d2327;
+            }
+            .sfs-hr-loans-table .emp-code {
+                display: block;
+                font-size: 11px;
+                color: #787c82;
+                margin-top: 2px;
+            }
+            .sfs-hr-loans-table .empty-state {
+                text-align: center;
+                padding: 40px 20px;
+                color: #787c82;
+            }
+            .sfs-hr-loans-table .empty-state p {
+                margin: 0;
+                font-size: 14px;
+            }
+
+            /* Status Pills */
+            .sfs-hr-pill {
+                display: inline-block;
+                padding: 4px 10px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 500;
+                line-height: 1.4;
+            }
+            .sfs-hr-pill--pending-gm {
+                background: #fff3e0;
+                color: #e65100;
+            }
+            .sfs-hr-pill--pending-finance {
+                background: #fff8e1;
+                color: #ff8f00;
+            }
+            .sfs-hr-pill--active {
+                background: #e8f5e9;
+                color: #2e7d32;
+            }
+            .sfs-hr-pill--completed {
+                background: #e3f2fd;
+                color: #1565c0;
+            }
+            .sfs-hr-pill--rejected {
+                background: #ffebee;
+                color: #c62828;
+            }
+            .sfs-hr-pill--cancelled {
+                background: #fafafa;
+                color: #757575;
+            }
+
+            /* Action Button */
+            .sfs-hr-action-btn {
+                background: #f6f7f7;
+                border: 1px solid #dcdcde;
+                border-radius: 4px;
+                padding: 6px 10px;
+                cursor: pointer;
+                font-size: 16px;
+                line-height: 1;
+                transition: all 0.15s ease;
+                text-decoration: none;
+                display: inline-block;
+            }
+            .sfs-hr-action-btn:hover {
+                background: #fff;
+                border-color: #2271b1;
+            }
+
+            /* Mobile Modal */
+            .sfs-hr-loan-modal {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 100000;
+            }
+            .sfs-hr-loan-modal.active {
+                display: block;
+            }
+            .sfs-hr-loan-modal-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+            }
+            .sfs-hr-loan-modal-content {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: #fff;
+                border-radius: 16px 16px 0 0;
+                padding: 24px;
+                max-height: 85vh;
+                overflow-y: auto;
+                transform: translateY(100%);
+                transition: transform 0.3s ease;
+            }
+            .sfs-hr-loan-modal.active .sfs-hr-loan-modal-content {
+                transform: translateY(0);
+            }
+            .sfs-hr-loan-modal-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+                padding-bottom: 16px;
+                border-bottom: 1px solid #e2e4e7;
+            }
+            .sfs-hr-loan-modal-header h3 {
+                margin: 0;
+                font-size: 18px;
+                color: #1d2327;
+            }
+            .sfs-hr-loan-modal-close {
+                background: #f6f7f7;
+                border: none;
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                cursor: pointer;
+                font-size: 18px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .sfs-hr-loan-modal-row {
+                display: flex;
+                justify-content: space-between;
+                padding: 12px 0;
+                border-bottom: 1px solid #f0f0f1;
+            }
+            .sfs-hr-loan-modal-row:last-child {
+                border-bottom: none;
+            }
+            .sfs-hr-loan-modal-label {
+                color: #50575e;
+                font-size: 13px;
+            }
+            .sfs-hr-loan-modal-value {
+                font-weight: 500;
+                color: #1d2327;
+                font-size: 13px;
+                text-align: right;
+            }
+
+            /* Mobile Responsive */
             @media screen and (max-width: 782px) {
-                .sfs-loans-table-wrapper {
+                .sfs-hr-loans-toolbar form {
+                    flex-direction: column;
+                    align-items: stretch;
+                }
+                .sfs-hr-loans-toolbar input[type="search"] {
+                    width: 100%;
+                    min-width: auto;
+                }
+                .sfs-hr-loans-toolbar .button {
+                    width: 100%;
+                    text-align: center;
+                }
+                .sfs-hr-loans-tabs {
                     overflow-x: auto;
+                    flex-wrap: nowrap;
+                    padding-bottom: 8px;
                     -webkit-overflow-scrolling: touch;
                 }
-                .sfs-loans-table {
-                    min-width: 100%;
+                .sfs-hr-loans-tabs .sfs-tab {
+                    flex-shrink: 0;
+                    padding: 6px 12px;
                     font-size: 12px;
                 }
-                .sfs-loans-table th,
-                .sfs-loans-table td {
-                    padding: 8px 4px;
-                    white-space: nowrap;
+                .hide-mobile {
+                    display: none !important;
                 }
-                /* Hide less important columns on mobile */
-                .sfs-loans-table .hide-mobile {
-                    display: none;
+                .sfs-hr-loans-table th,
+                .sfs-hr-loans-table td {
+                    padding: 12px;
                 }
-                /* Make employee names shorter on mobile */
-                .sfs-loans-table .employee-name {
-                    max-width: 100px;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
+                .show-mobile {
+                    display: table-cell !important;
+                }
+            }
+            @media screen and (min-width: 783px) {
+                .show-mobile {
+                    display: none !important;
                 }
             }
         </style>
-
-        <div class="sfs-loans-table-wrapper">
-        <table class="wp-list-table widefat fixed striped sfs-loans-table">
-            <thead>
-                <tr>
-                    <th class="hide-mobile"><?php esc_html_e( 'Loan #', 'sfs-hr' ); ?></th>
-                    <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
-                    <th><?php esc_html_e( 'Principal', 'sfs-hr' ); ?></th>
-                    <th class="hide-mobile"><?php esc_html_e( 'Remaining', 'sfs-hr' ); ?></th>
-                    <th class="hide-mobile"><?php esc_html_e( 'Installments', 'sfs-hr' ); ?></th>
-                    <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
-                    <th class="hide-mobile"><?php esc_html_e( 'First Due', 'sfs-hr' ); ?></th>
-                    <th class="hide-mobile"><?php esc_html_e( 'Created', 'sfs-hr' ); ?></th>
-                    <th><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if ( empty( $loans ) ) : ?>
-                    <tr>
-                        <td colspan="9"><?php esc_html_e( 'No loans found.', 'sfs-hr' ); ?></td>
-                    </tr>
-                <?php else : ?>
-                    <?php foreach ( $loans as $loan ) : ?>
-                        <tr>
-                            <td class="hide-mobile">
-                                <a href="?page=sfs-hr-loans&action=view&id=<?php echo (int) $loan->id; ?>" style="text-decoration:none;">
-                                    <strong><?php echo esc_html( $loan->loan_number ); ?></strong>
-                                </a>
-                            </td>
-                            <td class="employee-name">
-                                <a href="?page=sfs-hr-employee-profile&employee_id=<?php echo (int) $loan->employee_id; ?>" style="text-decoration:none;">
-                                    <?php echo esc_html( $loan->employee_name ); ?>
-                                </a>
-                                <br><small><?php echo esc_html( $loan->employee_code ); ?></small>
-                            </td>
-                            <td><?php echo number_format( (float) $loan->principal_amount, 2 ); ?> <?php echo esc_html( $loan->currency ); ?></td>
-                            <td class="hide-mobile"><?php echo number_format( (float) $loan->remaining_balance, 2 ); ?> <?php echo esc_html( $loan->currency ); ?></td>
-                            <td class="hide-mobile">
-                                <?php echo (int) $loan->installments_count; ?> ×
-                                <?php echo number_format( (float) $loan->installment_amount, 2 ); ?>
-                            </td>
-                            <td><?php echo $this->get_status_badge( $loan->status ); ?></td>
-                            <td class="hide-mobile"><?php echo $loan->first_due_date ? esc_html( wp_date( 'Y-m-d', strtotime( $loan->first_due_date ) ) ) : '—'; ?></td>
-                            <td class="hide-mobile"><?php echo esc_html( wp_date( 'Y-m-d', strtotime( $loan->created_at ) ) ); ?></td>
-                            <td>
-                                <a href="?page=sfs-hr-loans&action=view&id=<?php echo (int) $loan->id; ?>" class="button button-small">
-                                    <?php esc_html_e( 'View', 'sfs-hr' ); ?>
-                                </a>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
-        </div>
         <?php
+    }
+
+    /**
+     * Get status pill HTML (unified design)
+     */
+    private function get_status_pill( string $status ): string {
+        $labels = [
+            'pending_gm'      => __( 'Pending GM', 'sfs-hr' ),
+            'pending_finance' => __( 'Pending Finance', 'sfs-hr' ),
+            'active'          => __( 'Active', 'sfs-hr' ),
+            'completed'       => __( 'Completed', 'sfs-hr' ),
+            'rejected'        => __( 'Rejected', 'sfs-hr' ),
+            'cancelled'       => __( 'Cancelled', 'sfs-hr' ),
+        ];
+
+        $label = $labels[ $status ] ?? ucfirst( $status );
+        // Convert underscores to hyphens for CSS class (pending_gm -> pending-gm)
+        $status_class = str_replace( '_', '-', $status );
+        $class = 'sfs-hr-pill sfs-hr-pill--' . esc_attr( $status_class );
+
+        return '<span class="' . $class . '">' . esc_html( $label ) . '</span>';
     }
 
     /**
@@ -486,131 +936,524 @@ class AdminPages {
                 <p><?php esc_html_e( 'No installments found for the selected month.', 'sfs-hr' ); ?></p>
             </div>
         <?php else : ?>
-            <form method="post" action="" id="bulk-installments-form">
-                <?php wp_nonce_field( 'sfs_hr_bulk_installments' ); ?>
-                <input type="hidden" name="action" value="bulk_update_installments" />
-                <input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" />
+            <style>
+                /*
+                 * ==========================================================
+                 * SFS HR Slide-Up Modal Pattern (Reusable Reference)
+                 * ==========================================================
+                 * Use this pattern for mobile-friendly detail views.
+                 * Classes: .sfs-hr-modal, .sfs-hr-modal-overlay,
+                 * .sfs-hr-modal-content, .sfs-hr-modal-header, etc.
+                 * ==========================================================
+                 */
 
-                <div class="tablenav top">
-                    <div class="alignleft actions bulkactions">
-                        <select name="bulk_action" id="bulk-action-selector-top">
-                            <option value=""><?php esc_html_e( 'Bulk Actions', 'sfs-hr' ); ?></option>
-                            <option value="mark_paid"><?php esc_html_e( 'Mark as Paid', 'sfs-hr' ); ?></option>
-                            <option value="mark_skipped"><?php esc_html_e( 'Mark as Skipped', 'sfs-hr' ); ?></option>
-                        </select>
-                        <button type="submit" class="button action"><?php esc_html_e( 'Apply', 'sfs-hr' ); ?></button>
+                /* Mobile table styles - matching All Loans design */
+                .sfs-hr-installments-table-wrap {
+                    background: #fff;
+                    border: 1px solid #ddd;
+                    border-radius: 8px;
+                    overflow: hidden;
+                }
+                .sfs-hr-installments-table-wrap .table-header {
+                    padding: 16px;
+                    border-bottom: 1px solid #e2e4e7;
+                    background: #f9fafb;
+                }
+                .sfs-hr-installments-table-wrap .table-header h3 {
+                    margin: 0;
+                    font-size: 15px;
+                    font-weight: 600;
+                    color: #1d2327;
+                }
+                .sfs-hr-inst-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                }
+                .sfs-hr-inst-table th,
+                .sfs-hr-inst-table td {
+                    padding: 12px 16px;
+                    text-align: left;
+                    border-bottom: 1px solid #f0f0f0;
+                }
+                .sfs-hr-inst-table th {
+                    font-size: 11px;
+                    font-weight: 600;
+                    color: #666;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    background: #fafafa;
+                }
+                .sfs-hr-inst-table tbody tr:last-child td {
+                    border-bottom: none;
+                }
+                .sfs-hr-inst-table .emp-name {
+                    display: block;
+                    font-weight: 600;
+                    color: #1d2327;
+                }
+                .sfs-hr-inst-table .emp-code {
+                    display: block;
+                    font-size: 12px;
+                    color: #666;
+                }
+                .sfs-hr-inst-table .show-mobile {
+                    display: none;
+                }
+                .sfs-hr-inst-action-btn {
+                    background: #f0f0f0;
+                    border: none;
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    font-size: 18px;
+                    color: #666;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .sfs-hr-inst-action-btn:hover {
+                    background: #e0e0e0;
+                }
+
+                @media (max-width: 782px) {
+                    .sfs-hr-inst-table .hide-mobile {
+                        display: none !important;
+                    }
+                    .sfs-hr-inst-table .show-mobile {
+                        display: table-cell !important;
+                    }
+                    .sfs-hr-inst-table th,
+                    .sfs-hr-inst-table td {
+                        padding: 10px 12px;
+                    }
+                    .tablenav .bulkactions { display: none; }
+                    .sfs-hr-installments-desktop { display: none !important; }
+                }
+
+                /* Slide-up Modal */
+                .sfs-hr-inst-modal {
+                    display: none;
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    z-index: 100000;
+                }
+                .sfs-hr-inst-modal.active {
+                    display: block;
+                }
+                .sfs-hr-inst-modal-overlay {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0,0,0,0.5);
+                }
+                .sfs-hr-inst-modal-content {
+                    position: absolute;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    background: #fff;
+                    border-radius: 20px 20px 0 0;
+                    padding: 24px;
+                    max-height: 85vh;
+                    overflow-y: auto;
+                    transform: translateY(100%);
+                    transition: transform 0.3s ease;
+                }
+                .sfs-hr-inst-modal.active .sfs-hr-inst-modal-content {
+                    transform: translateY(0);
+                }
+                .sfs-hr-inst-modal-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 20px;
+                    padding-bottom: 16px;
+                    border-bottom: 1px solid #e2e4e7;
+                }
+                .sfs-hr-inst-modal-header h3 {
+                    margin: 0;
+                    font-size: 18px;
+                    font-weight: 600;
+                }
+                .sfs-hr-inst-modal-close {
+                    background: #f0f0f0;
+                    border: none;
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 50%;
+                    font-size: 20px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: #666;
+                }
+                .sfs-hr-inst-modal-close:hover {
+                    background: #e0e0e0;
+                }
+                .sfs-hr-inst-modal-row {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 12px 0;
+                    border-bottom: 1px solid #f0f0f0;
+                }
+                .sfs-hr-inst-modal-row:last-child {
+                    border-bottom: none;
+                }
+                .sfs-hr-inst-modal-label {
+                    color: #666;
+                    font-size: 14px;
+                }
+                .sfs-hr-inst-modal-value {
+                    font-weight: 500;
+                    color: #1d2327;
+                    text-align: right;
+                }
+                .sfs-hr-inst-modal-actions {
+                    display: flex;
+                    gap: 10px;
+                    margin-top: 20px;
+                    padding-top: 16px;
+                    border-top: 1px solid #e2e4e7;
+                }
+                .sfs-hr-inst-modal-actions .button {
+                    flex: 1;
+                    text-align: center;
+                    padding: 12px 16px;
+                    font-size: 14px;
+                    border-radius: 8px;
+                }
+                .sfs-hr-inst-modal-actions .button-primary {
+                    background: #2271b1;
+                    border-color: #2271b1;
+                    color: #fff;
+                }
+                .sfs-hr-inst-modal-partial {
+                    margin-top: 16px;
+                    padding: 16px;
+                    background: #f9fafb;
+                    border-radius: 8px;
+                    display: none;
+                }
+                .sfs-hr-inst-modal-partial.active {
+                    display: block;
+                }
+                .sfs-hr-inst-modal-partial label {
+                    display: block;
+                    margin-bottom: 8px;
+                    font-weight: 600;
+                    color: #1d2327;
+                }
+                .sfs-hr-inst-modal-partial input[type="number"] {
+                    width: 100%;
+                    padding: 10px 12px;
+                    border: 1px solid #ddd;
+                    border-radius: 6px;
+                    margin-bottom: 12px;
+                }
+                .sfs-hr-inst-modal-partial-btns {
+                    display: flex;
+                    gap: 10px;
+                }
+                .sfs-hr-inst-modal-partial-btns .button {
+                    flex: 1;
+                }
+            </style>
+            <!-- Desktop Table View -->
+            <div class="sfs-hr-installments-desktop">
+                <form method="post" action="" id="bulk-installments-form">
+                    <?php wp_nonce_field( 'sfs_hr_bulk_installments' ); ?>
+                    <input type="hidden" name="action" value="bulk_update_installments" />
+                    <input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" />
+
+                    <div class="tablenav top">
+                        <div class="alignleft actions bulkactions">
+                            <select name="bulk_action" id="bulk-action-selector-top">
+                                <option value=""><?php esc_html_e( 'Bulk Actions', 'sfs-hr' ); ?></option>
+                                <option value="mark_paid"><?php esc_html_e( 'Mark as Paid', 'sfs-hr' ); ?></option>
+                                <option value="mark_skipped"><?php esc_html_e( 'Mark as Skipped', 'sfs-hr' ); ?></option>
+                            </select>
+                            <button type="submit" class="button action"><?php esc_html_e( 'Apply', 'sfs-hr' ); ?></button>
+                        </div>
                     </div>
-                </div>
 
-                <table class="wp-list-table widefat fixed striped">
+                    <table class="wp-list-table widefat fixed striped sfs-hr-installments-table">
+                        <thead>
+                            <tr>
+                                <td class="manage-column column-cb check-column">
+                                    <input type="checkbox" id="cb-select-all" onclick="
+                                        var checkboxes = document.getElementsByName('payment_ids[]');
+                                        for (var i = 0; i < checkboxes.length; i++) {
+                                            checkboxes[i].checked = this.checked;
+                                        }
+                                    " />
+                                </td>
+                                <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
+                                <th><?php esc_html_e( 'Loan #', 'sfs-hr' ); ?></th>
+                                <th><?php esc_html_e( 'Installment #', 'sfs-hr' ); ?></th>
+                                <th><?php esc_html_e( 'Due Date', 'sfs-hr' ); ?></th>
+                                <th><?php esc_html_e( 'Amount Planned', 'sfs-hr' ); ?></th>
+                                <th><?php esc_html_e( 'Amount Paid', 'sfs-hr' ); ?></th>
+                                <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
+                                <th><?php esc_html_e( 'Remaining Loan', 'sfs-hr' ); ?></th>
+                                <th><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ( $installments as $inst ) : ?>
+                                <tr>
+                                    <th scope="row" class="check-column">
+                                        <input type="checkbox" name="payment_ids[]" value="<?php echo (int) $inst->id; ?>" />
+                                    </th>
+                                    <td>
+                                        <a href="?page=sfs-hr-employee-profile&employee_id=<?php echo (int) $inst->employee_id; ?>" style="text-decoration:none;">
+                                            <strong><?php echo esc_html( $inst->employee_name ); ?></strong>
+                                        </a>
+                                        <br><small><?php echo esc_html( $inst->employee_code ); ?></small>
+                                    </td>
+                                    <td>
+                                        <a href="?page=sfs-hr-loans&action=view&id=<?php echo (int) $inst->loan_id; ?>" style="text-decoration:none;">
+                                            <strong><?php echo esc_html( $inst->loan_number ); ?></strong>
+                                        </a>
+                                    </td>
+                                    <td><?php echo (int) $inst->sequence; ?></td>
+                                    <td><?php echo esc_html( wp_date( 'M j, Y', strtotime( $inst->due_date ) ) ); ?></td>
+                                    <td><?php echo number_format( (float) $inst->amount_planned, 2 ); ?></td>
+                                    <td><?php echo number_format( (float) $inst->amount_paid, 2 ); ?></td>
+                                    <td><?php echo $this->get_payment_status_badge( $inst->status ); ?></td>
+                                    <td><?php echo number_format( (float) $inst->remaining_balance, 2 ); ?> <?php echo esc_html( $inst->currency ); ?></td>
+                                    <td>
+                                        <?php if ( $inst->status === 'planned' || $inst->status === 'partial' ) : ?>
+                                            <div class="sfs-hr-inst-actions" style="display:flex;gap:5px;">
+                                                <form method="post" action="" style="display:inline-block;">
+                                                    <?php wp_nonce_field( 'sfs_hr_mark_installment_' . $inst->id ); ?>
+                                                    <input type="hidden" name="action" value="mark_installment_paid" />
+                                                    <input type="hidden" name="payment_id" value="<?php echo (int) $inst->id; ?>" />
+                                                    <input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" />
+                                                    <button type="submit" class="button button-small button-primary"><?php esc_html_e( 'Paid', 'sfs-hr' ); ?></button>
+                                                </form>
+                                                <button type="button" class="button button-small" onclick="showPartialForm(<?php echo (int) $inst->id; ?>)"><?php esc_html_e( 'Partial', 'sfs-hr' ); ?></button>
+                                                <form method="post" action="" style="display:inline-block;">
+                                                    <?php wp_nonce_field( 'sfs_hr_mark_installment_' . $inst->id ); ?>
+                                                    <input type="hidden" name="action" value="mark_installment_skipped" />
+                                                    <input type="hidden" name="payment_id" value="<?php echo (int) $inst->id; ?>" />
+                                                    <input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" />
+                                                    <button type="submit" class="button button-small" onclick="return confirm('<?php esc_attr_e( 'Skip this payment?', 'sfs-hr' ); ?>');"><?php esc_html_e( 'Skip', 'sfs-hr' ); ?></button>
+                                                </form>
+                                            </div>
+                                            <div id="partial-form-<?php echo (int) $inst->id; ?>" style="display:none;margin-top:10px;padding:10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;">
+                                                <form method="post" action="">
+                                                    <?php wp_nonce_field( 'sfs_hr_mark_installment_' . $inst->id ); ?>
+                                                    <input type="hidden" name="action" value="mark_installment_partial" />
+                                                    <input type="hidden" name="payment_id" value="<?php echo (int) $inst->id; ?>" />
+                                                    <input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" />
+                                                    <label style="display:block;margin-bottom:5px;font-weight:600;"><?php esc_html_e( 'Partial Amount:', 'sfs-hr' ); ?></label>
+                                                    <input type="number" name="partial_amount" step="0.01" min="0.01" max="<?php echo esc_attr( $inst->amount_planned ); ?>" required style="width:120px;margin-right:5px;" />
+                                                    <button type="submit" class="button button-small button-primary"><?php esc_html_e( 'Submit', 'sfs-hr' ); ?></button>
+                                                    <button type="button" class="button button-small" onclick="hidePartialForm(<?php echo (int) $inst->id; ?>)"><?php esc_html_e( 'Cancel', 'sfs-hr' ); ?></button>
+                                                </form>
+                                            </div>
+                                        <?php else : ?>
+                                            <span style="color:#999;">—</span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </form>
+            </div>
+
+            <!-- Mobile Table View (matches All Loans design) -->
+            <div class="sfs-hr-installments-table-wrap">
+                <div class="table-header">
+                    <h3><?php printf( esc_html__( 'Installments (%d)', 'sfs-hr' ), count( $installments ) ); ?></h3>
+                </div>
+                <table class="sfs-hr-inst-table">
                     <thead>
                         <tr>
-                            <td class="manage-column column-cb check-column">
-                                <input type="checkbox" id="cb-select-all" onclick="
-                                    var checkboxes = document.getElementsByName('payment_ids[]');
-                                    for (var i = 0; i < checkboxes.length; i++) {
-                                        checkboxes[i].checked = this.checked;
-                                    }
-                                " />
-                            </td>
                             <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
-                            <th><?php esc_html_e( 'Loan #', 'sfs-hr' ); ?></th>
-                            <th><?php esc_html_e( 'Installment #', 'sfs-hr' ); ?></th>
-                            <th><?php esc_html_e( 'Due Date', 'sfs-hr' ); ?></th>
-                            <th><?php esc_html_e( 'Amount Planned', 'sfs-hr' ); ?></th>
-                            <th><?php esc_html_e( 'Amount Paid', 'sfs-hr' ); ?></th>
+                            <th class="hide-mobile"><?php esc_html_e( 'Loan #', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Planned', 'sfs-hr' ); ?></th>
+                            <th class="hide-mobile"><?php esc_html_e( 'Due Date', 'sfs-hr' ); ?></th>
                             <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
-                            <th><?php esc_html_e( 'Remaining Loan', 'sfs-hr' ); ?></th>
-                            <th><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
+                            <th class="show-mobile" style="width:50px;"></th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ( $installments as $inst ) : ?>
-                            <tr>
-                                <th scope="row" class="check-column">
-                                    <input type="checkbox" name="payment_ids[]" value="<?php echo (int) $inst->id; ?>" />
-                                </th>
+                            <tr class="sfs-hr-inst-row"
+                                data-id="<?php echo (int) $inst->id; ?>"
+                                data-employee="<?php echo esc_attr( $inst->employee_name ); ?>"
+                                data-code="<?php echo esc_attr( $inst->employee_code ); ?>"
+                                data-loan="<?php echo esc_attr( $inst->loan_number ); ?>"
+                                data-loan-id="<?php echo (int) $inst->loan_id; ?>"
+                                data-sequence="<?php echo (int) $inst->sequence; ?>"
+                                data-due="<?php echo esc_attr( wp_date( 'M j, Y', strtotime( $inst->due_date ) ) ); ?>"
+                                data-planned="<?php echo number_format( (float) $inst->amount_planned, 2 ); ?>"
+                                data-paid="<?php echo number_format( (float) $inst->amount_paid, 2 ); ?>"
+                                data-status="<?php echo esc_attr( $inst->status ); ?>"
+                                data-remaining="<?php echo number_format( (float) $inst->remaining_balance, 2 ); ?>"
+                                data-currency="<?php echo esc_attr( $inst->currency ); ?>"
+                                data-max="<?php echo esc_attr( $inst->amount_planned ); ?>"
+                                data-nonce="<?php echo wp_create_nonce( 'sfs_hr_mark_installment_' . $inst->id ); ?>">
                                 <td>
-                                    <a href="?page=sfs-hr-employee-profile&employee_id=<?php echo (int) $inst->employee_id; ?>" style="text-decoration:none;">
-                                        <strong><?php echo esc_html( $inst->employee_name ); ?></strong>
-                                    </a>
-                                    <br><small><?php echo esc_html( $inst->employee_code ); ?></small>
+                                    <span class="emp-name"><?php echo esc_html( $inst->employee_name ); ?></span>
+                                    <span class="emp-code"><?php echo esc_html( $inst->employee_code ); ?></span>
                                 </td>
-                                <td>
-                                    <a href="?page=sfs-hr-loans&action=view&id=<?php echo (int) $inst->loan_id; ?>" style="text-decoration:none;">
-                                        <strong><?php echo esc_html( $inst->loan_number ); ?></strong>
-                                    </a>
-                                </td>
-                                <td><?php echo (int) $inst->sequence; ?></td>
-                                <td><?php echo esc_html( wp_date( 'M j, Y', strtotime( $inst->due_date ) ) ); ?></td>
+                                <td class="hide-mobile"><?php echo esc_html( $inst->loan_number ); ?></td>
                                 <td><?php echo number_format( (float) $inst->amount_planned, 2 ); ?></td>
-                                <td><?php echo number_format( (float) $inst->amount_paid, 2 ); ?></td>
+                                <td class="hide-mobile"><?php echo esc_html( wp_date( 'M j, Y', strtotime( $inst->due_date ) ) ); ?></td>
                                 <td><?php echo $this->get_payment_status_badge( $inst->status ); ?></td>
-                                <td><?php echo number_format( (float) $inst->remaining_balance, 2 ); ?> <?php echo esc_html( $inst->currency ); ?></td>
-                                <td>
-                                    <?php if ( $inst->status === 'planned' || $inst->status === 'partial' ) : ?>
-                                        <div class="row-actions" style="display:flex;gap:5px;">
-                                            <form method="post" action="" style="display:inline-block;">
-                                                <?php wp_nonce_field( 'sfs_hr_mark_installment_' . $inst->id ); ?>
-                                                <input type="hidden" name="action" value="mark_installment_paid" />
-                                                <input type="hidden" name="payment_id" value="<?php echo (int) $inst->id; ?>" />
-                                                <input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" />
-                                                <button type="submit" class="button button-small button-primary" title="<?php esc_attr_e( 'Mark as Paid', 'sfs-hr' ); ?>">
-                                                    <?php esc_html_e( 'Paid', 'sfs-hr' ); ?>
-                                                </button>
-                                            </form>
-                                            <button type="button" class="button button-small" onclick="showPartialForm(<?php echo (int) $inst->id; ?>)" title="<?php esc_attr_e( 'Mark as Partial', 'sfs-hr' ); ?>">
-                                                <?php esc_html_e( 'Partial', 'sfs-hr' ); ?>
-                                            </button>
-                                            <form method="post" action="" style="display:inline-block;">
-                                                <?php wp_nonce_field( 'sfs_hr_mark_installment_' . $inst->id ); ?>
-                                                <input type="hidden" name="action" value="mark_installment_skipped" />
-                                                <input type="hidden" name="payment_id" value="<?php echo (int) $inst->id; ?>" />
-                                                <input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" />
-                                                <button type="submit" class="button button-small" title="<?php esc_attr_e( 'Skip Payment', 'sfs-hr' ); ?>"
-                                                        onclick="return confirm('<?php esc_attr_e( 'Are you sure you want to skip this payment?', 'sfs-hr' ); ?>');">
-                                                    <?php esc_html_e( 'Skip', 'sfs-hr' ); ?>
-                                                </button>
-                                            </form>
-                                        </div>
-
-                                        <!-- Partial Payment Form (Hidden by default) -->
-                                        <div id="partial-form-<?php echo (int) $inst->id; ?>" style="display:none;margin-top:10px;padding:10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;">
-                                            <form method="post" action="">
-                                                <?php wp_nonce_field( 'sfs_hr_mark_installment_' . $inst->id ); ?>
-                                                <input type="hidden" name="action" value="mark_installment_partial" />
-                                                <input type="hidden" name="payment_id" value="<?php echo (int) $inst->id; ?>" />
-                                                <input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" />
-                                                <label style="display:block;margin-bottom:5px;font-weight:600;">
-                                                    <?php esc_html_e( 'Partial Amount:', 'sfs-hr' ); ?>
-                                                </label>
-                                                <input type="number" name="partial_amount" step="0.01" min="0.01"
-                                                       max="<?php echo esc_attr( $inst->amount_planned ); ?>"
-                                                       required style="width:120px;margin-right:5px;" />
-                                                <button type="submit" class="button button-small button-primary">
-                                                    <?php esc_html_e( 'Submit', 'sfs-hr' ); ?>
-                                                </button>
-                                                <button type="button" class="button button-small" onclick="hidePartialForm(<?php echo (int) $inst->id; ?>)">
-                                                    <?php esc_html_e( 'Cancel', 'sfs-hr' ); ?>
-                                                </button>
-                                            </form>
-                                        </div>
-                                    <?php else : ?>
-                                        <span style="color:#999;">—</span>
-                                    <?php endif; ?>
+                                <td class="show-mobile">
+                                    <button type="button" class="sfs-hr-inst-action-btn sfs-mobile-inst-btn">›</button>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
-            </form>
+            </div>
+
+            <!-- Slide-up Modal -->
+            <div id="sfs-hr-inst-modal" class="sfs-hr-inst-modal">
+                <div class="sfs-hr-inst-modal-overlay" onclick="closeInstModal();"></div>
+                <div class="sfs-hr-inst-modal-content">
+                    <div class="sfs-hr-inst-modal-header">
+                        <h3><?php esc_html_e( 'Installment Details', 'sfs-hr' ); ?></h3>
+                        <button type="button" class="sfs-hr-inst-modal-close" onclick="closeInstModal();">×</button>
+                    </div>
+                    <div id="sfs-hr-inst-modal-body">
+                        <!-- Content loaded dynamically -->
+                    </div>
+                    <div id="sfs-hr-inst-modal-actions" class="sfs-hr-inst-modal-actions">
+                        <!-- Actions loaded dynamically -->
+                    </div>
+                    <div id="sfs-hr-inst-modal-partial" class="sfs-hr-inst-modal-partial">
+                        <form method="post" action="" id="sfs-hr-inst-partial-form">
+                            <input type="hidden" name="action" value="mark_installment_partial" />
+                            <input type="hidden" name="payment_id" id="sfs-hr-inst-partial-id" value="" />
+                            <input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" />
+                            <input type="hidden" name="_wpnonce" id="sfs-hr-inst-partial-nonce" value="" />
+                            <label><?php esc_html_e( 'Enter partial payment amount:', 'sfs-hr' ); ?></label>
+                            <input type="number" name="partial_amount" id="sfs-hr-inst-partial-amount" step="0.01" min="0.01" required />
+                            <div class="sfs-hr-inst-modal-partial-btns">
+                                <button type="submit" class="button button-primary"><?php esc_html_e( 'Submit', 'sfs-hr' ); ?></button>
+                                <button type="button" class="button" onclick="hideModalPartial();"><?php esc_html_e( 'Cancel', 'sfs-hr' ); ?></button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
 
             <script>
+                // Desktop partial form functions
                 function showPartialForm(id) {
                     document.getElementById('partial-form-' + id).style.display = 'block';
                 }
                 function hidePartialForm(id) {
                     document.getElementById('partial-form-' + id).style.display = 'none';
+                }
+
+                // Mobile modal functions
+                var instModal = document.getElementById('sfs-hr-inst-modal');
+                var instModalBody = document.getElementById('sfs-hr-inst-modal-body');
+                var instModalActions = document.getElementById('sfs-hr-inst-modal-actions');
+                var currentInstData = null;
+
+                var statusLabels = {
+                    'planned': '<?php echo esc_js( __( 'Planned', 'sfs-hr' ) ); ?>',
+                    'paid': '<?php echo esc_js( __( 'Paid', 'sfs-hr' ) ); ?>',
+                    'partial': '<?php echo esc_js( __( 'Partial', 'sfs-hr' ) ); ?>',
+                    'skipped': '<?php echo esc_js( __( 'Skipped', 'sfs-hr' ) ); ?>'
+                };
+
+                // Attach click event to mobile buttons
+                document.querySelectorAll('.sfs-mobile-inst-btn').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var row = this.closest('tr');
+                        if (row && row.dataset.id) {
+                            openInstModal(row.dataset.id);
+                        }
+                    });
+                });
+
+                function openInstModal(id) {
+                    var row = document.querySelector('.sfs-hr-inst-row[data-id="' + id + '"]');
+                    if (!row) return;
+
+                    currentInstData = {
+                        id: row.dataset.id,
+                        employee: row.dataset.employee,
+                        code: row.dataset.code,
+                        loan: row.dataset.loan,
+                        loanId: row.dataset.loanId,
+                        sequence: row.dataset.sequence,
+                        due: row.dataset.due,
+                        planned: row.dataset.planned,
+                        paid: row.dataset.paid,
+                        status: row.dataset.status,
+                        remaining: row.dataset.remaining,
+                        currency: row.dataset.currency,
+                        max: row.dataset.max,
+                        nonce: row.dataset.nonce
+                    };
+
+                    var html = '';
+                    html += '<div class="sfs-hr-inst-modal-row"><span class="sfs-hr-inst-modal-label"><?php echo esc_js( __( 'Employee', 'sfs-hr' ) ); ?></span><span class="sfs-hr-inst-modal-value">' + currentInstData.employee + '</span></div>';
+                    html += '<div class="sfs-hr-inst-modal-row"><span class="sfs-hr-inst-modal-label"><?php echo esc_js( __( 'Employee Code', 'sfs-hr' ) ); ?></span><span class="sfs-hr-inst-modal-value">' + currentInstData.code + '</span></div>';
+                    html += '<div class="sfs-hr-inst-modal-row"><span class="sfs-hr-inst-modal-label"><?php echo esc_js( __( 'Loan #', 'sfs-hr' ) ); ?></span><span class="sfs-hr-inst-modal-value">' + currentInstData.loan + '</span></div>';
+                    html += '<div class="sfs-hr-inst-modal-row"><span class="sfs-hr-inst-modal-label"><?php echo esc_js( __( 'Installment', 'sfs-hr' ) ); ?></span><span class="sfs-hr-inst-modal-value">#' + currentInstData.sequence + '</span></div>';
+                    html += '<div class="sfs-hr-inst-modal-row"><span class="sfs-hr-inst-modal-label"><?php echo esc_js( __( 'Due Date', 'sfs-hr' ) ); ?></span><span class="sfs-hr-inst-modal-value">' + currentInstData.due + '</span></div>';
+                    html += '<div class="sfs-hr-inst-modal-row"><span class="sfs-hr-inst-modal-label"><?php echo esc_js( __( 'Amount Planned', 'sfs-hr' ) ); ?></span><span class="sfs-hr-inst-modal-value">' + currentInstData.planned + '</span></div>';
+                    html += '<div class="sfs-hr-inst-modal-row"><span class="sfs-hr-inst-modal-label"><?php echo esc_js( __( 'Amount Paid', 'sfs-hr' ) ); ?></span><span class="sfs-hr-inst-modal-value">' + currentInstData.paid + '</span></div>';
+                    html += '<div class="sfs-hr-inst-modal-row"><span class="sfs-hr-inst-modal-label"><?php echo esc_js( __( 'Status', 'sfs-hr' ) ); ?></span><span class="sfs-hr-inst-modal-value">' + (statusLabels[currentInstData.status] || currentInstData.status) + '</span></div>';
+                    html += '<div class="sfs-hr-inst-modal-row"><span class="sfs-hr-inst-modal-label"><?php echo esc_js( __( 'Remaining Loan', 'sfs-hr' ) ); ?></span><span class="sfs-hr-inst-modal-value">' + currentInstData.remaining + ' ' + currentInstData.currency + '</span></div>';
+
+                    instModalBody.innerHTML = html;
+
+                    // Actions based on status
+                    if (currentInstData.status === 'planned' || currentInstData.status === 'partial') {
+                        var actionsHtml = '';
+                        actionsHtml += '<form method="post" action="" style="flex:1;"><input type="hidden" name="_wpnonce" value="' + currentInstData.nonce + '" /><input type="hidden" name="action" value="mark_installment_paid" /><input type="hidden" name="payment_id" value="' + currentInstData.id + '" /><input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" /><button type="submit" class="button button-primary" style="width:100%;"><?php echo esc_js( __( 'Paid', 'sfs-hr' ) ); ?></button></form>';
+                        actionsHtml += '<button type="button" class="button" style="flex:1;" onclick="showModalPartial();"><?php echo esc_js( __( 'Partial', 'sfs-hr' ) ); ?></button>';
+                        actionsHtml += '<form method="post" action="" style="flex:1;" onsubmit="return confirm(\'<?php echo esc_js( __( 'Skip this payment?', 'sfs-hr' ) ); ?>\');"><input type="hidden" name="_wpnonce" value="' + currentInstData.nonce + '" /><input type="hidden" name="action" value="mark_installment_skipped" /><input type="hidden" name="payment_id" value="' + currentInstData.id + '" /><input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" /><button type="submit" class="button" style="width:100%;"><?php echo esc_js( __( 'Skip', 'sfs-hr' ) ); ?></button></form>';
+                        instModalActions.innerHTML = actionsHtml;
+                        instModalActions.style.display = 'flex';
+                    } else {
+                        instModalActions.innerHTML = '';
+                        instModalActions.style.display = 'none';
+                    }
+
+                    // Reset partial form
+                    hideModalPartial();
+
+                    instModal.classList.add('active');
+                    document.body.style.overflow = 'hidden';
+                }
+
+                function closeInstModal() {
+                    instModal.classList.remove('active');
+                    document.body.style.overflow = '';
+                    currentInstData = null;
+                }
+
+                function showModalPartial() {
+                    if (!currentInstData) return;
+                    document.getElementById('sfs-hr-inst-partial-id').value = currentInstData.id;
+                    document.getElementById('sfs-hr-inst-partial-nonce').value = currentInstData.nonce;
+                    document.getElementById('sfs-hr-inst-partial-amount').max = currentInstData.max;
+                    document.getElementById('sfs-hr-inst-modal-partial').classList.add('active');
+                }
+
+                function hideModalPartial() {
+                    document.getElementById('sfs-hr-inst-modal-partial').classList.remove('active');
+                    document.getElementById('sfs-hr-inst-partial-amount').value = '';
                 }
             </script>
         <?php endif; ?>
@@ -1274,12 +2117,39 @@ class AdminPages {
      * Handle loan actions (approve, reject, etc.)
      */
     public function handle_loan_actions(): void {
-        if ( ! isset( $_POST['action'] ) || ! current_user_can( 'sfs_hr.manage' ) ) {
+        if ( ! isset( $_POST['action'] ) ) {
             return;
         }
 
         $action = $_POST['action'];
         $loan_id = isset( $_POST['loan_id'] ) ? (int) $_POST['loan_id'] : 0;
+
+        // Check capability based on action type
+        $allowed = false;
+        switch ( $action ) {
+            case 'approve_gm':
+                $allowed = \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm();
+                break;
+            case 'approve_finance':
+                $allowed = \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_finance();
+                break;
+            case 'reject_loan':
+                // GM or Finance can reject
+                $allowed = \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm()
+                        || \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_finance();
+                break;
+            case 'create_loan':
+            case 'update_loan':
+            case 'record_payment':
+                $allowed = current_user_can( 'sfs_hr.manage' ) || current_user_can( 'sfs_hr_loans_manage' );
+                break;
+            default:
+                return;
+        }
+
+        if ( ! $allowed ) {
+            return;
+        }
 
         global $wpdb;
         $loans_table = $wpdb->prefix . 'sfs_hr_loans';
@@ -1302,6 +2172,9 @@ class AdminPages {
                 \SFS\HR\Modules\Loans\LoansModule::log_event( $loan_id, 'gm_approved', [
                     'status' => 'pending_gm → pending_finance',
                 ] );
+
+                // Audit Trail: loan status changed
+                do_action( 'sfs_hr_loan_status_changed', $loan_id, 'pending_gm', 'pending_finance' );
 
                 // Send notification to Finance
                 \SFS\HR\Modules\Loans\Notifications::notify_gm_approved( $loan_id );
@@ -1347,6 +2220,9 @@ class AdminPages {
                     'installments' => $installments,
                 ] );
 
+                // Audit Trail: loan status changed
+                do_action( 'sfs_hr_loan_status_changed', $loan_id, 'pending_finance', 'active' );
+
                 // Send notification to Employee
                 \SFS\HR\Modules\Loans\Notifications::notify_finance_approved( $loan_id );
 
@@ -1377,6 +2253,9 @@ class AdminPages {
                 \SFS\HR\Modules\Loans\LoansModule::log_event( $loan_id, 'rejected', [
                     'reason' => $reason,
                 ] );
+
+                // Audit Trail: loan status changed to rejected
+                do_action( 'sfs_hr_loan_status_changed', $loan_id, 'pending', 'rejected' );
 
                 // Send notification to Employee
                 \SFS\HR\Modules\Loans\Notifications::notify_loan_rejected( $loan_id );
@@ -1479,6 +2358,14 @@ class AdminPages {
                     'principal'       => $principal,
                     'installments'    => $installments,
                     'request_source'  => 'admin_portal',
+                ] );
+
+                // Audit Trail: loan created
+                do_action( 'sfs_hr_loan_created', $new_loan_id, [
+                    'employee_id'   => $employee_id,
+                    'amount'        => $principal,
+                    'installments'  => $installments,
+                    'source'        => 'admin_portal',
                 ] );
 
                 // Send notification to GM

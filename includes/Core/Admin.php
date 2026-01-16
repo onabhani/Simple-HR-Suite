@@ -21,7 +21,7 @@ class Admin {
     add_action( 'admin_post_sfs_hr_regen_qr',           [ $this, 'handle_regen_qr' ] );
     add_action( 'admin_post_sfs_hr_toggle_qr',          [ $this, 'handle_toggle_qr' ] );
     add_action( 'admin_post_sfs_hr_download_qr_card',   [ $this, 'handle_download_qr_card' ] );
-
+    add_action( 'admin_post_sfs_hr_save_notification_settings', [ $this, 'handle_save_notification_settings' ] );
 
     // Role→Department sync
     add_action( 'admin_post_sfs_hr_sync_dept_members',  [ $this, 'handle_sync_dept_members' ] );
@@ -77,6 +77,26 @@ class Admin {
             'sfs_hr.leave.review',
             'sfs-hr-my-team',
             [$this, 'render_my_team']
+        );
+
+        // Reports submenu
+        add_submenu_page(
+            'sfs-hr',
+            __('Reports','sfs-hr'),
+            __('Reports','sfs-hr'),
+            'sfs_hr.manage',
+            'sfs-hr-reports',
+            [$this, 'render_reports']
+        );
+
+        // Add Settings submenu (last item)
+        add_submenu_page(
+            'sfs-hr',
+            __('Settings','sfs-hr'),
+            __('Settings','sfs-hr'),
+            'manage_options',
+            'sfs-hr-settings',
+            [$this, 'render_settings']
         );
     }
 
@@ -283,10 +303,7 @@ class Admin {
     }
 
     echo '<div class="wrap sfs-hr-wrap">';
-    echo '<h1 class="wp-heading-inline">' . esc_html__( 'HR Dashboard', 'sfs-hr' ) . '</h1>';
-
-    // HR nav + breadcrumb
-    Helpers::render_admin_nav();
+    echo '<h1>' . esc_html__( 'HR Dashboard', 'sfs-hr' ) . '</h1>';
 
     echo '<hr class="wp-header-end" />';
 
@@ -331,8 +348,345 @@ class Admin {
             font-size: 12px;
             color: #646970;
         }
+        /* Quick Access styles */
+        .sfs-hr-wrap .sfs-hr-quick-access-section {
+            margin-bottom: 24px;
+        }
+        .sfs-hr-wrap .sfs-hr-quick-access-section h2 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1d2327;
+            margin: 0 0 12px 0;
+            padding: 0;
+        }
+        .sfs-hr-wrap .sfs-hr-quick-access-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 10px;
+            margin-right: 16px;
+        }
+        .sfs-hr-wrap .sfs-hr-nav-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #fff;
+            border: 1px solid #dcdcde;
+            border-radius: 6px;
+            padding: 12px 14px;
+            text-decoration: none;
+            color: #1d2327;
+            transition: all 0.15s ease;
+        }
+        .sfs-hr-wrap .sfs-hr-nav-card:hover {
+            border-color: #2271b1;
+            box-shadow: 0 2px 8px rgba(34, 113, 177, 0.15);
+            transform: translateY(-1px);
+        }
+        .sfs-hr-wrap .sfs-hr-nav-card .dashicons {
+            font-size: 20px;
+            width: 20px;
+            height: 20px;
+            color: #2271b1;
+        }
+        .sfs-hr-wrap .sfs-hr-nav-card span:not(.dashicons) {
+            font-size: 13px;
+            font-weight: 500;
+        }
+        @media (max-width: 782px) {
+            .sfs-hr-wrap .sfs-hr-quick-access-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
     </style>';
 
+    // === QUICK ACCESS NAVIGATION SECTION (at the top) ===
+    echo '<div class="sfs-hr-quick-access-section">';
+    echo '<h2>' . esc_html__( 'Quick Access', 'sfs-hr' ) . '</h2>';
+    echo '<div class="sfs-hr-quick-access-grid">';
+
+    $nav_items = [
+        [
+            'page'  => 'sfs-hr-employees',
+            'icon'  => 'dashicons-id-alt',
+            'label' => __( 'Employees', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.manage',
+        ],
+        [
+            'page'  => 'sfs-hr-departments',
+            'icon'  => 'dashicons-networking',
+            'label' => __( 'Departments', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.view',
+        ],
+        [
+            'page'  => 'sfs-hr-leave-requests',
+            'icon'  => 'dashicons-calendar-alt',
+            'label' => __( 'Leave', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.leave.review',
+        ],
+        [
+            'page'  => 'sfs_hr_attendance',
+            'icon'  => 'dashicons-clock',
+            'label' => __( 'Attendance', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.view',
+        ],
+        [
+            'page'  => 'sfs-hr-workforce-status',
+            'icon'  => 'dashicons-chart-area',
+            'label' => __( 'Workforce Status', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.view',
+        ],
+        [
+            'page'  => 'sfs-hr-loans',
+            'icon'  => 'dashicons-money-alt',
+            'label' => __( 'Loans', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.view',
+        ],
+        [
+            'page'  => 'sfs-hr-assets',
+            'icon'  => 'dashicons-laptop',
+            'label' => __( 'Assets', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.view',
+        ],
+        [
+            'page'  => 'sfs-hr-resignations',
+            'icon'  => 'dashicons-exit',
+            'label' => __( 'Resignations', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.view',
+        ],
+        [
+            'page'  => 'sfs-hr-settlements',
+            'icon'  => 'dashicons-calculator',
+            'label' => __( 'Settlements', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.manage',
+        ],
+        [
+            'page'  => 'sfs-hr-payroll',
+            'icon'  => 'dashicons-money',
+            'label' => __( 'Payroll', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.view',
+        ],
+        [
+            'page'  => 'sfs-hr-my-profile',
+            'icon'  => 'dashicons-admin-users',
+            'label' => __( 'My Profile', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.view',
+        ],
+        [
+            'page'  => 'sfs-hr-my-team',
+            'icon'  => 'dashicons-groups',
+            'label' => __( 'My Team', 'sfs-hr' ),
+            'cap'   => 'sfs_hr.leave.review',
+        ],
+    ];
+
+    foreach ( $nav_items as $item ) {
+        if ( ! current_user_can( $item['cap'] ) ) {
+            continue;
+        }
+        $url = admin_url( 'admin.php?page=' . $item['page'] );
+        echo '<a class="sfs-hr-nav-card" href="' . esc_url( $url ) . '">';
+        echo '<span class="dashicons ' . esc_attr( $item['icon'] ) . '"></span>';
+        echo '<span>' . esc_html( $item['label'] ) . '</span>';
+        echo '</a>';
+    }
+
+    echo '</div>'; // .sfs-hr-quick-access-grid
+    echo '</div>'; // .sfs-hr-quick-access-section
+
+    // === APPROVAL CARDS SECTION ===
+    $has_approval_cards = false;
+    ob_start(); // Buffer approval cards to check if any exist
+
+    // LOANS: Pending approvals (Finance/GM approvers and HR managers)
+    if ( current_user_can('sfs_hr_loans_finance_approve') || current_user_can('sfs_hr_loans_gm_approve') || current_user_can('sfs_hr.manage') ) {
+        $loans_t = $wpdb->prefix . 'sfs_hr_loans';
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $loans_t ) ) ) {
+            // Check which approvals the user can see
+            $can_approve_gm = current_user_can('sfs_hr_loans_gm_approve') || current_user_can('sfs_hr.manage');
+            $can_approve_finance = current_user_can('sfs_hr_loans_finance_approve') || current_user_can('sfs_hr.manage');
+
+            $status_conditions = [];
+            if ( $can_approve_gm ) {
+                $status_conditions[] = "'pending_gm'";
+            }
+            if ( $can_approve_finance ) {
+                $status_conditions[] = "'pending_finance'";
+            }
+
+            if ( ! empty( $status_conditions ) ) {
+                $status_list = implode( ',', $status_conditions );
+                $pending_loans = (int) $wpdb->get_var(
+                    "SELECT COUNT(*) FROM {$loans_t} WHERE status IN ({$status_list})"
+                );
+
+                if ( $pending_loans > 0 ) {
+                    $has_approval_cards = true;
+                    echo '<a class="sfs-hr-card sfs-hr-approval-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-loans&tab=loans' ) ) . '">';
+                    echo '<h2>' . esc_html__( 'Pending Loans', 'sfs-hr' ) . '</h2>';
+                    echo '<div class="sfs-hr-card-count">' . esc_html( number_format_i18n( $pending_loans ) ) . '</div>';
+                    echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting your approval', 'sfs-hr' ) . '</div>';
+                    echo '</a>';
+                }
+            }
+        }
+    }
+
+    // LEAVES: Pending approvals (Department Managers and HR)
+    if ( current_user_can('sfs_hr.leave.review') || current_user_can('sfs_hr.manage') ) {
+        $user_id = get_current_user_id();
+        $managed_dept_ids = [];
+
+        // Get departments managed by current user
+        if ( ! current_user_can('sfs_hr.manage') ) {
+            $managed_dept_ids = $wpdb->get_col( $wpdb->prepare(
+                "SELECT id FROM {$dept_t} WHERE manager_user_id = %d",
+                $user_id
+            ) );
+        }
+
+        // Build query based on role
+        if ( current_user_can('sfs_hr.manage') ) {
+            // HR sees all pending leaves
+            $pending_leaves_count = (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM {$req_t} WHERE status = 'pending'"
+            );
+        } elseif ( ! empty( $managed_dept_ids ) ) {
+            // Managers see pending leaves in their departments
+            $placeholders = implode( ',', array_fill( 0, count( $managed_dept_ids ), '%d' ) );
+            $pending_leaves_count = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$req_t} r
+                 INNER JOIN {$emp_t} e ON e.id = r.employee_id
+                 WHERE r.status = 'pending' AND e.dept_id IN ({$placeholders})",
+                ...$managed_dept_ids
+            ) );
+        } else {
+            $pending_leaves_count = 0;
+        }
+
+        if ( $pending_leaves_count > 0 ) {
+            $has_approval_cards = true;
+            echo '<a class="sfs-hr-card sfs-hr-approval-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-leave-requests&status=pending' ) ) . '">';
+            echo '<h2>' . esc_html__( 'Pending Leave Requests', 'sfs-hr' ) . '</h2>';
+            echo '<div class="sfs-hr-card-count">' . esc_html( number_format_i18n( $pending_leaves_count ) ) . '</div>';
+            echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting your approval', 'sfs-hr' ) . '</div>';
+            echo '</a>';
+        }
+    }
+
+    // RESIGNATIONS: Pending approvals (Managers, HR, Finance)
+    if ( current_user_can('sfs_hr.view') ) {
+        $resignations_t = $wpdb->prefix . 'sfs_hr_resignations';
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $resignations_t ) ) ) {
+            $user_id = get_current_user_id();
+            $managed_dept_ids = [];
+
+            // Get departments managed by current user
+            if ( ! current_user_can('sfs_hr.manage') ) {
+                $managed_dept_ids = $wpdb->get_col( $wpdb->prepare(
+                    "SELECT id FROM {$dept_t} WHERE manager_user_id = %d",
+                    $user_id
+                ) );
+            }
+
+            // Build query based on role
+            if ( current_user_can('sfs_hr.manage') || current_user_can('sfs_hr_resignation_finance_approve') ) {
+                // HR and Finance see all pending resignations
+                $pending_resignations = (int) $wpdb->get_var(
+                    "SELECT COUNT(*) FROM {$resignations_t} WHERE status = 'pending'"
+                );
+            } elseif ( ! empty( $managed_dept_ids ) ) {
+                // Managers see pending resignations in their departments
+                $placeholders = implode( ',', array_fill( 0, count( $managed_dept_ids ), '%d' ) );
+                $pending_resignations = (int) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$resignations_t} r
+                     INNER JOIN {$emp_t} e ON e.id = r.employee_id
+                     WHERE r.status = 'pending' AND e.dept_id IN ({$placeholders})",
+                    ...$managed_dept_ids
+                ) );
+            } else {
+                $pending_resignations = 0;
+            }
+
+            if ( $pending_resignations > 0 ) {
+                $has_approval_cards = true;
+                echo '<a class="sfs-hr-card sfs-hr-approval-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-resignations&tab=resignations&status=pending' ) ) . '">';
+                echo '<h2>' . esc_html__( 'Pending Resignations', 'sfs-hr' ) . '</h2>';
+                echo '<div class="sfs-hr-card-count">' . esc_html( number_format_i18n( $pending_resignations ) ) . '</div>';
+                echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting approval', 'sfs-hr' ) . '</div>';
+                echo '</a>';
+            }
+        }
+    }
+
+    // EARLY LEAVE: Pending approvals (Department Managers and HR)
+    if ( current_user_can('sfs_hr_attendance_view_team') || current_user_can('sfs_hr_attendance_admin') || current_user_can('sfs_hr.manage') ) {
+        $early_leave_t = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $early_leave_t ) ) ) {
+            $user_id = get_current_user_id();
+
+            // Build query based on role
+            if ( current_user_can('sfs_hr_attendance_admin') || current_user_can('sfs_hr.manage') ) {
+                // HR/Admin sees all pending early leave requests
+                $pending_early_leaves = (int) $wpdb->get_var(
+                    "SELECT COUNT(*) FROM {$early_leave_t} WHERE status = 'pending'"
+                );
+            } else {
+                // Managers see pending early leave requests where they are the assigned manager
+                $pending_early_leaves = (int) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$early_leave_t} WHERE status = 'pending' AND manager_id = %d",
+                    $user_id
+                ) );
+            }
+
+            if ( $pending_early_leaves > 0 ) {
+                $has_approval_cards = true;
+                echo '<a class="sfs-hr-card sfs-hr-approval-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-attendance&tab=early_leave&status=pending' ) ) . '">';
+                echo '<h2>' . esc_html__( 'Early Leave Requests', 'sfs-hr' ) . '</h2>';
+                echo '<div class="sfs-hr-card-count">' . esc_html( number_format_i18n( $pending_early_leaves ) ) . '</div>';
+                echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting your approval', 'sfs-hr' ) . '</div>';
+                echo '</a>';
+            }
+        }
+    }
+
+    $approval_cards_html = ob_get_clean();
+
+    // Only show approval section if there are pending requests
+    if ( $has_approval_cards ) {
+        echo '<style>
+            .sfs-hr-wrap .sfs-hr-approval-section {
+                margin-bottom: 24px;
+            }
+            .sfs-hr-wrap .sfs-hr-approval-section h2 {
+                font-size: 14px;
+                font-weight: 600;
+                color: #1d2327;
+                margin: 0 0 12px 0;
+                padding: 0;
+            }
+            .sfs-hr-wrap .sfs-hr-approval-grid {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 16px;
+            }
+            .sfs-hr-wrap .sfs-hr-approval-card {
+                border-left: 4px solid #d63638 !important;
+                background: linear-gradient(135deg, #fff 0%, #fef8f8 100%);
+            }
+            .sfs-hr-wrap .sfs-hr-approval-card .sfs-hr-card-count {
+                color: #d63638;
+            }
+        </style>';
+
+        echo '<div class="sfs-hr-approval-section">';
+        echo '<h2>' . esc_html__( 'Requests Awaiting Your Approval', 'sfs-hr' ) . '</h2>';
+        echo '<div class="sfs-hr-approval-grid">';
+        echo $approval_cards_html;
+        echo '</div>';
+        echo '</div>';
+    }
+
+    // === REGULAR DATA CARDS SECTION ===
     echo '<div class="sfs-hr-dashboard-grid">';
 
     // Employees
@@ -422,117 +776,556 @@ echo '</a>';
     echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Structure & approver routing', 'sfs-hr' ) . '</div>';
     echo '</a>';
 
-    // --- NEW: Approval Cards (role-based) ---
-
-    // LOANS: Pending approvals (Finance approvers and HR managers)
-    if ( current_user_can('sfs_hr_loan_finance_approve') || current_user_can('sfs_hr.manage') ) {
-        $loans_t = $wpdb->prefix . 'sfs_hr_loans';
-        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $loans_t ) ) ) {
-            $pending_loans = (int) $wpdb->get_var(
-                "SELECT COUNT(*) FROM {$loans_t} WHERE status = 'pending'"
-            );
-
-            if ( $pending_loans > 0 ) {
-                echo '<a class="sfs-hr-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-loans&tab=requests&status=pending' ) ) . '" style="border-left: 4px solid #0073aa;">';
-                echo '<h2>' . esc_html__( 'Pending Loans', 'sfs-hr' ) . '</h2>';
-                echo '<div class="sfs-hr-card-count" style="color:#0073aa;">' . esc_html( number_format_i18n( $pending_loans ) ) . '</div>';
-                echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting finance approval', 'sfs-hr' ) . '</div>';
-                echo '</a>';
-            }
-        }
-    }
-
-    // LEAVES: Pending approvals (Department Managers and HR)
-    if ( current_user_can('sfs_hr.leave.review') || current_user_can('sfs_hr.manage') ) {
-        $user_id = get_current_user_id();
-        $managed_dept_ids = [];
-
-        // Get departments managed by current user
-        if ( ! current_user_can('sfs_hr.manage') ) {
-            $managed_dept_ids = $wpdb->get_col( $wpdb->prepare(
-                "SELECT id FROM {$dept_t} WHERE manager_user_id = %d",
-                $user_id
-            ) );
-        }
-
-        // Build query based on role
-        if ( current_user_can('sfs_hr.manage') ) {
-            // HR sees all pending leaves
-            $pending_leaves_count = (int) $wpdb->get_var(
-                "SELECT COUNT(*) FROM {$req_t} WHERE status = 'pending'"
-            );
-        } elseif ( ! empty( $managed_dept_ids ) ) {
-            // Managers see pending leaves in their departments
-            $placeholders = implode( ',', array_fill( 0, count( $managed_dept_ids ), '%d' ) );
-            $pending_leaves_count = (int) $wpdb->get_var( $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$req_t} r
-                 INNER JOIN {$emp_t} e ON e.id = r.employee_id
-                 WHERE r.status = 'pending' AND e.dept_id IN ({$placeholders})",
-                ...$managed_dept_ids
-            ) );
-        } else {
-            $pending_leaves_count = 0;
-        }
-
-        if ( $pending_leaves_count > 0 ) {
-            echo '<a class="sfs-hr-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-leave&status=pending' ) ) . '" style="border-left: 4px solid #f0ad4e;">';
-            echo '<h2>' . esc_html__( 'Pending Leave Requests', 'sfs-hr' ) . '</h2>';
-            echo '<div class="sfs-hr-card-count" style="color:#f0ad4e;">' . esc_html( number_format_i18n( $pending_leaves_count ) ) . '</div>';
-            echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting your approval', 'sfs-hr' ) . '</div>';
-            echo '</a>';
-        }
-    }
-
-    // RESIGNATIONS: Pending approvals (Managers, HR, Finance)
-    if ( current_user_can('sfs_hr.view') ) {
-        $resignations_t = $wpdb->prefix . 'sfs_hr_resignations';
-        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $resignations_t ) ) ) {
-            $user_id = get_current_user_id();
-            $managed_dept_ids = [];
-
-            // Get departments managed by current user
-            if ( ! current_user_can('sfs_hr.manage') ) {
-                $managed_dept_ids = $wpdb->get_col( $wpdb->prepare(
-                    "SELECT id FROM {$dept_t} WHERE manager_user_id = %d",
-                    $user_id
-                ) );
-            }
-
-            // Build query based on role
-            if ( current_user_can('sfs_hr.manage') || current_user_can('sfs_hr_resignation_finance_approve') ) {
-                // HR and Finance see all pending resignations
-                $pending_resignations = (int) $wpdb->get_var(
-                    "SELECT COUNT(*) FROM {$resignations_t} WHERE status = 'pending'"
-                );
-            } elseif ( ! empty( $managed_dept_ids ) ) {
-                // Managers see pending resignations in their departments
-                $placeholders = implode( ',', array_fill( 0, count( $managed_dept_ids ), '%d' ) );
-                $pending_resignations = (int) $wpdb->get_var( $wpdb->prepare(
-                    "SELECT COUNT(*) FROM {$resignations_t} r
-                     INNER JOIN {$emp_t} e ON e.id = r.employee_id
-                     WHERE r.status = 'pending' AND e.dept_id IN ({$placeholders})",
-                    ...$managed_dept_ids
-                ) );
-            } else {
-                $pending_resignations = 0;
-            }
-
-            if ( $pending_resignations > 0 ) {
-                echo '<a class="sfs-hr-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-resignations&tab=resignations&status=pending' ) ) . '" style="border-left: 4px solid #dc3545;">';
-                echo '<h2>' . esc_html__( 'Pending Resignations', 'sfs-hr' ) . '</h2>';
-                echo '<div class="sfs-hr-card-count" style="color:#dc3545;">' . esc_html( number_format_i18n( $pending_resignations ) ) . '</div>';
-                echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting approval', 'sfs-hr' ) . '</div>';
-                echo '</a>';
-            }
-        }
-    }
-
     echo '</div>'; // .sfs-hr-dashboard-grid
+
+    // === CONTRACT & DOCUMENT EXPIRY ALERTS SECTION ===
+    $this->render_expiry_alerts_section( $wpdb, $emp_t, $today );
+
+    // === OVERTIME ALERTS SECTION ===
+    $this->render_overtime_alerts_section( $wpdb, $emp_t, $today );
+
+    // === ANALYTICS CHARTS SECTION ===
+    $this->render_analytics_section( $wpdb, $emp_t, $dept_t, $sessions_t, $req_t );
+
     echo '</div>'; // .wrap
 }
 
+/**
+ * Render contract and document expiry alerts section
+ */
+private function render_expiry_alerts_section( $wpdb, string $emp_t, string $today ): void {
+    $alerts_30  = $this->get_expiring_items( $wpdb, $emp_t, $today, 30 );
+    $alerts_60  = $this->get_expiring_items( $wpdb, $emp_t, $today, 60, 31 );
+    $alerts_90  = $this->get_expiring_items( $wpdb, $emp_t, $today, 90, 61 );
 
+    $total_urgent   = count( $alerts_30 );
+    $total_soon     = count( $alerts_60 );
+    $total_upcoming = count( $alerts_90 );
 
+    if ( $total_urgent + $total_soon + $total_upcoming === 0 ) {
+        return; // No alerts to show
+    }
+
+    echo '<style>
+        .sfs-hr-expiry-section {
+            margin-top: 24px;
+            padding: 20px;
+            background: #fff;
+            border: 1px solid #dcdcde;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.04);
+        }
+        .sfs-hr-expiry-section h2 {
+            margin: 0 0 16px 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #1d2327;
+        }
+        .sfs-hr-expiry-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid #dcdcde;
+            padding-bottom: 12px;
+        }
+        .sfs-hr-expiry-tab {
+            padding: 8px 16px;
+            border: none;
+            background: #f6f7f7;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: #50575e;
+        }
+        .sfs-hr-expiry-tab:hover {
+            background: #e2e4e7;
+        }
+        .sfs-hr-expiry-tab.active {
+            background: #2271b1;
+            color: #fff;
+        }
+        .sfs-hr-expiry-tab .count {
+            background: rgba(0,0,0,.1);
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 11px;
+            margin-left: 4px;
+        }
+        .sfs-hr-expiry-tab.active .count {
+            background: rgba(255,255,255,.2);
+        }
+        .sfs-hr-expiry-tab.urgent {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        .sfs-hr-expiry-tab.urgent.active {
+            background: #dc2626;
+            color: #fff;
+        }
+        .sfs-hr-expiry-list {
+            display: none;
+        }
+        .sfs-hr-expiry-list.active {
+            display: block;
+        }
+        .sfs-hr-expiry-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .sfs-hr-expiry-table th {
+            text-align: left;
+            padding: 10px 12px;
+            background: #f6f7f7;
+            font-weight: 600;
+            color: #50575e;
+            border-bottom: 1px solid #dcdcde;
+        }
+        .sfs-hr-expiry-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #f0f0f1;
+        }
+        .sfs-hr-expiry-table tr:hover td {
+            background: #f9fafb;
+        }
+        .sfs-hr-expiry-type {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .sfs-hr-expiry-type.contract { background: #dbeafe; color: #1d4ed8; }
+        .sfs-hr-expiry-type.national-id { background: #fef3c7; color: #b45309; }
+        .sfs-hr-expiry-type.passport { background: #ede9fe; color: #7c3aed; }
+        .sfs-hr-expiry-type.probation { background: #dcfce7; color: #16a34a; }
+        .sfs-hr-expiry-days {
+            font-weight: 600;
+        }
+        .sfs-hr-expiry-days.urgent { color: #dc2626; }
+        .sfs-hr-expiry-days.soon { color: #d97706; }
+        .sfs-hr-expiry-days.normal { color: #2563eb; }
+        .sfs-hr-expiry-empty {
+            text-align: center;
+            padding: 20px;
+            color: #787c82;
+        }
+    </style>';
+
+    echo '<div class="sfs-hr-expiry-section">';
+    echo '<h2><span class="dashicons dashicons-warning" style="color:#d97706;margin-right:8px;"></span>' . esc_html__( 'Contract & Document Expiry Alerts', 'sfs-hr' ) . '</h2>';
+
+    echo '<div class="sfs-hr-expiry-tabs">';
+
+    if ( $total_urgent > 0 ) {
+        echo '<button type="button" class="sfs-hr-expiry-tab urgent active" data-target="expiry-30">';
+        echo esc_html__( 'Within 30 days', 'sfs-hr' );
+        echo '<span class="count">' . esc_html( $total_urgent ) . '</span>';
+        echo '</button>';
+    }
+
+    if ( $total_soon > 0 ) {
+        $active = ( $total_urgent === 0 ) ? ' active' : '';
+        echo '<button type="button" class="sfs-hr-expiry-tab' . $active . '" data-target="expiry-60">';
+        echo esc_html__( '31-60 days', 'sfs-hr' );
+        echo '<span class="count">' . esc_html( $total_soon ) . '</span>';
+        echo '</button>';
+    }
+
+    if ( $total_upcoming > 0 ) {
+        $active = ( $total_urgent === 0 && $total_soon === 0 ) ? ' active' : '';
+        echo '<button type="button" class="sfs-hr-expiry-tab' . $active . '" data-target="expiry-90">';
+        echo esc_html__( '61-90 days', 'sfs-hr' );
+        echo '<span class="count">' . esc_html( $total_upcoming ) . '</span>';
+        echo '</button>';
+    }
+
+    echo '</div>';
+
+    // Render lists
+    if ( $total_urgent > 0 ) {
+        $this->render_expiry_list( 'expiry-30', $alerts_30, true );
+    }
+    if ( $total_soon > 0 ) {
+        $this->render_expiry_list( 'expiry-60', $alerts_60, $total_urgent === 0 );
+    }
+    if ( $total_upcoming > 0 ) {
+        $this->render_expiry_list( 'expiry-90', $alerts_90, $total_urgent === 0 && $total_soon === 0 );
+    }
+
+    echo '</div>';
+
+    // Tab switching JS
+    echo '<script>
+    (function(){
+        var tabs = document.querySelectorAll(".sfs-hr-expiry-tab");
+        var lists = document.querySelectorAll(".sfs-hr-expiry-list");
+        tabs.forEach(function(tab) {
+            tab.addEventListener("click", function() {
+                tabs.forEach(function(t) { t.classList.remove("active"); });
+                lists.forEach(function(l) { l.classList.remove("active"); });
+                this.classList.add("active");
+                var target = document.getElementById(this.dataset.target);
+                if (target) target.classList.add("active");
+            });
+        });
+    })();
+    </script>';
+}
+
+/**
+ * Get expiring items (contracts, IDs, passports, probation)
+ */
+private function get_expiring_items( $wpdb, string $emp_t, string $today, int $days_ahead, int $days_from = 0 ): array {
+    $alerts = [];
+
+    $date_from = date( 'Y-m-d', strtotime( "+{$days_from} days", strtotime( $today ) ) );
+    $date_to   = date( 'Y-m-d', strtotime( "+{$days_ahead} days", strtotime( $today ) ) );
+
+    // Contract expiry
+    $contracts = $wpdb->get_results( $wpdb->prepare(
+        "SELECT id, employee_code, first_name, last_name, contract_end_date
+         FROM {$emp_t}
+         WHERE status = 'active'
+           AND contract_end_date IS NOT NULL
+           AND contract_end_date BETWEEN %s AND %s
+         ORDER BY contract_end_date ASC",
+        $date_from,
+        $date_to
+    ), ARRAY_A );
+
+    foreach ( $contracts as $c ) {
+        $alerts[] = [
+            'employee_id'   => $c['id'],
+            'employee_code' => $c['employee_code'],
+            'name'          => trim( $c['first_name'] . ' ' . $c['last_name'] ),
+            'type'          => 'contract',
+            'expiry_date'   => $c['contract_end_date'],
+            'days_left'     => $this->days_until( $today, $c['contract_end_date'] ),
+        ];
+    }
+
+    // National ID expiry
+    $nat_ids = $wpdb->get_results( $wpdb->prepare(
+        "SELECT id, employee_code, first_name, last_name, national_id_expiry
+         FROM {$emp_t}
+         WHERE status = 'active'
+           AND national_id_expiry IS NOT NULL
+           AND national_id_expiry BETWEEN %s AND %s
+         ORDER BY national_id_expiry ASC",
+        $date_from,
+        $date_to
+    ), ARRAY_A );
+
+    foreach ( $nat_ids as $n ) {
+        $alerts[] = [
+            'employee_id'   => $n['id'],
+            'employee_code' => $n['employee_code'],
+            'name'          => trim( $n['first_name'] . ' ' . $n['last_name'] ),
+            'type'          => 'national-id',
+            'expiry_date'   => $n['national_id_expiry'],
+            'days_left'     => $this->days_until( $today, $n['national_id_expiry'] ),
+        ];
+    }
+
+    // Passport expiry
+    $passports = $wpdb->get_results( $wpdb->prepare(
+        "SELECT id, employee_code, first_name, last_name, passport_expiry
+         FROM {$emp_t}
+         WHERE status = 'active'
+           AND passport_expiry IS NOT NULL
+           AND passport_expiry BETWEEN %s AND %s
+         ORDER BY passport_expiry ASC",
+        $date_from,
+        $date_to
+    ), ARRAY_A );
+
+    foreach ( $passports as $p ) {
+        $alerts[] = [
+            'employee_id'   => $p['id'],
+            'employee_code' => $p['employee_code'],
+            'name'          => trim( $p['first_name'] . ' ' . $p['last_name'] ),
+            'type'          => 'passport',
+            'expiry_date'   => $p['passport_expiry'],
+            'days_left'     => $this->days_until( $today, $p['passport_expiry'] ),
+        ];
+    }
+
+    // Probation end
+    $probations = $wpdb->get_results( $wpdb->prepare(
+        "SELECT id, employee_code, first_name, last_name, probation_end_date
+         FROM {$emp_t}
+         WHERE status = 'active'
+           AND probation_end_date IS NOT NULL
+           AND probation_end_date BETWEEN %s AND %s
+         ORDER BY probation_end_date ASC",
+        $date_from,
+        $date_to
+    ), ARRAY_A );
+
+    foreach ( $probations as $pr ) {
+        $alerts[] = [
+            'employee_id'   => $pr['id'],
+            'employee_code' => $pr['employee_code'],
+            'name'          => trim( $pr['first_name'] . ' ' . $pr['last_name'] ),
+            'type'          => 'probation',
+            'expiry_date'   => $pr['probation_end_date'],
+            'days_left'     => $this->days_until( $today, $pr['probation_end_date'] ),
+        ];
+    }
+
+    // Sort by days_left ascending
+    usort( $alerts, fn( $a, $b ) => $a['days_left'] <=> $b['days_left'] );
+
+    return $alerts;
+}
+
+/**
+ * Calculate days until a date
+ */
+private function days_until( string $today, string $target_date ): int {
+    $today_ts  = strtotime( $today );
+    $target_ts = strtotime( $target_date );
+    return (int) floor( ( $target_ts - $today_ts ) / 86400 );
+}
+
+/**
+ * Render expiry list table
+ */
+private function render_expiry_list( string $id, array $alerts, bool $active ): void {
+    $class = $active ? 'sfs-hr-expiry-list active' : 'sfs-hr-expiry-list';
+    echo '<div id="' . esc_attr( $id ) . '" class="' . esc_attr( $class ) . '">';
+
+    if ( empty( $alerts ) ) {
+        echo '<div class="sfs-hr-expiry-empty">' . esc_html__( 'No expiring items in this period.', 'sfs-hr' ) . '</div>';
+    } else {
+        echo '<table class="sfs-hr-expiry-table">';
+        echo '<thead><tr>';
+        echo '<th>' . esc_html__( 'Employee', 'sfs-hr' ) . '</th>';
+        echo '<th>' . esc_html__( 'Type', 'sfs-hr' ) . '</th>';
+        echo '<th>' . esc_html__( 'Expiry Date', 'sfs-hr' ) . '</th>';
+        echo '<th>' . esc_html__( 'Days Left', 'sfs-hr' ) . '</th>';
+        echo '<th></th>';
+        echo '</tr></thead>';
+        echo '<tbody>';
+
+        $type_labels = [
+            'contract'    => __( 'Contract', 'sfs-hr' ),
+            'national-id' => __( 'National ID', 'sfs-hr' ),
+            'passport'    => __( 'Passport', 'sfs-hr' ),
+            'probation'   => __( 'Probation', 'sfs-hr' ),
+        ];
+
+        foreach ( $alerts as $alert ) {
+            $days_class = 'normal';
+            if ( $alert['days_left'] <= 14 ) {
+                $days_class = 'urgent';
+            } elseif ( $alert['days_left'] <= 30 ) {
+                $days_class = 'soon';
+            }
+
+            $edit_url = admin_url( 'admin.php?page=sfs-hr-employees&action=edit&id=' . intval( $alert['employee_id'] ) );
+
+            echo '<tr>';
+            echo '<td>';
+            echo '<strong>' . esc_html( $alert['name'] ) . '</strong>';
+            echo '<br><small class="description">' . esc_html( $alert['employee_code'] ) . '</small>';
+            echo '</td>';
+            echo '<td><span class="sfs-hr-expiry-type ' . esc_attr( $alert['type'] ) . '">' . esc_html( $type_labels[ $alert['type'] ] ?? $alert['type'] ) . '</span></td>';
+            echo '<td>' . esc_html( date_i18n( 'M j, Y', strtotime( $alert['expiry_date'] ) ) ) . '</td>';
+            echo '<td><span class="sfs-hr-expiry-days ' . esc_attr( $days_class ) . '">' . esc_html( $alert['days_left'] ) . ' ' . esc_html__( 'days', 'sfs-hr' ) . '</span></td>';
+            echo '<td><a href="' . esc_url( $edit_url ) . '" class="button button-small">' . esc_html__( 'View', 'sfs-hr' ) . '</a></td>';
+            echo '</tr>';
+        }
+
+        echo '</tbody>';
+        echo '</table>';
+    }
+
+    echo '</div>';
+}
+
+/**
+ * Render overtime alerts section
+ */
+private function render_overtime_alerts_section( $wpdb, string $emp_t, string $today ): void {
+    $sessions_t = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+
+    // Check if sessions table exists
+    if ( ! $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $sessions_t ) ) ) {
+        return;
+    }
+
+    // Get overtime threshold from settings (default: 40 hours/month = 2400 minutes)
+    $att_settings = get_option( 'sfs_hr_attendance_settings', [] );
+    $monthly_ot_threshold = (int) ( $att_settings['monthly_ot_threshold'] ?? 2400 ); // minutes
+
+    // Warning threshold is 80% of limit
+    $warning_threshold = (int) ( $monthly_ot_threshold * 0.8 );
+
+    // Get current month date range
+    $month_start = date( 'Y-m-01' );
+    $month_end   = date( 'Y-m-t' );
+
+    // Query employees with high overtime this month
+    $high_ot_employees = $wpdb->get_results( $wpdb->prepare(
+        "SELECT
+            e.id, e.employee_code, e.first_name, e.last_name, e.dept_id,
+            SUM(s.overtime_minutes) as total_ot_minutes,
+            COUNT(DISTINCT s.work_date) as days_worked
+         FROM {$emp_t} e
+         INNER JOIN {$sessions_t} s ON s.employee_id = e.id
+         WHERE e.status = 'active'
+           AND s.work_date BETWEEN %s AND %s
+           AND s.overtime_minutes > 0
+         GROUP BY e.id
+         HAVING total_ot_minutes >= %d
+         ORDER BY total_ot_minutes DESC
+         LIMIT 20",
+        $month_start,
+        $month_end,
+        $warning_threshold
+    ), ARRAY_A );
+
+    if ( empty( $high_ot_employees ) ) {
+        return; // No overtime alerts to show
+    }
+
+    // Get department names
+    $dept_t = $wpdb->prefix . 'sfs_hr_departments';
+    $depts = [];
+    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $dept_t ) ) ) {
+        $dept_rows = $wpdb->get_results( "SELECT id, name FROM {$dept_t}", ARRAY_A );
+        foreach ( $dept_rows as $d ) {
+            $depts[ (int) $d['id'] ] = $d['name'];
+        }
+    }
+
+    echo '<style>
+        .sfs-hr-ot-section {
+            margin-top: 24px;
+            padding: 20px;
+            background: #fff;
+            border: 1px solid #dcdcde;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.04);
+        }
+        .sfs-hr-ot-section h2 {
+            margin: 0 0 16px 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #1d2327;
+        }
+        .sfs-hr-ot-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .sfs-hr-ot-table th {
+            text-align: left;
+            padding: 8px;
+            background: #f6f7f7;
+            font-weight: 600;
+            color: #50575e;
+            border-bottom: 1px solid #dcdcde;
+        }
+        .sfs-hr-ot-table td {
+            padding: 8px;
+            border-bottom: 1px solid #f0f0f1;
+        }
+        .sfs-hr-ot-table tr:hover td {
+            background: #f9fafb;
+        }
+        .sfs-hr-ot-bar {
+            width: 100%;
+            max-width: 80px;
+            height: 6px;
+            background: #e5e7eb;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .sfs-hr-ot-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+        }
+        .sfs-hr-ot-bar-fill.warning { background: #f59e0b; }
+        .sfs-hr-ot-bar-fill.danger { background: #dc2626; }
+        .sfs-hr-ot-status {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 500;
+        }
+        .sfs-hr-ot-status.warning { background: #fef3c7; color: #b45309; }
+        .sfs-hr-ot-status.danger { background: #fee2e2; color: #b91c1c; }
+        .sfs-hr-ot-hours {
+            font-weight: 600;
+            font-size: 13px;
+        }
+        @media (max-width: 782px) {
+            .sfs-hr-ot-table { font-size: 11px; }
+            .sfs-hr-ot-table th, .sfs-hr-ot-table td { padding: 6px 4px; }
+            .sfs-hr-ot-table .hide-mobile { display: none; }
+        }
+    </style>';
+
+    echo '<div class="sfs-hr-ot-section">';
+    echo '<h2><span class="dashicons dashicons-clock" style="color:#f59e0b;margin-right:8px;"></span>' . esc_html__( 'Overtime Alerts', 'sfs-hr' );
+    echo ' <small style="font-weight:normal;font-size:12px;color:#787c82;">(' . esc_html( date_i18n( 'F Y' ) ) . ')</small></h2>';
+
+    echo '<p style="margin-bottom:16px;color:#50575e;font-size:13px;">';
+    printf(
+        esc_html__( 'Employees approaching or exceeding %s hours of overtime this month:', 'sfs-hr' ),
+        '<strong>' . number_format( $monthly_ot_threshold / 60, 1 ) . '</strong>'
+    );
+    echo '</p>';
+
+    echo '<table class="sfs-hr-ot-table">';
+    echo '<thead><tr>';
+    echo '<th>' . esc_html__( 'Employee', 'sfs-hr' ) . '</th>';
+    echo '<th>' . esc_html__( 'Department', 'sfs-hr' ) . '</th>';
+    echo '<th>' . esc_html__( 'Days Worked', 'sfs-hr' ) . '</th>';
+    echo '<th>' . esc_html__( 'Overtime Hours', 'sfs-hr' ) . '</th>';
+    echo '<th>' . esc_html__( 'Progress', 'sfs-hr' ) . '</th>';
+    echo '<th>' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+    echo '</tr></thead>';
+    echo '<tbody>';
+
+    foreach ( $high_ot_employees as $emp ) {
+        $ot_minutes = (int) $emp['total_ot_minutes'];
+        $ot_hours = $ot_minutes / 60;
+        $percentage = min( 100, ( $ot_minutes / $monthly_ot_threshold ) * 100 );
+        $is_over = $ot_minutes >= $monthly_ot_threshold;
+        $status_class = $is_over ? 'danger' : 'warning';
+        $status_label = $is_over ? __( 'Over Limit', 'sfs-hr' ) : __( 'Near Limit', 'sfs-hr' );
+
+        $dept_name = isset( $depts[ (int) $emp['dept_id'] ] ) ? $depts[ (int) $emp['dept_id'] ] : '—';
+        $profile_url = admin_url( 'admin.php?page=sfs-hr-employee-profile&id=' . intval( $emp['id'] ) );
+
+        echo '<tr>';
+        echo '<td>';
+        echo '<a href="' . esc_url( $profile_url ) . '"><strong>' . esc_html( trim( $emp['first_name'] . ' ' . $emp['last_name'] ) ) . '</strong></a>';
+        echo '<br><small class="description">' . esc_html( $emp['employee_code'] ) . '</small>';
+        echo '</td>';
+        echo '<td>' . esc_html( $dept_name ) . '</td>';
+        echo '<td>' . esc_html( $emp['days_worked'] ) . '</td>';
+        echo '<td><span class="sfs-hr-ot-hours">' . esc_html( number_format( $ot_hours, 1 ) ) . ' ' . esc_html__( 'hrs', 'sfs-hr' ) . '</span></td>';
+        echo '<td>';
+        echo '<div class="sfs-hr-ot-bar">';
+        echo '<div class="sfs-hr-ot-bar-fill ' . esc_attr( $status_class ) . '" style="width:' . esc_attr( $percentage ) . '%;"></div>';
+        echo '</div>';
+        echo '<small style="color:#787c82;">' . esc_html( round( $percentage ) ) . '%</small>';
+        echo '</td>';
+        echo '<td><span class="sfs-hr-ot-status ' . esc_attr( $status_class ) . '">' . esc_html( $status_label ) . '</span></td>';
+        echo '</tr>';
+    }
+
+    echo '</tbody>';
+    echo '</table>';
+    echo '</div>';
+}
 
 
     private function query_employees(string $q, int $page, int $per_page): array {
@@ -550,7 +1343,7 @@ echo '</a>';
         $total = (int)($params ? $wpdb->get_var($wpdb->prepare($total_sql, ...$params)) : $wpdb->get_var($total_sql));
 
         $offset = max(0, ($page-1)*$per_page);
-        $rows_sql = "SELECT * FROM {$table} WHERE {$where} ORDER BY id DESC LIMIT %d OFFSET %d";
+        $rows_sql = "SELECT * FROM {$table} WHERE {$where} ORDER BY first_name ASC, last_name ASC LIMIT %d OFFSET %d";
         $rows = $params
             ? $wpdb->get_results($wpdb->prepare($rows_sql, ...array_merge($params, [$per_page, $offset])), ARRAY_A)
             : $wpdb->get_results($wpdb->prepare($rows_sql, $per_page, $offset), ARRAY_A);
@@ -804,6 +1597,299 @@ echo '</a>';
         return add_query_arg(['emp' => $emp_id, 'token' => $token], $base);
     }
 
+/**
+ * Render analytics charts section on dashboard
+ */
+private function render_analytics_section( $wpdb, string $emp_t, string $dept_t, string $sessions_t, string $req_t ): void {
+    // Check if HR Manager or has view permission
+    if ( ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'sfs_hr.view' ) ) {
+        return;
+    }
+
+    // --- Data: Department Headcount ---
+    $dept_headcount = [];
+    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $dept_t ) ) ) {
+        $dept_headcount = $wpdb->get_results(
+            "SELECT d.name AS dept_name, COUNT(e.id) AS count
+             FROM {$dept_t} d
+             LEFT JOIN {$emp_t} e ON e.dept_id = d.id AND e.status = 'active'
+             GROUP BY d.id, d.name
+             ORDER BY count DESC
+             LIMIT 10",
+            ARRAY_A
+        );
+    }
+
+    // --- Data: Attendance Trend (Last 7 days) ---
+    $attendance_trend = [];
+    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $sessions_t ) ) ) {
+        $attendance_trend = $wpdb->get_results(
+            "SELECT
+                work_date,
+                SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) AS present,
+                SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) AS late,
+                SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) AS absent
+             FROM {$sessions_t}
+             WHERE work_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+             GROUP BY work_date
+             ORDER BY work_date ASC",
+            ARRAY_A
+        );
+    }
+
+    // --- Data: Leave Trend (Last 30 days by week) ---
+    $leave_trend = [];
+    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $req_t ) ) ) {
+        $leave_trend = $wpdb->get_results(
+            "SELECT
+                YEARWEEK(start_date, 1) AS week_num,
+                MIN(start_date) AS week_start,
+                COUNT(*) AS total_requests,
+                SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) AS approved,
+                SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) AS rejected,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending
+             FROM {$req_t}
+             WHERE start_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+             GROUP BY YEARWEEK(start_date, 1)
+             ORDER BY week_num ASC",
+            ARRAY_A
+        );
+    }
+
+    // Skip if no data available
+    if ( empty( $dept_headcount ) && empty( $attendance_trend ) && empty( $leave_trend ) ) {
+        return;
+    }
+
+    // Prepare chart data for JavaScript
+    $dept_labels = wp_json_encode( array_column( $dept_headcount, 'dept_name' ) );
+    $dept_data   = wp_json_encode( array_map( 'intval', array_column( $dept_headcount, 'count' ) ) );
+
+    $att_labels  = wp_json_encode( array_map( function( $r ) {
+        return wp_date( 'D j', strtotime( $r['work_date'] ) );
+    }, $attendance_trend ) );
+    $att_present = wp_json_encode( array_map( 'intval', array_column( $attendance_trend, 'present' ) ) );
+    $att_late    = wp_json_encode( array_map( 'intval', array_column( $attendance_trend, 'late' ) ) );
+    $att_absent  = wp_json_encode( array_map( 'intval', array_column( $attendance_trend, 'absent' ) ) );
+
+    $leave_labels   = wp_json_encode( array_map( function( $r ) {
+        return wp_date( 'M j', strtotime( $r['week_start'] ) );
+    }, $leave_trend ) );
+    $leave_approved = wp_json_encode( array_map( 'intval', array_column( $leave_trend, 'approved' ) ) );
+    $leave_rejected = wp_json_encode( array_map( 'intval', array_column( $leave_trend, 'rejected' ) ) );
+    $leave_pending  = wp_json_encode( array_map( 'intval', array_column( $leave_trend, 'pending' ) ) );
+
+    ?>
+    <style>
+        .sfs-hr-analytics-section {
+            margin-top: 24px;
+        }
+        .sfs-hr-analytics-section h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1d2327;
+            margin: 0 0 16px 0;
+        }
+        .sfs-hr-analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 20px;
+            margin-right: 16px;
+        }
+        .sfs-hr-chart-card {
+            background: #fff;
+            border: 1px solid #dcdcde;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.04);
+        }
+        .sfs-hr-chart-card h3 {
+            margin: 0 0 16px 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #1d2327;
+        }
+        .sfs-hr-chart-container {
+            position: relative;
+            height: 250px;
+        }
+        @media (max-width: 782px) {
+            .sfs-hr-analytics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+
+    <div class="sfs-hr-analytics-section">
+        <h2><?php esc_html_e( 'Analytics Overview', 'sfs-hr' ); ?></h2>
+        <div class="sfs-hr-analytics-grid">
+            <?php if ( ! empty( $dept_headcount ) ) : ?>
+            <div class="sfs-hr-chart-card">
+                <h3><?php esc_html_e( 'Headcount by Department', 'sfs-hr' ); ?></h3>
+                <div class="sfs-hr-chart-container">
+                    <canvas id="sfs-hr-dept-chart"></canvas>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <?php if ( ! empty( $attendance_trend ) ) : ?>
+            <div class="sfs-hr-chart-card">
+                <h3><?php esc_html_e( 'Attendance Trend (Last 7 Days)', 'sfs-hr' ); ?></h3>
+                <div class="sfs-hr-chart-container">
+                    <canvas id="sfs-hr-attendance-chart"></canvas>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <?php if ( ! empty( $leave_trend ) ) : ?>
+            <div class="sfs-hr-chart-card">
+                <h3><?php esc_html_e( 'Leave Requests (Last 30 Days)', 'sfs-hr' ); ?></h3>
+                <div class="sfs-hr-chart-container">
+                    <canvas id="sfs-hr-leave-chart"></canvas>
+                </div>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        <?php if ( ! empty( $dept_headcount ) ) : ?>
+        // Department Headcount Chart
+        new Chart(document.getElementById('sfs-hr-dept-chart'), {
+            type: 'bar',
+            data: {
+                labels: <?php echo $dept_labels; ?>,
+                datasets: [{
+                    label: '<?php echo esc_js( __( 'Employees', 'sfs-hr' ) ); ?>',
+                    data: <?php echo $dept_data; ?>,
+                    backgroundColor: 'rgba(34, 113, 177, 0.8)',
+                    borderColor: 'rgba(34, 113, 177, 1)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 }
+                    }
+                }
+            }
+        });
+        <?php endif; ?>
+
+        <?php if ( ! empty( $attendance_trend ) ) : ?>
+        // Attendance Trend Chart
+        new Chart(document.getElementById('sfs-hr-attendance-chart'), {
+            type: 'line',
+            data: {
+                labels: <?php echo $att_labels; ?>,
+                datasets: [
+                    {
+                        label: '<?php echo esc_js( __( 'Present', 'sfs-hr' ) ); ?>',
+                        data: <?php echo $att_present; ?>,
+                        borderColor: 'rgba(34, 197, 94, 1)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        tension: 0.3,
+                        fill: true
+                    },
+                    {
+                        label: '<?php echo esc_js( __( 'Late', 'sfs-hr' ) ); ?>',
+                        data: <?php echo $att_late; ?>,
+                        borderColor: 'rgba(251, 191, 36, 1)',
+                        backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                        tension: 0.3,
+                        fill: true
+                    },
+                    {
+                        label: '<?php echo esc_js( __( 'Absent', 'sfs-hr' ) ); ?>',
+                        data: <?php echo $att_absent; ?>,
+                        borderColor: 'rgba(239, 68, 68, 1)',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        tension: 0.3,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { boxWidth: 12, padding: 15 }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 }
+                    }
+                }
+            }
+        });
+        <?php endif; ?>
+
+        <?php if ( ! empty( $leave_trend ) ) : ?>
+        // Leave Requests Chart
+        new Chart(document.getElementById('sfs-hr-leave-chart'), {
+            type: 'bar',
+            data: {
+                labels: <?php echo $leave_labels; ?>,
+                datasets: [
+                    {
+                        label: '<?php echo esc_js( __( 'Approved', 'sfs-hr' ) ); ?>',
+                        data: <?php echo $leave_approved; ?>,
+                        backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                        borderRadius: 4
+                    },
+                    {
+                        label: '<?php echo esc_js( __( 'Pending', 'sfs-hr' ) ); ?>',
+                        data: <?php echo $leave_pending; ?>,
+                        backgroundColor: 'rgba(251, 191, 36, 0.8)',
+                        borderRadius: 4
+                    },
+                    {
+                        label: '<?php echo esc_js( __( 'Rejected', 'sfs-hr' ) ); ?>',
+                        data: <?php echo $leave_rejected; ?>,
+                        backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { boxWidth: 12, padding: 15 }
+                    }
+                },
+                scales: {
+                    x: { stacked: true },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 }
+                    }
+                }
+            }
+        });
+        <?php endif; ?>
+    });
+    </script>
+    <?php
+}
+
     public function render_employees(): void {
         Helpers::require_cap('sfs_hr.manage');
         echo '<div class="wrap sfs-hr-wrap">';
@@ -831,18 +1917,321 @@ echo '</a>';
         $shift_groups = $this->attendance_shifts_grouped();
 
         ?>
-        <div class="wrap">
-          <h1><?php echo esc_html__('Employees','sfs-hr'); ?></h1>
-
           <style>
-  .sfs-hr-actions .button { margin-right:6px; }
-  .sfs-hr-actions .button-danger { background:#d63638; border-color:#d63638; color:#fff; }
-  .sfs-hr-actions .button-danger:hover { background:#b32d2e; border-color:#b32d2e; color:#fff; }
-  .sfs-hr-badge { display:inline-block; padding:2px 8px; border-radius:12px; background:#f0f0f1; font-size:11px; }
-  .sfs-hr-badge.status-active { background:#ecfccb; }
-  .sfs-hr-badge.status-inactive { background:#fee2e2; }
-  .sfs-hr-badge.status-terminated { background:#ffe4e6; }
+  /* General Styles */
+  .sfs-hr-badge { display:inline-block; padding:3px 10px; border-radius:12px; background:#f0f0f1; font-size:12px; font-weight:500; }
+  .sfs-hr-badge.status-active { background:#dcfce7; color:#166534; }
+  .sfs-hr-badge.status-inactive { background:#fef3c7; color:#92400e; }
+  .sfs-hr-badge.status-terminated { background:#fee2e2; color:#991b1b; }
   .sfs-hr-select { min-width: 240px; }
+
+  /* Toolbar section */
+  .sfs-hr-toolbar {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    padding: 16px;
+    margin: 16px 0;
+  }
+  .sfs-hr-toolbar-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .sfs-hr-toolbar-row:last-child {
+    margin-bottom: 0;
+  }
+  .sfs-hr-toolbar-row.search-row {
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e5e5e5;
+  }
+  .sfs-hr-toolbar input[type="search"] {
+    min-width: 250px;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 4px;
+  }
+  .sfs-hr-toolbar select {
+    height: 36px;
+    border-radius: 4px;
+    min-width: 100px;
+  }
+  .sfs-hr-toolbar .button {
+    height: 36px;
+    line-height: 34px;
+  }
+  .sfs-hr-toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sfs-hr-toolbar-divider {
+    width: 1px;
+    height: 24px;
+    background: #dcdcde;
+    margin: 0 4px;
+  }
+  .sfs-hr-toolbar label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  /* Advanced toggle button */
+  .sfs-hr-advanced-toggle {
+    display: inline-flex;
+    align-items: center;
+    background: #f6f7f7;
+    border-color: #dcdcde;
+  }
+  .sfs-hr-advanced-toggle.active {
+    background: #2271b1;
+    color: #fff;
+    border-color: #2271b1;
+  }
+  .sfs-hr-advanced-toggle.active .dashicons {
+    color: #fff;
+  }
+  .sfs-hr-advanced-section {
+    background: #f9f9f9;
+    border-radius: 4px;
+    padding: 12px 16px !important;
+    margin-top: 8px;
+  }
+
+  /* Employee list table styles */
+  .sfs-hr-emp-table {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    margin-top: 16px;
+  }
+  .sfs-hr-emp-table .widefat {
+    border: none;
+    border-radius: 6px;
+    margin: 0;
+  }
+  .sfs-hr-emp-table .widefat th {
+    background: #f8f9fa;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #50575e;
+    padding: 12px 16px;
+  }
+  .sfs-hr-emp-table .widefat td {
+    padding: 12px 16px;
+    vertical-align: middle;
+  }
+  .sfs-hr-emp-table .widefat tbody tr:hover {
+    background: #f8f9fa;
+  }
+  .sfs-hr-emp-table .emp-name {
+    font-weight: 500;
+    color: #1d2327;
+  }
+  .sfs-hr-emp-table .emp-code {
+    font-family: monospace;
+    font-size: 12px;
+    background: #f0f0f1;
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: #50575e;
+  }
+
+  /* Desktop action buttons */
+  .sfs-hr-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .sfs-hr-actions .button {
+    font-size: 12px;
+    padding: 4px 10px;
+    height: auto;
+    line-height: 1.4;
+    border-radius: 4px;
+  }
+  .sfs-hr-actions .button-danger {
+    background: #d63638;
+    border-color: #d63638;
+    color: #fff;
+  }
+  .sfs-hr-actions .button-danger:hover {
+    background: #b32d2e;
+    border-color: #b32d2e;
+    color: #fff;
+  }
+
+  /* Mobile action button (single button that opens modal) */
+  .sfs-hr-action-mobile-btn {
+    display: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: #f1f5f9;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    position: relative;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    transition: all 0.2s ease;
+  }
+  .sfs-hr-action-mobile-btn::before,
+  .sfs-hr-action-mobile-btn::after,
+  .sfs-hr-action-mobile-btn span {
+    content: '';
+    display: block;
+    width: 5px;
+    height: 5px;
+    background: #475569;
+    border-radius: 50%;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .sfs-hr-action-mobile-btn::before {
+    top: 11px;
+  }
+  .sfs-hr-action-mobile-btn span {
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .sfs-hr-action-mobile-btn::after {
+    bottom: 11px;
+  }
+  .sfs-hr-action-mobile-btn:hover {
+    background: #e2e8f0;
+  }
+  .sfs-hr-action-mobile-btn:active {
+    transform: scale(0.95);
+  }
+
+  /* Action Modal */
+  .sfs-hr-action-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100000;
+    background: rgba(0,0,0,0.5);
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .sfs-hr-action-modal.active {
+    display: flex;
+  }
+  .sfs-hr-action-modal-content {
+    background: #fff;
+    width: 100%;
+    max-width: 400px;
+    border-radius: 16px 16px 0 0;
+    padding: 20px;
+    animation: slideUp 0.2s ease-out;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  .sfs-hr-action-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e5e5e5;
+  }
+  .sfs-hr-action-modal-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1d2327;
+    margin: 0;
+  }
+  .sfs-hr-action-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #50575e;
+    padding: 0;
+    line-height: 1;
+  }
+  .sfs-hr-action-modal-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .sfs-hr-action-modal-buttons .button {
+    width: 100%;
+    padding: 14px 20px;
+    font-size: 15px;
+    border-radius: 8px;
+    text-align: center;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .sfs-hr-action-modal-buttons .button-primary {
+    background: #2271b1;
+    border-color: #2271b1;
+    color: #fff;
+  }
+  .sfs-hr-action-modal-buttons .button-secondary {
+    background: #f0f0f1;
+    border-color: #dcdcde;
+    color: #50575e;
+  }
+  .sfs-hr-action-modal-buttons .button-danger {
+    background: #d63638;
+    border-color: #d63638;
+    color: #fff;
+  }
+
+  /* Pagination */
+  .sfs-hr-pagination {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px;
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    flex-wrap: wrap;
+  }
+  .sfs-hr-pagination a,
+  .sfs-hr-pagination span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 13px;
+  }
+  .sfs-hr-pagination a {
+    background: #f0f0f1;
+    color: #50575e;
+  }
+  .sfs-hr-pagination a:hover {
+    background: #dcdcde;
+  }
+  .sfs-hr-pagination .current-page {
+    background: #2271b1;
+    color: #fff;
+    font-weight: 600;
+  }
 
   /* Add Employee layout */
   .sfs-hr-emp-add-wrap {
@@ -893,152 +2282,237 @@ echo '</a>';
 
   /* Mobile responsive styles */
   @media (max-width: 782px) {
-    /* Stack filter forms */
-    form[method="get"], form[method="post"] {
-      display: block !important;
-      margin: 8px 0 !important;
+    /* Toolbar mobile */
+    .sfs-hr-toolbar {
+      padding: 12px;
+    }
+    .sfs-hr-toolbar-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .sfs-hr-toolbar-row.search-row {
+      gap: 8px;
+    }
+    .sfs-hr-toolbar input[type="search"] {
+      width: 100%;
+      min-width: auto;
+    }
+    .sfs-hr-toolbar select {
+      width: 100%;
+    }
+    .sfs-hr-toolbar .button {
+      width: 100%;
+      text-align: center;
+    }
+    .sfs-hr-toolbar-group {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .sfs-hr-toolbar-divider {
+      display: none;
+    }
+    .sfs-hr-toolbar label {
+      padding: 8px 0;
     }
 
-    form[method="get"] input[type="search"],
-    form[method="get"] select {
-      width: 100% !important;
-      max-width: 100% !important;
-      margin-bottom: 8px !important;
-      display: block !important;
-    }
-
-    /* Hide less important columns on mobile */
-    .widefat thead th.hide-mobile,
-    .widefat tbody td.hide-mobile {
+    /* Hide columns on mobile - only show Name, Status, Actions */
+    .sfs-hr-emp-table .widefat thead th.hide-mobile,
+    .sfs-hr-emp-table .widefat tbody td.hide-mobile {
       display: none !important;
     }
 
-    /* Make employee rows clickable cards on mobile */
-    .widefat tbody tr {
-      cursor: pointer;
-      position: relative;
+    /* Table mobile */
+    .sfs-hr-emp-table .widefat th,
+    .sfs-hr-emp-table .widefat td {
+      padding: 10px 8px;
+    }
+    .sfs-hr-emp-table .widefat th:first-child,
+    .sfs-hr-emp-table .widefat td:first-child {
+      padding-left: 12px;
+    }
+    .sfs-hr-emp-table .widefat th:last-child,
+    .sfs-hr-emp-table .widefat td:last-child {
+      padding-right: 12px;
     }
 
-    .widefat tbody tr:hover {
-      background-color: #f0f0f1;
-    }
-
-    /* Stack action buttons on mobile */
+    /* Hide desktop actions, show mobile action button */
     .sfs-hr-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
+      display: none !important;
+    }
+    .sfs-hr-action-mobile-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    .sfs-hr-actions .button {
-      width: 100%;
-      margin: 0 !important;
-      text-align: center;
-    }
-
-    /* Reduce font sizes on mobile */
-    .widefat {
-      font-size: 13px;
-    }
-
-    .widefat th, .widefat td {
-      padding: 8px 4px;
-    }
-
-    code {
-      font-size: 11px;
+    /* Pagination mobile */
+    .sfs-hr-pagination {
+      justify-content: center;
     }
   }
 </style>
 
+<!-- Action Modal HTML -->
+<div class="sfs-hr-action-modal" id="sfs-hr-action-modal">
+  <div class="sfs-hr-action-modal-content">
+    <div class="sfs-hr-action-modal-header">
+      <h3 class="sfs-hr-action-modal-title" id="sfs-hr-modal-emp-name">Employee Actions</h3>
+      <button type="button" class="sfs-hr-action-modal-close" onclick="sfsHrCloseModal()">&times;</button>
+    </div>
+    <div class="sfs-hr-action-modal-buttons">
+      <a href="#" class="button button-primary" id="sfs-hr-modal-edit">
+        <span class="dashicons dashicons-edit"></span> <?php esc_html_e('Edit Employee', 'sfs-hr'); ?>
+      </a>
+      <a href="#" class="button button-danger" id="sfs-hr-modal-delete" onclick="return confirm('<?php echo esc_js(__('Delete permanently? This cannot be undone.', 'sfs-hr')); ?>');">
+        <span class="dashicons dashicons-trash"></span> <?php esc_html_e('Delete Employee', 'sfs-hr'); ?>
+      </a>
+    </div>
+    <p class="description" style="margin-top:12px;text-align:center;font-size:12px;color:#666;">
+      <?php esc_html_e('To terminate an employee, use the Resignation workflow.', 'sfs-hr'); ?>
+    </p>
+  </div>
+</div>
 
-          <form method="get" style="margin:10px 0;">
-            <input type="hidden" name="page" value="sfs-hr-employees" />
-            <input type="search" name="s" value="<?php echo esc_attr($q); ?>" placeholder="<?php echo esc_attr__('Search name/email/code','sfs-hr'); ?>"/>
-            <select name="per_page">
-              <?php foreach ([10,20,50,100] as $pp): ?>
-                <option value="<?php echo (int)$pp; ?>" <?php selected($per_page,$pp); ?>><?php echo (int)$pp; ?>/page</option>
-              <?php endforeach; ?>
-            </select>
-            <?php submit_button(__('Filter','sfs-hr'),'secondary','',false); ?>
-          </form>
+<script>
+function sfsHrOpenModal(name, editUrl, delUrl) {
+  document.getElementById('sfs-hr-modal-emp-name').textContent = name || 'Employee Actions';
+  document.getElementById('sfs-hr-modal-edit').href = editUrl;
+  document.getElementById('sfs-hr-modal-delete').href = delUrl;
+  document.getElementById('sfs-hr-action-modal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+function sfsHrCloseModal() {
+  document.getElementById('sfs-hr-action-modal').classList.remove('active');
+  document.body.style.overflow = '';
+}
+// Close modal when clicking outside
+document.getElementById('sfs-hr-action-modal').addEventListener('click', function(e) {
+  if (e.target === this) sfsHrCloseModal();
+});
+</script>
 
-          <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin:10px 0;">
-            <input type="hidden" name="action" value="sfs_hr_export_employees" />
-            <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce_export); ?>" />
-            <?php submit_button(__('Export CSV','sfs-hr'),'secondary','',false); ?>
-          </form>
 
-          <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" enctype="multipart/form-data" style="margin:10px 0;">
-            <input type="hidden" name="action" value="sfs_hr_import_employees" />
-            <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce_import); ?>" />
-            <input type="file" name="csv" accept=".csv" required />
-            <?php submit_button(__('Import CSV','sfs-hr'),'secondary','',false); ?>
-          </form>
+          <div class="sfs-hr-toolbar">
+            <!-- Search Row -->
+            <form method="get" class="sfs-hr-toolbar-row search-row">
+              <input type="hidden" name="page" value="sfs-hr-employees" />
+              <input type="search" name="s" value="<?php echo esc_attr($q); ?>" placeholder="<?php echo esc_attr__('Search name/email/code','sfs-hr'); ?>"/>
+              <select name="per_page">
+                <?php foreach ([10,20,50,100] as $pp): ?>
+                  <option value="<?php echo (int)$pp; ?>" <?php selected($per_page,$pp); ?>><?php echo (int)$pp; ?>/page</option>
+                <?php endforeach; ?>
+              </select>
+              <?php submit_button(__('Search','sfs-hr'),'primary','',false); ?>
+              <button type="button" class="button sfs-hr-advanced-toggle" onclick="sfsHrToggleAdvanced()">
+                <span class="dashicons dashicons-admin-tools" style="margin-right:4px;line-height:inherit;"></span>
+                <?php esc_html_e('Advanced','sfs-hr'); ?>
+              </button>
+            </form>
 
-          <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin:10px 0;">
-            <input type="hidden" name="action" value="sfs_hr_sync_users" />
-            <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce_sync); ?>" />
-            <label><input type="checkbox" name="role_filter[]" value="subscriber" checked /> <?php echo esc_html__('Include Subscribers','sfs-hr'); ?></label>
-            <label style="margin-left:10px;"><input type="checkbox" name="role_filter[]" value="administrator" /> <?php echo esc_html__('Include Administrators','sfs-hr'); ?></label>
-            <?php submit_button(__('Run Sync','sfs-hr'),'secondary','',false); ?>
-          </form>
+            <!-- Advanced Actions (collapsible) -->
+            <div class="sfs-hr-toolbar-row sfs-hr-advanced-section" id="sfs-hr-advanced-section" style="display:none;">
+              <div class="sfs-hr-toolbar-group">
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline-flex;">
+                  <input type="hidden" name="action" value="sfs_hr_export_employees" />
+                  <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce_export); ?>" />
+                  <?php submit_button(__('Export CSV','sfs-hr'),'secondary','',false); ?>
+                </form>
 
-          <h2><?php echo esc_html__('Employees List','sfs-hr'); ?></h2>
-          <table class="widefat striped">
-            <thead><tr>
-              <th class="hide-mobile"><?php esc_html_e('ID','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Code','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Name','sfs-hr'); ?></th>
-              <th class="hide-mobile"><?php esc_html_e('Email','sfs-hr'); ?></th>
-              <th class="hide-mobile"><?php esc_html_e('Department','sfs-hr'); ?></th>
-              <th class="hide-mobile"><?php esc_html_e('Position','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Status','sfs-hr'); ?></th>
-              <th class="hide-mobile"><?php esc_html_e('WP User','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Actions','sfs-hr'); ?></th>
-            </tr></thead>
-            <tbody>
-            <?php if (empty($rows)): ?>
-              <tr><td colspan="9"><?php esc_html_e('No employees found.','sfs-hr'); ?></td></tr>
-            <?php else:
-              foreach ($rows as $r):
-                $name     = trim(($r['first_name']??'').' '.($r['last_name']??''));
-                $status   = $r['status'];
-                $edit_url = wp_nonce_url( admin_url('admin.php?page=sfs-hr-employees&action=edit&id='.(int)$r['id']), 'sfs_hr_edit_'.(int)$r['id'] );
-                $term_url = wp_nonce_url( admin_url('admin-post.php?action=sfs_hr_terminate_employee&id='.(int)$r['id']), 'sfs_hr_term_'.(int)$r['id'] );
-                $del_url  = wp_nonce_url( admin_url('admin-post.php?action=sfs_hr_delete_employee&id='.(int)$r['id']), 'sfs_hr_del_'.(int)$r['id'] );
-                $dept_name = empty($r['dept_id']) ? __('General','sfs-hr') : ($dept_map[(int)$r['dept_id']] ?? '#'.(int)$r['dept_id']);
-            ?>
-              <tr>
-                <td class="hide-mobile"><?php echo (int)$r['id']; ?></td>
-                <td><code><?php echo esc_html($r['employee_code']); ?></code></td>
-                <td><?php echo esc_html($name); ?></td>
-                <td class="hide-mobile"><?php echo esc_html($r['email']); ?></td>
-                <td class="hide-mobile"><?php echo esc_html($dept_name); ?></td>
-                <td class="hide-mobile"><?php echo esc_html($r['position']); ?></td>
-                <td><span class="sfs-hr-badge status-<?php echo esc_attr($status); ?>"><?php echo esc_html(ucfirst($status)); ?></span></td>
-                <td class="hide-mobile"><?php echo $r['user_id'] ? '<code>'.(int)$r['user_id'].'</code>' : '&ndash;'; ?></td>
-                <td>
-                  <div class="sfs-hr-actions">
-                    <a class="button button-small" href="<?php echo esc_url($edit_url); ?>"><?php esc_html_e('Edit','sfs-hr'); ?></a>
-                    <a class="button button-small" href="<?php echo esc_url($term_url); ?>" onclick="return confirm('Terminate this employee?');"><?php esc_html_e('Terminate','sfs-hr'); ?></a>
-                    <a class="button button-small button-danger" href="<?php echo esc_url($del_url); ?>" onclick="return confirm('Delete permanently? This cannot be undone.');"><?php esc_html_e('Delete','sfs-hr'); ?></a>
-                  </div>
-                </td>
-              </tr>
-            <?php endforeach; endif; ?>
-            </tbody>
-          </table>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" enctype="multipart/form-data" style="display:inline-flex; align-items:center; gap:8px;">
+                  <input type="hidden" name="action" value="sfs_hr_import_employees" />
+                  <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce_import); ?>" />
+                  <input type="file" name="csv" accept=".csv" required style="max-width:200px;" />
+                  <?php submit_button(__('Import','sfs-hr'),'secondary','',false); ?>
+                </form>
+              </div>
 
-          <div style="margin:10px 0;">
+              <div class="sfs-hr-toolbar-divider"></div>
+
+              <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="sfs-hr-toolbar-group">
+                <input type="hidden" name="action" value="sfs_hr_sync_users" />
+                <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce_sync); ?>" />
+                <label><input type="checkbox" name="role_filter[]" value="subscriber" checked /> <?php echo esc_html__('Subscribers','sfs-hr'); ?></label>
+                <label><input type="checkbox" name="role_filter[]" value="administrator" /> <?php echo esc_html__('Administrators','sfs-hr'); ?></label>
+                <?php submit_button(__('Sync Users','sfs-hr'),'secondary','',false); ?>
+              </form>
+            </div>
+          </div>
+
+          <script>
+          function sfsHrToggleAdvanced() {
+            var section = document.getElementById('sfs-hr-advanced-section');
+            var btn = document.querySelector('.sfs-hr-advanced-toggle');
+            if (section.style.display === 'none') {
+              section.style.display = 'flex';
+              btn.classList.add('active');
+            } else {
+              section.style.display = 'none';
+              btn.classList.remove('active');
+            }
+          }
+          </script>
+
+          <h2><?php echo esc_html__('Employees List','sfs-hr'); ?> <span style="font-weight:normal; font-size:14px; color:#50575e;">(<?php echo (int)$total; ?> <?php esc_html_e('total','sfs-hr'); ?>)</span></h2>
+
+          <div class="sfs-hr-emp-table">
+            <table class="widefat striped">
+              <thead><tr>
+                <th class="hide-mobile"><?php esc_html_e('ID','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Code','sfs-hr'); ?></th>
+                <th><?php esc_html_e('Name','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Email','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Department','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Position','sfs-hr'); ?></th>
+                <th><?php esc_html_e('Status','sfs-hr'); ?></th>
+                <th><?php esc_html_e('Actions','sfs-hr'); ?></th>
+              </tr></thead>
+              <tbody>
+              <?php if (empty($rows)): ?>
+                <tr><td colspan="8"><?php esc_html_e('No employees found.','sfs-hr'); ?></td></tr>
+              <?php else:
+                foreach ($rows as $r):
+                  $name     = trim(($r['first_name']??'').' '.($r['last_name']??''));
+                  $status   = $r['status'];
+                  $edit_url = wp_nonce_url( admin_url('admin.php?page=sfs-hr-employees&action=edit&id='.(int)$r['id']), 'sfs_hr_edit_'.(int)$r['id'] );
+                  $del_url  = wp_nonce_url( admin_url('admin-post.php?action=sfs_hr_delete_employee&id='.(int)$r['id']), 'sfs_hr_del_'.(int)$r['id'] );
+                  $dept_name = empty($r['dept_id']) ? __('General','sfs-hr') : ($dept_map[(int)$r['dept_id']] ?? '#'.(int)$r['dept_id']);
+              ?>
+                <tr>
+                  <td class="hide-mobile"><?php echo (int)$r['id']; ?></td>
+                  <td class="hide-mobile"><span class="emp-code"><?php echo esc_html($r['employee_code']); ?></span></td>
+                  <td><span class="emp-name"><?php echo esc_html($name ?: $r['employee_code']); ?></span></td>
+                  <td class="hide-mobile"><?php echo esc_html($r['email']); ?></td>
+                  <td class="hide-mobile"><?php echo esc_html($dept_name); ?></td>
+                  <td class="hide-mobile"><?php echo esc_html($r['position']); ?></td>
+                  <td><span class="sfs-hr-badge status-<?php echo esc_attr($status); ?>"><?php echo esc_html(ucfirst($status)); ?></span></td>
+                  <td>
+                    <!-- Desktop action buttons -->
+                    <div class="sfs-hr-actions">
+                      <a class="button button-small" href="<?php echo esc_url($edit_url); ?>"><?php esc_html_e('Edit','sfs-hr'); ?></a>
+                      <a class="button button-small button-danger" href="<?php echo esc_url($del_url); ?>" onclick="return confirm('<?php echo esc_js(__('Delete permanently? This cannot be undone.', 'sfs-hr')); ?>');"><?php esc_html_e('Delete','sfs-hr'); ?></a>
+                    </div>
+                    <!-- Mobile action button (vertical dots) -->
+                    <button type="button" class="sfs-hr-action-mobile-btn" onclick="sfsHrOpenModal('<?php echo esc_js($name ?: $r['employee_code']); ?>', '<?php echo esc_js($edit_url); ?>', '<?php echo esc_js($del_url); ?>')">
+                      <span></span>
+                    </button>
+                  </td>
+                </tr>
+              <?php endforeach; endif; ?>
+              </tbody>
+            </table>
+          </div>
+
+          <?php if ($pages > 1): ?>
+          <div class="sfs-hr-pagination">
             <?php for($i=1;$i<=$pages;$i++): ?>
               <?php if ($i === $page): ?>
-                <span class="tablenav-pages-navspan" style="margin-right:6px;"><?php echo (int)$i; ?></span>
+                <span class="current-page"><?php echo (int)$i; ?></span>
               <?php else: ?>
-                <a href="<?php echo esc_url( add_query_arg(['paged'=>$i,'per_page'=>$per_page,'s'=>$q], admin_url('admin.php?page=sfs-hr-employees')) ); ?>" style="margin-right:6px;"><?php echo (int)$i; ?></a>
+                <a href="<?php echo esc_url( add_query_arg(['paged'=>$i,'per_page'=>$per_page,'s'=>$q], admin_url('admin.php?page=sfs-hr-employees')) ); ?>"><?php echo (int)$i; ?></a>
               <?php endif; ?>
             <?php endfor; ?>
           </div>
+          <?php endif; ?>
 
                     <hr/>
           <h2><?php esc_html_e('Add Employee','sfs-hr'); ?></h2>
@@ -1095,7 +2569,13 @@ echo '</a>';
 
                   <div class="sfs-hr-field">
                     <label for="sfs-hr-marital-status"><?php esc_html_e( 'Marital Status', 'sfs-hr' ); ?></label>
-                    <input id="sfs-hr-marital-status" name="marital_status" class="regular-text" />
+                    <select id="sfs-hr-marital-status" name="marital_status">
+                      <option value=""><?php esc_html_e( '— Select —', 'sfs-hr' ); ?></option>
+                      <option value="single"><?php esc_html_e( 'Single', 'sfs-hr' ); ?></option>
+                      <option value="married"><?php esc_html_e( 'Married', 'sfs-hr' ); ?></option>
+                      <option value="divorced"><?php esc_html_e( 'Divorced', 'sfs-hr' ); ?></option>
+                      <option value="widowed"><?php esc_html_e( 'Widowed', 'sfs-hr' ); ?></option>
+                    </select>
                   </div>
 
                   <div class="sfs-hr-field">
@@ -1459,6 +2939,20 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
                 $employee_id = (int) $wpdb->insert_id;
 
+        // Audit log: employee created
+        $employee_data = [
+            'employee_code' => $code,
+            'first_name' => $first,
+            'last_name' => $last,
+            'email' => $email,
+            'dept_id' => $dept,
+            'position' => $pos,
+            'gender' => $gender,
+            'hired_at' => $hired,
+            'base_salary' => $base,
+        ];
+        do_action( 'sfs_hr_employee_created', $employee_id, $employee_data );
+
                 // Base attendance shift mapping
         $map_table = $wpdb->prefix . 'sfs_hr_attendance_emp_shifts';
         $map_exists = (int) $wpdb->get_var(
@@ -1739,6 +3233,8 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         $payload = [
             'first_name'              => sanitize_text_field($data['first_name']              ?? ''),
             'last_name'               => sanitize_text_field($data['last_name']               ?? ''),
+            'first_name_ar'           => sanitize_text_field($data['first_name_ar']           ?? ''),
+            'last_name_ar'            => sanitize_text_field($data['last_name_ar']            ?? ''),
             'email'                   => sanitize_email($data['email']                        ?? ''),
             'phone'                   => sanitize_text_field($data['phone']                   ?? ''),
             'dept_id'                 => $dept_id,
@@ -1783,6 +3279,11 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         $payload['updated_at']             = Helpers::now_mysql();
 
         if ( $exists ) {
+            // Prevent setting status to 'terminated' if employee has future last_working_day
+            if ( $status === 'terminated' && !Helpers::can_terminate_employee($exists) ) {
+                // Keep existing status instead of terminating early
+                unset($payload['status']);
+            }
             $wpdb->update($table, $payload, ['id'=>$exists]);
             $employee_id = $exists;
             $updated++;
@@ -1817,6 +3318,15 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         check_admin_referer('sfs_hr_term_'.$id);
         if ($id<=0) wp_safe_redirect( admin_url('admin.php?page=sfs-hr-employees&err=id') );
 
+        // Check if employee can be terminated (last_working_day must have passed)
+        if (!Helpers::can_terminate_employee($id)) {
+            Helpers::redirect_with_notice(
+                admin_url('admin.php?page=sfs-hr-employees'),
+                'error',
+                __('Cannot terminate: employee has an approved resignation with a future last working day.', 'sfs-hr')
+            );
+        }
+
         global $wpdb; $table = $wpdb->prefix.'sfs_hr_employees';
         $wpdb->update($table, ['status'=>'terminated','updated_at'=>Helpers::now_mysql()], ['id'=>$id]);
         wp_safe_redirect( admin_url('admin.php?page=sfs-hr-employees&ok=terminated') ); exit;
@@ -1834,8 +3344,18 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         if ($has>0){
             wp_safe_redirect( admin_url('admin.php?page=sfs-hr-employees&err=hasloans') ); exit;
         }
+
+        // Get employee data before deletion for audit log
         $emp_table = $wpdb->prefix.'sfs_hr_employees';
+        $employee = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$emp_table} WHERE id = %d", $id ), ARRAY_A );
+
         $wpdb->delete($emp_table, ['id'=>$id]);
+
+        // Audit log: employee deleted
+        if ( $employee ) {
+            do_action( 'sfs_hr_employee_deleted', $id, $employee );
+        }
+
         wp_safe_redirect( admin_url('admin.php?page=sfs-hr-employees&ok=deleted') ); exit;
     }
 
@@ -1978,6 +3498,8 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                         $render_input_row( 'employee_code', __( 'Employee Code', 'sfs-hr' ) );
                         $render_input_row( 'first_name', __( 'First Name', 'sfs-hr' ) );
                         $render_input_row( 'last_name', __( 'Last Name', 'sfs-hr' ) );
+                        $render_input_row( 'first_name_ar', __( 'First Name (Arabic)', 'sfs-hr' ) );
+                        $render_input_row( 'last_name_ar', __( 'Last Name (Arabic)', 'sfs-hr' ) );
                         $render_input_row( 'email', __( 'Email', 'sfs-hr' ) );
                         $render_input_row( 'phone', __( 'Phone', 'sfs-hr' ) );
                         ?>
@@ -1994,7 +3516,21 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                         </tr>
                         <?php
                         $render_input_row( 'nationality', __( 'Nationality', 'sfs-hr' ) );
-                        $render_input_row( 'marital_status', __( 'Marital Status', 'sfs-hr' ) );
+                        ?>
+                        <tr>
+                            <th><?php esc_html_e( 'Marital Status', 'sfs-hr' ); ?></th>
+                            <td>
+                                <?php $ms = strtolower( (string) ( $emp['marital_status'] ?? '' ) ); ?>
+                                <select name="marital_status">
+                                    <option value=""><?php esc_html_e( '— Select —', 'sfs-hr' ); ?></option>
+                                    <option value="single"   <?php selected( $ms === 'single' ); ?>><?php esc_html_e( 'Single', 'sfs-hr' ); ?></option>
+                                    <option value="married"  <?php selected( $ms === 'married' ); ?>><?php esc_html_e( 'Married', 'sfs-hr' ); ?></option>
+                                    <option value="divorced" <?php selected( $ms === 'divorced' ); ?>><?php esc_html_e( 'Divorced', 'sfs-hr' ); ?></option>
+                                    <option value="widowed"  <?php selected( $ms === 'widowed' ); ?>><?php esc_html_e( 'Widowed', 'sfs-hr' ); ?></option>
+                                </select>
+                            </td>
+                        </tr>
+                        <?php
                         $render_input_row( 'date_of_birth', __( 'Date of Birth', 'sfs-hr' ) );
                         $render_input_row( 'work_location', __( 'Work Location', 'sfs-hr' ) );
                         ?>
@@ -2209,11 +3745,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                                         alt="QR" width="220" height="220"
                                         referrerpolicy="no-referrer"
                                         style="border:1px solid #c3c4c7;border-radius:6px;background:#fff;"/>
-                                    <p style="margin-top:8px;">
-                                        <code style="user-select:all;"><?php echo esc_html( $qr_url_raw ); ?></code>
-                                    </p>
-                                    <!-- New: Download QR Card button -->
-    <p style="margin-top:8px;">
+                                    <p style="margin-top:12px;">
         <a class="button button-secondary" href="<?php
             echo esc_url(
                 wp_nonce_url(
@@ -2376,7 +3908,27 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
     global $wpdb;
     $table = $wpdb->prefix.'sfs_hr_employees';
+
+    // Get old data for audit log before update
+    $old_data = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $id ), ARRAY_A );
+
+    // Prevent setting status to 'terminated' if employee has future last_working_day
+    if ( isset($payload['status']) && $payload['status'] === 'terminated' ) {
+        if ( $old_data && ($old_data['status'] ?? '') !== 'terminated' && !Helpers::can_terminate_employee($id) ) {
+            Helpers::redirect_with_notice(
+                admin_url('admin.php?page=sfs-hr-employees&action=edit&id=' . $id),
+                'error',
+                __('Cannot terminate: employee has an approved resignation with a future last working day.', 'sfs-hr')
+            );
+        }
+    }
+
     $wpdb->update($table, $payload, ['id'=>$id]);
+
+    // Audit log: employee updated
+    if ( $old_data ) {
+        do_action( 'sfs_hr_employee_updated', $id, $old_data, $payload );
+    }
            // Attendance default shift mapping (optional change from edit screen)
     $shift_id_in = isset( $_POST['attendance_shift_id'] ) ? (int) $_POST['attendance_shift_id'] : 0;
     $shift_id    = $this->validate_shift_id( $shift_id_in );
@@ -2713,23 +4265,20 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         $dept_ids = array_values(array_unique(array_map('intval', $dept_ids)));
         $in = implode(',', $dept_ids);
 
-        $where  = "dept_id IN ($in)";
+        $where  = "dept_id IN ($in) AND status != 'terminated'";
         $params = [];
 
         if ($q !== '') {
             $like   = '%' . $wpdb->esc_like($q) . '%';
             $where .= " AND (employee_code LIKE %s OR first_name LIKE %s OR last_name LIKE %s OR email LIKE %s)";
-            $params = [$like,$like,$ike,$like]; // typo fix below
+            $params = [$like,$like,$like,$like];
         }
-
-        // fix minor typo from the line above:
-        if (!empty($params) && count($params)===3) { $params = [$params[0],$params[1],$params[1],$params[2]]; }
 
         $total_sql = "SELECT COUNT(*) FROM {$table} WHERE {$where}";
         $total = (int)($params ? $wpdb->get_var($wpdb->prepare($total_sql, ...$params)) : $wpdb->get_var($total_sql));
 
         $offset = max(0, ($page-1)*$per_page);
-        $rows_sql = "SELECT * FROM {$table} WHERE {$where} ORDER BY id DESC LIMIT %d OFFSET %d";
+        $rows_sql = "SELECT * FROM {$table} WHERE {$where} ORDER BY first_name ASC, last_name ASC LIMIT %d OFFSET %d";
         $rows = $params
             ? $wpdb->get_results($wpdb->prepare($rows_sql, ...array_merge($params, [$per_page, $offset])), ARRAY_A)
             : $wpdb->get_results($wpdb->prepare($rows_sql, $per_page, $offset), ARRAY_A);
@@ -2739,14 +4288,14 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
     public function render_my_team(): void {
         Helpers::require_cap('sfs_hr.leave.review');
-echo '<div class="wrap sfs-hr-wrap">';
-    echo '<h1 class="wp-heading-inline">' . esc_html__( 'Employees', 'sfs-hr' ) . '</h1>';
-    Helpers::render_admin_nav();
-    echo '<hr class="wp-header-end" />';
-    
+        echo '<div class="wrap sfs-hr-wrap">';
+        echo '<h1 class="wp-heading-inline">' . esc_html__( 'Employees', 'sfs-hr' ) . '</h1>';
+        Helpers::render_admin_nav();
+        echo '<hr class="wp-header-end" />';
+
         $dept_ids = $this->manager_dept_ids();
         if (!$dept_ids) {
-            echo '<div class="wrap"><h1>'.esc_html__('My Team','sfs-hr').'</h1>';
+            echo '<h2>'.esc_html__('My Team','sfs-hr').'</h2>';
             echo '<p>'.esc_html__('No managed departments found for your account.','sfs-hr').'</p></div>';
             return;
         }
@@ -2761,9 +4310,311 @@ echo '<div class="wrap sfs-hr-wrap">';
         $dept_map = $this->departments_map();
 
         ?>
-        <div class="wrap">
-          <h1><?php echo esc_html__('My Team','sfs-hr'); ?></h1>
-          <form method="get" style="margin:10px 0;">
+        <style>
+          /* My Team Styles */
+          .sfs-hr-team-toolbar {
+            background: #fff;
+            border: 1px solid #dcdcde;
+            border-radius: 6px;
+            padding: 16px;
+            margin: 16px 0;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+          }
+          .sfs-hr-team-toolbar input[type="search"] {
+            min-width: 250px;
+            height: 36px;
+            padding: 0 12px;
+            border-radius: 4px;
+          }
+          .sfs-hr-team-toolbar select {
+            height: 36px;
+            border-radius: 4px;
+          }
+          .sfs-hr-team-table {
+            background: #fff;
+            border: 1px solid #dcdcde;
+            border-radius: 6px;
+            margin-top: 16px;
+          }
+          .sfs-hr-team-table .widefat {
+            border: none;
+            border-radius: 6px;
+            margin: 0;
+          }
+          .sfs-hr-team-table .widefat th {
+            background: #f8f9fa;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #50575e;
+            padding: 12px 16px;
+          }
+          .sfs-hr-team-table .widefat td {
+            padding: 12px 16px;
+            vertical-align: middle;
+          }
+          .sfs-hr-team-table .widefat tbody tr:hover {
+            background: #f8f9fa;
+          }
+          .sfs-hr-team-table .emp-name {
+            font-weight: 500;
+            color: #1d2327;
+          }
+          .sfs-hr-team-table .emp-code {
+            font-family: monospace;
+            font-size: 12px;
+            background: #f0f0f1;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #50575e;
+          }
+
+          /* Mobile details button (vertical dots) */
+          .sfs-hr-details-btn {
+            display: inline-flex;
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            background: #fff;
+            border: 1px solid #d1d5db;
+            cursor: pointer;
+            padding: 0;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: all 0.15s ease;
+          }
+          .sfs-hr-details-btn::before,
+          .sfs-hr-details-btn::after,
+          .sfs-hr-details-btn span {
+            content: '';
+            display: block;
+            width: 5px;
+            height: 5px;
+            background: #2563eb;
+            border-radius: 50%;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+          }
+          .sfs-hr-details-btn::before {
+            top: 11px;
+          }
+          .sfs-hr-details-btn span {
+            top: 50%;
+            transform: translate(-50%, -50%);
+          }
+          .sfs-hr-details-btn::after {
+            bottom: 11px;
+          }
+          .sfs-hr-details-btn:hover {
+            background: #f9fafb;
+            border-color: #9ca3af;
+          }
+          .sfs-hr-details-btn:active {
+            transform: scale(0.95);
+          }
+
+          /* Details Modal */
+          .sfs-hr-details-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 100000;
+            background: rgba(0,0,0,0.5);
+            align-items: flex-end;
+            justify-content: center;
+          }
+          .sfs-hr-details-modal.active {
+            display: flex;
+          }
+          .sfs-hr-details-modal-content {
+            background: #fff;
+            width: 100%;
+            max-width: 400px;
+            border-radius: 16px 16px 0 0;
+            padding: 20px;
+            animation: sfsSlideUp 0.2s ease-out;
+            max-height: 80vh;
+            overflow-y: auto;
+          }
+          @keyframes sfsSlideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+          }
+          .sfs-hr-details-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e5e5e5;
+          }
+          .sfs-hr-details-modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1d2327;
+            margin: 0;
+          }
+          .sfs-hr-details-modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #50575e;
+            padding: 0;
+            line-height: 1;
+          }
+          .sfs-hr-details-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+          }
+          .sfs-hr-details-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f1;
+          }
+          .sfs-hr-details-list li:last-child {
+            border-bottom: none;
+          }
+          .sfs-hr-details-label {
+            font-weight: 500;
+            color: #50575e;
+            font-size: 13px;
+          }
+          .sfs-hr-details-value {
+            color: #1d2327;
+            font-size: 13px;
+            text-align: right;
+          }
+
+          /* Pagination */
+          .sfs-hr-team-pagination {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 16px;
+            background: #fff;
+            border: 1px solid #dcdcde;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            flex-wrap: wrap;
+          }
+          .sfs-hr-team-pagination a,
+          .sfs-hr-team-pagination span {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 32px;
+            height: 32px;
+            padding: 0 10px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 13px;
+          }
+          .sfs-hr-team-pagination a {
+            background: #f0f0f1;
+            color: #50575e;
+          }
+          .sfs-hr-team-pagination a:hover {
+            background: #dcdcde;
+          }
+          .sfs-hr-team-pagination .current-page {
+            background: #2271b1;
+            color: #fff;
+            font-weight: 600;
+          }
+
+          /* Mobile responsive */
+          @media (max-width: 782px) {
+            .sfs-hr-team-toolbar {
+              flex-direction: column;
+              align-items: stretch;
+              padding: 12px;
+            }
+            .sfs-hr-team-toolbar input[type="search"] {
+              width: 100%;
+              min-width: auto;
+            }
+            .sfs-hr-team-toolbar select {
+              width: 100%;
+            }
+            .sfs-hr-team-toolbar .button {
+              width: 100%;
+              text-align: center;
+            }
+
+            /* Hide columns on mobile - only show Name and Details button */
+            .sfs-hr-team-table .widefat thead th.hide-mobile,
+            .sfs-hr-team-table .widefat tbody td.hide-mobile {
+              display: none !important;
+            }
+
+            .sfs-hr-team-table .widefat th,
+            .sfs-hr-team-table .widefat td {
+              padding: 10px 12px;
+            }
+
+            /* Show details button on mobile */
+            .sfs-hr-details-btn {
+              display: inline-flex;
+            }
+
+            .sfs-hr-team-pagination {
+              justify-content: center;
+            }
+          }
+        </style>
+
+        <!-- Details Modal -->
+        <div class="sfs-hr-details-modal" id="sfs-hr-details-modal">
+          <div class="sfs-hr-details-modal-content">
+            <div class="sfs-hr-details-modal-header">
+              <h3 class="sfs-hr-details-modal-title" id="sfs-hr-details-name">Employee Details</h3>
+              <button type="button" class="sfs-hr-details-modal-close" onclick="sfsHrCloseDetailsModal()">&times;</button>
+            </div>
+            <ul class="sfs-hr-details-list">
+              <li><span class="sfs-hr-details-label">Code</span><span class="sfs-hr-details-value" id="sfs-hr-details-code"></span></li>
+              <li><span class="sfs-hr-details-label">Email</span><span class="sfs-hr-details-value" id="sfs-hr-details-email"></span></li>
+              <li><span class="sfs-hr-details-label">Department</span><span class="sfs-hr-details-value" id="sfs-hr-details-dept"></span></li>
+              <li><span class="sfs-hr-details-label">Position</span><span class="sfs-hr-details-value" id="sfs-hr-details-position"></span></li>
+              <li><span class="sfs-hr-details-label">Status</span><span class="sfs-hr-details-value" id="sfs-hr-details-status"></span></li>
+            </ul>
+          </div>
+        </div>
+
+        <script>
+        function sfsHrOpenDetailsModal(name, code, email, dept, position, status) {
+          document.getElementById('sfs-hr-details-name').textContent = name || 'Employee Details';
+          document.getElementById('sfs-hr-details-code').textContent = code;
+          document.getElementById('sfs-hr-details-email').textContent = email || '-';
+          document.getElementById('sfs-hr-details-dept').textContent = dept;
+          document.getElementById('sfs-hr-details-position').textContent = position || '-';
+          document.getElementById('sfs-hr-details-status').textContent = status;
+          document.getElementById('sfs-hr-details-modal').classList.add('active');
+          document.body.style.overflow = 'hidden';
+        }
+        function sfsHrCloseDetailsModal() {
+          document.getElementById('sfs-hr-details-modal').classList.remove('active');
+          document.body.style.overflow = '';
+        }
+        document.getElementById('sfs-hr-details-modal').addEventListener('click', function(e) {
+          if (e.target === this) sfsHrCloseDetailsModal();
+        });
+        </script>
+
+          <h2><?php echo esc_html__('My Team','sfs-hr'); ?> <span style="font-weight:normal; font-size:14px; color:#50575e;">(<?php echo (int)$total; ?> <?php esc_html_e('members','sfs-hr'); ?>)</span></h2>
+
+          <form method="get" class="sfs-hr-team-toolbar">
             <input type="hidden" name="page" value="sfs-hr-my-team" />
             <input type="search" name="s" value="<?php echo esc_attr($q); ?>" placeholder="<?php echo esc_attr__('Search name/email/code','sfs-hr'); ?>"/>
             <select name="per_page">
@@ -2771,55 +4622,1019 @@ echo '<div class="wrap sfs-hr-wrap">';
                 <option value="<?php echo (int)$pp; ?>" <?php selected($per_page,$pp); ?>><?php echo (int)$pp; ?>/page</option>
               <?php endforeach; ?>
             </select>
-            <?php submit_button(__('Filter','sfs-hr'),'secondary','',false); ?>
+            <?php submit_button(__('Search','sfs-hr'),'primary','',false); ?>
           </form>
 
-          <table class="widefat striped">
-            <thead><tr>
-              <th><?php esc_html_e('ID','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Code','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Name','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Email','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Department','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Position','sfs-hr'); ?></th>
-              <th><?php esc_html_e('Status','sfs-hr'); ?></th>
-              <th><?php esc_html_e('WP User','sfs-hr'); ?></th>
-            </tr></thead>
-            <tbody>
-            <?php if (empty($rows)): ?>
-              <tr><td colspan="8"><?php esc_html_e('No employees in your departments.','sfs-hr'); ?></td></tr>
-            <?php else:
-              foreach ($rows as $r):
-                $name     = trim(($r['first_name']??'').' '.($r['last_name']??''));
-                $status   = $r['status'];
-                $dept_name = empty($r['dept_id'])
-                    ? __('General','sfs-hr')
-                    : ($dept_map[(int)$r['dept_id']] ?? ('#'.(int)$r['dept_id']));
-            ?>
-              <tr>
-                <td><?php echo (int)$r['id']; ?></td>
-                <td><code><?php echo esc_html($r['employee_code']); ?></code></td>
-                <td><?php echo esc_html($name); ?></td>
-                <td><?php echo esc_html($r['email']); ?></td>
-                <td><?php echo esc_html($dept_name); ?></td>
-                <td><?php echo esc_html($r['position']); ?></td>
-                <td><span class="sfs-hr-badge status-<?php echo esc_attr($status); ?>"><?php echo esc_html(ucfirst($status)); ?></span></td>
-                <td><?php echo $r['user_id'] ? '<code>'.(int)$r['user_id'].'</code>' : '&ndash;'; ?></td>
-              </tr>
-            <?php endforeach; endif; ?>
-            </tbody>
-          </table>
+          <div class="sfs-hr-team-table">
+            <table class="widefat striped">
+              <thead><tr>
+                <th class="hide-mobile"><?php esc_html_e('ID','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Code','sfs-hr'); ?></th>
+                <th><?php esc_html_e('Name','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Email','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Department','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Position','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Status','sfs-hr'); ?></th>
+                <th style="width:50px;"></th>
+              </tr></thead>
+              <tbody>
+              <?php if (empty($rows)): ?>
+                <tr><td colspan="8"><?php esc_html_e('No employees in your departments.','sfs-hr'); ?></td></tr>
+              <?php else:
+                foreach ($rows as $r):
+                  $name     = trim(($r['first_name']??'').' '.($r['last_name']??''));
+                  $status   = $r['status'];
+                  $dept_name = empty($r['dept_id'])
+                      ? __('General','sfs-hr')
+                      : ($dept_map[(int)$r['dept_id']] ?? ('#'.(int)$r['dept_id']));
+              ?>
+                <tr>
+                  <td class="hide-mobile"><?php echo (int)$r['id']; ?></td>
+                  <td class="hide-mobile"><span class="emp-code"><?php echo esc_html($r['employee_code']); ?></span></td>
+                  <td><span class="emp-name"><?php echo esc_html($name ?: $r['employee_code']); ?></span></td>
+                  <td class="hide-mobile"><?php echo esc_html($r['email']); ?></td>
+                  <td class="hide-mobile"><?php echo esc_html($dept_name); ?></td>
+                  <td class="hide-mobile"><?php echo esc_html($r['position']); ?></td>
+                  <td class="hide-mobile"><span class="sfs-hr-badge status-<?php echo esc_attr($status); ?>"><?php echo esc_html(ucfirst($status)); ?></span></td>
+                  <td>
+                    <button type="button" class="sfs-hr-details-btn" onclick="sfsHrOpenDetailsModal('<?php echo esc_js($name ?: $r['employee_code']); ?>', '<?php echo esc_js($r['employee_code']); ?>', '<?php echo esc_js($r['email']); ?>', '<?php echo esc_js($dept_name); ?>', '<?php echo esc_js($r['position']); ?>', '<?php echo esc_js(ucfirst($status)); ?>')">
+                      <span></span>
+                    </button>
+                  </td>
+                </tr>
+              <?php endforeach; endif; ?>
+              </tbody>
+            </table>
+          </div>
 
-          <div style="margin:10px 0;">
+          <?php if ($pages > 1): ?>
+          <div class="sfs-hr-team-pagination">
             <?php for($i=1;$i<=$pages;$i++): ?>
               <?php if ($i === $page): ?>
-                <span class="tablenav-pages-navspan" style="margin-right:6px;"><?php echo (int)$i; ?></span>
+                <span class="current-page"><?php echo (int)$i; ?></span>
               <?php else: ?>
-                <a href="<?php echo esc_url( add_query_arg(['paged'=>$i,'per_page'=>$per_page,'s'=>$q], admin_url('admin.php?page=sfs-hr-my-team')) ); ?>" style="margin-right:6px;"><?php echo (int)$i; ?></a>
+                <a href="<?php echo esc_url( add_query_arg(['paged'=>$i,'per_page'=>$per_page,'s'=>$q], admin_url('admin.php?page=sfs-hr-my-team')) ); ?>"><?php echo (int)$i; ?></a>
               <?php endif; ?>
             <?php endfor; ?>
           </div>
+          <?php endif; ?>
         </div>
         <?php
+    }
+    /**
+     * Render Reports page - Custom Report Builder
+     */
+    public function render_reports(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'Permission denied', 'sfs-hr' ) );
+        }
+
+        global $wpdb;
+
+        // Get departments for filter
+        $dept_table = $wpdb->prefix . 'sfs_hr_departments';
+        $departments = $wpdb->get_results( "SELECT id, name FROM {$dept_table} WHERE active = 1 ORDER BY name ASC" );
+
+        // Handle report generation
+        $report_data = [];
+        $report_type = '';
+        $generated = false;
+
+        if ( isset( $_GET['generate'] ) && wp_verify_nonce( $_GET['_wpnonce'] ?? '', 'sfs_hr_generate_report' ) ) {
+            $report_type = sanitize_key( $_GET['report_type'] ?? '' );
+            $date_from = sanitize_text_field( $_GET['date_from'] ?? '' );
+            $date_to = sanitize_text_field( $_GET['date_to'] ?? '' );
+            $dept_filter = intval( $_GET['dept'] ?? 0 );
+            $export_csv = ! empty( $_GET['export'] );
+
+            $report_data = $this->generate_report( $report_type, $date_from, $date_to, $dept_filter );
+            $generated = true;
+
+            if ( $export_csv && ! empty( $report_data['rows'] ) ) {
+                $this->export_report_csv( $report_type, $report_data );
+                return;
+            }
+        }
+
+        ?>
+        <div class="wrap sfs-hr-wrap">
+            <?php Helpers::render_admin_nav(); ?>
+
+            <h1><?php esc_html_e( 'Report Builder', 'sfs-hr' ); ?></h1>
+            <p class="description"><?php esc_html_e( 'Generate custom reports with filters and export to CSV.', 'sfs-hr' ); ?></p>
+
+            <div style="background:#fff; border:1px solid #dcdcde; border-radius:8px; padding:20px; margin:20px 0; max-width:800px;">
+                <form method="get" action="">
+                    <input type="hidden" name="page" value="sfs-hr-reports" />
+                    <input type="hidden" name="generate" value="1" />
+                    <?php wp_nonce_field( 'sfs_hr_generate_report', '_wpnonce', false ); ?>
+
+                    <table class="form-table" style="margin:0;">
+                        <tr>
+                            <th scope="row"><label for="report_type"><?php esc_html_e( 'Report Type', 'sfs-hr' ); ?></label></th>
+                            <td>
+                                <select name="report_type" id="report_type" required style="min-width:250px;">
+                                    <option value=""><?php esc_html_e( '— Select Report —', 'sfs-hr' ); ?></option>
+                                    <option value="attendance_summary" <?php selected( $report_type, 'attendance_summary' ); ?>><?php esc_html_e( 'Attendance Summary', 'sfs-hr' ); ?></option>
+                                    <option value="leave_report" <?php selected( $report_type, 'leave_report' ); ?>><?php esc_html_e( 'Leave Report', 'sfs-hr' ); ?></option>
+                                    <option value="employee_directory" <?php selected( $report_type, 'employee_directory' ); ?>><?php esc_html_e( 'Employee Directory', 'sfs-hr' ); ?></option>
+                                    <option value="headcount_by_dept" <?php selected( $report_type, 'headcount_by_dept' ); ?>><?php esc_html_e( 'Headcount by Department', 'sfs-hr' ); ?></option>
+                                    <option value="contract_expiry" <?php selected( $report_type, 'contract_expiry' ); ?>><?php esc_html_e( 'Contract Expiry Report', 'sfs-hr' ); ?></option>
+                                    <option value="tenure_report" <?php selected( $report_type, 'tenure_report' ); ?>><?php esc_html_e( 'Employee Tenure Report', 'sfs-hr' ); ?></option>
+                                    <option value="document_expiry" <?php selected( $report_type, 'document_expiry' ); ?>><?php esc_html_e( 'Document Expiry Report', 'sfs-hr' ); ?></option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><label><?php esc_html_e( 'Date Range', 'sfs-hr' ); ?></label></th>
+                            <td>
+                                <input type="date" name="date_from" value="<?php echo esc_attr( $_GET['date_from'] ?? date( 'Y-m-01' ) ); ?>" style="width:150px;" />
+                                <span style="margin:0 8px;"><?php esc_html_e( 'to', 'sfs-hr' ); ?></span>
+                                <input type="date" name="date_to" value="<?php echo esc_attr( $_GET['date_to'] ?? date( 'Y-m-d' ) ); ?>" style="width:150px;" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><label for="dept"><?php esc_html_e( 'Department', 'sfs-hr' ); ?></label></th>
+                            <td>
+                                <select name="dept" id="dept" style="min-width:250px;">
+                                    <option value="0"><?php esc_html_e( 'All Departments', 'sfs-hr' ); ?></option>
+                                    <?php foreach ( $departments as $d ): ?>
+                                        <option value="<?php echo intval( $d->id ); ?>" <?php selected( intval( $_GET['dept'] ?? 0 ), $d->id ); ?>><?php echo esc_html( $d->name ); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <div style="margin-top:20px; display:flex; gap:10px;">
+                        <button type="submit" class="button button-primary"><?php esc_html_e( 'Generate Report', 'sfs-hr' ); ?></button>
+                        <button type="submit" name="export" value="csv" class="button"><?php esc_html_e( 'Export CSV', 'sfs-hr' ); ?></button>
+                    </div>
+                </form>
+            </div>
+
+            <?php if ( $generated && ! empty( $report_data ) ): ?>
+            <div style="background:#fff; border:1px solid #dcdcde; border-radius:8px; padding:20px; margin:20px 0;">
+                <h2 style="margin-top:0;"><?php echo esc_html( $report_data['title'] ?? __( 'Report Results', 'sfs-hr' ) ); ?></h2>
+                <p class="description"><?php echo esc_html( $report_data['description'] ?? '' ); ?></p>
+
+                <?php if ( empty( $report_data['rows'] ) ): ?>
+                    <div class="notice notice-info" style="margin:15px 0;"><p><?php esc_html_e( 'No data found for the selected criteria.', 'sfs-hr' ); ?></p></div>
+                <?php else: ?>
+                    <p><strong><?php printf( esc_html__( 'Total Records: %d', 'sfs-hr' ), count( $report_data['rows'] ) ); ?></strong></p>
+
+                    <div style="overflow-x:auto;">
+                        <table class="wp-list-table widefat striped" style="margin-top:15px;">
+                            <thead>
+                                <tr>
+                                    <?php foreach ( $report_data['columns'] as $col ): ?>
+                                        <th><?php echo esc_html( $col ); ?></th>
+                                    <?php endforeach; ?>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ( $report_data['rows'] as $row ): ?>
+                                    <tr>
+                                        <?php foreach ( $row as $val ): ?>
+                                            <td><?php echo esc_html( $val ); ?></td>
+                                        <?php endforeach; ?>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+
+    /**
+     * Generate report data based on type and filters
+     */
+    private function generate_report( string $type, string $date_from, string $date_to, int $dept_id ): array {
+        global $wpdb;
+
+        $emp_t = $wpdb->prefix . 'sfs_hr_employees';
+        $dept_t = $wpdb->prefix . 'sfs_hr_departments';
+        $sessions_t = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+        $leave_t = $wpdb->prefix . 'sfs_hr_leave_requests';
+        $type_t = $wpdb->prefix . 'sfs_hr_leave_types';
+
+        $dept_where = $dept_id > 0 ? $wpdb->prepare( " AND e.dept_id = %d", $dept_id ) : '';
+
+        switch ( $type ) {
+            case 'attendance_summary':
+                $rows = $wpdb->get_results( $wpdb->prepare(
+                    "SELECT
+                        e.employee_code,
+                        CONCAT(e.first_name, ' ', e.last_name) AS name,
+                        d.name AS department,
+                        SUM(CASE WHEN s.status = 'present' THEN 1 ELSE 0 END) AS present_days,
+                        SUM(CASE WHEN s.status = 'late' THEN 1 ELSE 0 END) AS late_days,
+                        SUM(CASE WHEN s.status = 'absent' THEN 1 ELSE 0 END) AS absent_days,
+                        SUM(CASE WHEN s.status = 'on_leave' THEN 1 ELSE 0 END) AS leave_days,
+                        SUM(COALESCE(s.overtime_minutes, 0)) AS total_ot_minutes
+                     FROM {$emp_t} e
+                     LEFT JOIN {$dept_t} d ON d.id = e.dept_id
+                     LEFT JOIN {$sessions_t} s ON s.employee_id = e.id AND s.work_date BETWEEN %s AND %s
+                     WHERE e.status = 'active' {$dept_where}
+                     GROUP BY e.id
+                     ORDER BY d.name, e.first_name",
+                    $date_from, $date_to
+                ), ARRAY_A );
+
+                return [
+                    'title' => __( 'Attendance Summary Report', 'sfs-hr' ),
+                    'description' => sprintf( __( 'Period: %s to %s', 'sfs-hr' ), $date_from, $date_to ),
+                    'columns' => [ __('Code','sfs-hr'), __('Name','sfs-hr'), __('Department','sfs-hr'), __('Present','sfs-hr'), __('Late','sfs-hr'), __('Absent','sfs-hr'), __('Leave','sfs-hr'), __('OT Hours','sfs-hr') ],
+                    'rows' => array_map( function( $r ) {
+                        return [
+                            $r['employee_code'] ?? '',
+                            $r['name'] ?? '',
+                            $r['department'] ?? '',
+                            $r['present_days'] ?? 0,
+                            $r['late_days'] ?? 0,
+                            $r['absent_days'] ?? 0,
+                            $r['leave_days'] ?? 0,
+                            round( ( $r['total_ot_minutes'] ?? 0 ) / 60, 1 ),
+                        ];
+                    }, $rows ),
+                ];
+
+            case 'leave_report':
+                $rows = $wpdb->get_results( $wpdb->prepare(
+                    "SELECT
+                        e.employee_code,
+                        CONCAT(e.first_name, ' ', e.last_name) AS name,
+                        d.name AS department,
+                        t.name AS leave_type,
+                        r.start_date,
+                        r.end_date,
+                        r.days,
+                        r.status,
+                        r.reason
+                     FROM {$leave_t} r
+                     JOIN {$emp_t} e ON e.id = r.employee_id
+                     LEFT JOIN {$dept_t} d ON d.id = e.dept_id
+                     LEFT JOIN {$type_t} t ON t.id = r.type_id
+                     WHERE r.start_date <= %s AND r.end_date >= %s {$dept_where}
+                     ORDER BY r.start_date DESC",
+                    $date_to, $date_from
+                ), ARRAY_A );
+
+                return [
+                    'title' => __( 'Leave Report', 'sfs-hr' ),
+                    'description' => sprintf( __( 'Period: %s to %s', 'sfs-hr' ), $date_from, $date_to ),
+                    'columns' => [ __('Code','sfs-hr'), __('Name','sfs-hr'), __('Department','sfs-hr'), __('Type','sfs-hr'), __('From','sfs-hr'), __('To','sfs-hr'), __('Days','sfs-hr'), __('Status','sfs-hr') ],
+                    'rows' => array_map( function( $r ) {
+                        return [
+                            $r['employee_code'] ?? '',
+                            $r['name'] ?? '',
+                            $r['department'] ?? '',
+                            $r['leave_type'] ?? '',
+                            $r['start_date'] ?? '',
+                            $r['end_date'] ?? '',
+                            $r['days'] ?? 0,
+                            ucfirst( $r['status'] ?? '' ),
+                        ];
+                    }, $rows ),
+                ];
+
+            case 'employee_directory':
+                $rows = $wpdb->get_results(
+                    "SELECT
+                        e.employee_code,
+                        CONCAT(e.first_name, ' ', e.last_name) AS name,
+                        e.email,
+                        e.phone,
+                        d.name AS department,
+                        e.position,
+                        e.hired_at,
+                        e.status
+                     FROM {$emp_t} e
+                     LEFT JOIN {$dept_t} d ON d.id = e.dept_id
+                     WHERE 1=1 {$dept_where}
+                     ORDER BY d.name, e.first_name",
+                    ARRAY_A
+                );
+
+                return [
+                    'title' => __( 'Employee Directory', 'sfs-hr' ),
+                    'description' => __( 'Complete employee listing', 'sfs-hr' ),
+                    'columns' => [ __('Code','sfs-hr'), __('Name','sfs-hr'), __('Email','sfs-hr'), __('Phone','sfs-hr'), __('Department','sfs-hr'), __('Position','sfs-hr'), __('Hire Date','sfs-hr'), __('Status','sfs-hr') ],
+                    'rows' => array_map( function( $r ) {
+                        return [
+                            $r['employee_code'] ?? '',
+                            $r['name'] ?? '',
+                            $r['email'] ?? '',
+                            $r['phone'] ?? '',
+                            $r['department'] ?? '',
+                            $r['position'] ?? '',
+                            $r['hired_at'] ?? '',
+                            ucfirst( $r['status'] ?? '' ),
+                        ];
+                    }, $rows ),
+                ];
+
+            case 'headcount_by_dept':
+                $rows = $wpdb->get_results(
+                    "SELECT
+                        d.name AS department,
+                        COUNT(CASE WHEN e.status = 'active' THEN 1 END) AS active,
+                        COUNT(CASE WHEN e.status = 'inactive' THEN 1 END) AS inactive,
+                        COUNT(CASE WHEN e.status = 'terminated' THEN 1 END) AS terminated,
+                        COUNT(e.id) AS total
+                     FROM {$dept_t} d
+                     LEFT JOIN {$emp_t} e ON e.dept_id = d.id
+                     WHERE d.active = 1
+                     GROUP BY d.id
+                     ORDER BY d.name",
+                    ARRAY_A
+                );
+
+                return [
+                    'title' => __( 'Headcount by Department', 'sfs-hr' ),
+                    'description' => __( 'Employee count breakdown by department', 'sfs-hr' ),
+                    'columns' => [ __('Department','sfs-hr'), __('Active','sfs-hr'), __('Inactive','sfs-hr'), __('Terminated','sfs-hr'), __('Total','sfs-hr') ],
+                    'rows' => array_map( function( $r ) {
+                        return [ $r['department'] ?? '', $r['active'] ?? 0, $r['inactive'] ?? 0, $r['terminated'] ?? 0, $r['total'] ?? 0 ];
+                    }, $rows ),
+                ];
+
+            case 'contract_expiry':
+                $rows = $wpdb->get_results( $wpdb->prepare(
+                    "SELECT
+                        e.employee_code,
+                        CONCAT(e.first_name, ' ', e.last_name) AS name,
+                        d.name AS department,
+                        e.contract_type,
+                        e.contract_end_date,
+                        DATEDIFF(e.contract_end_date, CURDATE()) AS days_remaining
+                     FROM {$emp_t} e
+                     LEFT JOIN {$dept_t} d ON d.id = e.dept_id
+                     WHERE e.status = 'active'
+                       AND e.contract_end_date IS NOT NULL
+                       AND e.contract_end_date BETWEEN %s AND %s
+                       {$dept_where}
+                     ORDER BY e.contract_end_date ASC",
+                    $date_from, $date_to
+                ), ARRAY_A );
+
+                return [
+                    'title' => __( 'Contract Expiry Report', 'sfs-hr' ),
+                    'description' => sprintf( __( 'Contracts expiring between %s and %s', 'sfs-hr' ), $date_from, $date_to ),
+                    'columns' => [ __('Code','sfs-hr'), __('Name','sfs-hr'), __('Department','sfs-hr'), __('Contract Type','sfs-hr'), __('End Date','sfs-hr'), __('Days Left','sfs-hr') ],
+                    'rows' => array_map( function( $r ) {
+                        return [
+                            $r['employee_code'] ?? '',
+                            $r['name'] ?? '',
+                            $r['department'] ?? '',
+                            $r['contract_type'] ?? '',
+                            $r['contract_end_date'] ?? '',
+                            $r['days_remaining'] ?? '',
+                        ];
+                    }, $rows ),
+                ];
+
+            case 'tenure_report':
+                $rows = $wpdb->get_results(
+                    "SELECT
+                        e.employee_code,
+                        CONCAT(e.first_name, ' ', e.last_name) AS name,
+                        d.name AS department,
+                        e.hired_at,
+                        TIMESTAMPDIFF(YEAR, e.hired_at, CURDATE()) AS years,
+                        TIMESTAMPDIFF(MONTH, e.hired_at, CURDATE()) % 12 AS months
+                     FROM {$emp_t} e
+                     LEFT JOIN {$dept_t} d ON d.id = e.dept_id
+                     WHERE e.status = 'active' AND e.hired_at IS NOT NULL {$dept_where}
+                     ORDER BY e.hired_at ASC",
+                    ARRAY_A
+                );
+
+                return [
+                    'title' => __( 'Employee Tenure Report', 'sfs-hr' ),
+                    'description' => __( 'Employee service duration', 'sfs-hr' ),
+                    'columns' => [ __('Code','sfs-hr'), __('Name','sfs-hr'), __('Department','sfs-hr'), __('Hire Date','sfs-hr'), __('Tenure','sfs-hr') ],
+                    'rows' => array_map( function( $r ) {
+                        $tenure = sprintf( __( '%d years, %d months', 'sfs-hr' ), $r['years'] ?? 0, $r['months'] ?? 0 );
+                        return [
+                            $r['employee_code'] ?? '',
+                            $r['name'] ?? '',
+                            $r['department'] ?? '',
+                            $r['hired_at'] ?? '',
+                            $tenure,
+                        ];
+                    }, $rows ),
+                ];
+
+            case 'document_expiry':
+                $doc_t = $wpdb->prefix . 'sfs_hr_employee_documents';
+                $doc_exists = (bool) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
+                    $doc_t
+                ) );
+                if ( ! $doc_exists ) {
+                    return [
+                        'title' => __( 'Document Expiry Report', 'sfs-hr' ),
+                        'description' => __( 'Documents table not found.', 'sfs-hr' ),
+                        'columns' => [],
+                        'rows' => [],
+                    ];
+                }
+
+                $doc_types = \SFS\HR\Modules\Documents\DocumentsModule::get_document_types();
+
+                $rows = $wpdb->get_results(
+                    $wpdb->prepare(
+                        "SELECT
+                            doc.document_type,
+                            doc.document_name,
+                            doc.expiry_date,
+                            e.employee_code,
+                            CONCAT(e.first_name, ' ', e.last_name) AS emp_name,
+                            d.name AS department,
+                            DATEDIFF(doc.expiry_date, CURDATE()) AS days_until
+                         FROM {$doc_t} doc
+                         JOIN {$emp_t} e ON e.id = doc.employee_id
+                         LEFT JOIN {$dept_t} d ON d.id = e.dept_id
+                         WHERE doc.status = 'active'
+                           AND doc.expiry_date IS NOT NULL
+                           AND doc.expiry_date BETWEEN %s AND %s
+                           AND e.status = 'active' {$dept_where}
+                         ORDER BY doc.expiry_date ASC",
+                        $date_from,
+                        $date_to
+                    ),
+                    ARRAY_A
+                );
+
+                return [
+                    'title' => __( 'Document Expiry Report', 'sfs-hr' ),
+                    'description' => sprintf( __( 'Documents expiring between %s and %s', 'sfs-hr' ), $date_from, $date_to ),
+                    'columns' => [ __('Employee','sfs-hr'), __('Code','sfs-hr'), __('Department','sfs-hr'), __('Document Type','sfs-hr'), __('Document Name','sfs-hr'), __('Expiry Date','sfs-hr'), __('Status','sfs-hr') ],
+                    'rows' => array_map( function( $r ) use ( $doc_types ) {
+                        $days = (int)$r['days_until'];
+                        if ( $days < 0 ) {
+                            $status = __( 'EXPIRED', 'sfs-hr' );
+                        } elseif ( $days <= 7 ) {
+                            $status = sprintf( __( 'Expires in %d days', 'sfs-hr' ), $days );
+                        } elseif ( $days <= 30 ) {
+                            $status = sprintf( __( 'Expires in %d days', 'sfs-hr' ), $days );
+                        } else {
+                            $status = sprintf( __( '%d days remaining', 'sfs-hr' ), $days );
+                        }
+                        return [
+                            $r['emp_name'] ?? '',
+                            $r['employee_code'] ?? '',
+                            $r['department'] ?? '',
+                            $doc_types[ $r['document_type'] ] ?? ucfirst( str_replace( '_', ' ', $r['document_type'] ) ),
+                            $r['document_name'] ?? '',
+                            $r['expiry_date'] ?? '',
+                            $status,
+                        ];
+                    }, $rows ),
+                ];
+
+            default:
+                return [];
+        }
+    }
+
+    /**
+     * Export report to CSV
+     */
+    private function export_report_csv( string $type, array $report_data ): void {
+        $filename = sanitize_file_name( $type . '_' . date( 'Y-m-d_His' ) . '.csv' );
+
+        header( 'Content-Type: text/csv; charset=utf-8' );
+        header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+        header( 'Pragma: no-cache' );
+        header( 'Expires: 0' );
+
+        $output = fopen( 'php://output', 'w' );
+
+        // BOM for Excel UTF-8
+        fprintf( $output, chr(0xEF) . chr(0xBB) . chr(0xBF) );
+
+        // Header row
+        fputcsv( $output, $report_data['columns'] );
+
+        // Data rows
+        foreach ( $report_data['rows'] as $row ) {
+            fputcsv( $output, $row );
+        }
+
+        fclose( $output );
+        exit;
+    }
+
+    /**
+     * Render Settings page
+     */
+    public function render_settings(): void {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'Permission denied', 'sfs-hr' ) );
+        }
+
+        $tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'notifications';
+        $settings = Notifications::get_settings();
+
+        ?>
+        <div class="wrap sfs-hr-wrap">
+            <?php Helpers::render_admin_nav(); ?>
+            <?php Helpers::render_admin_notice_bar(); ?>
+
+            <h1><?php esc_html_e( 'HR Settings', 'sfs-hr' ); ?></h1>
+
+            <nav class="nav-tab-wrapper">
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-settings&tab=notifications' ) ); ?>"
+                   class="nav-tab <?php echo $tab === 'notifications' ? 'nav-tab-active' : ''; ?>">
+                    <?php esc_html_e( 'Notifications', 'sfs-hr' ); ?>
+                </a>
+            </nav>
+
+            <div class="sfs-hr-settings-content" style="margin-top: 20px;">
+                <?php
+                if ( $tab === 'notifications' ) {
+                    $this->render_notification_settings( $settings );
+                }
+                ?>
+            </div>
+        </div>
+        <?php
+    }
+
+    /**
+     * Render notification settings form
+     *
+     * @param array $settings Current settings
+     */
+    private function render_notification_settings( array $settings ): void {
+        ?>
+        <style>
+            .sfs-hr-settings-form { max-width: 800px; }
+            .sfs-hr-settings-section {
+                background: #fff;
+                border: 1px solid #c3c4c7;
+                border-radius: 4px;
+                padding: 20px;
+                margin-bottom: 20px;
+            }
+            .sfs-hr-settings-section h2 {
+                margin: 0 0 15px 0;
+                padding: 0 0 10px 0;
+                border-bottom: 1px solid #eee;
+                font-size: 16px;
+            }
+            .sfs-hr-settings-section table.form-table {
+                margin: 0;
+            }
+            .sfs-hr-settings-section table.form-table th {
+                padding: 10px 10px 10px 0;
+                width: 200px;
+            }
+            .sfs-hr-settings-section table.form-table td {
+                padding: 10px 0;
+            }
+            .sfs-hr-settings-section .description {
+                color: #666;
+                font-size: 12px;
+                margin-top: 4px;
+            }
+            .sfs-hr-toggle-row {
+                display: flex;
+                align-items: center;
+                gap: 20px;
+                flex-wrap: wrap;
+            }
+            .sfs-hr-toggle-row label {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .sfs-hr-sms-provider-settings {
+                margin-top: 15px;
+                padding: 15px;
+                background: #f9f9f9;
+                border-radius: 4px;
+                display: none;
+            }
+            .sfs-hr-sms-provider-settings.active {
+                display: block;
+            }
+            .sfs-hr-hr-emails-list {
+                margin-top: 10px;
+            }
+            .sfs-hr-hr-emails-list input {
+                width: 300px;
+                margin-bottom: 5px;
+            }
+        </style>
+
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="sfs-hr-settings-form">
+            <?php wp_nonce_field( 'sfs_hr_notification_settings', '_wpnonce' ); ?>
+            <input type="hidden" name="action" value="sfs_hr_save_notification_settings">
+
+            <!-- Global Settings -->
+            <div class="sfs-hr-settings-section">
+                <h2><?php esc_html_e( 'Global Settings', 'sfs-hr' ); ?></h2>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Enable Notifications', 'sfs-hr' ); ?></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="enabled" value="1" <?php checked( $settings['enabled'] ); ?>>
+                                <?php esc_html_e( 'Enable the notification system', 'sfs-hr' ); ?>
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Channels', 'sfs-hr' ); ?></th>
+                        <td>
+                            <div class="sfs-hr-toggle-row">
+                                <label>
+                                    <input type="checkbox" name="email_enabled" value="1" <?php checked( $settings['email_enabled'] ); ?>>
+                                    <?php esc_html_e( 'Email', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="sms_enabled" value="1" <?php checked( $settings['sms_enabled'] ); ?> id="sms_enabled_toggle">
+                                    <?php esc_html_e( 'SMS', 'sfs-hr' ); ?>
+                                </label>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Recipient Groups', 'sfs-hr' ); ?></th>
+                        <td>
+                            <div class="sfs-hr-toggle-row">
+                                <label>
+                                    <input type="checkbox" name="employee_notification" value="1" <?php checked( $settings['employee_notification'] ); ?>>
+                                    <?php esc_html_e( 'Employees', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="manager_notification" value="1" <?php checked( $settings['manager_notification'] ); ?>>
+                                    <?php esc_html_e( 'Managers', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="hr_notification" value="1" <?php checked( $settings['hr_notification'] ); ?>>
+                                    <?php esc_html_e( 'HR Team', 'sfs-hr' ); ?>
+                                </label>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'HR Email Addresses', 'sfs-hr' ); ?></th>
+                        <td>
+                            <p class="description"><?php esc_html_e( 'Enter HR team email addresses (one per line)', 'sfs-hr' ); ?></p>
+                            <textarea name="hr_emails" rows="4" style="width: 350px;"><?php
+                                echo esc_textarea( implode( "\n", (array) $settings['hr_emails'] ) );
+                            ?></textarea>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- SMS Provider Settings -->
+            <div class="sfs-hr-settings-section" id="sms-settings-section" style="<?php echo $settings['sms_enabled'] ? '' : 'display:none;'; ?>">
+                <h2><?php esc_html_e( 'SMS Provider Settings', 'sfs-hr' ); ?></h2>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'SMS Provider', 'sfs-hr' ); ?></th>
+                        <td>
+                            <select name="sms_provider" id="sms_provider_select">
+                                <option value="none" <?php selected( $settings['sms_provider'], 'none' ); ?>><?php esc_html_e( 'None', 'sfs-hr' ); ?></option>
+                                <option value="twilio" <?php selected( $settings['sms_provider'], 'twilio' ); ?>><?php esc_html_e( 'Twilio', 'sfs-hr' ); ?></option>
+                                <option value="nexmo" <?php selected( $settings['sms_provider'], 'nexmo' ); ?>><?php esc_html_e( 'Nexmo / Vonage', 'sfs-hr' ); ?></option>
+                                <option value="custom" <?php selected( $settings['sms_provider'], 'custom' ); ?>><?php esc_html_e( 'Custom API', 'sfs-hr' ); ?></option>
+                            </select>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Twilio Settings -->
+                <div class="sfs-hr-sms-provider-settings" id="twilio-settings" <?php echo $settings['sms_provider'] === 'twilio' ? 'class="active"' : ''; ?>>
+                    <h4><?php esc_html_e( 'Twilio Configuration', 'sfs-hr' ); ?></h4>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row"><?php esc_html_e( 'Account SID', 'sfs-hr' ); ?></th>
+                            <td><input type="text" name="twilio_sid" value="<?php echo esc_attr( $settings['twilio_sid'] ); ?>" class="regular-text"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php esc_html_e( 'Auth Token', 'sfs-hr' ); ?></th>
+                            <td><input type="password" name="twilio_token" value="<?php echo esc_attr( $settings['twilio_token'] ); ?>" class="regular-text"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php esc_html_e( 'From Number', 'sfs-hr' ); ?></th>
+                            <td><input type="text" name="twilio_from" value="<?php echo esc_attr( $settings['twilio_from'] ); ?>" class="regular-text" placeholder="+1234567890"></td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Nexmo Settings -->
+                <div class="sfs-hr-sms-provider-settings" id="nexmo-settings" <?php echo $settings['sms_provider'] === 'nexmo' ? 'class="active"' : ''; ?>>
+                    <h4><?php esc_html_e( 'Nexmo / Vonage Configuration', 'sfs-hr' ); ?></h4>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row"><?php esc_html_e( 'API Key', 'sfs-hr' ); ?></th>
+                            <td><input type="text" name="nexmo_api_key" value="<?php echo esc_attr( $settings['nexmo_api_key'] ); ?>" class="regular-text"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php esc_html_e( 'API Secret', 'sfs-hr' ); ?></th>
+                            <td><input type="password" name="nexmo_api_secret" value="<?php echo esc_attr( $settings['nexmo_api_secret'] ); ?>" class="regular-text"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php esc_html_e( 'From Name/Number', 'sfs-hr' ); ?></th>
+                            <td><input type="text" name="nexmo_from" value="<?php echo esc_attr( $settings['nexmo_from'] ); ?>" class="regular-text" placeholder="CompanyName"></td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Custom API Settings -->
+                <div class="sfs-hr-sms-provider-settings" id="custom-settings" <?php echo $settings['sms_provider'] === 'custom' ? 'class="active"' : ''; ?>>
+                    <h4><?php esc_html_e( 'Custom API Configuration', 'sfs-hr' ); ?></h4>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row"><?php esc_html_e( 'API Endpoint', 'sfs-hr' ); ?></th>
+                            <td><input type="url" name="custom_sms_endpoint" value="<?php echo esc_attr( $settings['custom_sms_endpoint'] ); ?>" class="regular-text" placeholder="https://api.example.com/sms"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php esc_html_e( 'API Key', 'sfs-hr' ); ?></th>
+                            <td><input type="password" name="custom_sms_api_key" value="<?php echo esc_attr( $settings['custom_sms_api_key'] ); ?>" class="regular-text"></td>
+                        </tr>
+                    </table>
+                    <p class="description"><?php esc_html_e( 'The API will receive POST requests with "phone" and "message" fields.', 'sfs-hr' ); ?></p>
+                </div>
+            </div>
+
+            <!-- Leave Notifications -->
+            <div class="sfs-hr-settings-section">
+                <h2><?php esc_html_e( 'Leave Notifications', 'sfs-hr' ); ?></h2>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Leave Events', 'sfs-hr' ); ?></th>
+                        <td>
+                            <div class="sfs-hr-toggle-row">
+                                <label>
+                                    <input type="checkbox" name="notify_leave_created" value="1" <?php checked( $settings['notify_leave_created'] ); ?>>
+                                    <?php esc_html_e( 'New Request', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="notify_leave_approved" value="1" <?php checked( $settings['notify_leave_approved'] ); ?>>
+                                    <?php esc_html_e( 'Approved', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="notify_leave_rejected" value="1" <?php checked( $settings['notify_leave_rejected'] ); ?>>
+                                    <?php esc_html_e( 'Rejected', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="notify_leave_cancelled" value="1" <?php checked( $settings['notify_leave_cancelled'] ); ?>>
+                                    <?php esc_html_e( 'Cancelled', 'sfs-hr' ); ?>
+                                </label>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Attendance Notifications -->
+            <div class="sfs-hr-settings-section">
+                <h2><?php esc_html_e( 'Attendance Notifications', 'sfs-hr' ); ?></h2>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Attendance Events', 'sfs-hr' ); ?></th>
+                        <td>
+                            <div class="sfs-hr-toggle-row">
+                                <label>
+                                    <input type="checkbox" name="notify_late_arrival" value="1" <?php checked( $settings['notify_late_arrival'] ); ?>>
+                                    <?php esc_html_e( 'Late Arrival', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="notify_early_leave" value="1" <?php checked( $settings['notify_early_leave'] ); ?>>
+                                    <?php esc_html_e( 'Early Leave', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="notify_missed_punch" value="1" <?php checked( $settings['notify_missed_punch'] ); ?>>
+                                    <?php esc_html_e( 'Missed Punch', 'sfs-hr' ); ?>
+                                </label>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Late Threshold', 'sfs-hr' ); ?></th>
+                        <td>
+                            <input type="number" name="late_arrival_threshold" value="<?php echo esc_attr( $settings['late_arrival_threshold'] ); ?>" min="1" max="120" style="width: 80px;">
+                            <span class="description"><?php esc_html_e( 'minutes (notify only if late by more than this)', 'sfs-hr' ); ?></span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Employee Milestone Notifications -->
+            <div class="sfs-hr-settings-section">
+                <h2><?php esc_html_e( 'Employee Milestones', 'sfs-hr' ); ?></h2>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Events', 'sfs-hr' ); ?></th>
+                        <td>
+                            <div class="sfs-hr-toggle-row">
+                                <label>
+                                    <input type="checkbox" name="notify_new_employee" value="1" <?php checked( $settings['notify_new_employee'] ); ?>>
+                                    <?php esc_html_e( 'New Employee', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="notify_birthday" value="1" <?php checked( $settings['notify_birthday'] ); ?>>
+                                    <?php esc_html_e( 'Birthday', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="notify_anniversary" value="1" <?php checked( $settings['notify_anniversary'] ); ?>>
+                                    <?php esc_html_e( 'Work Anniversary', 'sfs-hr' ); ?>
+                                </label>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Birthday Reminder', 'sfs-hr' ); ?></th>
+                        <td>
+                            <input type="number" name="birthday_days_before" value="<?php echo esc_attr( $settings['birthday_days_before'] ); ?>" min="0" max="30" style="width: 80px;">
+                            <span class="description"><?php esc_html_e( 'days before (0 = on the day)', 'sfs-hr' ); ?></span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Anniversary Reminder', 'sfs-hr' ); ?></th>
+                        <td>
+                            <input type="number" name="anniversary_days_before" value="<?php echo esc_attr( $settings['anniversary_days_before'] ); ?>" min="0" max="30" style="width: 80px;">
+                            <span class="description"><?php esc_html_e( 'days before (0 = on the day)', 'sfs-hr' ); ?></span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Contract & Document Alerts -->
+            <div class="sfs-hr-settings-section">
+                <h2><?php esc_html_e( 'Contract & Document Alerts', 'sfs-hr' ); ?></h2>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Events', 'sfs-hr' ); ?></th>
+                        <td>
+                            <div class="sfs-hr-toggle-row">
+                                <label>
+                                    <input type="checkbox" name="notify_contract_expiry" value="1" <?php checked( $settings['notify_contract_expiry'] ); ?>>
+                                    <?php esc_html_e( 'Contract Expiry', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="notify_probation_end" value="1" <?php checked( $settings['notify_probation_end'] ); ?>>
+                                    <?php esc_html_e( 'Probation End', 'sfs-hr' ); ?>
+                                </label>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Contract Expiry Days', 'sfs-hr' ); ?></th>
+                        <td>
+                            <input type="text" name="contract_expiry_days" value="<?php echo esc_attr( implode( ', ', (array) $settings['contract_expiry_days'] ) ); ?>" class="regular-text" placeholder="30, 14, 7">
+                            <p class="description"><?php esc_html_e( 'Send notifications when contracts expire in X days (comma-separated)', 'sfs-hr' ); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Probation Review', 'sfs-hr' ); ?></th>
+                        <td>
+                            <input type="number" name="probation_days_before" value="<?php echo esc_attr( $settings['probation_days_before'] ); ?>" min="1" max="30" style="width: 80px;">
+                            <span class="description"><?php esc_html_e( 'days before probation ends', 'sfs-hr' ); ?></span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Payroll Notifications -->
+            <div class="sfs-hr-settings-section">
+                <h2><?php esc_html_e( 'Payroll Notifications', 'sfs-hr' ); ?></h2>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Events', 'sfs-hr' ); ?></th>
+                        <td>
+                            <div class="sfs-hr-toggle-row">
+                                <label>
+                                    <input type="checkbox" name="notify_payslip_ready" value="1" <?php checked( $settings['notify_payslip_ready'] ); ?>>
+                                    <?php esc_html_e( 'Payslip Ready', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="notify_payroll_processed" value="1" <?php checked( $settings['notify_payroll_processed'] ); ?>>
+                                    <?php esc_html_e( 'Payroll Processed', 'sfs-hr' ); ?>
+                                </label>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <p class="submit">
+                <button type="submit" class="button button-primary"><?php esc_html_e( 'Save Settings', 'sfs-hr' ); ?></button>
+            </p>
+        </form>
+
+        <script>
+        jQuery(function($) {
+            // Toggle SMS settings section
+            $('#sms_enabled_toggle').on('change', function() {
+                $('#sms-settings-section').toggle(this.checked);
+            });
+
+            // Toggle SMS provider settings
+            $('#sms_provider_select').on('change', function() {
+                $('.sfs-hr-sms-provider-settings').removeClass('active');
+                var provider = $(this).val();
+                if (provider !== 'none') {
+                    $('#' + provider + '-settings').addClass('active');
+                }
+            });
+        });
+        </script>
+        <?php
+    }
+
+    /**
+     * Handle saving notification settings
+     */
+    public function handle_save_notification_settings(): void {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'Permission denied', 'sfs-hr' ) );
+        }
+
+        check_admin_referer( 'sfs_hr_notification_settings' );
+
+        // Parse HR emails from textarea
+        $hr_emails_raw = isset( $_POST['hr_emails'] ) ? sanitize_textarea_field( wp_unslash( $_POST['hr_emails'] ) ) : '';
+        $hr_emails = array_filter( array_map( 'sanitize_email', array_map( 'trim', explode( "\n", $hr_emails_raw ) ) ) );
+
+        // Parse contract expiry days
+        $contract_days_raw = isset( $_POST['contract_expiry_days'] ) ? sanitize_text_field( wp_unslash( $_POST['contract_expiry_days'] ) ) : '30, 14, 7';
+        $contract_expiry_days = array_filter( array_map( 'intval', array_map( 'trim', explode( ',', $contract_days_raw ) ) ) );
+        if ( empty( $contract_expiry_days ) ) {
+            $contract_expiry_days = [ 30, 14, 7 ];
+        }
+
+        $settings = [
+            // Global
+            'enabled'              => isset( $_POST['enabled'] ),
+            'email_enabled'        => isset( $_POST['email_enabled'] ),
+            'sms_enabled'          => isset( $_POST['sms_enabled'] ),
+            'sms_provider'         => isset( $_POST['sms_provider'] ) ? sanitize_key( $_POST['sms_provider'] ) : 'none',
+
+            // SMS Providers
+            'twilio_sid'           => isset( $_POST['twilio_sid'] ) ? sanitize_text_field( wp_unslash( $_POST['twilio_sid'] ) ) : '',
+            'twilio_token'         => isset( $_POST['twilio_token'] ) ? sanitize_text_field( wp_unslash( $_POST['twilio_token'] ) ) : '',
+            'twilio_from'          => isset( $_POST['twilio_from'] ) ? sanitize_text_field( wp_unslash( $_POST['twilio_from'] ) ) : '',
+            'nexmo_api_key'        => isset( $_POST['nexmo_api_key'] ) ? sanitize_text_field( wp_unslash( $_POST['nexmo_api_key'] ) ) : '',
+            'nexmo_api_secret'     => isset( $_POST['nexmo_api_secret'] ) ? sanitize_text_field( wp_unslash( $_POST['nexmo_api_secret'] ) ) : '',
+            'nexmo_from'           => isset( $_POST['nexmo_from'] ) ? sanitize_text_field( wp_unslash( $_POST['nexmo_from'] ) ) : '',
+            'custom_sms_endpoint'  => isset( $_POST['custom_sms_endpoint'] ) ? esc_url_raw( wp_unslash( $_POST['custom_sms_endpoint'] ) ) : '',
+            'custom_sms_api_key'   => isset( $_POST['custom_sms_api_key'] ) ? sanitize_text_field( wp_unslash( $_POST['custom_sms_api_key'] ) ) : '',
+
+            // Recipients
+            'hr_emails'            => $hr_emails,
+            'manager_notification' => isset( $_POST['manager_notification'] ),
+            'employee_notification' => isset( $_POST['employee_notification'] ),
+            'hr_notification'      => isset( $_POST['hr_notification'] ),
+
+            // Leave
+            'notify_leave_created'   => isset( $_POST['notify_leave_created'] ),
+            'notify_leave_approved'  => isset( $_POST['notify_leave_approved'] ),
+            'notify_leave_rejected'  => isset( $_POST['notify_leave_rejected'] ),
+            'notify_leave_cancelled' => isset( $_POST['notify_leave_cancelled'] ),
+
+            // Attendance
+            'notify_late_arrival'      => isset( $_POST['notify_late_arrival'] ),
+            'late_arrival_threshold'   => isset( $_POST['late_arrival_threshold'] ) ? absint( $_POST['late_arrival_threshold'] ) : 15,
+            'notify_early_leave'       => isset( $_POST['notify_early_leave'] ),
+            'notify_missed_punch'      => isset( $_POST['notify_missed_punch'] ),
+
+            // Milestones
+            'notify_new_employee'      => isset( $_POST['notify_new_employee'] ),
+            'notify_birthday'          => isset( $_POST['notify_birthday'] ),
+            'birthday_days_before'     => isset( $_POST['birthday_days_before'] ) ? absint( $_POST['birthday_days_before'] ) : 1,
+            'notify_anniversary'       => isset( $_POST['notify_anniversary'] ),
+            'anniversary_days_before'  => isset( $_POST['anniversary_days_before'] ) ? absint( $_POST['anniversary_days_before'] ) : 1,
+
+            // Contracts
+            'notify_contract_expiry'   => isset( $_POST['notify_contract_expiry'] ),
+            'contract_expiry_days'     => $contract_expiry_days,
+            'notify_probation_end'     => isset( $_POST['notify_probation_end'] ),
+            'probation_days_before'    => isset( $_POST['probation_days_before'] ) ? absint( $_POST['probation_days_before'] ) : 7,
+
+            // Payroll
+            'notify_payslip_ready'     => isset( $_POST['notify_payslip_ready'] ),
+            'notify_payroll_processed' => isset( $_POST['notify_payroll_processed'] ),
+        ];
+
+        Notifications::save_settings( $settings );
+
+        Helpers::redirect_with_notice(
+            admin_url( 'admin.php?page=sfs-hr-settings&tab=notifications' ),
+            'success',
+            __( 'Notification settings saved successfully.', 'sfs-hr' )
+        );
     }
 }

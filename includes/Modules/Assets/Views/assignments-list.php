@@ -351,41 +351,23 @@ $employee_filter = isset( $_GET['emp'] ) ? (int) $_GET['emp'] : 0;
                          esc_html__( 'Receive', 'sfs-hr' ) . ':</span>';
 
                     if ( $approve_selfie_id ) {
-                        $selfie_img = wp_get_attachment_image(
-                            $approve_selfie_id,
-                            [ 40, 40 ],
-                            false,
-                            [
-                                'class' => 'sfs-hr-asset-photo-thumb sfs-hr-asset-photo-thumb--selfie',
-                                'style' => 'width:28px;height:28px;border-radius:999px;object-fit:cover;display:inline-block;',
-                                'alt'   => esc_attr__( 'Selfie (receive)', 'sfs-hr' ),
-                            ]
-                        );
-                        if ( $selfie_img ) {
+                        $selfie_full = wp_get_attachment_url( $approve_selfie_id );
+                        if ( $selfie_full ) {
                             echo sprintf(
-                                '<a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>',
-                                esc_url( wp_get_attachment_url( $approve_selfie_id ) ),
-                                $selfie_img
+                                '<a href="%1$s" target="_blank" rel="noopener noreferrer"><img src="%1$s" class="sfs-hr-asset-photo-thumb sfs-hr-asset-photo-thumb--selfie" style="width:28px;height:28px;border-radius:999px;object-fit:cover;display:inline-block;" alt="%2$s" /></a>',
+                                esc_url( $selfie_full ),
+                                esc_attr__( 'Selfie (receive)', 'sfs-hr' )
                             );
                         }
                     }
 
                     if ( $approve_asset_id ) {
-                        $asset_img = wp_get_attachment_image(
-                            $approve_asset_id,
-                            [ 40, 40 ],
-                            false,
-                            [
-                                'class' => 'sfs-hr-asset-photo-thumb sfs-hr-asset-photo-thumb--asset',
-                                'style' => 'width:28px;height:28px;border-radius:6px;object-fit:cover;display:inline-block;',
-                                'alt'   => esc_attr__( 'Asset photo (receive)', 'sfs-hr' ),
-                            ]
-                        );
-                        if ( $asset_img ) {
+                        $asset_full = wp_get_attachment_url( $approve_asset_id );
+                        if ( $asset_full ) {
                             echo sprintf(
-                                '<a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>',
-                                esc_url( wp_get_attachment_url( $approve_asset_id ) ),
-                                $asset_img
+                                '<a href="%1$s" target="_blank" rel="noopener noreferrer"><img src="%1$s" class="sfs-hr-asset-photo-thumb sfs-hr-asset-photo-thumb--asset" style="width:28px;height:28px;border-radius:6px;object-fit:cover;display:inline-block;" alt="%2$s" /></a>',
+                                esc_url( $asset_full ),
+                                esc_attr__( 'Asset photo (receive)', 'sfs-hr' )
                             );
                         }
                     }
@@ -400,41 +382,23 @@ $employee_filter = isset( $_GET['emp'] ) ? (int) $_GET['emp'] : 0;
                          esc_html__( 'Return', 'sfs-hr' ) . ':</span>';
 
                     if ( $return_selfie_id ) {
-                        $return_selfie_img = wp_get_attachment_image(
-                            $return_selfie_id,
-                            [ 40, 40 ],
-                            false,
-                            [
-                                'class' => 'sfs-hr-asset-photo-thumb sfs-hr-asset-photo-thumb--selfie',
-                                'style' => 'width:28px;height:28px;border-radius:999px;object-fit:cover;display:inline-block;',
-                                'alt'   => esc_attr__( 'Selfie (return)', 'sfs-hr' ),
-                            ]
-                        );
-                        if ( $return_selfie_img ) {
+                        $return_selfie_full = wp_get_attachment_url( $return_selfie_id );
+                        if ( $return_selfie_full ) {
                             echo sprintf(
-                                '<a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>',
-                                esc_url( wp_get_attachment_url( $return_selfie_id ) ),
-                                $return_selfie_img
+                                '<a href="%1$s" target="_blank" rel="noopener noreferrer"><img src="%1$s" class="sfs-hr-asset-photo-thumb sfs-hr-asset-photo-thumb--selfie" style="width:28px;height:28px;border-radius:999px;object-fit:cover;display:inline-block;" alt="%2$s" /></a>',
+                                esc_url( $return_selfie_full ),
+                                esc_attr__( 'Selfie (return)', 'sfs-hr' )
                             );
                         }
                     }
 
                     if ( $return_asset_id ) {
-                        $return_asset_img = wp_get_attachment_image(
-                            $return_asset_id,
-                            [ 40, 40 ],
-                            false,
-                            [
-                                'class' => 'sfs-hr-asset-photo-thumb sfs-hr-asset-photo-thumb--asset',
-                                'style' => 'width:28px;height:28px;border-radius:6px;object-fit:cover;display:inline-block;',
-                                'alt'   => esc_attr__( 'Asset photo (return)', 'sfs-hr' ),
-                            ]
-                        );
-                        if ( $return_asset_img ) {
+                        $return_asset_full = wp_get_attachment_url( $return_asset_id );
+                        if ( $return_asset_full ) {
                             echo sprintf(
-                                '<a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>',
-                                esc_url( wp_get_attachment_url( $return_asset_id ) ),
-                                $return_asset_img
+                                '<a href="%1$s" target="_blank" rel="noopener noreferrer"><img src="%1$s" class="sfs-hr-asset-photo-thumb sfs-hr-asset-photo-thumb--asset" style="width:28px;height:28px;border-radius:6px;object-fit:cover;display:inline-block;" alt="%2$s" /></a>',
+                                esc_url( $return_asset_full ),
+                                esc_attr__( 'Asset photo (return)', 'sfs-hr' )
                             );
                         }
                     }

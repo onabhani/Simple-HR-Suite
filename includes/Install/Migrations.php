@@ -33,6 +33,8 @@ class Migrations {
         // Ensure full schema used by UI/workflows
         self::add_column_if_missing($emp, 'first_name',               "VARCHAR(191) NULL");
         self::add_column_if_missing($emp, 'last_name',                "VARCHAR(191) NULL");
+        self::add_column_if_missing($emp, 'first_name_ar',            "VARCHAR(191) NULL");
+        self::add_column_if_missing($emp, 'last_name_ar',             "VARCHAR(191) NULL");
         self::add_column_if_missing($emp, 'email',                    "VARCHAR(191) NULL");
         self::add_column_if_missing($emp, 'phone',                    "VARCHAR(191) NULL");
         self::add_column_if_missing($emp, 'dept_id',                  "BIGINT(20) UNSIGNED NULL");

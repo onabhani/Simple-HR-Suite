@@ -330,11 +330,174 @@ $print_row(
         echo '</tbody>';
         echo '</table>';
 
+$this->render_quick_punch_block( $employee );
 $this->render_assets_block( $employee );
 $this->render_attendance_block( $employee );
 
         echo '</div>'; // .sfs-hr-my-profile-overview
-        
+
+    }
+
+    /**
+     * Render Quick Punch block for mobile-optimized clock in/out
+     */
+    private function render_quick_punch_block( \stdClass $employee ): void {
+        global $wpdb;
+
+        $punches_table = $wpdb->prefix . 'sfs_hr_attendance_punches';
+        $today = wp_date('Y-m-d');
+
+        // Get last punch to determine current state
+        $last_punch = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$punches_table}
+             WHERE employee_id = %d AND DATE(punch_time) = %s
+             ORDER BY punch_time DESC LIMIT 1",
+            (int)$employee->id,
+            $today
+        ));
+
+        $current_status = 'not_clocked_in';
+        $can_punch_in = true;
+        $can_punch_out = false;
+        $can_start_break = false;
+        $can_end_break = false;
+
+        if ($last_punch) {
+            switch ($last_punch->punch_type) {
+                case 'in':
+                case 'break_end':
+                    $current_status = 'clocked_in';
+                    $can_punch_in = false;
+                    $can_punch_out = true;
+                    $can_start_break = true;
+                    break;
+                case 'break_start':
+                    $current_status = 'on_break';
+                    $can_punch_in = false;
+                    $can_punch_out = false;
+                    $can_end_break = true;
+                    break;
+                case 'out':
+                    $current_status = 'clocked_out';
+                    $can_punch_in = true;
+                    $can_punch_out = false;
+                    break;
+            }
+        }
+
+        $status_labels = [
+            'not_clocked_in' => __('Not Clocked In', 'sfs-hr'),
+            'clocked_in' => __('Clocked In', 'sfs-hr'),
+            'on_break' => __('On Break', 'sfs-hr'),
+            'clocked_out' => __('Clocked Out', 'sfs-hr'),
+        ];
+
+        $status_colors = [
+            'not_clocked_in' => '#666',
+            'clocked_in' => '#059669',
+            'on_break' => '#d97706',
+            'clocked_out' => '#dc2626',
+        ];
+
+        ?>
+        <div class="sfs-hr-quick-punch" style="margin-top:24px; padding:20px; background:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius:12px; border:1px solid #e2e8f0;">
+            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;">
+                <div>
+                    <h3 style="margin:0 0 8px; font-size:16px;"><?php esc_html_e('Quick Punch', 'sfs-hr'); ?></h3>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <span id="quick-punch-time" style="font-size:32px; font-weight:300; font-variant-numeric:tabular-nums;"><?php echo esc_html(wp_date('H:i:s')); ?></span>
+                        <span style="display:inline-block; padding:4px 12px; border-radius:20px; font-size:12px; font-weight:600; background:<?php echo esc_attr($status_colors[$current_status]); ?>1a; color:<?php echo esc_attr($status_colors[$current_status]); ?>;" id="quick-punch-status">
+                            <?php echo esc_html($status_labels[$current_status]); ?>
+                        </span>
+                    </div>
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;" id="quick-punch-buttons">
+                    <button type="button" class="button button-primary sfs-quick-punch-btn" data-action="in" <?php disabled(!$can_punch_in); ?> style="<?php echo $can_punch_in ? 'background:#059669; border-color:#047857;' : ''; ?>">
+                        <?php esc_html_e('Punch In', 'sfs-hr'); ?>
+                    </button>
+                    <button type="button" class="button sfs-quick-punch-btn" data-action="break_start" <?php disabled(!$can_start_break); ?> style="<?php echo $can_start_break ? 'background:#f59e0b; border-color:#d97706; color:#fff;' : ''; ?>">
+                        <?php esc_html_e('Start Break', 'sfs-hr'); ?>
+                    </button>
+                    <button type="button" class="button sfs-quick-punch-btn" data-action="break_end" <?php disabled(!$can_end_break); ?> style="<?php echo $can_end_break ? 'background:#2271b1; border-color:#135e96; color:#fff;' : ''; ?>">
+                        <?php esc_html_e('End Break', 'sfs-hr'); ?>
+                    </button>
+                    <button type="button" class="button sfs-quick-punch-btn" data-action="out" <?php disabled(!$can_punch_out); ?> style="<?php echo $can_punch_out ? 'background:#dc2626; border-color:#b91c1c; color:#fff;' : ''; ?>">
+                        <?php esc_html_e('Punch Out', 'sfs-hr'); ?>
+                    </button>
+                </div>
+            </div>
+            <div id="quick-punch-message" style="margin-top:12px; display:none;"></div>
+        </div>
+
+        <script>
+        (function() {
+            // Update clock
+            setInterval(function() {
+                var el = document.getElementById('quick-punch-time');
+                if (el) {
+                    var now = new Date();
+                    el.textContent = now.toLocaleTimeString('en-GB');
+                }
+            }, 1000);
+
+            // Handle punch buttons
+            document.querySelectorAll('.sfs-quick-punch-btn').forEach(function(btn) {
+                btn.addEventListener('click', async function() {
+                    if (this.disabled) return;
+
+                    var action = this.dataset.action;
+                    var message = document.getElementById('quick-punch-message');
+                    var originalText = this.textContent;
+
+                    this.disabled = true;
+                    this.textContent = '<?php echo esc_js(__('Processing...', 'sfs-hr')); ?>';
+
+                    try {
+                        var response = await fetch('<?php echo esc_url(rest_url('sfs-hr/v1/attendance/punch')); ?>', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-WP-Nonce': '<?php echo wp_create_nonce('wp_rest'); ?>'
+                            },
+                            body: JSON.stringify({ punch_type: action })
+                        });
+
+                        var data = await response.json();
+
+                        if (data.success) {
+                            message.style.display = 'block';
+                            message.style.padding = '10px';
+                            message.style.borderRadius = '6px';
+                            message.style.background = '#d1fae5';
+                            message.style.color = '#059669';
+                            message.textContent = data.message || '<?php echo esc_js(__('Punch recorded!', 'sfs-hr')); ?>';
+
+                            setTimeout(function() { location.reload(); }, 1200);
+                        } else {
+                            message.style.display = 'block';
+                            message.style.padding = '10px';
+                            message.style.borderRadius = '6px';
+                            message.style.background = '#fee2e2';
+                            message.style.color = '#dc2626';
+                            message.textContent = data.message || '<?php echo esc_js(__('An error occurred.', 'sfs-hr')); ?>';
+                            this.disabled = false;
+                            this.textContent = originalText;
+                        }
+                    } catch (error) {
+                        message.style.display = 'block';
+                        message.style.padding = '10px';
+                        message.style.borderRadius = '6px';
+                        message.style.background = '#fee2e2';
+                        message.style.color = '#dc2626';
+                        message.textContent = '<?php echo esc_js(__('Connection error. Please try again.', 'sfs-hr')); ?>';
+                        this.disabled = false;
+                        this.textContent = originalText;
+                    }
+                });
+            });
+        })();
+        </script>
+        <?php
     }
 
     /**
@@ -669,7 +832,256 @@ private function render_attendance_block( \stdClass $employee ): void {
         echo '</tbody></table>';
     }
 
+    // Early Leave Requests Section
+    $this->render_early_leave_section( $employee );
+
     echo '</div>';
+}
+
+/**
+ * Render Early Leave Requests section in My Profile
+ * Allows employees to request early leave and see their request history
+ */
+private function render_early_leave_section( \stdClass $employee ): void {
+    global $wpdb;
+
+    $table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+
+    // Check if table exists
+    $table_exists = $wpdb->get_var( $wpdb->prepare(
+        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
+        $table
+    ) );
+
+    if ( ! $table_exists ) {
+        return;
+    }
+
+    $today = wp_date( 'Y-m-d' );
+    $now_time = wp_date( 'H:i' );
+
+    // Check for existing pending request today
+    $existing_today = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$table} WHERE employee_id = %d AND request_date = %s AND status IN ('pending', 'approved')",
+        (int) $employee->id,
+        $today
+    ) );
+
+    // Get recent requests (last 30 days)
+    $recent_requests = $wpdb->get_results( $wpdb->prepare(
+        "SELECT * FROM {$table} WHERE employee_id = %d ORDER BY request_date DESC, created_at DESC LIMIT 10",
+        (int) $employee->id
+    ) );
+
+    $reason_labels = [
+        'sick' => __( 'Sickness', 'sfs-hr' ),
+        'external_task' => __( 'External Task', 'sfs-hr' ),
+        'personal' => __( 'Personal', 'sfs-hr' ),
+        'emergency' => __( 'Emergency', 'sfs-hr' ),
+        'other' => __( 'Other', 'sfs-hr' ),
+    ];
+
+    $status_labels = [
+        'pending' => __( 'Pending', 'sfs-hr' ),
+        'approved' => __( 'Approved', 'sfs-hr' ),
+        'rejected' => __( 'Rejected', 'sfs-hr' ),
+        'cancelled' => __( 'Cancelled', 'sfs-hr' ),
+    ];
+
+    $status_colors = [
+        'pending' => '#f0ad4e',
+        'approved' => '#5cb85c',
+        'rejected' => '#d9534f',
+        'cancelled' => '#777',
+    ];
+
+    echo '<div class="sfs-hr-early-leave-section" style="margin-top:24px; padding-top:16px; border-top:1px solid #e2e4e7;">';
+    echo '<h3 style="margin:0 0 12px;">' . esc_html__( 'Early Leave Requests', 'sfs-hr' ) . '</h3>';
+
+    // Show request form if no pending/approved request for today
+    if ( ! $existing_today ) {
+        ?>
+        <div class="sfs-hr-early-leave-form-wrap" style="background:#f9f9f9; padding:15px; border:1px solid #e5e5e5; margin-bottom:16px; border-radius:4px;">
+            <p class="description" style="margin-top:0;">
+                <?php esc_html_e( 'Need to leave early today? Submit a request for manager approval.', 'sfs-hr' ); ?>
+            </p>
+
+            <form id="sfs-early-leave-request-form" class="sfs-hr-early-leave-form">
+                <input type="hidden" name="request_date" value="<?php echo esc_attr( $today ); ?>" />
+
+                <table class="form-table" style="margin:0;">
+                    <tr>
+                        <th scope="row"><label for="early-leave-time"><?php esc_html_e( 'Leave Time', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <input type="time" id="early-leave-time" name="requested_leave_time" value="<?php echo esc_attr( $now_time ); ?>" required style="width:150px;" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="early-leave-reason"><?php esc_html_e( 'Reason', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <select id="early-leave-reason" name="reason_type" required style="width:200px;">
+                                <option value=""><?php esc_html_e( '— Select —', 'sfs-hr' ); ?></option>
+                                <?php foreach ( $reason_labels as $key => $label ): ?>
+                                    <option value="<?php echo esc_attr( $key ); ?>"><?php echo esc_html( $label ); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="early-leave-note"><?php esc_html_e( 'Note', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <textarea id="early-leave-note" name="reason_note" rows="2" style="width:100%; max-width:400px;" placeholder="<?php esc_attr_e( 'Optional details...', 'sfs-hr' ); ?>"></textarea>
+                        </td>
+                    </tr>
+                </table>
+
+                <p class="submit" style="margin-bottom:0; padding-bottom:0;">
+                    <button type="submit" class="button button-primary" id="early-leave-submit-btn">
+                        <?php esc_html_e( 'Submit Request', 'sfs-hr' ); ?>
+                    </button>
+                    <span id="early-leave-message" style="margin-left:10px;"></span>
+                </p>
+            </form>
+        </div>
+
+        <script>
+        jQuery(function($) {
+            $('#sfs-early-leave-request-form').on('submit', function(e) {
+                e.preventDefault();
+
+                var $form = $(this);
+                var $btn = $('#early-leave-submit-btn');
+                var $msg = $('#early-leave-message');
+
+                var data = {
+                    request_date: $form.find('[name="request_date"]').val(),
+                    requested_leave_time: $form.find('[name="requested_leave_time"]').val(),
+                    reason_type: $form.find('[name="reason_type"]').val(),
+                    reason_note: $form.find('[name="reason_note"]').val()
+                };
+
+                if (!data.requested_leave_time || !data.reason_type) {
+                    $msg.html('<span style="color:#d9534f;"><?php echo esc_js( __( 'Please fill in all required fields.', 'sfs-hr' ) ); ?></span>');
+                    return;
+                }
+
+                $btn.prop('disabled', true).text('<?php echo esc_js( __( 'Submitting...', 'sfs-hr' ) ); ?>');
+                $msg.text('');
+
+                $.ajax({
+                    url: '<?php echo esc_url( rest_url( 'sfs-hr/v1/early-leave/request' ) ); ?>',
+                    method: 'POST',
+                    beforeSend: function(xhr) {
+                        xhr.setRequestHeader('X-WP-Nonce', '<?php echo wp_create_nonce( 'wp_rest' ); ?>');
+                    },
+                    data: data,
+                    success: function(response) {
+                        if (response.success) {
+                            $msg.html('<span style="color:#5cb85c;"><?php echo esc_js( __( 'Request submitted! Awaiting manager approval.', 'sfs-hr' ) ); ?></span>');
+                            setTimeout(function() { location.reload(); }, 1500);
+                        } else {
+                            $msg.html('<span style="color:#d9534f;">' + (response.message || '<?php echo esc_js( __( 'An error occurred.', 'sfs-hr' ) ); ?>') + '</span>');
+                            $btn.prop('disabled', false).text('<?php echo esc_js( __( 'Submit Request', 'sfs-hr' ) ); ?>');
+                        }
+                    },
+                    error: function(xhr) {
+                        var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : '<?php echo esc_js( __( 'An error occurred.', 'sfs-hr' ) ); ?>';
+                        $msg.html('<span style="color:#d9534f;">' + msg + '</span>');
+                        $btn.prop('disabled', false).text('<?php echo esc_js( __( 'Submit Request', 'sfs-hr' ) ); ?>');
+                    }
+                });
+            });
+        });
+        </script>
+        <?php
+    } else {
+        // Show existing request for today
+        $status_color = $status_colors[ $existing_today->status ] ?? '#333';
+        echo '<div class="notice notice-info" style="margin:0 0 16px;">';
+        echo '<p>';
+        printf(
+            esc_html__( 'You have an early leave request for today (%s) - Status: %s', 'sfs-hr' ),
+            esc_html( date_i18n( 'H:i', strtotime( $existing_today->requested_leave_time ) ) ),
+            '<strong style="color:' . esc_attr( $status_color ) . ';">' . esc_html( $status_labels[ $existing_today->status ] ?? $existing_today->status ) . '</strong>'
+        );
+
+        // Cancel button for pending requests
+        if ( $existing_today->status === 'pending' ) {
+            ?>
+            <button type="button" class="button button-small" id="cancel-early-leave-btn" data-id="<?php echo intval( $existing_today->id ); ?>" style="margin-left:10px;">
+                <?php esc_html_e( 'Cancel Request', 'sfs-hr' ); ?>
+            </button>
+            <script>
+            jQuery(function($) {
+                $('#cancel-early-leave-btn').on('click', function() {
+                    if (!confirm('<?php echo esc_js( __( 'Are you sure you want to cancel this request?', 'sfs-hr' ) ); ?>')) {
+                        return;
+                    }
+
+                    var $btn = $(this);
+                    var id = $btn.data('id');
+                    $btn.prop('disabled', true).text('<?php echo esc_js( __( 'Cancelling...', 'sfs-hr' ) ); ?>');
+
+                    $.ajax({
+                        url: '<?php echo esc_url( rest_url( 'sfs-hr/v1/early-leave/cancel/' ) ); ?>' + id,
+                        method: 'POST',
+                        beforeSend: function(xhr) {
+                            xhr.setRequestHeader('X-WP-Nonce', '<?php echo wp_create_nonce( 'wp_rest' ); ?>');
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                location.reload();
+                            } else {
+                                alert(response.message || '<?php echo esc_js( __( 'Failed to cancel.', 'sfs-hr' ) ); ?>');
+                                $btn.prop('disabled', false).text('<?php echo esc_js( __( 'Cancel Request', 'sfs-hr' ) ); ?>');
+                            }
+                        },
+                        error: function(xhr) {
+                            var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : '<?php echo esc_js( __( 'An error occurred.', 'sfs-hr' ) ); ?>';
+                            alert(msg);
+                            $btn.prop('disabled', false).text('<?php echo esc_js( __( 'Cancel Request', 'sfs-hr' ) ); ?>');
+                        }
+                    });
+                });
+            });
+            </script>
+            <?php
+        }
+
+        echo '</p>';
+        echo '</div>';
+    }
+
+    // Recent requests history
+    if ( ! empty( $recent_requests ) ) {
+        echo '<h4 style="margin:16px 0 8px;">' . esc_html__( 'Recent Requests', 'sfs-hr' ) . '</h4>';
+        echo '<table class="widefat fixed striped" style="margin-top:4px;">';
+        echo '<thead><tr>';
+        echo '<th style="width:100px;">' . esc_html__( 'Date', 'sfs-hr' ) . '</th>';
+        echo '<th style="width:80px;">' . esc_html__( 'Time', 'sfs-hr' ) . '</th>';
+        echo '<th>' . esc_html__( 'Reason', 'sfs-hr' ) . '</th>';
+        echo '<th style="width:100px;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+        echo '</tr></thead><tbody>';
+
+        foreach ( $recent_requests as $req ) {
+            $status_color = $status_colors[ $req->status ] ?? '#333';
+            echo '<tr>';
+            echo '<td>' . esc_html( date_i18n( get_option( 'date_format' ), strtotime( $req->request_date ) ) ) . '</td>';
+            echo '<td>' . esc_html( date_i18n( 'H:i', strtotime( $req->requested_leave_time ) ) ) . '</td>';
+            echo '<td>';
+            echo esc_html( $reason_labels[ $req->reason_type ] ?? $req->reason_type );
+            if ( $req->reason_note ) {
+                echo '<br><small class="description">' . esc_html( wp_trim_words( $req->reason_note, 10 ) ) . '</small>';
+            }
+            echo '</td>';
+            echo '<td style="color:' . esc_attr( $status_color ) . '; font-weight:600;">' . esc_html( $status_labels[ $req->status ] ?? $req->status ) . '</td>';
+            echo '</tr>';
+        }
+
+        echo '</tbody></table>';
+    }
+
+    echo '</div>'; // .sfs-hr-early-leave-section
 }
 
 
