@@ -22,14 +22,21 @@
     "base_salary": "الراتب الأساسي",
 
     "contact_information": "معلومات الاتصال",
+    "contact": "الاتصال",
     "email": "البريد الإلكتروني",
     "phone": "الهاتف",
     "emergency_contact": "جهة اتصال الطوارئ",
 
     "identification": "الهوية",
     "national_id": "رقم الهوية",
+    "national_id_expiry": "انتهاء الهوية",
     "expiry": "انتهاء الصلاحية",
     "passport": "جواز السفر",
+    "passport_expiry": "انتهاء الجواز",
+
+    "payroll": "الرواتب",
+    "quick_links": "روابط سريعة",
+    "my_documents": "مستنداتي",
 
     "my_assets": "أصولي",
     "no_assets": "لا توجد أصول مسندة.",

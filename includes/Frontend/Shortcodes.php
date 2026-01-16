@@ -375,7 +375,8 @@ class Shortcodes {
     .sfs-hr-lang-dropdown {
         position: absolute;
         top: 100%;
-        left: 0;
+        right: 0;
+        left: auto;
         margin-top: 8px;
         background: var(--sfs-surface);
         border: 1px solid var(--sfs-border);
@@ -386,10 +387,10 @@ class Shortcodes {
         z-index: 1000;
         min-width: 140px;
     }
-    /* RTL: dropdown opens to the right */
+    /* RTL: dropdown stays on right side as well */
     [dir="rtl"] .sfs-hr-lang-dropdown {
-        left: auto;
         right: 0;
+        left: auto;
     }
     .sfs-hr-lang-dropdown.active {
         display: block;
@@ -3357,6 +3358,7 @@ class Shortcodes {
             function translateFormElements(container, strings) {
                 // Map of English text to translation keys
                 var textMap = {
+                    // Leave form
                     'Request new leave': 'request_new_leave',
                     'Leave type': 'leave_type',
                     'Select type': 'select_type',
@@ -3365,23 +3367,58 @@ class Shortcodes {
                     'Reason / note': 'reason_note',
                     'Supporting document': 'supporting_document',
                     'Submit leave request': 'submit_leave_request',
+                    'NEXT APPROVED LEAVE': 'next_approved_leave',
+                    'No upcoming leave.': 'no_upcoming_leave',
+                    'Leave History': 'leave_history',
+                    'Leave history': 'leave_history',
+                    // Loan form
                     'Request new loan': 'request_new_loan',
                     'Loan Amount': 'loan_amount',
                     'Monthly Installment Amount': 'monthly_installment',
                     'Reason for Loan': 'reason_for_loan',
                     'Submit loan request': 'submit_loan_request',
                     'Loan history': 'loan_history',
-                    'NEXT APPROVED LEAVE': 'next_approved_leave',
-                    'No upcoming leave.': 'no_upcoming_leave',
-                    'Leave History': 'leave_history',
+                    // Profile sections
                     'Profile Completion': 'profile_completion',
                     'Contact Information': 'contact_information',
                     'Identification': 'identification',
-                    'My Assets': 'my_assets'
+                    'My Assets': 'my_assets',
+                    'Employment': 'employment',
+                    'Contact': 'contact',
+                    'Payroll': 'payroll',
+                    'Quick Links': 'quick_links',
+                    // Profile fields
+                    'Status': 'status',
+                    'Gender': 'gender',
+                    'Department': 'department',
+                    'Position': 'position',
+                    'Employee ID': 'employee_id',
+                    'WP Username': 'wp_username',
+                    'Hire date': 'hire_date',
+                    'Hire Date': 'hire_date',
+                    'Base salary': 'base_salary',
+                    'Base Salary': 'base_salary',
+                    'Email': 'email',
+                    'Phone': 'phone',
+                    'Emergency contact': 'emergency_contact',
+                    'Emergency Contact': 'emergency_contact',
+                    'National ID': 'national_id',
+                    'National ID Expiry': 'national_id_expiry',
+                    'Passport No.': 'passport',
+                    'Passport Expiry': 'passport_expiry',
+                    'Expiry': 'expiry',
+                    'Passport': 'passport',
+                    'My Documents': 'my_documents',
+                    // Common
+                    'Missing': 'missing',
+                    'Clock In': 'clock_in',
+                    'Clock Out': 'clock_out',
+                    'Submit': 'submit',
+                    'Cancel': 'cancel'
                 };
 
-                // Find and translate labels, headings, buttons
-                container.querySelectorAll('label, h3, h4, h5, button[type="submit"], .sfs-hr-profile-group-title').forEach(function(el) {
+                // Find and translate labels, headings, buttons, and specific elements
+                container.querySelectorAll('label, h3, h4, h5, button[type="submit"], .sfs-hr-profile-group-title, .sfs-hr-field-label, .sfs-hr-kpi-label, .sfs-hr-clock-btn, .sfs-hr-lf-label').forEach(function(el) {
                     var text = el.childNodes[0]?.textContent?.trim() || el.textContent.trim();
                     var key = textMap[text];
                     if (key && strings[key]) {
@@ -3390,6 +3427,15 @@ class Shortcodes {
                         } else if (!el.querySelector('*')) {
                             el.textContent = strings[key];
                         }
+                    }
+                });
+
+                // Translate profile group titles and field labels directly
+                container.querySelectorAll('.sfs-hr-profile-group-title, .sfs-hr-field-label').forEach(function(el) {
+                    var text = el.textContent.trim();
+                    var key = textMap[text];
+                    if (key && strings[key]) {
+                        el.textContent = strings[key];
                     }
                 });
             }
