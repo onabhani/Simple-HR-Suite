@@ -154,10 +154,10 @@
     z-index: 1000;
     min-width: 140px;
 }
-/* RTL: dropdown stays on right side as well */
+/* RTL: dropdown aligns to left edge of toggle in RTL mode */
 [dir="rtl"] .sfs-hr-lang-dropdown {
-    right: 0;
-    left: auto;
+    right: auto;
+    left: 0;
 }
 .sfs-hr-lang-dropdown.active {
     display: block;
@@ -1173,6 +1173,31 @@
     padding: 12px 24px !important;
     font-weight: 600 !important;
     cursor: pointer !important;
+}
+/* Preserve attendance widget button colors in dark mode */
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-att-actions .button[data-type="in"],
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-att-actions .button[data-type="in"] {
+    background: #e8f7ee !important;
+    border-color: #b7dfc8 !important;
+    color: #111 !important;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-att-actions .button[data-type="out"],
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-att-actions .button[data-type="out"] {
+    background: #feecec !important;
+    border-color: #fecaca !important;
+    color: #111 !important;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-att-actions .button[data-type="break_start"],
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-att-actions .button[data-type="break_start"] {
+    background: #fff4d6 !important;
+    border-color: #fde68a !important;
+    color: #111 !important;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-att-actions .button[data-type="break_end"],
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-att-actions .button[data-type="break_end"] {
+    background: #eef4ff !important;
+    border-color: #bfdbfe !important;
+    color: #111 !important;
 }
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-lf-submit:hover,
 .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-lf-submit:hover {
