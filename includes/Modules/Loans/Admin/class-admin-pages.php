@@ -1230,7 +1230,7 @@ class AdminPages {
                                     <td><?php echo number_format( (float) $inst->remaining_balance, 2 ); ?> <?php echo esc_html( $inst->currency ); ?></td>
                                     <td>
                                         <?php if ( $inst->status === 'planned' || $inst->status === 'partial' ) : ?>
-                                            <div class="row-actions" style="display:flex;gap:5px;">
+                                            <div class="sfs-hr-inst-actions" style="display:flex;gap:5px;">
                                                 <form method="post" action="" style="display:inline-block;">
                                                     <?php wp_nonce_field( 'sfs_hr_mark_installment_' . $inst->id ); ?>
                                                     <input type="hidden" name="action" value="mark_installment_paid" />

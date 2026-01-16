@@ -50,6 +50,12 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
+    // Only cache http/https requests (skip chrome-extension://, etc.)
+    const url = new URL(event.request.url);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        return;
+    }
+
     // Skip API requests - always go to network
     if (event.request.url.includes('/wp-json/') || event.request.url.includes('admin-ajax.php')) {
         return;
