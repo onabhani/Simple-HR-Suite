@@ -5583,184 +5583,353 @@ private function render_frontend_resignation_tab( array $emp ): void {
         }
     }
 
-    echo '<div class="sfs-hr-resignation-tab" style="margin-top:24px;">';
+    echo '<div class="sfs-hr-resignation-tab">';
+
+    // Add CSS for resignation form to match leave form
+    ?>
+    <style>
+    .sfs-hr-resignation-dashboard {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 16px 18px 18px;
+        margin-bottom: 24px;
+        background: #ffffff;
+    }
+    .sfs-hr-resignation-dashboard h4 {
+        margin: 0 0 16px 0;
+        font-size: 18px;
+        font-weight: 600;
+    }
+    .sfs-hr-resignation-form-wrap {
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        background: #f9fafb;
+        padding: 14px 16px;
+        margin-bottom: 14px;
+    }
+    .sfs-hr-resignation-form-wrap h5 {
+        margin: 0 0 12px 0;
+        font-size: 14px;
+        font-weight: 600;
+    }
+    .sfs-hr-resign-fields {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .sfs-hr-resign-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .sfs-hr-resign-label {
+        font-size: 12px;
+        font-weight: 500;
+        color: #374151;
+    }
+    .sfs-hr-resign-hint {
+        font-size: 11px;
+        color: #6b7280;
+    }
+    .sfs-hr-resign-radio-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 4px;
+    }
+    .sfs-hr-resign-radio-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        cursor: pointer;
+    }
+    [dir="rtl"] .sfs-hr-resign-radio-label {
+        flex-direction: row-reverse;
+        justify-content: flex-end;
+    }
+    .sfs-hr-resign-radio-label input[type="radio"] {
+        width: 18px;
+        height: 18px;
+        margin: 0;
+        cursor: pointer;
+    }
+    .sfs-hr-resignation-tab input[type="date"],
+    .sfs-hr-resignation-tab input[type="number"],
+    .sfs-hr-resignation-tab textarea {
+        width: 100%;
+        box-sizing: border-box;
+        border-radius: 8px;
+        border: 1px solid #d1d5db;
+        padding: 10px 12px;
+        font-size: 14px;
+    }
+    .sfs-hr-resignation-tab input[type="date"] {
+        min-height: 44px;
+    }
+    .sfs-hr-resignation-tab textarea {
+        min-height: 80px;
+        resize: vertical;
+    }
+    .sfs-hr-resignation-tab input[readonly] {
+        background: #f5f5f5;
+        cursor: not-allowed;
+    }
+    .sfs-hr-resign-submit {
+        width: 100%;
+        padding: 12px 16px;
+        border-radius: 8px;
+        border: none;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        min-height: 44px;
+        background: #4b5563;
+        color: #fff;
+    }
+    .sfs-hr-resign-submit:hover {
+        background: #374151;
+    }
+    /* Dark mode for resignation form */
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignation-dashboard,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignation-dashboard {
+        background: var(--sfs-surface);
+        border-color: var(--sfs-border);
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignation-dashboard h4,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignation-dashboard h4 {
+        color: var(--sfs-text);
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignation-form-wrap,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignation-form-wrap {
+        background: var(--sfs-background);
+        border-color: var(--sfs-border);
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignation-form-wrap h5,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignation-form-wrap h5,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resign-label,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resign-label {
+        color: var(--sfs-text);
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resign-hint,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resign-hint {
+        color: var(--sfs-text-muted);
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resign-radio-label,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resign-radio-label {
+        color: var(--sfs-text);
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignation-tab input,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignation-tab textarea,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignation-tab input,
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignation-tab textarea {
+        background: var(--sfs-surface);
+        border-color: var(--sfs-border);
+        color: var(--sfs-text);
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignation-tab input[readonly],
+    .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignation-tab input[readonly] {
+        background: var(--sfs-background);
+    }
+    </style>
+    <?php
 
     // Show submission form if no pending/approved resignation
     if ( ! $has_pending && ! $has_approved ) {
         ?>
-        <div class="sfs-hr-resignation-form" style="background:#f9f9f9;padding:20px;border-radius:4px;margin-bottom:24px;">
-            <h4><?php esc_html_e( 'Submit Resignation', 'sfs-hr' ); ?></h4>
-            <form method="POST" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-                <?php wp_nonce_field( 'sfs_hr_resignation_submit' ); ?>
-                <input type="hidden" name="action" value="sfs_hr_resignation_submit">
+        <div class="sfs-hr-resignation-dashboard">
+            <h4><?php esc_html_e( 'Resignation', 'sfs-hr' ); ?></h4>
 
-                <p>
-                    <label>
-                        <?php esc_html_e( 'Resignation Type:', 'sfs-hr' ); ?>
-                        <span style="color:red;">*</span>
-                    </label><br>
-                    <label style="display:inline-block;margin-right:20px;">
-                        <input type="radio" name="resignation_type" value="regular" checked onchange="toggleResignationFields()">
-                        <?php esc_html_e( 'Regular Resignation', 'sfs-hr' ); ?>
-                    </label>
-                    <label style="display:inline-block;">
-                        <input type="radio" name="resignation_type" value="final_exit" onchange="toggleResignationFields()">
-                        <?php esc_html_e( 'Final Exit (Foreign Employee)', 'sfs-hr' ); ?>
-                    </label>
-                </p>
+            <div class="sfs-hr-resignation-form-wrap">
+                <h5 data-i18n="submit_resignation"><?php esc_html_e( 'Submit Resignation', 'sfs-hr' ); ?></h5>
 
-                <p id="resignation-date-field">
-                    <label for="resignation_date">
-                        <?php esc_html_e( 'Resignation Date:', 'sfs-hr' ); ?>
-                        <span style="color:red;">*</span>
-                    </label><br>
-                    <input
-                        type="date"
-                        name="resignation_date"
-                        id="resignation_date"
-                        required
-                        style="width:100%;max-width:300px;padding:8px;border:1px solid #ddd;border-radius:3px;">
-                </p>
+                <form method="POST" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                    <?php wp_nonce_field( 'sfs_hr_resignation_submit' ); ?>
+                    <input type="hidden" name="action" value="sfs_hr_resignation_submit">
 
-                <p>
-                    <label for="notice_period_days">
-                        <?php esc_html_e( 'Notice Period (days):', 'sfs-hr' ); ?>
-                        <span style="color:red;">*</span>
-                    </label><br>
-                    <input
-                        type="number"
-                        name="notice_period_days"
-                        id="notice_period_days"
-                        value="<?php echo esc_attr( get_option( 'sfs_hr_resignation_notice_period', '30' ) ); ?>"
-                        min="0"
-                        readonly
-                        required
-                        style="width:100%;max-width:300px;padding:8px;border:1px solid #ddd;border-radius:3px;background:#f5f5f5;cursor:not-allowed;"><br>
-                    <small style="color:#666;display:block;margin-top:4px;">
-                        <?php esc_html_e( 'Set by HR based on company policy. Your last working day will be calculated based on this.', 'sfs-hr' ); ?>
-                    </small>
-                </p>
+                    <div class="sfs-hr-resign-fields">
+                        <div class="sfs-hr-resign-group">
+                            <div class="sfs-hr-resign-label">
+                                <?php esc_html_e( 'Resignation Type', 'sfs-hr' ); ?>
+                                <span style="color:#ef4444;">*</span>
+                            </div>
+                            <div class="sfs-hr-resign-radio-group">
+                                <label class="sfs-hr-resign-radio-label">
+                                    <input type="radio" name="resignation_type" value="regular" checked onchange="toggleResignationFields()">
+                                    <span><?php esc_html_e( 'Regular Resignation', 'sfs-hr' ); ?></span>
+                                </label>
+                                <label class="sfs-hr-resign-radio-label">
+                                    <input type="radio" name="resignation_type" value="final_exit" onchange="toggleResignationFields()">
+                                    <span><?php esc_html_e( 'Final Exit (Foreign Employee)', 'sfs-hr' ); ?></span>
+                                </label>
+                            </div>
+                        </div>
 
-                <p>
-                    <label for="reason">
-                        <?php esc_html_e( 'Reason for Resignation:', 'sfs-hr' ); ?>
-                        <span style="color:red;">*</span>
-                    </label><br>
-                    <textarea
-                        name="reason"
-                        id="reason"
-                        rows="3"
-                        required
-                        style="width:100%;max-width:600px;padding:8px;border:1px solid #ddd;border-radius:3px;"></textarea>
-                </p>
+                        <div class="sfs-hr-resign-group" id="resignation-date-field">
+                            <div class="sfs-hr-resign-label">
+                                <?php esc_html_e( 'Resignation Date', 'sfs-hr' ); ?>
+                                <span style="color:#ef4444;">*</span>
+                            </div>
+                            <input type="date" name="resignation_date" id="resignation_date" required>
+                        </div>
 
-                <div id="fe-final-exit-fields" style="display:none;">
-                    <p>
-                        <label for="expected_country_exit_date">
-                            <?php esc_html_e( 'Expected Country Exit Date:', 'sfs-hr' ); ?>
-                            <span style="color:red;">*</span>
-                        </label><br>
-                        <input
-                            type="date"
-                            name="expected_country_exit_date"
-                            id="expected_country_exit_date"
-                            style="width:100%;max-width:300px;padding:8px;border:1px solid #ddd;border-radius:3px;">
-                        <br><small style="color:#666;">
-                            <?php esc_html_e( 'Expected date when you plan to leave the country', 'sfs-hr' ); ?>
-                        </small>
-                    </p>
-                </div>
+                        <div class="sfs-hr-resign-group">
+                            <div class="sfs-hr-resign-label">
+                                <?php esc_html_e( 'Notice Period (days)', 'sfs-hr' ); ?>
+                                <span style="color:#ef4444;">*</span>
+                            </div>
+                            <input type="number" name="notice_period_days" id="notice_period_days"
+                                   value="<?php echo esc_attr( get_option( 'sfs_hr_resignation_notice_period', '30' ) ); ?>"
+                                   min="0" readonly required>
+                            <div class="sfs-hr-resign-hint">
+                                <?php esc_html_e( 'Set by HR based on company policy. Your last working day will be calculated based on this.', 'sfs-hr' ); ?>
+                            </div>
+                        </div>
 
-                <style>
-                    @media (max-width: 600px) {
-                        .sfs-hr-resignation-form textarea {
-                            min-height: 80px !important;
-                            height: auto !important;
-                        }
+                        <div class="sfs-hr-resign-group">
+                            <div class="sfs-hr-resign-label">
+                                <?php esc_html_e( 'Reason for Resignation', 'sfs-hr' ); ?>
+                                <span style="color:#ef4444;">*</span>
+                            </div>
+                            <textarea name="reason" id="reason" rows="3" required></textarea>
+                        </div>
+
+                        <div class="sfs-hr-resign-group" id="fe-final-exit-fields" style="display:none;">
+                            <div class="sfs-hr-resign-label">
+                                <?php esc_html_e( 'Expected Country Exit Date', 'sfs-hr' ); ?>
+                                <span style="color:#ef4444;">*</span>
+                            </div>
+                            <input type="date" name="expected_country_exit_date" id="expected_country_exit_date">
+                            <div class="sfs-hr-resign-hint">
+                                <?php esc_html_e( 'Expected date when you plan to leave the country', 'sfs-hr' ); ?>
+                            </div>
+                        </div>
+
+                        <div class="sfs-hr-resign-group" style="margin-top:8px;">
+                            <button type="submit" class="sfs-hr-resign-submit sfs-hr-lf-submit">
+                                <?php esc_html_e( 'Submit Resignation', 'sfs-hr' ); ?>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <script>
+            function toggleResignationFields() {
+                var finalExitRadio = document.querySelector('input[name="resignation_type"][value="final_exit"]');
+                var resignationDateField = document.getElementById('resignation-date-field');
+                var resignationDateInput = document.getElementById('resignation_date');
+                var finalExitFields = document.getElementById('fe-final-exit-fields');
+                var expectedExitDateInput = document.getElementById('expected_country_exit_date');
+
+                if (finalExitRadio && finalExitRadio.checked) {
+                    resignationDateField.style.display = 'none';
+                    resignationDateInput.removeAttribute('required');
+                    finalExitFields.style.display = 'block';
+                    if (expectedExitDateInput) {
+                        expectedExitDateInput.setAttribute('required', 'required');
                     }
-                </style>
-
-                <script>
-                function toggleResignationFields() {
-                    var finalExitRadio = document.querySelector('input[name="resignation_type"][value="final_exit"]');
-                    var resignationDateField = document.getElementById('resignation-date-field');
-                    var resignationDateInput = document.getElementById('resignation_date');
-                    var finalExitFields = document.getElementById('fe-final-exit-fields');
-                    var expectedExitDateInput = document.getElementById('expected_country_exit_date');
-
-                    if (finalExitRadio && finalExitRadio.checked) {
-                        // Final Exit selected: hide resignation date, show final exit fields
-                        resignationDateField.style.display = 'none';
-                        resignationDateInput.removeAttribute('required');
-                        finalExitFields.style.display = 'block';
-                        if (expectedExitDateInput) {
-                            expectedExitDateInput.setAttribute('required', 'required');
-                        }
-                    } else {
-                        // Regular Resignation: show resignation date, hide final exit fields
-                        resignationDateField.style.display = 'block';
-                        resignationDateInput.setAttribute('required', 'required');
-                        finalExitFields.style.display = 'none';
-                        if (expectedExitDateInput) {
-                            expectedExitDateInput.removeAttribute('required');
-                        }
+                } else {
+                    resignationDateField.style.display = 'flex';
+                    resignationDateInput.setAttribute('required', 'required');
+                    finalExitFields.style.display = 'none';
+                    if (expectedExitDateInput) {
+                        expectedExitDateInput.removeAttribute('required');
                     }
                 }
-                </script>
-
-                <p>
-                    <button type="submit" class="button button-primary" style="padding:10px 20px;">
-                        <?php esc_html_e( 'Submit Resignation', 'sfs-hr' ); ?>
-                    </button>
-                </p>
-            </form>
+            }
+            </script>
         </div>
         <?php
     } elseif ( $has_pending ) {
-        echo '<div class="sfs-hr-alert" style="background:#fff3cd;color:#856404;padding:15px;border-radius:4px;margin-bottom:24px;">';
+        echo '<div class="sfs-hr-resignation-dashboard">';
+        echo '<h4>' . esc_html__( 'Resignation', 'sfs-hr' ) . '</h4>';
+        echo '<div class="sfs-hr-alert" style="background:#fef3c7;color:#92400e;padding:14px 16px;border-radius:8px;border:1px solid #fcd34d;font-size:13px;">';
         echo '<strong>' . esc_html__( 'Notice:', 'sfs-hr' ) . '</strong> ';
         echo esc_html__( 'You have a pending resignation request. You cannot submit a new one until the current request is processed.', 'sfs-hr' );
         echo '</div>';
+        echo '</div>';
     } elseif ( $has_approved ) {
-        echo '<div class="sfs-hr-alert" style="background:#d4edda;color:#155724;padding:15px;border-radius:4px;margin-bottom:24px;">';
+        echo '<div class="sfs-hr-resignation-dashboard">';
+        echo '<h4>' . esc_html__( 'Resignation', 'sfs-hr' ) . '</h4>';
+        echo '<div class="sfs-hr-alert" style="background:#d1fae5;color:#065f46;padding:14px 16px;border-radius:8px;border:1px solid #6ee7b7;font-size:13px;">';
         echo '<strong>' . esc_html__( 'Notice:', 'sfs-hr' ) . '</strong> ';
         echo esc_html__( 'Your resignation has been approved. Please coordinate with HR for your exit process.', 'sfs-hr' );
+        echo '</div>';
         echo '</div>';
     }
 
     // Show resignation history
     if ( ! empty( $resignations ) ) {
-        echo '<div class="sfs-hr-resignation-history">';
-        echo '<h4>' . esc_html__( 'My Resignations', 'sfs-hr' ) . '</h4>';
+        echo '<div class="sfs-hr-resignation-dashboard" style="margin-top:16px;">';
+        echo '<h4 style="margin-bottom:12px;">' . esc_html__( 'Resignation History', 'sfs-hr' ) . '</h4>';
 
         // Add mobile CSS
         echo '<style>
+            .sfs-hr-resignations-table {
+                width: 100%;
+                border-collapse: collapse;
+                background: #fff;
+                border-radius: 8px;
+                overflow: hidden;
+                border: 1px solid #e5e7eb;
+            }
+            .sfs-hr-resignations-table th {
+                background: #f9fafb;
+                font-size: 11px;
+                font-weight: 600;
+                text-transform: uppercase;
+                color: #6b7280;
+            }
+            .sfs-hr-resignations-table th,
+            .sfs-hr-resignations-table td {
+                padding: 10px 12px;
+                text-align: left;
+                border-bottom: 1px solid #e5e7eb;
+            }
+            [dir="rtl"] .sfs-hr-resignations-table th,
+            [dir="rtl"] .sfs-hr-resignations-table td {
+                text-align: right;
+            }
+            .sfs-hr-resignations-table td {
+                font-size: 13px;
+            }
             @media screen and (max-width: 782px) {
                 .sfs-hr-resignations-table th.hide-mobile,
                 .sfs-hr-resignations-table td.hide-mobile {
                     display: none !important;
                 }
-                .sfs-hr-resignations-table {
-                    font-size: 12px;
-                }
                 .sfs-hr-resignations-table th,
                 .sfs-hr-resignations-table td {
-                    padding: 6px 4px !important;
-                    white-space: nowrap;
+                    padding: 8px 6px !important;
+                    font-size: 12px;
                 }
+            }
+            /* Dark mode */
+            .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignations-table,
+            .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignations-table {
+                background: var(--sfs-surface);
+                border-color: var(--sfs-border);
+            }
+            .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignations-table th,
+            .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignations-table th {
+                background: var(--sfs-background);
+                color: var(--sfs-text-muted);
+            }
+            .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-resignations-table td,
+            .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-resignations-table td {
+                color: var(--sfs-text);
+                border-color: var(--sfs-border);
             }
         </style>';
 
-        echo '<div class="sfs-hr-resignations-desktop">';
-        echo '<table class="sfs-hr-resignations-table" style="width:100%;border-collapse:collapse;background:#fff;">';
+        echo '<table class="sfs-hr-resignations-table">';
         echo '<thead>';
-        echo '<tr style="background:#f5f5f5;">';
-        echo '<th class="hide-mobile" style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Type', 'sfs-hr' ) . '</th>';
-        echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Resignation Date', 'sfs-hr' ) . '</th>';
-        echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Last Working Day', 'sfs-hr' ) . '</th>';
-        echo '<th class="hide-mobile" style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Notice Period', 'sfs-hr' ) . '</th>';
-        echo '<th style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
-        echo '<th class="hide-mobile" style="border:1px solid #ddd;padding:12px;text-align:left;">' . esc_html__( 'Submitted', 'sfs-hr' ) . '</th>';
+        echo '<tr>';
+        echo '<th class="hide-mobile">' . esc_html__( 'Type', 'sfs-hr' ) . '</th>';
+        echo '<th>' . esc_html__( 'Date', 'sfs-hr' ) . '</th>';
+        echo '<th class="hide-mobile">' . esc_html__( 'Last Day', 'sfs-hr' ) . '</th>';
+        echo '<th>' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
         echo '</tr>';
         echo '</thead>';
         echo '<tbody>';
@@ -5772,28 +5941,26 @@ private function render_frontend_resignation_tab( array $emp ): void {
             echo '<tr>';
 
             // Type column
-            echo '<td class="hide-mobile" style="border:1px solid #ddd;padding:12px;">';
+            echo '<td class="hide-mobile">';
             if ( $type === 'final_exit' ) {
-                echo '<span style="background:#673ab7;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">'
+                echo '<span style="background:#7c3aed;color:#fff;padding:3px 8px;border-radius:999px;font-size:11px;white-space:nowrap;">'
                     . esc_html__( 'Final Exit', 'sfs-hr' ) . '</span>';
             } else {
-                echo '<span style="background:#607d8b;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">'
+                echo '<span style="background:#64748b;color:#fff;padding:3px 8px;border-radius:999px;font-size:11px;">'
                     . esc_html__( 'Regular', 'sfs-hr' ) . '</span>';
             }
             echo '</td>';
 
-            echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['resignation_date'] ) . '</td>';
-            echo '<td style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['last_working_day'] ?: 'N/A' ) . '</td>';
-            echo '<td class="hide-mobile" style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['notice_period_days'] ) . ' ' . esc_html__( 'days', 'sfs-hr' ) . '</td>';
-            echo '<td style="border:1px solid #ddd;padding:12px;">' . $status_badge . '</td>';
-            echo '<td class="hide-mobile" style="border:1px solid #ddd;padding:12px;">' . esc_html( $r['created_at'] ) . '</td>';
+            echo '<td>' . esc_html( $r['resignation_date'] ) . '</td>';
+            echo '<td class="hide-mobile">' . esc_html( $r['last_working_day'] ?: '-' ) . '</td>';
+            echo '<td>' . $status_badge . '</td>';
             echo '</tr>';
 
             // Show reason, notes, approver info, and Final Exit info in expanded row
             $has_approver = in_array( $r['status'], [ 'approved', 'rejected' ], true ) && ! empty( $r['approver_id'] );
             if ( ! empty( $r['reason'] ) || ! empty( $r['approver_note'] ) || $has_approver || $type === 'final_exit' ) {
                 echo '<tr>';
-                echo '<td colspan="6" style="border:1px solid #ddd;padding:12px;background:#f9f9f9;">';
+                echo '<td colspan="4" style="background:#f9fafb;font-size:12px;padding:10px 12px;">';
 
                 if ( ! empty( $r['reason'] ) ) {
                     echo '<div style="margin-bottom:8px;">';
@@ -5860,9 +6027,8 @@ private function render_frontend_resignation_tab( array $emp ): void {
 
         echo '</tbody>';
         echo '</table>';
-        echo '</div>'; // .sfs-hr-resignations-desktop
 
-        echo '</div>'; // .sfs-hr-resignation-history
+        echo '</div>'; // .sfs-hr-resignation-dashboard (history)
     }
 
     echo '</div>'; // .sfs-hr-resignation-tab
@@ -5896,7 +6062,7 @@ private function resignation_status_badge( string $status, int $approval_level =
     }
 
     return sprintf(
-        '<span style="background:%s;color:#fff;padding:6px 12px;border-radius:3px;font-size:12px;font-weight:500;">%s</span>',
+        '<span style="background:%s;color:#fff;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:500;white-space:nowrap;">%s</span>',
         esc_attr( $color ),
         esc_html( $label )
     );
