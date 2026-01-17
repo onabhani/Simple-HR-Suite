@@ -235,12 +235,54 @@ class Shortcodes {
     };
 
     // Helper for field rows in overview.
-    $print_field = static function ( string $label, string $value ): void {
+    // Map English labels to translation keys for client-side language switching
+    $label_to_key = static function ( string $label ): string {
+        $map = [
+            'Status' => 'status',
+            'Gender' => 'gender',
+            'Department' => 'department',
+            'Position' => 'position',
+            'Hire Date' => 'hire_date',
+            'Hire date' => 'hire_date',
+            'Employee ID' => 'employee_id',
+            'WP Username' => 'wp_username',
+            'Email' => 'email',
+            'Phone' => 'phone',
+            'Emergency contact' => 'emergency_contact',
+            'Emergency Contact' => 'emergency_contact',
+            'National ID' => 'national_id',
+            'National ID Expiry' => 'national_id_expiry',
+            'Passport No.' => 'passport_no',
+            'Passport Expiry' => 'passport_expiry',
+            'Base salary' => 'base_salary',
+            'Base Salary' => 'base_salary',
+            // Arabic labels (for when WP renders in Arabic)
+            'الحالة' => 'status',
+            'الجنس' => 'gender',
+            'القسم' => 'department',
+            'المنصب' => 'position',
+            'تاريخ التعيين' => 'hire_date',
+            'رقم الموظف' => 'employee_id',
+            'اسم المستخدم' => 'wp_username',
+            'البريد الإلكتروني' => 'email',
+            'الهاتف' => 'phone',
+            'جهة اتصال الطوارئ' => 'emergency_contact',
+            'رقم الهوية' => 'national_id',
+            'انتهاء الهوية' => 'national_id_expiry',
+            'رقم الجواز' => 'passport_no',
+            'انتهاء الجواز' => 'passport_expiry',
+            'الراتب الأساسي' => 'base_salary',
+        ];
+        return $map[$label] ?? '';
+    };
+    $print_field = static function ( string $label, string $value ) use ( $label_to_key ): void {
         if ( $value === '' ) {
             return;
         }
+        $key = $label_to_key( $label );
+        $key_attr = $key ? ' data-i18n-key="' . esc_attr( $key ) . '"' : '';
         echo '<div class="sfs-hr-field-row">';
-        echo '<div class="sfs-hr-field-label">' . esc_html( $label ) . '</div>';
+        echo '<div class="sfs-hr-field-label"' . $key_attr . '>' . esc_html( $label ) . '</div>';
         echo '<div class="sfs-hr-field-value">' . esc_html( $value ) . '</div>';
         echo '</div>';
     };
@@ -509,7 +551,7 @@ class Shortcodes {
 <?php if ( $profile_completion_pct < 100 ) : ?>
 <div class="sfs-hr-profile-completion">
     <div class="sfs-hr-completion-header">
-        <span class="sfs-hr-completion-title"><?php esc_html_e( 'Profile Completion', 'sfs-hr' ); ?></span>
+        <span class="sfs-hr-completion-title" data-i18n-key="profile_completion"><?php esc_html_e( 'Profile Completion', 'sfs-hr' ); ?></span>
         <span class="sfs-hr-completion-pct"><?php echo esc_html( $profile_completion_pct ); ?>%</span>
     </div>
     <div class="sfs-hr-completion-bar">
@@ -517,7 +559,21 @@ class Shortcodes {
     </div>
     <?php if ( ! empty( $profile_missing ) ) : ?>
     <div class="sfs-hr-completion-hint">
+        <span data-i18n-key="missing"><?php esc_html_e( 'Missing', 'sfs-hr' ); ?>:</span>
         <?php
+        // Store missing field keys for JS translation
+        $missing_key_map = [
+            'photo' => 'photo',
+            'name' => 'full_name',
+            'email' => 'email',
+            'phone' => 'phone',
+            'gender' => 'gender',
+            'position' => 'position',
+            'department' => 'department',
+            'hire_date' => 'hire_date',
+            'national_id' => 'national_id',
+            'emergency' => 'emergency_contact',
+        ];
         $missing_labels = [
             'photo' => __('Photo', 'sfs-hr'),
             'name' => __('Full name', 'sfs-hr'),
@@ -530,9 +586,12 @@ class Shortcodes {
             'national_id' => __('National ID', 'sfs-hr'),
             'emergency' => __('Emergency contact', 'sfs-hr'),
         ];
-        $missing_names = array_map(fn($k) => $missing_labels[$k] ?? $k, $profile_missing);
-        echo esc_html( sprintf( __( 'Missing: %s', 'sfs-hr' ), implode( ', ', $missing_names ) ) );
+        foreach ( $profile_missing as $field ) :
+            $key = $missing_key_map[$field] ?? $field;
+            $label = $missing_labels[$field] ?? $field;
         ?>
+            <span class="sfs-hr-missing-field" data-i18n-key="<?php echo esc_attr( $key ); ?>"><?php echo esc_html( $label ); ?></span><?php echo ( $field !== end($profile_missing) ) ? ', ' : ''; ?>
+        <?php endforeach; ?>
     </div>
     <?php endif; ?>
 </div>
@@ -541,7 +600,7 @@ class Shortcodes {
             <div class="sfs-hr-profile-grid">
                 <div class="sfs-hr-profile-col">
                     <div class="sfs-hr-profile-group">
-                        <div class="sfs-hr-profile-group-title"><?php esc_html_e( 'Employment', 'sfs-hr' ); ?></div>
+                        <div class="sfs-hr-profile-group-title" data-i18n-key="employment"><?php esc_html_e( 'Employment', 'sfs-hr' ); ?></div>
                         <div class="sfs-hr-profile-group-body">
                             <?php
                             $print_field( __( 'Status', 'sfs-hr' ),      $status );
@@ -558,7 +617,7 @@ class Shortcodes {
                     </div>
 
                     <div class="sfs-hr-profile-group">
-                        <div class="sfs-hr-profile-group-title"><?php esc_html_e( 'Contact', 'sfs-hr' ); ?></div>
+                        <div class="sfs-hr-profile-group-title" data-i18n-key="contact"><?php esc_html_e( 'Contact', 'sfs-hr' ); ?></div>
                         <div class="sfs-hr-profile-group-body">
                             <?php
                             $print_field( __( 'Email', 'sfs-hr' ), $email );
@@ -574,7 +633,7 @@ class Shortcodes {
 
                 <div class="sfs-hr-profile-col">
                     <div class="sfs-hr-profile-group">
-                        <div class="sfs-hr-profile-group-title"><?php esc_html_e( 'Identification', 'sfs-hr' ); ?></div>
+                        <div class="sfs-hr-profile-group-title" data-i18n-key="identification"><?php esc_html_e( 'Identification', 'sfs-hr' ); ?></div>
                         <div class="sfs-hr-profile-group-body">
                             <?php
                             $print_field( __( 'National ID', 'sfs-hr' ),        $national_id );
@@ -586,7 +645,7 @@ class Shortcodes {
                     </div>
 
                     <div class="sfs-hr-profile-group">
-                        <div class="sfs-hr-profile-group-title"><?php esc_html_e( 'Payroll', 'sfs-hr' ); ?></div>
+                        <div class="sfs-hr-profile-group-title" data-i18n-key="payroll"><?php esc_html_e( 'Payroll', 'sfs-hr' ); ?></div>
                         <div class="sfs-hr-profile-group-body">
                             <?php
                             $print_field( __( 'Base salary', 'sfs-hr' ), $base_salary );
@@ -596,11 +655,11 @@ class Shortcodes {
 
                     <?php if ( ! $is_limited_access ) : ?>
                     <div class="sfs-hr-profile-group sfs-hr-quick-links">
-                        <div class="sfs-hr-profile-group-title"><?php esc_html_e( 'Quick Links', 'sfs-hr' ); ?></div>
+                        <div class="sfs-hr-profile-group-title" data-i18n-key="quick_links"><?php esc_html_e( 'Quick Links', 'sfs-hr' ); ?></div>
                         <div class="sfs-hr-profile-group-body">
                             <a href="<?php echo esc_url( $documents_url ); ?>" class="sfs-hr-quick-link">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-                                <span><?php esc_html_e( 'My Documents', 'sfs-hr' ); ?></span>
+                                <span data-i18n-key="my_documents"><?php esc_html_e( 'My Documents', 'sfs-hr' ); ?></span>
                                 <svg class="sfs-hr-quick-link-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                             </a>
                         </div>
@@ -611,7 +670,7 @@ class Shortcodes {
 
             <?php if ( ! empty( $asset_rows ) ) : ?>
                 <div class="sfs-hr-my-assets-frontend">
-                    <h4><?php echo esc_html__( 'My Assets', 'sfs-hr' ); ?></h4>
+                    <h4 data-i18n-key="my_assets"><?php echo esc_html__( 'My Assets', 'sfs-hr' ); ?></h4>
 
                     <!-- Desktop: table view -->
                     <div class="sfs-hr-assets-desktop">
@@ -2205,7 +2264,7 @@ class Shortcodes {
                     'Emergency Contact': 'emergency_contact',
                     'National ID': 'national_id',
                     'National ID Expiry': 'national_id_expiry',
-                    'Passport No.': 'passport',
+                    'Passport No.': 'passport_no',
                     'Passport Expiry': 'passport_expiry',
                     'Expiry': 'expiry',
                     'Passport': 'passport',
@@ -2219,9 +2278,17 @@ class Shortcodes {
                 };
 
                 // Find and translate labels, headings, buttons, and specific elements
+                // Store original key in data-i18n-key attribute for reliable translation switching
                 container.querySelectorAll('label, h3, h4, h5, button[type="submit"], .sfs-hr-profile-group-title, .sfs-hr-field-label, .sfs-hr-kpi-label, .sfs-hr-clock-btn, .sfs-hr-lf-label').forEach(function(el) {
-                    var text = el.childNodes[0]?.textContent?.trim() || el.textContent.trim();
-                    var key = textMap[text];
+                    // Get the translation key from stored attribute or lookup from textMap
+                    var key = el.dataset.i18nKey;
+                    if (!key) {
+                        var text = el.childNodes[0]?.textContent?.trim() || el.textContent.trim();
+                        key = textMap[text];
+                        if (key) {
+                            el.dataset.i18nKey = key; // Store for future translations
+                        }
+                    }
                     if (key && strings[key]) {
                         if (el.childNodes[0]?.nodeType === 3) {
                             el.childNodes[0].textContent = strings[key] + ' ';
@@ -2233,10 +2300,28 @@ class Shortcodes {
 
                 // Translate profile group titles and field labels directly
                 container.querySelectorAll('.sfs-hr-profile-group-title, .sfs-hr-field-label').forEach(function(el) {
-                    var text = el.textContent.trim();
-                    var key = textMap[text];
+                    // Get the translation key from stored attribute or lookup from textMap
+                    var key = el.dataset.i18nKey;
+                    if (!key) {
+                        var text = el.textContent.trim();
+                        key = textMap[text];
+                        if (key) {
+                            el.dataset.i18nKey = key; // Store for future translations
+                        }
+                    }
                     if (key && strings[key]) {
                         el.textContent = strings[key];
+                    }
+                });
+
+                // Translate ALL elements with data-i18n-key attribute (added via PHP)
+                container.querySelectorAll('[data-i18n-key]').forEach(function(el) {
+                    var key = el.dataset.i18nKey;
+                    if (key && strings[key]) {
+                        // Handle elements with child nodes carefully
+                        if (!el.querySelector('*') || el.classList.contains('sfs-hr-missing-field')) {
+                            el.textContent = strings[key];
+                        }
                     }
                 });
             }
