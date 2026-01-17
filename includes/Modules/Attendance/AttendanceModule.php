@@ -218,40 +218,41 @@ add_action('rest_api_init', function () {
               </small>
             </div>
 
-            <small id="sfs-att-hint" class="sfs-att-hint" data-i18n-key="location_hint">
-              <?php esc_html_e( 'Your location may be required. Allow the browser location prompt if asked.', 'sfs-hr' ); ?>
+            <small id="sfs-att-hint" class="sfs-att-hint" data-i18n-key="selfie_required_hint">
+              <?php esc_html_e( 'Selfie required for this shift. Location may also be required.', 'sfs-hr' ); ?>
             </small>
 
-            <?php
-            // Find the HR profile page URL
-            $profile_url = '';
-            $profile_pages = get_posts( array(
-                'post_type'      => 'page',
-                'posts_per_page' => 1,
-                's'              => '[sfs_hr_my_profile',
-                'post_status'    => 'publish',
-            ) );
-            if ( ! empty( $profile_pages ) ) {
-                $profile_url = get_permalink( $profile_pages[0]->ID );
-            }
-            if ( empty( $profile_url ) ) {
-                // Fallback: try common slugs
-                $page = get_page_by_path( 'my-profile' );
-                if ( ! $page ) {
-                    $page = get_page_by_path( 'hr-profile' );
-                }
-                if ( $page ) {
-                    $profile_url = get_permalink( $page->ID );
-                }
-            }
-            if ( ! empty( $profile_url ) ) : ?>
-            <a href="<?php echo esc_url( $profile_url ); ?>" class="sfs-att-back-link" data-i18n-key="back_to_profile">
-              <span class="dashicons dashicons-arrow-left-alt2"></span>
-              <?php esc_html_e( 'Back to My HR Profile', 'sfs-hr' ); ?>
-            </a>
-            <?php endif; ?>
-
           </div><!-- .sfs-att-card -->
+
+          <?php
+          // Find the HR profile page URL
+          $profile_url = '';
+          $profile_pages = get_posts( array(
+              'post_type'      => 'page',
+              'posts_per_page' => 1,
+              's'              => '[sfs_hr_my_profile',
+              'post_status'    => 'publish',
+          ) );
+          if ( ! empty( $profile_pages ) ) {
+              $profile_url = get_permalink( $profile_pages[0]->ID );
+          }
+          if ( empty( $profile_url ) ) {
+              // Fallback: try common slugs
+              $page = get_page_by_path( 'my-profile' );
+              if ( ! $page ) {
+                  $page = get_page_by_path( 'hr-profile' );
+              }
+              if ( $page ) {
+                  $profile_url = get_permalink( $page->ID );
+              }
+          }
+          if ( ! empty( $profile_url ) ) : ?>
+          <a href="<?php echo esc_url( $profile_url ); ?>" class="sfs-att-back-link" data-i18n-key="back_to_profile">
+            <span class="dashicons dashicons-arrow-left-alt2"></span>
+            <?php esc_html_e( 'Back to My HR Profile', 'sfs-hr' ); ?>
+          </a>
+          <?php endif; ?>
+
         </main>
 
       </div><!-- .sfs-att-shell -->
@@ -561,9 +562,134 @@ add_action('rest_api_init', function () {
       }
     </style>
 
+<!-- Global translations for attendance widget -->
+<script>
+window.sfsAttI18n = window.sfsAttI18n || {
+    // Status labels
+    not_clocked_in: '<?php echo esc_js( __( 'Not clocked in', 'sfs-hr' ) ); ?>',
+    clocked_in: '<?php echo esc_js( __( 'Clocked in', 'sfs-hr' ) ); ?>',
+    on_break: '<?php echo esc_js( __( 'On break', 'sfs-hr' ) ); ?>',
+    clocked_out: '<?php echo esc_js( __( 'Clocked out', 'sfs-hr' ) ); ?>',
+    ready: '<?php echo esc_js( __( 'Ready', 'sfs-hr' ) ); ?>',
+    working: '<?php echo esc_js( __( 'Working…', 'sfs-hr' ) ); ?>',
+    checking_status: '<?php echo esc_js( __( 'Checking status…', 'sfs-hr' ) ); ?>',
+    validating: '<?php echo esc_js( __( 'Validating…', 'sfs-hr' ) ); ?>',
+    success: '<?php echo esc_js( __( 'Success!', 'sfs-hr' ) ); ?>',
+    cancelled: '<?php echo esc_js( __( 'Cancelled.', 'sfs-hr' ) ); ?>',
+    please_wait_processing: '<?php echo esc_js( __( 'Please wait, processing...', 'sfs-hr' ) ); ?>',
+    // Camera messages
+    starting_camera: '<?php echo esc_js( __( 'Starting camera…', 'sfs-hr' ) ); ?>',
+    camera_error: '<?php echo esc_js( __( 'Camera error:', 'sfs-hr' ) ); ?>',
+    camera_not_available: '<?php echo esc_js( __( 'Camera not available on this device.', 'sfs-hr' ) ); ?>',
+    camera_ui_not_available: '<?php echo esc_js( __( 'Camera UI not available.', 'sfs-hr' ) ); ?>',
+    device_no_camera_preview: '<?php echo esc_js( __( "Your device doesn't support live camera preview. Capture a selfie, then it will be submitted.", 'sfs-hr' ) ); ?>',
+    ready_capture_submit: '<?php echo esc_js( __( 'Ready — tap "Capture & Submit".', 'sfs-hr' ) ); ?>',
+    camera_not_ready: '<?php echo esc_js( __( 'Camera not ready yet. Please wait a second.', 'sfs-hr' ) ); ?>',
+    could_not_capture_selfie: '<?php echo esc_js( __( 'Could not capture selfie. Try again.', 'sfs-hr' ) ); ?>',
+    // Location/geo messages
+    location_check_failed: '<?php echo esc_js( __( 'Location check failed.', 'sfs-hr' ) ); ?>',
+    location_required_not_supported: '<?php echo esc_js( __( 'Location is required but this browser does not support it.', 'sfs-hr' ) ); ?>',
+    outside_allowed_area: '<?php echo esc_js( __( 'You are outside the allowed area. Please move closer to the workplace and try again.', 'sfs-hr' ) ); ?>',
+    location_permission_denied: '<?php echo esc_js( __( 'Location permission was denied. Enable it to use attendance.', 'sfs-hr' ) ); ?>',
+    location_unavailable: '<?php echo esc_js( __( 'Location is unavailable. Check GPS or network.', 'sfs-hr' ) ); ?>',
+    location_timeout: '<?php echo esc_js( __( 'Timed out while getting location. Try again.', 'sfs-hr' ) ); ?>',
+    location_error_generic: '<?php echo esc_js( __( 'Could not get your location. Try again.', 'sfs-hr' ) ); ?>',
+    // Hints
+    selfie_required_hint: '<?php echo esc_js( __( 'Selfie required for this shift. Location may also be required.', 'sfs-hr' ) ); ?>',
+    location_hint: '<?php echo esc_js( __( 'Your location may be required. Allow the browser location prompt if asked.', 'sfs-hr' ) ); ?>',
+    selfie_required_capture: '<?php echo esc_js( __( 'Selfie is required for this shift. Please capture a photo.', 'sfs-hr' ) ); ?>',
+    // Error
+    error_prefix: '<?php echo esc_js( __( 'Error:', 'sfs-hr' ) ); ?>',
+    request_timed_out: '<?php echo esc_js( __( 'Request timed out', 'sfs-hr' ) ); ?>'
+};
+
+// Language switching support for attendance widget
+(function() {
+    var langUrl = '<?php echo esc_js( \SFS_HR_URL . 'languages/' ); ?>';
+    var translations = {};
+    var currentLang = localStorage.getItem('sfs_hr_lang') || 'en';
+
+    function loadTranslations(lang) {
+        return new Promise(function(resolve) {
+            if (translations[lang]) {
+                resolve(translations[lang]);
+                return;
+            }
+            fetch(langUrl + lang + '.json')
+                .then(function(response) {
+                    if (!response.ok) throw new Error('Not found');
+                    return response.json();
+                })
+                .then(function(data) {
+                    translations[lang] = data;
+                    resolve(data);
+                })
+                .catch(function() {
+                    resolve({});
+                });
+        });
+    }
+
+    function applyTranslations(lang) {
+        loadTranslations(lang).then(function(strings) {
+            // Update global i18n object
+            var keys = ['not_clocked_in', 'clocked_in', 'on_break', 'clocked_out', 'ready', 'working',
+                'checking_status', 'validating', 'success', 'cancelled', 'please_wait_processing',
+                'starting_camera', 'camera_error', 'camera_not_available', 'camera_ui_not_available',
+                'device_no_camera_preview', 'ready_capture_submit', 'camera_not_ready', 'could_not_capture_selfie',
+                'location_check_failed', 'location_required_not_supported', 'outside_allowed_area',
+                'location_permission_denied', 'location_unavailable', 'location_timeout', 'location_error_generic',
+                'selfie_required_hint', 'location_hint', 'selfie_required_capture', 'error_prefix', 'request_timed_out'];
+
+            keys.forEach(function(key) {
+                if (strings[key]) {
+                    window.sfsAttI18n[key] = strings[key];
+                }
+            });
+
+            // Update DOM elements with data-i18n-key
+            var container = document.querySelector('.sfs-att-app');
+            if (container) {
+                container.querySelectorAll('[data-i18n-key]').forEach(function(el) {
+                    var key = el.dataset.i18nKey;
+                    if (key && strings[key]) {
+                        el.textContent = strings[key];
+                    }
+                });
+
+                // Apply RTL for Arabic and Urdu
+                if (lang === 'ar' || lang === 'ur') {
+                    container.setAttribute('dir', 'rtl');
+                } else {
+                    container.setAttribute('dir', 'ltr');
+                }
+            }
+        });
+    }
+
+    // Apply translations on load
+    applyTranslations(currentLang);
+
+    // Listen for language changes from localStorage
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'sfs_hr_lang' && e.newValue) {
+            applyTranslations(e.newValue);
+        }
+    });
+
+    // Also listen for custom event from the main app
+    window.addEventListener('sfs_hr_lang_change', function(e) {
+        if (e.detail && e.detail.lang) {
+            applyTranslations(e.detail.lang);
+        }
+    });
+})();
+</script>
+
 <script>
 (function(){
     if (window.sfsGeo) return; // avoid redefining if other shortcode printed it
+    var i18n = window.sfsAttI18n || {};
 
     function haversineMeters(lat1, lon1, lat2, lon2) {
         const R = 6371000;
@@ -615,7 +741,7 @@ add_action('rest_api_init', function () {
 
         if (!navigator.geolocation) {
             onReject && onReject(
-                'Location is required but this browser does not support it.',
+                i18n.location_required_not_supported || 'Location is required but this browser does not support it.',
                 'NO_GEO'
             );
             return;
@@ -628,12 +754,12 @@ add_action('rest_api_init', function () {
                 const dist = haversineMeters(cfg.lat, cfg.lng, lat, lng);
 
                 if (dist > cfg.radius) {
-    onReject && onReject(
-        'You are outside the allowed area. Please move closer to the workplace and try again.',
-        'OUTSIDE_RADIUS'
-    );
-    return;
-}
+                    onReject && onReject(
+                        i18n.outside_allowed_area || 'You are outside the allowed area. Please move closer to the workplace and try again.',
+                        'OUTSIDE_RADIUS'
+                    );
+                    return;
+                }
 
                 onAllow && onAllow({
                     latitude: lat,
@@ -644,13 +770,13 @@ add_action('rest_api_init', function () {
             err => {
                 let msg;
                 if (err.code === err.PERMISSION_DENIED) {
-                    msg = 'Location permission was denied. Enable it to use attendance.';
+                    msg = i18n.location_permission_denied || 'Location permission was denied. Enable it to use attendance.';
                 } else if (err.code === err.POSITION_UNAVAILABLE) {
-                    msg = 'Location is unavailable. Check GPS or network.';
+                    msg = i18n.location_unavailable || 'Location is unavailable. Check GPS or network.';
                 } else if (err.code === err.TIMEOUT) {
-                    msg = 'Timed out while getting location. Try again.';
+                    msg = i18n.location_timeout || 'Timed out while getting location. Try again.';
                 } else {
-                    msg = 'Could not get your location. Try again.';
+                    msg = i18n.location_error_generic || 'Could not get your location. Try again.';
                 }
                 onReject && onReject(msg, 'GEO_ERROR_' + err.code);
             },
@@ -695,34 +821,8 @@ add_action('rest_api_init', function () {
         const PUNCH_URL  = '<?php echo esc_js( $punch_url ); ?>';
         const NONCE      = '<?php echo esc_js( $nonce ); ?>';
 
-        // Translated strings
-        const i18n = {
-            not_clocked_in: '<?php echo esc_js( __( 'Not clocked in', 'sfs-hr' ) ); ?>',
-            clocked_in: '<?php echo esc_js( __( 'Clocked in', 'sfs-hr' ) ); ?>',
-            on_break: '<?php echo esc_js( __( 'On break', 'sfs-hr' ) ); ?>',
-            clocked_out: '<?php echo esc_js( __( 'Clocked out', 'sfs-hr' ) ); ?>',
-            ready: '<?php echo esc_js( __( 'Ready', 'sfs-hr' ) ); ?>',
-            working: '<?php echo esc_js( __( 'Working…', 'sfs-hr' ) ); ?>',
-            starting_camera: '<?php echo esc_js( __( 'Starting camera…', 'sfs-hr' ) ); ?>',
-            camera_error: '<?php echo esc_js( __( 'Camera error:', 'sfs-hr' ) ); ?>',
-            camera_not_available: '<?php echo esc_js( __( 'Camera not available on this device.', 'sfs-hr' ) ); ?>',
-            camera_ui_not_available: '<?php echo esc_js( __( 'Camera UI not available.', 'sfs-hr' ) ); ?>',
-            device_no_camera_preview: '<?php echo esc_js( __( "Your device doesn't support live camera preview. Capture a selfie, then it will be submitted.", 'sfs-hr' ) ); ?>',
-            ready_capture_submit: '<?php echo esc_js( __( 'Ready — tap "Capture & Submit".', 'sfs-hr' ) ); ?>',
-            location_check_failed: '<?php echo esc_js( __( 'Location check failed.', 'sfs-hr' ) ); ?>',
-            error_prefix: '<?php echo esc_js( __( 'Error:', 'sfs-hr' ) ); ?>',
-            request_timed_out: '<?php echo esc_js( __( 'Request timed out', 'sfs-hr' ) ); ?>',
-            selfie_required_hint: '<?php echo esc_js( __( 'Selfie required for this shift. Location may also be required.', 'sfs-hr' ) ); ?>',
-            location_hint: '<?php echo esc_js( __( 'Your location may be required. Allow the browser location prompt if asked.', 'sfs-hr' ) ); ?>',
-            please_wait_processing: '<?php echo esc_js( __( 'Please wait, processing...', 'sfs-hr' ) ); ?>',
-            checking_status: '<?php echo esc_js( __( 'Checking status…', 'sfs-hr' ) ); ?>',
-            validating: '<?php echo esc_js( __( 'Validating…', 'sfs-hr' ) ); ?>',
-            success: '<?php echo esc_js( __( 'Success!', 'sfs-hr' ) ); ?>',
-            camera_not_ready: '<?php echo esc_js( __( 'Camera not ready yet. Please wait a second.', 'sfs-hr' ) ); ?>',
-            could_not_capture_selfie: '<?php echo esc_js( __( 'Could not capture selfie. Try again.', 'sfs-hr' ) ); ?>',
-            cancelled: '<?php echo esc_js( __( 'Cancelled.', 'sfs-hr' ) ); ?>',
-            selfie_required_capture: '<?php echo esc_js( __( 'Selfie is required for this shift. Please capture a photo.', 'sfs-hr' ) ); ?>'
-        };
+        // Use global translated strings
+        const i18n = window.sfsAttI18n || {};
 
         function setStat(text, mode){
     if (!statusBox) return;
