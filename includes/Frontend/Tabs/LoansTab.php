@@ -517,6 +517,14 @@ document.addEventListener("DOMContentLoaded", function() {
             'rejected'        => __( 'Rejected', 'sfs-hr' ),
             'cancelled'       => __( 'Cancelled', 'sfs-hr' ),
         ];
+        $keys = [
+            'pending_gm'      => 'pending_gm_approval',
+            'pending_finance' => 'pending_finance_approval',
+            'active'          => 'active',
+            'completed'       => 'completed',
+            'rejected'        => 'rejected',
+            'cancelled'       => 'cancelled',
+        ];
         $colors = [
             'pending_gm'      => 'background:#ffa500;color:#fff;',
             'pending_finance' => 'background:#ff8c00;color:#fff;',
@@ -526,20 +534,29 @@ document.addEventListener("DOMContentLoaded", function() {
             'cancelled'       => 'background:#6c757d;color:#fff;',
         ];
         $label = $labels[ $status ] ?? ucfirst( str_replace( '_', ' ', $status ) );
+        $key = $keys[ $status ] ?? $status;
         $color = $colors[ $status ] ?? 'background:#888;color:#fff;';
-        return '<span style="' . esc_attr( $color ) . 'padding:4px 8px;border-radius:3px;font-size:11px;">' . esc_html( $label ) . '</span>';
+        return '<span style="' . esc_attr( $color ) . 'padding:4px 8px;border-radius:3px;font-size:11px;" data-i18n-key="' . esc_attr( $key ) . '">' . esc_html( $label ) . '</span>';
     }
 
     /**
      * Get payment status badge HTML
      */
     private function get_payment_status_badge( string $status ): string {
-        $badges = [
-            'planned'  => '<span style="background:#ffc107;color:#000;padding:2px 6px;border-radius:3px;font-size:10px;">Planned</span>',
-            'paid'     => '<span style="background:#28a745;color:#fff;padding:2px 6px;border-radius:3px;font-size:10px;">Paid</span>',
-            'skipped'  => '<span style="background:#6c757d;color:#fff;padding:2px 6px;border-radius:3px;font-size:10px;">Skipped</span>',
-            'partial'  => '<span style="background:#17a2b8;color:#fff;padding:2px 6px;border-radius:3px;font-size:10px;">Partial</span>',
+        $labels = [
+            'planned'  => __( 'Planned', 'sfs-hr' ),
+            'paid'     => __( 'Paid', 'sfs-hr' ),
+            'skipped'  => __( 'Skipped', 'sfs-hr' ),
+            'partial'  => __( 'Partial', 'sfs-hr' ),
         ];
-        return $badges[ $status ] ?? esc_html( ucfirst( $status ) );
+        $colors = [
+            'planned'  => 'background:#ffc107;color:#000;',
+            'paid'     => 'background:#28a745;color:#fff;',
+            'skipped'  => 'background:#6c757d;color:#fff;',
+            'partial'  => 'background:#17a2b8;color:#fff;',
+        ];
+        $label = $labels[ $status ] ?? ucfirst( $status );
+        $color = $colors[ $status ] ?? 'background:#888;color:#fff;';
+        return '<span style="' . esc_attr( $color ) . 'padding:2px 6px;border-radius:3px;font-size:10px;" data-i18n-key="' . esc_attr( $status ) . '">' . esc_html( $label ) . '</span>';
     }
 }

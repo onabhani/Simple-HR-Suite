@@ -74,6 +74,6 @@ class Leave_UI {
 
         $class = 'sfs-hr-status-chip sfs-hr-status-chip--' . $color;
 
-        return '<span class="' . esc_attr( $class ) . '">' . esc_html( $label ) . '</span>';
+        return '<span class="' . esc_attr( $class ) . '" data-i18n-key="' . esc_attr( $key ) . '">' . esc_html( $label ) . '</span>';
     }
 }

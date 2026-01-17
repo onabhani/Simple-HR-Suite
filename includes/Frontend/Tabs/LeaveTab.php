@@ -134,7 +134,7 @@ class LeaveTab implements TabInterface {
         );
 
         // Next approved leave (nearest future approved)
-        $next_leave_text = esc_html__( 'No upcoming leave.', 'sfs-hr' );
+        $next_leave_text = '<span data-i18n-key="no_upcoming_leave">' . esc_html__( 'No upcoming leave.', 'sfs-hr' ) . '</span>';
 
         $next_row = $wpdb->get_row(
             $wpdb->prepare(
@@ -808,18 +808,18 @@ class LeaveTab implements TabInterface {
 
             echo '  <div class="sfs-hr-leave-body">';
             echo '      <div class="sfs-hr-leave-field-row">';
-            echo '          <div class="sfs-hr-leave-field-label">' . esc_html__( 'Period', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-leave-field-label" data-i18n-key="period">' . esc_html__( 'Period', 'sfs-hr' ) . '</div>';
             echo '          <div class="sfs-hr-leave-field-value">' . esc_html( $r['period'] ) . '</div>';
             echo '      </div>';
 
             echo '      <div class="sfs-hr-leave-field-row">';
-            echo '          <div class="sfs-hr-leave-field-label">' . esc_html__( 'Days', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-leave-field-label" data-i18n-key="days">' . esc_html__( 'Days', 'sfs-hr' ) . '</div>';
             echo '          <div class="sfs-hr-leave-field-value">' . esc_html( (string) $r['days'] ) . '</div>';
             echo '      </div>';
 
             if ( ! empty( $r['doc_html'] ) ) {
                 echo '      <div class="sfs-hr-leave-field-row">';
-                echo '          <div class="sfs-hr-leave-field-label">' . esc_html__( 'Document', 'sfs-hr' ) . '</div>';
+                echo '          <div class="sfs-hr-leave-field-label" data-i18n-key="document">' . esc_html__( 'Document', 'sfs-hr' ) . '</div>';
                 echo '          <div class="sfs-hr-leave-field-value">';
                 echo                $r['doc_html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
                 echo '          </div>';
@@ -827,20 +827,21 @@ class LeaveTab implements TabInterface {
             }
 
             echo '      <div class="sfs-hr-leave-field-row">';
-            echo '          <div class="sfs-hr-leave-field-label">' . esc_html__( 'Requested at', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-leave-field-label" data-i18n-key="requested_at">' . esc_html__( 'Requested at', 'sfs-hr' ) . '</div>';
             echo '          <div class="sfs-hr-leave-field-value">' . esc_html( $r['created_at'] ) . '</div>';
             echo '      </div>';
 
             if ( ! empty( $r['approver_name'] ) ) {
                 $action_label = $r['raw_status'] === 'rejected' ? __( 'Rejected by', 'sfs-hr' ) : __( 'Approved by', 'sfs-hr' );
+                $action_key = $r['raw_status'] === 'rejected' ? 'rejected_by' : 'approved_by';
                 echo '      <div class="sfs-hr-leave-field-row">';
-                echo '          <div class="sfs-hr-leave-field-label">' . esc_html( $action_label ) . '</div>';
+                echo '          <div class="sfs-hr-leave-field-label" data-i18n-key="' . esc_attr( $action_key ) . '">' . esc_html( $action_label ) . '</div>';
                 echo '          <div class="sfs-hr-leave-field-value">' . esc_html( $r['approver_name'] ) . '</div>';
                 echo '      </div>';
             }
             if ( $r['raw_status'] === 'rejected' && ! empty( $r['approver_note'] ) ) {
                 echo '      <div class="sfs-hr-leave-field-row">';
-                echo '          <div class="sfs-hr-leave-field-label">' . esc_html__( 'Reason', 'sfs-hr' ) . '</div>';
+                echo '          <div class="sfs-hr-leave-field-label" data-i18n-key="reason">' . esc_html__( 'Reason', 'sfs-hr' ) . '</div>';
                 echo '          <div class="sfs-hr-leave-field-value" style="color:#b32d2e;">' . esc_html( $r['approver_note'] ) . '</div>';
                 echo '      </div>';
             }
