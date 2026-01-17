@@ -1,6 +1,7 @@
 <?php
 namespace SFS\HR\Modules\Reminders\Cron;
 
+use SFS\HR\Core\Helpers;
 use SFS\HR\Modules\Reminders\Services\Reminders_Service;
 
 if (!defined('ABSPATH')) { exit; }
@@ -55,7 +56,7 @@ class Reminders_Cron {
         $birthdays = Reminders_Service::get_upcoming_birthdays($days_before);
 
         foreach ($birthdays as $employee) {
-            $this->send_notification('birthday', $employee);
+            $this->send_reminder_notification('birthday', $employee);
         }
     }
 
@@ -66,14 +67,14 @@ class Reminders_Cron {
         $anniversaries = Reminders_Service::get_upcoming_anniversaries($days_before);
 
         foreach ($anniversaries as $employee) {
-            $this->send_notification('anniversary', $employee);
+            $this->send_reminder_notification('anniversary', $employee);
         }
     }
 
     /**
      * Send a reminder notification
      */
-    private function send_notification(string $type, $employee): void {
+    private function send_reminder_notification(string $type, $employee): void {
         $settings = Reminders_Service::get_settings();
         $recipients = Reminders_Service::get_notification_recipients($employee, $settings['reminder_recipients']);
 
@@ -88,11 +89,69 @@ class Reminders_Cron {
         $message .= "\n\n" . sprintf(__("Department: %s", 'sfs-hr'), $employee->department_name ?: __('General', 'sfs-hr'));
         $message .= "\n" . sprintf(__("Employee Code: %s", 'sfs-hr'), $employee->employee_code ?: 'N/A');
 
+        $notification_type = ($type === 'birthday') ? 'reminder_birthday' : 'reminder_anniversary';
+
         foreach ($recipients as $email) {
-            if (is_email($email) && class_exists('\SFS\HR\Core\Notifications')) {
-                \SFS\HR\Core\Notifications::send_email($email, $message_parts['subject'], $message);
+            if (is_email($email)) {
+                // Get user_id from email if possible
+                $user = get_user_by('email', $email);
+                $user_id = $user ? $user->ID : 0;
+
+                $this->send_notification_with_preferences($user_id, $email, $message_parts['subject'], $message, $notification_type);
             }
         }
+    }
+
+    /**
+     * Send notification with preference checks
+     *
+     * @param int    $user_id           User ID
+     * @param string $email             Email address
+     * @param string $subject           Email subject
+     * @param string $message           Email message
+     * @param string $notification_type Notification type
+     */
+    private function send_notification_with_preferences(int $user_id, string $email, string $subject, string $message, string $notification_type): void {
+        // Check if user wants this type of email notification
+        if (!apply_filters('dofs_user_wants_email_notification', true, $user_id, $notification_type)) {
+            return;
+        }
+
+        // Check if notification should be sent now or queued for digest
+        if (apply_filters('dofs_should_send_notification_now', true, $user_id, $notification_type)) {
+            // Send email immediately
+            Helpers::send_mail($email, $subject, $message);
+        } else {
+            // Queue for digest
+            $this->queue_for_digest($user_id, $email, $subject, $message, $notification_type);
+        }
+    }
+
+    /**
+     * Queue notification for digest delivery
+     *
+     * @param int    $user_id           User ID
+     * @param string $email             Email address
+     * @param string $subject           Email subject
+     * @param string $message           Email message
+     * @param string $notification_type Notification type
+     */
+    private function queue_for_digest(int $user_id, string $email, string $subject, string $message, string $notification_type): void {
+        $queue = get_option('sfs_hr_notification_digest_queue', []);
+
+        $queue[] = [
+            'user_id'           => $user_id,
+            'email'             => $email,
+            'subject'           => $subject,
+            'message'           => $message,
+            'notification_type' => $notification_type,
+            'queued_at'         => current_time('mysql'),
+        ];
+
+        update_option('sfs_hr_notification_digest_queue', $queue);
+
+        // Fire action for external digest handlers
+        do_action('sfs_hr_notification_queued_for_digest', $user_id, $email, $subject, $message, $notification_type);
     }
 
     /**

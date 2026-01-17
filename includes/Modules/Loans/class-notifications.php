@@ -70,7 +70,7 @@ class Notifications {
                 'requested_date'  => wp_date( 'F j, Y', strtotime( $loan->created_at ) ),
             ] );
 
-            wp_mail( $user->user_email, $subject, $message, self::get_email_headers() );
+            self::send_notification( $user->ID, $user->user_email, $subject, $message, 'loan_request_created' );
         }
     }
 
@@ -132,7 +132,7 @@ class Notifications {
                 'approved_date'   => wp_date( 'F j, Y', strtotime( $loan->approved_gm_at ) ),
             ] );
 
-            wp_mail( $user->user_email, $subject, $message, self::get_email_headers() );
+            self::send_notification( $user->ID, $user->user_email, $subject, $message, 'loan_gm_approved' );
         }
     }
 
@@ -181,7 +181,7 @@ class Notifications {
             'approved_date'   => wp_date( 'F j, Y', strtotime( $loan->approved_finance_at ) ),
         ] );
 
-        wp_mail( $employee_user->user_email, $subject, $message, self::get_email_headers() );
+        self::send_notification( $employee_user->ID, $employee_user->user_email, $subject, $message, 'loan_approved' );
     }
 
     /**
@@ -231,7 +231,7 @@ class Notifications {
             'rejected_date'     => wp_date( 'F j, Y', strtotime( $loan->rejected_at ) ),
         ] );
 
-        wp_mail( $employee_user->user_email, $subject, $message, self::get_email_headers() );
+        self::send_notification( $employee_user->ID, $employee_user->user_email, $subject, $message, 'loan_rejected' );
     }
 
     /**
@@ -278,7 +278,7 @@ class Notifications {
             'installment_amount' => number_format( (float) $loan->installment_amount, 2 ),
         ] );
 
-        wp_mail( $employee_user->user_email, $subject, $message, self::get_email_headers() );
+        self::send_notification( $employee_user->ID, $employee_user->user_email, $subject, $message, 'loan_installment_skipped' );
     }
 
     /**
@@ -443,6 +443,58 @@ HR Management System
         }
 
         return $template_content;
+    }
+
+    /**
+     * Send notification with preference checks
+     *
+     * @param int    $user_id           User ID
+     * @param string $email             Email address
+     * @param string $subject           Email subject
+     * @param string $message           Email message
+     * @param string $notification_type Notification type
+     */
+    private static function send_notification( int $user_id, string $email, string $subject, string $message, string $notification_type ): void {
+        // Check if user wants this type of email notification
+        if ( ! apply_filters( 'dofs_user_wants_email_notification', true, $user_id, $notification_type ) ) {
+            return;
+        }
+
+        // Check if notification should be sent now or queued for digest
+        if ( apply_filters( 'dofs_should_send_notification_now', true, $user_id, $notification_type ) ) {
+            // Send email immediately
+            wp_mail( $email, $subject, $message, self::get_email_headers() );
+        } else {
+            // Queue for digest
+            self::queue_for_digest( $user_id, $email, $subject, $message, $notification_type );
+        }
+    }
+
+    /**
+     * Queue notification for digest delivery
+     *
+     * @param int    $user_id           User ID
+     * @param string $email             Email address
+     * @param string $subject           Email subject
+     * @param string $message           Email message
+     * @param string $notification_type Notification type
+     */
+    private static function queue_for_digest( int $user_id, string $email, string $subject, string $message, string $notification_type ): void {
+        $queue = get_option( 'sfs_hr_notification_digest_queue', [] );
+
+        $queue[] = [
+            'user_id'           => $user_id,
+            'email'             => $email,
+            'subject'           => $subject,
+            'message'           => $message,
+            'notification_type' => $notification_type,
+            'queued_at'         => current_time( 'mysql' ),
+        ];
+
+        update_option( 'sfs_hr_notification_digest_queue', $queue );
+
+        // Fire action for external digest handlers
+        do_action( 'sfs_hr_notification_queued_for_digest', $user_id, $email, $subject, $message, $notification_type );
     }
 
     /**

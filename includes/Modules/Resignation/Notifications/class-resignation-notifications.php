@@ -43,7 +43,7 @@ class Resignation_Notifications {
         $message .= "\n" . __('Last Working Day:', 'sfs-hr') . ' ' . $resignation['last_working_day'];
         $message .= "\n\n" . __('Please log in to review and approve.', 'sfs-hr');
 
-        Helpers::send_mail($approver->user_email, $subject, $message);
+        self::send_notification((int) $dept['manager_user_id'], $approver->user_email, $subject, $message, 'resignation_submitted');
     }
 
     /**
@@ -64,7 +64,7 @@ class Resignation_Notifications {
         $message .= "\n\n" . __('Your resignation has been approved.', 'sfs-hr');
         $message .= "\n" . __('Last Working Day:', 'sfs-hr') . ' ' . $resignation['last_working_day'];
 
-        Helpers::send_mail($employee->user_email, $subject, $message);
+        self::send_notification((int) $resignation['emp_user_id'], $employee->user_email, $subject, $message, 'resignation_approved');
     }
 
     /**
@@ -87,7 +87,7 @@ class Resignation_Notifications {
             $message .= "\n" . __('Reason:', 'sfs-hr') . ' ' . $resignation['approver_note'];
         }
 
-        Helpers::send_mail($employee->user_email, $subject, $message);
+        self::send_notification((int) $resignation['emp_user_id'], $employee->user_email, $subject, $message, 'resignation_rejected');
     }
 
     /**
@@ -110,6 +110,58 @@ class Resignation_Notifications {
         $message .= "\n" . __('Last Working Day:', 'sfs-hr') . ' ' . $resignation['last_working_day'];
         $message .= "\n\n" . __('Please log in to review and approve.', 'sfs-hr');
 
-        Helpers::send_mail($approver->user_email, $subject, $message);
+        self::send_notification($approver_id, $approver->user_email, $subject, $message, 'resignation_pending_approval');
+    }
+
+    /**
+     * Send notification with preference checks
+     *
+     * @param int    $user_id           User ID
+     * @param string $email             Email address
+     * @param string $subject           Email subject
+     * @param string $message           Email message
+     * @param string $notification_type Notification type
+     */
+    private static function send_notification(int $user_id, string $email, string $subject, string $message, string $notification_type): void {
+        // Check if user wants this type of email notification
+        if (!apply_filters('dofs_user_wants_email_notification', true, $user_id, $notification_type)) {
+            return;
+        }
+
+        // Check if notification should be sent now or queued for digest
+        if (apply_filters('dofs_should_send_notification_now', true, $user_id, $notification_type)) {
+            // Send email immediately
+            Helpers::send_mail($email, $subject, $message);
+        } else {
+            // Queue for digest
+            self::queue_for_digest($user_id, $email, $subject, $message, $notification_type);
+        }
+    }
+
+    /**
+     * Queue notification for digest delivery
+     *
+     * @param int    $user_id           User ID
+     * @param string $email             Email address
+     * @param string $subject           Email subject
+     * @param string $message           Email message
+     * @param string $notification_type Notification type
+     */
+    private static function queue_for_digest(int $user_id, string $email, string $subject, string $message, string $notification_type): void {
+        $queue = get_option('sfs_hr_notification_digest_queue', []);
+
+        $queue[] = [
+            'user_id'           => $user_id,
+            'email'             => $email,
+            'subject'           => $subject,
+            'message'           => $message,
+            'notification_type' => $notification_type,
+            'queued_at'         => current_time('mysql'),
+        ];
+
+        update_option('sfs_hr_notification_digest_queue', $queue);
+
+        // Fire action for external digest handlers
+        do_action('sfs_hr_notification_queued_for_digest', $user_id, $email, $subject, $message, $notification_type);
     }
 }
