@@ -439,5 +439,25 @@
     "_comment_leave_redirect": "Leave Redirect Messages",
     "leave_requests_handled_in_profile": "Ang mga leave request ay hinahawakan na ngayon mula sa iyong HR profile page.",
     "leave_history_in_profile": "Ang iyong leave history ay available sa iyong HR profile sa ilalim ng \"Leave\" tab.",
-    "you_have_no_leave_requests": "Wala ka pang mga leave request."
+    "you_have_no_leave_requests": "Wala ka pang mga leave request.",
+
+    "_comment_attendance_js": "Attendance Widget JS Strings",
+    "on_break": "Naka-break",
+    "working_ellipsis": "Nagtatrabaho...",
+    "starting_camera": "Inilulunsad ang camera...",
+    "camera_error_prefix": "Error sa camera:",
+    "camera_not_available_device": "Hindi available ang camera sa device na ito.",
+    "camera_ui_not_available": "Hindi available ang camera UI.",
+    "ready_capture_submit": "Handa na — i-tap ang \"Capture & Submit\".",
+    "location_check_failed": "Nabigo ang pagsusuri ng lokasyon.",
+    "error_prefix": "Error:",
+    "request_timed_out": "Nag-timeout ang request",
+    "please_wait_processing": "Mangyaring maghintay, nagpo-process...",
+    "checking_status": "Sinusuri ang status...",
+    "validating_ellipsis": "Nagva-validate...",
+    "success_exclaim": "Tagumpay!",
+    "camera_not_ready": "Hindi pa handa ang camera. Mangyaring maghintay ng sandali.",
+    "could_not_capture_selfie": "Hindi makuha ang selfie. Subukan muli.",
+    "cancelled_dot": "Nakansela.",
+    "selfie_required_capture": "Kailangan ng selfie para sa shift na ito. Mangyaring kumuha ng litrato."
 }

@@ -439,5 +439,25 @@
     "_comment_leave_redirect": "Leave Redirect Messages",
     "leave_requests_handled_in_profile": "Leave requests are now handled from your HR profile page.",
     "leave_history_in_profile": "Your leave history is available in your HR profile under the \"Leave\" tab.",
-    "you_have_no_leave_requests": "You have no leave requests yet."
+    "you_have_no_leave_requests": "You have no leave requests yet.",
+
+    "_comment_attendance_js": "Attendance Widget JS Strings",
+    "on_break": "On break",
+    "working_ellipsis": "Working…",
+    "starting_camera": "Starting camera…",
+    "camera_error_prefix": "Camera error:",
+    "camera_not_available_device": "Camera not available on this device.",
+    "camera_ui_not_available": "Camera UI not available.",
+    "ready_capture_submit": "Ready — tap \"Capture & Submit\".",
+    "location_check_failed": "Location check failed.",
+    "error_prefix": "Error:",
+    "request_timed_out": "Request timed out",
+    "please_wait_processing": "Please wait, processing...",
+    "checking_status": "Checking status…",
+    "validating_ellipsis": "Validating…",
+    "success_exclaim": "Success!",
+    "camera_not_ready": "Camera not ready yet. Please wait a second.",
+    "could_not_capture_selfie": "Could not capture selfie. Try again.",
+    "cancelled_dot": "Cancelled.",
+    "selfie_required_capture": "Selfie is required for this shift. Please capture a photo."
 }

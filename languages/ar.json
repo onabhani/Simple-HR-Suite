@@ -439,5 +439,25 @@
     "_comment_leave_redirect": "Leave Redirect Messages",
     "leave_requests_handled_in_profile": "تُدار طلبات الإجازة الآن من صفحة ملفك الشخصي.",
     "leave_history_in_profile": "سجل إجازاتك متاح في ملفك الشخصي تحت تبويب \"الإجازات\".",
-    "you_have_no_leave_requests": "ليس لديك طلبات إجازة بعد."
+    "you_have_no_leave_requests": "ليس لديك طلبات إجازة بعد.",
+
+    "_comment_attendance_js": "Attendance Widget JS Strings",
+    "on_break": "في استراحة",
+    "working_ellipsis": "جاري العمل...",
+    "starting_camera": "جاري تشغيل الكاميرا...",
+    "camera_error_prefix": "خطأ في الكاميرا:",
+    "camera_not_available_device": "الكاميرا غير متوفرة على هذا الجهاز.",
+    "camera_ui_not_available": "واجهة الكاميرا غير متوفرة.",
+    "ready_capture_submit": "جاهز — اضغط \"التقاط وإرسال\".",
+    "location_check_failed": "فشل التحقق من الموقع.",
+    "error_prefix": "خطأ:",
+    "request_timed_out": "انتهت مهلة الطلب",
+    "please_wait_processing": "يرجى الانتظار، جاري المعالجة...",
+    "checking_status": "جاري التحقق من الحالة...",
+    "validating_ellipsis": "جاري التحقق...",
+    "success_exclaim": "نجاح!",
+    "camera_not_ready": "الكاميرا غير جاهزة بعد. يرجى الانتظار لحظة.",
+    "could_not_capture_selfie": "تعذر التقاط الصورة. حاول مرة أخرى.",
+    "cancelled_dot": "تم الإلغاء.",
+    "selfie_required_capture": "الصورة الذاتية مطلوبة لهذه الوردية. يرجى التقاط صورة."
 }

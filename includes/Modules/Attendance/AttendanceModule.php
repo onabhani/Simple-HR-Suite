@@ -166,44 +166,45 @@ add_action('rest_api_init', function () {
             <div class="sfs-att-header">
               <div>
                 <div class="sfs-att-greet" id="sfs-att-greet">
-                  Hello, <?php echo esc_html( $user_name ); ?>
+                  <span data-i18n-key="hello"><?php esc_html_e( 'Hello', 'sfs-hr' ); ?></span>, <?php echo esc_html( $user_name ); ?>
                 </div>
-                <div class="sfs-att-sub">Self attendance</div>
+                <div class="sfs-att-sub" data-i18n-key="self_attendance"><?php esc_html_e( 'Self attendance', 'sfs-hr' ); ?></div>
               </div>
               <div class="sfs-att-state">
-                <span class="sfs-att-state-label">Current</span>
+                <span class="sfs-att-state-label" data-i18n-key="current"><?php esc_html_e( 'Current', 'sfs-hr' ); ?></span>
                 <span id="sfs-att-state-chip"
-                      class="sfs-att-chip sfs-att-chip--idle">Checking…</span>
+                      class="sfs-att-chip sfs-att-chip--idle" data-i18n-key="checking"><?php esc_html_e( 'Checking…', 'sfs-hr' ); ?></span>
               </div>
             </div>
 
-            <div id="sfs-att-status" class="sfs-att-statusline">Loading...</div>
+            <div id="sfs-att-status" class="sfs-att-statusline" data-i18n-key="loading"><?php esc_html_e( 'Loading...', 'sfs-hr' ); ?></div>
 
             <div class="sfs-att-actions" id="sfs-att-actions">
               <button type="button" data-type="in"
-                      class="button button-primary" style="display:none">Clock In</button>
+                      class="button button-primary" style="display:none" data-i18n-key="clock_in"><?php esc_html_e( 'Clock In', 'sfs-hr' ); ?></button>
               <button type="button" data-type="out"
-                      class="button" style="display:none">Clock Out</button>
+                      class="button" style="display:none" data-i18n-key="clock_out"><?php esc_html_e( 'Clock Out', 'sfs-hr' ); ?></button>
               <button type="button" data-type="break_start"
-                      class="button" style="display:none">Start Break</button>
+                      class="button" style="display:none" data-i18n-key="start_break"><?php esc_html_e( 'Start Break', 'sfs-hr' ); ?></button>
               <button type="button" data-type="break_end"
-                      class="button" style="display:none">End Break</button>
+                      class="button" style="display:none" data-i18n-key="end_break"><?php esc_html_e( 'End Break', 'sfs-hr' ); ?></button>
             </div>
+
 
             <!-- Selfie panel (manual capture like kiosk) -->
             <div id="sfs-att-selfie-panel" class="sfs-att-selfie-panel">
               <video id="sfs-att-selfie-video" autoplay playsinline muted></video>
               <canvas id="sfs-att-selfie-canvas" width="480" height="480" hidden></canvas>
               <div class="sfs-att-selfie-actions">
-                <button type="button" id="sfs-att-selfie-capture" class="button button-primary">
-                  Capture &amp; Submit
+                <button type="button" id="sfs-att-selfie-capture" class="button button-primary" data-i18n-key="capture_submit">
+                  <?php esc_html_e( 'Capture & Submit', 'sfs-hr' ); ?>
                 </button>
-                <button type="button" id="sfs-att-selfie-cancel" class="button">
-                  Cancel
+                <button type="button" id="sfs-att-selfie-cancel" class="button" data-i18n-key="cancel">
+                  <?php esc_html_e( 'Cancel', 'sfs-hr' ); ?>
                 </button>
               </div>
-              <small style="display:block;margin-top:4px;color:#6b7280;font-size:11px;">
-                Center your face, then tap “Capture &amp; Submit”.
+              <small style="display:block;margin-top:4px;color:#6b7280;font-size:11px;" data-i18n-key="selfie_instruction">
+                <?php esc_html_e( 'Center your face, then tap "Capture & Submit".', 'sfs-hr' ); ?>
               </small>
             </div>
 
@@ -212,13 +213,13 @@ add_action('rest_api_init', function () {
               <input type="file" id="sfs-att-selfie"
                      accept="image/*" capture="user"
                      style="display:block"/>
-              <small style="display:block;color:#646970;margin-top:4px;font-size:11px;">
-                Your device does not support live camera preview. Capture a selfie, then the system will submit it.
+              <small style="display:block;color:#646970;margin-top:4px;font-size:11px;" data-i18n-key="camera_fallback_hint">
+                <?php esc_html_e( 'Your device does not support live camera preview. Capture a selfie, then the system will submit it.', 'sfs-hr' ); ?>
               </small>
             </div>
 
-            <small id="sfs-att-hint" class="sfs-att-hint">
-              Your location may be required. Allow the browser location prompt if asked.
+            <small id="sfs-att-hint" class="sfs-att-hint" data-i18n-key="location_hint">
+              <?php esc_html_e( 'Your location may be required. Allow the browser location prompt if asked.', 'sfs-hr' ); ?>
             </small>
 
           </div><!-- .sfs-att-card -->
@@ -641,6 +642,35 @@ add_action('rest_api_init', function () {
         const PUNCH_URL  = '<?php echo esc_js( $punch_url ); ?>';
         const NONCE      = '<?php echo esc_js( $nonce ); ?>';
 
+        // Translated strings
+        const i18n = {
+            not_clocked_in: '<?php echo esc_js( __( 'Not clocked in', 'sfs-hr' ) ); ?>',
+            clocked_in: '<?php echo esc_js( __( 'Clocked in', 'sfs-hr' ) ); ?>',
+            on_break: '<?php echo esc_js( __( 'On break', 'sfs-hr' ) ); ?>',
+            clocked_out: '<?php echo esc_js( __( 'Clocked out', 'sfs-hr' ) ); ?>',
+            ready: '<?php echo esc_js( __( 'Ready', 'sfs-hr' ) ); ?>',
+            working: '<?php echo esc_js( __( 'Working…', 'sfs-hr' ) ); ?>',
+            starting_camera: '<?php echo esc_js( __( 'Starting camera…', 'sfs-hr' ) ); ?>',
+            camera_error: '<?php echo esc_js( __( 'Camera error:', 'sfs-hr' ) ); ?>',
+            camera_not_available: '<?php echo esc_js( __( 'Camera not available on this device.', 'sfs-hr' ) ); ?>',
+            camera_ui_not_available: '<?php echo esc_js( __( 'Camera UI not available.', 'sfs-hr' ) ); ?>',
+            device_no_camera_preview: '<?php echo esc_js( __( "Your device doesn't support live camera preview. Capture a selfie, then it will be submitted.", 'sfs-hr' ) ); ?>',
+            ready_capture_submit: '<?php echo esc_js( __( 'Ready — tap "Capture & Submit".', 'sfs-hr' ) ); ?>',
+            location_check_failed: '<?php echo esc_js( __( 'Location check failed.', 'sfs-hr' ) ); ?>',
+            error_prefix: '<?php echo esc_js( __( 'Error:', 'sfs-hr' ) ); ?>',
+            request_timed_out: '<?php echo esc_js( __( 'Request timed out', 'sfs-hr' ) ); ?>',
+            selfie_required_hint: '<?php echo esc_js( __( 'Selfie required for this shift. Location may also be required.', 'sfs-hr' ) ); ?>',
+            location_hint: '<?php echo esc_js( __( 'Your location may be required. Allow the browser location prompt if asked.', 'sfs-hr' ) ); ?>',
+            please_wait_processing: '<?php echo esc_js( __( 'Please wait, processing...', 'sfs-hr' ) ); ?>',
+            checking_status: '<?php echo esc_js( __( 'Checking status…', 'sfs-hr' ) ); ?>',
+            validating: '<?php echo esc_js( __( 'Validating…', 'sfs-hr' ) ); ?>',
+            success: '<?php echo esc_js( __( 'Success!', 'sfs-hr' ) ); ?>',
+            camera_not_ready: '<?php echo esc_js( __( 'Camera not ready yet. Please wait a second.', 'sfs-hr' ) ); ?>',
+            could_not_capture_selfie: '<?php echo esc_js( __( 'Could not capture selfie. Try again.', 'sfs-hr' ) ); ?>',
+            cancelled: '<?php echo esc_js( __( 'Cancelled.', 'sfs-hr' ) ); ?>',
+            selfie_required_capture: '<?php echo esc_js( __( 'Selfie is required for this shift. Please capture a photo.', 'sfs-hr' ) ); ?>'
+        };
+
         function setStat(text, mode){
     if (!statusBox) return;
 
@@ -683,17 +713,17 @@ setInterval(tickClock, 1000);
 
         function updateChip() {
             if (!chipEl) return;
-            let label = 'Not clocked in';
+            let label = i18n.not_clocked_in;
             let cls   = 'sfs-att-chip sfs-att-chip--idle';
 
             if (state === 'in') {
-                label = 'Clocked in';
+                label = i18n.clocked_in;
                 cls   = 'sfs-att-chip sfs-att-chip--in';
             } else if (state === 'break') {
-                label = 'On break';
+                label = i18n.on_break;
                 cls   = 'sfs-att-chip sfs-att-chip--break';
             } else if (state === 'out') {
-                label = 'Clocked out';
+                label = i18n.clocked_out;
                 cls   = 'sfs-att-chip sfs-att-chip--out';
             }
 
@@ -737,7 +767,7 @@ setInterval(tickClock, 1000);
                         });
                     },
                     function onReject(msg, code){
-                        setStat(msg || 'Location check failed.', 'error');
+                        setStat(msg || i18n.location_check_failed, 'error');
                         // Hard block by rejecting; caller will bail
                         reject(new Error('geo_blocked'));
                     }
@@ -781,7 +811,7 @@ setInterval(tickClock, 1000);
         }
 
                 updateChip();
-                setStat(j.label || 'Ready', 'idle');
+                setStat(j.label || i18n.ready, 'idle');
 
                 // Show/hide buttons based on allowed transitions
                 if (actionsWrap) {
@@ -795,13 +825,13 @@ setInterval(tickClock, 1000);
 
                 // Selfie hint
                 if (requiresSelfie) {
-                    hint && (hint.textContent = 'Selfie required for this shift. Location may also be required.');
+                    hint && (hint.textContent = i18n.selfie_required_hint);
                 } else {
-                    hint && (hint.textContent = 'Your location may be required. Allow the browser location prompt if asked.');
+                    hint && (hint.textContent = i18n.location_hint);
                 }
 
             } catch(e) {
-                setStat('Error: ' + (e.name === 'AbortError' ? 'Request timed out' : e.message), 'error');
+                setStat(i18n.error_prefix + ' ' + (e.name === 'AbortError' ? i18n.request_timed_out : e.message), 'error');
             } finally {
                 clearTimeout(t);
                 refreshing = false;
@@ -825,21 +855,21 @@ setInterval(tickClock, 1000);
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 if (selfieWrap && selfieInput) {
                     selfieWrap.style.display = 'block';
-                    setStat('Your device doesn\'t support live camera preview. Capture a selfie, then it will be submitted.', 'error');
+                    setStat(i18n.device_no_camera_preview, 'error');
                     selfieInput.click();
                 } else {
-                    setStat('Camera not available on this device.', 'error');
+                    setStat(i18n.camera_not_available, 'error');
                 }
                 return;
             }
 
             if (!selfiePanel || !selfieVideo) {
-                setStat('Camera UI not available.', 'error');
+                setStat(i18n.camera_ui_not_available, 'error');
                 return;
             }
 
             selfiePanel.style.display = 'block';
-            setStat('Starting camera…', 'busy');
+            setStat(i18n.starting_camera, 'busy');
 
             try {
                 selfieStream = await navigator.mediaDevices.getUserMedia({
@@ -856,16 +886,16 @@ setInterval(tickClock, 1000);
                         try { selfieVideo.play().then(r).catch(()=>r()); } catch(_) { r(); }
                     };
                 });
-                setStat('Ready — tap “Capture & Submit”.', 'idle');
+                setStat(i18n.ready_capture_submit, 'idle');
             } catch(e) {
-                setStat('Camera error: ' + (e.message || e), 'error');
+                setStat(i18n.camera_error + ' ' + (e.message || e), 'error');
                 stopSelfiePreview();
                 pendingType = null;
             }
         }
 
         async function doPunch(type, selfieBlob){
-            setStat('Working…', 'busy');
+            setStat(i18n.working, 'busy');
 
             let geo = null;
             try {
@@ -942,7 +972,7 @@ setInterval(tickClock, 1000);
 
             // Update hint text
             if (hint) {
-                hint.textContent = 'Selfie required for this shift. Location may also be required.';
+                hint.textContent = i18n.selfie_required_hint;
             }
 
             // Start the camera UI for the same action (in/out/...)
@@ -960,7 +990,7 @@ setInterval(tickClock, 1000);
                 punchInProgress = false;
 
             } catch (e) {
-                setStat('Error: ' + e.message, 'error');
+                setStat(i18n.error_prefix + ' ' + e.message, 'error');
                 punchInProgress = false;
                 if (actionsWrap) {
                     actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
@@ -974,7 +1004,7 @@ setInterval(tickClock, 1000);
         async function punch(type){
             // Prevent duplicate submissions
             if (punchInProgress) {
-                setStat('Please wait, processing...', 'busy');
+                setStat(i18n.please_wait_processing, 'busy');
                 return;
             }
             punchInProgress = true;
@@ -985,7 +1015,7 @@ setInterval(tickClock, 1000);
             }
 
             // Refresh status to ensure latest state before punch attempt
-            setStat('Checking status…', 'busy');
+            setStat(i18n.checking_status, 'busy');
             await refresh();
 
             if (!allowed[type]) {
@@ -995,7 +1025,7 @@ setInterval(tickClock, 1000);
                 else if (type==='in'  && state!=='idle')    msg = 'Already clocked in.';
                 else if (type==='break_start' && state!=='in')  msg = 'You can start a break only while clocked in.';
                 else if (type==='break_end'   && state!=='break')msg = 'You have no active break to end.';
-                setStat('Error: ' + msg, 'error');
+                setStat(i18n.error_prefix + ' ' + msg, 'error');
                 punchInProgress = false;
                 // Re-enable allowed buttons
                 if (actionsWrap) {
@@ -1009,7 +1039,7 @@ setInterval(tickClock, 1000);
 
             if (requiresSelfie) {
                 // Preflight check: validate punch BEFORE opening camera
-                setStat('Validating…', 'busy');
+                setStat(i18n.validating, 'busy');
 
                 let geo = null;
                 try {
@@ -1060,7 +1090,7 @@ setInterval(tickClock, 1000);
 
                     // If success (no selfie needed), we're done
                     if (resp.ok) {
-                        setStat('Success!', 'success');
+                        setStat(i18n.success, 'success');
                         punchInProgress = false;
                         setTimeout(refresh, 1000);
                         return;
@@ -1068,7 +1098,7 @@ setInterval(tickClock, 1000);
 
                     // Any other error: show it without opening camera
                     const msg = (j && j.message) || 'Punch failed';
-                    setStat('Error: ' + msg, 'error');
+                    setStat(i18n.error_prefix + ' ' + msg, 'error');
                     punchInProgress = false;
                     if (actionsWrap) {
                         actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
@@ -1079,7 +1109,7 @@ setInterval(tickClock, 1000);
                     return;
 
                 } catch(e) {
-                    setStat('Error: ' + e.message, 'error');
+                    setStat(i18n.error_prefix + ' ' + e.message, 'error');
                     punchInProgress = false;
                     if (actionsWrap) {
                         actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
@@ -1102,7 +1132,7 @@ setInterval(tickClock, 1000);
             const vw = selfieVideo.videoWidth;
             const vh = selfieVideo.videoHeight;
             if (!vw || !vh) {
-                setStat('Camera not ready yet. Please wait a second.', 'error');
+                setStat(i18n.camera_not_ready, 'error');
                 return;
             }
 
@@ -1115,7 +1145,7 @@ setInterval(tickClock, 1000);
 
             selfieCanvas.toBlob(async function(blob){
                 if (!blob) {
-                    setStat('Could not capture selfie. Try again.', 'error');
+                    setStat(i18n.could_not_capture_selfie, 'error');
                     punchInProgress = false;
                     if (actionsWrap) {
                         actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
@@ -1143,7 +1173,7 @@ setInterval(tickClock, 1000);
             pendingType = null;
             punchInProgress = false;
             stopSelfiePreview();
-            setStat('Cancelled.', 'idle');
+            setStat(i18n.cancelled, 'idle');
             // Re-enable buttons
             if (actionsWrap) {
                 actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{

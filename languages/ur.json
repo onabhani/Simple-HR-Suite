@@ -439,5 +439,25 @@
     "_comment_leave_redirect": "Leave Redirect Messages",
     "leave_requests_handled_in_profile": "چھٹی کی درخواستیں اب آپ کے HR پروفائل صفحے سے ہینڈل ہوتی ہیں۔",
     "leave_history_in_profile": "آپ کی چھٹی کی تاریخ آپ کے HR پروفائل میں \"چھٹی\" ٹیب کے نیچے دستیاب ہے۔",
-    "you_have_no_leave_requests": "آپ کی ابھی تک کوئی چھٹی کی درخواست نہیں ہے۔"
+    "you_have_no_leave_requests": "آپ کی ابھی تک کوئی چھٹی کی درخواست نہیں ہے۔",
+
+    "_comment_attendance_js": "Attendance Widget JS Strings",
+    "on_break": "بریک پر",
+    "working_ellipsis": "کام جاری ہے...",
+    "starting_camera": "کیمرہ شروع ہو رہا ہے...",
+    "camera_error_prefix": "کیمرہ خرابی:",
+    "camera_not_available_device": "اس ڈیوائس پر کیمرہ دستیاب نہیں ہے۔",
+    "camera_ui_not_available": "کیمرہ UI دستیاب نہیں ہے۔",
+    "ready_capture_submit": "تیار — \"کیپچر اور جمع\" دبائیں۔",
+    "location_check_failed": "مقام کی جانچ ناکام۔",
+    "error_prefix": "خرابی:",
+    "request_timed_out": "درخواست کا وقت ختم",
+    "please_wait_processing": "براہ کرم انتظار کریں، پروسیسنگ جاری ہے...",
+    "checking_status": "حالت چیک ہو رہی ہے...",
+    "validating_ellipsis": "تصدیق جاری ہے...",
+    "success_exclaim": "کامیاب!",
+    "camera_not_ready": "کیمرہ ابھی تیار نہیں ہے۔ براہ کرم ایک سیکنڈ انتظار کریں۔",
+    "could_not_capture_selfie": "سیلفی نہیں لی جا سکی۔ دوبارہ کوشش کریں۔",
+    "cancelled_dot": "منسوخ۔",
+    "selfie_required_capture": "اس شفٹ کے لیے سیلفی ضروری ہے۔ براہ کرم تصویر کھینچیں۔"
 }
