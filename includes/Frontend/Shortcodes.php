@@ -2279,7 +2279,7 @@ class Shortcodes {
 
                 // Find and translate labels, headings, buttons, and specific elements
                 // Store original key in data-i18n-key attribute for reliable translation switching
-                container.querySelectorAll('label, h3, h4, h5, button[type="submit"], .sfs-hr-profile-group-title, .sfs-hr-field-label, .sfs-hr-kpi-label, .sfs-hr-clock-btn, .sfs-hr-lf-label').forEach(function(el) {
+                container.querySelectorAll('label, h3, h4, h5, button[type="submit"], .sfs-hr-profile-group-title, .sfs-hr-field-label, .sfs-hr-kpi-label, .sfs-hr-lw-kpi-label, .sfs-hr-clock-btn, .sfs-hr-lf-label, .sfs-hr-lf-hint, .sfs-hr-resign-label, .sfs-hr-resign-hint, .sfs-hr-loan-field-label').forEach(function(el) {
                     // Get the translation key from stored attribute or lookup from textMap
                     var key = el.dataset.i18nKey;
                     if (!key) {
