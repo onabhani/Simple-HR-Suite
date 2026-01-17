@@ -2502,7 +2502,7 @@ private function render_my_attendance_frontend( int $employee_id ): void {
                 break;
         }
 
-        return '<span class="' . esc_attr( $classes ) . '">' . esc_html( $label ) . '</span>';
+        return '<span class="' . esc_attr( $classes ) . '" data-i18n-key="' . esc_attr( $st ) . '">' . esc_html( $label ) . '</span>';
     };
 
     // MySQL datetime (stored UTC) -> local time "6:08 am"
