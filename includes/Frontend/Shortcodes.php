@@ -2668,12 +2668,12 @@ private function render_my_attendance_frontend( int $employee_id ): void {
     // ---------- Output ----------
 
     echo '<div id="sfs-hr-my-attendance" class="sfs-hr-my-attendance-frontend" style="margin-top:24px;">';
-    echo '<h4>' . esc_html__( 'My Attendance', 'sfs-hr' ) . '</h4>';
+    echo '<h4 data-i18n-key="my_attendance">' . esc_html__( 'My Attendance', 'sfs-hr' ) . '</h4>';
 
-    echo '<p><strong>' . esc_html__( 'Today:', 'sfs-hr' ) . '</strong> ' . esc_html( $today_line ) . '</p>';
+    echo '<p><strong data-i18n-key="today">' . esc_html__( 'Today', 'sfs-hr' ) . ':</strong> <span data-i18n-key="no_record">' . esc_html( $today_line ) . '</span></p>';
 
     if ( empty( $rows ) ) {
-        echo '<p class="description">' . esc_html__( 'No attendance records for the last days.', 'sfs-hr' ) . '</p>';
+        echo '<p class="description" data-i18n-key="no_attendance_records">' . esc_html__( 'No attendance records for the last days.', 'sfs-hr' ) . '</p>';
         echo '</div>';
         return;
     }
@@ -2682,12 +2682,12 @@ private function render_my_attendance_frontend( int $employee_id ): void {
 
     // ---- Status counts card ----
     echo '<div class="sfs-hr-att-card">';
-    echo '<h5>' . esc_html__( 'Status counts', 'sfs-hr' ) . '</h5>';
+    echo '<h5 data-i18n-key="status_counts">' . esc_html__( 'Status counts', 'sfs-hr' ) . '</h5>';
 
     echo '<table class="sfs-hr-table sfs-hr-att-status-table">';
     echo '<thead><tr>';
-    echo '<th>' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
-    echo '<th>' . esc_html__( 'Days', 'sfs-hr' ) . '</th>';
+    echo '<th data-i18n-key="status">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+    echo '<th data-i18n-key="days">' . esc_html__( 'Days', 'sfs-hr' ) . '</th>';
     echo '</tr></thead><tbody>';
 
     foreach ( $status_counts as $st_key => $count ) {
@@ -2698,7 +2698,7 @@ private function render_my_attendance_frontend( int $employee_id ): void {
     }
 
     echo '<tr class="sfs-hr-att-total-row">';
-    echo '<td><strong>' . esc_html__( 'Total days with records', 'sfs-hr' ) . '</strong></td>';
+    echo '<td><strong data-i18n-key="total_days_with_records">' . esc_html__( 'Total days with records', 'sfs-hr' ) . '</strong></td>';
     echo '<td><strong>' . (int) $total_days . '</strong></td>';
     echo '</tr>';
 
@@ -2707,14 +2707,14 @@ private function render_my_attendance_frontend( int $employee_id ): void {
 
     // ---- Daily history card ----
     echo '<div class="sfs-hr-att-card">';
-    echo '<h5>' . esc_html__( 'Daily history', 'sfs-hr' ) . '</h5>';
+    echo '<h5 data-i18n-key="daily_history">' . esc_html__( 'Daily history', 'sfs-hr' ) . '</h5>';
 
     echo '<table class="sfs-hr-table sfs-hr-attendance-table">';
     echo '<thead><tr>';
-    echo '<th>' . esc_html__( 'Date', 'sfs-hr' ) . '</th>';
-    echo '<th>' . esc_html__( 'Time in', 'sfs-hr' ) . '</th>';
-    echo '<th>' . esc_html__( 'Time out', 'sfs-hr' ) . '</th>';
-    echo '<th>' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+    echo '<th data-i18n-key="date">' . esc_html__( 'Date', 'sfs-hr' ) . '</th>';
+    echo '<th data-i18n-key="time_in">' . esc_html__( 'Time in', 'sfs-hr' ) . '</th>';
+    echo '<th data-i18n-key="time_out">' . esc_html__( 'Time out', 'sfs-hr' ) . '</th>';
+    echo '<th data-i18n-key="status">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
     echo '</tr></thead><tbody>';
 
     $max_visible = 5;
@@ -2745,7 +2745,7 @@ private function render_my_attendance_frontend( int $employee_id ): void {
 
     if ( $has_more ) {
         echo '<p class="sfs-hr-att-more-wrap">';
-        echo '<button type="button" class="sfs-hr-show-more-days">';
+        echo '<button type="button" class="sfs-hr-show-more-days" data-i18n-key="show_more_days">';
         echo esc_html__( 'Show more days', 'sfs-hr' );
         echo '</button>';
         echo '</p>';
