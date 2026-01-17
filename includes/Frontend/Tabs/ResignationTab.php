@@ -127,18 +127,20 @@ class ResignationTab implements TabInterface {
         }
         [dir="rtl"] .sfs-hr-resign-radio-label {
             flex-direction: row-reverse;
-            justify-content: flex-end;
+            justify-content: flex-start;
         }
         .sfs-hr-resign-radio-label input[type="radio"] {
             width: 18px;
             height: 18px;
             margin: 0;
             cursor: pointer;
+            flex-shrink: 0;
         }
         .sfs-hr-resignation-tab input[type="date"],
         .sfs-hr-resignation-tab input[type="number"],
         .sfs-hr-resignation-tab textarea {
-            width: 100%;
+            width: 100% !important;
+            max-width: 100% !important;
             box-sizing: border-box;
             border-radius: 8px;
             border: 1px solid #d1d5db;
@@ -147,6 +149,8 @@ class ResignationTab implements TabInterface {
         }
         .sfs-hr-resignation-tab input[type="date"] {
             min-height: 44px;
+            -webkit-appearance: none;
+            appearance: none;
         }
         .sfs-hr-resignation-tab textarea {
             min-height: 80px;
