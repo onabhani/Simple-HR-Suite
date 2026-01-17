@@ -222,6 +222,35 @@ add_action('rest_api_init', function () {
               <?php esc_html_e( 'Your location may be required. Allow the browser location prompt if asked.', 'sfs-hr' ); ?>
             </small>
 
+            <?php
+            // Find the HR profile page URL
+            $profile_url = '';
+            $profile_pages = get_posts( array(
+                'post_type'      => 'page',
+                'posts_per_page' => 1,
+                's'              => '[sfs_hr_my_profile',
+                'post_status'    => 'publish',
+            ) );
+            if ( ! empty( $profile_pages ) ) {
+                $profile_url = get_permalink( $profile_pages[0]->ID );
+            }
+            if ( empty( $profile_url ) ) {
+                // Fallback: try common slugs
+                $page = get_page_by_path( 'my-profile' );
+                if ( ! $page ) {
+                    $page = get_page_by_path( 'hr-profile' );
+                }
+                if ( $page ) {
+                    $profile_url = get_permalink( $page->ID );
+                }
+            }
+            if ( ! empty( $profile_url ) ) : ?>
+            <a href="<?php echo esc_url( $profile_url ); ?>" class="sfs-att-back-link" data-i18n-key="back_to_profile">
+              <span class="dashicons dashicons-arrow-left-alt2"></span>
+              <?php esc_html_e( 'Back to My HR Profile', 'sfs-hr' ); ?>
+            </a>
+            <?php endif; ?>
+
           </div><!-- .sfs-att-card -->
         </main>
 
@@ -460,6 +489,30 @@ add_action('rest_api_init', function () {
         margin-top:10px;
         font-size:11px;
         color:#6b7280;
+      }
+
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-back-link{
+        display:inline-flex;
+        align-items:center;
+        gap:4px;
+        margin-top:16px;
+        padding:8px 14px;
+        font-size:13px;
+        color:#0f4c5c;
+        text-decoration:none;
+        background:#f0fdfa;
+        border:1px solid #99f6e4;
+        border-radius:8px;
+        transition:background 0.15s, border-color 0.15s;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-back-link:hover{
+        background:#ccfbf1;
+        border-color:#5eead4;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-back-link .dashicons{
+        font-size:16px;
+        width:16px;
+        height:16px;
       }
 
       /* Immersive veil (same idea as kiosk) */

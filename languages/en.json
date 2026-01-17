@@ -459,5 +459,6 @@
     "camera_not_ready": "Camera not ready yet. Please wait a second.",
     "could_not_capture_selfie": "Could not capture selfie. Try again.",
     "cancelled_dot": "Cancelled.",
-    "selfie_required_capture": "Selfie is required for this shift. Please capture a photo."
+    "selfie_required_capture": "Selfie is required for this shift. Please capture a photo.",
+    "back_to_profile": "Back to My HR Profile"
 }
