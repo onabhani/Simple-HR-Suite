@@ -122,6 +122,9 @@ class Notifications {
             // Payroll notifications
             'notify_payslip_ready'     => true,
             'notify_payroll_processed' => true,
+
+            // Daily pending actions reminder
+            'notify_pending_actions'   => true,
         ];
 
         $saved = get_option( self::OPT_SETTINGS, [] );
@@ -733,6 +736,11 @@ class Notifications {
         if ( $settings['notify_probation_end'] ) {
             self::process_probation_notifications( $settings['probation_days_before'] ?? 7 );
         }
+
+        // Process pending action reminders
+        if ( $settings['notify_pending_actions'] ) {
+            self::process_pending_action_reminders();
+        }
     }
 
     /**
@@ -836,6 +844,268 @@ class Notifications {
         foreach ( $employees as $emp ) {
             do_action( 'sfs_hr_probation_ending', (int) $emp->id, $days );
         }
+    }
+
+    /**
+     * Process daily pending action reminders
+     * Sends a summary email to HR staff with all pending items that need action
+     */
+    private static function process_pending_action_reminders(): void {
+        global $wpdb;
+        $settings = self::get_settings();
+
+        if ( empty( $settings['hr_emails'] ) ) {
+            return;
+        }
+
+        $pending_items = [];
+
+        // 1. Pending Leave Requests
+        $leave_table = $wpdb->prefix . 'sfs_hr_leave_requests';
+        $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+        $pending_leaves = $wpdb->get_results(
+            "SELECT lr.id, lr.start_date, lr.end_date, lr.created_at,
+                    CONCAT(e.first_name, ' ', e.last_name) as employee_name
+             FROM {$leave_table} lr
+             LEFT JOIN {$emp_table} e ON lr.employee_id = e.id
+             WHERE lr.status = 'pending'
+             ORDER BY lr.created_at ASC"
+        );
+        if ( ! empty( $pending_leaves ) ) {
+            $pending_items['leave_requests'] = [
+                'title' => __( 'Pending Leave Requests', 'sfs-hr' ),
+                'count' => count( $pending_leaves ),
+                'items' => $pending_leaves,
+                'url'   => admin_url( 'admin.php?page=sfs-hr-leave-requests&status=pending' ),
+            ];
+        }
+
+        // 2. Pending Loan Approvals
+        $loans_table = $wpdb->prefix . 'sfs_hr_loans';
+        if ( self::table_exists( $loans_table ) ) {
+            $pending_loans = $wpdb->get_results(
+                "SELECT l.id, l.amount, l.created_at, l.status,
+                        CONCAT(e.first_name, ' ', e.last_name) as employee_name
+                 FROM {$loans_table} l
+                 LEFT JOIN {$emp_table} e ON l.employee_id = e.id
+                 WHERE l.status IN ('pending_gm', 'pending_finance')
+                 ORDER BY l.created_at ASC"
+            );
+            if ( ! empty( $pending_loans ) ) {
+                $pending_items['loans'] = [
+                    'title' => __( 'Pending Loan Approvals', 'sfs-hr' ),
+                    'count' => count( $pending_loans ),
+                    'items' => $pending_loans,
+                    'url'   => admin_url( 'admin.php?page=sfs-hr-loans' ),
+                ];
+            }
+        }
+
+        // 3. Pending Resignations
+        $resign_table = $wpdb->prefix . 'sfs_hr_resignations';
+        if ( self::table_exists( $resign_table ) ) {
+            $pending_resignations = $wpdb->get_results(
+                "SELECT r.id, r.submitted_date, r.requested_last_day,
+                        CONCAT(e.first_name, ' ', e.last_name) as employee_name
+                 FROM {$resign_table} r
+                 LEFT JOIN {$emp_table} e ON r.employee_id = e.id
+                 WHERE r.status = 'pending'
+                 ORDER BY r.submitted_date ASC"
+            );
+            if ( ! empty( $pending_resignations ) ) {
+                $pending_items['resignations'] = [
+                    'title' => __( 'Pending Resignations', 'sfs-hr' ),
+                    'count' => count( $pending_resignations ),
+                    'items' => $pending_resignations,
+                    'url'   => admin_url( 'admin.php?page=sfs-hr-resignations' ),
+                ];
+            }
+        }
+
+        // 4. Pending Shift Swap Requests
+        $swap_table = $wpdb->prefix . 'sfs_hr_shift_swaps';
+        if ( self::table_exists( $swap_table ) ) {
+            $pending_swaps = $wpdb->get_results(
+                "SELECT s.id, s.swap_date, s.created_at,
+                        CONCAT(e1.first_name, ' ', e1.last_name) as requester_name,
+                        CONCAT(e2.first_name, ' ', e2.last_name) as target_name
+                 FROM {$swap_table} s
+                 LEFT JOIN {$emp_table} e1 ON s.requester_employee_id = e1.id
+                 LEFT JOIN {$emp_table} e2 ON s.target_employee_id = e2.id
+                 WHERE s.status IN ('pending', 'accepted')
+                 ORDER BY s.created_at ASC"
+            );
+            if ( ! empty( $pending_swaps ) ) {
+                $pending_items['shift_swaps'] = [
+                    'title' => __( 'Pending Shift Swap Requests', 'sfs-hr' ),
+                    'count' => count( $pending_swaps ),
+                    'items' => $pending_swaps,
+                    'url'   => admin_url( 'admin.php?page=sfs-hr-shift-swaps' ),
+                ];
+            }
+        }
+
+        // 5. Pending Asset Assignments
+        $asset_assign_table = $wpdb->prefix . 'sfs_hr_asset_assignments';
+        if ( self::table_exists( $asset_assign_table ) ) {
+            $pending_assets = $wpdb->get_results(
+                "SELECT aa.id, aa.start_date, aa.status,
+                        CONCAT(e.first_name, ' ', e.last_name) as employee_name,
+                        a.name as asset_name
+                 FROM {$asset_assign_table} aa
+                 LEFT JOIN {$emp_table} e ON aa.employee_id = e.id
+                 LEFT JOIN {$wpdb->prefix}sfs_hr_assets a ON aa.asset_id = a.id
+                 WHERE aa.status IN ('pending_employee_approval', 'return_requested')
+                 ORDER BY aa.created_at ASC"
+            );
+            if ( ! empty( $pending_assets ) ) {
+                $pending_items['assets'] = [
+                    'title' => __( 'Pending Asset Actions', 'sfs-hr' ),
+                    'count' => count( $pending_assets ),
+                    'items' => $pending_assets,
+                    'url'   => admin_url( 'admin.php?page=sfs-hr-assets' ),
+                ];
+            }
+        }
+
+        // 6. Pending Hiring Candidates
+        $candidates_table = $wpdb->prefix . 'sfs_hr_candidates';
+        if ( self::table_exists( $candidates_table ) ) {
+            $pending_candidates = $wpdb->get_results(
+                "SELECT id, first_name, last_name, position_applied, status, created_at
+                 FROM {$candidates_table}
+                 WHERE status IN ('applied', 'screening', 'dept_pending', 'gm_pending', 'gm_approved')
+                 ORDER BY created_at ASC"
+            );
+            if ( ! empty( $pending_candidates ) ) {
+                $pending_items['hiring'] = [
+                    'title' => __( 'Pending Hiring Actions', 'sfs-hr' ),
+                    'count' => count( $pending_candidates ),
+                    'items' => $pending_candidates,
+                    'url'   => admin_url( 'admin.php?page=sfs-hr-hiring' ),
+                ];
+            }
+        }
+
+        // If no pending items, don't send email
+        if ( empty( $pending_items ) ) {
+            return;
+        }
+
+        // Build email content
+        $total_pending = array_sum( array_column( $pending_items, 'count' ) );
+        $site_name = get_bloginfo( 'name' );
+        $today = wp_date( 'F j, Y' );
+
+        $subject = sprintf(
+            __( '[Daily Reminder] %d pending items require your attention', 'sfs-hr' ),
+            $total_pending
+        );
+
+        $message = sprintf( __( "Good morning!\n\nThis is your daily HR reminder for %s.\n\nYou have %d pending items that require action:\n\n", 'sfs-hr' ), $today, $total_pending );
+
+        foreach ( $pending_items as $key => $section ) {
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+            $message .= sprintf( "%s (%d)\n", $section['title'], $section['count'] );
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+
+            // Show up to 5 items per section
+            $shown = 0;
+            foreach ( $section['items'] as $item ) {
+                if ( $shown >= 5 ) {
+                    $remaining = $section['count'] - 5;
+                    $message .= sprintf( __( "... and %d more\n", 'sfs-hr' ), $remaining );
+                    break;
+                }
+
+                switch ( $key ) {
+                    case 'leave_requests':
+                        $message .= sprintf(
+                            "• %s - %s to %s\n",
+                            $item->employee_name,
+                            wp_date( 'M j', strtotime( $item->start_date ) ),
+                            wp_date( 'M j', strtotime( $item->end_date ) )
+                        );
+                        break;
+                    case 'loans':
+                        $status_label = $item->status === 'pending_gm' ? __( 'Awaiting GM', 'sfs-hr' ) : __( 'Awaiting Finance', 'sfs-hr' );
+                        $message .= sprintf(
+                            "• %s - %s (%s)\n",
+                            $item->employee_name,
+                            number_format( (float) $item->amount, 2 ),
+                            $status_label
+                        );
+                        break;
+                    case 'resignations':
+                        $message .= sprintf(
+                            "• %s - Last day: %s\n",
+                            $item->employee_name,
+                            wp_date( 'M j, Y', strtotime( $item->requested_last_day ) )
+                        );
+                        break;
+                    case 'shift_swaps':
+                        $message .= sprintf(
+                            "• %s ↔ %s - %s\n",
+                            $item->requester_name,
+                            $item->target_name,
+                            wp_date( 'M j', strtotime( $item->swap_date ) )
+                        );
+                        break;
+                    case 'assets':
+                        $message .= sprintf(
+                            "• %s - %s (%s)\n",
+                            $item->employee_name,
+                            $item->asset_name,
+                            $item->status === 'return_requested' ? __( 'Return Requested', 'sfs-hr' ) : __( 'Pending Approval', 'sfs-hr' )
+                        );
+                        break;
+                    case 'hiring':
+                        $status_labels = [
+                            'applied'      => __( 'New', 'sfs-hr' ),
+                            'screening'    => __( 'Screening', 'sfs-hr' ),
+                            'dept_pending' => __( 'Dept Review', 'sfs-hr' ),
+                            'gm_pending'   => __( 'GM Review', 'sfs-hr' ),
+                            'gm_approved'  => __( 'Ready to Hire', 'sfs-hr' ),
+                        ];
+                        $message .= sprintf(
+                            "• %s %s - %s (%s)\n",
+                            $item->first_name,
+                            $item->last_name,
+                            $item->position_applied ?: __( 'N/A', 'sfs-hr' ),
+                            $status_labels[ $item->status ] ?? $item->status
+                        );
+                        break;
+                }
+                $shown++;
+            }
+
+            $message .= sprintf( __( "\nReview: %s\n\n", 'sfs-hr' ), $section['url'] );
+        }
+
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= sprintf( __( "\nHR Dashboard: %s\n", 'sfs-hr' ), admin_url( 'admin.php?page=sfs-hr' ) );
+        $message .= sprintf( __( "\n---\n%s\nHR Management System\n", 'sfs-hr' ), $site_name );
+
+        // Send to all HR emails
+        foreach ( $settings['hr_emails'] as $hr_email ) {
+            if ( is_email( $hr_email ) ) {
+                Helpers::send_mail( $hr_email, $subject, $message );
+            }
+        }
+    }
+
+    /**
+     * Check if a database table exists
+     *
+     * @param string $table_name Full table name
+     * @return bool
+     */
+    private static function table_exists( string $table_name ): bool {
+        global $wpdb;
+        return (bool) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
+            $table_name
+        ) );
     }
 
     // =========================================================================
