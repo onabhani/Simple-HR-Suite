@@ -848,39 +848,61 @@ class Notifications {
 
     /**
      * Process daily pending action reminders
-     * Sends a summary email to HR staff with all pending items that need action
+     * Sends reminders to specific assignees AND a summary to HR staff
      */
     private static function process_pending_action_reminders(): void {
         global $wpdb;
         $settings = self::get_settings();
+        $site_name = get_bloginfo( 'name' );
+        $today = wp_date( 'F j, Y' );
 
-        if ( empty( $settings['hr_emails'] ) ) {
-            return;
-        }
-
-        $pending_items = [];
-
-        // 1. Pending Leave Requests
-        $leave_table = $wpdb->prefix . 'sfs_hr_leave_requests';
         $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+        $hr_pending_items = [];
+        $assignee_reminders = []; // email => [ items ]
+
+        // Helper to add item to assignee's reminder list
+        $add_assignee_item = function( $email, $type, $item_data ) use ( &$assignee_reminders ) {
+            if ( ! $email || ! is_email( $email ) ) return;
+            if ( ! isset( $assignee_reminders[ $email ] ) ) {
+                $assignee_reminders[ $email ] = [];
+            }
+            if ( ! isset( $assignee_reminders[ $email ][ $type ] ) ) {
+                $assignee_reminders[ $email ][ $type ] = [];
+            }
+            $assignee_reminders[ $email ][ $type ][] = $item_data;
+        };
+
+        // 1. Pending Leave Requests - notify manager
+        $leave_table = $wpdb->prefix . 'sfs_hr_leave_requests';
         $pending_leaves = $wpdb->get_results(
             "SELECT lr.id, lr.start_date, lr.end_date, lr.created_at,
-                    CONCAT(e.first_name, ' ', e.last_name) as employee_name
+                    CONCAT(e.first_name, ' ', e.last_name) as employee_name,
+                    e.manager_id,
+                    CONCAT(m.first_name, ' ', m.last_name) as manager_name,
+                    mu.user_email as manager_email
              FROM {$leave_table} lr
              LEFT JOIN {$emp_table} e ON lr.employee_id = e.id
+             LEFT JOIN {$emp_table} m ON e.manager_id = m.id
+             LEFT JOIN {$wpdb->users} mu ON m.user_id = mu.ID
              WHERE lr.status = 'pending'
              ORDER BY lr.created_at ASC"
         );
         if ( ! empty( $pending_leaves ) ) {
-            $pending_items['leave_requests'] = [
+            $hr_pending_items['leave_requests'] = [
                 'title' => __( 'Pending Leave Requests', 'sfs-hr' ),
                 'count' => count( $pending_leaves ),
                 'items' => $pending_leaves,
                 'url'   => admin_url( 'admin.php?page=sfs-hr-leave-requests&status=pending' ),
             ];
+            // Add to manager reminders
+            foreach ( $pending_leaves as $leave ) {
+                if ( $leave->manager_email ) {
+                    $add_assignee_item( $leave->manager_email, 'leave_requests', $leave );
+                }
+            }
         }
 
-        // 2. Pending Loan Approvals
+        // 2. Pending Loan Approvals - notify GM or Finance
         $loans_table = $wpdb->prefix . 'sfs_hr_loans';
         if ( self::table_exists( $loans_table ) ) {
             $pending_loans = $wpdb->get_results(
@@ -892,110 +914,304 @@ class Notifications {
                  ORDER BY l.created_at ASC"
             );
             if ( ! empty( $pending_loans ) ) {
-                $pending_items['loans'] = [
+                $hr_pending_items['loans'] = [
                     'title' => __( 'Pending Loan Approvals', 'sfs-hr' ),
                     'count' => count( $pending_loans ),
                     'items' => $pending_loans,
                     'url'   => admin_url( 'admin.php?page=sfs-hr-loans' ),
                 ];
+                // Get GM and Finance approver emails
+                $gm_emails = self::get_users_with_capability( 'sfs_hr_loans_gm_approve' );
+                $finance_emails = self::get_users_with_capability( 'sfs_hr_loans_finance_approve' );
+
+                foreach ( $pending_loans as $loan ) {
+                    if ( $loan->status === 'pending_gm' ) {
+                        foreach ( $gm_emails as $email ) {
+                            $add_assignee_item( $email, 'loans_gm', $loan );
+                        }
+                    } elseif ( $loan->status === 'pending_finance' ) {
+                        foreach ( $finance_emails as $email ) {
+                            $add_assignee_item( $email, 'loans_finance', $loan );
+                        }
+                    }
+                }
             }
         }
 
-        // 3. Pending Resignations
+        // 3. Pending Resignations - notify manager
         $resign_table = $wpdb->prefix . 'sfs_hr_resignations';
         if ( self::table_exists( $resign_table ) ) {
             $pending_resignations = $wpdb->get_results(
                 "SELECT r.id, r.submitted_date, r.requested_last_day,
-                        CONCAT(e.first_name, ' ', e.last_name) as employee_name
+                        CONCAT(e.first_name, ' ', e.last_name) as employee_name,
+                        CONCAT(m.first_name, ' ', m.last_name) as manager_name,
+                        mu.user_email as manager_email
                  FROM {$resign_table} r
                  LEFT JOIN {$emp_table} e ON r.employee_id = e.id
+                 LEFT JOIN {$emp_table} m ON e.manager_id = m.id
+                 LEFT JOIN {$wpdb->users} mu ON m.user_id = mu.ID
                  WHERE r.status = 'pending'
                  ORDER BY r.submitted_date ASC"
             );
             if ( ! empty( $pending_resignations ) ) {
-                $pending_items['resignations'] = [
+                $hr_pending_items['resignations'] = [
                     'title' => __( 'Pending Resignations', 'sfs-hr' ),
                     'count' => count( $pending_resignations ),
                     'items' => $pending_resignations,
                     'url'   => admin_url( 'admin.php?page=sfs-hr-resignations' ),
                 ];
+                foreach ( $pending_resignations as $resign ) {
+                    if ( $resign->manager_email ) {
+                        $add_assignee_item( $resign->manager_email, 'resignations', $resign );
+                    }
+                }
             }
         }
 
-        // 4. Pending Shift Swap Requests
+        // 4. Pending Shift Swap Requests - notify target employee or HR
         $swap_table = $wpdb->prefix . 'sfs_hr_shift_swaps';
         if ( self::table_exists( $swap_table ) ) {
             $pending_swaps = $wpdb->get_results(
-                "SELECT s.id, s.swap_date, s.created_at,
+                "SELECT s.id, s.swap_date, s.created_at, s.status,
                         CONCAT(e1.first_name, ' ', e1.last_name) as requester_name,
-                        CONCAT(e2.first_name, ' ', e2.last_name) as target_name
+                        CONCAT(e2.first_name, ' ', e2.last_name) as target_name,
+                        u2.user_email as target_email
                  FROM {$swap_table} s
                  LEFT JOIN {$emp_table} e1 ON s.requester_employee_id = e1.id
                  LEFT JOIN {$emp_table} e2 ON s.target_employee_id = e2.id
+                 LEFT JOIN {$wpdb->users} u2 ON e2.user_id = u2.ID
                  WHERE s.status IN ('pending', 'accepted')
                  ORDER BY s.created_at ASC"
             );
             if ( ! empty( $pending_swaps ) ) {
-                $pending_items['shift_swaps'] = [
+                $hr_pending_items['shift_swaps'] = [
                     'title' => __( 'Pending Shift Swap Requests', 'sfs-hr' ),
                     'count' => count( $pending_swaps ),
                     'items' => $pending_swaps,
                     'url'   => admin_url( 'admin.php?page=sfs-hr-shift-swaps' ),
                 ];
+                foreach ( $pending_swaps as $swap ) {
+                    if ( $swap->status === 'pending' && $swap->target_email ) {
+                        // Pending target employee acceptance
+                        $add_assignee_item( $swap->target_email, 'shift_swaps_pending', $swap );
+                    }
+                    // 'accepted' status means HR needs to approve - already in HR summary
+                }
             }
         }
 
-        // 5. Pending Asset Assignments
+        // 5. Pending Asset Assignments - notify employee or HR
         $asset_assign_table = $wpdb->prefix . 'sfs_hr_asset_assignments';
         if ( self::table_exists( $asset_assign_table ) ) {
             $pending_assets = $wpdb->get_results(
                 "SELECT aa.id, aa.start_date, aa.status,
                         CONCAT(e.first_name, ' ', e.last_name) as employee_name,
+                        u.user_email as employee_email,
                         a.name as asset_name
                  FROM {$asset_assign_table} aa
                  LEFT JOIN {$emp_table} e ON aa.employee_id = e.id
+                 LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
                  LEFT JOIN {$wpdb->prefix}sfs_hr_assets a ON aa.asset_id = a.id
                  WHERE aa.status IN ('pending_employee_approval', 'return_requested')
                  ORDER BY aa.created_at ASC"
             );
             if ( ! empty( $pending_assets ) ) {
-                $pending_items['assets'] = [
+                $hr_pending_items['assets'] = [
                     'title' => __( 'Pending Asset Actions', 'sfs-hr' ),
                     'count' => count( $pending_assets ),
                     'items' => $pending_assets,
                     'url'   => admin_url( 'admin.php?page=sfs-hr-assets' ),
                 ];
+                foreach ( $pending_assets as $asset ) {
+                    if ( $asset->status === 'pending_employee_approval' && $asset->employee_email ) {
+                        // Employee needs to accept asset
+                        $add_assignee_item( $asset->employee_email, 'assets_pending', $asset );
+                    }
+                    // 'return_requested' goes to HR - already in HR summary
+                }
             }
         }
 
-        // 6. Pending Hiring Candidates
+        // 6. Pending Hiring Candidates - notify dept manager or GM
         $candidates_table = $wpdb->prefix . 'sfs_hr_candidates';
         if ( self::table_exists( $candidates_table ) ) {
             $pending_candidates = $wpdb->get_results(
-                "SELECT id, first_name, last_name, position_applied, status, created_at
-                 FROM {$candidates_table}
-                 WHERE status IN ('applied', 'screening', 'dept_pending', 'gm_pending', 'gm_approved')
-                 ORDER BY created_at ASC"
+                "SELECT c.id, c.first_name, c.last_name, c.position_applied, c.status, c.created_at,
+                        c.department
+                 FROM {$candidates_table} c
+                 WHERE c.status IN ('applied', 'screening', 'dept_pending', 'gm_pending', 'gm_approved')
+                 ORDER BY c.created_at ASC"
             );
             if ( ! empty( $pending_candidates ) ) {
-                $pending_items['hiring'] = [
+                $hr_pending_items['hiring'] = [
                     'title' => __( 'Pending Hiring Actions', 'sfs-hr' ),
                     'count' => count( $pending_candidates ),
                     'items' => $pending_candidates,
                     'url'   => admin_url( 'admin.php?page=sfs-hr-hiring' ),
                 ];
+
+                // Get GM emails (users with manage_options)
+                $gm_emails = self::get_users_with_capability( 'manage_options' );
+
+                foreach ( $pending_candidates as $candidate ) {
+                    if ( $candidate->status === 'dept_pending' && $candidate->department ) {
+                        // Get department manager email
+                        $dept_table = $wpdb->prefix . 'sfs_hr_departments';
+                        $dept_manager_email = $wpdb->get_var( $wpdb->prepare(
+                            "SELECT u.user_email
+                             FROM {$dept_table} d
+                             LEFT JOIN {$wpdb->users} u ON d.manager_user_id = u.ID
+                             WHERE d.name = %s AND d.active = 1",
+                            $candidate->department
+                        ) );
+                        if ( $dept_manager_email ) {
+                            $add_assignee_item( $dept_manager_email, 'hiring_dept', $candidate );
+                        }
+                    } elseif ( $candidate->status === 'gm_pending' ) {
+                        // Notify GM users
+                        foreach ( $gm_emails as $email ) {
+                            $add_assignee_item( $email, 'hiring_gm', $candidate );
+                        }
+                    }
+                    // 'applied', 'screening', 'gm_approved' go to HR - already in HR summary
+                }
             }
         }
 
-        // If no pending items, don't send email
-        if ( empty( $pending_items ) ) {
-            return;
-        }
+        // Send individual assignee reminders
+        self::send_assignee_reminders( $assignee_reminders, $site_name, $today );
 
-        // Build email content
+        // Send HR summary if there are pending items and HR emails configured
+        if ( ! empty( $hr_pending_items ) && ! empty( $settings['hr_emails'] ) ) {
+            self::send_hr_summary_reminder( $hr_pending_items, $settings['hr_emails'], $site_name, $today );
+        }
+    }
+
+    /**
+     * Send individual reminders to assignees
+     */
+    private static function send_assignee_reminders( array $assignee_reminders, string $site_name, string $today ): void {
+        $type_labels = [
+            'leave_requests'      => __( 'Leave Requests Awaiting Your Approval', 'sfs-hr' ),
+            'loans_gm'            => __( 'Loan Requests Awaiting GM Approval', 'sfs-hr' ),
+            'loans_finance'       => __( 'Loan Requests Awaiting Finance Approval', 'sfs-hr' ),
+            'resignations'        => __( 'Resignations Awaiting Your Review', 'sfs-hr' ),
+            'shift_swaps_pending' => __( 'Shift Swap Requests Awaiting Your Response', 'sfs-hr' ),
+            'assets_pending'      => __( 'Assets Awaiting Your Acceptance', 'sfs-hr' ),
+            'hiring_dept'         => __( 'Candidates Awaiting Department Review', 'sfs-hr' ),
+            'hiring_gm'           => __( 'Candidates Awaiting GM Approval', 'sfs-hr' ),
+        ];
+
+        $type_urls = [
+            'leave_requests'      => admin_url( 'admin.php?page=sfs-hr-leave-requests&status=pending' ),
+            'loans_gm'            => admin_url( 'admin.php?page=sfs-hr-loans' ),
+            'loans_finance'       => admin_url( 'admin.php?page=sfs-hr-loans' ),
+            'resignations'        => admin_url( 'admin.php?page=sfs-hr-resignations' ),
+            'shift_swaps_pending' => home_url( '/my-profile/' ),
+            'assets_pending'      => home_url( '/my-profile/?tab=assets' ),
+            'hiring_dept'         => admin_url( 'admin.php?page=sfs-hr-hiring' ),
+            'hiring_gm'           => admin_url( 'admin.php?page=sfs-hr-hiring' ),
+        ];
+
+        foreach ( $assignee_reminders as $email => $types ) {
+            $total_items = 0;
+            foreach ( $types as $items ) {
+                $total_items += count( $items );
+            }
+
+            if ( $total_items === 0 ) continue;
+
+            $subject = sprintf(
+                __( '[Action Required] %d item(s) awaiting your response', 'sfs-hr' ),
+                $total_items
+            );
+
+            $message = sprintf(
+                __( "Hello,\n\nThis is a reminder that you have %d pending item(s) requiring your action as of %s.\n\n", 'sfs-hr' ),
+                $total_items,
+                $today
+            );
+
+            foreach ( $types as $type => $items ) {
+                $label = $type_labels[ $type ] ?? $type;
+                $url = $type_urls[ $type ] ?? admin_url();
+                $count = count( $items );
+
+                $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+                $message .= sprintf( "%s (%d)\n", $label, $count );
+                $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+
+                $shown = 0;
+                foreach ( $items as $item ) {
+                    if ( $shown >= 5 ) {
+                        $message .= sprintf( __( "... and %d more\n", 'sfs-hr' ), $count - 5 );
+                        break;
+                    }
+
+                    switch ( $type ) {
+                        case 'leave_requests':
+                            $message .= sprintf(
+                                "• %s - %s to %s\n",
+                                $item->employee_name,
+                                wp_date( 'M j', strtotime( $item->start_date ) ),
+                                wp_date( 'M j', strtotime( $item->end_date ) )
+                            );
+                            break;
+                        case 'loans_gm':
+                        case 'loans_finance':
+                            $message .= sprintf(
+                                "• %s - %s\n",
+                                $item->employee_name,
+                                number_format( (float) $item->amount, 2 )
+                            );
+                            break;
+                        case 'resignations':
+                            $message .= sprintf(
+                                "• %s - Last day: %s\n",
+                                $item->employee_name,
+                                wp_date( 'M j, Y', strtotime( $item->requested_last_day ) )
+                            );
+                            break;
+                        case 'shift_swaps_pending':
+                            $message .= sprintf(
+                                "• %s wants to swap shifts on %s\n",
+                                $item->requester_name,
+                                wp_date( 'M j', strtotime( $item->swap_date ) )
+                            );
+                            break;
+                        case 'assets_pending':
+                            $message .= sprintf(
+                                "• %s assigned to you\n",
+                                $item->asset_name
+                            );
+                            break;
+                        case 'hiring_dept':
+                        case 'hiring_gm':
+                            $message .= sprintf(
+                                "• %s %s - %s\n",
+                                $item->first_name,
+                                $item->last_name,
+                                $item->position_applied ?: __( 'N/A', 'sfs-hr' )
+                            );
+                            break;
+                    }
+                    $shown++;
+                }
+
+                $message .= sprintf( __( "\nTake action: %s\n\n", 'sfs-hr' ), $url );
+            }
+
+            $message .= sprintf( __( "---\n%s\nHR Management System\n", 'sfs-hr' ), $site_name );
+
+            Helpers::send_mail( $email, $subject, $message );
+        }
+    }
+
+    /**
+     * Send HR summary reminder
+     */
+    private static function send_hr_summary_reminder( array $pending_items, array $hr_emails, string $site_name, string $today ): void {
         $total_pending = array_sum( array_column( $pending_items, 'count' ) );
-        $site_name = get_bloginfo( 'name' );
-        $today = wp_date( 'F j, Y' );
 
         $subject = sprintf(
             __( '[Daily Reminder] %d pending items require your attention', 'sfs-hr' ),
@@ -1009,7 +1225,6 @@ class Notifications {
             $message .= sprintf( "%s (%d)\n", $section['title'], $section['count'] );
             $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
 
-            // Show up to 5 items per section
             $shown = 0;
             foreach ( $section['items'] as $item ) {
                 if ( $shown >= 5 ) {
@@ -1086,12 +1301,31 @@ class Notifications {
         $message .= sprintf( __( "\nHR Dashboard: %s\n", 'sfs-hr' ), admin_url( 'admin.php?page=sfs-hr' ) );
         $message .= sprintf( __( "\n---\n%s\nHR Management System\n", 'sfs-hr' ), $site_name );
 
-        // Send to all HR emails
-        foreach ( $settings['hr_emails'] as $hr_email ) {
+        foreach ( $hr_emails as $hr_email ) {
             if ( is_email( $hr_email ) ) {
                 Helpers::send_mail( $hr_email, $subject, $message );
             }
         }
+    }
+
+    /**
+     * Get users with a specific capability
+     *
+     * @param string $capability The capability to check
+     * @return array List of user emails
+     */
+    private static function get_users_with_capability( string $capability ): array {
+        $emails = [];
+        $users = get_users( [
+            'capability' => $capability,
+            'fields'     => [ 'user_email' ],
+        ] );
+        foreach ( $users as $user ) {
+            if ( is_email( $user->user_email ) ) {
+                $emails[] = $user->user_email;
+            }
+        }
+        return $emails;
     }
 
     /**
