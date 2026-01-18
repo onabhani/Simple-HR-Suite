@@ -179,7 +179,12 @@ class Notifications {
                 'review_url'     => admin_url( 'admin.php?page=sfs-hr-leave&tab=pending' ),
             ] );
 
-            self::send_notification( $leave->manager_email, $subject, $message, $leave->manager_phone );
+            // Get manager user_id for preference check
+            $manager_user_id = 0;
+            if ( isset( $leave->manager_user_id ) ) {
+                $manager_user_id = (int) $leave->manager_user_id;
+            }
+            self::send_notification( $leave->manager_email, $subject, $message, $leave->manager_phone, $manager_user_id, 'leave_request_created' );
         }
 
         // Notify HR
@@ -202,7 +207,7 @@ class Notifications {
             ] );
 
             foreach ( $settings['hr_emails'] as $hr_email ) {
-                self::send_notification( $hr_email, $subject, $message );
+                self::send_notification( $hr_email, $subject, $message, '', 0, 'leave_request_created' );
             }
         }
     }
@@ -246,7 +251,8 @@ class Notifications {
                 'approved_by'   => wp_get_current_user()->display_name,
             ] );
 
-            self::send_notification( $leave->employee_email, $subject, $message, $leave->employee_phone );
+            $employee_user_id = isset( $leave->employee_user_id ) ? (int) $leave->employee_user_id : 0;
+            self::send_notification( $leave->employee_email, $subject, $message, $leave->employee_phone, $employee_user_id, 'leave_approved' );
 
         } elseif ( $new_status === 'rejected' && $settings['notify_leave_rejected'] ) {
             $subject = sprintf(
@@ -264,7 +270,8 @@ class Notifications {
                 'rejection_reason' => $leave->rejection_reason ?: __( 'No reason provided', 'sfs-hr' ),
             ] );
 
-            self::send_notification( $leave->employee_email, $subject, $message, $leave->employee_phone );
+            $employee_user_id = isset( $leave->employee_user_id ) ? (int) $leave->employee_user_id : 0;
+            self::send_notification( $leave->employee_email, $subject, $message, $leave->employee_phone, $employee_user_id, 'leave_rejected' );
 
         } elseif ( $new_status === 'cancelled' && $settings['notify_leave_cancelled'] ) {
             // Notify manager about cancellation
@@ -283,7 +290,8 @@ class Notifications {
                     'days'          => $leave->days,
                 ] );
 
-                self::send_notification( $leave->manager_email, $subject, $message );
+                $manager_user_id = isset( $leave->manager_user_id ) ? (int) $leave->manager_user_id : 0;
+                self::send_notification( $leave->manager_email, $subject, $message, '', $manager_user_id, 'leave_cancelled' );
             }
         }
     }
@@ -341,7 +349,8 @@ class Notifications {
                 'minutes_late'  => $minutes_late,
             ] );
 
-            self::send_notification( $employee->manager_email, $subject, $message );
+            $manager_user_id = isset( $employee->manager_user_id ) ? (int) $employee->manager_user_id : 0;
+            self::send_notification( $employee->manager_email, $subject, $message, '', $manager_user_id, 'late_arrival' );
         }
     }
 
@@ -379,7 +388,8 @@ class Notifications {
                 'review_url'    => admin_url( 'admin.php?page=sfs_hr_attendance&tab=early-leave' ),
             ] );
 
-            self::send_notification( $employee->manager_email, $subject, $message );
+            $manager_user_id = isset( $employee->manager_user_id ) ? (int) $employee->manager_user_id : 0;
+            self::send_notification( $employee->manager_email, $subject, $message, '', $manager_user_id, 'early_leave' );
         }
     }
 
@@ -418,7 +428,7 @@ class Notifications {
             ] );
 
             foreach ( $settings['hr_emails'] as $hr_email ) {
-                self::send_notification( $hr_email, $subject, $message );
+                self::send_notification( $hr_email, $subject, $message, '', 0, 'new_employee' );
             }
         }
 
@@ -438,7 +448,8 @@ class Notifications {
                 'view_url'      => admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . $employee_id ),
             ] );
 
-            self::send_notification( $employee->manager_email, $subject, $message );
+            $manager_user_id = isset( $employee->manager_user_id ) ? (int) $employee->manager_user_id : 0;
+            self::send_notification( $employee->manager_email, $subject, $message, '', $manager_user_id, 'new_employee' );
         }
     }
 
@@ -465,7 +476,8 @@ class Notifications {
             'employee_name' => $employee->full_name,
         ] );
 
-        self::send_notification( $employee->email, $subject, $message, $employee->phone );
+        $employee_user_id = isset( $employee->user_id ) ? (int) $employee->user_id : 0;
+        self::send_notification( $employee->email, $subject, $message, $employee->phone, $employee_user_id, 'birthday' );
     }
 
     /**
@@ -498,7 +510,8 @@ class Notifications {
                 'years'         => $years,
             ] );
 
-            self::send_notification( $employee->email, $subject, $message, $employee->phone );
+            $employee_user_id = isset( $employee->user_id ) ? (int) $employee->user_id : 0;
+            self::send_notification( $employee->email, $subject, $message, $employee->phone, $employee_user_id, 'anniversary' );
         }
 
         // Notify HR
@@ -518,7 +531,7 @@ class Notifications {
             ] );
 
             foreach ( $settings['hr_emails'] as $hr_email ) {
-                self::send_notification( $hr_email, $subject, $message );
+                self::send_notification( $hr_email, $subject, $message, '', 0, 'anniversary' );
             }
         }
     }
@@ -559,7 +572,7 @@ class Notifications {
             ] );
 
             foreach ( $settings['hr_emails'] as $hr_email ) {
-                self::send_notification( $hr_email, $subject, $message );
+                self::send_notification( $hr_email, $subject, $message, '', 0, 'contract_expiry' );
             }
         }
     }
@@ -611,7 +624,7 @@ class Notifications {
         ] );
 
         foreach ( array_unique( $recipients ) as $email ) {
-            self::send_notification( $email, $subject, $message );
+            self::send_notification( $email, $subject, $message, '', 0, 'probation_end' );
         }
     }
 
@@ -644,7 +657,7 @@ class Notifications {
             ] );
 
             foreach ( $settings['hr_emails'] as $hr_email ) {
-                self::send_notification( $hr_email, $subject, $message );
+                self::send_notification( $hr_email, $subject, $message, '', 0, 'payroll_approved' );
             }
         }
     }
@@ -683,7 +696,8 @@ class Notifications {
             'view_url'      => home_url( '/my-profile/?tab=payslips' ),
         ] );
 
-        self::send_notification( $employee->email, $subject, $message, $employee->phone );
+        $employee_user_id = isset( $employee->user_id ) ? (int) $employee->user_id : 0;
+        self::send_notification( $employee->email, $subject, $message, $employee->phone, $employee_user_id, 'payslip_ready' );
     }
 
     /**
@@ -831,26 +845,73 @@ class Notifications {
     /**
      * Send notification via email and optionally SMS
      *
-     * @param string $email   Recipient email
-     * @param string $subject Email subject
-     * @param string $message Email body
-     * @param string $phone   Optional phone for SMS
+     * @param string $email             Recipient email
+     * @param string $subject           Email subject
+     * @param string $message           Email body
+     * @param string $phone             Optional phone for SMS
+     * @param int    $user_id           Optional user ID for preference checks
+     * @param string $notification_type Optional notification type for preference checks
      */
-    private static function send_notification( string $email, string $subject, string $message, string $phone = '' ): void {
+    private static function send_notification( string $email, string $subject, string $message, string $phone = '', int $user_id = 0, string $notification_type = 'general' ): void {
         $settings = self::get_settings();
 
-        // Send email
-        if ( $settings['email_enabled'] && $email ) {
-            Helpers::send_mail( $email, $subject, $message );
+        // Try to get user_id from email if not provided
+        if ( ! $user_id && $email ) {
+            $user = get_user_by( 'email', $email );
+            if ( $user ) {
+                $user_id = $user->ID;
+            }
         }
 
-        // Send SMS if enabled and phone provided
+        // Send email with preference checks
+        if ( $settings['email_enabled'] && $email ) {
+            // Check if user wants this type of email notification
+            if ( apply_filters( 'dofs_user_wants_email_notification', true, $user_id, $notification_type ) ) {
+                // Check if notification should be sent now or queued for digest
+                if ( apply_filters( 'dofs_should_send_notification_now', true, $user_id, $notification_type ) ) {
+                    // Send email immediately
+                    Helpers::send_mail( $email, $subject, $message );
+                } else {
+                    // Queue for digest
+                    self::queue_for_digest( $user_id, $email, $subject, $message, $notification_type );
+                }
+            }
+        }
+
+        // Send SMS if enabled and phone provided (SMS is always immediate)
         if ( $settings['sms_enabled'] && $phone ) {
             // Strip HTML and limit message length for SMS
             $sms_message = wp_strip_all_tags( $message );
             $sms_message = substr( $sms_message, 0, 160 );
             self::send_sms( $phone, $sms_message );
         }
+    }
+
+    /**
+     * Queue notification for digest delivery
+     *
+     * @param int    $user_id           User ID
+     * @param string $email             Recipient email
+     * @param string $subject           Email subject
+     * @param string $message           Email body
+     * @param string $notification_type Notification type
+     */
+    private static function queue_for_digest( int $user_id, string $email, string $subject, string $message, string $notification_type ): void {
+        $queue = get_option( 'sfs_hr_notification_digest_queue', [] );
+
+        $queue[] = [
+            'user_id'           => $user_id,
+            'email'             => $email,
+            'subject'           => $subject,
+            'message'           => $message,
+            'notification_type' => $notification_type,
+            'queued_at'         => current_time( 'mysql' ),
+        ];
+
+        update_option( 'sfs_hr_notification_digest_queue', $queue );
+
+        // Fire action for external digest handlers
+        do_action( 'sfs_hr_notification_queued_for_digest', $user_id, $email, $subject, $message, $notification_type );
     }
 
     /**

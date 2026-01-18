@@ -127,18 +127,20 @@ class ResignationTab implements TabInterface {
         }
         [dir="rtl"] .sfs-hr-resign-radio-label {
             flex-direction: row-reverse;
-            justify-content: flex-end;
+            justify-content: flex-start;
         }
         .sfs-hr-resign-radio-label input[type="radio"] {
             width: 18px;
             height: 18px;
             margin: 0;
             cursor: pointer;
+            flex-shrink: 0;
         }
         .sfs-hr-resignation-tab input[type="date"],
         .sfs-hr-resignation-tab input[type="number"],
         .sfs-hr-resignation-tab textarea {
-            width: 100%;
+            width: 100% !important;
+            max-width: 100% !important;
             box-sizing: border-box;
             border-radius: 8px;
             border: 1px solid #d1d5db;
@@ -147,6 +149,8 @@ class ResignationTab implements TabInterface {
         }
         .sfs-hr-resignation-tab input[type="date"] {
             min-height: 44px;
+            -webkit-appearance: none;
+            appearance: none;
         }
         .sfs-hr-resignation-tab textarea {
             min-height: 80px;
@@ -219,10 +223,10 @@ class ResignationTab implements TabInterface {
         if ( ! $has_pending && ! $has_approved ) {
             ?>
             <div class="sfs-hr-resignation-dashboard">
-                <h4><?php esc_html_e( 'Resignation', 'sfs-hr' ); ?></h4>
+                <h4 data-i18n-key="resignation"><?php esc_html_e( 'Resignation', 'sfs-hr' ); ?></h4>
 
                 <div class="sfs-hr-resignation-form-wrap">
-                    <h5 data-i18n="submit_resignation"><?php esc_html_e( 'Submit Resignation', 'sfs-hr' ); ?></h5>
+                    <h5 data-i18n-key="submit_resignation"><?php esc_html_e( 'Submit Resignation', 'sfs-hr' ); ?></h5>
 
                     <form method="POST" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
                         <?php wp_nonce_field( 'sfs_hr_resignation_submit' ); ?>
@@ -231,24 +235,24 @@ class ResignationTab implements TabInterface {
                         <div class="sfs-hr-resign-fields">
                             <div class="sfs-hr-resign-group">
                                 <div class="sfs-hr-resign-label">
-                                    <?php esc_html_e( 'Resignation Type', 'sfs-hr' ); ?>
+                                    <span data-i18n-key="resignation_type"><?php esc_html_e( 'Resignation Type', 'sfs-hr' ); ?></span>
                                     <span style="color:#ef4444;">*</span>
                                 </div>
                                 <div class="sfs-hr-resign-radio-group">
                                     <label class="sfs-hr-resign-radio-label">
                                         <input type="radio" name="resignation_type" value="regular" checked onchange="toggleResignationFields()">
-                                        <span><?php esc_html_e( 'Regular Resignation', 'sfs-hr' ); ?></span>
+                                        <span data-i18n-key="regular_resignation"><?php esc_html_e( 'Regular Resignation', 'sfs-hr' ); ?></span>
                                     </label>
                                     <label class="sfs-hr-resign-radio-label">
                                         <input type="radio" name="resignation_type" value="final_exit" onchange="toggleResignationFields()">
-                                        <span><?php esc_html_e( 'Final Exit (Foreign Employee)', 'sfs-hr' ); ?></span>
+                                        <span data-i18n-key="final_exit_foreign"><?php esc_html_e( 'Final Exit (Foreign Employee)', 'sfs-hr' ); ?></span>
                                     </label>
                                 </div>
                             </div>
 
                             <div class="sfs-hr-resign-group" id="resignation-date-field">
                                 <div class="sfs-hr-resign-label">
-                                    <?php esc_html_e( 'Resignation Date', 'sfs-hr' ); ?>
+                                    <span data-i18n-key="resignation_date"><?php esc_html_e( 'Resignation Date', 'sfs-hr' ); ?></span>
                                     <span style="color:#ef4444;">*</span>
                                 </div>
                                 <input type="date" name="resignation_date" id="resignation_date" required>
@@ -256,20 +260,20 @@ class ResignationTab implements TabInterface {
 
                             <div class="sfs-hr-resign-group">
                                 <div class="sfs-hr-resign-label">
-                                    <?php esc_html_e( 'Notice Period (days)', 'sfs-hr' ); ?>
+                                    <span data-i18n-key="notice_period_days"><?php esc_html_e( 'Notice Period (days)', 'sfs-hr' ); ?></span>
                                     <span style="color:#ef4444;">*</span>
                                 </div>
                                 <input type="number" name="notice_period_days" id="notice_period_days"
                                        value="<?php echo esc_attr( get_option( 'sfs_hr_resignation_notice_period', '30' ) ); ?>"
                                        min="0" readonly required>
-                                <div class="sfs-hr-resign-hint">
+                                <div class="sfs-hr-resign-hint" data-i18n-key="notice_period_hint">
                                     <?php esc_html_e( 'Set by HR based on company policy. Your last working day will be calculated based on this.', 'sfs-hr' ); ?>
                                 </div>
                             </div>
 
                             <div class="sfs-hr-resign-group">
                                 <div class="sfs-hr-resign-label">
-                                    <?php esc_html_e( 'Reason for Resignation', 'sfs-hr' ); ?>
+                                    <span data-i18n-key="reason_for_resignation"><?php esc_html_e( 'Reason for Resignation', 'sfs-hr' ); ?></span>
                                     <span style="color:#ef4444;">*</span>
                                 </div>
                                 <textarea name="reason" id="reason" rows="3" required></textarea>
@@ -277,17 +281,17 @@ class ResignationTab implements TabInterface {
 
                             <div class="sfs-hr-resign-group" id="fe-final-exit-fields" style="display:none;">
                                 <div class="sfs-hr-resign-label">
-                                    <?php esc_html_e( 'Expected Country Exit Date', 'sfs-hr' ); ?>
+                                    <span data-i18n-key="expected_country_exit_date"><?php esc_html_e( 'Expected Country Exit Date', 'sfs-hr' ); ?></span>
                                     <span style="color:#ef4444;">*</span>
                                 </div>
                                 <input type="date" name="expected_country_exit_date" id="expected_country_exit_date">
-                                <div class="sfs-hr-resign-hint">
+                                <div class="sfs-hr-resign-hint" data-i18n-key="expected_exit_date_hint">
                                     <?php esc_html_e( 'Expected date when you plan to leave the country', 'sfs-hr' ); ?>
                                 </div>
                             </div>
 
                             <div class="sfs-hr-resign-group" style="margin-top:8px;">
-                                <button type="submit" class="sfs-hr-resign-submit sfs-hr-lf-submit">
+                                <button type="submit" class="sfs-hr-resign-submit sfs-hr-lf-submit" data-i18n-key="submit_resignation">
                                     <?php esc_html_e( 'Submit Resignation', 'sfs-hr' ); ?>
                                 </button>
                             </div>
@@ -324,18 +328,18 @@ class ResignationTab implements TabInterface {
             <?php
         } elseif ( $has_pending ) {
             echo '<div class="sfs-hr-resignation-dashboard">';
-            echo '<h4>' . esc_html__( 'Resignation', 'sfs-hr' ) . '</h4>';
+            echo '<h4 data-i18n-key="resignation">' . esc_html__( 'Resignation', 'sfs-hr' ) . '</h4>';
             echo '<div class="sfs-hr-alert" style="background:#fef3c7;color:#92400e;padding:14px 16px;border-radius:8px;border:1px solid #fcd34d;font-size:13px;">';
-            echo '<strong>' . esc_html__( 'Notice:', 'sfs-hr' ) . '</strong> ';
-            echo esc_html__( 'You have a pending resignation request. You cannot submit a new one until the current request is processed.', 'sfs-hr' );
+            echo '<strong data-i18n-key="notice">' . esc_html__( 'Notice:', 'sfs-hr' ) . '</strong> ';
+            echo '<span data-i18n-key="pending_resignation_notice">' . esc_html__( 'You have a pending resignation request. You cannot submit a new one until the current request is processed.', 'sfs-hr' ) . '</span>';
             echo '</div>';
             echo '</div>';
         } elseif ( $has_approved ) {
             echo '<div class="sfs-hr-resignation-dashboard">';
-            echo '<h4>' . esc_html__( 'Resignation', 'sfs-hr' ) . '</h4>';
+            echo '<h4 data-i18n-key="resignation">' . esc_html__( 'Resignation', 'sfs-hr' ) . '</h4>';
             echo '<div class="sfs-hr-alert" style="background:#d1fae5;color:#065f46;padding:14px 16px;border-radius:8px;border:1px solid #6ee7b7;font-size:13px;">';
-            echo '<strong>' . esc_html__( 'Notice:', 'sfs-hr' ) . '</strong> ';
-            echo esc_html__( 'Your resignation has been approved. Please coordinate with HR for your exit process.', 'sfs-hr' );
+            echo '<strong data-i18n-key="notice">' . esc_html__( 'Notice:', 'sfs-hr' ) . '</strong> ';
+            echo '<span data-i18n-key="approved_resignation_notice">' . esc_html__( 'Your resignation has been approved. Please coordinate with HR for your exit process.', 'sfs-hr' ) . '</span>';
             echo '</div>';
             echo '</div>';
         }
@@ -356,7 +360,7 @@ class ResignationTab implements TabInterface {
      */
     private function render_resignation_history( array $resignations ): void {
         echo '<div class="sfs-hr-resignation-dashboard" style="margin-top:16px;">';
-        echo '<h4 style="margin-bottom:12px;">' . esc_html__( 'Resignation History', 'sfs-hr' ) . '</h4>';
+        echo '<h4 style="margin-bottom:12px;" data-i18n-key="resignation_history">' . esc_html__( 'Resignation History', 'sfs-hr' ) . '</h4>';
 
         // Add mobile CSS
         echo '<style>
@@ -420,10 +424,10 @@ class ResignationTab implements TabInterface {
         echo '<table class="sfs-hr-resignations-table">';
         echo '<thead>';
         echo '<tr>';
-        echo '<th class="hide-mobile">' . esc_html__( 'Type', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Date', 'sfs-hr' ) . '</th>';
-        echo '<th class="hide-mobile">' . esc_html__( 'Last Day', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+        echo '<th class="hide-mobile" data-i18n-key="type">' . esc_html__( 'Type', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="date">' . esc_html__( 'Date', 'sfs-hr' ) . '</th>';
+        echo '<th class="hide-mobile" data-i18n-key="last_working_day">' . esc_html__( 'Last Day', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="status">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
         echo '</tr>';
         echo '</thead>';
         echo '<tbody>';

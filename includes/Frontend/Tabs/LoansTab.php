@@ -55,7 +55,7 @@ class LoansTab implements TabInterface {
         ) );
 
         echo '<div class="sfs-hr-loans-tab" style="padding:20px;background:#fff;border:1px solid #ddd;border-radius:4px;margin-top:20px;">';
-        echo '<h4 style="margin:0 0 16px;">' . esc_html__( 'My Loans', 'sfs-hr' ) . '</h4>';
+        echo '<h4 style="margin:0 0 16px;" data-i18n-key="my_loans">' . esc_html__( 'My Loans', 'sfs-hr' ) . '</h4>';
 
         $this->render_styles();
 
@@ -65,10 +65,10 @@ class LoansTab implements TabInterface {
         }
 
         // Loan History section
-        echo '<h5 style="margin:24px 0 12px 0;font-size:15px;font-weight:600;color:inherit;">' . esc_html__( 'Loan history', 'sfs-hr' ) . '</h5>';
+        echo '<h5 style="margin:24px 0 12px 0;font-size:15px;font-weight:600;color:inherit;" data-i18n-key="loan_history">' . esc_html__( 'Loan history', 'sfs-hr' ) . '</h5>';
 
         if ( empty( $loans ) ) {
-            echo '<p style="color:inherit;">' . esc_html__( 'You have no loan records.', 'sfs-hr' ) . '</p>';
+            echo '<p style="color:inherit;" data-i18n-key="you_have_no_loan_records">' . esc_html__( 'You have no loan records.', 'sfs-hr' ) . '</p>';
         } else {
             $loan_data = $this->prepare_loan_data( $loans, $payments_table );
             $this->render_desktop_table( $loan_data );
@@ -150,7 +150,7 @@ class LoansTab implements TabInterface {
      */
     private function render_request_form( int $emp_id, array $settings ): void {
         echo '<div id="sfs-loan-request-form-frontend" class="sfs-hr-loan-request-form" style="background:var(--sfs-surface, #f9f9f9);padding:16px;border:1px solid var(--sfs-border, #ddd);border-radius:8px;margin-bottom:16px;">';
-        echo '<h5 style="margin:0 0 12px;font-size:15px;font-weight:600;color:inherit;">' . esc_html__( 'Request new loan', 'sfs-hr' ) . '</h5>';
+        echo '<h5 style="margin:0 0 12px;font-size:15px;font-weight:600;color:inherit;" data-i18n-key="request_new_loan">' . esc_html__( 'Request new loan', 'sfs-hr' ) . '</h5>';
 
         // Show messages
         if ( isset( $_GET['loan_request'] ) ) {
@@ -172,7 +172,7 @@ class LoansTab implements TabInterface {
         echo '<input type="hidden" name="employee_id" value="' . (int) $emp_id . '" />';
 
         echo '<div style="margin-bottom:16px;">';
-        echo '<label style="display:block;margin-bottom:4px;font-weight:600;">' . esc_html__( 'Loan Amount (SAR)', 'sfs-hr' ) . ' <span style="color:red;">*</span></label>';
+        echo '<label style="display:block;margin-bottom:4px;font-weight:600;"><span data-i18n-key="loan_amount_sar">' . esc_html__( 'Loan Amount (SAR)', 'sfs-hr' ) . '</span> <span style="color:red;">*</span></label>';
         echo '<input type="number" name="principal_amount" step="0.01" min="1" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" />';
         if ( $settings['max_loan_amount'] > 0 ) {
             echo '<p style="margin:4px 0 0;font-size:12px;color:#666;">' .
@@ -182,16 +182,16 @@ class LoansTab implements TabInterface {
         echo '</div>';
 
         echo '<div style="margin-bottom:16px;">';
-        echo '<label style="display:block;margin-bottom:4px;font-weight:600;">' . esc_html__( 'Monthly Installment Amount (SAR)', 'sfs-hr' ) . ' <span style="color:red;">*</span></label>';
+        echo '<label style="display:block;margin-bottom:4px;font-weight:600;"><span data-i18n-key="monthly_installment_sar">' . esc_html__( 'Monthly Installment Amount (SAR)', 'sfs-hr' ) . '</span> <span style="color:red;">*</span></label>';
         echo '<input type="number" name="monthly_amount" id="monthly_amount_frontend" step="0.01" min="1" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" oninput="calculateLoanFrontend()" />';
-        echo '<p style="margin:4px 0 0;font-size:12px;color:#666;">' . esc_html__( 'How much you can pay each month', 'sfs-hr' ) . '</p>';
+        echo '<p style="margin:4px 0 0;font-size:12px;color:#666;" data-i18n-key="how_much_you_can_pay">' . esc_html__( 'How much you can pay each month', 'sfs-hr' ) . '</p>';
         echo '<p id="calculated_plan_frontend" style="margin:8px 0 0;font-weight:bold;color:#0073aa;"></p>';
         echo '</div>';
 
         $this->render_calculator_script();
 
         echo '<div style="margin-bottom:16px;">';
-        echo '<label style="display:block;margin-bottom:4px;font-weight:600;">' . esc_html__( 'Reason for Loan', 'sfs-hr' ) . ' <span style="color:red;">*</span></label>';
+        echo '<label style="display:block;margin-bottom:4px;font-weight:600;"><span data-i18n-key="reason_for_loan">' . esc_html__( 'Reason for Loan', 'sfs-hr' ) . '</span> <span style="color:red;">*</span></label>';
         echo '<textarea name="reason" rows="3" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"></textarea>';
         echo '</div>';
 
@@ -208,7 +208,7 @@ class LoansTab implements TabInterface {
         </style>';
 
         echo '<div style="margin-top:16px;">';
-        echo '<button type="submit" class="sfs-hr-lf-submit" style="width:100%;padding:12px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;">' .
+        echo '<button type="submit" class="sfs-hr-lf-submit" style="width:100%;padding:12px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;" data-i18n-key="submit_loan_request">' .
              esc_html__( 'Submit loan request', 'sfs-hr' ) .
              '</button>';
         echo '</div>';
@@ -317,12 +317,12 @@ document.addEventListener("DOMContentLoaded", function() {
         echo '<table class="sfs-hr-table" style="width:100%;border-collapse:collapse;margin-top:8px;border:1px solid #ddd;">';
         echo '<thead>';
         echo '<tr style="background:#f5f5f5;">';
-        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Loan #', 'sfs-hr' ) . '</th>';
-        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
-        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Remaining', 'sfs-hr' ) . '</th>';
-        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Installments', 'sfs-hr' ) . '</th>';
-        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
-        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Requested', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;" data-i18n-key="loan_number">' . esc_html__( 'Loan #', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;" data-i18n-key="amount">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;" data-i18n-key="remaining">' . esc_html__( 'Remaining', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;" data-i18n-key="installments">' . esc_html__( 'Installments', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;" data-i18n-key="status">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:12px;text-align:left;border:1px solid #ddd;" data-i18n-key="requested">' . esc_html__( 'Requested', 'sfs-hr' ) . '</th>';
         echo '</tr>';
         echo '</thead>';
         echo '<tbody>';
@@ -344,17 +344,17 @@ document.addEventListener("DOMContentLoaded", function() {
             // Details row
             echo '<tr>';
             echo '<td colspan="6" style="padding:12px;border:1px solid #ddd;background:#f9f9f9;">';
-            echo '<p style="margin:0 0 8px;"><strong>' . esc_html__( 'Reason:', 'sfs-hr' ) . '</strong> ' . esc_html( $loan->reason ) . '</p>';
+            echo '<p style="margin:0 0 8px;"><strong data-i18n-key="reason">' . esc_html__( 'Reason:', 'sfs-hr' ) . '</strong> ' . esc_html( $loan->reason ) . '</p>';
 
             if ( $loan->status === 'rejected' ) {
                 if ( ! empty( $data['approver_info'] ) ) {
-                    echo '<p style="margin:0 0 8px;color:#dc3545;"><strong>' . esc_html__( 'Rejected by:', 'sfs-hr' ) . '</strong> ' . esc_html( $data['approver_info'] ) . '</p>';
+                    echo '<p style="margin:0 0 8px;color:#dc3545;"><strong data-i18n-key="rejected_by">' . esc_html__( 'Rejected by:', 'sfs-hr' ) . '</strong> ' . esc_html( $data['approver_info'] ) . '</p>';
                 }
                 if ( $loan->rejection_reason ) {
-                    echo '<p style="margin:0;color:#dc3545;"><strong>' . esc_html__( 'Rejection Reason:', 'sfs-hr' ) . '</strong> ' . esc_html( $loan->rejection_reason ) . '</p>';
+                    echo '<p style="margin:0;color:#dc3545;"><strong data-i18n-key="rejection_reason">' . esc_html__( 'Rejection Reason:', 'sfs-hr' ) . '</strong> ' . esc_html( $loan->rejection_reason ) . '</p>';
                 }
             } elseif ( in_array( $loan->status, [ 'active', 'completed' ], true ) && ! empty( $data['approver_info'] ) ) {
-                echo '<p style="margin:0 0 8px;color:#28a745;"><strong>' . esc_html__( 'Approved by:', 'sfs-hr' ) . '</strong> ' . esc_html( $data['approver_info'] ) . '</p>';
+                echo '<p style="margin:0 0 8px;color:#28a745;"><strong data-i18n-key="approved_by">' . esc_html__( 'Approved by:', 'sfs-hr' ) . '</strong> ' . esc_html( $data['approver_info'] ) . '</p>';
             }
 
             if ( ! empty( $payments ) ) {
@@ -374,14 +374,14 @@ document.addEventListener("DOMContentLoaded", function() {
      * Render payment schedule table
      */
     private function render_payment_schedule( array $payments ): void {
-        echo '<h5 style="margin:12px 0 8px;">' . esc_html__( 'Payment Schedule', 'sfs-hr' ) . '</h5>';
+        echo '<h5 style="margin:12px 0 8px;" data-i18n-key="payment_schedule">' . esc_html__( 'Payment Schedule', 'sfs-hr' ) . '</h5>';
         echo '<table style="width:100%;border-collapse:collapse;margin-top:8px;">';
         echo '<thead>';
         echo '<tr style="background:#eee;">';
         echo '<th style="padding:8px;text-align:left;border:1px solid #ccc;width:50px;">#</th>';
-        echo '<th style="padding:8px;text-align:left;border:1px solid #ccc;">' . esc_html__( 'Due Date', 'sfs-hr' ) . '</th>';
-        echo '<th style="padding:8px;text-align:left;border:1px solid #ccc;">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
-        echo '<th style="padding:8px;text-align:left;border:1px solid #ccc;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:8px;text-align:left;border:1px solid #ccc;" data-i18n-key="due_date">' . esc_html__( 'Due Date', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:8px;text-align:left;border:1px solid #ccc;" data-i18n-key="amount">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
+        echo '<th style="padding:8px;text-align:left;border:1px solid #ccc;" data-i18n-key="status">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
         echo '</tr>';
         echo '</thead>';
         echo '<tbody>';
@@ -420,46 +420,46 @@ document.addEventListener("DOMContentLoaded", function() {
             echo '  <div class="sfs-hr-loan-body">';
 
             echo '      <div class="sfs-hr-loan-field-row">';
-            echo '          <div class="sfs-hr-loan-field-label">' . esc_html__( 'Amount', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-loan-field-label" data-i18n-key="amount">' . esc_html__( 'Amount', 'sfs-hr' ) . '</div>';
             echo '          <div class="sfs-hr-loan-field-value">' . number_format( (float) $loan->principal_amount, 2 ) . ' ' . esc_html( $loan->currency ) . '</div>';
             echo '      </div>';
 
             echo '      <div class="sfs-hr-loan-field-row">';
-            echo '          <div class="sfs-hr-loan-field-label">' . esc_html__( 'Remaining', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-loan-field-label" data-i18n-key="remaining">' . esc_html__( 'Remaining', 'sfs-hr' ) . '</div>';
             echo '          <div class="sfs-hr-loan-field-value">' . number_format( (float) $loan->remaining_balance, 2 ) . ' ' . esc_html( $loan->currency ) . '</div>';
             echo '      </div>';
 
             echo '      <div class="sfs-hr-loan-field-row">';
-            echo '          <div class="sfs-hr-loan-field-label">' . esc_html__( 'Installments', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-loan-field-label" data-i18n-key="installments">' . esc_html__( 'Installments', 'sfs-hr' ) . '</div>';
             echo '          <div class="sfs-hr-loan-field-value">' . (int) $paid_count . ' / ' . (int) $loan->installments_count . '</div>';
             echo '      </div>';
 
             echo '      <div class="sfs-hr-loan-field-row">';
-            echo '          <div class="sfs-hr-loan-field-label">' . esc_html__( 'Requested', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-loan-field-label" data-i18n-key="requested">' . esc_html__( 'Requested', 'sfs-hr' ) . '</div>';
             echo '          <div class="sfs-hr-loan-field-value">' . esc_html( wp_date( 'M j, Y', strtotime( $loan->created_at ) ) ) . '</div>';
             echo '      </div>';
 
             echo '      <div class="sfs-hr-loan-field-row">';
-            echo '          <div class="sfs-hr-loan-field-label">' . esc_html__( 'Reason', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-loan-field-label" data-i18n-key="reason">' . esc_html__( 'Reason', 'sfs-hr' ) . '</div>';
             echo '          <div class="sfs-hr-loan-field-value">' . esc_html( $loan->reason ) . '</div>';
             echo '      </div>';
 
             if ( $loan->status === 'rejected' ) {
                 if ( ! empty( $data['approver_info'] ) ) {
                     echo '      <div class="sfs-hr-loan-field-row">';
-                    echo '          <div class="sfs-hr-loan-field-label" style="color:#dc3545;">' . esc_html__( 'Rejected by', 'sfs-hr' ) . '</div>';
+                    echo '          <div class="sfs-hr-loan-field-label" style="color:#dc3545;" data-i18n-key="rejected_by">' . esc_html__( 'Rejected by', 'sfs-hr' ) . '</div>';
                     echo '          <div class="sfs-hr-loan-field-value" style="color:#dc3545;">' . esc_html( $data['approver_info'] ) . '</div>';
                     echo '      </div>';
                 }
                 if ( $loan->rejection_reason ) {
                     echo '      <div class="sfs-hr-loan-field-row">';
-                    echo '          <div class="sfs-hr-loan-field-label" style="color:#dc3545;">' . esc_html__( 'Reason', 'sfs-hr' ) . '</div>';
+                    echo '          <div class="sfs-hr-loan-field-label" style="color:#dc3545;" data-i18n-key="rejection_reason">' . esc_html__( 'Reason', 'sfs-hr' ) . '</div>';
                     echo '          <div class="sfs-hr-loan-field-value" style="color:#dc3545;">' . esc_html( $loan->rejection_reason ) . '</div>';
                     echo '      </div>';
                 }
             } elseif ( in_array( $loan->status, [ 'active', 'completed' ], true ) && ! empty( $data['approver_info'] ) ) {
                 echo '      <div class="sfs-hr-loan-field-row">';
-                echo '          <div class="sfs-hr-loan-field-label" style="color:#28a745;">' . esc_html__( 'Approved by', 'sfs-hr' ) . '</div>';
+                echo '          <div class="sfs-hr-loan-field-label" style="color:#28a745;" data-i18n-key="approved_by">' . esc_html__( 'Approved by', 'sfs-hr' ) . '</div>';
                 echo '          <div class="sfs-hr-loan-field-value" style="color:#28a745;">' . esc_html( $data['approver_info'] ) . '</div>';
                 echo '      </div>';
             }
@@ -479,14 +479,14 @@ document.addEventListener("DOMContentLoaded", function() {
      */
     private function render_mobile_payment_schedule( array $payments ): void {
         echo '      <div style="margin-top:12px;padding-top:12px;border-top:1px solid #ddd;">';
-        echo '          <strong>' . esc_html__( 'Payment Schedule', 'sfs-hr' ) . '</strong>';
+        echo '          <strong data-i18n-key="payment_schedule">' . esc_html__( 'Payment Schedule', 'sfs-hr' ) . '</strong>';
         echo '          <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;">';
         echo '          <thead>';
         echo '          <tr style="background:#f5f5f5;">';
         echo '          <th style="padding:6px;text-align:left;border:1px solid #ddd;">#</th>';
-        echo '          <th style="padding:6px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Due', 'sfs-hr' ) . '</th>';
-        echo '          <th style="padding:6px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
-        echo '          <th style="padding:6px;text-align:left;border:1px solid #ddd;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+        echo '          <th style="padding:6px;text-align:left;border:1px solid #ddd;" data-i18n-key="due">' . esc_html__( 'Due', 'sfs-hr' ) . '</th>';
+        echo '          <th style="padding:6px;text-align:left;border:1px solid #ddd;" data-i18n-key="amount">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
+        echo '          <th style="padding:6px;text-align:left;border:1px solid #ddd;" data-i18n-key="status">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
         echo '          </tr>';
         echo '          </thead>';
         echo '          <tbody>';
@@ -517,6 +517,14 @@ document.addEventListener("DOMContentLoaded", function() {
             'rejected'        => __( 'Rejected', 'sfs-hr' ),
             'cancelled'       => __( 'Cancelled', 'sfs-hr' ),
         ];
+        $keys = [
+            'pending_gm'      => 'pending_gm_approval',
+            'pending_finance' => 'pending_finance_approval',
+            'active'          => 'active',
+            'completed'       => 'completed',
+            'rejected'        => 'rejected',
+            'cancelled'       => 'cancelled',
+        ];
         $colors = [
             'pending_gm'      => 'background:#ffa500;color:#fff;',
             'pending_finance' => 'background:#ff8c00;color:#fff;',
@@ -526,20 +534,29 @@ document.addEventListener("DOMContentLoaded", function() {
             'cancelled'       => 'background:#6c757d;color:#fff;',
         ];
         $label = $labels[ $status ] ?? ucfirst( str_replace( '_', ' ', $status ) );
+        $key = $keys[ $status ] ?? $status;
         $color = $colors[ $status ] ?? 'background:#888;color:#fff;';
-        return '<span style="' . esc_attr( $color ) . 'padding:4px 8px;border-radius:3px;font-size:11px;">' . esc_html( $label ) . '</span>';
+        return '<span style="' . esc_attr( $color ) . 'padding:4px 8px;border-radius:3px;font-size:11px;" data-i18n-key="' . esc_attr( $key ) . '">' . esc_html( $label ) . '</span>';
     }
 
     /**
      * Get payment status badge HTML
      */
     private function get_payment_status_badge( string $status ): string {
-        $badges = [
-            'planned'  => '<span style="background:#ffc107;color:#000;padding:2px 6px;border-radius:3px;font-size:10px;">Planned</span>',
-            'paid'     => '<span style="background:#28a745;color:#fff;padding:2px 6px;border-radius:3px;font-size:10px;">Paid</span>',
-            'skipped'  => '<span style="background:#6c757d;color:#fff;padding:2px 6px;border-radius:3px;font-size:10px;">Skipped</span>',
-            'partial'  => '<span style="background:#17a2b8;color:#fff;padding:2px 6px;border-radius:3px;font-size:10px;">Partial</span>',
+        $labels = [
+            'planned'  => __( 'Planned', 'sfs-hr' ),
+            'paid'     => __( 'Paid', 'sfs-hr' ),
+            'skipped'  => __( 'Skipped', 'sfs-hr' ),
+            'partial'  => __( 'Partial', 'sfs-hr' ),
         ];
-        return $badges[ $status ] ?? esc_html( ucfirst( $status ) );
+        $colors = [
+            'planned'  => 'background:#ffc107;color:#000;',
+            'paid'     => 'background:#28a745;color:#fff;',
+            'skipped'  => 'background:#6c757d;color:#fff;',
+            'partial'  => 'background:#17a2b8;color:#fff;',
+        ];
+        $label = $labels[ $status ] ?? ucfirst( $status );
+        $color = $colors[ $status ] ?? 'background:#888;color:#fff;';
+        return '<span style="' . esc_attr( $color ) . 'padding:2px 6px;border-radius:3px;font-size:10px;" data-i18n-key="' . esc_attr( $status ) . '">' . esc_html( $label ) . '</span>';
     }
 }

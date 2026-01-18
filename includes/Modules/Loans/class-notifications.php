@@ -1,6 +1,8 @@
 <?php
 namespace SFS\HR\Modules\Loans;
 
+use SFS\HR\Core\Notifications as CoreNotifications;
+
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
@@ -70,8 +72,11 @@ class Notifications {
                 'requested_date'  => wp_date( 'F j, Y', strtotime( $loan->created_at ) ),
             ] );
 
-            wp_mail( $user->user_email, $subject, $message, self::get_email_headers() );
+            self::send_notification( $user->ID, $user->user_email, $subject, $message, 'loan_request_created' );
         }
+
+        // Also notify HR
+        self::notify_hr_loan_event( $loan, 'new_request', $loan_id );
     }
 
     /**
@@ -132,7 +137,7 @@ class Notifications {
                 'approved_date'   => wp_date( 'F j, Y', strtotime( $loan->approved_gm_at ) ),
             ] );
 
-            wp_mail( $user->user_email, $subject, $message, self::get_email_headers() );
+            self::send_notification( $user->ID, $user->user_email, $subject, $message, 'loan_gm_approved' );
         }
     }
 
@@ -181,7 +186,10 @@ class Notifications {
             'approved_date'   => wp_date( 'F j, Y', strtotime( $loan->approved_finance_at ) ),
         ] );
 
-        wp_mail( $employee_user->user_email, $subject, $message, self::get_email_headers() );
+        self::send_notification( $employee_user->ID, $employee_user->user_email, $subject, $message, 'loan_approved' );
+
+        // Also notify HR of final approval
+        self::notify_hr_loan_event( $loan, 'approved', $loan_id );
     }
 
     /**
@@ -231,7 +239,10 @@ class Notifications {
             'rejected_date'     => wp_date( 'F j, Y', strtotime( $loan->rejected_at ) ),
         ] );
 
-        wp_mail( $employee_user->user_email, $subject, $message, self::get_email_headers() );
+        self::send_notification( $employee_user->ID, $employee_user->user_email, $subject, $message, 'loan_rejected' );
+
+        // Also notify HR of rejection
+        self::notify_hr_loan_event( $loan, 'rejected', $loan_id );
     }
 
     /**
@@ -278,7 +289,94 @@ class Notifications {
             'installment_amount' => number_format( (float) $loan->installment_amount, 2 ),
         ] );
 
-        wp_mail( $employee_user->user_email, $subject, $message, self::get_email_headers() );
+        self::send_notification( $employee_user->ID, $employee_user->user_email, $subject, $message, 'loan_installment_skipped' );
+    }
+
+    /**
+     * Notify HR team about loan events
+     *
+     * @param object $loan   Loan data
+     * @param string $event  Event type: new_request, approved, rejected
+     * @param int    $loan_id Loan ID
+     */
+    private static function notify_hr_loan_event( $loan, string $event, int $loan_id ): void {
+        // Get HR emails from Core settings
+        $core_settings = CoreNotifications::get_settings();
+        $hr_emails = $core_settings['hr_emails'] ?? [];
+
+        if ( empty( $hr_emails ) || ! ( $core_settings['hr_notification'] ?? true ) ) {
+            return;
+        }
+
+        $loan_url = admin_url( 'admin.php?page=sfs-hr-loans&action=view&id=' . $loan_id );
+
+        switch ( $event ) {
+            case 'new_request':
+                $subject = sprintf(
+                    __( '[HR Notice] New loan request %s from %s', 'sfs-hr' ),
+                    $loan->loan_number,
+                    $loan->employee_name
+                );
+                $message = sprintf(
+                    __( "A new loan request has been submitted.\n\nLoan Number: %s\nEmployee: %s (%s)\nAmount: %s %s\nInstallments: %d\n\nReason:\n%s\n\nView details: %s", 'sfs-hr' ),
+                    $loan->loan_number,
+                    $loan->employee_name,
+                    $loan->employee_code,
+                    number_format( (float) $loan->principal_amount, 2 ),
+                    $loan->currency,
+                    $loan->installments_count,
+                    $loan->reason,
+                    $loan_url
+                );
+                break;
+
+            case 'approved':
+                $subject = sprintf(
+                    __( '[HR Notice] Loan %s has been approved', 'sfs-hr' ),
+                    $loan->loan_number
+                );
+                $message = sprintf(
+                    __( "A loan request has been fully approved.\n\nLoan Number: %s\nEmployee: %s (%s)\nApproved Amount: %s %s\nMonthly Installment: %s %s\nInstallments: %d\n\nView details: %s", 'sfs-hr' ),
+                    $loan->loan_number,
+                    $loan->employee_name,
+                    $loan->employee_code,
+                    number_format( (float) $loan->principal_amount, 2 ),
+                    $loan->currency,
+                    number_format( (float) $loan->installment_amount, 2 ),
+                    $loan->currency,
+                    $loan->installments_count,
+                    $loan_url
+                );
+                break;
+
+            case 'rejected':
+                $subject = sprintf(
+                    __( '[HR Notice] Loan %s has been rejected', 'sfs-hr' ),
+                    $loan->loan_number
+                );
+                $message = sprintf(
+                    __( "A loan request has been rejected.\n\nLoan Number: %s\nEmployee: %s (%s)\nRequested Amount: %s %s\nRejection Reason: %s\n\nView details: %s", 'sfs-hr' ),
+                    $loan->loan_number,
+                    $loan->employee_name,
+                    $loan->employee_code,
+                    number_format( (float) $loan->principal_amount, 2 ),
+                    $loan->currency,
+                    $loan->rejection_reason ?: __( 'Not specified', 'sfs-hr' ),
+                    $loan_url
+                );
+                break;
+
+            default:
+                return;
+        }
+
+        // Send to all HR emails
+        foreach ( $hr_emails as $hr_email ) {
+            if ( ! is_email( $hr_email ) ) {
+                continue;
+            }
+            self::send_notification( 0, $hr_email, $subject, $message, 'loan_hr_notification' );
+        }
     }
 
     /**
@@ -443,6 +541,58 @@ HR Management System
         }
 
         return $template_content;
+    }
+
+    /**
+     * Send notification with preference checks
+     *
+     * @param int    $user_id           User ID
+     * @param string $email             Email address
+     * @param string $subject           Email subject
+     * @param string $message           Email message
+     * @param string $notification_type Notification type
+     */
+    private static function send_notification( int $user_id, string $email, string $subject, string $message, string $notification_type ): void {
+        // Check if user wants this type of email notification
+        if ( ! apply_filters( 'dofs_user_wants_email_notification', true, $user_id, $notification_type ) ) {
+            return;
+        }
+
+        // Check if notification should be sent now or queued for digest
+        if ( apply_filters( 'dofs_should_send_notification_now', true, $user_id, $notification_type ) ) {
+            // Send email immediately
+            wp_mail( $email, $subject, $message, self::get_email_headers() );
+        } else {
+            // Queue for digest
+            self::queue_for_digest( $user_id, $email, $subject, $message, $notification_type );
+        }
+    }
+
+    /**
+     * Queue notification for digest delivery
+     *
+     * @param int    $user_id           User ID
+     * @param string $email             Email address
+     * @param string $subject           Email subject
+     * @param string $message           Email message
+     * @param string $notification_type Notification type
+     */
+    private static function queue_for_digest( int $user_id, string $email, string $subject, string $message, string $notification_type ): void {
+        $queue = get_option( 'sfs_hr_notification_digest_queue', [] );
+
+        $queue[] = [
+            'user_id'           => $user_id,
+            'email'             => $email,
+            'subject'           => $subject,
+            'message'           => $message,
+            'notification_type' => $notification_type,
+            'queued_at'         => current_time( 'mysql' ),
+        ];
+
+        update_option( 'sfs_hr_notification_digest_queue', $queue );
+
+        // Fire action for external digest handlers
+        do_action( 'sfs_hr_notification_queued_for_digest', $user_id, $email, $subject, $message, $notification_type );
     }
 
     /**

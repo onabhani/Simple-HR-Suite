@@ -134,7 +134,7 @@ class LeaveTab implements TabInterface {
         );
 
         // Next approved leave (nearest future approved)
-        $next_leave_text = esc_html__( 'No upcoming leave.', 'sfs-hr' );
+        $next_leave_text = '<span data-i18n-key="no_upcoming_leave">' . esc_html__( 'No upcoming leave.', 'sfs-hr' ) . '</span>';
 
         $next_row = $wpdb->get_row(
             $wpdb->prepare(
@@ -525,47 +525,42 @@ class LeaveTab implements TabInterface {
     private function render_dashboard( array $emp, int $year, int $requests_count, int $annual_available, int $total_used, int $pending_count, string $next_leave_text ): void {
         echo '<div class="sfs-hr-my-profile-leave">';
 
-        echo '<h4>' . esc_html__( 'My Leave Dashboard', 'sfs-hr' ) . '</h4>';
+        echo '<h4 data-i18n-key="my_leave_dashboard">' . esc_html__( 'My Leave Dashboard', 'sfs-hr' ) . '</h4>';
         echo '<p class="sfs-hr-lw-sub">';
-        printf(
-            esc_html__( 'Employee: %1$s %2$s · Year: %3$d', 'sfs-hr' ),
-            esc_html( (string) ( $emp['first_name'] ?? '' ) ),
-            esc_html( (string) ( $emp['last_name'] ?? '' ) ),
-            $year
-        );
+        echo '<span data-i18n-key="employee">' . esc_html__( 'Employee', 'sfs-hr' ) . '</span>: ';
+        echo esc_html( (string) ( $emp['first_name'] ?? '' ) ) . ' ';
+        echo esc_html( (string) ( $emp['last_name'] ?? '' ) ) . ' · ';
+        echo '<span data-i18n-key="year">' . esc_html__( 'Year', 'sfs-hr' ) . '</span>: ' . $year;
         echo '</p>';
 
         echo '<div class="sfs-hr-lw-kpis">';
 
         // Card 1: Requests
         echo '<div class="sfs-hr-lw-kpi-card">';
-        echo '  <div class="sfs-hr-lw-kpi-label">' . esc_html__( 'Requests (this year)', 'sfs-hr' ) . '</div>';
+        echo '  <div class="sfs-hr-lw-kpi-label" data-i18n-key="requests_this_year">' . esc_html__( 'Requests (this year)', 'sfs-hr' ) . '</div>';
         echo '  <div class="sfs-hr-lw-kpi-value">' . (int) $requests_count . '</div>';
         echo '</div>';
 
         // Card 2: Annual leave available
         echo '<div class="sfs-hr-lw-kpi-card">';
-        echo '  <div class="sfs-hr-lw-kpi-label">' . esc_html__( 'Annual leave available', 'sfs-hr' ) . '</div>';
+        echo '  <div class="sfs-hr-lw-kpi-label" data-i18n-key="annual_leave_available">' . esc_html__( 'Annual leave available', 'sfs-hr' ) . '</div>';
         echo '  <div class="sfs-hr-lw-kpi-value">' . (int) $annual_available . '</div>';
         echo '</div>';
 
         // Card 3: Total used + pending
         echo '<div class="sfs-hr-lw-kpi-card">';
-        echo '  <div class="sfs-hr-lw-kpi-label">' . esc_html__( 'Total used (this year)', 'sfs-hr' ) . '</div>';
+        echo '  <div class="sfs-hr-lw-kpi-label" data-i18n-key="total_used_this_year">' . esc_html__( 'Total used (this year)', 'sfs-hr' ) . '</div>';
         echo '  <div class="sfs-hr-lw-kpi-value">';
         echo        (int) $total_used;
         if ( $pending_count > 0 ) {
-            echo ' <span class="sfs-hr-lw-kpi-sub">· ' . sprintf(
-                esc_html__( '%d pending', 'sfs-hr' ),
-                (int) $pending_count
-            ) . '</span>';
+            echo ' <span class="sfs-hr-lw-kpi-sub">· <span data-i18n-key="pending">' . esc_html__( 'pending', 'sfs-hr' ) . '</span> ' . (int) $pending_count . '</span>';
         }
         echo '  </div>';
         echo '</div>';
 
         // Card 4: Next approved leave
         echo '<div class="sfs-hr-lw-kpi-card">';
-        echo '  <div class="sfs-hr-lw-kpi-label">' . esc_html__( 'Next approved leave', 'sfs-hr' ) . '</div>';
+        echo '  <div class="sfs-hr-lw-kpi-label" data-i18n-key="next_approved_leave">' . esc_html__( 'Next approved leave', 'sfs-hr' ) . '</div>';
         echo '  <div class="sfs-hr-lw-kpi-value sfs-hr-lw-kpi-next">' . $next_leave_text . '</div>';
         echo '</div>';
 
@@ -577,10 +572,10 @@ class LeaveTab implements TabInterface {
      */
     private function render_request_form( int $employee_id, array $types ): void {
         echo '<div class="sfs-hr-leave-self-form-wrap" style="margin-top:16px;">';
-        echo '<h5 style="margin:0 0 10px 0;">' . esc_html__( 'Request new leave', 'sfs-hr' ) . '</h5>';
+        echo '<h5 style="margin:0 0 10px 0;" data-i18n-key="request_new_leave">' . esc_html__( 'Request new leave', 'sfs-hr' ) . '</h5>';
 
         if ( empty( $types ) ) {
-            echo '<p class="description">' . esc_html__( 'Leave types are not configured yet. Please contact HR.', 'sfs-hr' ) . '</p>';
+            echo '<p class="description" data-i18n-key="leave_types_not_configured">' . esc_html__( 'Leave types are not configured yet. Please contact HR.', 'sfs-hr' ) . '</p>';
             echo '</div>';
             return;
         }
@@ -596,9 +591,9 @@ class LeaveTab implements TabInterface {
 
         // Leave type
         echo '<div class="sfs-hr-lf-group">';
-        echo '  <div class="sfs-hr-lf-label">' . esc_html__( 'Leave type', 'sfs-hr' ) . '</div>';
+        echo '  <div class="sfs-hr-lf-label" data-i18n-key="leave_type">' . esc_html__( 'Leave type', 'sfs-hr' ) . '</div>';
         echo '  <select name="type_id" required>';
-        echo '      <option value="">' . esc_html__( 'Select type', 'sfs-hr' ) . '</option>';
+        echo '      <option value="" data-i18n-key="select_type">' . esc_html__( 'Select type', 'sfs-hr' ) . '</option>';
         foreach ( $types as $type ) {
             echo '      <option value="' . (int) $type->id . '">' . esc_html( $type->name ) . '</option>';
         }
@@ -608,32 +603,32 @@ class LeaveTab implements TabInterface {
         // Dates row
         echo '<div class="sfs-hr-lf-row">';
         echo '  <div class="sfs-hr-lf-group">';
-        echo '      <div class="sfs-hr-lf-label">' . esc_html__( 'Start date', 'sfs-hr' ) . '</div>';
+        echo '      <div class="sfs-hr-lf-label" data-i18n-key="start_date">' . esc_html__( 'Start date', 'sfs-hr' ) . '</div>';
         echo '      <input type="date" name="start_date" required />';
         echo '  </div>';
         echo '  <div class="sfs-hr-lf-group">';
-        echo '      <div class="sfs-hr-lf-label">' . esc_html__( 'End date', 'sfs-hr' ) . '</div>';
+        echo '      <div class="sfs-hr-lf-label" data-i18n-key="end_date">' . esc_html__( 'End date', 'sfs-hr' ) . '</div>';
         echo '      <input type="date" name="end_date" />';
-        echo '      <div class="sfs-hr-lf-hint">' . esc_html__( 'If empty, it will be treated as a single-day leave.', 'sfs-hr' ) . '</div>';
+        echo '      <div class="sfs-hr-lf-hint" data-i18n-key="single_day_leave_hint">' . esc_html__( 'If empty, it will be treated as a single-day leave.', 'sfs-hr' ) . '</div>';
         echo '  </div>';
         echo '</div>';
 
         // Reason
         echo '<div class="sfs-hr-lf-group">';
-        echo '  <div class="sfs-hr-lf-label">' . esc_html__( 'Reason / note', 'sfs-hr' ) . '</div>';
+        echo '  <div class="sfs-hr-lf-label" data-i18n-key="reason_note">' . esc_html__( 'Reason / note', 'sfs-hr' ) . '</div>';
         echo '  <textarea name="reason" rows="3"></textarea>';
         echo '</div>';
 
         // Supporting document
         echo '<div class="sfs-hr-lf-group">';
-        echo '  <div class="sfs-hr-lf-label">' . esc_html__( 'Supporting document', 'sfs-hr' ) . '</div>';
+        echo '  <div class="sfs-hr-lf-label" data-i18n-key="supporting_document">' . esc_html__( 'Supporting document', 'sfs-hr' ) . '</div>';
         echo '  <input type="file" name="supporting_doc" accept=".pdf,image/*" />';
-        echo '  <div class="sfs-hr-lf-hint">' . esc_html__( 'Required for Sick Leave.', 'sfs-hr' ) . '</div>';
+        echo '  <div class="sfs-hr-lf-hint" data-i18n-key="required_for_sick_leave">' . esc_html__( 'Required for Sick Leave.', 'sfs-hr' ) . '</div>';
         echo '</div>';
 
         // Submit
         echo '<div class="sfs-hr-lf-actions">';
-        echo '  <button type="submit" class="button button-primary sfs-hr-lf-submit">';
+        echo '  <button type="submit" class="button button-primary sfs-hr-lf-submit" data-i18n-key="submit_leave_request">';
         esc_html_e( 'Submit leave request', 'sfs-hr' );
         echo '  </button>';
         echo '</div>';
@@ -647,10 +642,10 @@ class LeaveTab implements TabInterface {
      * Render leave history (desktop table + mobile cards)
      */
     private function render_history( array $rows ): void {
-        echo '<h5 style="margin-top:18px;">' . esc_html__( 'Leave history', 'sfs-hr' ) . '</h5>';
+        echo '<h5 style="margin-top:18px;" data-i18n-key="leave_history">' . esc_html__( 'Leave history', 'sfs-hr' ) . '</h5>';
 
         if ( empty( $rows ) ) {
-            echo '<p>' . esc_html__( 'No leave requests found.', 'sfs-hr' ) . '</p>';
+            echo '<p data-i18n-key="no_leave_requests">' . esc_html__( 'No leave requests found.', 'sfs-hr' ) . '</p>';
             return;
         }
 
@@ -759,12 +754,12 @@ class LeaveTab implements TabInterface {
         echo '<div class="sfs-hr-leaves-desktop">';
         echo '<table class="sfs-hr-table sfs-hr-leave-table" style="margin-top:8px;">';
         echo '<thead><tr>';
-        echo '<th>' . esc_html__( 'Type', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Period', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Days', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Document', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Requested at', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="type">' . esc_html__( 'Type', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="period">' . esc_html__( 'Period', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="days">' . esc_html__( 'Days', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="status">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="document">' . esc_html__( 'Document', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="requested_at">' . esc_html__( 'Requested at', 'sfs-hr' ) . '</th>';
         echo '</tr></thead><tbody>';
 
         foreach ( $display_rows as $r ) {
@@ -813,18 +808,18 @@ class LeaveTab implements TabInterface {
 
             echo '  <div class="sfs-hr-leave-body">';
             echo '      <div class="sfs-hr-leave-field-row">';
-            echo '          <div class="sfs-hr-leave-field-label">' . esc_html__( 'Period', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-leave-field-label" data-i18n-key="period">' . esc_html__( 'Period', 'sfs-hr' ) . '</div>';
             echo '          <div class="sfs-hr-leave-field-value">' . esc_html( $r['period'] ) . '</div>';
             echo '      </div>';
 
             echo '      <div class="sfs-hr-leave-field-row">';
-            echo '          <div class="sfs-hr-leave-field-label">' . esc_html__( 'Days', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-leave-field-label" data-i18n-key="days">' . esc_html__( 'Days', 'sfs-hr' ) . '</div>';
             echo '          <div class="sfs-hr-leave-field-value">' . esc_html( (string) $r['days'] ) . '</div>';
             echo '      </div>';
 
             if ( ! empty( $r['doc_html'] ) ) {
                 echo '      <div class="sfs-hr-leave-field-row">';
-                echo '          <div class="sfs-hr-leave-field-label">' . esc_html__( 'Document', 'sfs-hr' ) . '</div>';
+                echo '          <div class="sfs-hr-leave-field-label" data-i18n-key="document">' . esc_html__( 'Document', 'sfs-hr' ) . '</div>';
                 echo '          <div class="sfs-hr-leave-field-value">';
                 echo                $r['doc_html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
                 echo '          </div>';
@@ -832,20 +827,21 @@ class LeaveTab implements TabInterface {
             }
 
             echo '      <div class="sfs-hr-leave-field-row">';
-            echo '          <div class="sfs-hr-leave-field-label">' . esc_html__( 'Requested at', 'sfs-hr' ) . '</div>';
+            echo '          <div class="sfs-hr-leave-field-label" data-i18n-key="requested_at">' . esc_html__( 'Requested at', 'sfs-hr' ) . '</div>';
             echo '          <div class="sfs-hr-leave-field-value">' . esc_html( $r['created_at'] ) . '</div>';
             echo '      </div>';
 
             if ( ! empty( $r['approver_name'] ) ) {
                 $action_label = $r['raw_status'] === 'rejected' ? __( 'Rejected by', 'sfs-hr' ) : __( 'Approved by', 'sfs-hr' );
+                $action_key = $r['raw_status'] === 'rejected' ? 'rejected_by' : 'approved_by';
                 echo '      <div class="sfs-hr-leave-field-row">';
-                echo '          <div class="sfs-hr-leave-field-label">' . esc_html( $action_label ) . '</div>';
+                echo '          <div class="sfs-hr-leave-field-label" data-i18n-key="' . esc_attr( $action_key ) . '">' . esc_html( $action_label ) . '</div>';
                 echo '          <div class="sfs-hr-leave-field-value">' . esc_html( $r['approver_name'] ) . '</div>';
                 echo '      </div>';
             }
             if ( $r['raw_status'] === 'rejected' && ! empty( $r['approver_note'] ) ) {
                 echo '      <div class="sfs-hr-leave-field-row">';
-                echo '          <div class="sfs-hr-leave-field-label">' . esc_html__( 'Reason', 'sfs-hr' ) . '</div>';
+                echo '          <div class="sfs-hr-leave-field-label" data-i18n-key="reason">' . esc_html__( 'Reason', 'sfs-hr' ) . '</div>';
                 echo '          <div class="sfs-hr-leave-field-value" style="color:#b32d2e;">' . esc_html( $r['approver_note'] ) . '</div>';
                 echo '      </div>';
             }

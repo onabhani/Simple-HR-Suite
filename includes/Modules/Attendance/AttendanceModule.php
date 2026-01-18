@@ -166,44 +166,45 @@ add_action('rest_api_init', function () {
             <div class="sfs-att-header">
               <div>
                 <div class="sfs-att-greet" id="sfs-att-greet">
-                  Hello, <?php echo esc_html( $user_name ); ?>
+                  <span data-i18n-key="hello"><?php esc_html_e( 'Hello', 'sfs-hr' ); ?></span>, <?php echo esc_html( $user_name ); ?>
                 </div>
-                <div class="sfs-att-sub">Self attendance</div>
+                <div class="sfs-att-sub" data-i18n-key="self_attendance"><?php esc_html_e( 'Self attendance', 'sfs-hr' ); ?></div>
               </div>
               <div class="sfs-att-state">
-                <span class="sfs-att-state-label">Current</span>
+                <span class="sfs-att-state-label" data-i18n-key="current"><?php esc_html_e( 'Current', 'sfs-hr' ); ?></span>
                 <span id="sfs-att-state-chip"
-                      class="sfs-att-chip sfs-att-chip--idle">Checking…</span>
+                      class="sfs-att-chip sfs-att-chip--idle" data-i18n-key="checking"><?php esc_html_e( 'Checking…', 'sfs-hr' ); ?></span>
               </div>
             </div>
 
-            <div id="sfs-att-status" class="sfs-att-statusline">Loading...</div>
+            <div id="sfs-att-status" class="sfs-att-statusline" data-i18n-key="loading"><?php esc_html_e( 'Loading...', 'sfs-hr' ); ?></div>
 
             <div class="sfs-att-actions" id="sfs-att-actions">
               <button type="button" data-type="in"
-                      class="button button-primary" style="display:none">Clock In</button>
+                      class="button button-primary" style="display:none" data-i18n-key="clock_in"><?php esc_html_e( 'Clock In', 'sfs-hr' ); ?></button>
               <button type="button" data-type="out"
-                      class="button" style="display:none">Clock Out</button>
+                      class="button" style="display:none" data-i18n-key="clock_out"><?php esc_html_e( 'Clock Out', 'sfs-hr' ); ?></button>
               <button type="button" data-type="break_start"
-                      class="button" style="display:none">Start Break</button>
+                      class="button" style="display:none" data-i18n-key="start_break"><?php esc_html_e( 'Start Break', 'sfs-hr' ); ?></button>
               <button type="button" data-type="break_end"
-                      class="button" style="display:none">End Break</button>
+                      class="button" style="display:none" data-i18n-key="end_break"><?php esc_html_e( 'End Break', 'sfs-hr' ); ?></button>
             </div>
+
 
             <!-- Selfie panel (manual capture like kiosk) -->
             <div id="sfs-att-selfie-panel" class="sfs-att-selfie-panel">
               <video id="sfs-att-selfie-video" autoplay playsinline muted></video>
               <canvas id="sfs-att-selfie-canvas" width="480" height="480" hidden></canvas>
               <div class="sfs-att-selfie-actions">
-                <button type="button" id="sfs-att-selfie-capture" class="button button-primary">
-                  Capture &amp; Submit
+                <button type="button" id="sfs-att-selfie-capture" class="button button-primary" data-i18n-key="capture_submit">
+                  <?php esc_html_e( 'Capture & Submit', 'sfs-hr' ); ?>
                 </button>
-                <button type="button" id="sfs-att-selfie-cancel" class="button">
-                  Cancel
+                <button type="button" id="sfs-att-selfie-cancel" class="button" data-i18n-key="cancel">
+                  <?php esc_html_e( 'Cancel', 'sfs-hr' ); ?>
                 </button>
               </div>
-              <small style="display:block;margin-top:4px;color:#6b7280;font-size:11px;">
-                Center your face, then tap “Capture &amp; Submit”.
+              <small style="display:block;margin-top:4px;color:#6b7280;font-size:11px;" data-i18n-key="selfie_instruction">
+                <?php esc_html_e( 'Center your face, then tap "Capture & Submit".', 'sfs-hr' ); ?>
               </small>
             </div>
 
@@ -212,16 +213,46 @@ add_action('rest_api_init', function () {
               <input type="file" id="sfs-att-selfie"
                      accept="image/*" capture="user"
                      style="display:block"/>
-              <small style="display:block;color:#646970;margin-top:4px;font-size:11px;">
-                Your device does not support live camera preview. Capture a selfie, then the system will submit it.
+              <small style="display:block;color:#646970;margin-top:4px;font-size:11px;" data-i18n-key="camera_fallback_hint">
+                <?php esc_html_e( 'Your device does not support live camera preview. Capture a selfie, then the system will submit it.', 'sfs-hr' ); ?>
               </small>
             </div>
 
-            <small id="sfs-att-hint" class="sfs-att-hint">
-              Your location may be required. Allow the browser location prompt if asked.
+            <small id="sfs-att-hint" class="sfs-att-hint" data-i18n-key="selfie_required_hint">
+              <?php esc_html_e( 'Selfie required for this shift. Location may also be required.', 'sfs-hr' ); ?>
             </small>
 
           </div><!-- .sfs-att-card -->
+
+          <?php
+          // Find the HR profile page URL
+          $profile_url = '';
+          $profile_pages = get_posts( array(
+              'post_type'      => 'page',
+              'posts_per_page' => 1,
+              's'              => '[sfs_hr_my_profile',
+              'post_status'    => 'publish',
+          ) );
+          if ( ! empty( $profile_pages ) ) {
+              $profile_url = get_permalink( $profile_pages[0]->ID );
+          }
+          if ( empty( $profile_url ) ) {
+              // Fallback: try common slugs
+              $page = get_page_by_path( 'my-profile' );
+              if ( ! $page ) {
+                  $page = get_page_by_path( 'hr-profile' );
+              }
+              if ( $page ) {
+                  $profile_url = get_permalink( $page->ID );
+              }
+          }
+          if ( ! empty( $profile_url ) ) : ?>
+          <a href="<?php echo esc_url( $profile_url ); ?>" class="sfs-att-back-link" data-i18n-key="back_to_profile">
+            <span class="dashicons dashicons-arrow-left-alt2"></span>
+            <?php esc_html_e( 'Back to My HR Profile', 'sfs-hr' ); ?>
+          </a>
+          <?php endif; ?>
+
         </main>
 
       </div><!-- .sfs-att-shell -->
@@ -461,6 +492,30 @@ add_action('rest_api_init', function () {
         color:#6b7280;
       }
 
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-back-link{
+        display:inline-flex;
+        align-items:center;
+        gap:4px;
+        margin-top:16px;
+        padding:8px 14px;
+        font-size:13px;
+        color:#0f4c5c;
+        text-decoration:none;
+        background:#f0fdfa;
+        border:1px solid #99f6e4;
+        border-radius:8px;
+        transition:background 0.15s, border-color 0.15s;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-back-link:hover{
+        background:#ccfbf1;
+        border-color:#5eead4;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-back-link .dashicons{
+        font-size:16px;
+        width:16px;
+        height:16px;
+      }
+
       /* Immersive veil (same idea as kiosk) */
       .sfs-att-veil{
         position:fixed;
@@ -507,9 +562,134 @@ add_action('rest_api_init', function () {
       }
     </style>
 
+<!-- Global translations for attendance widget -->
+<script>
+window.sfsAttI18n = window.sfsAttI18n || {
+    // Status labels
+    not_clocked_in: '<?php echo esc_js( __( 'Not clocked in', 'sfs-hr' ) ); ?>',
+    clocked_in: '<?php echo esc_js( __( 'Clocked in', 'sfs-hr' ) ); ?>',
+    on_break: '<?php echo esc_js( __( 'On break', 'sfs-hr' ) ); ?>',
+    clocked_out: '<?php echo esc_js( __( 'Clocked out', 'sfs-hr' ) ); ?>',
+    ready: '<?php echo esc_js( __( 'Ready', 'sfs-hr' ) ); ?>',
+    working: '<?php echo esc_js( __( 'Working…', 'sfs-hr' ) ); ?>',
+    checking_status: '<?php echo esc_js( __( 'Checking status…', 'sfs-hr' ) ); ?>',
+    validating: '<?php echo esc_js( __( 'Validating…', 'sfs-hr' ) ); ?>',
+    success: '<?php echo esc_js( __( 'Success!', 'sfs-hr' ) ); ?>',
+    cancelled: '<?php echo esc_js( __( 'Cancelled.', 'sfs-hr' ) ); ?>',
+    please_wait_processing: '<?php echo esc_js( __( 'Please wait, processing...', 'sfs-hr' ) ); ?>',
+    // Camera messages
+    starting_camera: '<?php echo esc_js( __( 'Starting camera…', 'sfs-hr' ) ); ?>',
+    camera_error: '<?php echo esc_js( __( 'Camera error:', 'sfs-hr' ) ); ?>',
+    camera_not_available: '<?php echo esc_js( __( 'Camera not available on this device.', 'sfs-hr' ) ); ?>',
+    camera_ui_not_available: '<?php echo esc_js( __( 'Camera UI not available.', 'sfs-hr' ) ); ?>',
+    device_no_camera_preview: '<?php echo esc_js( __( "Your device doesn't support live camera preview. Capture a selfie, then it will be submitted.", 'sfs-hr' ) ); ?>',
+    ready_capture_submit: '<?php echo esc_js( __( 'Ready — tap "Capture & Submit".', 'sfs-hr' ) ); ?>',
+    camera_not_ready: '<?php echo esc_js( __( 'Camera not ready yet. Please wait a second.', 'sfs-hr' ) ); ?>',
+    could_not_capture_selfie: '<?php echo esc_js( __( 'Could not capture selfie. Try again.', 'sfs-hr' ) ); ?>',
+    // Location/geo messages
+    location_check_failed: '<?php echo esc_js( __( 'Location check failed.', 'sfs-hr' ) ); ?>',
+    location_required_not_supported: '<?php echo esc_js( __( 'Location is required but this browser does not support it.', 'sfs-hr' ) ); ?>',
+    outside_allowed_area: '<?php echo esc_js( __( 'You are outside the allowed area. Please move closer to the workplace and try again.', 'sfs-hr' ) ); ?>',
+    location_permission_denied: '<?php echo esc_js( __( 'Location permission was denied. Enable it to use attendance.', 'sfs-hr' ) ); ?>',
+    location_unavailable: '<?php echo esc_js( __( 'Location is unavailable. Check GPS or network.', 'sfs-hr' ) ); ?>',
+    location_timeout: '<?php echo esc_js( __( 'Timed out while getting location. Try again.', 'sfs-hr' ) ); ?>',
+    location_error_generic: '<?php echo esc_js( __( 'Could not get your location. Try again.', 'sfs-hr' ) ); ?>',
+    // Hints
+    selfie_required_hint: '<?php echo esc_js( __( 'Selfie required for this shift. Location may also be required.', 'sfs-hr' ) ); ?>',
+    location_hint: '<?php echo esc_js( __( 'Your location may be required. Allow the browser location prompt if asked.', 'sfs-hr' ) ); ?>',
+    selfie_required_capture: '<?php echo esc_js( __( 'Selfie is required for this shift. Please capture a photo.', 'sfs-hr' ) ); ?>',
+    // Error
+    error_prefix: '<?php echo esc_js( __( 'Error:', 'sfs-hr' ) ); ?>',
+    request_timed_out: '<?php echo esc_js( __( 'Request timed out', 'sfs-hr' ) ); ?>'
+};
+
+// Language switching support for attendance widget
+(function() {
+    var langUrl = '<?php echo esc_js( \SFS_HR_URL . 'languages/' ); ?>';
+    var translations = {};
+    var currentLang = localStorage.getItem('sfs_hr_lang') || 'en';
+
+    function loadTranslations(lang) {
+        return new Promise(function(resolve) {
+            if (translations[lang]) {
+                resolve(translations[lang]);
+                return;
+            }
+            fetch(langUrl + lang + '.json')
+                .then(function(response) {
+                    if (!response.ok) throw new Error('Not found');
+                    return response.json();
+                })
+                .then(function(data) {
+                    translations[lang] = data;
+                    resolve(data);
+                })
+                .catch(function() {
+                    resolve({});
+                });
+        });
+    }
+
+    function applyTranslations(lang) {
+        loadTranslations(lang).then(function(strings) {
+            // Update global i18n object
+            var keys = ['not_clocked_in', 'clocked_in', 'on_break', 'clocked_out', 'ready', 'working',
+                'checking_status', 'validating', 'success', 'cancelled', 'please_wait_processing',
+                'starting_camera', 'camera_error', 'camera_not_available', 'camera_ui_not_available',
+                'device_no_camera_preview', 'ready_capture_submit', 'camera_not_ready', 'could_not_capture_selfie',
+                'location_check_failed', 'location_required_not_supported', 'outside_allowed_area',
+                'location_permission_denied', 'location_unavailable', 'location_timeout', 'location_error_generic',
+                'selfie_required_hint', 'location_hint', 'selfie_required_capture', 'error_prefix', 'request_timed_out'];
+
+            keys.forEach(function(key) {
+                if (strings[key]) {
+                    window.sfsAttI18n[key] = strings[key];
+                }
+            });
+
+            // Update DOM elements with data-i18n-key
+            var container = document.querySelector('.sfs-att-app');
+            if (container) {
+                container.querySelectorAll('[data-i18n-key]').forEach(function(el) {
+                    var key = el.dataset.i18nKey;
+                    if (key && strings[key]) {
+                        el.textContent = strings[key];
+                    }
+                });
+
+                // Apply RTL for Arabic and Urdu
+                if (lang === 'ar' || lang === 'ur') {
+                    container.setAttribute('dir', 'rtl');
+                } else {
+                    container.setAttribute('dir', 'ltr');
+                }
+            }
+        });
+    }
+
+    // Apply translations on load
+    applyTranslations(currentLang);
+
+    // Listen for language changes from localStorage
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'sfs_hr_lang' && e.newValue) {
+            applyTranslations(e.newValue);
+        }
+    });
+
+    // Also listen for custom event from the main app
+    window.addEventListener('sfs_hr_lang_change', function(e) {
+        if (e.detail && e.detail.lang) {
+            applyTranslations(e.detail.lang);
+        }
+    });
+})();
+</script>
+
 <script>
 (function(){
     if (window.sfsGeo) return; // avoid redefining if other shortcode printed it
+    var i18n = window.sfsAttI18n || {};
 
     function haversineMeters(lat1, lon1, lat2, lon2) {
         const R = 6371000;
@@ -561,7 +741,7 @@ add_action('rest_api_init', function () {
 
         if (!navigator.geolocation) {
             onReject && onReject(
-                'Location is required but this browser does not support it.',
+                i18n.location_required_not_supported || 'Location is required but this browser does not support it.',
                 'NO_GEO'
             );
             return;
@@ -574,12 +754,12 @@ add_action('rest_api_init', function () {
                 const dist = haversineMeters(cfg.lat, cfg.lng, lat, lng);
 
                 if (dist > cfg.radius) {
-    onReject && onReject(
-        'You are outside the allowed area. Please move closer to the workplace and try again.',
-        'OUTSIDE_RADIUS'
-    );
-    return;
-}
+                    onReject && onReject(
+                        i18n.outside_allowed_area || 'You are outside the allowed area. Please move closer to the workplace and try again.',
+                        'OUTSIDE_RADIUS'
+                    );
+                    return;
+                }
 
                 onAllow && onAllow({
                     latitude: lat,
@@ -590,13 +770,13 @@ add_action('rest_api_init', function () {
             err => {
                 let msg;
                 if (err.code === err.PERMISSION_DENIED) {
-                    msg = 'Location permission was denied. Enable it to use attendance.';
+                    msg = i18n.location_permission_denied || 'Location permission was denied. Enable it to use attendance.';
                 } else if (err.code === err.POSITION_UNAVAILABLE) {
-                    msg = 'Location is unavailable. Check GPS or network.';
+                    msg = i18n.location_unavailable || 'Location is unavailable. Check GPS or network.';
                 } else if (err.code === err.TIMEOUT) {
-                    msg = 'Timed out while getting location. Try again.';
+                    msg = i18n.location_timeout || 'Timed out while getting location. Try again.';
                 } else {
-                    msg = 'Could not get your location. Try again.';
+                    msg = i18n.location_error_generic || 'Could not get your location. Try again.';
                 }
                 onReject && onReject(msg, 'GEO_ERROR_' + err.code);
             },
@@ -641,6 +821,9 @@ add_action('rest_api_init', function () {
         const PUNCH_URL  = '<?php echo esc_js( $punch_url ); ?>';
         const NONCE      = '<?php echo esc_js( $nonce ); ?>';
 
+        // Use global translated strings
+        const i18n = window.sfsAttI18n || {};
+
         function setStat(text, mode){
     if (!statusBox) return;
 
@@ -683,17 +866,17 @@ setInterval(tickClock, 1000);
 
         function updateChip() {
             if (!chipEl) return;
-            let label = 'Not clocked in';
+            let label = i18n.not_clocked_in;
             let cls   = 'sfs-att-chip sfs-att-chip--idle';
 
             if (state === 'in') {
-                label = 'Clocked in';
+                label = i18n.clocked_in;
                 cls   = 'sfs-att-chip sfs-att-chip--in';
             } else if (state === 'break') {
-                label = 'On break';
+                label = i18n.on_break;
                 cls   = 'sfs-att-chip sfs-att-chip--break';
             } else if (state === 'out') {
-                label = 'Clocked out';
+                label = i18n.clocked_out;
                 cls   = 'sfs-att-chip sfs-att-chip--out';
             }
 
@@ -737,7 +920,7 @@ setInterval(tickClock, 1000);
                         });
                     },
                     function onReject(msg, code){
-                        setStat(msg || 'Location check failed.', 'error');
+                        setStat(msg || i18n.location_check_failed, 'error');
                         // Hard block by rejecting; caller will bail
                         reject(new Error('geo_blocked'));
                     }
@@ -781,7 +964,7 @@ setInterval(tickClock, 1000);
         }
 
                 updateChip();
-                setStat(j.label || 'Ready', 'idle');
+                setStat(j.label || i18n.ready, 'idle');
 
                 // Show/hide buttons based on allowed transitions
                 if (actionsWrap) {
@@ -795,13 +978,13 @@ setInterval(tickClock, 1000);
 
                 // Selfie hint
                 if (requiresSelfie) {
-                    hint && (hint.textContent = 'Selfie required for this shift. Location may also be required.');
+                    hint && (hint.textContent = i18n.selfie_required_hint);
                 } else {
-                    hint && (hint.textContent = 'Your location may be required. Allow the browser location prompt if asked.');
+                    hint && (hint.textContent = i18n.location_hint);
                 }
 
             } catch(e) {
-                setStat('Error: ' + (e.name === 'AbortError' ? 'Request timed out' : e.message), 'error');
+                setStat(i18n.error_prefix + ' ' + (e.name === 'AbortError' ? i18n.request_timed_out : e.message), 'error');
             } finally {
                 clearTimeout(t);
                 refreshing = false;
@@ -825,21 +1008,21 @@ setInterval(tickClock, 1000);
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 if (selfieWrap && selfieInput) {
                     selfieWrap.style.display = 'block';
-                    setStat('Your device doesn\'t support live camera preview. Capture a selfie, then it will be submitted.', 'error');
+                    setStat(i18n.device_no_camera_preview, 'error');
                     selfieInput.click();
                 } else {
-                    setStat('Camera not available on this device.', 'error');
+                    setStat(i18n.camera_not_available, 'error');
                 }
                 return;
             }
 
             if (!selfiePanel || !selfieVideo) {
-                setStat('Camera UI not available.', 'error');
+                setStat(i18n.camera_ui_not_available, 'error');
                 return;
             }
 
             selfiePanel.style.display = 'block';
-            setStat('Starting camera…', 'busy');
+            setStat(i18n.starting_camera, 'busy');
 
             try {
                 selfieStream = await navigator.mediaDevices.getUserMedia({
@@ -856,16 +1039,16 @@ setInterval(tickClock, 1000);
                         try { selfieVideo.play().then(r).catch(()=>r()); } catch(_) { r(); }
                     };
                 });
-                setStat('Ready — tap “Capture & Submit”.', 'idle');
+                setStat(i18n.ready_capture_submit, 'idle');
             } catch(e) {
-                setStat('Camera error: ' + (e.message || e), 'error');
+                setStat(i18n.camera_error + ' ' + (e.message || e), 'error');
                 stopSelfiePreview();
                 pendingType = null;
             }
         }
 
         async function doPunch(type, selfieBlob){
-            setStat('Working…', 'busy');
+            setStat(i18n.working, 'busy');
 
             let geo = null;
             try {
@@ -942,7 +1125,7 @@ setInterval(tickClock, 1000);
 
             // Update hint text
             if (hint) {
-                hint.textContent = 'Selfie required for this shift. Location may also be required.';
+                hint.textContent = i18n.selfie_required_hint;
             }
 
             // Start the camera UI for the same action (in/out/...)
@@ -960,7 +1143,7 @@ setInterval(tickClock, 1000);
                 punchInProgress = false;
 
             } catch (e) {
-                setStat('Error: ' + e.message, 'error');
+                setStat(i18n.error_prefix + ' ' + e.message, 'error');
                 punchInProgress = false;
                 if (actionsWrap) {
                     actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
@@ -974,7 +1157,7 @@ setInterval(tickClock, 1000);
         async function punch(type){
             // Prevent duplicate submissions
             if (punchInProgress) {
-                setStat('Please wait, processing...', 'busy');
+                setStat(i18n.please_wait_processing, 'busy');
                 return;
             }
             punchInProgress = true;
@@ -985,7 +1168,7 @@ setInterval(tickClock, 1000);
             }
 
             // Refresh status to ensure latest state before punch attempt
-            setStat('Checking status…', 'busy');
+            setStat(i18n.checking_status, 'busy');
             await refresh();
 
             if (!allowed[type]) {
@@ -995,7 +1178,7 @@ setInterval(tickClock, 1000);
                 else if (type==='in'  && state!=='idle')    msg = 'Already clocked in.';
                 else if (type==='break_start' && state!=='in')  msg = 'You can start a break only while clocked in.';
                 else if (type==='break_end'   && state!=='break')msg = 'You have no active break to end.';
-                setStat('Error: ' + msg, 'error');
+                setStat(i18n.error_prefix + ' ' + msg, 'error');
                 punchInProgress = false;
                 // Re-enable allowed buttons
                 if (actionsWrap) {
@@ -1009,7 +1192,7 @@ setInterval(tickClock, 1000);
 
             if (requiresSelfie) {
                 // Preflight check: validate punch BEFORE opening camera
-                setStat('Validating…', 'busy');
+                setStat(i18n.validating, 'busy');
 
                 let geo = null;
                 try {
@@ -1060,7 +1243,7 @@ setInterval(tickClock, 1000);
 
                     // If success (no selfie needed), we're done
                     if (resp.ok) {
-                        setStat('Success!', 'success');
+                        setStat(i18n.success, 'success');
                         punchInProgress = false;
                         setTimeout(refresh, 1000);
                         return;
@@ -1068,7 +1251,7 @@ setInterval(tickClock, 1000);
 
                     // Any other error: show it without opening camera
                     const msg = (j && j.message) || 'Punch failed';
-                    setStat('Error: ' + msg, 'error');
+                    setStat(i18n.error_prefix + ' ' + msg, 'error');
                     punchInProgress = false;
                     if (actionsWrap) {
                         actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
@@ -1079,7 +1262,7 @@ setInterval(tickClock, 1000);
                     return;
 
                 } catch(e) {
-                    setStat('Error: ' + e.message, 'error');
+                    setStat(i18n.error_prefix + ' ' + e.message, 'error');
                     punchInProgress = false;
                     if (actionsWrap) {
                         actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
@@ -1102,7 +1285,7 @@ setInterval(tickClock, 1000);
             const vw = selfieVideo.videoWidth;
             const vh = selfieVideo.videoHeight;
             if (!vw || !vh) {
-                setStat('Camera not ready yet. Please wait a second.', 'error');
+                setStat(i18n.camera_not_ready, 'error');
                 return;
             }
 
@@ -1115,7 +1298,7 @@ setInterval(tickClock, 1000);
 
             selfieCanvas.toBlob(async function(blob){
                 if (!blob) {
-                    setStat('Could not capture selfie. Try again.', 'error');
+                    setStat(i18n.could_not_capture_selfie, 'error');
                     punchInProgress = false;
                     if (actionsWrap) {
                         actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
@@ -1143,7 +1326,7 @@ setInterval(tickClock, 1000);
             pendingType = null;
             punchInProgress = false;
             stopSelfiePreview();
-            setStat('Cancelled.', 'idle');
+            setStat(i18n.cancelled, 'idle');
             // Re-enable buttons
             if (actionsWrap) {
                 actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
@@ -3497,9 +3680,46 @@ foreach ($rows as $r) {
         'last_recalc_at'      => current_time('mysql', true),
     ];
 
+    // Check if this is a new late/early detection (to avoid duplicate notifications)
+    $existing_flags = [];
     $exists = $wpdb->get_var( $wpdb->prepare("SELECT id FROM {$sT} WHERE employee_id=%d AND work_date=%s LIMIT 1", $employee_id, $ymd) );
-    if ($exists) { $wpdb->update($sT, $data, ['id'=>(int)$exists]); }
-    else         { $wpdb->insert($sT, $data); }
+    if ($exists) {
+        $existing_flags_json = $wpdb->get_var( $wpdb->prepare("SELECT flags_json FROM {$sT} WHERE id=%d", (int)$exists) );
+        $existing_flags = $existing_flags_json ? (json_decode($existing_flags_json, true) ?: []) : [];
+        $wpdb->update($sT, $data, ['id'=>(int)$exists]);
+    } else {
+        $wpdb->insert($sT, $data);
+    }
+
+    // Fire notification hooks for late arrival and early leave (only once per session)
+    $was_late = in_array('late', $existing_flags, true);
+    $was_early = in_array('left_early', $existing_flags, true);
+    $is_late = in_array('late', $flags, true);
+    $is_early = in_array('left_early', $flags, true);
+
+    // Fire late arrival notification (only if newly detected)
+    if ($is_late && !$was_late) {
+        // Calculate minutes late from segments
+        $minutes_late = 0;
+        foreach ($ev['segments'] as $seg) {
+            if (!empty($seg['late_minutes'])) {
+                $minutes_late += (int) $seg['late_minutes'];
+            }
+        }
+        do_action('sfs_hr_attendance_late', $employee_id, $minutes_late);
+    }
+
+    // Fire early leave notification (only if newly detected)
+    if ($is_early && !$was_early) {
+        // Calculate minutes left early from segments
+        $minutes_early = 0;
+        foreach ($ev['segments'] as $seg) {
+            if (!empty($seg['early_minutes'])) {
+                $minutes_early += (int) $seg['early_minutes'];
+            }
+        }
+        do_action('sfs_hr_attendance_early_leave', $employee_id, $minutes_early);
+    }
 }
 
 
