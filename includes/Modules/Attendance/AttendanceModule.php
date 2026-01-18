@@ -3680,9 +3680,46 @@ foreach ($rows as $r) {
         'last_recalc_at'      => current_time('mysql', true),
     ];
 
+    // Check if this is a new late/early detection (to avoid duplicate notifications)
+    $existing_flags = [];
     $exists = $wpdb->get_var( $wpdb->prepare("SELECT id FROM {$sT} WHERE employee_id=%d AND work_date=%s LIMIT 1", $employee_id, $ymd) );
-    if ($exists) { $wpdb->update($sT, $data, ['id'=>(int)$exists]); }
-    else         { $wpdb->insert($sT, $data); }
+    if ($exists) {
+        $existing_flags_json = $wpdb->get_var( $wpdb->prepare("SELECT flags_json FROM {$sT} WHERE id=%d", (int)$exists) );
+        $existing_flags = $existing_flags_json ? (json_decode($existing_flags_json, true) ?: []) : [];
+        $wpdb->update($sT, $data, ['id'=>(int)$exists]);
+    } else {
+        $wpdb->insert($sT, $data);
+    }
+
+    // Fire notification hooks for late arrival and early leave (only once per session)
+    $was_late = in_array('late', $existing_flags, true);
+    $was_early = in_array('left_early', $existing_flags, true);
+    $is_late = in_array('late', $flags, true);
+    $is_early = in_array('left_early', $flags, true);
+
+    // Fire late arrival notification (only if newly detected)
+    if ($is_late && !$was_late) {
+        // Calculate minutes late from segments
+        $minutes_late = 0;
+        foreach ($ev['segments'] as $seg) {
+            if (!empty($seg['late_minutes'])) {
+                $minutes_late += (int) $seg['late_minutes'];
+            }
+        }
+        do_action('sfs_hr_attendance_late', $employee_id, $minutes_late);
+    }
+
+    // Fire early leave notification (only if newly detected)
+    if ($is_early && !$was_early) {
+        // Calculate minutes left early from segments
+        $minutes_early = 0;
+        foreach ($ev['segments'] as $seg) {
+            if (!empty($seg['early_minutes'])) {
+                $minutes_early += (int) $seg['early_minutes'];
+            }
+        }
+        do_action('sfs_hr_attendance_early_leave', $employee_id, $minutes_early);
+    }
 }
 
 

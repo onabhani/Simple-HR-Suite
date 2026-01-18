@@ -2,6 +2,7 @@
 namespace SFS\HR\Modules\Resignation\Notifications;
 
 use SFS\HR\Core\Helpers;
+use SFS\HR\Core\Notifications as CoreNotifications;
 use SFS\HR\Modules\Resignation\Services\Resignation_Service;
 
 if (!defined('ABSPATH')) { exit; }
@@ -44,6 +45,9 @@ class Resignation_Notifications {
         $message .= "\n\n" . __('Please log in to review and approve.', 'sfs-hr');
 
         self::send_notification((int) $dept['manager_user_id'], $approver->user_email, $subject, $message, 'resignation_submitted');
+
+        // Also notify HR
+        self::notify_hr_resignation_event($resignation, 'submitted', $resignation_id);
     }
 
     /**
@@ -65,6 +69,9 @@ class Resignation_Notifications {
         $message .= "\n" . __('Last Working Day:', 'sfs-hr') . ' ' . $resignation['last_working_day'];
 
         self::send_notification((int) $resignation['emp_user_id'], $employee->user_email, $subject, $message, 'resignation_approved');
+
+        // Also notify HR
+        self::notify_hr_resignation_event($resignation, 'approved', $resignation_id);
     }
 
     /**
@@ -88,6 +95,9 @@ class Resignation_Notifications {
         }
 
         self::send_notification((int) $resignation['emp_user_id'], $employee->user_email, $subject, $message, 'resignation_rejected');
+
+        // Also notify HR
+        self::notify_hr_resignation_event($resignation, 'rejected', $resignation_id);
     }
 
     /**
@@ -111,6 +121,75 @@ class Resignation_Notifications {
         $message .= "\n\n" . __('Please log in to review and approve.', 'sfs-hr');
 
         self::send_notification($approver_id, $approver->user_email, $subject, $message, 'resignation_pending_approval');
+    }
+
+    /**
+     * Notify HR team about resignation events
+     *
+     * @param array  $resignation Resignation data
+     * @param string $event       Event type: submitted, approved, rejected
+     * @param int    $resignation_id Resignation ID
+     */
+    private static function notify_hr_resignation_event(array $resignation, string $event, int $resignation_id): void {
+        // Get HR emails from Core settings
+        $core_settings = CoreNotifications::get_settings();
+        $hr_emails = $core_settings['hr_emails'] ?? [];
+
+        if (empty($hr_emails) || !($core_settings['hr_notification'] ?? true)) {
+            return;
+        }
+
+        $employee_name = trim($resignation['first_name'] . ' ' . $resignation['last_name']);
+        $admin_url = admin_url('admin.php?page=sfs-hr-resignations&action=view&id=' . $resignation_id);
+
+        switch ($event) {
+            case 'submitted':
+                $subject = sprintf(__('[HR Notice] New resignation submitted by %s', 'sfs-hr'), $employee_name);
+                $message = sprintf(
+                    __("A new resignation has been submitted.\n\nEmployee: %s\nEmployee Code: %s\nResignation Date: %s\nLast Working Day: %s\nType: %s\n\nReason:\n%s\n\nView details: %s", 'sfs-hr'),
+                    $employee_name,
+                    $resignation['employee_code'] ?? 'N/A',
+                    $resignation['resignation_date'],
+                    $resignation['last_working_day'],
+                    $resignation['resignation_type'] ?? 'regular',
+                    $resignation['reason'] ?? 'Not specified',
+                    $admin_url
+                );
+                break;
+
+            case 'approved':
+                $subject = sprintf(__('[HR Notice] Resignation approved for %s', 'sfs-hr'), $employee_name);
+                $message = sprintf(
+                    __("A resignation has been approved.\n\nEmployee: %s\nEmployee Code: %s\nLast Working Day: %s\n\nView details: %s", 'sfs-hr'),
+                    $employee_name,
+                    $resignation['employee_code'] ?? 'N/A',
+                    $resignation['last_working_day'],
+                    $admin_url
+                );
+                break;
+
+            case 'rejected':
+                $subject = sprintf(__('[HR Notice] Resignation rejected for %s', 'sfs-hr'), $employee_name);
+                $message = sprintf(
+                    __("A resignation has been rejected.\n\nEmployee: %s\nEmployee Code: %s\nRejection Reason: %s\n\nView details: %s", 'sfs-hr'),
+                    $employee_name,
+                    $resignation['employee_code'] ?? 'N/A',
+                    $resignation['approver_note'] ?? 'Not specified',
+                    $admin_url
+                );
+                break;
+
+            default:
+                return;
+        }
+
+        // Send to all HR emails
+        foreach ($hr_emails as $hr_email) {
+            if (!is_email($hr_email)) {
+                continue;
+            }
+            self::send_notification(0, $hr_email, $subject, $message, 'resignation_hr_notification');
+        }
     }
 
     /**

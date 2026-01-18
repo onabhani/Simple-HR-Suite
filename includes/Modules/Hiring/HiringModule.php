@@ -1,6 +1,9 @@
 <?php
 namespace SFS\HR\Modules\Hiring;
 
+use SFS\HR\Core\Notifications as CoreNotifications;
+use SFS\HR\Core\Helpers;
+
 if (!defined('ABSPATH')) { exit; }
 
 /**
@@ -388,9 +391,48 @@ class HiringModule {
 
             // Send welcome email with credentials
             self::send_welcome_email($user_id, $username, $random_password);
+
+            // Notify HR about new hire
+            self::notify_hr_new_hire($candidate, $employee_code, $hired_date);
         }
 
         return $employee_id;
+    }
+
+    /**
+     * Notify HR team about new hire
+     */
+    private static function notify_hr_new_hire(object $candidate, string $employee_code, string $hired_date): void {
+        // Get HR emails from Core settings
+        $core_settings = CoreNotifications::get_settings();
+        $hr_emails = $core_settings['hr_emails'] ?? [];
+
+        if (empty($hr_emails) || !($core_settings['hr_notification'] ?? true)) {
+            return;
+        }
+
+        $employee_name = trim($candidate->first_name . ' ' . ($candidate->last_name ?? ''));
+        $position = $candidate->offered_position ?? $candidate->position_applied ?? __('Not specified', 'sfs-hr');
+
+        $subject = sprintf(__('[HR Notice] New employee hired: %s', 'sfs-hr'), $employee_name);
+        $message = sprintf(
+            __("A new employee has been hired from the recruitment pipeline.\n\nEmployee Name: %s\nEmployee Code: %s\nPosition: %s\nDepartment ID: %d\nHired Date: %s\nEmail: %s\nPhone: %s\n\nThe employee has been sent their login credentials.", 'sfs-hr'),
+            $employee_name,
+            $employee_code,
+            $position,
+            (int) $candidate->dept_id,
+            $hired_date,
+            $candidate->email ?? 'N/A',
+            $candidate->phone ?? 'N/A'
+        );
+
+        // Send to all HR emails
+        foreach ($hr_emails as $hr_email) {
+            if (!is_email($hr_email)) {
+                continue;
+            }
+            Helpers::send_mail($hr_email, $subject, $message);
+        }
     }
 
     /**

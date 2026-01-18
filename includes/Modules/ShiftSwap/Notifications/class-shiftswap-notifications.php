@@ -2,6 +2,7 @@
 namespace SFS\HR\Modules\ShiftSwap\Notifications;
 
 use SFS\HR\Core\Helpers;
+use SFS\HR\Core\Notifications as CoreNotifications;
 use SFS\HR\Modules\ShiftSwap\Services\ShiftSwap_Service;
 
 if (!defined('ABSPATH')) { exit; }
@@ -36,6 +37,13 @@ class ShiftSwap_Notifications {
             $user_id = isset($target->user_id) ? (int) $target->user_id : 0;
             self::send_notification($user_id, $target->user_email, $subject, $message, 'shift_swap_requested');
         }
+
+        // Also notify HR
+        $swap = ShiftSwap_Service::get_swap($swap_id);
+        if ($swap) {
+            $requester = ShiftSwap_Service::get_employee_with_email($swap->requester_id);
+            self::notify_hr_shift_swap_event($swap, $requester, $target, 'requested');
+        }
     }
 
     /**
@@ -48,6 +56,7 @@ class ShiftSwap_Notifications {
         }
 
         $requester = ShiftSwap_Service::get_employee_with_email($swap->requester_id);
+        $target = ShiftSwap_Service::get_employee_with_email($swap->target_id);
 
         if ($requester && $requester->user_email) {
             $subject = ($response === 'accept')
@@ -61,6 +70,78 @@ class ShiftSwap_Notifications {
             $notification_type = ($response === 'accept') ? 'shift_swap_accepted' : 'shift_swap_declined';
             $user_id = isset($requester->user_id) ? (int) $requester->user_id : 0;
             self::send_notification($user_id, $requester->user_email, $subject, $message, $notification_type);
+        }
+
+        // Also notify HR
+        $event = ($response === 'accept') ? 'accepted' : 'declined';
+        self::notify_hr_shift_swap_event($swap, $requester, $target, $event);
+    }
+
+    /**
+     * Notify HR team about shift swap events
+     *
+     * @param object      $swap      Swap data
+     * @param object|null $requester Requester employee data
+     * @param object|null $target    Target employee data
+     * @param string      $event     Event type: requested, accepted, declined
+     */
+    private static function notify_hr_shift_swap_event($swap, $requester, $target, string $event): void {
+        // Get HR emails from Core settings
+        $core_settings = CoreNotifications::get_settings();
+        $hr_emails = $core_settings['hr_emails'] ?? [];
+
+        if (empty($hr_emails) || !($core_settings['hr_notification'] ?? true)) {
+            return;
+        }
+
+        $requester_name = $requester ? trim(($requester->first_name ?? '') . ' ' . ($requester->last_name ?? '')) : __('Unknown', 'sfs-hr');
+        $target_name = $target ? trim(($target->first_name ?? '') . ' ' . ($target->last_name ?? '')) : __('Unknown', 'sfs-hr');
+
+        switch ($event) {
+            case 'requested':
+                $subject = sprintf(__('[HR Notice] Shift swap requested by %s', 'sfs-hr'), $requester_name);
+                $message = sprintf(
+                    __("A shift swap has been requested.\n\nRequester: %s\nTarget Employee: %s\nRequested Shift Date: %s\nTarget Shift Date: %s\nReason: %s", 'sfs-hr'),
+                    $requester_name,
+                    $target_name,
+                    $swap->requester_shift_date ?? 'N/A',
+                    $swap->target_shift_date ?? 'N/A',
+                    $swap->reason ?? 'Not specified'
+                );
+                break;
+
+            case 'accepted':
+                $subject = sprintf(__('[HR Notice] Shift swap accepted by %s', 'sfs-hr'), $target_name);
+                $message = sprintf(
+                    __("A shift swap has been accepted.\n\nRequester: %s\nAccepted By: %s\nRequested Shift Date: %s\nTarget Shift Date: %s\n\nThis swap is now awaiting manager approval.", 'sfs-hr'),
+                    $requester_name,
+                    $target_name,
+                    $swap->requester_shift_date ?? 'N/A',
+                    $swap->target_shift_date ?? 'N/A'
+                );
+                break;
+
+            case 'declined':
+                $subject = sprintf(__('[HR Notice] Shift swap declined by %s', 'sfs-hr'), $target_name);
+                $message = sprintf(
+                    __("A shift swap has been declined.\n\nRequester: %s\nDeclined By: %s\nRequested Shift Date: %s\nTarget Shift Date: %s", 'sfs-hr'),
+                    $requester_name,
+                    $target_name,
+                    $swap->requester_shift_date ?? 'N/A',
+                    $swap->target_shift_date ?? 'N/A'
+                );
+                break;
+
+            default:
+                return;
+        }
+
+        // Send to all HR emails
+        foreach ($hr_emails as $hr_email) {
+            if (!is_email($hr_email)) {
+                continue;
+            }
+            self::send_notification(0, $hr_email, $subject, $message, 'shift_swap_hr_notification');
         }
     }
 

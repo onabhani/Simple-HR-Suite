@@ -2,6 +2,7 @@
 namespace SFS\HR\Modules\Leave;
 
 use SFS\HR\Core\Helpers;
+use SFS\HR\Core\Notifications as CoreNotifications;
 
 if (!defined('ABSPATH')) { exit; }
 // Load UI helper for chips
@@ -2583,7 +2584,7 @@ private function manager_dept_ids_for_user(int $uid): array {
     return array_map('intval', $ids ?: []);
 }
 
-/** Email approvers for a given employee: dept manager if set, else HR managers/admins as fallback */
+/** Email approvers for a given employee: dept manager if set, else HR managers/admins as fallback, plus configured HR emails */
 private function email_approvers_for_employee(int $employee_id, string $subject, string $msg): void {
     if (get_option('sfs_hr_leave_email','1')!=='1') return;
     global $wpdb;
@@ -2607,6 +2608,16 @@ private function email_approvers_for_employee(int $employee_id, string $subject,
         foreach($admins as $u){ if ($u->user_email) $emails[] = $u->user_email; }
         $hrmgrs = get_users(['role'=>'sfs_hr_manager','fields'=>['user_email']]);
         foreach($hrmgrs as $u){ if ($u->user_email) $emails[] = $u->user_email; }
+    }
+
+    // Also include configured HR emails from Core settings
+    $core_settings = CoreNotifications::get_settings();
+    if (($core_settings['hr_notification'] ?? true) && !empty($core_settings['hr_emails'])) {
+        foreach ($core_settings['hr_emails'] as $hr_email) {
+            if (is_email($hr_email)) {
+                $emails[] = $hr_email;
+            }
+        }
     }
 
     $emails = array_unique(array_filter($emails));
