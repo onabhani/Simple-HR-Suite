@@ -449,6 +449,12 @@ class Admin {
             'cap'   => 'sfs_hr.view',
         ],
         [
+            'page'  => 'sfs-hr-hiring',
+            'icon'  => 'dashicons-businessperson',
+            'label' => __( 'Hiring', 'sfs-hr' ),
+            'cap'   => 'manage_options',
+        ],
+        [
             'page'  => 'sfs-hr-resignations',
             'icon'  => 'dashicons-exit',
             'label' => __( 'Resignations', 'sfs-hr' ),
