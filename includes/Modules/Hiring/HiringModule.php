@@ -39,7 +39,7 @@ class HiringModule {
      */
     public function add_admin_menus(): void {
         add_submenu_page(
-            'sfs-hr-dashboard',
+            'sfs-hr',
             __('Hiring', 'sfs-hr'),
             __('Hiring', 'sfs-hr'),
             'manage_options',
