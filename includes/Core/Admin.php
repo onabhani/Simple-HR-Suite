@@ -314,12 +314,14 @@ class Admin {
 
     // Dashboard layout styles
     echo '<style>
+        .sfs-hr-wrap {
+            padding-right: 20px;
+        }
         .sfs-hr-wrap .sfs-hr-dashboard-grid {
             display: flex;
             flex-wrap: wrap;
             gap: 16px;
             margin-top: 16px;
-            margin-right: 16px; /* avoid touching right edge */
         }
         .sfs-hr-wrap .sfs-hr-card {
             flex: 1 1 220px;
@@ -363,7 +365,6 @@ class Admin {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
             gap: 10px;
-            margin-right: 16px;
         }
         .sfs-hr-wrap .sfs-hr-nav-card {
             display: flex;
