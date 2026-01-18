@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Simple HR Suite
  * Description: Simple HR Suite – employees, departments, leave, balances, approvals.
- * Version: 0.1.8 BETA
+ * Version: 0.1.9
  * Author: Omar Alnabhani
  * Author URI: https://hdqah.com
  * Text Domain: sfs-hr
@@ -10,7 +10,7 @@
 
 if (!defined('ABSPATH')) { exit; }
 
-define('SFS_HR_VER', '0.1.8');
+define('SFS_HR_VER', '0.1.9');
 define('SFS_HR_DIR', plugin_dir_path(__FILE__));
 define('SFS_HR_URL', plugin_dir_url(__FILE__));
 define('SFS_HR_PLUGIN_FILE', __FILE__);
@@ -27,14 +27,82 @@ spl_autoload_register(function($class){
 });
 
 /**
- * Activation: ensure roles/caps + DB migrations.
+ * Activation: ensure roles/caps + DB migrations + module installs.
  */
 register_activation_hook(__FILE__, function(){
+    global $wpdb;
+
+    // Ensure roles and capabilities
     \SFS\HR\Core\Capabilities::ensure_roles_caps();
+
+    // Run core migrations
     \SFS\HR\Install\Migrations::run();
+
     // Install Hiring module tables (candidates, trainees)
     \SFS\HR\Modules\Hiring\HiringModule::install();
+
+    // Install Leave module
+    (new \SFS\HR\Modules\Leave\LeaveModule())->install();
+
+    // Create Assets tables directly
+    $assets_table    = $wpdb->prefix . 'sfs_hr_assets';
+    $assign_table    = $wpdb->prefix . 'sfs_hr_asset_assignments';
+    $charset_collate = $wpdb->get_charset_collate();
+
+    $wpdb->query("CREATE TABLE IF NOT EXISTS {$assets_table} (
+        id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+        asset_code VARCHAR(50) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        category VARCHAR(50) NOT NULL,
+        department VARCHAR(100) DEFAULT '',
+        serial_number VARCHAR(100) DEFAULT '',
+        model VARCHAR(150) DEFAULT '',
+        purchase_year SMALLINT(4) DEFAULT NULL,
+        purchase_price DECIMAL(10,2) DEFAULT NULL,
+        warranty_expiry DATE DEFAULT NULL,
+        invoice_number VARCHAR(100) DEFAULT '',
+        invoice_date DATE DEFAULT NULL,
+        invoice_file VARCHAR(255) DEFAULT '',
+        qr_code_path VARCHAR(255) DEFAULT '',
+        status ENUM('available','assigned','under_approval','returned','archived') DEFAULT 'available',
+        `condition` ENUM('new','good','damaged','needs_repair','lost') DEFAULT 'good',
+        notes TEXT,
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL,
+        PRIMARY KEY (id),
+        UNIQUE KEY asset_code (asset_code),
+        KEY category (category),
+        KEY status (status),
+        KEY department (department)
+    ) {$charset_collate}");
+
+    $wpdb->query("CREATE TABLE IF NOT EXISTS {$assign_table} (
+        id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+        asset_id BIGINT(20) UNSIGNED NOT NULL,
+        employee_id BIGINT(20) UNSIGNED NOT NULL,
+        assigned_by BIGINT(20) UNSIGNED NOT NULL,
+        start_date DATE NOT NULL,
+        end_date DATE DEFAULT NULL,
+        status ENUM('pending_employee_approval','active','return_requested','returned','rejected') NOT NULL DEFAULT 'pending_employee_approval',
+        return_requested_by BIGINT(20) UNSIGNED DEFAULT NULL,
+        return_date DATE DEFAULT NULL,
+        selfie_attachment_id BIGINT(20) UNSIGNED NULL DEFAULT NULL,
+        asset_attachment_id BIGINT(20) UNSIGNED NULL DEFAULT NULL,
+        return_selfie_attachment_id BIGINT(20) UNSIGNED NULL DEFAULT NULL,
+        return_asset_attachment_id BIGINT(20) UNSIGNED NULL DEFAULT NULL,
+        notes TEXT,
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL,
+        PRIMARY KEY (id),
+        KEY asset_id (asset_id),
+        KEY employee_id (employee_id),
+        KEY status (status)
+    ) {$charset_collate}");
+
+    // Update version options
     update_option('sfs_hr_db_ver', SFS_HR_VER);
+    update_option('sfs_hr_assets_db_version', SFS_HR_VER);
+
     flush_rewrite_rules();
 });
 
@@ -295,7 +363,7 @@ add_action('admin_init', function(){
         }
 
         // Set the version option
-        update_option('sfs_hr_assets_db_version', '0.1.9-assets-mvp');
+        update_option('sfs_hr_assets_db_version', SFS_HR_VER);
     }
 });
 
@@ -384,72 +452,3 @@ add_action('admin_notices', function(){
     }
 });
 
-/**
- * Activation hook for Leave install + Assets tables (extended second version).
- */
-register_activation_hook(__FILE__, function () {
-    global $wpdb;
-
-    // From both versions: ensure Leave module install
-    (new \SFS\HR\Modules\Leave\LeaveModule())->install();
-
-    // From second version: ensure Assets tables are created on activation - use direct SQL
-    $assets_table    = $wpdb->prefix . 'sfs_hr_assets';
-    $assign_table    = $wpdb->prefix . 'sfs_hr_asset_assignments';
-    $charset_collate = $wpdb->get_charset_collate();
-
-    // Create Assets table
-    $wpdb->query("CREATE TABLE IF NOT EXISTS {$assets_table} (
-        id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-        asset_code VARCHAR(50) NOT NULL,
-        name VARCHAR(255) NOT NULL,
-        category VARCHAR(50) NOT NULL,
-        department VARCHAR(100) DEFAULT '',
-        serial_number VARCHAR(100) DEFAULT '',
-        model VARCHAR(150) DEFAULT '',
-        purchase_year SMALLINT(4) DEFAULT NULL,
-        purchase_price DECIMAL(10,2) DEFAULT NULL,
-        warranty_expiry DATE DEFAULT NULL,
-        invoice_number VARCHAR(100) DEFAULT '',
-        invoice_date DATE DEFAULT NULL,
-        invoice_file VARCHAR(255) DEFAULT '',
-        qr_code_path VARCHAR(255) DEFAULT '',
-        status ENUM('available','assigned','under_approval','returned','archived') DEFAULT 'available',
-        `condition` ENUM('new','good','damaged','needs_repair','lost') DEFAULT 'good',
-        notes TEXT,
-        created_at DATETIME NOT NULL,
-        updated_at DATETIME NOT NULL,
-        PRIMARY KEY (id),
-        UNIQUE KEY asset_code (asset_code),
-        KEY category (category),
-        KEY status (status),
-        KEY department (department)
-    ) {$charset_collate}");
-
-    // Create Asset Assignments table
-    $wpdb->query("CREATE TABLE IF NOT EXISTS {$assign_table} (
-        id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-        asset_id BIGINT(20) UNSIGNED NOT NULL,
-        employee_id BIGINT(20) UNSIGNED NOT NULL,
-        assigned_by BIGINT(20) UNSIGNED NOT NULL,
-        start_date DATE NOT NULL,
-        end_date DATE DEFAULT NULL,
-        status ENUM('pending_employee_approval','active','return_requested','returned','rejected') NOT NULL DEFAULT 'pending_employee_approval',
-        return_requested_by BIGINT(20) UNSIGNED DEFAULT NULL,
-        return_date DATE DEFAULT NULL,
-        selfie_attachment_id BIGINT(20) UNSIGNED NULL DEFAULT NULL,
-        asset_attachment_id BIGINT(20) UNSIGNED NULL DEFAULT NULL,
-        return_selfie_attachment_id BIGINT(20) UNSIGNED NULL DEFAULT NULL,
-        return_asset_attachment_id BIGINT(20) UNSIGNED NULL DEFAULT NULL,
-        notes TEXT,
-        created_at DATETIME NOT NULL,
-        updated_at DATETIME NOT NULL,
-        PRIMARY KEY (id),
-        KEY asset_id (asset_id),
-        KEY employee_id (employee_id),
-        KEY status (status)
-    ) {$charset_collate}");
-
-    // Set the version option
-    update_option('sfs_hr_assets_db_version', '0.1.9-assets-mvp');
-});
