@@ -1699,9 +1699,8 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
         }
         .sfs-hr-analytics-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            grid-template-columns: repeat(3, 1fr);
             gap: 20px;
-            margin-right: 16px;
         }
         .sfs-hr-chart-card {
             background: #fff;
@@ -1719,6 +1718,11 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
         .sfs-hr-chart-container {
             position: relative;
             height: 250px;
+        }
+        @media (max-width: 1200px) {
+            .sfs-hr-analytics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
         @media (max-width: 782px) {
             .sfs-hr-analytics-grid {
