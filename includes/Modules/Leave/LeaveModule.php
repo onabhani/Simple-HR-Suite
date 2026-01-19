@@ -289,7 +289,22 @@ public function render_requests(): void {
                     $status_key = (string) $r['status'];
                     if ($status_key === 'pending') {
                         $level = (int)($r['approval_level'] ?? 1);
-                        $status_key = ($level <= 1) ? 'pending_manager' : 'pending_hr';
+                        // Check if requester is a department manager
+                        $is_requester_mgr = false;
+                        if (!empty($r['dept_id'])) {
+                            $mgr_uid_check = (int)$wpdb->get_var($wpdb->prepare(
+                                "SELECT manager_user_id FROM {$wpdb->prefix}sfs_hr_departments WHERE id=%d AND active=1",
+                                (int)$r['dept_id']
+                            ));
+                            if ($mgr_uid_check > 0 && (int)($r['emp_user_id'] ?? 0) === $mgr_uid_check) {
+                                $is_requester_mgr = true;
+                            }
+                        }
+                        if ($level <= 1) {
+                            $status_key = $is_requester_mgr ? 'pending_gm' : 'pending_manager';
+                        } else {
+                            $status_key = 'pending_hr';
+                        }
                     }
                 ?>
                     <tr>
@@ -926,9 +941,26 @@ public function handle_approve(): void {
     );
 
     $current_uid     = get_current_user_id();
-    // HR users or GM users can do final approval
-    $is_hr           = current_user_can('sfs_hr.manage') || current_user_can('sfs_hr_loans_gm_approve');
+    // Separate GM and HR capabilities
+    $is_gm           = current_user_can('sfs_hr_loans_gm_approve');
+    $is_hr           = current_user_can('sfs_hr.manage');
+    $is_hr_or_gm     = $is_hr || $is_gm;
     $approval_level  = (int) ( $row['approval_level'] ?? 1 );
+
+    // Check if requester is a department manager
+    $requester_is_dept_manager = false;
+    $dept_t = $wpdb->prefix . 'sfs_hr_departments';
+    if ( ! empty( $empInfo['dept_id'] ) ) {
+        $mgr_uid = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT manager_user_id FROM $dept_t WHERE id=%d AND active=1",
+                (int) $empInfo['dept_id']
+            )
+        );
+        if ( $mgr_uid > 0 && (int) ( $empInfo['user_id'] ?? 0 ) === $mgr_uid ) {
+            $requester_is_dept_manager = true;
+        }
+    }
 
     // Nobody approves self
     if ( (int) ( $empInfo['user_id'] ?? 0 ) === $current_uid ) {
@@ -942,14 +974,173 @@ public function handle_approve(): void {
         exit;
     }
 
-    // If not HR → must be dept manager of this employee
-    if ( ! $is_hr ) {
-        $managed = $this->manager_dept_ids_for_user($current_uid);
-        if ( empty($managed) || ! in_array((int) ($empInfo['dept_id'] ?? 0), $managed, true) ) {
+    // ==================== DEPARTMENT MANAGER LEAVE REQUEST ====================
+    // Flow: Dept Manager → GM (level 1) → HR (level 2, final)
+    if ( $requester_is_dept_manager ) {
+
+        // Level 1: GM approval required
+        if ( $approval_level < 2 ) {
+            // Only GM can approve at level 1
+            if ( ! $is_gm ) {
+                wp_safe_redirect(
+                    add_query_arg(
+                        'err',
+                        rawurlencode(__('This department manager leave request requires GM approval first.', 'sfs-hr')),
+                        $redirect_base
+                    )
+                );
+                exit;
+            }
+
+            // GM approves → escalate to HR
+            $new_chain = $this->append_approval_chain(
+                $row['approval_chain'] ?? null,
+                [
+                    'by'     => $current_uid,
+                    'role'   => 'gm',
+                    'action' => 'approve',
+                    'note'   => $note,
+                ]
+            );
+
+            $wpdb->update(
+                $req_t,
+                [
+                    'approval_level' => 2,
+                    'approver_id'    => $current_uid,
+                    'approver_note'  => $note,
+                    'approval_chain' => $new_chain,
+                    'updated_at'     => Helpers::now_mysql(),
+                ],
+                ['id' => $id]
+            );
+
+            do_action('sfs_hr_leave_request_status_changed', $id, 'pending', 'pending_hr');
+            self::log_event( $id, 'gm_approved', [
+                'note' => __('GM approved, escalated to HR', 'sfs-hr'),
+            ]);
+
+            // Notify HR
+            $this->notify_hr_users(
+                __('Leave request waiting HR approval', 'sfs-hr'),
+                sprintf(
+                    __('GM approved department manager leave request (%s → %s, %d days). Please review for final approval.', 'sfs-hr'),
+                    $row['start_date'],
+                    $row['end_date'],
+                    (int) $row['days']
+                )
+            );
+
+            wp_safe_redirect( add_query_arg( 'ok', 1, $redirect_base ) );
+            exit;
+        }
+
+        // Level 2: HR final approval
+        if ( ! $is_hr ) {
             wp_safe_redirect(
                 add_query_arg(
                     'err',
-                    rawurlencode(__('You can only review requests for your department.', 'sfs-hr')),
+                    rawurlencode(__('This request requires HR final approval.', 'sfs-hr')),
+                    $redirect_base
+                )
+            );
+            exit;
+        }
+
+        // HR does final approval - proceed to final approval section below
+    }
+    // ==================== NORMAL EMPLOYEE LEAVE REQUEST ====================
+    // Flow: Employee → Dept Manager (level 1) → HR (level 2, final)
+    else {
+        // If not HR/GM → must be dept manager of this employee
+        if ( ! $is_hr_or_gm ) {
+            $managed = $this->manager_dept_ids_for_user($current_uid);
+            if ( empty($managed) || ! in_array((int) ($empInfo['dept_id'] ?? 0), $managed, true) ) {
+                wp_safe_redirect(
+                    add_query_arg(
+                        'err',
+                        rawurlencode(__('You can only review requests for your department.', 'sfs-hr')),
+                        $redirect_base
+                    )
+                );
+                exit;
+            }
+        }
+
+        // Manager stage (first approval) → escalate to HR
+        if ( ! $is_hr_or_gm ) {
+            if ( $approval_level >= 2 ) {
+                wp_safe_redirect(
+                    add_query_arg(
+                        'err',
+                        rawurlencode(__('This request is already waiting for HR approval.', 'sfs-hr')),
+                        $redirect_base
+                    )
+                );
+                exit;
+            }
+
+            $new_chain = $this->append_approval_chain(
+                $row['approval_chain'] ?? null,
+                [
+                    'by'     => $current_uid,
+                    'role'   => 'manager',
+                    'action' => 'approve',
+                    'note'   => $note,
+                ]
+            );
+
+            $wpdb->update(
+                $req_t,
+                [
+                    'approval_level' => 2,
+                    'approver_id'    => $current_uid,
+                    'approver_note'  => $note,
+                    'approval_chain' => $new_chain,
+                    'updated_at'     => Helpers::now_mysql(),
+                ],
+                ['id' => $id]
+            );
+
+            do_action('sfs_hr_leave_request_status_changed', $id, 'pending', 'pending_hr');
+            self::log_event( $id, 'manager_approved', [
+                'note' => __('Manager approved, escalated to HR', 'sfs-hr'),
+            ]);
+
+            $this->email_approvers_for_employee(
+                (int) $row['employee_id'],
+                __('Leave request waiting HR approval', 'sfs-hr'),
+                sprintf(
+                    __('Manager approved leave request (%s → %s, %d days). Please review.', 'sfs-hr'),
+                    $row['start_date'],
+                    $row['end_date'],
+                    (int) $row['days']
+                )
+            );
+
+            wp_safe_redirect( add_query_arg( 'ok', 1, $redirect_base ) );
+            exit;
+        }
+
+        // HR/GM stage (final) - enforce manager-first if applicable
+        $dept_has_manager = false;
+        if ( ! empty( $empInfo['dept_id'] ) ) {
+            $mgr_uid = (int) $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT manager_user_id FROM $dept_t WHERE id=%d AND active=1",
+                    (int) $empInfo['dept_id']
+                )
+            );
+            if ( $mgr_uid > 0 ) {
+                $dept_has_manager = true;
+            }
+        }
+
+        if ( $dept_has_manager && $approval_level < 2 ) {
+            wp_safe_redirect(
+                add_query_arg(
+                    'err',
+                    rawurlencode( __('Department manager must approve before HR.', 'sfs-hr') ),
                     $redirect_base
                 )
             );
@@ -957,105 +1148,7 @@ public function handle_approve(): void {
         }
     }
 
-    // Manager stage (first approval) → escalate to HR, do NOT finalize, no balance changes
-    if ( ! $is_hr ) {
-        if ( $approval_level >= 2 ) {
-            // Already escalated to HR
-            wp_safe_redirect(
-                add_query_arg(
-                    'err',
-                    rawurlencode(__('This request is already waiting for HR approval.', 'sfs-hr')),
-                    $redirect_base
-                )
-            );
-            exit;
-        }
-
-        $new_chain = $this->append_approval_chain(
-            $row['approval_chain'] ?? null,
-            [
-                'by'     => $current_uid,
-                'role'   => 'manager',
-                'action' => 'approve',
-                'note'   => $note,
-            ]
-        );
-
-        $wpdb->update(
-            $req_t,
-            [
-                'approval_level' => 2,
-                'approver_id'    => $current_uid,
-                'approver_note'  => $note,
-                'approval_chain' => $new_chain,
-                'updated_at'     => Helpers::now_mysql(),
-            ],
-            ['id' => $id],
-            ['%d','%d','%s','%s','%s'],
-            ['%d']
-        );
-
-        // Audit Trail: leave request escalated to HR
-        do_action('sfs_hr_leave_request_status_changed', $id, 'pending', 'pending_hr');
-        // Log to history
-        self::log_event( $id, 'manager_approved', [
-            'note' => __('Manager approved, escalated to HR', 'sfs-hr'),
-        ]);
-
-        // Notify HR approvers
-        $this->email_approvers_for_employee(
-            (int) $row['employee_id'],
-            __('Leave request waiting HR approval', 'sfs-hr'),
-            sprintf(
-                __('Manager approved leave request (%s → %s, %d days). Please review.', 'sfs-hr'),
-                $row['start_date'],
-                $row['end_date'],
-                (int) $row['days']
-            )
-        );
-
-        wp_safe_redirect(
-            add_query_arg(
-                'ok',
-                1,
-                $redirect_base
-            )
-        );
-        exit;
-    }
-
-    // ---------------- HR stage (final) ----------------
-
-    // Enforce manager-first if a manager exists for this employee's department
-    // EXCEPTION: If the requester IS the department manager, skip this requirement
-    $dept_has_manager = false;
-    $requester_is_manager = false;
-    if ( ! empty( $empInfo['dept_id'] ) ) {
-        $dept_t  = $wpdb->prefix . 'sfs_hr_departments';
-        $mgr_uid = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT manager_user_id FROM $dept_t WHERE id=%d AND active=1",
-                (int) $empInfo['dept_id']
-            )
-        );
-        if ( $mgr_uid > 0 ) {
-            $dept_has_manager = true;
-            // Check if the requester is the department manager
-            $requester_is_manager = ( (int) ( $empInfo['user_id'] ?? 0 ) === $mgr_uid );
-        }
-    }
-
-    // Only enforce manager-first if dept has a manager AND the requester is NOT that manager
-    if ( $dept_has_manager && ! $requester_is_manager && $approval_level < 2 ) {
-        wp_safe_redirect(
-            add_query_arg(
-                'err',
-                rawurlencode( __('Department manager must approve before HR.', 'sfs-hr') ),
-                $redirect_base
-            )
-        );
-        exit;
-    }
+    // ==================== FINAL APPROVAL (HR) ====================
 
     // Fetch type & apply all your existing business rules (maternity, annual, negative, probation, etc.)
     $type = $wpdb->get_row(
@@ -2723,6 +2816,36 @@ private function email_approvers_for_employee(int $employee_id, string $subject,
         foreach($admins as $u){ if ($u->user_email) $emails[] = $u->user_email; }
         $mgrs = get_users(['role'=>'sfs_hr_manager','fields'=>['user_email']]);
         foreach($mgrs as $u){ if ($u->user_email) $emails[] = $u->user_email; }
+        $emails = array_unique(array_filter($emails));
+        foreach($emails as $to){ Helpers::send_mail($to, $subject, $msg); }
+    }
+
+    /**
+     * Notify HR users (those with sfs_hr.manage capability)
+     */
+    private function notify_hr_users(string $subject, string $msg): void {
+        if (get_option('sfs_hr_leave_email','1')!=='1') return;
+        $emails = [];
+        // Get administrators
+        $admins = get_users(['role'=>'administrator','fields'=>['ID', 'user_email']]);
+        foreach($admins as $u){
+            if ($u->user_email && user_can($u->ID, 'sfs_hr.manage')) {
+                $emails[] = $u->user_email;
+            }
+        }
+        // Get HR managers
+        $mgrs = get_users(['role'=>'sfs_hr_manager','fields'=>['ID', 'user_email']]);
+        foreach($mgrs as $u){
+            if ($u->user_email && user_can($u->ID, 'sfs_hr.manage')) {
+                $emails[] = $u->user_email;
+            }
+        }
+        // Also check configured HR emails
+        $hr_emails = get_option('sfs_hr_leave_emails', '');
+        if ($hr_emails) {
+            $configured = array_filter(array_map('trim', explode(',', $hr_emails)));
+            $emails = array_merge($emails, $configured);
+        }
         $emails = array_unique(array_filter($emails));
         foreach($emails as $to){ Helpers::send_mail($to, $subject, $msg); }
     }

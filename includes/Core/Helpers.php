@@ -481,7 +481,19 @@ public static function output_asset_status_badge_css(): void {
             border-color:#facc15;
         }
 
+        .sfs-hr-status-chip--orange {
+            background-color:#ffedd5;
+            color:#9a3412;
+            border-color:#fdba74;
+        }
+
         /* ========== Approval-state chips (Pending – HR / Manager etc.) ========== */
+        .sfs-hr-leave-chip-pending-gm {
+            background-color:#ffedd5;
+            color:#9a3412;
+            border-color:#fdba74;
+        }
+
         .sfs-hr-leave-chip-pending-manager {
             background-color:#fef9c3;
             color:#854d0e;
