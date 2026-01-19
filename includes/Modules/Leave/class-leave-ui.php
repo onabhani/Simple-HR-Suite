@@ -18,6 +18,7 @@ class Leave_UI {
     'pending_hr'        => __( 'Pending - HR', 'sfs-hr' ),
     'pending_manager'   => __( 'Pending - Manager', 'sfs-hr' ),
     'pending_gm'        => __( 'Pending - GM', 'sfs-hr' ),
+    'pending_finance'   => __( 'Pending - Finance', 'sfs-hr' ),
     'approved'          => __( 'Approved', 'sfs-hr' ),
     'rejected'          => __( 'Rejected', 'sfs-hr' ),
     'cancelled'         => __( 'Cancelled', 'sfs-hr' ),
@@ -51,6 +52,9 @@ class Leave_UI {
 
     case 'pending_gm':
         return 'orange'; // Pending - GM
+
+    case 'pending_finance':
+        return 'teal'; // Pending - Finance
 
     case 'on_leave':
         return 'purple';

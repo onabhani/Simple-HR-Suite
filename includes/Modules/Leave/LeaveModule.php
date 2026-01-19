@@ -301,10 +301,14 @@ public function render_requests(): void {
                                 $is_requester_mgr = true;
                             }
                         }
-                        if ($level <= 1) {
-                            $status_key = $is_requester_mgr ? 'pending_gm' : 'pending_manager';
-                        } else {
+                        if ($level >= 3) {
+                            $status_key = 'pending_finance';
+                        } elseif ($level >= 2) {
                             $status_key = 'pending_hr';
+                        } elseif ($is_requester_mgr) {
+                            $status_key = 'pending_gm';
+                        } else {
+                            $status_key = 'pending_manager';
                         }
                     }
                 ?>
@@ -1159,12 +1163,88 @@ public function handle_approve(): void {
     $year  = (int) substr($row['start_date'], 0, 4);
     $quota = (int) ($type['annual_quota'] ?? 0);
 
+    // ==================== FINANCE APPROVAL CHECK ====================
+    // If finance approver is configured and employee has active loans,
+    // route to finance for approval after HR approval (level 3)
+    $finance_approver_id = (int) get_option('sfs_hr_leave_finance_approver', 0);
+
+    if ( $finance_approver_id > 0 && $approval_level < 3 ) {
+        // Check if employee has active loans
+        $loans_t = $wpdb->prefix . 'sfs_hr_loans';
+        $has_active_loans = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$loans_t} WHERE employee_id = %d AND status = 'active'",
+                (int) $row['employee_id']
+            )
+        );
+
+        if ( $has_active_loans > 0 ) {
+            // Escalate to finance instead of final approval
+            $new_chain = $this->append_approval_chain(
+                $row['approval_chain'] ?? null,
+                [
+                    'by'     => $current_uid,
+                    'role'   => 'hr',
+                    'action' => 'approve',
+                    'note'   => $note,
+                ]
+            );
+
+            $wpdb->update(
+                $req_t,
+                [
+                    'approval_level' => 3, // Finance level
+                    'approver_id'    => $current_uid,
+                    'approver_note'  => $note,
+                    'approval_chain' => $new_chain,
+                    'updated_at'     => Helpers::now_mysql(),
+                ],
+                ['id' => $id]
+            );
+
+            do_action('sfs_hr_leave_request_status_changed', $id, 'pending', 'pending_finance');
+            self::log_event( $id, 'hr_approved_pending_finance', [
+                'note' => __('HR approved. Pending finance approval due to active loans.', 'sfs-hr'),
+            ]);
+
+            // Notify finance approver
+            $this->notify_finance_approver(
+                $id,
+                (int) $row['employee_id'],
+                $row['start_date'],
+                $row['end_date'],
+                (int) $row['days']
+            );
+
+            wp_safe_redirect( add_query_arg( 'ok', 1, $redirect_base ) );
+            exit;
+        }
+    }
+
+    // If we're at level 3 (finance stage), only finance can approve
+    if ( $approval_level >= 3 ) {
+        $is_finance = current_user_can('sfs_hr_loans_finance_approve');
+        $is_assigned_finance = ( $current_uid === $finance_approver_id );
+
+        if ( ! $is_finance && ! $is_assigned_finance && ! $is_hr ) {
+            wp_safe_redirect(
+                add_query_arg(
+                    'err',
+                    rawurlencode(__('This request requires Finance approval.', 'sfs-hr')),
+                    $redirect_base
+                )
+            );
+            exit;
+        }
+    }
+
     // Finalize: mark approved
+    $final_role = ( $approval_level >= 3 ) ? 'finance' : 'hr';
     $new_chain = $this->append_approval_chain(
         $row['approval_chain'] ?? null,
         [
             'by'     => $current_uid,
-            'role'   => 'hr',
+            'role'   => $final_role,
             'action' => 'approve',
             'note'   => $note,
         ]
@@ -1725,6 +1805,9 @@ public function handle_cancel(): void {
         $lt5 = (int)get_option('sfs_hr_annual_lt5','21');
         $ge5 = (int)get_option('sfs_hr_annual_ge5','30');
 
+        // Finance approver for employees with active loans
+        $finance_approver_id = (int)get_option('sfs_hr_leave_finance_approver', 0);
+
         // Holiday notifications
         $notify_on_add   = get_option('sfs_hr_holiday_notify_on_add','0') === '1';
         $reminder_enable = get_option('sfs_hr_holiday_reminder_enabled','0') === '1';
@@ -1762,7 +1845,44 @@ public function handle_cancel(): void {
                   <label><?php esc_html_e('≥ 5 years','sfs-hr'); ?>:
                     <input type="number" name="annual_ge5" min="0" value="<?php echo (int)$ge5; ?>" style="width:100px"/>
                   </label>
-                  <p class="description"><?php esc_html_e('Applied only to leave types marked "Annual (Tenure-based)". Uses employee hire_date or hired_at; if both missing, falls back to the type’s Annual Quota.','sfs-hr'); ?></p>
+                  <p class="description"><?php esc_html_e('Applied only to leave types marked "Annual (Tenure-based)". Uses employee hire_date or hired_at; if both missing, falls back to the type's Annual Quota.','sfs-hr'); ?></p>
+                </td>
+              </tr>
+              <tr>
+                <th><?php esc_html_e('Finance Approver','sfs-hr'); ?></th>
+                <td>
+                  <?php
+                  // Get users who can be finance approvers (admins, finance approvers, HR managers)
+                  $finance_users = get_users([
+                      'role__in' => ['administrator', 'sfs_hr_finance_approver'],
+                      'orderby'  => 'display_name',
+                      'order'    => 'ASC',
+                  ]);
+                  // Also include users with specific finance capability
+                  $cap_users = get_users([
+                      'meta_key'   => $GLOBALS['wpdb']->prefix . 'capabilities',
+                      'meta_query' => [
+                          [
+                              'key'     => $GLOBALS['wpdb']->prefix . 'capabilities',
+                              'value'   => 'sfs_hr_loans_finance_approve',
+                              'compare' => 'LIKE',
+                          ],
+                      ],
+                  ]);
+                  $all_finance_users = [];
+                  foreach (array_merge($finance_users, $cap_users) as $u) {
+                      $all_finance_users[$u->ID] = $u;
+                  }
+                  ?>
+                  <select name="leave_finance_approver" style="width:300px;">
+                    <option value="0"><?php esc_html_e('— None (disable finance approval) —', 'sfs-hr'); ?></option>
+                    <?php foreach ($all_finance_users as $user): ?>
+                      <option value="<?php echo (int)$user->ID; ?>" <?php selected($finance_approver_id, $user->ID); ?>>
+                        <?php echo esc_html($user->display_name . ' (' . $user->user_email . ')'); ?>
+                      </option>
+                    <?php endforeach; ?>
+                  </select>
+                  <p class="description"><?php esc_html_e('If set, leave requests from employees with active loans will require finance approval after HR approval.','sfs-hr'); ?></p>
                 </td>
               </tr>
               <tr>
@@ -1855,6 +1975,10 @@ public function handle_cancel(): void {
         $ge5 = isset($_POST['annual_ge5']) ? max(0,(int)$_POST['annual_ge5']) : 30;
         update_option('sfs_hr_annual_lt5', (string)$lt5);
         update_option('sfs_hr_annual_ge5', (string)$ge5);
+
+        // Finance approver for employees with active loans
+        $finance_approver = isset($_POST['leave_finance_approver']) ? (int)$_POST['leave_finance_approver'] : 0;
+        update_option('sfs_hr_leave_finance_approver', (string)$finance_approver);
 
         $notify_on_add   = !empty($_POST['holiday_notify_on_add']) ? '1' : '0';
         $reminder_enable = !empty($_POST['holiday_reminder_enabled']) ? '1' : '0';
@@ -2874,6 +2998,47 @@ private function email_approvers_for_employee(int $employee_id, string $subject,
         }
         $emails = array_unique(array_filter($emails));
         foreach($emails as $to){ Helpers::send_mail($to, $subject, $msg); }
+    }
+
+    /**
+     * Notify the assigned finance approver about a leave request needing their approval
+     */
+    private function notify_finance_approver(int $leave_id, int $employee_id, string $start_date, string $end_date, int $days): void {
+        if (get_option('sfs_hr_leave_email','1')!=='1') return;
+
+        $finance_approver_id = (int) get_option('sfs_hr_leave_finance_approver', 0);
+        if ($finance_approver_id <= 0) return;
+
+        $finance_user = get_user_by('id', $finance_approver_id);
+        if (!$finance_user || !$finance_user->user_email) return;
+
+        global $wpdb;
+        $emp_t = $wpdb->prefix . 'sfs_hr_employees';
+        $emp = $wpdb->get_row($wpdb->prepare(
+            "SELECT first_name, last_name, employee_code FROM {$emp_t} WHERE id = %d",
+            $employee_id
+        ));
+        $emp_name = $emp ? trim($emp->first_name . ' ' . $emp->last_name) : __('Employee', 'sfs-hr');
+
+        // Get active loans count for context
+        $loans_t = $wpdb->prefix . 'sfs_hr_loans';
+        $active_loans = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$loans_t} WHERE employee_id = %d AND status = 'active'",
+            $employee_id
+        ));
+
+        $subject = __('Leave Request Pending Finance Approval', 'sfs-hr');
+        $msg = sprintf(
+            __("A leave request requires your finance approval.\n\nEmployee: %s\nDates: %s → %s\nDays: %d\nActive Loans: %d\n\nThis employee has active loans. Please review and approve or reject the leave request.\n\nView request: %s", 'sfs-hr'),
+            $emp_name,
+            $start_date,
+            $end_date,
+            $days,
+            $active_loans,
+            admin_url('admin.php?page=sfs-hr-leave-requests&action=view&id=' . $leave_id)
+        );
+
+        Helpers::send_mail($finance_user->user_email, $subject, $msg);
     }
 
     private function paginate_admin(int $page, int $pages, array $args): string {
@@ -4467,31 +4632,45 @@ public function render_calendar(): void {
         $current_uid = get_current_user_id();
         $is_gm = current_user_can( 'sfs_hr_loans_gm_approve' );
         $is_hr = current_user_can( 'sfs_hr.manage' );
+        $is_finance = current_user_can( 'sfs_hr_loans_finance_approve' );
         $managed_depts = $this->manager_dept_ids_for_user( $current_uid );
         $is_dept_manager = ! empty( $managed_depts ) && in_array( (int) $request->dept_id, $managed_depts, true );
+
+        // Finance approver check
+        $finance_approver_id = (int) get_option( 'sfs_hr_leave_finance_approver', 0 );
+        $is_assigned_finance = ( $finance_approver_id > 0 && $current_uid === $finance_approver_id );
+
+        // Check if employee has active loans (for showing finance stage info)
+        global $wpdb;
+        $loans_t = $wpdb->prefix . 'sfs_hr_loans';
+        $has_active_loans = ( $finance_approver_id > 0 ) ? (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$loans_t} WHERE employee_id = %d AND status = 'active'",
+                (int) $request->employee_id
+            )
+        ) : 0;
 
         // Can approve?
         $can_approve = false;
         $approval_stage = '';
         if ( $request->status === 'pending' ) {
-            if ( $requester_is_dept_manager ) {
-                // Dept manager leave: Level 1 = GM, Level 2 = HR
-                if ( $approval_level < 2 ) {
-                    $approval_stage = 'gm';
-                    $can_approve = $is_gm;
-                } else {
-                    $approval_stage = 'hr';
-                    $can_approve = $is_hr;
-                }
+            // Level 3+ = Finance stage
+            if ( $approval_level >= 3 ) {
+                $approval_stage = 'finance';
+                $can_approve = $is_finance || $is_assigned_finance || $is_hr;
+            }
+            // Level 2 = HR stage
+            elseif ( $approval_level >= 2 ) {
+                $approval_stage = 'hr';
+                $can_approve = $is_hr || $is_gm;
+            }
+            // Level 1 = GM (for dept managers) or Manager (for normal employees)
+            elseif ( $requester_is_dept_manager ) {
+                $approval_stage = 'gm';
+                $can_approve = $is_gm;
             } else {
-                // Normal employee: Level 1 = Manager, Level 2 = HR
-                if ( $approval_level < 2 ) {
-                    $approval_stage = 'manager';
-                    $can_approve = $is_dept_manager;
-                } else {
-                    $approval_stage = 'hr';
-                    $can_approve = $is_hr || $is_gm;
-                }
+                $approval_stage = 'manager';
+                $can_approve = $is_dept_manager;
             }
             // Can't approve self
             if ( (int) $request->emp_user_id === $current_uid ) {
@@ -4587,10 +4766,14 @@ public function render_calendar(): void {
                                     <?php
                                     $status_key = $request->status;
                                     if ( $status_key === 'pending' ) {
-                                        if ( $requester_is_dept_manager ) {
-                                            $status_key = $approval_level < 2 ? 'pending_gm' : 'pending_hr';
+                                        if ( $approval_level >= 3 ) {
+                                            $status_key = 'pending_finance';
+                                        } elseif ( $approval_level >= 2 ) {
+                                            $status_key = 'pending_hr';
+                                        } elseif ( $requester_is_dept_manager ) {
+                                            $status_key = 'pending_gm';
                                         } else {
-                                            $status_key = $approval_level < 2 ? 'pending_manager' : 'pending_hr';
+                                            $status_key = 'pending_manager';
                                         }
                                     }
                                     echo Leave_UI::leave_status_chip( $status_key );
@@ -4706,6 +4889,37 @@ public function render_calendar(): void {
                                 <?php else : ?>
                                     <div class="notice notice-info inline" style="margin:0;">
                                         <p><?php esc_html_e( 'This leave request requires HR final approval.', 'sfs-hr' ); ?></p>
+                                    </div>
+                                <?php endif; ?>
+
+                            <?php elseif ( $approval_stage === 'finance' ) : ?>
+                                <h3><?php esc_html_e( 'Finance Approval', 'sfs-hr' ); ?></h3>
+                                <p class="description" style="margin-bottom:15px;">
+                                    <?php
+                                    printf(
+                                        esc_html__( 'This employee has %d active loan(s). Finance approval is required.', 'sfs-hr' ),
+                                        $has_active_loans
+                                    );
+                                    ?>
+                                </p>
+                                <?php if ( $can_approve ) : ?>
+                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                                        <input type="hidden" name="action" value="sfs_hr_leave_approve" />
+                                        <?php wp_nonce_field( 'sfs_hr_leave_approve', '_wpnonce' ); ?>
+                                        <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
+                                        <button type="submit" class="button button-primary"><?php esc_html_e( 'Approve (Finance)', 'sfs-hr' ); ?></button>
+                                        <input type="text" name="note" placeholder="<?php esc_attr_e( 'Note (optional)', 'sfs-hr' ); ?>" style="width:300px;" />
+                                    </form>
+                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;margin-top:10px;" onsubmit="return sfsHrConfirmReject(this);">
+                                        <input type="hidden" name="action" value="sfs_hr_leave_reject" />
+                                        <?php wp_nonce_field( 'sfs_hr_leave_reject', '_wpnonce' ); ?>
+                                        <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
+                                        <input type="text" name="note" class="reject-note-input" placeholder="<?php esc_attr_e( 'Reason (required)', 'sfs-hr' ); ?>" style="width:300px;" />
+                                        <button type="submit" class="button"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>
+                                    </form>
+                                <?php else : ?>
+                                    <div class="notice notice-info inline" style="margin:0;">
+                                        <p><?php esc_html_e( 'This leave request requires Finance approval.', 'sfs-hr' ); ?></p>
                                     </div>
                                 <?php endif; ?>
                             <?php endif; ?>
