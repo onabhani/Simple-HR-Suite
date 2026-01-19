@@ -15,6 +15,7 @@ class LeaveModule {
 
         add_action('admin_post_sfs_hr_leave_approve',        [$this, 'handle_approve']);
         add_action('admin_post_sfs_hr_leave_reject',         [$this, 'handle_reject']);
+        add_action('admin_post_sfs_hr_leave_cancel',         [$this, 'handle_cancel']);
         add_action('admin_post_sfs_hr_leave_addtype',        [$this, 'handle_add_type']);
         add_action('admin_post_sfs_hr_leave_deltype',        [$this, 'handle_delete_type']);
         add_action('admin_post_sfs_hr_leave_markannual',     [$this, 'handle_mark_annual']);
@@ -100,7 +101,7 @@ public function render_leave_page(): void {
 public function render_requests(): void {
     global $wpdb;
 
-    $status = isset($_GET['status']) ? sanitize_key($_GET['status']) : 'pending';
+    $status = isset($_GET['status']) ? sanitize_key($_GET['status']) : 'all';
     $page   = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
     $search = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
     $pp     = 20;
@@ -324,37 +325,8 @@ public function render_requests(): void {
                             <?php endif; ?>
                         </td>
                         <td class="hide-mobile"><?php echo $this->fmt_dt($r['created_at'] ?? ''); ?></td>
-                        <td class="hide-mobile">
-                            <?php if ($r['status'] === 'pending' && $can_approve): ?>
-                                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline;">
-                                    <input type="hidden" name="action" value="sfs_hr_leave_approve"/>
-                                    <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonceA); ?>"/>
-                                    <input type="hidden" name="id" value="<?php echo (int)$r['id']; ?>"/>
-                                    <button class="button button-primary button-small"><?php esc_html_e('Approve', 'sfs-hr'); ?></button>
-                                </form>
-                                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline;margin-left:4px;" id="reject-form-<?php echo (int)$r['id']; ?>" onsubmit="return sfsHrPromptRejectReason(this);">
-                                    <input type="hidden" name="action" value="sfs_hr_leave_reject"/>
-                                    <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonceR); ?>"/>
-                                    <input type="hidden" name="id" value="<?php echo (int)$r['id']; ?>"/>
-                                    <input type="hidden" name="note" class="reject-note-input" value=""/>
-                                    <button class="button button-small"><?php esc_html_e('Reject', 'sfs-hr'); ?></button>
-                                </form>
-                            <?php elseif ($r['status'] === 'pending'): ?>
-                                <span style="color:#666;"><?php esc_html_e('Not assigned to you', 'sfs-hr'); ?></span>
-                            <?php else: ?>
-                                <?php
-                                    $by = $r['approver_id'] ? get_user_by('id', (int)$r['approver_id']) : null;
-                                    $byName = $by ? $by->display_name : '—';
-                                    echo esc_html($byName);
-                                    // Show rejection reason if rejected
-                                    if ($r['status'] === 'rejected' && !empty($r['approver_note'])):
-                                ?>
-                                    <br><small style="color:#b32d2e;"><strong><?php esc_html_e('Reason:', 'sfs-hr'); ?></strong> <?php echo esc_html($r['approver_note']); ?></small>
-                                <?php endif; ?>
-                            <?php endif; ?>
-                        </td>
-                        <td class="show-mobile">
-                            <button type="button" class="sfs-hr-action-btn" onclick="sfsHrShowLeaveModal(<?php echo esc_attr($idx); ?>)">&#8942;</button>
+                        <td>
+                            <a href="?page=sfs-hr-leave-requests&action=view&id=<?php echo (int)$r['id']; ?>" class="sfs-hr-action-btn" title="<?php esc_attr_e('View Details', 'sfs-hr'); ?>">👁</a>
                         </td>
                     </tr>
                 <?php endforeach; endif; ?>
@@ -1354,6 +1326,60 @@ public function handle_reject(): void {
             $row['start_date'], $row['end_date'], $note ?: __('Not specified','sfs-hr')));
 
     wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending&ok=1')); exit;
+}
+
+/**
+ * Handle leave request cancellation
+ */
+public function handle_cancel(): void {
+    $id = isset( $_POST['id'] ) ? (int) $_POST['id'] : 0;
+    check_admin_referer( 'sfs_hr_leave_cancel_' . $id );
+
+    if ( $id <= 0 ) {
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&err=' . rawurlencode( __( 'Invalid request.', 'sfs-hr' ) ) ) );
+        exit;
+    }
+
+    global $wpdb;
+    $req_t = $wpdb->prefix . 'sfs_hr_leave_requests';
+    $emp_t = $wpdb->prefix . 'sfs_hr_employees';
+
+    $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $req_t WHERE id=%d", $id ), ARRAY_A );
+    if ( ! $row || $row['status'] !== 'pending' ) {
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&err=' . rawurlencode( __( 'Request not found or already processed.', 'sfs-hr' ) ) ) );
+        exit;
+    }
+
+    // Check permissions: requester can cancel their own, HR can cancel any
+    $empInfo = $wpdb->get_row( $wpdb->prepare( "SELECT user_id FROM $emp_t WHERE id=%d", (int) $row['employee_id'] ), ARRAY_A );
+    $current_uid = get_current_user_id();
+    $is_hr = current_user_can( 'sfs_hr.manage' );
+    $is_requester = ( (int) ( $empInfo['user_id'] ?? 0 ) === $current_uid );
+
+    if ( ! $is_hr && ! $is_requester ) {
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&err=' . rawurlencode( __( 'You do not have permission to cancel this request.', 'sfs-hr' ) ) ) );
+        exit;
+    }
+
+    // Update status to cancelled
+    $wpdb->update(
+        $req_t,
+        [
+            'status'      => 'cancelled',
+            'approver_id' => $current_uid,
+            'decided_at'  => Helpers::now_mysql(),
+            'updated_at'  => Helpers::now_mysql(),
+        ],
+        [ 'id' => $id ]
+    );
+
+    // Log to history
+    self::log_event( $id, 'cancelled', [
+        'by' => $is_requester ? __( 'Requester', 'sfs-hr' ) : __( 'HR', 'sfs-hr' ),
+    ] );
+
+    wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&ok=1' ) );
+    exit;
 }
 
 
@@ -3204,6 +3230,15 @@ if (!$has_idx) {
     // Permission check
     \SFS\HR\Core\Helpers::require_cap( 'sfs_hr.leave.review' );
 
+    // Check for detail view action
+    $action = isset( $_GET['action'] ) ? sanitize_key( $_GET['action'] ) : '';
+    $request_id = isset( $_GET['id'] ) ? (int) $_GET['id'] : 0;
+
+    if ( $action === 'view' && $request_id > 0 ) {
+        $this->render_leave_detail( $request_id );
+        return;
+    }
+
     // Which tab?
     $tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'requests';
 
@@ -4389,6 +4424,352 @@ public function render_calendar(): void {
         ), ARRAY_A );
 
         return $results ?: [];
+    }
+
+    /**
+     * Render leave request detail page (like loans detail)
+     */
+    private function render_leave_detail( int $request_id ): void {
+        global $wpdb;
+
+        $req_t   = $wpdb->prefix . 'sfs_hr_leave_requests';
+        $emp_t   = $wpdb->prefix . 'sfs_hr_employees';
+        $types_t = $wpdb->prefix . 'sfs_hr_leave_types';
+        $dept_t  = $wpdb->prefix . 'sfs_hr_departments';
+
+        // Fetch leave request with employee and type info
+        $request = $wpdb->get_row( $wpdb->prepare(
+            "SELECT r.*,
+                    e.first_name, e.last_name, e.employee_code, e.user_id as emp_user_id, e.dept_id,
+                    t.name as type_name,
+                    d.name as department_name, d.manager_user_id
+             FROM {$req_t} r
+             JOIN {$emp_t} e ON e.id = r.employee_id
+             JOIN {$types_t} t ON t.id = r.type_id
+             LEFT JOIN {$dept_t} d ON d.id = e.dept_id
+             WHERE r.id = %d",
+            $request_id
+        ) );
+
+        if ( ! $request ) {
+            echo '<div class="wrap"><div class="notice notice-error"><p>' . esc_html__( 'Leave request not found.', 'sfs-hr' ) . '</p></div></div>';
+            return;
+        }
+
+        // Get history
+        $history = self::get_history( $request_id );
+
+        // Determine approval state
+        $approval_level = (int) ( $request->approval_level ?? 1 );
+        $requester_is_dept_manager = ( (int) $request->manager_user_id === (int) $request->emp_user_id );
+
+        // Determine who can approve
+        $current_uid = get_current_user_id();
+        $is_gm = current_user_can( 'sfs_hr_loans_gm_approve' );
+        $is_hr = current_user_can( 'sfs_hr.manage' );
+        $managed_depts = $this->manager_dept_ids_for_user( $current_uid );
+        $is_dept_manager = ! empty( $managed_depts ) && in_array( (int) $request->dept_id, $managed_depts, true );
+
+        // Can approve?
+        $can_approve = false;
+        $approval_stage = '';
+        if ( $request->status === 'pending' ) {
+            if ( $requester_is_dept_manager ) {
+                // Dept manager leave: Level 1 = GM, Level 2 = HR
+                if ( $approval_level < 2 ) {
+                    $approval_stage = 'gm';
+                    $can_approve = $is_gm;
+                } else {
+                    $approval_stage = 'hr';
+                    $can_approve = $is_hr;
+                }
+            } else {
+                // Normal employee: Level 1 = Manager, Level 2 = HR
+                if ( $approval_level < 2 ) {
+                    $approval_stage = 'manager';
+                    $can_approve = $is_dept_manager;
+                } else {
+                    $approval_stage = 'hr';
+                    $can_approve = $is_hr || $is_gm;
+                }
+            }
+            // Can't approve self
+            if ( (int) $request->emp_user_id === $current_uid ) {
+                $can_approve = false;
+            }
+        }
+
+        // Can cancel? (requester can cancel their own pending request)
+        $can_cancel = ( $request->status === 'pending' && (int) $request->emp_user_id === $current_uid );
+        // HR can also cancel
+        if ( $request->status === 'pending' && $is_hr ) {
+            $can_cancel = true;
+        }
+
+        // Get approver name if decided
+        $approver_name = '';
+        if ( ! empty( $request->approver_id ) ) {
+            $approver_user = get_user_by( 'id', (int) $request->approver_id );
+            if ( $approver_user ) {
+                $approver_name = $approver_user->display_name;
+            }
+        }
+
+        $employee_name = trim( $request->first_name . ' ' . $request->last_name );
+        $nonce_approve = wp_create_nonce( 'sfs_hr_leave_approve' );
+        $nonce_reject = wp_create_nonce( 'sfs_hr_leave_reject' );
+        $nonce_cancel = wp_create_nonce( 'sfs_hr_leave_cancel_' . $request_id );
+
+        ?>
+        <div class="wrap sfs-hr-wrap">
+            <h1 class="wp-heading-inline">
+                <?php echo esc_html( $employee_name ); ?> - <?php echo esc_html( $request->type_name ); ?>
+                <a href="?page=sfs-hr-leave-requests&tab=requests" class="page-title-action"><?php esc_html_e( '← Back to List', 'sfs-hr' ); ?></a>
+            </h1>
+
+            <?php \SFS\HR\Core\Helpers::render_admin_nav(); ?>
+
+            <hr class="wp-header-end" />
+
+            <?php if ( isset( $_GET['updated'] ) ) : ?>
+                <div class="notice notice-success is-dismissible">
+                    <p><?php esc_html_e( 'Leave request updated successfully.', 'sfs-hr' ); ?></p>
+                </div>
+            <?php endif; ?>
+
+            <style>
+                .sfs-leave-detail-grid {
+                    display: flex;
+                    gap: 20px;
+                    margin-top: 20px;
+                }
+                .sfs-leave-detail-main {
+                    flex: 2;
+                    min-width: 0;
+                }
+                .sfs-leave-detail-sidebar {
+                    flex: 1;
+                    min-width: 300px;
+                }
+                @media (max-width: 1200px) {
+                    .sfs-leave-detail-grid {
+                        flex-direction: column;
+                    }
+                    .sfs-leave-detail-sidebar {
+                        min-width: 100%;
+                    }
+                }
+            </style>
+
+            <div class="sfs-leave-detail-grid">
+                <div class="sfs-leave-detail-main">
+                    <!-- Leave Information Card -->
+                    <div style="background:#fff;padding:20px;border:1px solid #ccc;border-radius:4px;">
+                        <h2><?php esc_html_e( 'Leave Information', 'sfs-hr' ); ?></h2>
+
+                        <table class="form-table">
+                            <tr>
+                                <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
+                                <td>
+                                    <a href="?page=sfs-hr-employee-profile&employee_id=<?php echo (int) $request->employee_id; ?>" style="text-decoration:none;">
+                                        <strong><?php echo esc_html( $employee_name ); ?></strong>
+                                    </a>
+                                    <br><small><?php echo esc_html( $request->employee_code ); ?> - <?php echo esc_html( $request->department_name ?: __( 'No Department', 'sfs-hr' ) ); ?></small>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><?php esc_html_e( 'Leave Type', 'sfs-hr' ); ?></th>
+                                <td><strong><?php echo esc_html( $request->type_name ); ?></strong></td>
+                            </tr>
+                            <tr>
+                                <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
+                                <td>
+                                    <?php
+                                    $status_key = $request->status;
+                                    if ( $status_key === 'pending' ) {
+                                        if ( $requester_is_dept_manager ) {
+                                            $status_key = $approval_level < 2 ? 'pending_gm' : 'pending_hr';
+                                        } else {
+                                            $status_key = $approval_level < 2 ? 'pending_manager' : 'pending_hr';
+                                        }
+                                    }
+                                    echo Leave_UI::leave_status_chip( $status_key );
+                                    ?>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><?php esc_html_e( 'Dates', 'sfs-hr' ); ?></th>
+                                <td>
+                                    <strong><?php echo esc_html( wp_date( 'F j, Y', strtotime( $request->start_date ) ) ); ?></strong>
+                                    →
+                                    <strong><?php echo esc_html( wp_date( 'F j, Y', strtotime( $request->end_date ) ) ); ?></strong>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><?php esc_html_e( 'Days', 'sfs-hr' ); ?></th>
+                                <td><strong><?php echo (int) $request->days; ?></strong> <?php esc_html_e( 'days', 'sfs-hr' ); ?></td>
+                            </tr>
+                            <tr>
+                                <th><?php esc_html_e( 'Reason', 'sfs-hr' ); ?></th>
+                                <td><?php echo esc_html( $request->reason ?: '—' ); ?></td>
+                            </tr>
+                            <tr>
+                                <th><?php esc_html_e( 'Created', 'sfs-hr' ); ?></th>
+                                <td><?php echo esc_html( wp_date( 'F j, Y g:i a', strtotime( $request->created_at ) ) ); ?></td>
+                            </tr>
+                            <?php if ( $request->status !== 'pending' && $approver_name ) : ?>
+                                <tr>
+                                    <th><?php echo $request->status === 'rejected' ? esc_html__( 'Rejected by', 'sfs-hr' ) : esc_html__( 'Approved by', 'sfs-hr' ); ?></th>
+                                    <td>
+                                        <?php echo esc_html( $approver_name ); ?>
+                                        <?php if ( $request->decided_at ) : ?>
+                                            <br><small><?php echo esc_html( wp_date( 'F j, Y g:i a', strtotime( $request->decided_at ) ) ); ?></small>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
+                            <?php if ( $request->status === 'rejected' && $request->approver_note ) : ?>
+                                <tr>
+                                    <th><?php esc_html_e( 'Rejection Reason', 'sfs-hr' ); ?></th>
+                                    <td style="color:#b32d2e;"><?php echo esc_html( $request->approver_note ); ?></td>
+                                </tr>
+                            <?php endif; ?>
+                        </table>
+
+                        <!-- Approval Actions -->
+                        <?php if ( $request->status === 'pending' ) : ?>
+                            <hr style="margin: 30px 0;">
+
+                            <?php if ( $approval_stage === 'gm' ) : ?>
+                                <h3><?php esc_html_e( 'GM Approval', 'sfs-hr' ); ?></h3>
+                                <?php if ( $can_approve ) : ?>
+                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                                        <input type="hidden" name="action" value="sfs_hr_leave_approve" />
+                                        <?php wp_nonce_field( 'sfs_hr_leave_approve', '_wpnonce' ); ?>
+                                        <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
+                                        <button type="submit" class="button button-primary"><?php esc_html_e( 'Approve (GM)', 'sfs-hr' ); ?></button>
+                                        <input type="text" name="note" placeholder="<?php esc_attr_e( 'Note (optional)', 'sfs-hr' ); ?>" style="width:300px;" />
+                                    </form>
+                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;margin-top:10px;" onsubmit="return sfsHrConfirmReject(this);">
+                                        <input type="hidden" name="action" value="sfs_hr_leave_reject" />
+                                        <?php wp_nonce_field( 'sfs_hr_leave_reject', '_wpnonce' ); ?>
+                                        <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
+                                        <input type="text" name="note" class="reject-note-input" placeholder="<?php esc_attr_e( 'Reason (required)', 'sfs-hr' ); ?>" style="width:300px;" />
+                                        <button type="submit" class="button"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>
+                                    </form>
+                                <?php else : ?>
+                                    <div class="notice notice-info inline" style="margin:0;">
+                                        <p><?php esc_html_e( 'This department manager leave request requires GM approval.', 'sfs-hr' ); ?></p>
+                                    </div>
+                                <?php endif; ?>
+
+                            <?php elseif ( $approval_stage === 'manager' ) : ?>
+                                <h3><?php esc_html_e( 'Manager Approval', 'sfs-hr' ); ?></h3>
+                                <?php if ( $can_approve ) : ?>
+                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                                        <input type="hidden" name="action" value="sfs_hr_leave_approve" />
+                                        <?php wp_nonce_field( 'sfs_hr_leave_approve', '_wpnonce' ); ?>
+                                        <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
+                                        <button type="submit" class="button button-primary"><?php esc_html_e( 'Approve (Manager)', 'sfs-hr' ); ?></button>
+                                        <input type="text" name="note" placeholder="<?php esc_attr_e( 'Note (optional)', 'sfs-hr' ); ?>" style="width:300px;" />
+                                    </form>
+                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;margin-top:10px;" onsubmit="return sfsHrConfirmReject(this);">
+                                        <input type="hidden" name="action" value="sfs_hr_leave_reject" />
+                                        <?php wp_nonce_field( 'sfs_hr_leave_reject', '_wpnonce' ); ?>
+                                        <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
+                                        <input type="text" name="note" class="reject-note-input" placeholder="<?php esc_attr_e( 'Reason (required)', 'sfs-hr' ); ?>" style="width:300px;" />
+                                        <button type="submit" class="button"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>
+                                    </form>
+                                <?php else : ?>
+                                    <div class="notice notice-info inline" style="margin:0;">
+                                        <p><?php esc_html_e( 'This leave request requires Department Manager approval.', 'sfs-hr' ); ?></p>
+                                    </div>
+                                <?php endif; ?>
+
+                            <?php elseif ( $approval_stage === 'hr' ) : ?>
+                                <h3><?php esc_html_e( 'HR Final Approval', 'sfs-hr' ); ?></h3>
+                                <?php if ( $can_approve ) : ?>
+                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                                        <input type="hidden" name="action" value="sfs_hr_leave_approve" />
+                                        <?php wp_nonce_field( 'sfs_hr_leave_approve', '_wpnonce' ); ?>
+                                        <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
+                                        <button type="submit" class="button button-primary"><?php esc_html_e( 'Approve (HR)', 'sfs-hr' ); ?></button>
+                                        <input type="text" name="note" placeholder="<?php esc_attr_e( 'Note (optional)', 'sfs-hr' ); ?>" style="width:300px;" />
+                                    </form>
+                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;margin-top:10px;" onsubmit="return sfsHrConfirmReject(this);">
+                                        <input type="hidden" name="action" value="sfs_hr_leave_reject" />
+                                        <?php wp_nonce_field( 'sfs_hr_leave_reject', '_wpnonce' ); ?>
+                                        <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
+                                        <input type="text" name="note" class="reject-note-input" placeholder="<?php esc_attr_e( 'Reason (required)', 'sfs-hr' ); ?>" style="width:300px;" />
+                                        <button type="submit" class="button"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>
+                                    </form>
+                                <?php else : ?>
+                                    <div class="notice notice-info inline" style="margin:0;">
+                                        <p><?php esc_html_e( 'This leave request requires HR final approval.', 'sfs-hr' ); ?></p>
+                                    </div>
+                                <?php endif; ?>
+                            <?php endif; ?>
+
+                            <?php if ( $can_cancel ) : ?>
+                                <hr style="margin: 20px 0;">
+                                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php esc_attr_e( 'Are you sure you want to cancel this leave request?', 'sfs-hr' ); ?>');">
+                                    <input type="hidden" name="action" value="sfs_hr_leave_cancel" />
+                                    <?php wp_nonce_field( 'sfs_hr_leave_cancel_' . $request_id, '_wpnonce' ); ?>
+                                    <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
+                                    <button type="submit" class="button" style="color:#b32d2e;"><?php esc_html_e( 'Cancel Request', 'sfs-hr' ); ?></button>
+                                </form>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <!-- Sidebar: History -->
+                <div class="sfs-leave-detail-sidebar">
+                    <div style="background:#fff;padding:20px;border:1px solid #ccc;border-radius:4px;">
+                        <h2><?php esc_html_e( 'Leave History', 'sfs-hr' ); ?></h2>
+                        <?php if ( ! empty( $history ) ) : ?>
+                            <div style="max-height:600px;overflow-y:auto;">
+                                <?php foreach ( $history as $event ) : ?>
+                                    <div style="border-bottom:1px solid #eee;padding:10px 0;">
+                                        <div style="font-size:11px;color:#666;"><?php echo esc_html( wp_date( 'M j, Y g:i a', strtotime( $event['created_at'] ) ) ); ?></div>
+                                        <div style="font-weight:600;margin:4px 0;"><?php echo esc_html( str_replace( '_', ' ', ucwords( $event['event_type'], '_' ) ) ); ?></div>
+                                        <div style="font-size:12px;color:#555;"><?php echo esc_html( $event['user_name'] ?: __( 'System', 'sfs-hr' ) ); ?></div>
+                                        <?php
+                                        if ( $event['meta'] ) {
+                                            $meta = json_decode( $event['meta'], true );
+                                            if ( is_array( $meta ) && ! empty( $meta ) ) {
+                                                echo '<div style="font-size:11px;margin-top:6px;background:#f9f9f9;padding:6px;border-radius:3px;">';
+                                                foreach ( $meta as $key => $value ) {
+                                                    $label = ucwords( str_replace( '_', ' ', $key ) );
+                                                    echo '<strong>' . esc_html( $label ) . ':</strong> ' . esc_html( $value ) . '<br>';
+                                                }
+                                                echo '</div>';
+                                            }
+                                        }
+                                        ?>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php else : ?>
+                            <p style="color:#666;"><?php esc_html_e( 'No history available.', 'sfs-hr' ); ?></p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+            function sfsHrConfirmReject(form) {
+                var noteInput = form.querySelector('.reject-note-input');
+                if (!noteInput.value.trim()) {
+                    alert('<?php echo esc_js( __( 'Rejection reason is required.', 'sfs-hr' ) ); ?>');
+                    noteInput.focus();
+                    return false;
+                }
+                return confirm('<?php echo esc_js( __( 'Are you sure you want to reject this leave request?', 'sfs-hr' ) ); ?>');
+            }
+            </script>
+        </div>
+        <?php
     }
 
 }
