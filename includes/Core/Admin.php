@@ -22,6 +22,7 @@ class Admin {
     add_action( 'admin_post_sfs_hr_toggle_qr',          [ $this, 'handle_toggle_qr' ] );
     add_action( 'admin_post_sfs_hr_download_qr_card',   [ $this, 'handle_download_qr_card' ] );
     add_action( 'admin_post_sfs_hr_save_notification_settings', [ $this, 'handle_save_notification_settings' ] );
+    add_action( 'admin_post_sfs_hr_document_settings_save', [ $this, 'handle_document_settings_save' ] );
 
     // Role→Department sync
     add_action( 'admin_post_sfs_hr_sync_dept_members',  [ $this, 'handle_sync_dept_members' ] );
@@ -5165,12 +5166,18 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                    class="nav-tab <?php echo $tab === 'notifications' ? 'nav-tab-active' : ''; ?>">
                     <?php esc_html_e( 'Notifications', 'sfs-hr' ); ?>
                 </a>
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-settings&tab=documents' ) ); ?>"
+                   class="nav-tab <?php echo $tab === 'documents' ? 'nav-tab-active' : ''; ?>">
+                    <?php esc_html_e( 'Documents', 'sfs-hr' ); ?>
+                </a>
             </nav>
 
             <div class="sfs-hr-settings-content" style="margin-top: 20px;">
                 <?php
                 if ( $tab === 'notifications' ) {
                     $this->render_notification_settings( $settings );
+                } elseif ( $tab === 'documents' ) {
+                    $this->render_document_settings();
                 }
                 ?>
             </div>
@@ -5646,6 +5653,173 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             admin_url( 'admin.php?page=sfs-hr-settings&tab=notifications' ),
             'success',
             __( 'Notification settings saved successfully.', 'sfs-hr' )
+        );
+    }
+
+    /**
+     * Render document settings tab
+     */
+    private function render_document_settings(): void {
+        $all_types = \SFS\HR\Modules\Documents\Services\Documents_Service::get_all_document_types();
+        $settings = \SFS\HR\Modules\Documents\Services\Documents_Service::get_document_type_settings();
+        ?>
+        <style>
+            .sfs-hr-settings-form { max-width: 900px; }
+            .sfs-hr-settings-section {
+                background: #fff;
+                border: 1px solid #c3c4c7;
+                border-radius: 4px;
+                padding: 20px;
+                margin-bottom: 20px;
+            }
+            .sfs-hr-settings-section h2 {
+                margin: 0 0 15px 0;
+                padding: 0 0 10px 0;
+                border-bottom: 1px solid #eee;
+                font-size: 16px;
+            }
+            .sfs-doc-types-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            .sfs-doc-types-table th,
+            .sfs-doc-types-table td {
+                padding: 12px 15px;
+                text-align: left;
+                border-bottom: 1px solid #eee;
+            }
+            .sfs-doc-types-table th {
+                background: #f9f9f9;
+                font-weight: 600;
+            }
+            .sfs-doc-types-table tr:hover {
+                background: #f9f9f9;
+            }
+            .sfs-doc-required-badge {
+                display: inline-block;
+                padding: 2px 8px;
+                border-radius: 3px;
+                font-size: 11px;
+                font-weight: 600;
+                margin-left: 8px;
+            }
+            .sfs-doc-required-badge--required {
+                background: #fef2f2;
+                color: #991b1b;
+            }
+            .sfs-doc-required-badge--optional {
+                background: #f0fdf4;
+                color: #166534;
+            }
+        </style>
+
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="sfs-hr-settings-form">
+            <input type="hidden" name="action" value="sfs_hr_document_settings_save" />
+            <?php wp_nonce_field( 'sfs_hr_document_settings' ); ?>
+
+            <div class="sfs-hr-settings-section">
+                <h2><?php esc_html_e( 'Required Document Types', 'sfs-hr' ); ?></h2>
+                <p class="description" style="margin-bottom:15px;">
+                    <?php esc_html_e( 'Configure which document types are enabled and which are required for employees. Required documents will show notifications if missing.', 'sfs-hr' ); ?>
+                </p>
+
+                <table class="sfs-doc-types-table">
+                    <thead>
+                        <tr>
+                            <th style="width:40%;"><?php esc_html_e( 'Document Type', 'sfs-hr' ); ?></th>
+                            <th style="width:20%;"><?php esc_html_e( 'Enabled', 'sfs-hr' ); ?></th>
+                            <th style="width:20%;"><?php esc_html_e( 'Required', 'sfs-hr' ); ?></th>
+                            <th style="width:20%;"><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ( $all_types as $type_key => $type_label ) :
+                            $is_enabled = ! empty( $settings[ $type_key ]['enabled'] );
+                            $is_required = ! empty( $settings[ $type_key ]['required'] );
+                        ?>
+                            <tr>
+                                <td>
+                                    <strong><?php echo esc_html( $type_label ); ?></strong>
+                                    <code style="margin-left:8px;font-size:11px;color:#666;"><?php echo esc_html( $type_key ); ?></code>
+                                </td>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="doc_types[<?php echo esc_attr( $type_key ); ?>][enabled]" value="1" <?php checked( $is_enabled ); ?> />
+                                        <?php esc_html_e( 'Enabled', 'sfs-hr' ); ?>
+                                    </label>
+                                </td>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="doc_types[<?php echo esc_attr( $type_key ); ?>][required]" value="1" <?php checked( $is_required ); ?> />
+                                        <?php esc_html_e( 'Required', 'sfs-hr' ); ?>
+                                    </label>
+                                </td>
+                                <td>
+                                    <?php if ( $is_enabled && $is_required ) : ?>
+                                        <span class="sfs-doc-required-badge sfs-doc-required-badge--required"><?php esc_html_e( 'Required', 'sfs-hr' ); ?></span>
+                                    <?php elseif ( $is_enabled ) : ?>
+                                        <span class="sfs-doc-required-badge sfs-doc-required-badge--optional"><?php esc_html_e( 'Optional', 'sfs-hr' ); ?></span>
+                                    <?php else : ?>
+                                        <span style="color:#999;"><?php esc_html_e( 'Disabled', 'sfs-hr' ); ?></span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <p class="submit">
+                <button type="submit" class="button button-primary"><?php esc_html_e( 'Save Document Settings', 'sfs-hr' ); ?></button>
+            </p>
+        </form>
+
+        <script>
+        jQuery(function($) {
+            // Auto-uncheck required if enabled is unchecked
+            $('input[name$="[enabled]"]').on('change', function() {
+                if (!this.checked) {
+                    $(this).closest('tr').find('input[name$="[required]"]').prop('checked', false);
+                }
+            });
+            // Auto-check enabled if required is checked
+            $('input[name$="[required]"]').on('change', function() {
+                if (this.checked) {
+                    $(this).closest('tr').find('input[name$="[enabled]"]').prop('checked', true);
+                }
+            });
+        });
+        </script>
+        <?php
+    }
+
+    /**
+     * Handle document settings save
+     */
+    public function handle_document_settings_save(): void {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'Permission denied', 'sfs-hr' ) );
+        }
+
+        check_admin_referer( 'sfs_hr_document_settings' );
+
+        $doc_types = isset( $_POST['doc_types'] ) && is_array( $_POST['doc_types'] ) ? $_POST['doc_types'] : [];
+        $settings = [];
+
+        foreach ( $doc_types as $type_key => $type_settings ) {
+            $type_key = sanitize_key( $type_key );
+            $settings[ $type_key ] = [
+                'enabled'  => ! empty( $type_settings['enabled'] ),
+                'required' => ! empty( $type_settings['required'] ),
+            ];
+        }
+
+        \SFS\HR\Modules\Documents\Services\Documents_Service::save_document_type_settings( $settings );
+
+        Helpers::redirect_with_notice(
+            admin_url( 'admin.php?page=sfs-hr-settings&tab=documents' ),
+            'success',
+            __( 'Document settings saved successfully.', 'sfs-hr' )
         );
     }
 }

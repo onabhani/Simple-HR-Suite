@@ -75,6 +75,9 @@ class Documents_Tab {
         $document_types = Documents_Service::get_document_types();
         $upload_nonce = wp_create_nonce('sfs_hr_upload_document_' . $employee_id);
 
+        // Get document status summary
+        $doc_status = Documents_Service::get_employee_document_status($employee_id);
+
         // For employees: get only uploadable document types
         $uploadable_types = null;
         if ($is_self_service) {
@@ -89,6 +92,13 @@ class Documents_Tab {
 
         ?>
         <div class="sfs-hr-documents-wrap">
+            <?php
+            // Show document status summary for HR admins
+            if ($is_hr_admin && !$is_self_service) {
+                $this->render_document_status_summary($employee_id, $doc_status);
+            }
+            ?>
+
             <?php if ($can_upload): ?>
                 <?php
                 if ($is_self_service) {
@@ -101,6 +111,95 @@ class Documents_Tab {
 
             <?php $this->render_documents_list($grouped, $document_types, $employee_id, $page, $can_delete, $current_user_id, $can_request_update); ?>
         </div>
+        <?php
+    }
+
+    /**
+     * Render document status summary (for HR admins)
+     */
+    private function render_document_status_summary(int $employee_id, array $doc_status): void {
+        $has_issues = $doc_status['has_issues'];
+        $missing = $doc_status['missing_types'];
+        $expired = $doc_status['expired_count'];
+        $expiring_soon = $doc_status['expiring_soon_count'];
+
+        if (!$has_issues && empty($missing)) {
+            ?>
+            <div class="sfs-hr-doc-status-box sfs-hr-doc-status-box--ok">
+                <span class="dashicons dashicons-yes-alt" style="color:#16a34a;"></span>
+                <?php esc_html_e('All required documents are uploaded and valid.', 'sfs-hr'); ?>
+            </div>
+            <?php
+            return;
+        }
+        ?>
+        <div class="sfs-hr-doc-status-box sfs-hr-doc-status-box--warning">
+            <h4 style="margin:0 0 10px 0;display:flex;align-items:center;gap:8px;">
+                <span class="dashicons dashicons-warning" style="color:#dc2626;"></span>
+                <?php esc_html_e('Document Issues', 'sfs-hr'); ?>
+            </h4>
+
+            <?php if (!empty($missing)): ?>
+                <div class="sfs-hr-doc-issue-section">
+                    <strong style="color:#dc2626;"><?php esc_html_e('Missing Required Documents:', 'sfs-hr'); ?></strong>
+                    <ul style="margin:5px 0 15px 20px;">
+                        <?php foreach ($missing as $type_key => $type_label): ?>
+                            <li><?php echo esc_html($type_label); ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($expired > 0): ?>
+                <div class="sfs-hr-doc-issue-section">
+                    <strong style="color:#dc2626;">
+                        <?php printf(esc_html(_n('%d Expired Document', '%d Expired Documents', $expired, 'sfs-hr')), $expired); ?>
+                    </strong>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($expiring_soon > 0): ?>
+                <div class="sfs-hr-doc-issue-section">
+                    <strong style="color:#d97706;">
+                        <?php printf(esc_html(_n('%d Document Expiring Soon', '%d Documents Expiring Soon', $expiring_soon, 'sfs-hr')), $expiring_soon); ?>
+                    </strong>
+                </div>
+            <?php endif; ?>
+
+            <?php if (!empty($missing)): ?>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-top:15px;" onsubmit="return confirm('<?php echo esc_js(__('Send reminder email to employee about missing documents?', 'sfs-hr')); ?>');">
+                    <input type="hidden" name="action" value="sfs_hr_send_document_reminder" />
+                    <input type="hidden" name="employee_id" value="<?php echo (int)$employee_id; ?>" />
+                    <?php wp_nonce_field('sfs_hr_send_document_reminder_' . $employee_id); ?>
+                    <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;">
+                        <input type="text" name="custom_message" placeholder="<?php esc_attr_e('Optional message to employee...', 'sfs-hr'); ?>" style="width:300px;" />
+                        <button type="submit" class="button button-secondary">
+                            <span class="dashicons dashicons-email-alt" style="vertical-align:middle;margin-top:-2px;"></span>
+                            <?php esc_html_e('Send Reminder', 'sfs-hr'); ?>
+                        </button>
+                    </div>
+                </form>
+            <?php endif; ?>
+        </div>
+        <style>
+            .sfs-hr-doc-status-box {
+                padding: 15px;
+                border-radius: 6px;
+                margin-bottom: 20px;
+            }
+            .sfs-hr-doc-status-box--ok {
+                background: #f0fdf4;
+                border: 1px solid #86efac;
+                color: #166534;
+            }
+            .sfs-hr-doc-status-box--warning {
+                background: #fef2f2;
+                border: 1px solid #fecaca;
+            }
+            .sfs-hr-doc-issue-section {
+                margin-bottom: 10px;
+            }
+        </style>
         <?php
     }
 

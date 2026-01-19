@@ -181,6 +181,14 @@ class Shortcodes {
         $emp_id
     ) ) > 0;
 
+    // Check for missing required documents
+    $missing_docs = [];
+    $missing_docs_count = 0;
+    if ( class_exists( '\SFS\HR\Modules\Documents\Services\Documents_Service' ) ) {
+        $missing_docs = \SFS\HR\Modules\Documents\Services\Documents_Service::get_missing_required_documents( (int) $emp_id );
+        $missing_docs_count = count( $missing_docs );
+    }
+
     // Calculate profile completion percentage
     $profile_fields = [
         'photo'       => $photo_id > 0,
@@ -660,6 +668,9 @@ class Shortcodes {
                             <a href="<?php echo esc_url( $documents_url ); ?>" class="sfs-hr-quick-link">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
                                 <span data-i18n-key="my_documents"><?php esc_html_e( 'My Documents', 'sfs-hr' ); ?></span>
+                                <?php if ( $missing_docs_count > 0 ) : ?>
+                                    <span class="sfs-hr-notification-dot" title="<?php echo esc_attr( sprintf( _n( '%d missing document', '%d missing documents', $missing_docs_count, 'sfs-hr' ), $missing_docs_count ) ); ?>"></span>
+                                <?php endif; ?>
                                 <svg class="sfs-hr-quick-link-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                             </a>
                         </div>
@@ -1908,6 +1919,30 @@ class Shortcodes {
     }
 }
 
+/* Notification dot for missing documents */
+.sfs-hr-notification-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background-color: #dc2626;
+    border-radius: 50%;
+    margin-left: 6px;
+    flex-shrink: 0;
+    animation: sfs-hr-pulse 2s infinite;
+}
+@keyframes sfs-hr-pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* Quick link with notification */
+.sfs-hr-quick-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
 
 
     </style>
@@ -3162,8 +3197,31 @@ private function render_frontend_documents_tab( int $emp_id ): void {
     $document_types = $documents_service::get_document_types();
     $uploadable_types = $documents_service::get_uploadable_document_types_for_employee( $emp_id );
 
+    // Check for missing required documents
+    $missing_docs = $documents_service::get_missing_required_documents( $emp_id );
+
     ?>
     <div class="sfs-hr-documents-tab" style="margin-top:20px;">
+
+        <?php if ( ! empty( $missing_docs ) ) : ?>
+            <!-- Missing Documents Alert -->
+            <div class="sfs-hr-missing-docs-alert" style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:15px;margin-bottom:20px;">
+                <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <span style="color:#dc2626;font-size:20px;">⚠️</span>
+                    <div style="flex:1;">
+                        <strong style="color:#991b1b;display:block;margin-bottom:8px;"><?php esc_html_e( 'Missing Required Documents', 'sfs-hr' ); ?></strong>
+                        <p style="color:#7f1d1d;margin:0 0 10px;font-size:14px;">
+                            <?php esc_html_e( 'Please upload the following required documents:', 'sfs-hr' ); ?>
+                        </p>
+                        <ul style="margin:0;padding-left:20px;color:#991b1b;">
+                            <?php foreach ( $missing_docs as $type_key => $type_label ) : ?>
+                                <li><?php echo esc_html( $type_label ); ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
 
         <!-- Upload Form (for uploadable types only) -->
         <?php if ( ! empty( $uploadable_types ) ) : ?>
