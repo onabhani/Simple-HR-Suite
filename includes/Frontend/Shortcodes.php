@@ -201,6 +201,7 @@ class Shortcodes {
         'hire_date'   => $hire_date !== '',
         'national_id' => $national_id !== '',
         'emergency'   => $emg_name !== '' && $emg_phone !== '',
+        'documents'   => $missing_docs_count === 0,
     ];
     $profile_completed = array_filter($profile_fields);
     $profile_completion_pct = round((count($profile_completed) / count($profile_fields)) * 100);
