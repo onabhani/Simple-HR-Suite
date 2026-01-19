@@ -140,6 +140,7 @@ add_action('admin_init', function(){
     $loans_table          = $wpdb->prefix . 'sfs_hr_loans';
     $loan_payments_table  = $wpdb->prefix . 'sfs_hr_loan_payments';
     $loan_history_table   = $wpdb->prefix . 'sfs_hr_loan_history';
+    $leave_history_table  = $wpdb->prefix . 'sfs_hr_leave_request_history';
 
     // Hiring module tables
     $candidates_table     = $wpdb->prefix . 'sfs_hr_candidates';
@@ -179,6 +180,7 @@ add_action('admin_init', function(){
         !$table_exists($loans_table)          ||
         !$table_exists($loan_payments_table)  ||
         !$table_exists($loan_history_table)   ||
+        !$table_exists($leave_history_table)  ||
 
         // Hiring module
         !$table_exists($candidates_table)     ||

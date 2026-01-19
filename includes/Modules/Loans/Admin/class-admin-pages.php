@@ -1849,8 +1849,34 @@ class AdminPages {
                 </div>
             <?php endif; ?>
 
-            <div style="background:#fff;padding:20px;border:1px solid #ccc;border-radius:4px;margin-top:20px;">
-                <h2><?php esc_html_e( 'Loan Information', 'sfs-hr' ); ?></h2>
+            <style>
+                .sfs-loan-detail-grid {
+                    display: flex;
+                    gap: 20px;
+                    margin-top: 20px;
+                }
+                .sfs-loan-detail-main {
+                    flex: 2;
+                    min-width: 0;
+                }
+                .sfs-loan-detail-sidebar {
+                    flex: 1;
+                    min-width: 300px;
+                }
+                @media (max-width: 1200px) {
+                    .sfs-loan-detail-grid {
+                        flex-direction: column;
+                    }
+                    .sfs-loan-detail-sidebar {
+                        min-width: 100%;
+                    }
+                }
+            </style>
+
+            <div class="sfs-loan-detail-grid">
+                <div class="sfs-loan-detail-main">
+                    <div style="background:#fff;padding:20px;border:1px solid #ccc;border-radius:4px;">
+                        <h2><?php esc_html_e( 'Loan Information', 'sfs-hr' ); ?></h2>
 
                 <table class="form-table">
                     <tr>
@@ -2061,36 +2087,26 @@ class AdminPages {
                     </table>
                 </div>
             <?php endif; ?>
+                </div><!-- /.sfs-loan-detail-main -->
 
-            <!-- History -->
-            <?php if ( ! empty( $history ) ) : ?>
-                <div style="background:#fff;padding:20px;border:1px solid #ccc;border-radius:4px;margin-top:20px;">
-                    <h2><?php esc_html_e( 'Loan History', 'sfs-hr' ); ?></h2>
-                    <table class="wp-list-table widefat fixed striped">
-                        <thead>
-                            <tr>
-                                <th><?php esc_html_e( 'Date', 'sfs-hr' ); ?></th>
-                                <th><?php esc_html_e( 'User', 'sfs-hr' ); ?></th>
-                                <th><?php esc_html_e( 'Event', 'sfs-hr' ); ?></th>
-                                <th><?php esc_html_e( 'Details', 'sfs-hr' ); ?></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ( $history as $event ) : ?>
-                                <tr>
-                                    <td><?php echo esc_html( wp_date( 'M j, Y g:i a', strtotime( $event->created_at ) ) ); ?></td>
-                                    <td><?php echo esc_html( $event->user_name ?: __( 'System', 'sfs-hr' ) ); ?></td>
-                                    <td><strong><?php echo esc_html( str_replace( '_', ' ', ucwords( $event->event_type, '_' ) ) ); ?></strong></td>
-                                    <td>
+                <!-- Sidebar: History -->
+                <div class="sfs-loan-detail-sidebar">
+                    <?php if ( ! empty( $history ) ) : ?>
+                        <div style="background:#fff;padding:20px;border:1px solid #ccc;border-radius:4px;">
+                            <h2><?php esc_html_e( 'Loan History', 'sfs-hr' ); ?></h2>
+                            <div style="max-height:600px;overflow-y:auto;">
+                                <?php foreach ( $history as $event ) : ?>
+                                    <div style="border-bottom:1px solid #eee;padding:10px 0;">
+                                        <div style="font-size:11px;color:#666;"><?php echo esc_html( wp_date( 'M j, Y g:i a', strtotime( $event->created_at ) ) ); ?></div>
+                                        <div style="font-weight:600;margin:4px 0;"><?php echo esc_html( str_replace( '_', ' ', ucwords( $event->event_type, '_' ) ) ); ?></div>
+                                        <div style="font-size:12px;color:#555;"><?php echo esc_html( $event->user_name ?: __( 'System', 'sfs-hr' ) ); ?></div>
                                         <?php
                                         if ( $event->meta ) {
                                             $meta = json_decode( $event->meta, true );
                                             if ( is_array( $meta ) && ! empty( $meta ) ) {
-                                                echo '<div style="font-size:12px;">';
+                                                echo '<div style="font-size:11px;margin-top:6px;background:#f9f9f9;padding:6px;border-radius:3px;">';
                                                 foreach ( $meta as $key => $value ) {
-                                                    // Format key (convert snake_case to Title Case)
                                                     $label = ucwords( str_replace( '_', ' ', $key ) );
-                                                    // Format value
                                                     if ( is_numeric( $value ) && $key !== 'installments' ) {
                                                         $display_value = number_format( (float) $value, 2 );
                                                     } else {
@@ -2102,13 +2118,13 @@ class AdminPages {
                                             }
                                         }
                                         ?>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            <?php endif; ?>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                </div><!-- /.sfs-loan-detail-sidebar -->
+            </div><!-- /.sfs-loan-detail-grid -->
         </div>
         <?php
     }
