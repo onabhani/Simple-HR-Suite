@@ -1850,7 +1850,7 @@ public function handle_cancel(): void {
                   <label><?php esc_html_e('≥ 5 years','sfs-hr'); ?>:
                     <input type="number" name="annual_ge5" min="0" value="<?php echo (int)$ge5; ?>" style="width:100px"/>
                   </label>
-                  <p class="description"><?php esc_html_e('Applied only to leave types marked "Annual (Tenure-based)". Uses employee hire_date or hired_at; if both missing, falls back to the type's Annual Quota.','sfs-hr'); ?></p>
+                  <p class="description"><?php esc_html_e('Applied only to leave types marked "Annual (Tenure-based)". Uses employee hire_date or hired_at; if both missing, falls back to the type\'s Annual Quota.','sfs-hr'); ?></p>
                 </td>
               </tr>
               <tr>
