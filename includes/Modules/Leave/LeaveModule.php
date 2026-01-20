@@ -4819,6 +4819,24 @@ public function render_calendar(): void {
             }
         }
 
+        // Get department manager name for display
+        $dept_manager_name = '';
+        if ( ! empty( $request->manager_user_id ) ) {
+            $manager_user = get_user_by( 'id', (int) $request->manager_user_id );
+            if ( $manager_user ) {
+                $dept_manager_name = $manager_user->display_name;
+            }
+        }
+
+        // Get finance approver name for display
+        $finance_approver_name = '';
+        if ( $finance_approver_id > 0 ) {
+            $finance_user = get_user_by( 'id', $finance_approver_id );
+            if ( $finance_user ) {
+                $finance_approver_name = $finance_user->display_name;
+            }
+        }
+
         $employee_name = trim( $request->first_name . ' ' . $request->last_name );
         $nonce_approve = wp_create_nonce( 'sfs_hr_leave_approve' );
         $nonce_reject = wp_create_nonce( 'sfs_hr_leave_reject' );
@@ -4990,7 +5008,16 @@ public function render_calendar(): void {
                                     </form>
                                 <?php else : ?>
                                     <div class="notice notice-info inline" style="margin:0;">
-                                        <p><?php esc_html_e( 'This leave request requires Department Manager approval.', 'sfs-hr' ); ?></p>
+                                        <p><?php
+                                            if ( $dept_manager_name ) {
+                                                printf(
+                                                    esc_html__( 'This leave request requires approval from %s.', 'sfs-hr' ),
+                                                    '<strong>' . esc_html( $dept_manager_name ) . '</strong>'
+                                                );
+                                            } else {
+                                                esc_html_e( 'This leave request requires Department Manager approval.', 'sfs-hr' );
+                                            }
+                                        ?></p>
                                     </div>
                                 <?php endif; ?>
 
@@ -5044,7 +5071,16 @@ public function render_calendar(): void {
                                     </form>
                                 <?php else : ?>
                                     <div class="notice notice-info inline" style="margin:0;">
-                                        <p><?php esc_html_e( 'This leave request requires Finance approval.', 'sfs-hr' ); ?></p>
+                                        <p><?php
+                                            if ( $finance_approver_name ) {
+                                                printf(
+                                                    esc_html__( 'This leave request requires approval from %s (Finance).', 'sfs-hr' ),
+                                                    '<strong>' . esc_html( $finance_approver_name ) . '</strong>'
+                                                );
+                                            } else {
+                                                esc_html_e( 'This leave request requires Finance approval.', 'sfs-hr' );
+                                            }
+                                        ?></p>
                                     </div>
                                 <?php endif; ?>
                             <?php endif; ?>
