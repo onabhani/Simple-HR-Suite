@@ -1105,6 +1105,7 @@ public function handle_approve(): void {
 
         // HR/GM stage (final) - enforce manager-first if applicable
         $dept_has_manager = false;
+        $mgr_uid = 0;
         if ( ! empty( $empInfo['dept_id'] ) ) {
             $mgr_uid = (int) $wpdb->get_var(
                 $wpdb->prepare(
@@ -1117,6 +1118,54 @@ public function handle_approve(): void {
             }
         }
 
+        // Check if current HR/GM user is also the department manager
+        $current_is_dept_manager = ( $mgr_uid > 0 && $mgr_uid === $current_uid );
+
+        // If user is also the department manager and request is at level 1,
+        // allow them to approve as manager (even though they also have HR capabilities)
+        if ( $current_is_dept_manager && $approval_level < 2 ) {
+            $new_chain = $this->append_approval_chain(
+                $row['approval_chain'] ?? null,
+                [
+                    'by'     => $current_uid,
+                    'role'   => 'manager',
+                    'action' => 'approve',
+                    'note'   => $note,
+                ]
+            );
+
+            $wpdb->update(
+                $req_t,
+                [
+                    'approval_level' => 2,
+                    'approver_id'    => $current_uid,
+                    'approver_note'  => $note,
+                    'approval_chain' => $new_chain,
+                    'updated_at'     => Helpers::now_mysql(),
+                ],
+                ['id' => $id]
+            );
+
+            do_action('sfs_hr_leave_request_status_changed', $id, 'pending', 'pending_hr');
+            self::log_event( $id, 'manager_approved', [
+                'note' => __('Manager approved, escalated to HR', 'sfs-hr'),
+            ]);
+
+            $this->notify_hr_users(
+                __('Leave request waiting HR approval', 'sfs-hr'),
+                sprintf(
+                    __('Manager approved leave request (%s → %s, %d days). Please review.', 'sfs-hr'),
+                    $row['start_date'],
+                    $row['end_date'],
+                    (int) $row['days']
+                )
+            );
+
+            wp_safe_redirect( add_query_arg( 'ok', 1, $redirect_base ) );
+            exit;
+        }
+
+        // Block non-manager HR users from approving at level 1 when department has a manager
         if ( $dept_has_manager && $approval_level < 2 ) {
             wp_safe_redirect(
                 add_query_arg(
