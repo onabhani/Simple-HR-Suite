@@ -72,6 +72,7 @@ class ShiftSwapModule {
         if (!$table_exists) {
             $wpdb->query("CREATE TABLE IF NOT EXISTS {$table} (
                 id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                request_number VARCHAR(50) NULL COMMENT 'Reference number like SS-2026-0001',
                 requester_id BIGINT(20) UNSIGNED NOT NULL COMMENT 'Employee requesting the swap',
                 requester_shift_id BIGINT(20) UNSIGNED NOT NULL COMMENT 'Shift assignment of requester',
                 requester_date DATE NOT NULL,
@@ -87,12 +88,85 @@ class ShiftSwapModule {
                 created_at DATETIME NOT NULL,
                 updated_at DATETIME NOT NULL,
                 PRIMARY KEY (id),
+                UNIQUE KEY request_number (request_number),
                 KEY requester_id (requester_id),
                 KEY target_id (target_id),
                 KEY status (status),
                 KEY requester_date (requester_date),
                 KEY target_date (target_date)
             ) {$charset_collate}");
+        }
+
+        // Add request_number column if missing (for existing tables)
+        self::add_column_if_missing($wpdb, $table, 'request_number', "request_number VARCHAR(50) NULL COMMENT 'Reference number like SS-2026-0001' AFTER id");
+        self::add_unique_key_if_missing($wpdb, $table, 'request_number');
+        self::backfill_shift_swap_request_numbers($wpdb);
+    }
+
+    /**
+     * Add column if missing
+     */
+    private static function add_column_if_missing(\wpdb $wpdb, string $table, string $col, string $ddl): void {
+        $exists = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$table} LIKE %s", $col));
+        if (!$exists) {
+            $wpdb->query("ALTER TABLE {$table} ADD COLUMN {$ddl}");
+        }
+    }
+
+    /**
+     * Add unique key if missing
+     */
+    private static function add_unique_key_if_missing(\wpdb $wpdb, string $table, string $key_name): void {
+        $index_exists = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE table_schema = DATABASE() AND table_name = %s AND index_name = %s",
+            $table, $key_name
+        ));
+        if ((int)$index_exists === 0) {
+            $col_exists = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$table} LIKE %s", $key_name));
+            if ($col_exists) {
+                $wpdb->query("ALTER TABLE `$table` ADD UNIQUE KEY `$key_name` (`$key_name`)");
+            }
+        }
+    }
+
+    /**
+     * Generate reference number for shift swap requests
+     */
+    public static function generate_shift_swap_request_number(): string {
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_shift_swaps';
+        $year = wp_date('Y');
+
+        $count = (int)$wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM `$table` WHERE request_number LIKE %s",
+                'SS-' . $year . '-%'
+            )
+        );
+
+        $sequence = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
+        return 'SS-' . $year . '-' . $sequence;
+    }
+
+    /**
+     * Backfill reference numbers for existing shift swap requests
+     */
+    private static function backfill_shift_swap_request_numbers(\wpdb $wpdb): void {
+        $table = $wpdb->prefix . 'sfs_hr_shift_swaps';
+        $missing = $wpdb->get_results(
+            "SELECT id, created_at FROM `$table` WHERE request_number IS NULL OR request_number = '' ORDER BY id ASC"
+        );
+        foreach ($missing as $row) {
+            $year = $row->created_at ? date('Y', strtotime($row->created_at)) : wp_date('Y');
+            $count = (int)$wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT COUNT(*) FROM `$table` WHERE request_number LIKE %s",
+                    'SS-' . $year . '-%'
+                )
+            );
+            $sequence = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
+            $number = 'SS-' . $year . '-' . $sequence;
+            $wpdb->update($table, ['request_number' => $number], ['id' => $row->id]);
         }
     }
 

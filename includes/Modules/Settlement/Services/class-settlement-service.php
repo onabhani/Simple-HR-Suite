@@ -122,6 +122,9 @@ class Settlement_Service {
         $table = $wpdb->prefix . 'sfs_hr_settlements';
         $now = current_time('mysql');
 
+        // Generate reference number
+        $request_number = self::generate_settlement_request_number();
+
         $wpdb->insert($table, [
             'employee_id'       => $data['employee_id'],
             'resignation_id'    => $data['resignation_id'],
@@ -137,12 +140,33 @@ class Settlement_Service {
             'deductions'        => $data['deductions'],
             'deduction_notes'   => $data['deduction_notes'],
             'total_settlement'  => $data['total_settlement'],
+            'request_number'    => $request_number,
             'status'            => 'pending',
             'created_at'        => $now,
             'updated_at'        => $now,
         ]);
 
         return $wpdb->insert_id;
+    }
+
+    /**
+     * Generate reference number for settlement requests
+     * Format: ST-YYYY-NNNN (e.g., ST-2026-0001)
+     */
+    public static function generate_settlement_request_number(): string {
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_settlements';
+        $year = wp_date('Y');
+
+        $count = (int)$wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM `$table` WHERE request_number LIKE %s",
+                'ST-' . $year . '-%'
+            )
+        );
+
+        $sequence = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
+        return 'ST-' . $year . '-' . $sequence;
     }
 
     /**

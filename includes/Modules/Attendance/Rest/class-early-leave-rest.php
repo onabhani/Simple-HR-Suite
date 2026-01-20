@@ -129,6 +129,9 @@ class Early_Leave_Rest {
 
         $now = current_time( 'mysql' );
 
+        // Generate reference number
+        $request_number = AttendanceModule::generate_early_leave_request_number();
+
         $data = [
             'employee_id'          => $emp_id,
             'session_id'           => $session ? $session->id : null,
@@ -138,6 +141,7 @@ class Early_Leave_Rest {
             'reason_type'          => $reason_type,
             'reason_note'          => $reason_note,
             'status'               => 'pending',
+            'request_number'       => $request_number,
             'manager_id'           => $manager_id,
             'affects_salary'       => 0,
             'created_at'           => $now,
@@ -154,9 +158,10 @@ class Early_Leave_Rest {
         // TODO: Send notification to manager
 
         return rest_ensure_response( [
-            'success'    => true,
-            'request_id' => $request_id,
-            'message'    => __( 'Early leave request submitted successfully.', 'sfs-hr' ),
+            'success'        => true,
+            'request_id'     => $request_id,
+            'request_number' => $request_number,
+            'message'        => __( 'Early leave request submitted successfully.', 'sfs-hr' ),
         ] );
     }
 

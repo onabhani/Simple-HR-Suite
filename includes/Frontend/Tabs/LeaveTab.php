@@ -731,6 +731,7 @@ class LeaveTab implements TabInterface {
             }
 
             $display_rows[] = [
+                'request_number'=> $row->request_number ?? '',
                 'type_name'     => $type_name,
                 'period'        => $period,
                 'days'          => $days,
@@ -754,6 +755,7 @@ class LeaveTab implements TabInterface {
         echo '<div class="sfs-hr-leaves-desktop">';
         echo '<table class="sfs-hr-table sfs-hr-leave-table" style="margin-top:8px;">';
         echo '<thead><tr>';
+        echo '<th data-i18n-key="ref">' . esc_html__( 'Ref #', 'sfs-hr' ) . '</th>';
         echo '<th data-i18n-key="type">' . esc_html__( 'Type', 'sfs-hr' ) . '</th>';
         echo '<th data-i18n-key="period">' . esc_html__( 'Period', 'sfs-hr' ) . '</th>';
         echo '<th data-i18n-key="days">' . esc_html__( 'Days', 'sfs-hr' ) . '</th>';
@@ -764,6 +766,7 @@ class LeaveTab implements TabInterface {
 
         foreach ( $display_rows as $r ) {
             echo '<tr>';
+            echo '<td><strong>' . esc_html( $r['request_number'] ?: '-' ) . '</strong></td>';
             echo '<td>' . esc_html( $r['type_name'] ) . '</td>';
             echo '<td>' . esc_html( $r['period'] ) . '</td>';
             echo '<td>' . esc_html( (string) $r['days'] ) . '</td>';
@@ -800,7 +803,11 @@ class LeaveTab implements TabInterface {
         foreach ( $display_rows as $r ) {
             echo '<details class="sfs-hr-leave-card">';
             echo '  <summary class="sfs-hr-leave-summary">';
-            echo '      <span class="sfs-hr-leave-summary-title">' . esc_html( $r['type_name'] ) . '</span>';
+            echo '      <span class="sfs-hr-leave-summary-title">';
+            if ( ! empty( $r['request_number'] ) ) {
+                echo '<strong>' . esc_html( $r['request_number'] ) . '</strong> - ';
+            }
+            echo esc_html( $r['type_name'] ) . '</span>';
             echo '      <span class="sfs-hr-leave-summary-status">';
             echo            $r['status_html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
             echo '      </span>';
