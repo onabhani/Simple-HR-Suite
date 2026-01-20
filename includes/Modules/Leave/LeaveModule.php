@@ -2997,12 +2997,23 @@ private function email_approvers_for_employee(int $employee_id, string $subject,
         }
     }
 
-    // Fallbacks
+    // Fallbacks - find all users with sfs_hr.manage capability
     if (!$emails) {
-        $admins = get_users(['role'=>'administrator','fields'=>['user_email']]);
-        foreach($admins as $u){ if ($u->user_email) $emails[] = $u->user_email; }
-        $hrmgrs = get_users(['role'=>'sfs_hr_manager','fields'=>['user_email']]);
-        foreach($hrmgrs as $u){ if ($u->user_email) $emails[] = $u->user_email; }
+        $roles_to_check = [];
+        $all_roles = wp_roles()->roles;
+        foreach ($all_roles as $role_slug => $role_data) {
+            if (!empty($role_data['capabilities']['sfs_hr.manage'])) {
+                $roles_to_check[] = $role_slug;
+            }
+        }
+        $hr_role = get_option('sfs_hr_global_approver_role', 'sfs_hr_manager');
+        $roles_to_check = array_unique(array_merge($roles_to_check, ['administrator', $hr_role, 'sfs_hr_manager']));
+        foreach ($roles_to_check as $role) {
+            $users = get_users(['role' => $role, 'fields' => ['user_email']]);
+            foreach ($users as $u) {
+                if ($u->user_email) $emails[] = $u->user_email;
+            }
+        }
     }
 
     // Also include configured HR emails from Core settings
@@ -3041,10 +3052,25 @@ private function email_approvers_for_employee(int $employee_id, string $subject,
     private function email_approvers(string $subject, string $msg): void {
         if (get_option('sfs_hr_leave_email','1')!=='1') return;
         $emails = [];
-        $admins = get_users(['role'=>'administrator','fields'=>['user_email']]);
-        foreach($admins as $u){ if ($u->user_email) $emails[] = $u->user_email; }
-        $mgrs = get_users(['role'=>'sfs_hr_manager','fields'=>['user_email']]);
-        foreach($mgrs as $u){ if ($u->user_email) $emails[] = $u->user_email; }
+
+        // Find all roles that have sfs_hr.manage capability
+        $roles_to_check = [];
+        $all_roles = wp_roles()->roles;
+        foreach ($all_roles as $role_slug => $role_data) {
+            if (!empty($role_data['capabilities']['sfs_hr.manage'])) {
+                $roles_to_check[] = $role_slug;
+            }
+        }
+        $hr_role = get_option('sfs_hr_global_approver_role', 'sfs_hr_manager');
+        $roles_to_check = array_unique(array_merge($roles_to_check, ['administrator', $hr_role, 'sfs_hr_manager']));
+
+        foreach ($roles_to_check as $role) {
+            $users = get_users(['role' => $role, 'fields' => ['user_email']]);
+            foreach ($users as $u) {
+                if ($u->user_email) $emails[] = $u->user_email;
+            }
+        }
+
         $emails = array_unique(array_filter($emails));
         foreach($emails as $to){ Helpers::send_mail($to, $subject, $msg); }
     }
@@ -3055,26 +3081,46 @@ private function email_approvers_for_employee(int $employee_id, string $subject,
     private function notify_hr_users(string $subject, string $msg): void {
         if (get_option('sfs_hr_leave_email','1')!=='1') return;
         $emails = [];
-        // Get administrators
-        $admins = get_users(['role'=>'administrator','fields'=>['ID', 'user_email']]);
-        foreach($admins as $u){
-            if ($u->user_email && user_can($u->ID, 'sfs_hr.manage')) {
-                $emails[] = $u->user_email;
+
+        // Find all roles that have sfs_hr.manage capability
+        $roles_to_check = [];
+        $all_roles = wp_roles()->roles;
+        foreach ($all_roles as $role_slug => $role_data) {
+            if (!empty($role_data['capabilities']['sfs_hr.manage'])) {
+                $roles_to_check[] = $role_slug;
             }
         }
-        // Get HR managers
-        $mgrs = get_users(['role'=>'sfs_hr_manager','fields'=>['ID', 'user_email']]);
-        foreach($mgrs as $u){
-            if ($u->user_email && user_can($u->ID, 'sfs_hr.manage')) {
-                $emails[] = $u->user_email;
+        // Always include these as fallback
+        $hr_role = get_option('sfs_hr_global_approver_role', 'sfs_hr_manager');
+        $roles_to_check = array_unique(array_merge($roles_to_check, ['administrator', $hr_role, 'sfs_hr_manager']));
+
+        // Get users from all roles with HR capabilities
+        foreach ($roles_to_check as $role) {
+            $users = get_users(['role' => $role, 'fields' => ['ID', 'user_email']]);
+            foreach ($users as $u) {
+                if ($u->user_email && user_can($u->ID, 'sfs_hr.manage')) {
+                    $emails[] = $u->user_email;
+                }
             }
         }
-        // Also check configured HR emails
+
+        // Also check configured HR emails from Leave settings
         $hr_emails = get_option('sfs_hr_leave_emails', '');
         if ($hr_emails) {
             $configured = array_filter(array_map('trim', explode(',', $hr_emails)));
             $emails = array_merge($emails, $configured);
         }
+
+        // Also include HR emails from Core Notification settings
+        $core_settings = CoreNotifications::get_settings();
+        if (($core_settings['hr_notification'] ?? true) && !empty($core_settings['hr_emails'])) {
+            foreach ($core_settings['hr_emails'] as $hr_email) {
+                if (is_email($hr_email)) {
+                    $emails[] = $hr_email;
+                }
+            }
+        }
+
         $emails = array_unique(array_filter($emails));
         foreach($emails as $to){ Helpers::send_mail($to, $subject, $msg); }
     }
