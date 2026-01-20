@@ -912,15 +912,31 @@ public function handle_approve(): void {
         exit;
     }
 
-    // Employee info
+    // Employee info (including name for notifications)
     $empInfo = $wpdb->get_row(
         $wpdb->prepare(
-            "SELECT user_id, dept_id, gender, COALESCE(hire_date, hired_at) AS hire
+            "SELECT user_id, dept_id, gender, COALESCE(hire_date, hired_at) AS hire,
+                    first_name, last_name, employee_code
              FROM $emp_t WHERE id=%d",
             (int) $row['employee_id']
         ),
         ARRAY_A
     );
+
+    // Get leave type name for notifications
+    $leave_type_name = $wpdb->get_var(
+        $wpdb->prepare("SELECT name FROM $types_t WHERE id=%d", (int) $row['type_id'])
+    );
+    $leave_type_name = $leave_type_name ?: __('Leave', 'sfs-hr');
+
+    // Get employee display name
+    $emp_name = trim(($empInfo['first_name'] ?? '') . ' ' . ($empInfo['last_name'] ?? ''));
+    if (empty($emp_name)) {
+        $emp_name = $empInfo['employee_code'] ?? __('Employee', 'sfs-hr');
+    }
+
+    // URL for reviewing the leave request
+    $leave_review_url = admin_url('admin.php?page=sfs-hr-leave-requests&action=view&id=' . $id);
 
     $current_uid     = get_current_user_id();
     // Separate GM and HR capabilities
@@ -1004,12 +1020,15 @@ public function handle_approve(): void {
 
             // Notify HR
             $this->notify_hr_users(
-                __('Leave request waiting HR approval', 'sfs-hr'),
+                sprintf(__('[Leave Request] %s - Waiting HR Approval', 'sfs-hr'), $emp_name),
                 sprintf(
-                    __('GM approved department manager leave request (%s → %s, %d days). Please review for final approval.', 'sfs-hr'),
+                    __("GM approved department manager leave request. Please review for final approval.\n\nEmployee: %s\nLeave Type: %s\nDates: %s → %s\nDuration: %d day(s)\n\nReview this request:\n%s", 'sfs-hr'),
+                    $emp_name,
+                    $leave_type_name,
                     $row['start_date'],
                     $row['end_date'],
-                    (int) $row['days']
+                    (int) $row['days'],
+                    $leave_review_url
                 )
             );
 
@@ -1090,12 +1109,15 @@ public function handle_approve(): void {
             ]);
 
             $this->notify_hr_users(
-                __('Leave request waiting HR approval', 'sfs-hr'),
+                sprintf(__('[Leave Request] %s - Waiting HR Approval', 'sfs-hr'), $emp_name),
                 sprintf(
-                    __('Manager approved leave request (%s → %s, %d days). Please review.', 'sfs-hr'),
+                    __("Manager approved leave request. Please review.\n\nEmployee: %s\nLeave Type: %s\nDates: %s → %s\nDuration: %d day(s)\n\nReview this request:\n%s", 'sfs-hr'),
+                    $emp_name,
+                    $leave_type_name,
                     $row['start_date'],
                     $row['end_date'],
-                    (int) $row['days']
+                    (int) $row['days'],
+                    $leave_review_url
                 )
             );
 
@@ -1152,12 +1174,15 @@ public function handle_approve(): void {
             ]);
 
             $this->notify_hr_users(
-                __('Leave request waiting HR approval', 'sfs-hr'),
+                sprintf(__('[Leave Request] %s - Waiting HR Approval', 'sfs-hr'), $emp_name),
                 sprintf(
-                    __('Manager approved leave request (%s → %s, %d days). Please review.', 'sfs-hr'),
+                    __("Manager approved leave request. Please review.\n\nEmployee: %s\nLeave Type: %s\nDates: %s → %s\nDuration: %d day(s)\n\nReview this request:\n%s", 'sfs-hr'),
+                    $emp_name,
+                    $leave_type_name,
                     $row['start_date'],
                     $row['end_date'],
-                    (int) $row['days']
+                    (int) $row['days'],
+                    $leave_review_url
                 )
             );
 

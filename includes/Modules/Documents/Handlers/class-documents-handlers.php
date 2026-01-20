@@ -346,11 +346,15 @@ class Documents_Handlers {
         if ($is_frontend && $referer) {
             // Frontend: redirect back to referer with documents tab
             $parsed = wp_parse_url($referer);
-            $base_url = $parsed['scheme'] . '://' . $parsed['host'] . ($parsed['path'] ?? '');
-            return add_query_arg([
-                'sfs_hr_tab' => 'documents',
-                $type => rawurlencode($message),
-            ], $base_url);
+            // Ensure wp_parse_url returned a valid array with required components
+            if (is_array($parsed) && !empty($parsed['scheme']) && !empty($parsed['host'])) {
+                $base_url = $parsed['scheme'] . '://' . $parsed['host'] . ($parsed['path'] ?? '');
+                return add_query_arg([
+                    'sfs_hr_tab' => 'documents',
+                    $type => rawurlencode($message),
+                ], $base_url);
+            }
+            // Fall through to admin URL if referer parsing fails
         }
 
         // Admin pages
