@@ -257,7 +257,8 @@ class AdminPages {
                                 data-first-due="<?php echo esc_attr( $loan->first_due_date ?: '' ); ?>"
                                 data-created="<?php echo esc_attr( $loan->created_at ); ?>">
                                 <td>
-                                    <span class="emp-name"><?php echo esc_html( $loan->employee_name ); ?></span>
+                                    <?php $profile_url = admin_url( 'admin.php?page=sfs-hr-employee-profile&employee_id=' . (int) $loan->employee_id ); ?>
+                                    <a href="<?php echo esc_url( $profile_url ); ?>" class="emp-name"><?php echo esc_html( $loan->employee_name ); ?></a>
                                     <span class="emp-code"><?php echo esc_html( $loan->employee_code ); ?></span>
                                 </td>
                                 <td class="hide-mobile">
@@ -484,7 +485,12 @@ class AdminPages {
             .sfs-hr-loans-table .emp-name {
                 display: block;
                 font-weight: 500;
-                color: #1d2327;
+                color: #2271b1;
+                text-decoration: none;
+            }
+            .sfs-hr-loans-table a.emp-name:hover {
+                color: #135e96;
+                text-decoration: underline;
             }
             .sfs-hr-loans-table .emp-code {
                 display: block;

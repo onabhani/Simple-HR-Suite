@@ -314,7 +314,8 @@ public function render_requests(): void {
                 ?>
                     <tr>
                         <td>
-                            <span class="emp-name"><?php echo esc_html(trim($r['first_name'] . ' ' . $r['last_name'])); ?></span>
+                            <?php $profile_url = admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . (int) $r['employee_id']); ?>
+                            <a href="<?php echo esc_url($profile_url); ?>" class="emp-name"><?php echo esc_html(trim($r['first_name'] . ' ' . $r['last_name'])); ?></a>
                             <span class="emp-code"><?php echo esc_html($r['employee_code']); ?></span>
                         </td>
                         <td class="hide-mobile"><?php echo esc_html($r['type_name']); ?></td>
@@ -689,7 +690,12 @@ private function output_leave_requests_styles(): void {
         .sfs-hr-leave-table .emp-name {
             display: block;
             font-weight: 500;
-            color: #1d2327;
+            color: #2271b1;
+            text-decoration: none;
+        }
+        .sfs-hr-leave-table a.emp-name:hover {
+            color: #135e96;
+            text-decoration: underline;
         }
         .sfs-hr-leave-table .emp-code {
             display: block;

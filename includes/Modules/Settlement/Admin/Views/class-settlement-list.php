@@ -80,7 +80,8 @@ class Settlement_List {
                                 <tr>
                                     <td class="hide-mobile"><?php echo esc_html($row['id']); ?></td>
                                     <td>
-                                        <span class="emp-name"><?php echo esc_html($emp_name); ?></span>
+                                        <?php $profile_url = admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . (int) $row['employee_id']); ?>
+                                        <a href="<?php echo esc_url($profile_url); ?>" class="emp-name"><?php echo esc_html($emp_name); ?></a>
                                         <span class="emp-code"><?php echo esc_html($row['employee_code']); ?></span>
                                     </td>
                                     <td class="hide-mobile"><?php echo esc_html($row['last_working_day']); ?></td>
@@ -183,7 +184,8 @@ class Settlement_List {
           }
           .sfs-hr-settlement-table .widefat td { padding: 12px 16px; vertical-align: middle; }
           .sfs-hr-settlement-table .widefat tbody tr:hover { background: #f8f9fa; }
-          .sfs-hr-settlement-table .emp-name { font-weight: 500; color: #1d2327; }
+          .sfs-hr-settlement-table .emp-name { font-weight: 500; color: #2271b1; text-decoration: none; }
+          .sfs-hr-settlement-table a.emp-name:hover { color: #135e96; text-decoration: underline; }
           .sfs-hr-settlement-table .emp-code { font-family: monospace; font-size: 11px; color: #50575e; display: block; margin-top: 2px; }
           .sfs-hr-settlement-table .amount { font-weight: 600; color: #1d2327; }
           .sfs-hr-settlement-actions { display: flex; gap: 6px; }
