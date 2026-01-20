@@ -106,7 +106,10 @@ class Resignation_List {
                                 data-level="<?php echo esc_attr($row['approval_level'] ?? 1); ?>"
                                 data-reason="<?php echo esc_attr($row['reason']); ?>">
                                 <td>
-                                    <span class="emp-name"><?php echo esc_html($row['first_name'] . ' ' . $row['last_name']); ?></span>
+                                    <?php
+                                    $profile_url = admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . (int) $row['employee_id']);
+                                    ?>
+                                    <a href="<?php echo esc_url($profile_url); ?>" class="emp-name"><?php echo esc_html($row['first_name'] . ' ' . $row['last_name']); ?></a>
                                     <span class="emp-code"><?php echo esc_html($row['employee_code']); ?></span>
                                     <?php
                                     if (class_exists('\SFS\HR\Modules\Loans\Admin\DashboardWidget')) {
@@ -220,7 +223,8 @@ class Resignation_List {
             .sfs-hr-resignation-table td { padding: 14px 16px; font-size: 13px; border-bottom: 1px solid #f0f0f1; vertical-align: middle; }
             .sfs-hr-resignation-table tbody tr:hover { background: #f9fafb; }
             .sfs-hr-resignation-table tbody tr:last-child td { border-bottom: none; }
-            .sfs-hr-resignation-table .emp-name { display: block; font-weight: 500; color: #1d2327; }
+            .sfs-hr-resignation-table .emp-name { display: block; font-weight: 500; color: #2271b1; text-decoration: none; }
+            .sfs-hr-resignation-table a.emp-name:hover { color: #135e96; text-decoration: underline; }
             .sfs-hr-resignation-table .emp-code { display: block; font-size: 11px; color: #787c82; margin-top: 2px; }
             .sfs-hr-resignation-table .empty-state { text-align: center; padding: 40px 20px; color: #787c82; }
             .sfs-hr-pill { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; line-height: 1.4; }

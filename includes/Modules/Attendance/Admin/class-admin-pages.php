@@ -2267,7 +2267,10 @@ public function render_exceptions(): void {
         <tbody>
           <?php foreach ($rows as $r): ?>
             <tr>
-              <td><?php echo esc_html( $r->display_name ?: ('#'.$r->employee_id) ); ?></td>
+              <td><?php
+                $profile_url = admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . (int) $r->employee_id);
+                $emp_label = $r->display_name ?: ('#'.$r->employee_id);
+              ?><a href="<?php echo esc_url($profile_url); ?>" style="color:#2271b1;text-decoration:none;font-weight:500;"><?php echo esc_html($emp_label); ?></a></td>
               <td><?php echo esc_html( $r->dept_name ); ?></td>
               <td><?php echo esc_html( $r->in_time ?: '-' ); ?></td>
               <td><?php echo esc_html( $r->out_time ?: '-' ); ?></td>
@@ -3253,7 +3256,9 @@ $time_local = \SFS\HR\Modules\Attendance\AttendanceModule::fmt_local($r->punch_t
 // Final row
 echo '<tr>';
 printf('<td>%d</td>', (int)$r->id);
-echo '<td>'.esc_html($r->display_name ?: ('#'.$r->employee_id)).'</td>';
+$profile_url_punch = admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . (int) $r->employee_id);
+$emp_label_punch = $r->display_name ?: ('#'.$r->employee_id);
+echo '<td><a href="'.esc_url($profile_url_punch).'" style="color:#2271b1;text-decoration:none;font-weight:500;">'.esc_html($emp_label_punch).'</a></td>';
 echo '<td>'.esc_html(($r->emp_code!==null && $r->emp_code!=='') ? $r->emp_code : ('#'.$r->employee_id)).'</td>';
 echo '<td>'.esc_html($type_label).'</td>';          // was punch_time
 echo '<td>'.esc_html($time_local).'</td>';          // was UTC; now local
@@ -3495,6 +3500,10 @@ if ( $rows ) {
         $in_local  = $r->in_time  ? \SFS\HR\Modules\Attendance\AttendanceModule::fmt_local($r->in_time)  : '-';
         $out_local = $r->out_time ? \SFS\HR\Modules\Attendance\AttendanceModule::fmt_local($r->out_time) : '-';
 
+        $profile_url_sess = admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . (int) $r->employee_id);
+        $emp_name_sess = esc_html( $r->display_name ?: '' );
+        $emp_link_sess = $emp_name_sess ? '<a href="'.esc_url($profile_url_sess).'" style="color:#2271b1;text-decoration:none;font-weight:500;">'.$emp_name_sess.'</a>' : '';
+
         printf(
             '<tr>
                 <td>%s</td>
@@ -3509,7 +3518,7 @@ if ( $rows ) {
                 <td>%s</td>
                 <td>%s</td>
             </tr>',
-            esc_html( $r->display_name ?: '' ),
+            $emp_link_sess,
             esc_html( ($r->employee_code !== null && $r->employee_code !== '') ? (string)$r->employee_code : '' ),
             esc_html( $in_local ),
             esc_html( $out_local ),
@@ -4009,7 +4018,13 @@ private function render_early_leave(): void {
                         <tr data-request-id="<?php echo intval($req->id); ?>">
                             <td><?php echo intval($req->id); ?></td>
                             <td>
-                                <strong><?php echo esc_html($req->employee_name ?: __('Unknown', 'sfs-hr')); ?></strong>
+                                <?php
+                                $profile_url_el = admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . (int) $req->employee_id);
+                                $emp_name_el = $req->employee_name ?: __('Unknown', 'sfs-hr');
+                                ?>
+                                <a href="<?php echo esc_url($profile_url_el); ?>" style="color:#2271b1;text-decoration:none;">
+                                    <strong><?php echo esc_html($emp_name_el); ?></strong>
+                                </a>
                                 <?php if ($req->emp_number): ?>
                                     <br><small class="description"><?php echo esc_html($req->emp_number); ?></small>
                                 <?php endif; ?>

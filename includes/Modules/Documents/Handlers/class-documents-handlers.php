@@ -18,6 +18,7 @@ class Documents_Handlers {
         add_action('admin_post_sfs_hr_upload_document', [$this, 'handle_upload']);
         add_action('admin_post_sfs_hr_delete_document', [$this, 'handle_delete']);
         add_action('admin_post_sfs_hr_request_document_update', [$this, 'handle_request_update']);
+        add_action('admin_post_sfs_hr_send_document_reminder', [$this, 'handle_send_reminder']);
         add_action('wp_ajax_sfs_hr_upload_document', [$this, 'ajax_upload']);
     }
 
@@ -257,6 +258,55 @@ class Documents_Handlers {
     }
 
     /**
+     * Handle sending document reminder to employee
+     */
+    public function handle_send_reminder(): void {
+        $employee_id = isset($_POST['employee_id']) ? (int)$_POST['employee_id'] : 0;
+        $custom_message = isset($_POST['custom_message']) ? sanitize_text_field($_POST['custom_message']) : '';
+
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['_wpnonce'] ?? '', 'sfs_hr_send_document_reminder_' . $employee_id)) {
+            wp_die(esc_html__('Security check failed.', 'sfs-hr'));
+        }
+
+        // Only HR/Admin can send reminders
+        if (!current_user_can('sfs_hr.manage')) {
+            wp_die(esc_html__('You do not have permission to send document reminders.', 'sfs-hr'));
+        }
+
+        // Get missing documents
+        $missing = Documents_Service::get_missing_required_documents($employee_id);
+
+        if (empty($missing)) {
+            $this->redirect_error($employee_id, 'sfs-hr-employee-profile', __('No missing documents to remind about.', 'sfs-hr'));
+            return;
+        }
+
+        // Send reminder
+        $result = Documents_Service::send_missing_documents_reminder($employee_id, $missing, $custom_message);
+
+        if ($result) {
+            // Log action
+            if (class_exists('\SFS\HR\Core\AuditTrail')) {
+                \SFS\HR\Core\AuditTrail::log(
+                    'document_reminder_sent',
+                    'employees',
+                    $employee_id,
+                    null,
+                    [
+                        'missing_types' => array_keys($missing),
+                        'custom_message' => $custom_message,
+                    ]
+                );
+            }
+
+            $this->redirect_success($employee_id, 'sfs-hr-employee-profile', __('Reminder email sent to employee.', 'sfs-hr'));
+        } else {
+            $this->redirect_error($employee_id, 'sfs-hr-employee-profile', __('Failed to send reminder. Employee may not have an email address.', 'sfs-hr'));
+        }
+    }
+
+    /**
      * AJAX upload handler
      */
     public function ajax_upload(): void {
@@ -296,11 +346,15 @@ class Documents_Handlers {
         if ($is_frontend && $referer) {
             // Frontend: redirect back to referer with documents tab
             $parsed = wp_parse_url($referer);
-            $base_url = $parsed['scheme'] . '://' . $parsed['host'] . ($parsed['path'] ?? '');
-            return add_query_arg([
-                'sfs_hr_tab' => 'documents',
-                $type => rawurlencode($message),
-            ], $base_url);
+            // Ensure wp_parse_url returned a valid array with required components
+            if (is_array($parsed) && !empty($parsed['scheme']) && !empty($parsed['host'])) {
+                $base_url = $parsed['scheme'] . '://' . $parsed['host'] . ($parsed['path'] ?? '');
+                return add_query_arg([
+                    'sfs_hr_tab' => 'documents',
+                    $type => rawurlencode($message),
+                ], $base_url);
+            }
+            // Fall through to admin URL if referer parsing fails
         }
 
         // Admin pages

@@ -224,6 +224,21 @@ class Migrations {
         self::add_column_if_missing($settle, 'document_clearance_status', "VARCHAR(20) NOT NULL DEFAULT 'pending'");
         self::add_column_if_missing($settle, 'finance_clearance_status', "VARCHAR(20) NOT NULL DEFAULT 'pending'");
 
+        /** LEAVE REQUEST HISTORY (audit trail) */
+        $leave_history = $wpdb->prefix.'sfs_hr_leave_request_history';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$leave_history` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `leave_request_id` BIGINT(20) UNSIGNED NOT NULL,
+            `created_at` DATETIME NOT NULL,
+            `user_id` BIGINT(20) UNSIGNED NULL,
+            `event_type` VARCHAR(50) NOT NULL,
+            `meta` LONGTEXT NULL,
+            PRIMARY KEY (`id`),
+            KEY `leave_request_id` (`leave_request_id`),
+            KEY `created_at` (`created_at`),
+            KEY `event_type` (`event_type`)
+        ) $charset");
+
         /** Seed Departments + assign */
         $has_dept = (int)$wpdb->get_var("SELECT COUNT(*) FROM `$dept`");
         if ($has_dept === 0) {

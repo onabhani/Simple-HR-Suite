@@ -10,22 +10,10 @@ if (!defined('ABSPATH')) { exit; }
 class Documents_Service {
 
     /**
-     * Get document types with labels
+     * Get document types with labels (returns enabled types only)
      */
     public static function get_document_types(): array {
-        return apply_filters('sfs_hr_document_types', [
-            'national_id'    => __('National ID', 'sfs-hr'),
-            'passport'       => __('Passport', 'sfs-hr'),
-            'visa'           => __('Visa / Work Permit', 'sfs-hr'),
-            'contract'       => __('Employment Contract', 'sfs-hr'),
-            'certificate'    => __('Certificate / Degree', 'sfs-hr'),
-            'training'       => __('Training Certificate', 'sfs-hr'),
-            'license'        => __('Professional License', 'sfs-hr'),
-            'medical'        => __('Medical Report', 'sfs-hr'),
-            'bank_details'   => __('Bank Details', 'sfs-hr'),
-            'photo'          => __('Photo / Headshot', 'sfs-hr'),
-            'other'          => __('Other', 'sfs-hr'),
-        ]);
+        return apply_filters('sfs_hr_document_types', self::get_enabled_document_types());
     }
 
     /**
@@ -458,5 +446,202 @@ class Documents_Service {
             $employee_id,
             wp_date('Y-m-d')
         ));
+    }
+
+    // =========================================================================
+    // Document Type Settings (HR Configurable)
+    // =========================================================================
+
+    const OPTION_DOCUMENT_SETTINGS = 'sfs_hr_document_type_settings';
+
+    /**
+     * Get all defined document types (base + custom)
+     */
+    public static function get_all_document_types(): array {
+        $base_types = [
+            'national_id'    => __('National ID', 'sfs-hr'),
+            'passport'       => __('Passport', 'sfs-hr'),
+            'driving_license'=> __('Driving License', 'sfs-hr'),
+            'visa'           => __('Visa / Work Permit', 'sfs-hr'),
+            'contract'       => __('Employment Contract', 'sfs-hr'),
+            'certificate'    => __('Certificate / Degree', 'sfs-hr'),
+            'training'       => __('Training Certificate', 'sfs-hr'),
+            'license'        => __('Professional License', 'sfs-hr'),
+            'medical'        => __('Medical Report', 'sfs-hr'),
+            'bank_details'   => __('Bank Details', 'sfs-hr'),
+            'photo'          => __('Photo / Headshot', 'sfs-hr'),
+            'other'          => __('Other', 'sfs-hr'),
+        ];
+        return apply_filters('sfs_hr_all_document_types', $base_types);
+    }
+
+    /**
+     * Get document type settings
+     */
+    public static function get_document_type_settings(): array {
+        $settings = get_option(self::OPTION_DOCUMENT_SETTINGS, []);
+
+        // Default settings if not configured
+        if (empty($settings)) {
+            $settings = [
+                'national_id' => ['enabled' => true, 'required' => true],
+                'passport'    => ['enabled' => true, 'required' => false],
+                'driving_license' => ['enabled' => true, 'required' => false],
+            ];
+        }
+
+        return $settings;
+    }
+
+    /**
+     * Save document type settings
+     */
+    public static function save_document_type_settings(array $settings): bool {
+        return update_option(self::OPTION_DOCUMENT_SETTINGS, $settings);
+    }
+
+    /**
+     * Get enabled document types (for use in forms)
+     */
+    public static function get_enabled_document_types(): array {
+        $all_types = self::get_all_document_types();
+        $settings = self::get_document_type_settings();
+        $enabled = [];
+
+        foreach ($all_types as $key => $label) {
+            if (!empty($settings[$key]['enabled'])) {
+                $enabled[$key] = $label;
+            }
+        }
+
+        // Always include 'other' if nothing enabled
+        if (empty($enabled)) {
+            $enabled['other'] = $all_types['other'] ?? __('Other', 'sfs-hr');
+        }
+
+        return $enabled;
+    }
+
+    /**
+     * Get required document types
+     */
+    public static function get_required_document_types(): array {
+        $all_types = self::get_all_document_types();
+        $settings = self::get_document_type_settings();
+        $required = [];
+
+        foreach ($all_types as $key => $label) {
+            if (!empty($settings[$key]['enabled']) && !empty($settings[$key]['required'])) {
+                $required[$key] = $label;
+            }
+        }
+
+        return $required;
+    }
+
+    /**
+     * Check if a document type is required
+     */
+    public static function is_document_type_required(string $type): bool {
+        $settings = self::get_document_type_settings();
+        return !empty($settings[$type]['enabled']) && !empty($settings[$type]['required']);
+    }
+
+    /**
+     * Get missing required documents for an employee
+     * Returns array of document type keys that are required but not uploaded
+     */
+    public static function get_missing_required_documents(int $employee_id): array {
+        $required_types = self::get_required_document_types();
+        $grouped_docs = self::get_documents_grouped($employee_id);
+        $missing = [];
+
+        foreach ($required_types as $type_key => $type_label) {
+            // Check if document exists and is valid (not expired)
+            $has_valid = false;
+            if (!empty($grouped_docs[$type_key])) {
+                foreach ($grouped_docs[$type_key] as $doc) {
+                    if (!self::is_document_expired($doc->expiry_date)) {
+                        $has_valid = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!$has_valid) {
+                $missing[$type_key] = $type_label;
+            }
+        }
+
+        return $missing;
+    }
+
+    /**
+     * Get document status summary for an employee
+     * Returns counts and missing document info
+     */
+    public static function get_employee_document_status(int $employee_id): array {
+        $required = self::get_required_document_types();
+        $missing = self::get_missing_required_documents($employee_id);
+        $documents = self::get_employee_documents($employee_id);
+
+        $expired_count = 0;
+        $expiring_soon_count = 0;
+
+        foreach ($documents as $doc) {
+            $status = self::get_expiry_status($doc->expiry_date);
+            if ($status['status'] === 'expired') {
+                $expired_count++;
+            } elseif ($status['status'] === 'expiring_soon') {
+                $expiring_soon_count++;
+            }
+        }
+
+        return [
+            'total_documents' => count($documents),
+            'required_count' => count($required),
+            'missing_count' => count($missing),
+            'missing_types' => $missing,
+            'expired_count' => $expired_count,
+            'expiring_soon_count' => $expiring_soon_count,
+            'has_issues' => count($missing) > 0 || $expired_count > 0,
+        ];
+    }
+
+    /**
+     * Send reminder email to employee about missing documents
+     */
+    public static function send_missing_documents_reminder(int $employee_id, array $missing_types, string $custom_message = ''): bool {
+        global $wpdb;
+        $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+
+        $employee = $wpdb->get_row($wpdb->prepare(
+            "SELECT e.*, u.user_email
+             FROM {$emp_table} e
+             LEFT JOIN {$wpdb->users} u ON u.ID = e.user_id
+             WHERE e.id = %d",
+            $employee_id
+        ));
+
+        if (!$employee || empty($employee->user_email)) {
+            return false;
+        }
+
+        $all_types = self::get_all_document_types();
+        $missing_labels = [];
+        foreach ($missing_types as $type_key => $label) {
+            $missing_labels[] = $all_types[$type_key] ?? $label;
+        }
+
+        $subject = __('Reminder: Missing Required Documents', 'sfs-hr');
+
+        $message = sprintf(
+            __("Dear %s,\n\nThis is a reminder that the following required documents are missing from your profile:\n\n• %s\n\nPlease upload these documents at your earliest convenience.\n\n%s\nThank you.", 'sfs-hr'),
+            trim($employee->first_name . ' ' . $employee->last_name),
+            implode("\n• ", $missing_labels),
+            $custom_message ? "\nNote from HR: " . $custom_message . "\n" : ''
+        );
+
+        return \SFS\HR\Core\Helpers::send_mail($employee->user_email, $subject, $message);
     }
 }

@@ -424,6 +424,9 @@ if ( $source === 'kiosk' && $scan_token !== '' ) {
         elseif  ( $punch_type === 'in'          && $st !== 'idle'  ) { $msg = 'Already clocked in.'; }
         elseif  ( $punch_type === 'break_start' && $st !== 'in'    ) { $msg = 'You can start a break only while clocked in.'; }
         elseif  ( $punch_type === 'break_end'   && $st !== 'break' ) { $msg = 'You have no active break to end.'; }
+        // Log for debugging
+        error_log( sprintf( '[SFS ATT] Invalid transition: emp=%d, requested=%s, state=%s, label=%s',
+            $emp, $punch_type, $st, $pre['label'] ?? 'unknown' ) );
         return new \WP_Error( 'invalid_transition', $msg, [ 'status' => 409 ] );
     }
     
@@ -716,6 +719,17 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
 
 $punch_id = (int) $wpdb->insert_id;
 
+// Check if insert failed
+if ( $punch_id === 0 ) {
+    $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
+    error_log( sprintf( '[SFS ATT] Punch insert failed for employee %d, type %s. DB error: %s', $emp, $punch_type, $wpdb->last_error ) );
+    return new \WP_Error(
+        'insert_failed',
+        'Failed to record punch. Please try again.',
+        [ 'status' => 500 ]
+    );
+}
+
 // Transient already set before insert to prevent race conditions
 // No need to set it again here
 
@@ -739,7 +753,7 @@ if ( $selfie_media_id ) {
         'actor_user_id'      => $uid,
         'action_type'        => 'punch.create',
         'target_employee_id' => (int) $emp,
-        'target_punch_id'    => (int) $wpdb->insert_id,
+        'target_punch_id'    => $punch_id,
         'target_session_id'  => null,
         'before_json'        => null,
         'after_json'         => wp_json_encode( [

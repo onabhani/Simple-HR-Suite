@@ -698,6 +698,7 @@ echo '<div class="wrap sfs-hr-wrap">';
                 </div>
                 <?php $this->render_assets_card( $employee_id ); ?>
                 <?php $this->render_documents_card( $employee_id ); ?>
+                <?php $this->render_requests_card( $employee_id ); ?>
             </div>
         </div>
 
@@ -1714,5 +1715,309 @@ echo '<div class="wrap sfs-hr-wrap">';
         echo '</p>';
 
         echo '</div>';
+    }
+
+    /**
+     * Render Employee Requests card showing all employee requests with their status
+     */
+    protected function render_requests_card( int $employee_id ): void {
+        global $wpdb;
+
+        // Collect all requests
+        $requests = [];
+
+        // ---- Leave Requests ----
+        $leave_table = $wpdb->prefix . 'sfs_hr_leave_requests';
+        $leave_types_table = $wpdb->prefix . 'sfs_hr_leave_types';
+
+        $leave_exists = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
+                $leave_table
+            )
+        );
+
+        if ( $leave_exists ) {
+            $leaves = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT lr.id, lr.start_date, lr.end_date, lr.days, lr.status, lr.created_at, lr.approval_level,
+                            lt.name as type_name
+                     FROM {$leave_table} lr
+                     LEFT JOIN {$leave_types_table} lt ON lt.id = lr.type_id
+                     WHERE lr.employee_id = %d
+                     ORDER BY lr.created_at DESC
+                     LIMIT 10",
+                    $employee_id
+                ),
+                ARRAY_A
+            );
+
+            foreach ( $leaves as $leave ) {
+                $status_key = $leave['status'];
+                if ( $status_key === 'pending' ) {
+                    $level = (int) ( $leave['approval_level'] ?? 1 );
+                    if ( $level >= 3 ) {
+                        $status_key = 'pending_finance';
+                    } elseif ( $level >= 2 ) {
+                        $status_key = 'pending_hr';
+                    } else {
+                        $status_key = 'pending_manager';
+                    }
+                }
+
+                $requests[] = [
+                    'type'       => 'leave',
+                    'type_label' => __( 'Leave', 'sfs-hr' ),
+                    'detail'     => $leave['type_name'] ?? __( 'Leave', 'sfs-hr' ),
+                    'dates'      => $leave['start_date'] . ' - ' . $leave['end_date'],
+                    'status'     => $status_key,
+                    'created_at' => $leave['created_at'],
+                    'url'        => admin_url( 'admin.php?page=sfs-hr-leave-requests&action=view&id=' . (int) $leave['id'] ),
+                ];
+            }
+        }
+
+        // ---- Loan Requests ----
+        $loan_table = $wpdb->prefix . 'sfs_hr_loans';
+
+        $loan_exists = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
+                $loan_table
+            )
+        );
+
+        if ( $loan_exists ) {
+            $loans = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT id, loan_number, principal_amount, remaining_balance, status, created_at
+                     FROM {$loan_table}
+                     WHERE employee_id = %d
+                     ORDER BY created_at DESC
+                     LIMIT 10",
+                    $employee_id
+                ),
+                ARRAY_A
+            );
+
+            foreach ( $loans as $loan ) {
+                $requests[] = [
+                    'type'       => 'loan',
+                    'type_label' => __( 'Loan', 'sfs-hr' ),
+                    'detail'     => $loan['loan_number'] . ' - ' . number_format( (float) $loan['principal_amount'], 2 ),
+                    'dates'      => '',
+                    'status'     => $loan['status'],
+                    'created_at' => $loan['created_at'],
+                    'url'        => admin_url( 'admin.php?page=sfs-hr-loans&action=view&id=' . (int) $loan['id'] ),
+                ];
+            }
+        }
+
+        // ---- Resignation Requests ----
+        $resignation_table = $wpdb->prefix . 'sfs_hr_resignations';
+
+        $resignation_exists = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
+                $resignation_table
+            )
+        );
+
+        if ( $resignation_exists ) {
+            $resignations = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT id, resignation_type, resignation_date, last_working_day, status, approval_level, created_at
+                     FROM {$resignation_table}
+                     WHERE employee_id = %d
+                     ORDER BY created_at DESC
+                     LIMIT 5",
+                    $employee_id
+                ),
+                ARRAY_A
+            );
+
+            foreach ( $resignations as $res ) {
+                $status_key = $res['status'];
+                if ( $status_key === 'pending' ) {
+                    $level = (int) ( $res['approval_level'] ?? 1 );
+                    if ( $level >= 4 ) {
+                        $status_key = 'pending_finance';
+                    } elseif ( $level >= 3 ) {
+                        $status_key = 'pending_gm';
+                    } elseif ( $level >= 2 ) {
+                        $status_key = 'pending_hr';
+                    } else {
+                        $status_key = 'pending_manager';
+                    }
+                }
+
+                $type_label = $res['resignation_type'] === 'final_exit'
+                    ? __( 'Final Exit', 'sfs-hr' )
+                    : __( 'Regular', 'sfs-hr' );
+
+                $requests[] = [
+                    'type'       => 'resignation',
+                    'type_label' => __( 'Resignation', 'sfs-hr' ),
+                    'detail'     => $type_label,
+                    'dates'      => $res['resignation_date'] . ' - ' . ( $res['last_working_day'] ?: __( 'TBD', 'sfs-hr' ) ),
+                    'status'     => $status_key,
+                    'created_at' => $res['created_at'],
+                    'url'        => admin_url( 'admin.php?page=sfs-hr-resignations&tab=resignations' ),
+                ];
+            }
+        }
+
+        // ---- Settlement Requests ----
+        $settlement_table = $wpdb->prefix . 'sfs_hr_settlements';
+
+        $settlement_exists = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
+                $settlement_table
+            )
+        );
+
+        if ( $settlement_exists ) {
+            $settlements = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT id, total_settlement, last_working_day, status, created_at
+                     FROM {$settlement_table}
+                     WHERE employee_id = %d
+                     ORDER BY created_at DESC
+                     LIMIT 5",
+                    $employee_id
+                ),
+                ARRAY_A
+            );
+
+            foreach ( $settlements as $set ) {
+                $requests[] = [
+                    'type'       => 'settlement',
+                    'type_label' => __( 'Settlement', 'sfs-hr' ),
+                    'detail'     => number_format( (float) $set['total_settlement'], 2 ),
+                    'dates'      => $set['last_working_day'] ?: '',
+                    'status'     => $set['status'],
+                    'created_at' => $set['created_at'],
+                    'url'        => admin_url( 'admin.php?page=sfs-hr-settlements&action=view&id=' . (int) $set['id'] ),
+                ];
+            }
+        }
+
+        // Sort all requests by created_at descending
+        usort( $requests, function( $a, $b ) {
+            return strtotime( $b['created_at'] ) - strtotime( $a['created_at'] );
+        } );
+
+        // Take only the most recent 10
+        $requests = array_slice( $requests, 0, 10 );
+
+        // Render the card
+        echo '<div class="sfs-hr-emp-card">';
+        echo '<h3>' . esc_html__( 'Recent Requests', 'sfs-hr' ) . '</h3>';
+
+        if ( empty( $requests ) ) {
+            echo '<p class="description">' . esc_html__( 'No requests found.', 'sfs-hr' ) . '</p>';
+        } else {
+            echo '<table class="widefat striped" style="margin-top:8px;font-size:12px;">';
+            echo '<thead><tr>';
+            echo '<th style="width:90px;">' . esc_html__( 'Type', 'sfs-hr' ) . '</th>';
+            echo '<th>' . esc_html__( 'Details', 'sfs-hr' ) . '</th>';
+            echo '<th style="width:90px;">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+            echo '</tr></thead><tbody>';
+
+            foreach ( $requests as $req ) {
+                $status_badge = $this->get_request_status_badge( $req['status'] );
+                $type_badge = $this->get_request_type_badge( $req['type'] );
+
+                echo '<tr>';
+                echo '<td>' . $type_badge . '</td>';
+                echo '<td>';
+                echo '<a href="' . esc_url( $req['url'] ) . '" style="color:#2271b1;text-decoration:none;font-weight:500;">';
+                echo esc_html( $req['detail'] );
+                echo '</a>';
+                if ( $req['dates'] ) {
+                    echo '<br><small class="description">' . esc_html( $req['dates'] ) . '</small>';
+                }
+                echo '</td>';
+                echo '<td>' . $status_badge . '</td>';
+                echo '</tr>';
+            }
+
+            echo '</tbody></table>';
+        }
+
+        echo '</div>';
+    }
+
+    /**
+     * Get status badge HTML for requests
+     */
+    protected function get_request_status_badge( string $status ): string {
+        $status_colors = [
+            'pending'         => [ 'bg' => '#fff3e0', 'color' => '#e65100' ],
+            'pending_manager' => [ 'bg' => '#fff3e0', 'color' => '#e65100' ],
+            'pending_hr'      => [ 'bg' => '#fff3e0', 'color' => '#e65100' ],
+            'pending_gm'      => [ 'bg' => '#fff3e0', 'color' => '#e65100' ],
+            'pending_finance' => [ 'bg' => '#fff3e0', 'color' => '#e65100' ],
+            'approved'        => [ 'bg' => '#e8f5e9', 'color' => '#2e7d32' ],
+            'active'          => [ 'bg' => '#e8f5e9', 'color' => '#2e7d32' ],
+            'completed'       => [ 'bg' => '#e3f2fd', 'color' => '#1565c0' ],
+            'paid'            => [ 'bg' => '#e3f2fd', 'color' => '#1565c0' ],
+            'rejected'        => [ 'bg' => '#ffebee', 'color' => '#c62828' ],
+            'cancelled'       => [ 'bg' => '#fafafa', 'color' => '#757575' ],
+        ];
+
+        $status_labels = [
+            'pending'         => __( 'Pending', 'sfs-hr' ),
+            'pending_manager' => __( 'Pending Mgr', 'sfs-hr' ),
+            'pending_hr'      => __( 'Pending HR', 'sfs-hr' ),
+            'pending_gm'      => __( 'Pending GM', 'sfs-hr' ),
+            'pending_finance' => __( 'Pending Fin', 'sfs-hr' ),
+            'approved'        => __( 'Approved', 'sfs-hr' ),
+            'active'          => __( 'Active', 'sfs-hr' ),
+            'completed'       => __( 'Completed', 'sfs-hr' ),
+            'paid'            => __( 'Paid', 'sfs-hr' ),
+            'rejected'        => __( 'Rejected', 'sfs-hr' ),
+            'cancelled'       => __( 'Cancelled', 'sfs-hr' ),
+        ];
+
+        $colors = $status_colors[ $status ] ?? [ 'bg' => '#f5f5f5', 'color' => '#666' ];
+        $label = $status_labels[ $status ] ?? ucfirst( str_replace( '_', ' ', $status ) );
+
+        return sprintf(
+            '<span style="display:inline-block;padding:2px 6px;border-radius:10px;font-size:10px;font-weight:500;background:%s;color:%s;">%s</span>',
+            esc_attr( $colors['bg'] ),
+            esc_attr( $colors['color'] ),
+            esc_html( $label )
+        );
+    }
+
+    /**
+     * Get type badge HTML for requests
+     */
+    protected function get_request_type_badge( string $type ): string {
+        $type_colors = [
+            'leave'       => [ 'bg' => '#e3f2fd', 'color' => '#1565c0' ],
+            'loan'        => [ 'bg' => '#fce4ec', 'color' => '#c2185b' ],
+            'resignation' => [ 'bg' => '#fff3e0', 'color' => '#e65100' ],
+            'settlement'  => [ 'bg' => '#e8f5e9', 'color' => '#2e7d32' ],
+        ];
+
+        $type_labels = [
+            'leave'       => __( 'Leave', 'sfs-hr' ),
+            'loan'        => __( 'Loan', 'sfs-hr' ),
+            'resignation' => __( 'Resign', 'sfs-hr' ),
+            'settlement'  => __( 'Settle', 'sfs-hr' ),
+        ];
+
+        $colors = $type_colors[ $type ] ?? [ 'bg' => '#f5f5f5', 'color' => '#666' ];
+        $label = $type_labels[ $type ] ?? ucfirst( $type );
+
+        return sprintf(
+            '<span style="display:inline-block;padding:2px 6px;border-radius:10px;font-size:10px;font-weight:500;background:%s;color:%s;">%s</span>',
+            esc_attr( $colors['bg'] ),
+            esc_attr( $colors['color'] ),
+            esc_html( $label )
+        );
     }
 }
