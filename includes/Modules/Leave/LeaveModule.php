@@ -1089,8 +1089,7 @@ public function handle_approve(): void {
                 'note' => __('Manager approved, escalated to HR', 'sfs-hr'),
             ]);
 
-            $this->email_approvers_for_employee(
-                (int) $row['employee_id'],
+            $this->notify_hr_users(
                 __('Leave request waiting HR approval', 'sfs-hr'),
                 sprintf(
                     __('Manager approved leave request (%s → %s, %d days). Please review.', 'sfs-hr'),
