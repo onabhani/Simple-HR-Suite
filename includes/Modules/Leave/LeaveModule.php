@@ -3096,9 +3096,9 @@ private function email_approvers_for_employee(int $employee_id, string $subject,
 
         // Get users from all roles with HR capabilities
         foreach ($roles_to_check as $role) {
-            $users = get_users(['role' => $role, 'fields' => ['ID', 'user_email']]);
+            $users = get_users(['role' => $role, 'fields' => ['user_email']]);
             foreach ($users as $u) {
-                if ($u->user_email && user_can($u->ID, 'sfs_hr.manage')) {
+                if ($u->user_email) {
                     $emails[] = $u->user_email;
                 }
             }
