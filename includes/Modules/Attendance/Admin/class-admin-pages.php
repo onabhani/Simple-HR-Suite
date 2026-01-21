@@ -3448,8 +3448,19 @@ $export_url = esc_url( wp_nonce_url(
     }
     echo '</select>';
 
-    echo '<button class="button">' . esc_html__('Filter', 'sfs-hr') . '</button>';
+    echo '<button type="submit" class="button">' . esc_html__('Filter', 'sfs-hr') . '</button>';
     echo '<a class="button" href="'.$export_url.'">' . esc_html__('Export CSV', 'sfs-hr') . '</a>';
+
+    // Debug: Show current filter values (only when debug=1 is in URL)
+    if ( isset($_GET['debug']) && $_GET['debug'] === '1' ) {
+        echo '<div style="background:#fffbe6;border:1px solid #ffe58f;padding:10px;margin-top:10px;font-size:12px;">';
+        echo '<strong>Debug Info:</strong><br>';
+        echo 'employee_id from URL: ' . esc_html( isset($_GET['employee_id']) ? $_GET['employee_id'] : '(not set)' ) . '<br>';
+        echo '$emp variable: ' . esc_html($emp) . '<br>';
+        echo 'WHERE clause: ' . esc_html($where) . '<br>';
+        echo 'Employee options count: ' . count((array)$emps);
+        echo '</div>';
+    }
 
 // Rebuild button — Day view ONLY
 if ( $mode === 'day' ) {
