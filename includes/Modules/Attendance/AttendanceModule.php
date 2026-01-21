@@ -3770,7 +3770,11 @@ foreach ($rows as $r) {
                 $minutes_late += (int) $seg['late_minutes'];
             }
         }
-        do_action('sfs_hr_attendance_late', $employee_id, $minutes_late);
+        do_action('sfs_hr_attendance_late', $employee_id, [
+            'minutes_late' => $minutes_late,
+            'work_date'    => $ymd,
+            'type'         => 'attendance_flag',
+        ]);
     }
 
     // Fire early leave notification (only if newly detected)
@@ -3782,7 +3786,11 @@ foreach ($rows as $r) {
                 $minutes_early += (int) $seg['early_minutes'];
             }
         }
-        do_action('sfs_hr_attendance_early_leave', $employee_id, $minutes_early);
+        do_action('sfs_hr_attendance_early_leave', $employee_id, [
+            'minutes_early' => $minutes_early,
+            'work_date'     => $ymd,
+            'type'          => 'attendance_flag',
+        ]);
     }
 }
 
