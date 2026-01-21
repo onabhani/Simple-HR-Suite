@@ -2356,6 +2356,18 @@ public function render_exceptions(): void {
     $hasE  = static fn($c) => in_array($c, $eCols, true);
     $empCodeCol = $hasE('employee_code') ? 'e.employee_code' : "''";
 
+    // Employee filter
+    $employee_id = isset($_GET['employee_id']) ? (int) $_GET['employee_id'] : 0;
+
+    // Build WHERE clause
+    $where = "s.work_date BETWEEN %s AND %s";
+    $params = [$from, $to];
+
+    if ($employee_id > 0) {
+        $where .= " AND s.employee_id = %d";
+        $params[] = $employee_id;
+    }
+
     $rows = $wpdb->get_results( $wpdb->prepare("
         SELECT
             s.work_date,
@@ -2378,9 +2390,9 @@ public function render_exceptions(): void {
         FROM {$sT} s
         LEFT JOIN {$eT} e ON e.id = s.employee_id
         LEFT JOIN {$uT} u ON u.ID = e.user_id
-        WHERE s.work_date BETWEEN %s AND %s
+        WHERE {$where}
         ORDER BY s.work_date ASC, u.display_name ASC
-    ", $from, $to ), ARRAY_A );
+    ", ...$params ), ARRAY_A );
 
     // Output CSV
     nocache_headers();
@@ -2400,12 +2412,18 @@ public function render_exceptions(): void {
         $inLocal  = !empty($r['in_time_utc'])  ? \SFS\HR\Modules\Attendance\AttendanceModule::fmt_local($r['in_time_utc'])  : '';
         $outLocal = !empty($r['out_time_utc']) ? \SFS\HR\Modules\Attendance\AttendanceModule::fmt_local($r['out_time_utc']) : '';
 
-        // Compact flags
-        $flagsTxt = '';
+        // Parse flags from flags_json
+        $flagsArr = [];
         if (!empty($r['flags_json'])) {
             $fj = json_decode((string)$r['flags_json'], true);
-            if (is_array($fj) && $fj) { $flagsTxt = implode(', ', array_map('strval', $fj)); }
+            if (is_array($fj)) { $flagsArr = $fj; }
         }
+        $flagsTxt = $flagsArr ? implode(', ', array_map('strval', $flagsArr)) : '';
+
+        // Derive late/early from flags_json (since late_flag/early_flag columns don't exist)
+        $isLate  = in_array('late', $flagsArr, true) ? 1 : 0;
+        $isEarly = in_array('left_early', $flagsArr, true) ? 1 : 0;
+        $isMissed = in_array('incomplete', $flagsArr, true) ? 1 : 0;
 
         fputcsv($out, [
             $r['work_date'],
@@ -2418,9 +2436,9 @@ public function render_exceptions(): void {
             (int)$r['net_minutes'],
             (int)$r['rounded_minutes'],
             (int)$r['ot_minutes'],
-            (int)$r['late'],
-            (int)$r['early'],
-            (int)$r['missed'],
+            $isLate,
+            $isEarly,
+            $isMissed,
             (int)$r['outside_geo_count'],
             (int)$r['no_selfie_count'],
             $flagsTxt,
@@ -3394,10 +3412,11 @@ if ( $mode === 'day' ) {
 
 $export_url = esc_url( wp_nonce_url(
     add_query_arg([
-        'action' => 'sfs_hr_att_export_csv',
-        'from'   => $from,
-        'to'     => $to,
-        'recalc' => 1, // keep the on-demand rebuild
+        'action'      => 'sfs_hr_att_export_csv',
+        'from'        => $from,
+        'to'          => $to,
+        'employee_id' => $emp,
+        'recalc'      => 1, // keep the on-demand rebuild
     ], admin_url('admin-post.php')),
     'sfs_hr_att_export_csv'
 ) );
