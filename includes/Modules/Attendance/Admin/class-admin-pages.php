@@ -40,6 +40,7 @@ class Admin_Pages {
     add_action( 'admin_post_sfs_hr_att_save_automation', [ $this, 'handle_save_automation' ] );
     add_action( 'admin_post_sfs_hr_att_export_csv', [ $this, 'handle_export_csv' ] );
     add_action( 'admin_post_sfs_hr_att_rebuild_sessions_day', [ $this, 'handle_rebuild_sessions_day' ] );
+    add_action( 'admin_post_sfs_hr_att_rebuild_sessions_period', [ $this, 'handle_rebuild_sessions_period' ] );
     add_action( 'admin_post_sfs_hr_att_save_auto_rules', [ $this, 'handle_save_auto_rules' ] );
     add_action( 'admin_post_sfs_hr_att_run_auto_rules', [ $this, 'handle_run_auto_rules' ] );
     add_action( 'admin_post_sfs_hr_att_delete_auto_rule', [ $this, 'handle_delete_auto_rule' ] );
@@ -3470,7 +3471,7 @@ $export_url = esc_url( wp_nonce_url(
     echo '<button type="submit" class="button">' . esc_html__('Filter', 'sfs-hr') . '</button>';
     echo '<a class="button" href="'.$export_url.'">' . esc_html__('Export CSV', 'sfs-hr') . '</a>';
 
-// Rebuild button — Day view ONLY
+// Rebuild button
 if ( $mode === 'day' ) {
     $rebuild_url = esc_url( wp_nonce_url(
         add_query_arg(['action' => 'sfs_hr_att_rebuild_sessions_day', 'date' => $date], admin_url('admin-post.php')),
@@ -3494,6 +3495,19 @@ if ( $mode === 'day' ) {
       });
     })();
     </script>";
+} else {
+    // Period view - rebuild all sessions in the period
+    $rebuild_period_url = esc_url( wp_nonce_url(
+        add_query_arg([
+            'action' => 'sfs_hr_att_rebuild_sessions_period',
+            'from'   => $from,
+            'to'     => $to,
+            'month'  => $month,
+            'year'   => $year,
+        ], admin_url('admin-post.php')),
+        'sfs_hr_att_rebuild_sessions_period'
+    ) );
+    echo '<a class="button button-primary" href="'.$rebuild_period_url.'" onclick="return confirm(\'' . esc_js(__('Rebuild all sessions for this period? This may take a moment.', 'sfs-hr')) . '\');">' . esc_html__('Rebuild Period', 'sfs-hr') . ' (' . esc_html($from) . ' → ' . esc_html($to) . ')</a>';
 }
     echo '</form></div>';
 
@@ -3591,174 +3605,70 @@ private function get_status_label( string $status ): string {
 
 public function handle_rebuild_sessions_day(): void {
     if ( ! current_user_can('sfs_hr_attendance_admin') ) { wp_die('Access denied'); }
-
-    if ( ! isset($_GET['_wpnonce']) || ! wp_verify_nonce($_GET['_wpnonce'], 'sfs_hr_att_rebuild_sessions_day') ) {
-        wp_die('Invalid request');
-    }
-
     check_admin_referer('sfs_hr_att_rebuild_sessions_day');
 
     global $wpdb;
-    $pT      = $wpdb->prefix . 'sfs_hr_attendance_punches';
-    $sT      = $wpdb->prefix . 'sfs_hr_attendance_sessions';
-    $assignT = $wpdb->prefix . 'sfs_hr_attendance_shift_assign';
-    $shiftT  = $wpdb->prefix . 'sfs_hr_attendance_shifts';
+    $pT = $wpdb->prefix . 'sfs_hr_attendance_punches';
 
     $date = ( isset($_GET['date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $_GET['date']) )
         ? (string) $_GET['date']
         : wp_date('Y-m-d');
 
-    // كل موظف له punches في هذا اليوم
+    // Get all employees with punches on this date
     $emps = $wpdb->get_col( $wpdb->prepare(
         "SELECT DISTINCT employee_id FROM {$pT} WHERE DATE(punch_time)=%s",
         $date
     ) );
 
+    // Use the proper recalc function which handles shift resolution, late/early detection, etc.
     foreach ( (array) $emps as $eid ) {
-        $eid = (int) $eid;
-
-        // أول IN وآخر OUT
-        $in  = $wpdb->get_var( $wpdb->prepare(
-            "SELECT MIN(punch_time) FROM {$pT}
-             WHERE employee_id=%d AND DATE(punch_time)=%s AND punch_type='in'",
-            $eid, $date
-        ) );
-        $out = $wpdb->get_var( $wpdb->prepare(
-            "SELECT MAX(punch_time) FROM {$pT}
-             WHERE employee_id=%d AND DATE(punch_time)=%s AND punch_type='out'",
-            $eid, $date
-        ) );
-
-        // Geo / Selfie counters
-        $geo_bad = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM {$pT}
-             WHERE employee_id=%d AND DATE(punch_time)=%s
-               AND valid_geo = 0
-               AND geo_lat IS NOT NULL AND geo_lng IS NOT NULL",
-            $eid, $date
-        ) );
-
-        $selfie_bad = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM {$pT}
-             WHERE employee_id=%d AND DATE(punch_time)=%s
-               AND valid_selfie = 0",
-            $eid, $date
-        ) );
-
-        // إجمالي التواجد IN → OUT
-        $worked = 0;
-        if ( $in && $out && $out > $in ) {
-            $worked = (int) $wpdb->get_var(
-                $wpdb->prepare("SELECT TIMESTAMPDIFF(MINUTE,%s,%s)", $in, $out)
-            );
-        }
-
-        // حساب الاستراحة الفعلية من BREAK START / BREAK END
-        $break_minutes    = 0;
-        $break_incomplete = false;
-
-        $breakRows = $wpdb->get_results( $wpdb->prepare(
-            "SELECT punch_type, punch_time
-             FROM {$pT}
-             WHERE employee_id=%d AND DATE(punch_time)=%s
-               AND punch_type IN ('break_start','break_end')
-             ORDER BY punch_time ASC",
-            $eid, $date
-        ) );
-
-        $open = null;
-        foreach ( (array) $breakRows as $r ) {
-            if ( $r->punch_type === 'break_start' ) {
-                $open = $r->punch_time;
-            } elseif ( $r->punch_type === 'break_end' ) {
-                if ( $open && $r->punch_time > $open ) {
-                    $diff = (int) $wpdb->get_var(
-                        $wpdb->prepare("SELECT TIMESTAMPDIFF(MINUTE,%s,%s)", $open, $r->punch_time)
-                    );
-                    if ( $diff > 0 ) {
-                        $break_minutes += $diff;
-                    }
-                }
-                $open = null;
-            }
-        }
-
-        // لو بدأ BREAK وما عمل END → نمده لوقت OUT
-        if ( $open && $out && $out > $open ) {
-            $diff = (int) $wpdb->get_var(
-                $wpdb->prepare("SELECT TIMESTAMPDIFF(MINUTE,%s,%s)", $open, $out)
-            );
-            if ( $diff > 0 ) {
-                $break_minutes += $diff;
-            }
-            $break_incomplete = true;
-        }
-
-        // Allowed break من الشفت (unpaid_break_minutes) عندما يكون break_policy = 'punch'
-        $allowed_break = 0;
-        $extra_break   = 0;
-
-        $shift = $wpdb->get_row( $wpdb->prepare(
-            "SELECT sh.break_policy, sh.unpaid_break_minutes
-             FROM {$assignT} a
-             JOIN {$shiftT}  sh ON sh.id = a.shift_id
-             WHERE a.employee_id=%d AND a.work_date=%s
-             LIMIT 1",
-            $eid, $date
-        ) );
-
-        if ( $shift && $shift->break_policy === 'punch' ) {
-            $allowed_break = (int) ( $shift->unpaid_break_minutes ?? 0 );
-        }
-
-        if ( $allowed_break > 0 && $break_minutes > $allowed_break ) {
-            $extra_break = $break_minutes - $allowed_break; // هذا هو الـ Delay
-        }
-
-        // صافي وقت العمل الفعلي
-        $net = max( 0, $worked - $break_minutes );
-
-        // Flags
-        $flags = [];
-        if ( $in && ! $out ) {
-            $flags[] = 'incomplete';
-        }
-        if ( $break_incomplete ) {
-            $flags[] = 'break_incomplete';
-        }
-        if ( $extra_break > 0 ) {
-            $flags[] = 'over_break:' . $extra_break . 'm';
-        }
-
-        // upsert
-        $existing = $wpdb->get_var( $wpdb->prepare(
-            "SELECT id FROM {$sT} WHERE employee_id=%d AND work_date=%s",
-            $eid, $date
-        ) );
-
-        $data = [
-            'employee_id'         => $eid,
-            'work_date'           => $date,
-            'in_time'             => $in,
-            'out_time'            => $out,
-            'break_minutes'       => $break_minutes,
-            'net_minutes'         => $net,
-            'rounded_net_minutes' => $net, // ممكن نضيف rounding لاحقاً
-            'overtime_minutes'    => 0,
-            'status'              => ( $in && $out ) ? 'present' : 'incomplete',
-            'flags_json'          => $flags ? wp_json_encode( $flags ) : null,
-            'calc_meta_json'      => null,
-            'last_recalc_at'      => current_time( 'mysql', true ),
-        ];
-
-        if ( $existing ) {
-            $wpdb->update( $sT, $data, [ 'id' => $existing ] );
-        } else {
-            $wpdb->insert( $sT, $data );
-        }
+        \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( (int) $eid, $date, $wpdb );
     }
 
     wp_safe_redirect( admin_url( 'admin.php?page=sfs_hr_attendance&tab=sessions&date=' . $date . '&rebuilt=1' ) );
+    exit;
+}
+
+/**
+ * Handle rebuild sessions for a period (multiple dates)
+ */
+public function handle_rebuild_sessions_period(): void {
+    if ( ! current_user_can('sfs_hr_attendance_admin') ) { wp_die('Access denied'); }
+    check_admin_referer('sfs_hr_att_rebuild_sessions_period');
+
+    global $wpdb;
+    $pT = $wpdb->prefix . 'sfs_hr_attendance_punches';
+
+    $from = ( isset($_GET['from']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $_GET['from']) )
+        ? (string) $_GET['from']
+        : wp_date('Y-m-01');
+    $to = ( isset($_GET['to']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $_GET['to']) )
+        ? (string) $_GET['to']
+        : wp_date('Y-m-d');
+
+    // Validate date range
+    if ($to < $from) {
+        wp_die('Invalid date range');
+    }
+
+    // Get all unique dates with punches in this range
+    $dates = $wpdb->get_col( $wpdb->prepare(
+        "SELECT DISTINCT DATE(punch_time) AS d FROM {$pT}
+         WHERE DATE(punch_time) BETWEEN %s AND %s
+         ORDER BY d ASC",
+        $from, $to
+    ) );
+
+    // Rebuild sessions for each date
+    foreach ( (array) $dates as $date ) {
+        $this->rebuild_sessions_for_date( $date );
+    }
+
+    // Redirect back with month/year preserved
+    $month = isset($_GET['month']) ? (int) $_GET['month'] : (int) wp_date('m');
+    $year  = isset($_GET['year'])  ? (int) $_GET['year']  : (int) wp_date('Y');
+
+    wp_safe_redirect( admin_url( 'admin.php?page=sfs_hr_attendance&tab=sessions&mode=period_25&month=' . $month . '&year=' . $year . '&rebuilt=1' ) );
     exit;
 }
 
