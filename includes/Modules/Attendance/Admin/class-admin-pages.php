@@ -3356,7 +3356,7 @@ $rows = $wpdb->get_results("
 
     $nameParts = [];
     if ( $has('first_name') && $has('last_name') ) {
-        $nameParts[] = "NULLIF(TRIM(CONCAT(e.first_name,' ',e.last_name)),'')";
+        $nameParts[] = "NULLIF(TRIM(CONCAT(COALESCE(e.first_name,''),' ',COALESCE(e.last_name,''))),'')";
     }
     if ( $has('full_name') ) {
         $nameParts[] = "NULLIF(TRIM(e.full_name),'')";
@@ -3368,10 +3368,14 @@ $rows = $wpdb->get_results("
     $nameParts[] = "NULLIF(TRIM(u.user_login),'')";
     $nameSQL = 'COALESCE(' . implode(',', $nameParts) . ", CONCAT('#', e.id)) AS name";
 
+    // Filter by active employees only (consistent with punches tab)
+    $statusFilter = $has('status') ? "WHERE e.status = 'active'" : "";
+
     $emps = $wpdb->get_results("
         SELECT e.id, {$nameSQL}
         FROM {$empT} e
         LEFT JOIN {$uT} u ON u.ID = e.user_id
+        {$statusFilter}
         ORDER BY name ASC
     ");
 
