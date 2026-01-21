@@ -3773,7 +3773,7 @@ private function render_early_leave(): void {
         'cancelled' => __('Cancelled', 'sfs-hr'),
     ];
 
-    $base_url = admin_url('admin.php?page=sfs-hr-attendance&tab=early_leave');
+    $base_url = admin_url('admin.php?page=sfs_hr_attendance&tab=early_leave');
     ?>
     <div class="wrap">
         <h2><?php esc_html_e('Early Leave Requests', 'sfs-hr'); ?></h2>
