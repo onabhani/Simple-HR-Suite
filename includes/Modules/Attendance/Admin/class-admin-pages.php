@@ -3416,7 +3416,7 @@ $export_url = esc_url( wp_nonce_url(
         'from'        => $from,
         'to'          => $to,
         'employee_id' => $emp,
-        'recalc'      => 1, // keep the on-demand rebuild
+        // Note: removed recalc=1 to prevent simplified rebuild from wiping late/early flags
     ], admin_url('admin-post.php')),
     'sfs_hr_att_export_csv'
 ) );
@@ -3764,109 +3764,17 @@ public function handle_rebuild_sessions_day(): void {
 
 private function rebuild_sessions_for_date(string $date): void {
     global $wpdb;
-    $pT      = $wpdb->prefix . 'sfs_hr_attendance_punches';
-    $sT      = $wpdb->prefix . 'sfs_hr_attendance_sessions';
-    $assignT = $wpdb->prefix . 'sfs_hr_attendance_shift_assign';
-    $shiftT  = $wpdb->prefix . 'sfs_hr_attendance_shifts';
+    $pT = $wpdb->prefix . 'sfs_hr_attendance_punches';
 
+    // Get all employees who have punches on this date
     $emps = $wpdb->get_col( $wpdb->prepare(
         "SELECT DISTINCT employee_id FROM {$pT} WHERE DATE(punch_time)=%s", $date
     ) );
 
+    // Use the proper recalc function from AttendanceModule which handles
+    // shift resolution, late/early detection, overtime calculation, etc.
     foreach ( (array) $emps as $eid ) {
-        $eid = (int)$eid;
-
-        $in  = $wpdb->get_var( $wpdb->prepare(
-            "SELECT MIN(punch_time) FROM {$pT}
-             WHERE employee_id=%d AND DATE(punch_time)=%s AND punch_type='in'", $eid, $date
-        ) );
-        $out = $wpdb->get_var( $wpdb->prepare(
-            "SELECT MAX(punch_time) FROM {$pT}
-             WHERE employee_id=%d AND DATE(punch_time)=%s AND punch_type='out'", $eid, $date
-        ) );
-
-        $geo_bad = (int)$wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM {$pT}
-             WHERE employee_id=%d AND DATE(punch_time)=%s
-               AND valid_geo=0
-               AND geo_lat IS NOT NULL AND geo_lng IS NOT NULL", $eid, $date
-        ) );
-        $selfie_bad = (int)$wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM {$pT}
-             WHERE employee_id=%d AND DATE(punch_time)=%s AND valid_selfie=0", $eid, $date
-        ) );
-
-        $worked = 0;
-        if ($in && $out && $out > $in) {
-            $worked = (int)$wpdb->get_var($wpdb->prepare(
-                "SELECT TIMESTAMPDIFF(MINUTE,%s,%s)", $in, $out
-            ));
-        }
-
-        $break_minutes = 0; $break_incomplete = false; $open = null;
-        $breakRows = $wpdb->get_results( $wpdb->prepare(
-            "SELECT punch_type, punch_time
-             FROM {$pT}
-             WHERE employee_id=%d AND DATE(punch_time)=%s
-               AND punch_type IN ('break_start','break_end')
-             ORDER BY punch_time ASC", $eid, $date
-        ) );
-        foreach ((array)$breakRows as $r) {
-            if ($r->punch_type==='break_start') { $open = $r->punch_time; }
-            elseif ($r->punch_type==='break_end' && $open && $r->punch_time>$open) {
-                $break_minutes += (int)$wpdb->get_var($wpdb->prepare(
-                    "SELECT TIMESTAMPDIFF(MINUTE,%s,%s)", $open, $r->punch_time
-                ));
-                $open = null;
-            }
-        }
-        if ($open && $out && $out>$open) {
-            $break_minutes += (int)$wpdb->get_var($wpdb->prepare(
-                "SELECT TIMESTAMPDIFF(MINUTE,%s,%s)", $open, $out
-            ));
-            $break_incomplete = true;
-        }
-
-        $allowed_break = 0; $extra_break = 0;
-        $shift = $wpdb->get_row( $wpdb->prepare(
-            "SELECT sh.break_policy, sh.unpaid_break_minutes
-             FROM {$assignT} a
-             JOIN {$shiftT}  sh ON sh.id=a.shift_id
-             WHERE a.employee_id=%d AND a.work_date=%s LIMIT 1", $eid, $date
-        ) );
-        if ($shift && $shift->break_policy==='punch') {
-            $allowed_break = (int)$shift->unpaid_break_minutes;
-        }
-        if ($allowed_break>0 && $break_minutes>$allowed_break) {
-            $extra_break = $break_minutes - $allowed_break;
-        }
-
-        $net = max(0, $worked - $break_minutes);
-        $flags = [];
-        if ($in && !$out) $flags[]='incomplete';
-        if ($break_incomplete) $flags[]='break_incomplete';
-        if ($extra_break>0) $flags[]='over_break:'.$extra_break.'m';
-
-        $existing = $wpdb->get_var( $wpdb->prepare(
-            "SELECT id FROM {$sT} WHERE employee_id=%d AND work_date=%s", $eid, $date
-        ) );
-
-        $data = [
-            'employee_id'         => $eid,
-            'work_date'           => $date,
-            'in_time'             => $in,
-            'out_time'            => $out,
-            'break_minutes'       => $break_minutes,
-            'net_minutes'         => $net,
-            'rounded_net_minutes' => $net,
-            'overtime_minutes'    => 0,
-            'status'              => ($in && $out) ? 'present' : 'incomplete',
-            'flags_json'          => $flags ? wp_json_encode($flags) : null,
-            'calc_meta_json'      => null,
-            'last_recalc_at'      => current_time('mysql', true),
-        ];
-        if ($existing) { $wpdb->update($sT, $data, ['id'=>$existing]); }
-        else           { $wpdb->insert($sT, $data); }
+        \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( (int) $eid, $date, $wpdb );
     }
 }
 
