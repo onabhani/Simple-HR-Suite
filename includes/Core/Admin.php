@@ -453,7 +453,7 @@ class Admin {
             'page'  => 'sfs-hr-hiring',
             'icon'  => 'dashicons-businessperson',
             'label' => __( 'Hiring', 'sfs-hr' ),
-            'cap'   => 'manage_options',
+            'cap'   => 'sfs_hr.manage',
         ],
         [
             'page'  => 'sfs-hr-resignations',
@@ -505,61 +505,51 @@ class Admin {
     $has_approval_cards = false;
     ob_start(); // Buffer approval cards to check if any exist
 
-    // LOANS: Pending approvals (Finance/GM approvers and HR managers)
-    if ( current_user_can('sfs_hr_loans_finance_approve') || current_user_can('sfs_hr_loans_gm_approve') || current_user_can('sfs_hr.manage') ) {
-        $loans_t = $wpdb->prefix . 'sfs_hr_loans';
-        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $loans_t ) ) ) {
-            // Check which approvals the user can see
-            $can_approve_gm = current_user_can('sfs_hr_loans_gm_approve') || current_user_can('sfs_hr.manage');
-            $can_approve_finance = current_user_can('sfs_hr_loans_finance_approve') || current_user_can('sfs_hr.manage');
+    // LOANS: Pending approvals (only for assigned GM/Finance approvers)
+    $loans_t = $wpdb->prefix . 'sfs_hr_loans';
+    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $loans_t ) ) ) {
+        // Use LoansModule methods to check if user is actually assigned as an approver
+        $can_approve_gm = \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm();
+        $can_approve_finance = \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_finance();
 
-            $status_conditions = [];
-            if ( $can_approve_gm ) {
-                $status_conditions[] = "'pending_gm'";
-            }
-            if ( $can_approve_finance ) {
-                $status_conditions[] = "'pending_finance'";
-            }
+        $status_conditions = [];
+        if ( $can_approve_gm ) {
+            $status_conditions[] = "'pending_gm'";
+        }
+        if ( $can_approve_finance ) {
+            $status_conditions[] = "'pending_finance'";
+        }
 
-            if ( ! empty( $status_conditions ) ) {
-                $status_list = implode( ',', $status_conditions );
-                $pending_loans = (int) $wpdb->get_var(
-                    "SELECT COUNT(*) FROM {$loans_t} WHERE status IN ({$status_list})"
-                );
+        if ( ! empty( $status_conditions ) ) {
+            $status_list = implode( ',', $status_conditions );
+            $pending_loans = (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM {$loans_t} WHERE status IN ({$status_list})"
+            );
 
-                if ( $pending_loans > 0 ) {
-                    $has_approval_cards = true;
-                    echo '<a class="sfs-hr-card sfs-hr-approval-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-loans&tab=loans' ) ) . '">';
-                    echo '<h2>' . esc_html__( 'Pending Loans', 'sfs-hr' ) . '</h2>';
-                    echo '<div class="sfs-hr-card-count">' . esc_html( number_format_i18n( $pending_loans ) ) . '</div>';
-                    echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting your approval', 'sfs-hr' ) . '</div>';
-                    echo '</a>';
-                }
+            if ( $pending_loans > 0 ) {
+                $has_approval_cards = true;
+                echo '<a class="sfs-hr-card sfs-hr-approval-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-loans&tab=loans' ) ) . '">';
+                echo '<h2>' . esc_html__( 'Pending Loans', 'sfs-hr' ) . '</h2>';
+                echo '<div class="sfs-hr-card-count">' . esc_html( number_format_i18n( $pending_loans ) ) . '</div>';
+                echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting your approval', 'sfs-hr' ) . '</div>';
+                echo '</a>';
             }
         }
     }
 
-    // LEAVES: Pending approvals (Department Managers and HR)
+    // LEAVES: Pending approvals (only for assigned approvers)
     if ( current_user_can('sfs_hr.leave.review') || current_user_can('sfs_hr.manage') ) {
         $user_id = get_current_user_id();
-        $managed_dept_ids = [];
+        $pending_leaves_count = 0;
 
         // Get departments managed by current user
-        if ( ! current_user_can('sfs_hr.manage') ) {
-            $managed_dept_ids = $wpdb->get_col( $wpdb->prepare(
-                "SELECT id FROM {$dept_t} WHERE manager_user_id = %d",
-                $user_id
-            ) );
-        }
+        $managed_dept_ids = $wpdb->get_col( $wpdb->prepare(
+            "SELECT id FROM {$dept_t} WHERE manager_user_id = %d",
+            $user_id
+        ) );
 
-        // Build query based on role
-        if ( current_user_can('sfs_hr.manage') ) {
-            // HR sees all pending leaves
-            $pending_leaves_count = (int) $wpdb->get_var(
-                "SELECT COUNT(*) FROM {$req_t} WHERE status = 'pending'"
-            );
-        } elseif ( ! empty( $managed_dept_ids ) ) {
-            // Managers see pending leaves in their departments
+        // Count pending leaves in departments where user is manager
+        if ( ! empty( $managed_dept_ids ) ) {
             $placeholders = implode( ',', array_fill( 0, count( $managed_dept_ids ), '%d' ) );
             $pending_leaves_count = (int) $wpdb->get_var( $wpdb->prepare(
                 "SELECT COUNT(*) FROM {$req_t} r
@@ -567,8 +557,16 @@ class Admin {
                  WHERE r.status = 'pending' AND e.dept_id IN ({$placeholders})",
                 ...$managed_dept_ids
             ) );
-        } else {
-            $pending_leaves_count = 0;
+        }
+
+        // For HR users, also count pending leaves from departments without a manager (fallback)
+        if ( current_user_can('sfs_hr.manage') ) {
+            $pending_leaves_count += (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM {$req_t} r
+                 INNER JOIN {$emp_t} e ON e.id = r.employee_id
+                 INNER JOIN {$dept_t} d ON d.id = e.dept_id
+                 WHERE r.status = 'pending' AND (d.manager_user_id IS NULL OR d.manager_user_id = 0)"
+            );
         }
 
         if ( $pending_leaves_count > 0 ) {
@@ -581,38 +579,44 @@ class Admin {
         }
     }
 
-    // RESIGNATIONS: Pending approvals (Managers, HR, Finance)
+    // RESIGNATIONS: Pending approvals (only for assigned approvers based on approval_level)
     if ( current_user_can('sfs_hr.view') ) {
         $resignations_t = $wpdb->prefix . 'sfs_hr_resignations';
         if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $resignations_t ) ) ) {
             $user_id = get_current_user_id();
-            $managed_dept_ids = [];
+            $pending_resignations = 0;
 
             // Get departments managed by current user
-            if ( ! current_user_can('sfs_hr.manage') ) {
-                $managed_dept_ids = $wpdb->get_col( $wpdb->prepare(
-                    "SELECT id FROM {$dept_t} WHERE manager_user_id = %d",
-                    $user_id
+            $managed_dept_ids = $wpdb->get_col( $wpdb->prepare(
+                "SELECT id FROM {$dept_t} WHERE manager_user_id = %d",
+                $user_id
+            ) );
+
+            // Count resignations at level 1 (Dept Manager) in managed departments
+            if ( ! empty( $managed_dept_ids ) ) {
+                $placeholders = implode( ',', array_fill( 0, count( $managed_dept_ids ), '%d' ) );
+                $pending_resignations += (int) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$resignations_t} r
+                     INNER JOIN {$emp_t} e ON e.id = r.employee_id
+                     WHERE r.status = 'pending' AND r.approval_level = 1 AND e.dept_id IN ({$placeholders})",
+                    ...$managed_dept_ids
                 ) );
             }
 
-            // Build query based on role
-            if ( current_user_can('sfs_hr.manage') || current_user_can('sfs_hr_resignation_finance_approve') ) {
-                // HR and Finance see all pending resignations
-                $pending_resignations = (int) $wpdb->get_var(
-                    "SELECT COUNT(*) FROM {$resignations_t} WHERE status = 'pending'"
+            // Count resignations at level 2 (HR) if user is the assigned HR approver
+            $hr_approver_id = (int) get_option( 'sfs_hr_resignation_hr_approver', 0 );
+            if ( $hr_approver_id > 0 && $hr_approver_id === $user_id ) {
+                $pending_resignations += (int) $wpdb->get_var(
+                    "SELECT COUNT(*) FROM {$resignations_t} WHERE status = 'pending' AND approval_level = 2"
                 );
-            } elseif ( ! empty( $managed_dept_ids ) ) {
-                // Managers see pending resignations in their departments
-                $placeholders = implode( ',', array_fill( 0, count( $managed_dept_ids ), '%d' ) );
-                $pending_resignations = (int) $wpdb->get_var( $wpdb->prepare(
-                    "SELECT COUNT(*) FROM {$resignations_t} r
-                     INNER JOIN {$emp_t} e ON e.id = r.employee_id
-                     WHERE r.status = 'pending' AND e.dept_id IN ({$placeholders})",
-                    ...$managed_dept_ids
-                ) );
-            } else {
-                $pending_resignations = 0;
+            }
+
+            // Count resignations at level 3 (Finance) if user is the assigned Finance approver
+            $finance_approver_id = (int) get_option( 'sfs_hr_resignation_finance_approver', 0 );
+            if ( $finance_approver_id > 0 && $finance_approver_id === $user_id ) {
+                $pending_resignations += (int) $wpdb->get_var(
+                    "SELECT COUNT(*) FROM {$resignations_t} WHERE status = 'pending' AND approval_level = 3"
+                );
             }
 
             if ( $pending_resignations > 0 ) {
@@ -626,24 +630,23 @@ class Admin {
         }
     }
 
-    // EARLY LEAVE: Pending approvals (Department Managers and HR)
+    // EARLY LEAVE: Pending approvals (only for assigned managers)
     if ( current_user_can('sfs_hr_attendance_view_team') || current_user_can('sfs_hr_attendance_admin') || current_user_can('sfs_hr.manage') ) {
         $early_leave_t = $wpdb->prefix . 'sfs_hr_early_leave_requests';
         if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $early_leave_t ) ) ) {
             $user_id = get_current_user_id();
 
-            // Build query based on role
+            // Count pending early leave requests assigned to this user
+            $pending_early_leaves = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$early_leave_t} WHERE status = 'pending' AND manager_id = %d",
+                $user_id
+            ) );
+
+            // For HR/Admin, also count requests without an assigned manager (fallback)
             if ( current_user_can('sfs_hr_attendance_admin') || current_user_can('sfs_hr.manage') ) {
-                // HR/Admin sees all pending early leave requests
-                $pending_early_leaves = (int) $wpdb->get_var(
-                    "SELECT COUNT(*) FROM {$early_leave_t} WHERE status = 'pending'"
+                $pending_early_leaves += (int) $wpdb->get_var(
+                    "SELECT COUNT(*) FROM {$early_leave_t} WHERE status = 'pending' AND (manager_id IS NULL OR manager_id = 0)"
                 );
-            } else {
-                // Managers see pending early leave requests where they are the assigned manager
-                $pending_early_leaves = (int) $wpdb->get_var( $wpdb->prepare(
-                    "SELECT COUNT(*) FROM {$early_leave_t} WHERE status = 'pending' AND manager_id = %d",
-                    $user_id
-                ) );
             }
 
             if ( $pending_early_leaves > 0 ) {
