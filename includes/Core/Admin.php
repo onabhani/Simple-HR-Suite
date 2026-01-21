@@ -711,7 +711,7 @@ class Admin {
     echo '</a>';
 
     // Leave (pending + on leave now)
-    echo '<a class="sfs-hr-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-leave' ) ) . '">';
+    echo '<a class="sfs-hr-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-leave-requests' ) ) . '">';
     echo '<h2>' . esc_html__( 'Leave', 'sfs-hr' ) . '</h2>';
     echo '<div class="sfs-hr-card-count">' . esc_html( number_format_i18n( $pending_leaves ) ) . '</div>';
     echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Pending leave requests', 'sfs-hr' ) . '</div>';
