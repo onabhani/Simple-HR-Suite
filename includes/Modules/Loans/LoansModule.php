@@ -130,6 +130,39 @@ class LoansModule {
                     ADD UNIQUE KEY loan_number (loan_number)"
                 );
             }
+
+            // Add approved_gm_amount column if it doesn't exist (GM can approve with different amount)
+            $gm_amount_exists = $wpdb->get_results(
+                "SHOW COLUMNS FROM {$loans_table} LIKE 'approved_gm_amount'"
+            );
+            if ( empty( $gm_amount_exists ) ) {
+                $wpdb->query(
+                    "ALTER TABLE {$loans_table}
+                    ADD COLUMN approved_gm_amount decimal(12,2) DEFAULT NULL AFTER approved_gm_at"
+                );
+            }
+
+            // Add approved_gm_note column if it doesn't exist
+            $gm_note_exists = $wpdb->get_results(
+                "SHOW COLUMNS FROM {$loans_table} LIKE 'approved_gm_note'"
+            );
+            if ( empty( $gm_note_exists ) ) {
+                $wpdb->query(
+                    "ALTER TABLE {$loans_table}
+                    ADD COLUMN approved_gm_note text DEFAULT NULL AFTER approved_gm_amount"
+                );
+            }
+
+            // Add approved_finance_note column if it doesn't exist
+            $finance_note_exists = $wpdb->get_results(
+                "SHOW COLUMNS FROM {$loans_table} LIKE 'approved_finance_note'"
+            );
+            if ( empty( $finance_note_exists ) ) {
+                $wpdb->query(
+                    "ALTER TABLE {$loans_table}
+                    ADD COLUMN approved_finance_note text DEFAULT NULL AFTER approved_finance_at"
+                );
+            }
         }
 
         // 1. Loans table
@@ -152,8 +185,11 @@ class LoansModule {
             created_by bigint(20) UNSIGNED DEFAULT NULL,
             approved_gm_by bigint(20) UNSIGNED DEFAULT NULL,
             approved_gm_at datetime DEFAULT NULL,
+            approved_gm_amount decimal(12,2) DEFAULT NULL,
+            approved_gm_note text DEFAULT NULL,
             approved_finance_by bigint(20) UNSIGNED DEFAULT NULL,
             approved_finance_at datetime DEFAULT NULL,
+            approved_finance_note text DEFAULT NULL,
             rejected_by bigint(20) UNSIGNED DEFAULT NULL,
             rejected_at datetime DEFAULT NULL,
             rejection_reason text DEFAULT NULL,

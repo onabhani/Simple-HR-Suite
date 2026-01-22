@@ -508,18 +508,19 @@ public function render_requests(): void {
 
         var actionsDiv = document.getElementById('sfs-hr-leave-modal-actions');
         if (data.status === 'pending' && data.canApprove) {
-            actionsDiv.innerHTML = '<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:flex;gap:8px;">' +
+            actionsDiv.innerHTML = '<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-bottom:10px;">' +
                 '<input type="hidden" name="action" value="sfs_hr_leave_approve"/>' +
                 '<input type="hidden" name="_wpnonce" value="' + data.nonceA + '"/>' +
                 '<input type="hidden" name="id" value="' + data.id + '"/>' +
-                '<button class="button button-primary" style="flex:1;"><?php esc_html_e('Approve', 'sfs-hr'); ?></button>' +
+                '<div style="margin-bottom:8px;"><input type="text" name="note" placeholder="<?php echo esc_js(__('Approval note (optional)', 'sfs-hr')); ?>" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" /></div>' +
+                '<button class="button button-primary" style="width:100%;"><?php esc_html_e('Approve', 'sfs-hr'); ?></button>' +
                 '</form>' +
-                '<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:flex;gap:8px;margin-top:8px;" onsubmit="return sfsHrPromptRejectReason(this);">' +
+                '<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" onsubmit="return sfsHrPromptRejectReason(this);">' +
                 '<input type="hidden" name="action" value="sfs_hr_leave_reject"/>' +
                 '<input type="hidden" name="_wpnonce" value="' + data.nonceR + '"/>' +
                 '<input type="hidden" name="id" value="' + data.id + '"/>' +
                 '<input type="hidden" name="note" class="reject-note-input" value=""/>' +
-                '<button class="button" style="flex:1;"><?php esc_html_e('Reject', 'sfs-hr'); ?></button>' +
+                '<button class="button" style="width:100%;"><?php esc_html_e('Reject', 'sfs-hr'); ?></button>' +
                 '</form>';
         } else if (data.status === 'pending') {
             actionsDiv.innerHTML = '<p style="text-align:center;color:#666;"><?php esc_html_e('Not assigned to you', 'sfs-hr'); ?></p>';

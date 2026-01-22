@@ -1948,13 +1948,33 @@ class AdminPages {
                     <h3><?php esc_html_e( 'GM Approval', 'sfs-hr' ); ?></h3>
 
                     <?php if ( \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm() ) : ?>
-                        <form method="post" action="" style="display:inline-block;margin-right:10px;">
+                        <form method="post" action="" style="margin-bottom:20px;">
                             <?php wp_nonce_field( 'sfs_hr_loan_approve_gm_' . $loan_id ); ?>
                             <input type="hidden" name="action" value="approve_gm" />
                             <input type="hidden" name="loan_id" value="<?php echo (int) $loan_id; ?>" />
+
+                            <table class="form-table" style="margin-bottom:15px;">
+                                <tr>
+                                    <th style="width:180px;"><?php esc_html_e( 'Approved Amount', 'sfs-hr' ); ?></th>
+                                    <td>
+                                        <input type="number" name="approved_gm_amount" value="<?php echo esc_attr( $loan->principal_amount ); ?>" step="0.01" min="0" style="width:150px;" />
+                                        <p class="description"><?php esc_html_e( 'You can approve a different amount than requested.', 'sfs-hr' ); ?></p>
+                                        <p class="description"><?php printf( esc_html__( 'Requested amount: %s', 'sfs-hr' ), number_format( $loan->principal_amount, 2 ) ); ?></p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th><?php esc_html_e( 'Approval Note', 'sfs-hr' ); ?></th>
+                                    <td>
+                                        <textarea name="approved_gm_note" rows="2" style="width:400px;" placeholder="<?php esc_attr_e( 'Optional note for this approval', 'sfs-hr' ); ?>"></textarea>
+                                    </td>
+                                </tr>
+                            </table>
+
                             <button type="submit" class="button button-primary"><?php esc_html_e( 'Approve (GM)', 'sfs-hr' ); ?></button>
                         </form>
-                        <form method="post" action="" style="display:inline-block;" onsubmit="return confirm('<?php esc_attr_e( 'Are you sure you want to reject this loan?', 'sfs-hr' ); ?>');">
+
+                        <hr style="margin:20px 0;">
+                        <form method="post" action="" onsubmit="return confirm('<?php esc_attr_e( 'Are you sure you want to reject this loan?', 'sfs-hr' ); ?>');">
                             <?php wp_nonce_field( 'sfs_hr_loan_reject_' . $loan_id ); ?>
                             <input type="hidden" name="action" value="reject_loan" />
                             <input type="hidden" name="loan_id" value="<?php echo (int) $loan_id; ?>" />
@@ -1986,6 +2006,26 @@ class AdminPages {
                     <?php endif; ?>
 
                 <?php elseif ( $loan->status === 'pending_finance' ) : ?>
+                    <!-- GM Approval Info -->
+                    <?php if ( $loan->approved_gm_by ) :
+                        $gm_user = get_user_by( 'id', $loan->approved_gm_by );
+                        $gm_name = $gm_user ? $gm_user->display_name : __( 'Unknown', 'sfs-hr' );
+                    ?>
+                        <div class="notice notice-success inline" style="margin:0 0 20px 0;">
+                            <h4 style="margin:0 0 10px 0;"><?php esc_html_e( 'GM Approval', 'sfs-hr' ); ?></h4>
+                            <p>
+                                <strong><?php esc_html_e( 'Approved by:', 'sfs-hr' ); ?></strong> <?php echo esc_html( $gm_name ); ?><br>
+                                <strong><?php esc_html_e( 'Date:', 'sfs-hr' ); ?></strong> <?php echo esc_html( wp_date( 'F j, Y g:i a', strtotime( $loan->approved_gm_at ) ) ); ?>
+                                <?php if ( ! empty( $loan->approved_gm_amount ) && abs( (float) $loan->approved_gm_amount - (float) $loan->principal_amount ) > 0.01 ) : ?>
+                                    <br><strong><?php esc_html_e( 'GM Approved Amount:', 'sfs-hr' ); ?></strong> <?php echo number_format( (float) $loan->approved_gm_amount, 2 ); ?> <?php echo esc_html( $loan->currency ); ?>
+                                <?php endif; ?>
+                                <?php if ( ! empty( $loan->approved_gm_note ) ) : ?>
+                                    <br><strong><?php esc_html_e( 'GM Note:', 'sfs-hr' ); ?></strong> <?php echo esc_html( $loan->approved_gm_note ); ?>
+                                <?php endif; ?>
+                            </p>
+                        </div>
+                    <?php endif; ?>
+
                     <h3><?php esc_html_e( 'Finance Approval', 'sfs-hr' ); ?></h3>
 
                     <?php if ( \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_finance() ) : ?>
@@ -2013,6 +2053,12 @@ class AdminPages {
                                     <td>
                                         <input type="month" name="first_due_month" required />
                                         <p class="description"><?php esc_html_e( 'Select the month when first deduction should occur.', 'sfs-hr' ); ?></p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th><?php esc_html_e( 'Approval Note', 'sfs-hr' ); ?></th>
+                                    <td>
+                                        <textarea name="approved_finance_note" rows="2" style="width:400px;" placeholder="<?php esc_attr_e( 'Optional note for this approval', 'sfs-hr' ); ?>"></textarea>
                                     </td>
                                 </tr>
                             </table>
@@ -2184,16 +2230,44 @@ class AdminPages {
                 }
                 check_admin_referer( 'sfs_hr_loan_approve_gm_' . $loan_id );
 
-                $wpdb->update( $loans_table, [
-                    'status'          => 'pending_finance',
-                    'approved_gm_by'  => get_current_user_id(),
-                    'approved_gm_at'  => current_time( 'mysql' ),
-                    'updated_at'      => current_time( 'mysql' ),
-                ], [ 'id' => $loan_id ] );
+                $approved_gm_amount = isset( $_POST['approved_gm_amount'] ) ? (float) $_POST['approved_gm_amount'] : null;
+                $approved_gm_note = isset( $_POST['approved_gm_note'] ) ? sanitize_textarea_field( $_POST['approved_gm_note'] ) : '';
 
-                \SFS\HR\Modules\Loans\LoansModule::log_event( $loan_id, 'gm_approved', [
+                // Get original loan to compare amounts
+                $original_loan = $wpdb->get_row( $wpdb->prepare(
+                    "SELECT principal_amount FROM {$loans_table} WHERE id = %d",
+                    $loan_id
+                ) );
+
+                $update_data = [
+                    'status'             => 'pending_finance',
+                    'approved_gm_by'     => get_current_user_id(),
+                    'approved_gm_at'     => current_time( 'mysql' ),
+                    'approved_gm_note'   => $approved_gm_note,
+                    'updated_at'         => current_time( 'mysql' ),
+                ];
+
+                // If GM approved a different amount, save it and update principal
+                if ( $approved_gm_amount !== null && $approved_gm_amount > 0 ) {
+                    $update_data['approved_gm_amount'] = $approved_gm_amount;
+                    // Update principal amount to the GM approved amount
+                    $update_data['principal_amount'] = $approved_gm_amount;
+                }
+
+                $wpdb->update( $loans_table, $update_data, [ 'id' => $loan_id ] );
+
+                $log_meta = [
                     'status' => 'pending_gm → pending_finance',
-                ] );
+                ];
+                if ( $approved_gm_amount !== null && $original_loan && abs( $approved_gm_amount - (float) $original_loan->principal_amount ) > 0.01 ) {
+                    $log_meta['original_amount'] = $original_loan->principal_amount;
+                    $log_meta['approved_amount'] = $approved_gm_amount;
+                }
+                if ( $approved_gm_note ) {
+                    $log_meta['note'] = $approved_gm_note;
+                }
+
+                \SFS\HR\Modules\Loans\LoansModule::log_event( $loan_id, 'gm_approved', $log_meta );
 
                 // Audit Trail: loan status changed
                 do_action( 'sfs_hr_loan_status_changed', $loan_id, 'pending_gm', 'pending_finance' );
@@ -2214,6 +2288,7 @@ class AdminPages {
                 $principal = (float) ( $_POST['principal_amount'] ?? 0 );
                 $installments = (int) ( $_POST['installments_count'] ?? 0 );
                 $first_month = sanitize_text_field( $_POST['first_due_month'] ?? '' );
+                $approved_finance_note = isset( $_POST['approved_finance_note'] ) ? sanitize_textarea_field( $_POST['approved_finance_note'] ) : '';
 
                 if ( $principal <= 0 || $installments <= 0 || ! $first_month ) {
                     wp_die( __( 'Invalid data', 'sfs-hr' ) );
@@ -2230,17 +2305,23 @@ class AdminPages {
                     'status'                 => 'active',
                     'approved_finance_by'    => get_current_user_id(),
                     'approved_finance_at'    => current_time( 'mysql' ),
+                    'approved_finance_note'  => $approved_finance_note,
                     'updated_at'             => current_time( 'mysql' ),
                 ], [ 'id' => $loan_id ] );
 
                 // Generate schedule
                 $this->generate_payment_schedule( $loan_id, $first_month, $installments, $installment_amount );
 
-                \SFS\HR\Modules\Loans\LoansModule::log_event( $loan_id, 'finance_approved', [
+                $log_meta = [
                     'status'       => 'pending_finance → active',
                     'principal'    => $principal,
                     'installments' => $installments,
-                ] );
+                ];
+                if ( $approved_finance_note ) {
+                    $log_meta['note'] = $approved_finance_note;
+                }
+
+                \SFS\HR\Modules\Loans\LoansModule::log_event( $loan_id, 'finance_approved', $log_meta );
 
                 // Audit Trail: loan status changed
                 do_action( 'sfs_hr_loan_status_changed', $loan_id, 'pending_finance', 'active' );
