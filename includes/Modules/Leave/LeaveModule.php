@@ -962,11 +962,19 @@ public function handle_approve(): void {
     $leave_review_url = admin_url('admin.php?page=sfs-hr-leave-requests&action=view&id=' . $id);
 
     $current_uid     = get_current_user_id();
-    // Separate GM and HR capabilities
-    $is_gm           = current_user_can('sfs_hr_loans_gm_approve');
-    $is_hr           = current_user_can('sfs_hr.manage');
-    $is_hr_or_gm     = $is_hr || $is_gm;
     $approval_level  = (int) ( $row['approval_level'] ?? 1 );
+
+    // Position-based approval checks (not capability-based)
+    // GM: Check if user is in the assigned GM list
+    $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+    $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
+    $is_gm = ! empty( $gm_user_ids ) && in_array( $current_uid, $gm_user_ids, true );
+
+    // HR: Check if user is in the assigned HR approvers list
+    $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
+    $is_hr = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
+
+    $is_hr_or_gm = $is_hr || $is_gm;
 
     // Check if requester is a department manager
     $requester_is_dept_manager = false;
@@ -1213,8 +1221,18 @@ public function handle_approve(): void {
             exit;
         }
 
-        // HR/Admin can approve at any level (override department manager requirement)
-        // This allows administrators to approve on behalf of department managers when needed
+        // HR can only approve at level 2+ (after department manager approved)
+        // Block HR users from approving at level 1 when department has a manager
+        if ( $dept_has_manager && $approval_level < 2 ) {
+            wp_safe_redirect(
+                add_query_arg(
+                    'err',
+                    rawurlencode( __('Department manager must approve before HR.', 'sfs-hr') ),
+                    $redirect_base
+                )
+            );
+            exit;
+        }
     }
 
     // ==================== FINAL APPROVAL (HR) ====================
@@ -1979,6 +1997,29 @@ public function handle_cancel(): void {
                 </td>
               </tr>
               <tr>
+                <th><?php esc_html_e('HR Approvers','sfs-hr'); ?></th>
+                <td>
+                  <?php
+                  // Get current HR approvers
+                  $hr_approvers = (array) get_option('sfs_hr_leave_hr_approvers', []);
+                  // Get users who can be HR approvers
+                  $hr_users = get_users([
+                      'role__in' => ['administrator', 'sfs_hr_manager'],
+                      'orderby'  => 'display_name',
+                      'order'    => 'ASC',
+                  ]);
+                  ?>
+                  <select name="leave_hr_approvers[]" multiple style="width:400px;min-height:120px;">
+                    <?php foreach ($hr_users as $user): ?>
+                      <option value="<?php echo (int)$user->ID; ?>" <?php echo in_array($user->ID, $hr_approvers, true) ? 'selected' : ''; ?>>
+                        <?php echo esc_html($user->display_name . ' (' . $user->user_email . ')'); ?>
+                      </option>
+                    <?php endforeach; ?>
+                  </select>
+                  <p class="description"><?php esc_html_e('Select users who can approve leave requests at the HR stage (Level 2). Hold Ctrl/Cmd to select multiple.','sfs-hr'); ?></p>
+                </td>
+              </tr>
+              <tr>
                 <th><?php esc_html_e('Holiday Notifications','sfs-hr'); ?></th>
                 <td>
                   <label><input type="checkbox" name="holiday_notify_on_add" value="1" <?php checked($notify_on_add, true); ?>/> <?php esc_html_e('Email all employees when a holiday is added','sfs-hr'); ?></label><br/>
@@ -2072,6 +2113,11 @@ public function handle_cancel(): void {
         // Finance approver for employees with active loans
         $finance_approver = isset($_POST['leave_finance_approver']) ? (int)$_POST['leave_finance_approver'] : 0;
         update_option('sfs_hr_leave_finance_approver', (string)$finance_approver);
+
+        // HR approvers (users who can approve at HR stage)
+        $hr_approvers = isset($_POST['leave_hr_approvers']) ? array_map('intval', (array)$_POST['leave_hr_approvers']) : [];
+        $hr_approvers = array_filter($hr_approvers); // Remove zeros
+        update_option('sfs_hr_leave_hr_approvers', $hr_approvers);
 
         $notify_on_add   = !empty($_POST['holiday_notify_on_add']) ? '1' : '0';
         $reminder_enable = !empty($_POST['holiday_reminder_enabled']) ? '1' : '0';
@@ -4771,13 +4817,21 @@ public function render_calendar(): void {
         $approval_level = (int) ( $request->approval_level ?? 1 );
         $requester_is_dept_manager = ( (int) $request->manager_user_id === (int) $request->emp_user_id );
 
-        // Determine who can approve
+        // Determine who can approve (position-based, not capability-based)
         $current_uid = get_current_user_id();
-        $is_gm = current_user_can( 'sfs_hr_loans_gm_approve' );
-        $is_hr = current_user_can( 'sfs_hr.manage' );
-        $is_finance = current_user_can( 'sfs_hr_loans_finance_approve' );
+
+        // Department Manager: Check if user manages this employee's department
         $managed_depts = $this->manager_dept_ids_for_user( $current_uid );
         $is_dept_manager = ! empty( $managed_depts ) && in_array( (int) $request->dept_id, $managed_depts, true );
+
+        // GM: Check if user is in the assigned GM list
+        $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+        $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
+        $is_gm = ! empty( $gm_user_ids ) && in_array( $current_uid, $gm_user_ids, true );
+
+        // HR: Check if user is in the assigned HR approvers list
+        $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
+        $is_hr = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
 
         // Finance approver check
         $finance_approver_id = (int) get_option( 'sfs_hr_leave_finance_approver', 0 );
@@ -4800,22 +4854,20 @@ public function render_calendar(): void {
             // Level 3+ = Finance stage
             if ( $approval_level >= 3 ) {
                 $approval_stage = 'finance';
-                $can_approve = $is_finance || $is_assigned_finance || $is_hr;
+                $can_approve = $is_assigned_finance;
             }
             // Level 2 = HR stage
             elseif ( $approval_level >= 2 ) {
                 $approval_stage = 'hr';
-                $can_approve = $is_hr || $is_gm;
+                $can_approve = $is_hr;
             }
             // Level 1 = GM (for dept managers) or Manager (for normal employees)
             elseif ( $requester_is_dept_manager ) {
                 $approval_stage = 'gm';
-                // GM or HR/Admin can approve
-                $can_approve = $is_gm || $is_hr;
+                $can_approve = $is_gm;
             } else {
                 $approval_stage = 'manager';
-                // Department manager or HR/Admin can approve
-                $can_approve = $is_dept_manager || $is_hr;
+                $can_approve = $is_dept_manager;
             }
             // Can't approve self
             if ( (int) $request->emp_user_id === $current_uid ) {

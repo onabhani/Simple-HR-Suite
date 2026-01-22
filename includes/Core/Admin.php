@@ -547,21 +547,36 @@ class Admin {
     }
 
     // LEAVES: Pending approvals (only for assigned approvers, excluding own requests)
-    if ( current_user_can('sfs_hr.leave.review') || current_user_can('sfs_hr.manage') ) {
-        $user_id = get_current_user_id();
-        $pending_leaves_count = 0;
-        $is_gm = current_user_can('sfs_hr_loans_gm_approve');
-        $is_hr = current_user_can('sfs_hr.manage');
+    // Position-based: only show if user is assigned as dept manager, GM, HR, or Finance
+    $user_id = get_current_user_id();
+    $pending_leaves_count = 0;
 
-        // Get departments managed by current user
-        $managed_dept_ids = $wpdb->get_col( $wpdb->prepare(
-            "SELECT id FROM {$dept_t} WHERE manager_user_id = %d",
-            $user_id
-        ) );
+    // Get departments managed by current user (position-based)
+    $managed_dept_ids = $wpdb->get_col( $wpdb->prepare(
+        "SELECT id FROM {$dept_t} WHERE manager_user_id = %d",
+        $user_id
+    ) );
+    $is_dept_manager = ! empty( $managed_dept_ids );
+
+    // GM: Check if user is in the assigned GM list (position-based)
+    $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+    $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
+    $is_gm = ! empty( $gm_user_ids ) && in_array( $user_id, $gm_user_ids, true );
+
+    // HR: Check if user is in the assigned HR approvers list (position-based)
+    $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
+    $is_hr = ! empty( $hr_user_ids ) && in_array( $user_id, $hr_user_ids, true );
+
+    // Finance: position-based
+    $finance_approver_id = (int) get_option('sfs_hr_leave_finance_approver', 0);
+    $is_finance = $finance_approver_id > 0 && $finance_approver_id === $user_id;
+
+    // Only proceed if user has any position-based role
+    if ( $is_dept_manager || $is_gm || $is_hr || $is_finance ) {
 
         // Department managers: Count level 1 requests in their departments (for non-manager employees)
         // Exclude own requests (can't approve self)
-        if ( ! empty( $managed_dept_ids ) ) {
+        if ( $is_dept_manager ) {
             $placeholders = implode( ',', array_fill( 0, count( $managed_dept_ids ), '%d' ) );
             $pending_leaves_count += (int) $wpdb->get_var( $wpdb->prepare(
                 "SELECT COUNT(*) FROM {$req_t} r
@@ -618,8 +633,7 @@ class Admin {
 
         // Finance: Count level 3+ requests
         // Exclude own requests
-        $finance_approver_id = (int) get_option('sfs_hr_leave_finance_approver', 0);
-        if ( $finance_approver_id > 0 && $finance_approver_id === $user_id ) {
+        if ( $is_finance ) {
             $pending_leaves_count += (int) $wpdb->get_var( $wpdb->prepare(
                 "SELECT COUNT(*) FROM {$req_t} r
                  INNER JOIN {$emp_t} e ON e.id = r.employee_id
