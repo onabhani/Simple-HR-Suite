@@ -541,6 +541,8 @@ class Admin {
     if ( current_user_can('sfs_hr.leave.review') || current_user_can('sfs_hr.manage') ) {
         $user_id = get_current_user_id();
         $pending_leaves_count = 0;
+        $is_gm = current_user_can('sfs_hr_loans_gm_approve');
+        $is_hr = current_user_can('sfs_hr.manage');
 
         // Get departments managed by current user
         $managed_dept_ids = $wpdb->get_col( $wpdb->prepare(
@@ -548,24 +550,58 @@ class Admin {
             $user_id
         ) );
 
-        // Count pending leaves in departments where user is manager
+        // Department managers: Count level 1 requests in their departments (for non-manager employees)
         if ( ! empty( $managed_dept_ids ) ) {
             $placeholders = implode( ',', array_fill( 0, count( $managed_dept_ids ), '%d' ) );
-            $pending_leaves_count = (int) $wpdb->get_var( $wpdb->prepare(
+            // Only count requests at level 1 where the employee is NOT a department manager
+            $pending_leaves_count += (int) $wpdb->get_var( $wpdb->prepare(
                 "SELECT COUNT(*) FROM {$req_t} r
                  INNER JOIN {$emp_t} e ON e.id = r.employee_id
-                 WHERE r.status = 'pending' AND e.dept_id IN ({$placeholders})",
+                 INNER JOIN {$dept_t} d ON d.id = e.dept_id
+                 WHERE r.status = 'pending'
+                 AND (r.approval_level IS NULL OR r.approval_level <= 1)
+                 AND e.dept_id IN ({$placeholders})
+                 AND (e.user_id IS NULL OR e.user_id != d.manager_user_id)",
                 ...$managed_dept_ids
             ) );
         }
 
-        // For HR users, also count pending leaves from departments without a manager (fallback)
-        if ( current_user_can('sfs_hr.manage') ) {
+        // GM: Count level 1 requests where the employee IS a department manager
+        if ( $is_gm ) {
             $pending_leaves_count += (int) $wpdb->get_var(
                 "SELECT COUNT(*) FROM {$req_t} r
                  INNER JOIN {$emp_t} e ON e.id = r.employee_id
                  INNER JOIN {$dept_t} d ON d.id = e.dept_id
-                 WHERE r.status = 'pending' AND (d.manager_user_id IS NULL OR d.manager_user_id = 0)"
+                 WHERE r.status = 'pending'
+                 AND (r.approval_level IS NULL OR r.approval_level <= 1)
+                 AND e.user_id = d.manager_user_id"
+            );
+        }
+
+        // HR: Count level 2 requests (after GM approved for dept manager leaves)
+        if ( $is_hr ) {
+            $pending_leaves_count += (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM {$req_t} r
+                 WHERE r.status = 'pending' AND r.approval_level = 2"
+            );
+
+            // Also count level 1 requests from departments without a manager (fallback to HR)
+            $pending_leaves_count += (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM {$req_t} r
+                 INNER JOIN {$emp_t} e ON e.id = r.employee_id
+                 INNER JOIN {$dept_t} d ON d.id = e.dept_id
+                 WHERE r.status = 'pending'
+                 AND (r.approval_level IS NULL OR r.approval_level <= 1)
+                 AND (d.manager_user_id IS NULL OR d.manager_user_id = 0)"
+            );
+        }
+
+        // Finance: Count level 3+ requests
+        $finance_approver_id = (int) get_option('sfs_hr_leave_finance_approver', 0);
+        if ( $finance_approver_id > 0 && $finance_approver_id === $user_id ) {
+            $pending_leaves_count += (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM {$req_t} r
+                 WHERE r.status = 'pending' AND r.approval_level >= 3"
             );
         }
 
