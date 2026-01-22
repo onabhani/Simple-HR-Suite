@@ -1213,17 +1213,8 @@ public function handle_approve(): void {
             exit;
         }
 
-        // Block non-manager HR users from approving at level 1 when department has a manager
-        if ( $dept_has_manager && $approval_level < 2 ) {
-            wp_safe_redirect(
-                add_query_arg(
-                    'err',
-                    rawurlencode( __('Department manager must approve before HR.', 'sfs-hr') ),
-                    $redirect_base
-                )
-            );
-            exit;
-        }
+        // HR/Admin can approve at any level (override department manager requirement)
+        // This allows administrators to approve on behalf of department managers when needed
     }
 
     // ==================== FINAL APPROVAL (HR) ====================
@@ -4819,10 +4810,12 @@ public function render_calendar(): void {
             // Level 1 = GM (for dept managers) or Manager (for normal employees)
             elseif ( $requester_is_dept_manager ) {
                 $approval_stage = 'gm';
-                $can_approve = $is_gm;
+                // GM or HR/Admin can approve
+                $can_approve = $is_gm || $is_hr;
             } else {
                 $approval_stage = 'manager';
-                $can_approve = $is_dept_manager;
+                // Department manager or HR/Admin can approve
+                $can_approve = $is_dept_manager || $is_hr;
             }
             // Can't approve self
             if ( (int) $request->emp_user_id === $current_uid ) {
