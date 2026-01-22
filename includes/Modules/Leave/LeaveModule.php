@@ -149,10 +149,17 @@ public function render_requests(): void {
 
     // Dept-manager scoping (HR/admins/GM see all)
     $current_uid = get_current_user_id();
-    $is_hr = current_user_can('sfs_hr.manage') || current_user_can('sfs_hr_loans_gm_approve');
+
+    // Position-based checks for viewing: HR approvers, GM, or manage capability
+    $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
+    $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+    $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
+    $is_hr_or_gm_for_view = current_user_can('sfs_hr.manage')
+        || ( ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true ) )
+        || ( ! empty( $gm_user_ids ) && in_array( $current_uid, $gm_user_ids, true ) );
     $managed_depts = [];
 
-    if ( ! $is_hr ) {
+    if ( ! $is_hr_or_gm_for_view ) {
         $managed_depts = $this->manager_dept_ids_for_user($current_uid);
         if (empty($managed_depts)) {
             $this->output_leave_requests_styles();
@@ -172,7 +179,7 @@ public function render_requests(): void {
     $counts = ['all' => 0, 'pending' => 0, 'approved' => 0, 'rejected' => 0];
     $count_where = '1=1';
     $count_params = [];
-    if ( ! $is_hr && ! empty($managed_depts) ) {
+    if ( ! $is_hr_or_gm_for_view && ! empty($managed_depts) ) {
         $placeholders = implode(',', array_fill(0, count($managed_depts), '%d'));
         $count_where = "e.dept_id IN ($placeholders)";
         $count_params = array_map('intval', $managed_depts);
@@ -275,11 +282,14 @@ public function render_requests(): void {
                 <?php if (!$rows): ?>
                     <tr><td colspan="9"><?php esc_html_e('No requests found.', 'sfs-hr'); ?></td></tr>
                 <?php else: foreach ($rows as $idx => $r):
-                    // Check if current user can approve this specific request
+                    // Check if current user can approve this specific request (position-based)
+                    // Detailed approval logic is in render_detail_page; this is just for UI hints
                     $can_approve = false;
                     if ($r['status'] === 'pending') {
-                        // HR can approve all
-                        if ($is_hr) {
+                        // Position-based HR or GM can approve
+                        $is_hr_position = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
+                        $is_gm_position = ! empty( $gm_user_ids ) && in_array( $current_uid, $gm_user_ids, true );
+                        if ($is_hr_position || $is_gm_position) {
                             $can_approve = true;
                         }
                         // Department managers can approve requests from their departments
@@ -427,10 +437,13 @@ public function render_requests(): void {
     </div>
 
     <script>
-    var sfsHrLeaveData = <?php echo wp_json_encode(array_values(array_map(function($r) use ($nonceA, $nonceR, $is_hr, $managed_depts, $current_uid) {
+    var sfsHrLeaveData = <?php echo wp_json_encode(array_values(array_map(function($r) use ($nonceA, $nonceR, $hr_user_ids, $gm_user_ids, $managed_depts, $current_uid) {
         $can_approve = false;
         if ($r['status'] === 'pending') {
-            if ($is_hr) {
+            // Position-based HR or GM check
+            $is_hr_position = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
+            $is_gm_position = ! empty( $gm_user_ids ) && in_array( $current_uid, $gm_user_ids, true );
+            if ($is_hr_position || $is_gm_position) {
                 $can_approve = true;
             } elseif (!empty($managed_depts) && in_array((int)$r['dept_id'], $managed_depts, true)) {
                 $can_approve = true;
@@ -1541,13 +1554,20 @@ public function handle_cancel(): void {
         exit;
     }
 
-    // Check permissions: requester can cancel their own, HR can cancel any
-    $empInfo = $wpdb->get_row( $wpdb->prepare( "SELECT user_id FROM $emp_t WHERE id=%d", (int) $row['employee_id'] ), ARRAY_A );
+    // Check permissions: requester can cancel their own, position-based HR can cancel any
+    $empInfo = $wpdb->get_row( $wpdb->prepare( "SELECT user_id, dept_id FROM $emp_t WHERE id=%d", (int) $row['employee_id'] ), ARRAY_A );
     $current_uid = get_current_user_id();
-    $is_hr = current_user_can( 'sfs_hr.manage' );
     $is_requester = ( (int) ( $empInfo['user_id'] ?? 0 ) === $current_uid );
 
-    if ( ! $is_hr && ! $is_requester ) {
+    // Position-based HR check
+    $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
+    $is_hr = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
+
+    // Department manager can also cancel requests from their department
+    $managed_depts = $this->manager_dept_ids_for_user( $current_uid );
+    $is_dept_manager = ! empty( $managed_depts ) && in_array( (int) ( $empInfo['dept_id'] ?? 0 ), $managed_depts, true );
+
+    if ( ! $is_hr && ! $is_requester && ! $is_dept_manager ) {
         wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&err=' . rawurlencode( __( 'You do not have permission to cancel this request.', 'sfs-hr' ) ) ) );
         exit;
     }
@@ -3709,16 +3729,20 @@ public function handle_early_return(): void {
         ARRAY_A
     );
     $current_uid = get_current_user_id();
-    $is_hr       = current_user_can('sfs_hr.manage');
 
-    if ( ! $is_hr ) {
-        $managed = $this->manager_dept_ids_for_user($current_uid);
-        if ( empty($managed) || ! in_array((int) ($empInfo['dept_id'] ?? 0), $managed, true) ) {
-            wp_safe_redirect(
-                add_query_arg('err', rawurlencode(__('You can only adjust leaves for your department.', 'sfs-hr')), $redirect_base)
-            );
-            exit;
-        }
+    // Position-based HR check
+    $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
+    $is_hr = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
+
+    // Department manager check
+    $managed = $this->manager_dept_ids_for_user($current_uid);
+    $is_dept_manager = ! empty($managed) && in_array((int) ($empInfo['dept_id'] ?? 0), $managed, true);
+
+    if ( ! $is_hr && ! $is_dept_manager ) {
+        wp_safe_redirect(
+            add_query_arg('err', rawurlencode(__('You can only adjust leaves for your department.', 'sfs-hr')), $redirect_base)
+        );
+        exit;
     }
 
     $start = $row['start_date'];
