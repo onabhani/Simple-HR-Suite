@@ -42,6 +42,26 @@ class LeaveModule {
 
     }
 
+    /**
+     * Generate reference number for leave requests
+     * Format: LV-YYYY-NNNN (e.g., LV-2026-0001)
+     */
+    public static function generate_leave_request_number(): string {
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_leave_requests';
+        $year = wp_date('Y');
+
+        $count = (int)$wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM `$table` WHERE request_number LIKE %s",
+                'LV-' . $year . '-%'
+            )
+        );
+
+        $sequence = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
+        return 'LV-' . $year . '-' . $sequence;
+    }
+
     public function menu(): void {
     add_submenu_page(
         'sfs-hr',
@@ -240,6 +260,7 @@ public function render_requests(): void {
         <table class="sfs-hr-leave-table">
             <thead>
                 <tr>
+                    <th><?php esc_html_e('Ref #', 'sfs-hr'); ?></th>
                     <th><?php esc_html_e('Employee', 'sfs-hr'); ?></th>
                     <th class="hide-mobile"><?php esc_html_e('Type', 'sfs-hr'); ?></th>
                     <th class="hide-mobile"><?php esc_html_e('Dates', 'sfs-hr'); ?></th>
@@ -252,7 +273,7 @@ public function render_requests(): void {
             </thead>
             <tbody>
                 <?php if (!$rows): ?>
-                    <tr><td colspan="8"><?php esc_html_e('No requests found.', 'sfs-hr'); ?></td></tr>
+                    <tr><td colspan="9"><?php esc_html_e('No requests found.', 'sfs-hr'); ?></td></tr>
                 <?php else: foreach ($rows as $idx => $r):
                     // Check if current user can approve this specific request
                     $can_approve = false;
@@ -313,6 +334,7 @@ public function render_requests(): void {
                     }
                 ?>
                     <tr>
+                        <td><strong><?php echo esc_html($r['request_number'] ?? '-'); ?></strong></td>
                         <td>
                             <?php $profile_url = admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . (int) $r['employee_id']); ?>
                             <a href="<?php echo esc_url($profile_url); ?>" class="emp-name"><?php echo esc_html(trim($r['first_name'] . ' ' . $r['last_name'])); ?></a>
@@ -486,18 +508,19 @@ public function render_requests(): void {
 
         var actionsDiv = document.getElementById('sfs-hr-leave-modal-actions');
         if (data.status === 'pending' && data.canApprove) {
-            actionsDiv.innerHTML = '<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:flex;gap:8px;">' +
+            actionsDiv.innerHTML = '<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-bottom:10px;">' +
                 '<input type="hidden" name="action" value="sfs_hr_leave_approve"/>' +
                 '<input type="hidden" name="_wpnonce" value="' + data.nonceA + '"/>' +
                 '<input type="hidden" name="id" value="' + data.id + '"/>' +
-                '<button class="button button-primary" style="flex:1;"><?php esc_html_e('Approve', 'sfs-hr'); ?></button>' +
+                '<div style="margin-bottom:8px;"><input type="text" name="note" placeholder="<?php echo esc_js(__('Approval note (optional)', 'sfs-hr')); ?>" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" /></div>' +
+                '<button class="button button-primary" style="width:100%;"><?php esc_html_e('Approve', 'sfs-hr'); ?></button>' +
                 '</form>' +
-                '<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:flex;gap:8px;margin-top:8px;" onsubmit="return sfsHrPromptRejectReason(this);">' +
+                '<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" onsubmit="return sfsHrPromptRejectReason(this);">' +
                 '<input type="hidden" name="action" value="sfs_hr_leave_reject"/>' +
                 '<input type="hidden" name="_wpnonce" value="' + data.nonceR + '"/>' +
                 '<input type="hidden" name="id" value="' + data.id + '"/>' +
                 '<input type="hidden" name="note" class="reject-note-input" value=""/>' +
-                '<button class="button" style="flex:1;"><?php esc_html_e('Reject', 'sfs-hr'); ?></button>' +
+                '<button class="button" style="width:100%;"><?php esc_html_e('Reject', 'sfs-hr'); ?></button>' +
                 '</form>';
         } else if (data.status === 'pending') {
             actionsDiv.innerHTML = '<p style="text-align:center;color:#666;"><?php esc_html_e('Not assigned to you', 'sfs-hr'); ?></p>';
@@ -4152,6 +4175,9 @@ public function handle_self_request(): void {
 
     $now = current_time( 'mysql' );
 
+    // Generate reference number
+    $request_number = self::generate_leave_request_number();
+
     // Insert with all required fields
     $insert_data = [
         'employee_id'      => $employee_id,
@@ -4161,6 +4187,7 @@ public function handle_self_request(): void {
         'days'             => $days,
         'reason'           => $reason,
         'status'           => 'pending',
+        'request_number'   => $request_number,
         'doc_attachment_id'=> $attach_id ?: null,
         'created_at'       => $now,
         'updated_at'       => $now,
@@ -4890,6 +4917,10 @@ public function render_calendar(): void {
                         <h2><?php esc_html_e( 'Leave Information', 'sfs-hr' ); ?></h2>
 
                         <table class="form-table">
+                            <tr>
+                                <th><?php esc_html_e( 'Reference #', 'sfs-hr' ); ?></th>
+                                <td><strong style="font-size:1.1em;"><?php echo esc_html( $request->request_number ?? '-' ); ?></strong></td>
+                            </tr>
                             <tr>
                                 <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
                                 <td>

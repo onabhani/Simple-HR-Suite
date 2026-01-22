@@ -424,6 +424,7 @@ class ResignationTab implements TabInterface {
         echo '<table class="sfs-hr-resignations-table">';
         echo '<thead>';
         echo '<tr>';
+        echo '<th data-i18n-key="ref">' . esc_html__( 'Ref #', 'sfs-hr' ) . '</th>';
         echo '<th class="hide-mobile" data-i18n-key="type">' . esc_html__( 'Type', 'sfs-hr' ) . '</th>';
         echo '<th data-i18n-key="date">' . esc_html__( 'Date', 'sfs-hr' ) . '</th>';
         echo '<th class="hide-mobile" data-i18n-key="last_working_day">' . esc_html__( 'Last Day', 'sfs-hr' ) . '</th>';
@@ -435,8 +436,12 @@ class ResignationTab implements TabInterface {
         foreach ( $resignations as $r ) {
             $status_badge = $this->resignation_status_badge( $r['status'], intval( $r['approval_level'] ?? 1 ) );
             $type = $r['resignation_type'] ?? 'regular';
+            $request_number = $r['request_number'] ?? '';
 
             echo '<tr>';
+
+            // Reference number column
+            echo '<td><strong>' . esc_html( $request_number ?: '-' ) . '</strong></td>';
 
             // Type column
             echo '<td class="hide-mobile">';

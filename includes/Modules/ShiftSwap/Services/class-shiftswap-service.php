@@ -198,6 +198,9 @@ class ShiftSwap_Service {
         $table = $wpdb->prefix . 'sfs_hr_shift_swaps';
         $now = current_time('mysql');
 
+        // Generate reference number
+        $request_number = \SFS\HR\Modules\ShiftSwap\ShiftSwapModule::generate_shift_swap_request_number();
+
         $wpdb->insert($table, [
             'requester_id'       => $data['requester_id'],
             'requester_shift_id' => $data['requester_shift_id'],
@@ -205,6 +208,7 @@ class ShiftSwap_Service {
             'target_id'          => $data['target_id'],
             'target_date'        => $data['target_date'],
             'reason'             => $data['reason'] ?? '',
+            'request_number'     => $request_number,
             'status'             => 'pending',
             'created_at'         => $now,
             'updated_at'         => $now,

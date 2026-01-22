@@ -3076,6 +3076,64 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
     }
 }
 
+/**
+ * Add unique key if it doesn't exist
+ */
+private static function add_unique_key_if_missing( \wpdb $wpdb, string $table, string $key_name ): void {
+    $index_exists = $wpdb->get_var($wpdb->prepare(
+        "SELECT COUNT(*) FROM information_schema.STATISTICS
+         WHERE table_schema = DATABASE() AND table_name = %s AND index_name = %s",
+        $table, $key_name
+    ));
+    if ((int)$index_exists === 0) {
+        $col_exists = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$table} LIKE %s", $key_name));
+        if ($col_exists) {
+            $wpdb->query("ALTER TABLE `$table` ADD UNIQUE KEY `$key_name` (`$key_name`)");
+        }
+    }
+}
+
+/**
+ * Generate reference number for early leave requests
+ */
+public static function generate_early_leave_request_number(): string {
+    global $wpdb;
+    $table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+    $year = wp_date('Y');
+
+    $count = (int)$wpdb->get_var(
+        $wpdb->prepare(
+            "SELECT COUNT(*) FROM `$table` WHERE request_number LIKE %s",
+            'EL-' . $year . '-%'
+        )
+    );
+
+    $sequence = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
+    return 'EL-' . $year . '-' . $sequence;
+}
+
+/**
+ * Backfill reference numbers for existing early leave requests
+ */
+private static function backfill_early_leave_request_numbers( \wpdb $wpdb ): void {
+    $table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+    $missing = $wpdb->get_results(
+        "SELECT id, created_at FROM `$table` WHERE request_number IS NULL OR request_number = '' ORDER BY id ASC"
+    );
+    foreach ($missing as $row) {
+        $year = $row->created_at ? date('Y', strtotime($row->created_at)) : wp_date('Y');
+        $count = (int)$wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM `$table` WHERE request_number LIKE %s",
+                'EL-' . $year . '-%'
+            )
+        );
+        $sequence = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
+        $number = 'EL-' . $year . '-' . $sequence;
+        $wpdb->update($table, ['request_number' => $number], ['id' => $row->id]);
+    }
+}
+
 
     /**
      * Create / upgrade tables and initialize caps & defaults.
@@ -3317,6 +3375,12 @@ self::add_column_if_missing($wpdb, $t, 'suggest_out_time',        "suggest_out_t
         $sessions_table = "{$p}sfs_hr_attendance_sessions";
         self::add_column_if_missing($wpdb, $sessions_table, 'early_leave_approved', "early_leave_approved TINYINT(1) NOT NULL DEFAULT 0");
         self::add_column_if_missing($wpdb, $sessions_table, 'early_leave_request_id', "early_leave_request_id BIGINT UNSIGNED NULL");
+
+        // Add request_number column for early leave requests
+        $early_leave_table = "{$p}sfs_hr_early_leave_requests";
+        self::add_column_if_missing($wpdb, $early_leave_table, 'request_number', "request_number VARCHAR(50) NULL");
+        self::add_unique_key_if_missing($wpdb, $early_leave_table, 'request_number');
+        self::backfill_early_leave_request_numbers($wpdb);
 
         // Caps + defaults + seed kiosks
         $this->register_caps();
@@ -3706,7 +3770,11 @@ foreach ($rows as $r) {
                 $minutes_late += (int) $seg['late_minutes'];
             }
         }
-        do_action('sfs_hr_attendance_late', $employee_id, $minutes_late);
+        do_action('sfs_hr_attendance_late', $employee_id, [
+            'minutes_late' => $minutes_late,
+            'work_date'    => $ymd,
+            'type'         => 'attendance_flag',
+        ]);
     }
 
     // Fire early leave notification (only if newly detected)
@@ -3718,7 +3786,11 @@ foreach ($rows as $r) {
                 $minutes_early += (int) $seg['early_minutes'];
             }
         }
-        do_action('sfs_hr_attendance_early_leave', $employee_id, $minutes_early);
+        do_action('sfs_hr_attendance_early_leave', $employee_id, [
+            'minutes_early' => $minutes_early,
+            'work_date'     => $ymd,
+            'type'          => 'attendance_flag',
+        ]);
     }
 }
 

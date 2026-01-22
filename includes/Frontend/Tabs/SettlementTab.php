@@ -75,11 +75,18 @@ class SettlementTab implements TabInterface {
      */
     private function render_settlement_card( array $settlement ): void {
         $status_badge = $this->settlement_status_badge( $settlement['status'] );
+        $request_number = $settlement['request_number'] ?? '';
 
         echo '<div class="sfs-hr-settlement-card" style="background:#fff;border:1px solid #ddd;border-radius:4px;padding:20px;margin-bottom:20px;">';
 
         echo '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">';
-        echo '<h3 style="margin:0;">' . esc_html__( 'Settlement', 'sfs-hr' ) . ' #' . esc_html( $settlement['id'] ) . '</h3>';
+        echo '<h3 style="margin:0;">' . esc_html__( 'Settlement', 'sfs-hr' ) . ' ';
+        if ( ! empty( $request_number ) ) {
+            echo esc_html( $request_number );
+        } else {
+            echo '#' . esc_html( $settlement['id'] );
+        }
+        echo '</h3>';
         echo $status_badge;
         echo '</div>';
 

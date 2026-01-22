@@ -224,6 +224,22 @@ class Migrations {
         self::add_column_if_missing($settle, 'document_clearance_status', "VARCHAR(20) NOT NULL DEFAULT 'pending'");
         self::add_column_if_missing($settle, 'finance_clearance_status', "VARCHAR(20) NOT NULL DEFAULT 'pending'");
 
+        /** ADD REFERENCE NUMBER COLUMNS TO ALL REQUEST TABLES */
+        // Leave requests reference number
+        self::add_column_if_missing($req, 'request_number', "VARCHAR(50) NULL");
+        self::add_unique_key_if_missing($req, 'request_number', 'request_number');
+
+        // Resignations reference number
+        self::add_column_if_missing($resign, 'request_number', "VARCHAR(50) NULL");
+        self::add_unique_key_if_missing($resign, 'request_number', 'request_number');
+
+        // Settlements reference number
+        self::add_column_if_missing($settle, 'request_number', "VARCHAR(50) NULL");
+        self::add_unique_key_if_missing($settle, 'request_number', 'request_number');
+
+        // Generate reference numbers for existing records that don't have them
+        self::backfill_request_numbers();
+
         /** LEAVE REQUEST HISTORY (audit trail) */
         $leave_history = $wpdb->prefix.'sfs_hr_leave_request_history';
         $wpdb->query("CREATE TABLE IF NOT EXISTS `$leave_history` (
@@ -331,6 +347,86 @@ class Migrations {
         if ($row && strtolower((string)$row['DATA_TYPE']) === 'varchar' && (int)$row['CHARACTER_MAXIMUM_LENGTH'] === 255) {
             $wpdb->query("ALTER TABLE `$table` MODIFY `$column` TEXT NULL");
         }
+    }
+
+    /**
+     * Add unique key if it doesn't exist
+     */
+    private static function add_unique_key_if_missing(string $table, string $column, string $key_name): void {
+        global $wpdb;
+        $index_exists = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.STATISTICS
+             WHERE table_schema = DATABASE() AND table_name = %s AND index_name = %s",
+            $table, $key_name
+        ));
+        if ((int)$index_exists === 0) {
+            // Check if column exists first
+            $col_exists = (int)$wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM information_schema.COLUMNS
+                 WHERE table_schema = DATABASE() AND table_name = %s AND column_name = %s",
+                $table, $column
+            ));
+            if ($col_exists > 0) {
+                $wpdb->query("ALTER TABLE `$table` ADD UNIQUE KEY `$key_name` (`$column`)");
+            }
+        }
+    }
+
+    /**
+     * Backfill reference numbers for existing records
+     */
+    private static function backfill_request_numbers(): void {
+        global $wpdb;
+
+        // Leave requests
+        $req_table = $wpdb->prefix . 'sfs_hr_leave_requests';
+        $missing_leave = $wpdb->get_results(
+            "SELECT id, created_at FROM `$req_table` WHERE request_number IS NULL OR request_number = '' ORDER BY id ASC"
+        );
+        foreach ($missing_leave as $row) {
+            $number = self::generate_request_number('LV', $req_table, $row->created_at);
+            $wpdb->update($req_table, ['request_number' => $number], ['id' => $row->id]);
+        }
+
+        // Resignations
+        $resign_table = $wpdb->prefix . 'sfs_hr_resignations';
+        $missing_resign = $wpdb->get_results(
+            "SELECT id, created_at FROM `$resign_table` WHERE request_number IS NULL OR request_number = '' ORDER BY id ASC"
+        );
+        foreach ($missing_resign as $row) {
+            $number = self::generate_request_number('RS', $resign_table, $row->created_at);
+            $wpdb->update($resign_table, ['request_number' => $number], ['id' => $row->id]);
+        }
+
+        // Settlements
+        $settle_table = $wpdb->prefix . 'sfs_hr_settlements';
+        $missing_settle = $wpdb->get_results(
+            "SELECT id, created_at FROM `$settle_table` WHERE request_number IS NULL OR request_number = '' ORDER BY id ASC"
+        );
+        foreach ($missing_settle as $row) {
+            $number = self::generate_request_number('ST', $settle_table, $row->created_at);
+            $wpdb->update($settle_table, ['request_number' => $number], ['id' => $row->id]);
+        }
+    }
+
+    /**
+     * Generate a reference number for a request
+     * Format: PREFIX-YYYY-NNNN (e.g., LV-2026-0001)
+     */
+    public static function generate_request_number(string $prefix, string $table, ?string $created_at = null): string {
+        global $wpdb;
+        $year = $created_at ? date('Y', strtotime($created_at)) : wp_date('Y');
+
+        // Get count for this year with this prefix
+        $count = (int)$wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM `$table` WHERE request_number LIKE %s",
+                $prefix . '-' . $year . '-%'
+            )
+        );
+
+        $sequence = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
+        return $prefix . '-' . $year . '-' . $sequence;
     }
 
     /**

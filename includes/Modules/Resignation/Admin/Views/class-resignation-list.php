@@ -76,6 +76,7 @@ class Resignation_List {
             <table class="sfs-hr-resignation-table">
                 <thead>
                     <tr>
+                        <th><?php esc_html_e('Ref #', 'sfs-hr'); ?></th>
                         <th><?php esc_html_e('Employee', 'sfs-hr'); ?></th>
                         <th><?php esc_html_e('Type', 'sfs-hr'); ?></th>
                         <th class="hide-mobile"><?php esc_html_e('Resignation Date', 'sfs-hr'); ?></th>
@@ -89,13 +90,14 @@ class Resignation_List {
                 <tbody>
                     <?php if (empty($result['rows'])): ?>
                         <tr>
-                            <td colspan="8" class="empty-state">
+                            <td colspan="9" class="empty-state">
                                 <p><?php esc_html_e('No resignations found.', 'sfs-hr'); ?></p>
                             </td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($result['rows'] as $row): ?>
                             <tr data-id="<?php echo esc_attr($row['id']); ?>"
+                                data-ref="<?php echo esc_attr($row['request_number'] ?? ''); ?>"
                                 data-employee="<?php echo esc_attr($row['first_name'] . ' ' . $row['last_name']); ?>"
                                 data-code="<?php echo esc_attr($row['employee_code']); ?>"
                                 data-type="<?php echo esc_attr($row['resignation_type'] ?? 'regular'); ?>"
@@ -105,6 +107,7 @@ class Resignation_List {
                                 data-status="<?php echo esc_attr($row['status']); ?>"
                                 data-level="<?php echo esc_attr($row['approval_level'] ?? 1); ?>"
                                 data-reason="<?php echo esc_attr($row['reason']); ?>">
+                                <td><strong><?php echo esc_html($row['request_number'] ?? '-'); ?></strong></td>
                                 <td>
                                     <?php
                                     $profile_url = admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . (int) $row['employee_id']);
@@ -401,7 +404,8 @@ class Resignation_List {
             if(!tr) return;
             var body = document.getElementById('sfs-hr-resignation-modal-body');
             var actions = document.getElementById('sfs-hr-resignation-modal-actions');
-            body.innerHTML = '<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label">Employee</span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.employee+'</span></div>'
+            body.innerHTML = '<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label">Reference #</span><span class="sfs-hr-resignation-modal-value"><strong>'+(tr.dataset.ref||'-')+'</strong></span></div>'
+                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label">Employee</span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.employee+'</span></div>'
                 +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label">Code</span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.code+'</span></div>'
                 +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label">Type</span><span class="sfs-hr-resignation-modal-value">'+(tr.dataset.type==='final_exit'?'Final Exit':'Regular')+'</span></div>'
                 +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label">Date</span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.date+'</span></div>'
