@@ -42,7 +42,7 @@ class HiringModule {
             'sfs-hr',
             __('Hiring', 'sfs-hr'),
             __('Hiring', 'sfs-hr'),
-            'sfs_hr.manage',
+            'sfs_hr.view',
             'sfs-hr-hiring',
             [Admin\AdminPages::instance(), 'render_page']
         );

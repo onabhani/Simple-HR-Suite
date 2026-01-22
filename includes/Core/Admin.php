@@ -453,7 +453,7 @@ class Admin {
             'page'  => 'sfs-hr-hiring',
             'icon'  => 'dashicons-businessperson',
             'label' => __( 'Hiring', 'sfs-hr' ),
-            'cap'   => 'sfs_hr.manage',
+            'cap'   => 'sfs_hr.view',
         ],
         [
             'page'  => 'sfs-hr-resignations',
