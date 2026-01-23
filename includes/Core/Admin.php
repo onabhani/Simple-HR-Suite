@@ -558,10 +558,15 @@ class Admin {
     ) );
     $is_dept_manager = ! empty( $managed_dept_ids );
 
-    // GM: Check if user is in the assigned GM list (position-based)
-    $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
-    $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
-    $is_gm = ! empty( $gm_user_ids ) && in_array( $user_id, $gm_user_ids, true );
+    // GM: Check if user is the assigned GM (position-based)
+    $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+    if ( ! $gm_user_id ) {
+        // Fallback to Loans setting for backward compatibility
+        $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+        $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
+        $gm_user_id = ! empty( $gm_user_ids ) ? (int) $gm_user_ids[0] : 0;
+    }
+    $is_gm = ( $gm_user_id > 0 && $user_id === $gm_user_id );
 
     // HR: Check if user is in the assigned HR approvers list (position-based)
     $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
@@ -3963,12 +3968,12 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         $dept_t = $wpdb->prefix . 'sfs_hr_departments';
         $emp_t  = $wpdb->prefix . 'sfs_hr_employees';
 
-        // Get all active departments with their managers
+        // Get all active departments with their managers (excluding "General" department)
         $departments = $wpdb->get_results(
             "SELECT d.id, d.name, d.manager_user_id,
                     (SELECT COUNT(*) FROM {$emp_t} e WHERE e.dept_id = d.id AND e.status = 'active') as employee_count
              FROM {$dept_t} d
-             WHERE d.active = 1
+             WHERE d.active = 1 AND LOWER(d.name) != 'general'
              ORDER BY d.name ASC",
             ARRAY_A
         );

@@ -959,6 +959,7 @@ class AdminPages {
                     border: 1px solid #ddd;
                     border-radius: 8px;
                     overflow: hidden;
+                    display: none; /* Hidden on desktop by default */
                 }
                 .sfs-hr-installments-table-wrap .table-header {
                     padding: 16px;
@@ -1035,6 +1036,7 @@ class AdminPages {
                     }
                     .tablenav .bulkactions { display: none; }
                     .sfs-hr-installments-desktop { display: none !important; }
+                    .sfs-hr-installments-table-wrap { display: block !important; } /* Show mobile table */
                 }
 
                 /* Slide-up Modal */

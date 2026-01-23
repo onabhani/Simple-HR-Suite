@@ -152,11 +152,16 @@ public function render_requests(): void {
 
     // Position-based checks for viewing: HR approvers, GM, or manage capability
     $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
-    $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
-    $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
+    $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+    if ( ! $gm_user_id ) {
+        // Fallback to Loans setting for backward compatibility
+        $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+        $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
+        $gm_user_id = ! empty( $gm_user_ids ) ? (int) $gm_user_ids[0] : 0;
+    }
     $is_hr_or_gm_for_view = current_user_can('sfs_hr.manage')
         || ( ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true ) )
-        || ( ! empty( $gm_user_ids ) && in_array( $current_uid, $gm_user_ids, true ) );
+        || ( $gm_user_id > 0 && $current_uid === $gm_user_id );
     $managed_depts = [];
 
     if ( ! $is_hr_or_gm_for_view ) {
@@ -288,7 +293,7 @@ public function render_requests(): void {
                     if ($r['status'] === 'pending') {
                         // Position-based HR or GM can approve
                         $is_hr_position = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
-                        $is_gm_position = ! empty( $gm_user_ids ) && in_array( $current_uid, $gm_user_ids, true );
+                        $is_gm_position = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
                         if ($is_hr_position || $is_gm_position) {
                             $can_approve = true;
                         }
@@ -437,12 +442,12 @@ public function render_requests(): void {
     </div>
 
     <script>
-    var sfsHrLeaveData = <?php echo wp_json_encode(array_values(array_map(function($r) use ($nonceA, $nonceR, $hr_user_ids, $gm_user_ids, $managed_depts, $current_uid) {
+    var sfsHrLeaveData = <?php echo wp_json_encode(array_values(array_map(function($r) use ($nonceA, $nonceR, $hr_user_ids, $gm_user_id, $managed_depts, $current_uid) {
         $can_approve = false;
         if ($r['status'] === 'pending') {
             // Position-based HR or GM check
             $is_hr_position = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
-            $is_gm_position = ! empty( $gm_user_ids ) && in_array( $current_uid, $gm_user_ids, true );
+            $is_gm_position = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
             if ($is_hr_position || $is_gm_position) {
                 $can_approve = true;
             } elseif (!empty($managed_depts) && in_array((int)$r['dept_id'], $managed_depts, true)) {
@@ -978,10 +983,15 @@ public function handle_approve(): void {
     $approval_level  = (int) ( $row['approval_level'] ?? 1 );
 
     // Position-based approval checks (not capability-based)
-    // GM: Check if user is in the assigned GM list
-    $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
-    $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
-    $is_gm = ! empty( $gm_user_ids ) && in_array( $current_uid, $gm_user_ids, true );
+    // GM: Check if user is the assigned GM
+    $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+    if ( ! $gm_user_id ) {
+        // Fallback to Loans setting for backward compatibility
+        $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+        $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
+        $gm_user_id = ! empty( $gm_user_ids ) ? (int) $gm_user_ids[0] : 0;
+    }
+    $is_gm = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
 
     // HR: Check if user is in the assigned HR approvers list
     $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
@@ -2017,6 +2027,35 @@ public function handle_cancel(): void {
                 </td>
               </tr>
               <tr>
+                <th><?php esc_html_e('GM (General Manager)','sfs-hr'); ?></th>
+                <td>
+                  <?php
+                  // Get current GM - try Leave setting first, then fall back to Loans setting
+                  $gm_user_id = (int) get_option('sfs_hr_leave_gm_approver', 0);
+                  if ( ! $gm_user_id ) {
+                      $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+                      $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
+                      $gm_user_id = ! empty( $gm_user_ids ) ? (int) $gm_user_ids[0] : 0;
+                  }
+                  // Get users who can be GM
+                  $gm_users = get_users([
+                      'role__in' => ['administrator', 'sfs_hr_manager'],
+                      'orderby'  => 'display_name',
+                      'order'    => 'ASC',
+                  ]);
+                  ?>
+                  <select name="leave_gm_approver" style="width:400px;">
+                    <option value=""><?php esc_html_e('— Select GM —','sfs-hr'); ?></option>
+                    <?php foreach ($gm_users as $user): ?>
+                      <option value="<?php echo (int)$user->ID; ?>" <?php selected($gm_user_id, $user->ID); ?>>
+                        <?php echo esc_html($user->display_name . ' (' . $user->user_email . ')'); ?>
+                      </option>
+                    <?php endforeach; ?>
+                  </select>
+                  <p class="description"><?php esc_html_e('The General Manager approves leave requests from Department Managers. This is also used for loan approvals.','sfs-hr'); ?></p>
+                </td>
+              </tr>
+              <tr>
                 <th><?php esc_html_e('HR Approvers','sfs-hr'); ?></th>
                 <td>
                   <?php
@@ -2133,6 +2172,14 @@ public function handle_cancel(): void {
         // Finance approver for employees with active loans
         $finance_approver = isset($_POST['leave_finance_approver']) ? (int)$_POST['leave_finance_approver'] : 0;
         update_option('sfs_hr_leave_finance_approver', (string)$finance_approver);
+
+        // GM (General Manager) approver
+        $gm_approver = isset($_POST['leave_gm_approver']) ? (int)$_POST['leave_gm_approver'] : 0;
+        update_option('sfs_hr_leave_gm_approver', $gm_approver);
+        // Also sync to Loans settings for consistency
+        $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+        $loan_settings['gm_user_ids'] = $gm_approver ? [ $gm_approver ] : [];
+        update_option( 'sfs_hr_loans_settings', $loan_settings );
 
         // HR approvers (users who can approve at HR stage)
         $hr_approvers = isset($_POST['leave_hr_approvers']) ? array_map('intval', (array)$_POST['leave_hr_approvers']) : [];
@@ -4848,10 +4895,15 @@ public function render_calendar(): void {
         $managed_depts = $this->manager_dept_ids_for_user( $current_uid );
         $is_dept_manager = ! empty( $managed_depts ) && in_array( (int) $request->dept_id, $managed_depts, true );
 
-        // GM: Check if user is in the assigned GM list
-        $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
-        $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
-        $is_gm = ! empty( $gm_user_ids ) && in_array( $current_uid, $gm_user_ids, true );
+        // GM: Check if user is the assigned GM
+        $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+        if ( ! $gm_user_id ) {
+            // Fallback to Loans setting for backward compatibility
+            $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+            $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
+            $gm_user_id = ! empty( $gm_user_ids ) ? (int) $gm_user_ids[0] : 0;
+        }
+        $is_gm = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
 
         // HR: Check if user is in the assigned HR approvers list
         $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
