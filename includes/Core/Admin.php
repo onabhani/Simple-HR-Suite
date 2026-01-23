@@ -1995,6 +1995,29 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
     Helpers::render_admin_nav();
     echo '<hr class="wp-header-end" />';
 
+        // Tab navigation
+        $active_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'list';
+        $base_url = admin_url('admin.php?page=sfs-hr-employees');
+        ?>
+        <nav class="nav-tab-wrapper wp-clearfix" style="margin-bottom: 20px;">
+            <a href="<?php echo esc_url($base_url . '&tab=list'); ?>"
+               class="nav-tab <?php echo $active_tab === 'list' ? 'nav-tab-active' : ''; ?>">
+                <?php esc_html_e('Employee List', 'sfs-hr'); ?>
+            </a>
+            <a href="<?php echo esc_url($base_url . '&tab=organization'); ?>"
+               class="nav-tab <?php echo $active_tab === 'organization' ? 'nav-tab-active' : ''; ?>">
+                <?php esc_html_e('Organization', 'sfs-hr'); ?>
+            </a>
+        </nav>
+        <?php
+
+        // Route to the appropriate tab content
+        if ($active_tab === 'organization') {
+            $this->render_organization_structure();
+            echo '</div>'; // Close wrap
+            return;
+        }
+
         $action = isset($_GET['action']) ? sanitize_key($_GET['action']) : '';
         if ($action === 'edit') { $this->render_edit_form(); return; }
 
@@ -3932,7 +3955,365 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
     <?php
 }
 
+    /**
+     * Render the organization structure view (Department → Manager → Employees)
+     */
+    private function render_organization_structure(): void {
+        global $wpdb;
+        $dept_t = $wpdb->prefix . 'sfs_hr_departments';
+        $emp_t  = $wpdb->prefix . 'sfs_hr_employees';
 
+        // Get all active departments with their managers
+        $departments = $wpdb->get_results(
+            "SELECT d.id, d.name, d.manager_user_id,
+                    (SELECT COUNT(*) FROM {$emp_t} e WHERE e.dept_id = d.id AND e.status = 'active') as employee_count
+             FROM {$dept_t} d
+             WHERE d.active = 1
+             ORDER BY d.name ASC",
+            ARRAY_A
+        );
+
+        // Get employees without department
+        $unassigned_employees = $wpdb->get_results(
+            "SELECT id, employee_code, first_name, last_name, position, photo_id, user_id
+             FROM {$emp_t}
+             WHERE (dept_id IS NULL OR dept_id = 0) AND status = 'active'
+             ORDER BY first_name, last_name ASC",
+            ARRAY_A
+        );
+
+        ?>
+        <style>
+            .sfs-hr-org-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+                gap: 24px;
+                margin-top: 20px;
+            }
+            .sfs-hr-org-card {
+                background: #fff;
+                border: 1px solid #dcdcde;
+                border-radius: 8px;
+                overflow: hidden;
+            }
+            .sfs-hr-org-card-header {
+                background: linear-gradient(135deg, #2271b1 0%, #135e96 100%);
+                color: #fff;
+                padding: 16px 20px;
+            }
+            .sfs-hr-org-card-header h3 {
+                margin: 0 0 4px 0;
+                font-size: 16px;
+                font-weight: 600;
+            }
+            .sfs-hr-org-card-header .dept-count {
+                font-size: 13px;
+                opacity: 0.9;
+            }
+            .sfs-hr-org-manager {
+                padding: 16px 20px;
+                background: #f6f7f7;
+                border-bottom: 1px solid #dcdcde;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+            .sfs-hr-org-manager-avatar {
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                background: #2271b1;
+                color: #fff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 18px;
+                font-weight: 600;
+                flex-shrink: 0;
+                overflow: hidden;
+            }
+            .sfs-hr-org-manager-avatar img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+            .sfs-hr-org-manager-info h4 {
+                margin: 0 0 2px 0;
+                font-size: 14px;
+                font-weight: 600;
+                color: #1d2327;
+            }
+            .sfs-hr-org-manager-info span {
+                font-size: 12px;
+                color: #646970;
+            }
+            .sfs-hr-org-manager-badge {
+                margin-left: auto;
+                background: #2271b1;
+                color: #fff;
+                padding: 4px 10px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 500;
+            }
+            .sfs-hr-org-employees {
+                padding: 12px 20px;
+                max-height: 300px;
+                overflow-y: auto;
+            }
+            .sfs-hr-org-employee {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 8px 0;
+                border-bottom: 1px solid #f0f0f1;
+            }
+            .sfs-hr-org-employee:last-child {
+                border-bottom: none;
+            }
+            .sfs-hr-org-employee-avatar {
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                background: #dcdcde;
+                color: #50575e;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 14px;
+                font-weight: 500;
+                flex-shrink: 0;
+                overflow: hidden;
+            }
+            .sfs-hr-org-employee-avatar img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+            .sfs-hr-org-employee-info {
+                flex: 1;
+                min-width: 0;
+            }
+            .sfs-hr-org-employee-info .name {
+                font-size: 13px;
+                font-weight: 500;
+                color: #1d2327;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .sfs-hr-org-employee-info .position {
+                font-size: 12px;
+                color: #646970;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .sfs-hr-org-employee-code {
+                font-size: 11px;
+                color: #787c82;
+                background: #f0f0f1;
+                padding: 2px 8px;
+                border-radius: 10px;
+            }
+            .sfs-hr-org-empty {
+                padding: 20px;
+                text-align: center;
+                color: #646970;
+                font-style: italic;
+            }
+            .sfs-hr-org-no-manager {
+                padding: 16px 20px;
+                background: #fff8e5;
+                border-bottom: 1px solid #dcdcde;
+                color: #996800;
+                font-size: 13px;
+            }
+            .sfs-hr-org-unassigned {
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 2px solid #dcdcde;
+            }
+            .sfs-hr-org-unassigned h3 {
+                margin: 0 0 16px 0;
+                color: #646970;
+                font-size: 14px;
+                font-weight: 600;
+            }
+            .sfs-hr-org-unassigned-list {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+            .sfs-hr-org-unassigned-item {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                background: #fff;
+                border: 1px solid #dcdcde;
+                border-radius: 6px;
+                padding: 10px 14px;
+            }
+            @media (max-width: 782px) {
+                .sfs-hr-org-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+        </style>
+
+        <div class="sfs-hr-org-container">
+            <?php if (empty($departments) && empty($unassigned_employees)): ?>
+                <div class="notice notice-info">
+                    <p><?php esc_html_e('No departments or employees found. Please add departments and employees first.', 'sfs-hr'); ?></p>
+                </div>
+            <?php else: ?>
+                <div class="sfs-hr-org-grid">
+                    <?php foreach ($departments as $dept):
+                        // Get manager info
+                        $manager = null;
+                        $manager_employee = null;
+                        if (!empty($dept['manager_user_id'])) {
+                            $manager = get_user_by('id', $dept['manager_user_id']);
+                            // Try to get employee record for manager
+                            $manager_employee = $wpdb->get_row($wpdb->prepare(
+                                "SELECT id, photo_id, position, employee_code FROM {$emp_t} WHERE user_id = %d",
+                                $dept['manager_user_id']
+                            ), ARRAY_A);
+                        }
+
+                        // Get employees in this department (excluding manager)
+                        $employees = $wpdb->get_results($wpdb->prepare(
+                            "SELECT id, employee_code, first_name, last_name, position, photo_id, user_id
+                             FROM {$emp_t}
+                             WHERE dept_id = %d AND status = 'active'
+                             " . (!empty($dept['manager_user_id']) ? "AND (user_id IS NULL OR user_id != %d)" : "") . "
+                             ORDER BY first_name, last_name ASC",
+                            ...(!empty($dept['manager_user_id']) ? [$dept['id'], $dept['manager_user_id']] : [$dept['id']])
+                        ), ARRAY_A);
+                    ?>
+                        <div class="sfs-hr-org-card">
+                            <div class="sfs-hr-org-card-header">
+                                <h3><?php echo esc_html($dept['name']); ?></h3>
+                                <span class="dept-count">
+                                    <?php echo sprintf(
+                                        _n('%d employee', '%d employees', $dept['employee_count'], 'sfs-hr'),
+                                        $dept['employee_count']
+                                    ); ?>
+                                </span>
+                            </div>
+
+                            <?php if ($manager): ?>
+                                <div class="sfs-hr-org-manager">
+                                    <div class="sfs-hr-org-manager-avatar">
+                                        <?php
+                                        $avatar_url = null;
+                                        if ($manager_employee && !empty($manager_employee['photo_id'])) {
+                                            $avatar_url = wp_get_attachment_image_url($manager_employee['photo_id'], 'thumbnail');
+                                        }
+                                        if ($avatar_url): ?>
+                                            <img src="<?php echo esc_url($avatar_url); ?>" alt="">
+                                        <?php else:
+                                            echo esc_html(strtoupper(substr($manager->display_name, 0, 1)));
+                                        endif; ?>
+                                    </div>
+                                    <div class="sfs-hr-org-manager-info">
+                                        <h4>
+                                            <?php if ($manager_employee): ?>
+                                                <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . $manager_employee['id'])); ?>">
+                                                    <?php echo esc_html($manager->display_name); ?>
+                                                </a>
+                                            <?php else: ?>
+                                                <?php echo esc_html($manager->display_name); ?>
+                                            <?php endif; ?>
+                                        </h4>
+                                        <span><?php echo esc_html($manager_employee['position'] ?? __('Department Manager', 'sfs-hr')); ?></span>
+                                    </div>
+                                    <span class="sfs-hr-org-manager-badge"><?php esc_html_e('Manager', 'sfs-hr'); ?></span>
+                                </div>
+                            <?php else: ?>
+                                <div class="sfs-hr-org-no-manager">
+                                    <?php esc_html_e('No manager assigned', 'sfs-hr'); ?>
+                                </div>
+                            <?php endif; ?>
+
+                            <div class="sfs-hr-org-employees">
+                                <?php if (empty($employees)): ?>
+                                    <div class="sfs-hr-org-empty">
+                                        <?php esc_html_e('No other employees in this department', 'sfs-hr'); ?>
+                                    </div>
+                                <?php else: ?>
+                                    <?php foreach ($employees as $emp):
+                                        $emp_avatar_url = !empty($emp['photo_id']) ? wp_get_attachment_image_url($emp['photo_id'], 'thumbnail') : null;
+                                        $emp_name = trim($emp['first_name'] . ' ' . $emp['last_name']);
+                                        if (empty($emp_name)) {
+                                            $emp_name = __('(No name)', 'sfs-hr');
+                                        }
+                                    ?>
+                                        <div class="sfs-hr-org-employee">
+                                            <div class="sfs-hr-org-employee-avatar">
+                                                <?php if ($emp_avatar_url): ?>
+                                                    <img src="<?php echo esc_url($emp_avatar_url); ?>" alt="">
+                                                <?php else: ?>
+                                                    <?php echo esc_html(strtoupper(substr($emp_name, 0, 1))); ?>
+                                                <?php endif; ?>
+                                            </div>
+                                            <div class="sfs-hr-org-employee-info">
+                                                <div class="name">
+                                                    <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . $emp['id'])); ?>">
+                                                        <?php echo esc_html($emp_name); ?>
+                                                    </a>
+                                                </div>
+                                                <?php if (!empty($emp['position'])): ?>
+                                                    <div class="position"><?php echo esc_html($emp['position']); ?></div>
+                                                <?php endif; ?>
+                                            </div>
+                                            <span class="sfs-hr-org-employee-code"><?php echo esc_html($emp['employee_code']); ?></span>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+
+                <?php if (!empty($unassigned_employees)): ?>
+                    <div class="sfs-hr-org-unassigned">
+                        <h3><?php esc_html_e('Employees Without Department', 'sfs-hr'); ?></h3>
+                        <div class="sfs-hr-org-unassigned-list">
+                            <?php foreach ($unassigned_employees as $emp):
+                                $emp_avatar_url = !empty($emp['photo_id']) ? wp_get_attachment_image_url($emp['photo_id'], 'thumbnail') : null;
+                                $emp_name = trim($emp['first_name'] . ' ' . $emp['last_name']);
+                                if (empty($emp_name)) {
+                                    $emp_name = __('(No name)', 'sfs-hr');
+                                }
+                            ?>
+                                <div class="sfs-hr-org-unassigned-item">
+                                    <div class="sfs-hr-org-employee-avatar">
+                                        <?php if ($emp_avatar_url): ?>
+                                            <img src="<?php echo esc_url($emp_avatar_url); ?>" alt="">
+                                        <?php else: ?>
+                                            <?php echo esc_html(strtoupper(substr($emp_name, 0, 1))); ?>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="sfs-hr-org-employee-info">
+                                        <div class="name">
+                                            <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . $emp['id'])); ?>">
+                                                <?php echo esc_html($emp_name); ?>
+                                            </a>
+                                        </div>
+                                        <?php if (!empty($emp['position'])): ?>
+                                            <div class="position"><?php echo esc_html($emp['position']); ?></div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
 
     public function handle_save_edit(): void {
     Helpers::require_cap('sfs_hr.manage');
