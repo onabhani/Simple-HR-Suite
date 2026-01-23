@@ -4350,33 +4350,15 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             .sfs-hr-chart-level {
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-                gap: 20px;
+                gap: 30px 20px;
                 max-width: 100%;
                 width: 100%;
-                position: relative;
-                padding-top: 20px;
-                margin-top: 10px;
-                border-top: 2px solid #c3c4c7;
-            }
-            .sfs-hr-chart-level::before {
-                display: none;
+                margin-top: 30px;
             }
             .sfs-hr-chart-branch {
                 display: flex;
                 flex-direction: column;
                 align-items: center;
-                position: relative;
-            }
-            /* Vertical connector from top border to branch */
-            .sfs-hr-chart-branch::before {
-                content: '';
-                position: absolute;
-                top: -20px;
-                left: 50%;
-                transform: translateX(-50%);
-                width: 2px;
-                height: 20px;
-                background: #c3c4c7;
             }
             .sfs-hr-chart-employees {
                 display: flex;
