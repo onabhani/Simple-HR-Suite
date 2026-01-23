@@ -368,63 +368,6 @@ echo '<div class="wrap sfs-hr-wrap">';
                                 <th><?php esc_html_e( 'Position', 'sfs-hr' ); ?></th>
                                 <td><?php echo $position ? esc_html( $position ) : '—'; ?></td>
                             </tr>
-                            <?php if ( $is_manager && ! empty( $direct_reports ) ) : ?>
-                            <tr>
-                                <th><?php esc_html_e( 'Direct Reports', 'sfs-hr' ); ?></th>
-                                <td>
-                                    <div class="sfs-hr-hierarchy-list">
-                                        <?php foreach ( $direct_reports as $report ) :
-                                            $report_name = trim( $report['first_name'] . ' ' . $report['last_name'] );
-                                            $report_url = admin_url( 'admin.php?page=sfs-hr-employee-profile&employee_id=' . $report['id'] );
-                                            $report_avatar = ! empty( $report['photo_id'] ) ? wp_get_attachment_image_url( $report['photo_id'], 'thumbnail' ) : null;
-                                        ?>
-                                            <a href="<?php echo esc_url( $report_url ); ?>" class="sfs-hr-hierarchy-item">
-                                                <span class="sfs-hr-hierarchy-avatar">
-                                                    <?php if ( $report_avatar ) : ?>
-                                                        <img src="<?php echo esc_url( $report_avatar ); ?>" alt="">
-                                                    <?php else : ?>
-                                                        <?php echo esc_html( strtoupper( substr( $report_name, 0, 1 ) ) ); ?>
-                                                    <?php endif; ?>
-                                                </span>
-                                                <span class="sfs-hr-hierarchy-info">
-                                                    <span class="sfs-hr-hierarchy-name"><?php echo esc_html( $report_name ); ?></span>
-                                                    <?php if ( ! empty( $report['position'] ) ) : ?>
-                                                        <span class="sfs-hr-hierarchy-position"><?php echo esc_html( $report['position'] ); ?></span>
-                                                    <?php endif; ?>
-                                                </span>
-                                            </a>
-                                        <?php endforeach; ?>
-                                    </div>
-                                </td>
-                            </tr>
-                            <?php elseif ( $manager_info ) : ?>
-                            <tr>
-                                <th><?php esc_html_e( 'Reports To', 'sfs-hr' ); ?></th>
-                                <td>
-                                    <?php
-                                    $mgr_name = trim( $manager_info['first_name'] . ' ' . $manager_info['last_name'] );
-                                    $mgr_url = admin_url( 'admin.php?page=sfs-hr-employee-profile&employee_id=' . $manager_info['id'] );
-                                    $mgr_avatar = ! empty( $manager_info['photo_id'] ) ? wp_get_attachment_image_url( $manager_info['photo_id'], 'thumbnail' ) : null;
-                                    ?>
-                                    <a href="<?php echo esc_url( $mgr_url ); ?>" class="sfs-hr-hierarchy-item sfs-hr-hierarchy-single">
-                                        <span class="sfs-hr-hierarchy-avatar">
-                                            <?php if ( $mgr_avatar ) : ?>
-                                                <img src="<?php echo esc_url( $mgr_avatar ); ?>" alt="">
-                                            <?php else : ?>
-                                                <?php echo esc_html( strtoupper( substr( $mgr_name, 0, 1 ) ) ); ?>
-                                            <?php endif; ?>
-                                        </span>
-                                        <span class="sfs-hr-hierarchy-info">
-                                            <span class="sfs-hr-hierarchy-name"><?php echo esc_html( $mgr_name ); ?></span>
-                                            <?php if ( ! empty( $manager_info['position'] ) ) : ?>
-                                                <span class="sfs-hr-hierarchy-position"><?php echo esc_html( $manager_info['position'] ); ?></span>
-                                            <?php endif; ?>
-                                        </span>
-                                        <span class="sfs-hr-hierarchy-badge"><?php esc_html_e( 'Manager', 'sfs-hr' ); ?></span>
-                                    </a>
-                                </td>
-                            </tr>
-                            <?php endif; ?>
                             <tr>
                                 <th><?php esc_html_e( 'Hire date', 'sfs-hr' ); ?></th>
                                 <td>
@@ -799,6 +742,60 @@ echo '<div class="wrap sfs-hr-wrap">';
                 <?php $this->render_assets_card( $employee_id ); ?>
                 <?php $this->render_documents_card( $employee_id ); ?>
                 <?php $this->render_requests_card( $employee_id ); ?>
+
+                <?php if ( $is_manager && ! empty( $direct_reports ) ) : ?>
+                <div class="sfs-hr-emp-card">
+                    <h3><?php esc_html_e( 'Direct Reports', 'sfs-hr' ); ?></h3>
+                    <div class="sfs-hr-hierarchy-list">
+                        <?php foreach ( $direct_reports as $report ) :
+                            $report_name = trim( $report['first_name'] . ' ' . $report['last_name'] );
+                            $report_url = admin_url( 'admin.php?page=sfs-hr-employee-profile&employee_id=' . $report['id'] );
+                            $report_avatar = ! empty( $report['photo_id'] ) ? wp_get_attachment_image_url( $report['photo_id'], 'thumbnail' ) : null;
+                        ?>
+                            <a href="<?php echo esc_url( $report_url ); ?>" class="sfs-hr-hierarchy-item">
+                                <span class="sfs-hr-hierarchy-avatar">
+                                    <?php if ( $report_avatar ) : ?>
+                                        <img src="<?php echo esc_url( $report_avatar ); ?>" alt="">
+                                    <?php else : ?>
+                                        <?php echo esc_html( strtoupper( substr( $report_name, 0, 1 ) ) ); ?>
+                                    <?php endif; ?>
+                                </span>
+                                <span class="sfs-hr-hierarchy-info">
+                                    <span class="sfs-hr-hierarchy-name"><?php echo esc_html( $report_name ); ?></span>
+                                    <?php if ( ! empty( $report['position'] ) ) : ?>
+                                        <span class="sfs-hr-hierarchy-position"><?php echo esc_html( $report['position'] ); ?></span>
+                                    <?php endif; ?>
+                                </span>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php elseif ( $manager_info ) : ?>
+                <div class="sfs-hr-emp-card">
+                    <h3><?php esc_html_e( 'Reports To', 'sfs-hr' ); ?></h3>
+                    <?php
+                    $mgr_name = trim( $manager_info['first_name'] . ' ' . $manager_info['last_name'] );
+                    $mgr_url = admin_url( 'admin.php?page=sfs-hr-employee-profile&employee_id=' . $manager_info['id'] );
+                    $mgr_avatar = ! empty( $manager_info['photo_id'] ) ? wp_get_attachment_image_url( $manager_info['photo_id'], 'thumbnail' ) : null;
+                    ?>
+                    <a href="<?php echo esc_url( $mgr_url ); ?>" class="sfs-hr-hierarchy-item sfs-hr-hierarchy-single">
+                        <span class="sfs-hr-hierarchy-avatar">
+                            <?php if ( $mgr_avatar ) : ?>
+                                <img src="<?php echo esc_url( $mgr_avatar ); ?>" alt="">
+                            <?php else : ?>
+                                <?php echo esc_html( strtoupper( substr( $mgr_name, 0, 1 ) ) ); ?>
+                            <?php endif; ?>
+                        </span>
+                        <span class="sfs-hr-hierarchy-info">
+                            <span class="sfs-hr-hierarchy-name"><?php echo esc_html( $mgr_name ); ?></span>
+                            <?php if ( ! empty( $manager_info['position'] ) ) : ?>
+                                <span class="sfs-hr-hierarchy-position"><?php echo esc_html( $manager_info['position'] ); ?></span>
+                            <?php endif; ?>
+                        </span>
+                        <span class="sfs-hr-hierarchy-badge"><?php esc_html_e( 'Manager', 'sfs-hr' ); ?></span>
+                    </a>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
 
