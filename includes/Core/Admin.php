@@ -4362,13 +4362,12 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 height: 2px;
                 background: #c3c4c7;
             }
-            /* Manager level - grid layout for wrapping */
+            /* Manager level - flexbox for proper centering */
             .sfs-hr-chart-level {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-                gap: 30px 20px;
-                max-width: 100%;
-                width: 100%;
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 20px;
                 padding-top: 30px;
             }
             .sfs-hr-chart-branch {
@@ -4376,6 +4375,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 flex-direction: column;
                 align-items: center;
                 position: relative;
+                width: 220px;
             }
             /* Vertical connector from horizontal line to each branch */
             .sfs-hr-chart-branch::before {
