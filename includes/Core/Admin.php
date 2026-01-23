@@ -4346,6 +4346,22 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 background: #c3c4c7;
                 margin: 0 auto;
             }
+            /* Level wrapper with horizontal line */
+            .sfs-hr-chart-level-wrap {
+                position: relative;
+                width: 100%;
+                margin-top: 0;
+            }
+            /* Horizontal line spanning full width */
+            .sfs-hr-chart-level-wrap::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 2px;
+                background: #c3c4c7;
+            }
             /* Manager level - grid layout for wrapping */
             .sfs-hr-chart-level {
                 display: grid;
@@ -4353,12 +4369,24 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 gap: 30px 20px;
                 max-width: 100%;
                 width: 100%;
-                margin-top: 30px;
+                padding-top: 30px;
             }
             .sfs-hr-chart-branch {
                 display: flex;
                 flex-direction: column;
                 align-items: center;
+                position: relative;
+            }
+            /* Vertical connector from horizontal line to each branch */
+            .sfs-hr-chart-branch::before {
+                content: '';
+                position: absolute;
+                top: -30px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 2px;
+                height: 30px;
+                background: #c3c4c7;
             }
             .sfs-hr-chart-employees {
                 display: flex;
@@ -4466,6 +4494,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
                         <!-- Department Managers Level -->
                         <?php if (!empty($departments)): ?>
+                            <div class="sfs-hr-chart-level-wrap">
                             <div class="sfs-hr-chart-level">
                                 <?php foreach ($departments as $dept):
                                     $manager = null;
@@ -4544,6 +4573,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                                     </div>
                                 <?php endforeach; ?>
                             </div>
+                            </div><!-- .sfs-hr-chart-level-wrap -->
                         <?php endif; ?>
                     </div>
                 </div>
