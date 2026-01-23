@@ -3987,6 +3987,30 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             ARRAY_A
         );
 
+        // Get GM info for org chart
+        $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+        if ( ! $gm_user_id ) {
+            $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+            $gm_user_ids_arr = $loan_settings['gm_user_ids'] ?? [];
+            $gm_user_id = ! empty( $gm_user_ids_arr ) ? (int) $gm_user_ids_arr[0] : 0;
+        }
+        $gm_info = null;
+        $gm_employee = null;
+        if ( $gm_user_id ) {
+            $gm_user = get_user_by( 'id', $gm_user_id );
+            if ( $gm_user ) {
+                $gm_info = $gm_user;
+                $gm_employee = $wpdb->get_row( $wpdb->prepare(
+                    "SELECT id, photo_id, position FROM {$emp_t} WHERE user_id = %d",
+                    $gm_user_id
+                ), ARRAY_A );
+            }
+        }
+
+        // Current view mode
+        $org_view = isset($_GET['view']) ? sanitize_key($_GET['view']) : 'cards';
+        $base_org_url = admin_url('admin.php?page=sfs-hr-employees&tab=organization');
+
         ?>
         <style>
             .sfs-hr-org-grid {
@@ -4164,14 +4188,353 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                     grid-template-columns: 1fr;
                 }
             }
+
+            /* View Toggle */
+            .sfs-hr-org-view-toggle {
+                display: flex;
+                gap: 8px;
+                margin-bottom: 20px;
+            }
+            .sfs-hr-org-view-btn {
+                padding: 8px 16px;
+                border: 1px solid #dcdcde;
+                border-radius: 4px;
+                background: #fff;
+                color: #50575e;
+                text-decoration: none;
+                font-size: 13px;
+                font-weight: 500;
+                transition: all 0.15s;
+            }
+            .sfs-hr-org-view-btn:hover {
+                border-color: #2271b1;
+                color: #2271b1;
+            }
+            .sfs-hr-org-view-btn.active {
+                background: #2271b1;
+                border-color: #2271b1;
+                color: #fff;
+            }
+
+            /* Org Chart Styles */
+            .sfs-hr-org-chart {
+                overflow-x: auto;
+                padding: 20px;
+                background: #f6f7f7;
+                border-radius: 8px;
+                margin-top: 20px;
+            }
+            .sfs-hr-org-chart-inner {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                min-width: max-content;
+            }
+            .sfs-hr-chart-node {
+                background: #fff;
+                border: 2px solid #dcdcde;
+                border-radius: 8px;
+                padding: 16px 20px;
+                text-align: center;
+                min-width: 180px;
+                position: relative;
+            }
+            .sfs-hr-chart-node.gm {
+                border-color: #d63638;
+                background: linear-gradient(135deg, #fff 0%, #fee2e2 100%);
+            }
+            .sfs-hr-chart-node.manager {
+                border-color: #2271b1;
+                background: linear-gradient(135deg, #fff 0%, #e7f3ff 100%);
+            }
+            .sfs-hr-chart-avatar {
+                width: 56px;
+                height: 56px;
+                border-radius: 50%;
+                margin: 0 auto 10px;
+                overflow: hidden;
+                border: 3px solid #fff;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+            .sfs-hr-chart-avatar img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+            .sfs-hr-chart-avatar-placeholder {
+                width: 100%;
+                height: 100%;
+                background: #2271b1;
+                color: #fff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 22px;
+                font-weight: 600;
+            }
+            .sfs-hr-chart-node.gm .sfs-hr-chart-avatar-placeholder {
+                background: #d63638;
+            }
+            .sfs-hr-chart-name {
+                font-size: 14px;
+                font-weight: 600;
+                color: #1d2327;
+                margin-bottom: 4px;
+            }
+            .sfs-hr-chart-name a {
+                color: inherit;
+                text-decoration: none;
+            }
+            .sfs-hr-chart-name a:hover {
+                color: #2271b1;
+            }
+            .sfs-hr-chart-role {
+                font-size: 11px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                padding: 3px 10px;
+                border-radius: 10px;
+                display: inline-block;
+                margin-bottom: 6px;
+            }
+            .sfs-hr-chart-node.gm .sfs-hr-chart-role {
+                background: #d63638;
+                color: #fff;
+            }
+            .sfs-hr-chart-node.manager .sfs-hr-chart-role {
+                background: #2271b1;
+                color: #fff;
+            }
+            .sfs-hr-chart-position {
+                font-size: 12px;
+                color: #646970;
+            }
+            .sfs-hr-chart-dept {
+                font-size: 11px;
+                color: #787c82;
+                margin-top: 4px;
+            }
+            .sfs-hr-chart-connector {
+                width: 2px;
+                height: 30px;
+                background: #dcdcde;
+                margin: 0 auto;
+            }
+            .sfs-hr-chart-level {
+                display: flex;
+                justify-content: center;
+                gap: 24px;
+                flex-wrap: wrap;
+                position: relative;
+            }
+            .sfs-hr-chart-level::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 50%;
+                transform: translateX(-50%);
+                width: calc(100% - 180px);
+                height: 2px;
+                background: #dcdcde;
+            }
+            .sfs-hr-chart-branch {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            .sfs-hr-chart-branch .sfs-hr-chart-connector {
+                height: 20px;
+            }
+            .sfs-hr-chart-employees {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                justify-content: center;
+                margin-top: 12px;
+                max-width: 300px;
+            }
+            .sfs-hr-chart-emp-chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 4px 10px 4px 4px;
+                background: #f0f0f1;
+                border-radius: 20px;
+                font-size: 12px;
+                color: #1d2327;
+                text-decoration: none;
+            }
+            .sfs-hr-chart-emp-chip:hover {
+                background: #e0e0e0;
+            }
+            .sfs-hr-chart-emp-chip .mini-avatar {
+                width: 22px;
+                height: 22px;
+                border-radius: 50%;
+                background: #787c82;
+                color: #fff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 10px;
+                font-weight: 600;
+                overflow: hidden;
+            }
+            .sfs-hr-chart-emp-chip .mini-avatar img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+            .sfs-hr-chart-no-gm {
+                text-align: center;
+                padding: 20px;
+                color: #646970;
+                font-style: italic;
+            }
         </style>
+
+        <!-- View Toggle -->
+        <div class="sfs-hr-org-view-toggle">
+            <a href="<?php echo esc_url(add_query_arg('view', 'cards', $base_org_url)); ?>"
+               class="sfs-hr-org-view-btn <?php echo $org_view === 'cards' ? 'active' : ''; ?>">
+                <span class="dashicons dashicons-grid-view" style="vertical-align: middle; margin-right: 4px;"></span>
+                <?php esc_html_e('Cards', 'sfs-hr'); ?>
+            </a>
+            <a href="<?php echo esc_url(add_query_arg('view', 'chart', $base_org_url)); ?>"
+               class="sfs-hr-org-view-btn <?php echo $org_view === 'chart' ? 'active' : ''; ?>">
+                <span class="dashicons dashicons-networking" style="vertical-align: middle; margin-right: 4px;"></span>
+                <?php esc_html_e('Org Chart', 'sfs-hr'); ?>
+            </a>
+        </div>
 
         <div class="sfs-hr-org-container">
             <?php if (empty($departments) && empty($unassigned_employees)): ?>
                 <div class="notice notice-info">
                     <p><?php esc_html_e('No departments or employees found. Please add departments and employees first.', 'sfs-hr'); ?></p>
                 </div>
+            <?php elseif ($org_view === 'chart'): ?>
+                <!-- Org Chart View -->
+                <div class="sfs-hr-org-chart">
+                    <div class="sfs-hr-org-chart-inner">
+                        <?php if ($gm_info): ?>
+                            <!-- GM Node -->
+                            <div class="sfs-hr-chart-node gm">
+                                <span class="sfs-hr-chart-role"><?php esc_html_e('General Manager', 'sfs-hr'); ?></span>
+                                <div class="sfs-hr-chart-avatar">
+                                    <?php
+                                    $gm_avatar = $gm_employee && !empty($gm_employee['photo_id']) ? wp_get_attachment_image_url($gm_employee['photo_id'], 'thumbnail') : null;
+                                    if ($gm_avatar): ?>
+                                        <img src="<?php echo esc_url($gm_avatar); ?>" alt="">
+                                    <?php else: ?>
+                                        <div class="sfs-hr-chart-avatar-placeholder"><?php echo esc_html(strtoupper(substr($gm_info->display_name, 0, 1))); ?></div>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="sfs-hr-chart-name">
+                                    <?php if ($gm_employee): ?>
+                                        <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . $gm_employee['id'])); ?>">
+                                            <?php echo esc_html($gm_info->display_name); ?>
+                                        </a>
+                                    <?php else: ?>
+                                        <?php echo esc_html($gm_info->display_name); ?>
+                                    <?php endif; ?>
+                                </div>
+                                <?php if ($gm_employee && !empty($gm_employee['position'])): ?>
+                                    <div class="sfs-hr-chart-position"><?php echo esc_html($gm_employee['position']); ?></div>
+                                <?php endif; ?>
+                            </div>
+                            <div class="sfs-hr-chart-connector"></div>
+                        <?php else: ?>
+                            <div class="sfs-hr-chart-no-gm">
+                                <?php esc_html_e('No General Manager assigned. Set one in Leave Settings.', 'sfs-hr'); ?>
+                            </div>
+                        <?php endif; ?>
+
+                        <!-- Department Managers Level -->
+                        <?php if (!empty($departments)): ?>
+                            <div class="sfs-hr-chart-level">
+                                <?php foreach ($departments as $dept):
+                                    $manager = null;
+                                    $manager_employee = null;
+                                    if (!empty($dept['manager_user_id'])) {
+                                        $manager = get_user_by('id', $dept['manager_user_id']);
+                                        $manager_employee = $wpdb->get_row($wpdb->prepare(
+                                            "SELECT id, photo_id, position FROM {$emp_t} WHERE user_id = %d",
+                                            $dept['manager_user_id']
+                                        ), ARRAY_A);
+                                    }
+
+                                    // Get employees in this department (excluding manager)
+                                    $dept_employees = $wpdb->get_results($wpdb->prepare(
+                                        "SELECT id, first_name, last_name, photo_id
+                                         FROM {$emp_t}
+                                         WHERE dept_id = %d AND status = 'active'
+                                         " . (!empty($dept['manager_user_id']) ? "AND (user_id IS NULL OR user_id != %d)" : "") . "
+                                         ORDER BY first_name, last_name ASC
+                                         LIMIT 10",
+                                        ...(!empty($dept['manager_user_id']) ? [$dept['id'], $dept['manager_user_id']] : [$dept['id']])
+                                    ), ARRAY_A);
+                                    $remaining_count = max(0, (int)$dept['employee_count'] - count($dept_employees) - ($manager ? 1 : 0));
+                                ?>
+                                    <div class="sfs-hr-chart-branch">
+                                        <div class="sfs-hr-chart-connector"></div>
+                                        <div class="sfs-hr-chart-node manager">
+                                            <span class="sfs-hr-chart-role"><?php esc_html_e('Manager', 'sfs-hr'); ?></span>
+                                            <div class="sfs-hr-chart-avatar">
+                                                <?php
+                                                $mgr_avatar = $manager_employee && !empty($manager_employee['photo_id']) ? wp_get_attachment_image_url($manager_employee['photo_id'], 'thumbnail') : null;
+                                                if ($manager && $mgr_avatar): ?>
+                                                    <img src="<?php echo esc_url($mgr_avatar); ?>" alt="">
+                                                <?php elseif ($manager): ?>
+                                                    <div class="sfs-hr-chart-avatar-placeholder"><?php echo esc_html(strtoupper(substr($manager->display_name, 0, 1))); ?></div>
+                                                <?php else: ?>
+                                                    <div class="sfs-hr-chart-avatar-placeholder">?</div>
+                                                <?php endif; ?>
+                                            </div>
+                                            <div class="sfs-hr-chart-name">
+                                                <?php if ($manager && $manager_employee): ?>
+                                                    <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . $manager_employee['id'])); ?>">
+                                                        <?php echo esc_html($manager->display_name); ?>
+                                                    </a>
+                                                <?php elseif ($manager): ?>
+                                                    <?php echo esc_html($manager->display_name); ?>
+                                                <?php else: ?>
+                                                    <?php esc_html_e('(No manager)', 'sfs-hr'); ?>
+                                                <?php endif; ?>
+                                            </div>
+                                            <div class="sfs-hr-chart-dept"><?php echo esc_html($dept['name']); ?></div>
+
+                                            <?php if (!empty($dept_employees)): ?>
+                                                <div class="sfs-hr-chart-employees">
+                                                    <?php foreach ($dept_employees as $de):
+                                                        $de_name = trim($de['first_name'] . ' ' . $de['last_name']);
+                                                        $de_avatar = !empty($de['photo_id']) ? wp_get_attachment_image_url($de['photo_id'], 'thumbnail') : null;
+                                                    ?>
+                                                        <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . $de['id'])); ?>" class="sfs-hr-chart-emp-chip">
+                                                            <span class="mini-avatar">
+                                                                <?php if ($de_avatar): ?>
+                                                                    <img src="<?php echo esc_url($de_avatar); ?>" alt="">
+                                                                <?php else: ?>
+                                                                    <?php echo esc_html(strtoupper(substr($de_name, 0, 1))); ?>
+                                                                <?php endif; ?>
+                                                            </span>
+                                                            <?php echo esc_html($de_name); ?>
+                                                        </a>
+                                                    <?php endforeach; ?>
+                                                    <?php if ($remaining_count > 0): ?>
+                                                        <span class="sfs-hr-chart-emp-chip" style="background:#e0e0e0;">+<?php echo $remaining_count; ?></span>
+                                                    <?php endif; ?>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
             <?php else: ?>
+                <!-- Cards View -->
                 <div class="sfs-hr-org-grid">
                     <?php foreach ($departments as $dept):
                         // Get manager info
