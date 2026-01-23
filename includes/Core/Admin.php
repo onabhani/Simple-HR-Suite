@@ -4008,7 +4008,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         }
 
         // Current view mode
-        $org_view = isset($_GET['view']) ? sanitize_key($_GET['view']) : 'cards';
+        $org_view = isset($_GET['view']) ? sanitize_key($_GET['view']) : 'chart';
         $base_org_url = admin_url('admin.php?page=sfs-hr-employees&tab=organization');
 
         ?>
@@ -4026,18 +4026,20 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 overflow: hidden;
             }
             .sfs-hr-org-card-header {
-                background: linear-gradient(135deg, #2271b1 0%, #135e96 100%);
+                background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
                 color: #fff;
-                padding: 16px 20px;
+                padding: 18px 20px;
             }
             .sfs-hr-org-card-header h3 {
-                margin: 0 0 4px 0;
-                font-size: 16px;
+                margin: 0 0 6px 0;
+                font-size: 17px;
                 font-weight: 600;
+                text-shadow: 0 1px 2px rgba(0,0,0,0.1);
             }
             .sfs-hr-org-card-header .dept-count {
                 font-size: 13px;
-                opacity: 0.9;
+                opacity: 0.95;
+                font-weight: 500;
             }
             .sfs-hr-org-manager {
                 padding: 16px 20px;
@@ -4219,7 +4221,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             /* Org Chart Styles */
             .sfs-hr-org-chart {
                 overflow-x: auto;
-                padding: 20px;
+                padding: 40px 20px;
                 background: #f6f7f7;
                 border-radius: 8px;
                 margin-top: 20px;
@@ -4228,7 +4230,8 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 display: flex;
                 flex-direction: column;
                 align-items: center;
-                min-width: max-content;
+                min-width: 100%;
+                margin: 0 auto;
             }
             .sfs-hr-chart-node {
                 background: #fff;
@@ -4396,15 +4399,15 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
         <!-- View Toggle -->
         <div class="sfs-hr-org-view-toggle">
-            <a href="<?php echo esc_url(add_query_arg('view', 'cards', $base_org_url)); ?>"
-               class="sfs-hr-org-view-btn <?php echo $org_view === 'cards' ? 'active' : ''; ?>">
-                <span class="dashicons dashicons-grid-view" style="vertical-align: middle; margin-right: 4px;"></span>
-                <?php esc_html_e('Cards', 'sfs-hr'); ?>
-            </a>
             <a href="<?php echo esc_url(add_query_arg('view', 'chart', $base_org_url)); ?>"
                class="sfs-hr-org-view-btn <?php echo $org_view === 'chart' ? 'active' : ''; ?>">
                 <span class="dashicons dashicons-networking" style="vertical-align: middle; margin-right: 4px;"></span>
                 <?php esc_html_e('Org Chart', 'sfs-hr'); ?>
+            </a>
+            <a href="<?php echo esc_url(add_query_arg('view', 'cards', $base_org_url)); ?>"
+               class="sfs-hr-org-view-btn <?php echo $org_view === 'cards' ? 'active' : ''; ?>">
+                <span class="dashicons dashicons-grid-view" style="vertical-align: middle; margin-right: 4px;"></span>
+                <?php esc_html_e('Cards', 'sfs-hr'); ?>
             </a>
         </div>
 
@@ -4522,7 +4525,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                                                         </a>
                                                     <?php endforeach; ?>
                                                     <?php if ($remaining_count > 0): ?>
-                                                        <span class="sfs-hr-chart-emp-chip" style="background:#e0e0e0;">+<?php echo $remaining_count; ?></span>
+                                                        <a href="<?php echo esc_url(add_query_arg('view', 'cards', $base_org_url)); ?>" class="sfs-hr-chart-emp-chip" style="background:#2271b1; color:#fff;" title="<?php esc_attr_e('View all in Cards', 'sfs-hr'); ?>">+<?php echo $remaining_count; ?></a>
                                                     <?php endif; ?>
                                                 </div>
                                             <?php endif; ?>
