@@ -65,6 +65,8 @@ class Migrations {
             UNIQUE KEY `uq_dept_name` (`name`),
             KEY `idx_dept_manager` (`manager_user_id`)
         ) $charset");
+        // Add color column for department cards/charts
+        self::add_column_if_missing($dept, 'color', "VARCHAR(7) NULL");
 
         /** LEAVE TYPES */
         $wpdb->query("CREATE TABLE IF NOT EXISTS `$types` (

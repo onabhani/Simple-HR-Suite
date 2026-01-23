@@ -254,6 +254,17 @@ $auto_roles_selected = self::parse_role_list( $r['auto_role'] ?? '' );
                     </div>
 
                     <div class="sfs-hr-field">
+                      <label for="sfs-hr-dept-color-<?php echo (int) $r['id']; ?>">
+                        <?php esc_html_e( 'Card Color', 'sfs-hr' ); ?>
+                      </label>
+                      <input type="color"
+                             id="sfs-hr-dept-color-<?php echo (int) $r['id']; ?>"
+                             name="color"
+                             value="<?php echo esc_attr( ! empty( $r['color'] ) ? $r['color'] : '#1e3a5f' ); ?>"
+                             style="width:50px;height:30px;padding:0;border:1px solid #dcdcde;cursor:pointer;" />
+                    </div>
+
+                    <div class="sfs-hr-field">
                       <label>
                         <?php esc_html_e( 'Status', 'sfs-hr' ); ?>
                       </label>
@@ -379,6 +390,17 @@ $auto_roles_selected = self::parse_role_list( $r['auto_role'] ?? '' );
             </div>
 
             <div class="sfs-hr-field">
+              <label for="sfs-hr-dept-new-color">
+                <?php esc_html_e( 'Card Color', 'sfs-hr' ); ?>
+              </label>
+              <input type="color"
+                     id="sfs-hr-dept-new-color"
+                     name="color"
+                     value="#1e3a5f"
+                     style="width:50px;height:30px;padding:0;border:1px solid #dcdcde;cursor:pointer;" />
+            </div>
+
+            <div class="sfs-hr-field">
               <label>
                 <?php esc_html_e( 'Status', 'sfs-hr' ); ?>
               </label>
@@ -415,6 +437,7 @@ $auto_roles_selected = self::parse_role_list( $r['auto_role'] ?? '' );
     $auto     = self::stringify_role_list( $auto_raw );
     $appr = isset( $_POST['approver_role'] ) ? sanitize_text_field( $_POST['approver_role'] ) : '';
     $act  = ! empty( $_POST['active'] ) ? 1 : 0;
+    $color = isset( $_POST['color'] ) ? sanitize_hex_color( $_POST['color'] ) : '#1e3a5f';
 
     if ( $name === '' ) {
         Helpers::redirect_with_notice(
@@ -434,6 +457,7 @@ $auto_roles_selected = self::parse_role_list( $r['auto_role'] ?? '' );
         'auto_role'       => ( $auto ?: null ),
         'approver_role'   => ( $appr ?: null ),
         'active'          => $act,
+        'color'           => ( $color ?: '#1e3a5f' ),
     ];
 
     if ( $id > 0 ) {

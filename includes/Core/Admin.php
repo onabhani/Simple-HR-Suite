@@ -3963,6 +3963,26 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
     /**
      * Render the organization structure view (Department → Manager → Employees)
      */
+    /**
+     * Adjust color brightness
+     * @param string $hex Hex color code
+     * @param int $steps Steps to adjust (-255 to 255)
+     * @return string Adjusted hex color
+     */
+    private static function adjust_color_brightness( string $hex, int $steps ): string {
+        $hex = ltrim( $hex, '#' );
+
+        $r = hexdec( substr( $hex, 0, 2 ) );
+        $g = hexdec( substr( $hex, 2, 2 ) );
+        $b = hexdec( substr( $hex, 4, 2 ) );
+
+        $r = max( 0, min( 255, $r + $steps ) );
+        $g = max( 0, min( 255, $g + $steps ) );
+        $b = max( 0, min( 255, $b + $steps ) );
+
+        return sprintf( '#%02x%02x%02x', $r, $g, $b );
+    }
+
     private function render_organization_structure(): void {
         global $wpdb;
         $dept_t = $wpdb->prefix . 'sfs_hr_departments';
@@ -3970,7 +3990,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
         // Get all active departments with their managers (excluding "General" department)
         $departments = $wpdb->get_results(
-            "SELECT d.id, d.name, d.manager_user_id,
+            "SELECT d.id, d.name, d.manager_user_id, d.color,
                     (SELECT COUNT(*) FROM {$emp_t} e WHERE e.dept_id = d.id AND e.status = 'active') as employee_count
              FROM {$dept_t} d
              WHERE d.active = 1 AND LOWER(d.name) != 'general'
@@ -4026,18 +4046,18 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 overflow: hidden;
             }
             .sfs-hr-org-card-header {
-                background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
-                color: #fff;
                 padding: 18px 20px;
             }
             .sfs-hr-org-card-header h3 {
                 margin: 0 0 6px 0;
                 font-size: 17px;
                 font-weight: 600;
-                text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+                color: #fff;
+                text-shadow: 0 1px 2px rgba(0,0,0,0.2);
             }
             .sfs-hr-org-card-header .dept-count {
                 font-size: 13px;
+                color: #fff;
                 opacity: 0.95;
                 font-weight: 500;
             }
@@ -4230,7 +4250,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 display: flex;
                 flex-direction: column;
                 align-items: center;
-                min-width: 100%;
+                min-width: fit-content;
                 margin: 0 auto;
             }
             .sfs-hr-chart-node {
@@ -4239,7 +4259,8 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 border-radius: 8px;
                 padding: 16px 20px;
                 text-align: center;
-                min-width: 180px;
+                width: 200px;
+                box-sizing: border-box;
                 position: relative;
             }
             .sfs-hr-chart-node.gm {
@@ -4283,6 +4304,9 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 font-weight: 600;
                 color: #1d2327;
                 margin-bottom: 4px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
             .sfs-hr-chart-name a {
                 color: inherit;
@@ -4312,50 +4336,69 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             .sfs-hr-chart-position {
                 font-size: 12px;
                 color: #646970;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
             .sfs-hr-chart-dept {
                 font-size: 11px;
                 color: #787c82;
                 margin-top: 4px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
             .sfs-hr-chart-connector {
                 width: 2px;
                 height: 30px;
-                background: #dcdcde;
+                background: #c3c4c7;
                 margin: 0 auto;
             }
+            /* Manager level - horizontal layout */
             .sfs-hr-chart-level {
                 display: flex;
                 justify-content: center;
-                gap: 24px;
-                flex-wrap: wrap;
+                gap: 16px;
                 position: relative;
+                padding-top: 30px;
             }
+            /* Horizontal line above managers */
             .sfs-hr-chart-level::before {
                 content: '';
                 position: absolute;
                 top: 0;
-                left: 50%;
-                transform: translateX(-50%);
-                width: calc(100% - 180px);
                 height: 2px;
-                background: #dcdcde;
+                background: #c3c4c7;
+                left: var(--line-left, 50%);
+                width: var(--line-width, 0);
             }
             .sfs-hr-chart-branch {
                 display: flex;
                 flex-direction: column;
                 align-items: center;
+                position: relative;
+            }
+            /* Vertical connector from horizontal line to branch */
+            .sfs-hr-chart-branch::before {
+                content: '';
+                position: absolute;
+                top: -30px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 2px;
+                height: 30px;
+                background: #c3c4c7;
             }
             .sfs-hr-chart-branch .sfs-hr-chart-connector {
-                height: 20px;
+                display: none;
             }
             .sfs-hr-chart-employees {
                 display: flex;
                 flex-wrap: wrap;
-                gap: 8px;
+                gap: 6px;
                 justify-content: center;
                 margin-top: 12px;
-                max-width: 300px;
+                max-width: 200px;
             }
             .sfs-hr-chart-emp-chip {
                 display: inline-flex;
@@ -4536,6 +4579,30 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                         <?php endif; ?>
                     </div>
                 </div>
+                <script>
+                (function() {
+                    // Calculate horizontal line width based on branches
+                    var level = document.querySelector('.sfs-hr-chart-level');
+                    if (level) {
+                        var branches = level.querySelectorAll('.sfs-hr-chart-branch');
+                        if (branches.length > 1) {
+                            var firstBranch = branches[0];
+                            var lastBranch = branches[branches.length - 1];
+                            var levelRect = level.getBoundingClientRect();
+                            var firstRect = firstBranch.getBoundingClientRect();
+                            var lastRect = lastBranch.getBoundingClientRect();
+                            // Line from center of first branch to center of last branch
+                            var firstCenter = firstRect.left + firstRect.width / 2 - levelRect.left;
+                            var lastCenter = lastRect.left + lastRect.width / 2 - levelRect.left;
+                            var lineWidth = lastCenter - firstCenter;
+                            level.style.setProperty('--line-width', lineWidth + 'px');
+                            level.style.setProperty('--line-start', firstCenter + 'px');
+                            // Update left position
+                            level.style.setProperty('--line-left', firstCenter + 'px');
+                        }
+                    }
+                })();
+                </script>
             <?php else: ?>
                 <!-- Cards View -->
                 <div class="sfs-hr-org-grid">
@@ -4562,8 +4629,13 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                             ...(!empty($dept['manager_user_id']) ? [$dept['id'], $dept['manager_user_id']] : [$dept['id']])
                         ), ARRAY_A);
                     ?>
+                        <?php
+                        $dept_color = ! empty( $dept['color'] ) ? $dept['color'] : '#1e3a5f';
+                        // Create a slightly lighter shade for gradient
+                        $dept_color_light = self::adjust_color_brightness( $dept_color, 30 );
+                        ?>
                         <div class="sfs-hr-org-card">
-                            <div class="sfs-hr-org-card-header">
+                            <div class="sfs-hr-org-card-header" style="background: linear-gradient(135deg, <?php echo esc_attr( $dept_color ); ?> 0%, <?php echo esc_attr( $dept_color_light ); ?> 100%);">
                                 <h3><?php echo esc_html($dept['name']); ?></h3>
                                 <span class="dept-count">
                                     <?php echo sprintf(
