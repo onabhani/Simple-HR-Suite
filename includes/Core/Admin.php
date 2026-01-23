@@ -4240,7 +4240,6 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
             /* Org Chart Styles */
             .sfs-hr-org-chart {
-                overflow-x: auto;
                 padding: 40px 20px;
                 background: #f6f7f7;
                 border-radius: 8px;
@@ -4250,8 +4249,6 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 display: flex;
                 flex-direction: column;
                 align-items: center;
-                min-width: fit-content;
-                margin: 0 auto;
             }
             .sfs-hr-chart-node {
                 background: #fff;
@@ -4268,8 +4265,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 background: linear-gradient(135deg, #fff 0%, #fee2e2 100%);
             }
             .sfs-hr-chart-node.manager {
-                border-color: #2271b1;
-                background: linear-gradient(135deg, #fff 0%, #e7f3ff 100%);
+                background: #fff;
             }
             .sfs-hr-chart-avatar {
                 width: 56px;
@@ -4324,14 +4320,10 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 border-radius: 10px;
                 display: inline-block;
                 margin-bottom: 6px;
+                color: #fff;
             }
             .sfs-hr-chart-node.gm .sfs-hr-chart-role {
                 background: #d63638;
-                color: #fff;
-            }
-            .sfs-hr-chart-node.manager .sfs-hr-chart-role {
-                background: #2271b1;
-                color: #fff;
             }
             .sfs-hr-chart-position {
                 font-size: 12px;
@@ -4354,23 +4346,20 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 background: #c3c4c7;
                 margin: 0 auto;
             }
-            /* Manager level - horizontal layout */
+            /* Manager level - grid layout for wrapping */
             .sfs-hr-chart-level {
-                display: flex;
-                justify-content: center;
-                gap: 16px;
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 20px;
+                max-width: 100%;
+                width: 100%;
                 position: relative;
-                padding-top: 30px;
+                padding-top: 20px;
+                margin-top: 10px;
+                border-top: 2px solid #c3c4c7;
             }
-            /* Horizontal line above managers */
             .sfs-hr-chart-level::before {
-                content: '';
-                position: absolute;
-                top: 0;
-                height: 2px;
-                background: #c3c4c7;
-                left: var(--line-left, 50%);
-                width: var(--line-width, 0);
+                display: none;
             }
             .sfs-hr-chart-branch {
                 display: flex;
@@ -4378,19 +4367,16 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 align-items: center;
                 position: relative;
             }
-            /* Vertical connector from horizontal line to branch */
+            /* Vertical connector from top border to branch */
             .sfs-hr-chart-branch::before {
                 content: '';
                 position: absolute;
-                top: -30px;
+                top: -20px;
                 left: 50%;
                 transform: translateX(-50%);
                 width: 2px;
-                height: 30px;
+                height: 20px;
                 background: #c3c4c7;
-            }
-            .sfs-hr-chart-branch .sfs-hr-chart-connector {
-                display: none;
             }
             .sfs-hr-chart-employees {
                 display: flex;
@@ -4521,20 +4507,20 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                                         ...(!empty($dept['manager_user_id']) ? [$dept['id'], $dept['manager_user_id']] : [$dept['id']])
                                     ), ARRAY_A);
                                     $remaining_count = max(0, (int)$dept['employee_count'] - count($dept_employees) - ($manager ? 1 : 0));
+                                    $dept_color = ! empty( $dept['color'] ) ? $dept['color'] : '#2271b1';
                                 ?>
                                     <div class="sfs-hr-chart-branch">
-                                        <div class="sfs-hr-chart-connector"></div>
-                                        <div class="sfs-hr-chart-node manager">
-                                            <span class="sfs-hr-chart-role"><?php esc_html_e('Manager', 'sfs-hr'); ?></span>
+                                        <div class="sfs-hr-chart-node manager" style="border-color: <?php echo esc_attr($dept_color); ?>;">
+                                            <span class="sfs-hr-chart-role" style="background: <?php echo esc_attr($dept_color); ?>;"><?php esc_html_e('Manager', 'sfs-hr'); ?></span>
                                             <div class="sfs-hr-chart-avatar">
                                                 <?php
                                                 $mgr_avatar = $manager_employee && !empty($manager_employee['photo_id']) ? wp_get_attachment_image_url($manager_employee['photo_id'], 'thumbnail') : null;
                                                 if ($manager && $mgr_avatar): ?>
                                                     <img src="<?php echo esc_url($mgr_avatar); ?>" alt="">
                                                 <?php elseif ($manager): ?>
-                                                    <div class="sfs-hr-chart-avatar-placeholder"><?php echo esc_html(strtoupper(substr($manager->display_name, 0, 1))); ?></div>
+                                                    <div class="sfs-hr-chart-avatar-placeholder" style="background: <?php echo esc_attr($dept_color); ?>;"><?php echo esc_html(strtoupper(substr($manager->display_name, 0, 1))); ?></div>
                                                 <?php else: ?>
-                                                    <div class="sfs-hr-chart-avatar-placeholder">?</div>
+                                                    <div class="sfs-hr-chart-avatar-placeholder" style="background: <?php echo esc_attr($dept_color); ?>;">?</div>
                                                 <?php endif; ?>
                                             </div>
                                             <div class="sfs-hr-chart-name">
@@ -4579,30 +4565,6 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                         <?php endif; ?>
                     </div>
                 </div>
-                <script>
-                (function() {
-                    // Calculate horizontal line width based on branches
-                    var level = document.querySelector('.sfs-hr-chart-level');
-                    if (level) {
-                        var branches = level.querySelectorAll('.sfs-hr-chart-branch');
-                        if (branches.length > 1) {
-                            var firstBranch = branches[0];
-                            var lastBranch = branches[branches.length - 1];
-                            var levelRect = level.getBoundingClientRect();
-                            var firstRect = firstBranch.getBoundingClientRect();
-                            var lastRect = lastBranch.getBoundingClientRect();
-                            // Line from center of first branch to center of last branch
-                            var firstCenter = firstRect.left + firstRect.width / 2 - levelRect.left;
-                            var lastCenter = lastRect.left + lastRect.width / 2 - levelRect.left;
-                            var lineWidth = lastCenter - firstCenter;
-                            level.style.setProperty('--line-width', lineWidth + 'px');
-                            level.style.setProperty('--line-start', firstCenter + 'px');
-                            // Update left position
-                            level.style.setProperty('--line-left', firstCenter + 'px');
-                        }
-                    }
-                })();
-                </script>
             <?php else: ?>
                 <!-- Cards View -->
                 <div class="sfs-hr-org-grid">
