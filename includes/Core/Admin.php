@@ -4244,11 +4244,13 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 background: #f6f7f7;
                 border-radius: 8px;
                 margin-top: 20px;
+                overflow-x: auto;
             }
             .sfs-hr-org-chart-inner {
                 display: flex;
                 flex-direction: column;
                 align-items: center;
+                min-width: fit-content;
             }
             .sfs-hr-chart-node {
                 background: #fff;
@@ -4346,28 +4348,30 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 background: #c3c4c7;
                 margin: 0 auto;
             }
-            /* Level wrapper with horizontal line */
+            /* Level wrapper - inline-flex to fit content width */
             .sfs-hr-chart-level-wrap {
                 position: relative;
-                width: 100%;
+                display: inline-flex;
+                flex-direction: column;
+                align-items: center;
                 margin-top: 0;
             }
-            /* Horizontal line spanning full width */
+            /* Horizontal line spanning content width only */
             .sfs-hr-chart-level-wrap::before {
                 content: '';
                 position: absolute;
                 top: 0;
-                left: 0;
-                right: 0;
+                left: 110px;
+                right: 110px;
                 height: 2px;
                 background: #c3c4c7;
             }
-            /* Manager level - flexbox for proper centering */
+            /* Manager level - single row, no wrap */
             .sfs-hr-chart-level {
                 display: flex;
-                flex-wrap: wrap;
+                flex-wrap: nowrap;
                 justify-content: center;
-                gap: 20px;
+                gap: 30px;
                 padding-top: 30px;
             }
             .sfs-hr-chart-branch {
@@ -4375,7 +4379,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 flex-direction: column;
                 align-items: center;
                 position: relative;
-                width: 220px;
+                flex-shrink: 0;
             }
             /* Vertical connector from horizontal line to each branch */
             .sfs-hr-chart-branch::before {
