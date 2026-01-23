@@ -939,7 +939,7 @@ class AdminPages {
         </div>
 
         <!-- Summary Cards -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;">
             <div style="padding:16px;background:#fff;border:1px solid #e2e4e7;border-radius:8px;border-left:4px solid #0ea5e9;">
                 <div style="font-size:11px;color:#50575e;text-transform:uppercase;letter-spacing:0.3px;"><?php esc_html_e( 'Total Planned', 'sfs-hr' ); ?></div>
                 <div style="font-size:20px;font-weight:600;margin-top:6px;color:#1d2327;">
@@ -951,6 +951,22 @@ class AdminPages {
                 <div style="font-size:20px;font-weight:600;margin-top:6px;color:#1d2327;">
                     <?php echo number_format( $total_paid, 2 ); ?> <span style="font-size:12px;color:#50575e;">SAR</span>
                 </div>
+            </div>
+            <div style="padding:16px;background:#fff;border:1px solid #e2e4e7;border-radius:8px;border-left:4px solid #eab308;">
+                <div style="font-size:11px;color:#50575e;text-transform:uppercase;letter-spacing:0.3px;"><?php esc_html_e( 'Pending', 'sfs-hr' ); ?></div>
+                <div style="font-size:20px;font-weight:600;margin-top:6px;color:#1d2327;"><?php echo (int) $counts['planned']; ?></div>
+            </div>
+            <div style="padding:16px;background:#fff;border:1px solid #e2e4e7;border-radius:8px;border-left:4px solid #22c55e;">
+                <div style="font-size:11px;color:#50575e;text-transform:uppercase;letter-spacing:0.3px;"><?php esc_html_e( 'Paid', 'sfs-hr' ); ?></div>
+                <div style="font-size:20px;font-weight:600;margin-top:6px;color:#1d2327;"><?php echo (int) $counts['paid']; ?></div>
+            </div>
+            <div style="padding:16px;background:#fff;border:1px solid #e2e4e7;border-radius:8px;border-left:4px solid #ef4444;">
+                <div style="font-size:11px;color:#50575e;text-transform:uppercase;letter-spacing:0.3px;"><?php esc_html_e( 'Partial', 'sfs-hr' ); ?></div>
+                <div style="font-size:20px;font-weight:600;margin-top:6px;color:#1d2327;"><?php echo (int) $counts['partial']; ?></div>
+            </div>
+            <div style="padding:16px;background:#fff;border:1px solid #e2e4e7;border-radius:8px;border-left:4px solid #6b7280;">
+                <div style="font-size:11px;color:#50575e;text-transform:uppercase;letter-spacing:0.3px;"><?php esc_html_e( 'Skipped', 'sfs-hr' ); ?></div>
+                <div style="font-size:20px;font-weight:600;margin-top:6px;color:#1d2327;"><?php echo (int) $counts['skipped']; ?></div>
             </div>
         </div>
 
