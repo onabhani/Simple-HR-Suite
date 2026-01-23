@@ -4361,8 +4361,8 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 content: '';
                 position: absolute;
                 top: 0;
-                left: 110px;
-                right: 110px;
+                left: 100px;
+                right: 100px;
                 height: 2px;
                 background: #c3c4c7;
             }
