@@ -3,9 +3,12 @@ namespace SFS\HR\Modules\Leave;
 
 use SFS\HR\Core\Helpers;
 use SFS\HR\Core\Notifications as CoreNotifications;
+use SFS\HR\Modules\Leave\Services\LeaveCalculationService;
 
 if (!defined('ABSPATH')) { exit; }
-// Load UI helper for chips
+
+// Load services and helpers
+require_once __DIR__ . '/Services/LeaveCalculationService.php';
 require_once __DIR__ . '/class-leave-ui.php';
 
 class LeaveModule {
@@ -3000,103 +3003,35 @@ $types = array_values(array_filter($types, function($t) use ($gender) {
     }
 
     /* ---------------------------------- Validation / Utils ---------------------------------- */
+    /* Most utility functions are now in LeaveCalculationService */
 
     private function validate_dates(string $start, string $end): ?string {
-        if (!$start || !$end) return __('Start/End dates required.','sfs-hr');
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $end))
-            return __('Invalid date format (YYYY-MM-DD).','sfs-hr');
-        if ($end < $start) return __('End date must be after start date.','sfs-hr');
-        $today = current_time('Y-m-d');
-        if ($start < $today) return __('Cannot request leave in the past.','sfs-hr');
-        return null;
+        return LeaveCalculationService::validate_dates($start, $end);
     }
-    
-    
-private function append_approval_chain(?string $json, array $step): string {
-    $chain = [];
-    if ($json) {
-        $decoded = json_decode($json, true);
-        if (is_array($decoded)) {
-            $chain = $decoded;
-        }
-    }
-    $step['at'] = $step['at'] ?? Helpers::now_mysql();
-    $chain[] = [
-        'by'     => (int)($step['by'] ?? 0),
-        'role'   => (string)($step['role'] ?? ''),
-        'action' => (string)($step['action'] ?? ''),
-        'note'   => (string)($step['note'] ?? ''),
-        'at'     => (string)$step['at'],
-    ];
-    return wp_json_encode($chain);
-}
 
-    /** Business days for Sat–Thu workweek (Friday off) minus company holidays (option-based). Inclusive. */
+    private function append_approval_chain(?string $json, array $step): string {
+        return LeaveCalculationService::append_approval_chain($json, $step);
+    }
+
+    /** Business days for Sat–Thu workweek (Friday off) minus company holidays. */
     private function business_days(string $start, string $end): int {
-        $s = strtotime($start);
-        $e = strtotime($end);
-        if ($e < $s) return 0;
-
-        $holiday_map = array_fill_keys($this->holidays_in_range($start, $end), true);
-
-        $days = 0;
-        for ($d = $s; $d <= $e; $d += DAY_IN_SECONDS) {
-            $ymd = gmdate('Y-m-d', $d);
-            if (isset($holiday_map[$ymd])) continue;
-            $w = (int) gmdate('w', $d); // 0 Sun..6 Sat; Friday=5
-            if ($w === 5) continue;     // Friday off
-            $days++;
-        }
-        return $days;
+        return LeaveCalculationService::business_days($start, $end);
     }
 
-    /** Tenure-aware quota using options (<5y vs ≥5y). Falls back to type.annual_quota. */
+    /** Tenure-aware quota using options (<5y vs ≥5y). */
     private function compute_quota_for_year(array $type_row, ?string $hire_or_hired_at, int $year): int {
-        $quota = (int)($type_row['annual_quota'] ?? 0);
-        if (empty($type_row['is_annual'])) return $quota;
-        if (empty($hire_or_hired_at)) return $quota;
-        $as_of = strtotime($year.'-01-01');
-        $hd = strtotime($hire_or_hired_at);
-        if (!$hd) return $quota;
-        $years = (int)floor(($as_of - $hd) / (365.2425*DAY_IN_SECONDS));
-        if ($years < 0) $years = 0;
-        $lt5 = (int)get_option('sfs_hr_annual_lt5','21');
-        $ge5 = (int)get_option('sfs_hr_annual_ge5','30');
-        return ($years >= 5) ? $ge5 : $lt5;
+        return LeaveCalculationService::compute_quota_for_year($type_row, $hire_or_hired_at, $year);
     }
 
-    /** Available days = opening + accrued + carried_over - used (for year). */
+    /** Available days = opening + accrued + carried_over - used. */
     private function available_days(int $employee_id, int $type_id, int $year, int $annual_quota): int {
-        global $wpdb;
-        $bal = $wpdb->prefix.'sfs_hr_leave_balances';
-        $req = $wpdb->prefix.'sfs_hr_leave_requests';
-
-        $used = (int)$wpdb->get_var($wpdb->prepare(
-            "SELECT COALESCE(SUM(days),0) FROM $req WHERE employee_id=%d AND type_id=%d AND status='approved' AND YEAR(start_date)=%d",
-            $employee_id, $type_id, $year
-        ));
-
-        $row = $wpdb->get_row($wpdb->prepare(
-            "SELECT opening, accrued, carried_over FROM $bal WHERE employee_id=%d AND type_id=%d AND year=%d",
-            $employee_id, $type_id, $year
-        ), ARRAY_A);
-
-        $opening = (int)($row['opening'] ?? 0);
-        $accrued = isset($row['accrued']) ? (int)$row['accrued'] : (int)$annual_quota;
-        if ((int)($row['accrued'] ?? 0) === 0) $accrued = (int)$annual_quota;
-        $carried = (int)($row['carried_over'] ?? 0);
-
-        $available = $opening + $accrued + $carried - $used;
-        return max($available, 0);
+        return LeaveCalculationService::available_days($employee_id, $type_id, $year, $annual_quota);
     }
-    
-    /** Dept ids managed by a user (from sfs_hr_departments.manager_user_id) */
-private function manager_dept_ids_for_user(int $uid): array {
-    global $wpdb;
-    $tbl = $wpdb->prefix.'sfs_hr_departments';
-    $ids = $wpdb->get_col($wpdb->prepare("SELECT id FROM $tbl WHERE manager_user_id=%d AND active=1", $uid));
-    return array_map('intval', $ids ?: []);
-}
+
+    /** Dept ids managed by a user. */
+    private function manager_dept_ids_for_user(int $uid): array {
+        return LeaveCalculationService::manager_dept_ids_for_user($uid);
+    }
 
 /** Email approvers for a given employee: dept manager if set, else HR managers/admins as fallback, plus configured HR emails */
 private function email_approvers_for_employee(int $employee_id, string $subject, string $msg): void {
@@ -3151,13 +3086,7 @@ private function email_approvers_for_employee(int $employee_id, string $subject,
 
 
     private function has_overlap(int $employee_id, string $start, string $end): bool {
-        global $wpdb; $t = $wpdb->prefix.'sfs_hr_leave_requests';
-        $sql = "SELECT COUNT(*) FROM $t
-                WHERE employee_id=%d
-                  AND status IN ('pending','approved')
-                  AND NOT (end_date < %s OR start_date > %s)";
-        $cnt = (int)$wpdb->get_var($wpdb->prepare($sql, $employee_id, $start, $end));
-        return $cnt > 0;
+        return LeaveCalculationService::has_overlap($employee_id, $start, $end);
     }
 
     private function notify_requester(int $employee_id, string $subject, string $msg): void {
@@ -3373,75 +3302,12 @@ private function email_approvers_for_employee(int $employee_id, string $subject,
     /* ---------------------------------- Holidays helpers & cron ---------------------------------- */
 
     private function get_holidays_option(): array {
-        $list = get_option('sfs_hr_holidays', []);
-        if (!is_array($list)) $list = [];
-        $out = [];
-        foreach ($list as $h) {
-            $n = isset($h['name']) ? sanitize_text_field($h['name']) : '';
-            $r = !empty($h['repeat']) ? 1 : 0;
-
-            // Back-compat: single day record {date}
-            if (!empty($h['date'])) {
-                $d = sanitize_text_field($h['date']);
-                if ($d && preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) && $n) {
-                    $out[] = ['start'=>$d, 'end'=>$d, 'name'=>$n, 'repeat'=>$r];
-                }
-                continue;
-            }
-
-            $s = isset($h['start']) ? sanitize_text_field($h['start']) : '';
-            $e = isset($h['end'])   ? sanitize_text_field($h['end'])   : '';
-            if (!$s || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $s)) continue;
-            if (!$e || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $e)) $e = $s;
-            if ($e < $s) { $tmp=$s; $s=$e; $e=$tmp; }
-            if ($n) $out[] = ['start'=>$s, 'end'=>$e, 'name'=>$n, 'repeat'=>$r];
-        }
-        return $out;
+        return LeaveCalculationService::get_holidays();
     }
 
-    /** Return list of Y-m-d dates to exclude within [start,end] inclusive, expanding holiday ranges & repeats. */
+    /** Return list of Y-m-d dates to exclude within [start,end] inclusive. */
     private function holidays_in_range(string $start, string $end): array {
-        $s = strtotime($start);
-        $e = strtotime($end);
-        if ($e < $s) return [];
-
-        $list  = $this->get_holidays_option();
-        $years = range((int)gmdate('Y',$s), (int)gmdate('Y',$e));
-        $set   = [];
-
-        foreach ($list as $h) {
-            $s0 = $h['start'];
-            $e0 = $h['end'];
-
-            if (!empty($h['repeat'])) {
-                $sm = substr($s0,5); $em = substr($e0,5);
-                foreach ($years as $y) {
-                    $rs = $y.'-'.$sm;
-                    $re = ($em >= $sm) ? ($y.'-'.$em) : (($y+1).'-'.$em);
-                    $this->add_range_days_clipped($rs, $re, $start, $end, $set);
-                }
-            } else {
-                $this->add_range_days_clipped($s0, $e0, $start, $end, $set);
-            }
-        }
-        return array_keys($set);
-    }
-
-    /** Add each day of [rangeStart, rangeEnd] to $set, but only where it intersects [clipStart, clipEnd]. */
-    private function add_range_days_clipped(string $rangeStart, string $rangeEnd, string $clipStart, string $clipEnd, array &$set): void {
-        $rs = strtotime($rangeStart);
-        $re = strtotime($rangeEnd);
-        if ($re < $rs) return;
-
-        $cs = strtotime($clipStart);
-        $ce = strtotime($clipEnd);
-
-        $s = max($rs, $cs);
-        $e = min($re, $ce);
-
-        for ($d=$s; $d <= $e; $d += DAY_IN_SECONDS) {
-            $set[ gmdate('Y-m-d', $d) ] = true;
-        }
+        return LeaveCalculationService::holidays_in_range($start, $end);
     }
 
     /** Email all active employees about a newly added holiday (single day or range). */
