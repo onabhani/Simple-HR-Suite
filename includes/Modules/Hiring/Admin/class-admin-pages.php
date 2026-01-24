@@ -841,7 +841,7 @@ class AdminPages {
                         <div class="sfs-hr-form-row">
                             <label><?php esc_html_e('Training End Date', 'sfs-hr'); ?> *</label>
                             <input type="date" name="training_end" value="<?php echo esc_attr($trainee->training_end ?? ''); ?>" required />
-                            <small><?php esc_html_e('Standard: 3 months, can be extended to 6 months', 'sfs-hr'); ?></small>
+                            <br><small><?php esc_html_e('Standard: 3 months, can be extended to 6 months', 'sfs-hr'); ?></small>
                         </div>
 
                         <div class="sfs-hr-form-row">
