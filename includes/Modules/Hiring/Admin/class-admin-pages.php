@@ -650,7 +650,10 @@ class AdminPages {
         ?>
         <div class="sfs-hr-card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h3 style="margin:0; border:none; padding:0;"><?php esc_html_e('Trainees', 'sfs-hr'); ?></h3>
+                <div>
+                    <h3 style="margin:0; border:none; padding:0;"><?php esc_html_e('Trainees', 'sfs-hr'); ?></h3>
+                    <p style="margin:5px 0 0 0; color:#666; font-size:13px;"><?php esc_html_e('Student Internship Program', 'sfs-hr'); ?></p>
+                </div>
                 <a href="?page=sfs-hr-hiring&tab=trainees&action=add" class="button button-primary">
                     <?php esc_html_e('Add Trainee', 'sfs-hr'); ?>
                 </a>
@@ -841,7 +844,7 @@ class AdminPages {
                         <div class="sfs-hr-form-row">
                             <label><?php esc_html_e('Training End Date', 'sfs-hr'); ?> *</label>
                             <input type="date" name="training_end" value="<?php echo esc_attr($trainee->training_end ?? ''); ?>" required />
-                            <br><small><?php esc_html_e('Standard: 3 months, can be extended to 6 months', 'sfs-hr'); ?></small>
+                            <br><small><?php esc_html_e('Expected end date of the internship program', 'sfs-hr'); ?></small>
                         </div>
 
                         <div class="sfs-hr-form-row">
