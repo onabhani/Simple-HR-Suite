@@ -232,13 +232,14 @@ class AdminPages {
                         <th class="hide-mobile"><?php esc_html_e( 'Installments', 'sfs-hr' ); ?></th>
                         <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
                         <th class="hide-mobile"><?php esc_html_e( 'First Due', 'sfs-hr' ); ?></th>
+                        <th class="hide-mobile" style="width:50px;"></th>
                         <th class="show-mobile" style="width:50px;"></th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if ( empty( $loans ) ) : ?>
                         <tr>
-                            <td colspan="8" class="empty-state">
+                            <td colspan="9" class="empty-state">
                                 <p><?php esc_html_e( 'No loans found.', 'sfs-hr' ); ?></p>
                             </td>
                         </tr>
