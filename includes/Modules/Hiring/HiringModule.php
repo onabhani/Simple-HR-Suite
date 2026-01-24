@@ -327,8 +327,9 @@ class HiringModule {
         $user_id = $trainee->user_id;
 
         if (!$user_id) {
-            // Create WordPress user
-            $username = sanitize_user(strtolower($trainee->first_name . '.' . ($trainee->last_name ?? '')));
+            // Create WordPress user with username format: firstname.(first letter of lastname)
+            $last_initial = $trainee->last_name ? strtolower(substr($trainee->last_name, 0, 1)) : '';
+            $username = sanitize_user(strtolower($trainee->first_name) . ($last_initial ? '.' . $last_initial : ''));
             $username = substr($username, 0, 50);
 
             // Ensure unique username
@@ -490,8 +491,9 @@ class HiringModule {
         $num = $last ? ((int) substr($last, -4) + 1) : 1;
         $employee_code = $prefix . $num;
 
-        // Create WordPress user first
-        $username = sanitize_user(strtolower($candidate->first_name . '.' . ($candidate->last_name ?? '')));
+        // Create WordPress user with username format: firstname.(first letter of lastname)
+        $last_initial = $candidate->last_name ? strtolower(substr($candidate->last_name, 0, 1)) : '';
+        $username = sanitize_user(strtolower($candidate->first_name) . ($last_initial ? '.' . $last_initial : ''));
         $username = substr($username, 0, 50);
 
         // Ensure unique username

@@ -1283,7 +1283,9 @@ class AdminPages {
             $first_name = sanitize_text_field($_POST['first_name'] ?? '');
             $last_name = sanitize_text_field($_POST['last_name'] ?? '');
 
-            $username = sanitize_user(strtolower($first_name . '.' . $last_name));
+            // Username format: firstname.(first letter of lastname)
+            $last_initial = $last_name ? strtolower(substr($last_name, 0, 1)) : '';
+            $username = sanitize_user(strtolower($first_name) . ($last_initial ? '.' . $last_initial : ''));
             $username = substr($username, 0, 50);
 
             $base_username = $username;
@@ -1422,8 +1424,9 @@ class AdminPages {
                     $first_name = $trainee->first_name;
                     $last_name = $trainee->last_name ?? '';
 
-                    // Generate username
-                    $username = sanitize_user(strtolower($first_name . '.' . $last_name));
+                    // Generate username: firstname.(first letter of lastname)
+                    $last_initial = $last_name ? strtolower(substr($last_name, 0, 1)) : '';
+                    $username = sanitize_user(strtolower($first_name) . ($last_initial ? '.' . $last_initial : ''));
                     $username = substr($username, 0, 50);
 
                     $base_username = $username;
