@@ -414,21 +414,10 @@ class Migrations {
     /**
      * Generate a reference number for a request
      * Format: PREFIX-YYYY-NNNN (e.g., LV-2026-0001)
+     * @deprecated Use \SFS\HR\Core\Helpers::generate_reference_number() instead
      */
     public static function generate_request_number(string $prefix, string $table, ?string $created_at = null): string {
-        global $wpdb;
-        $year = $created_at ? date('Y', strtotime($created_at)) : wp_date('Y');
-
-        // Get count for this year with this prefix
-        $count = (int)$wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM `$table` WHERE request_number LIKE %s",
-                $prefix . '-' . $year . '-%'
-            )
-        );
-
-        $sequence = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
-        return $prefix . '-' . $year . '-' . $sequence;
+        return \SFS\HR\Core\Helpers::generate_reference_number( $prefix, $table, 'request_number', $created_at );
     }
 
     /**

@@ -48,18 +48,7 @@ class LeaveModule {
      */
     public static function generate_leave_request_number(): string {
         global $wpdb;
-        $table = $wpdb->prefix . 'sfs_hr_leave_requests';
-        $year = wp_date('Y');
-
-        $count = (int)$wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM `$table` WHERE request_number LIKE %s",
-                'LV-' . $year . '-%'
-            )
-        );
-
-        $sequence = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
-        return 'LV-' . $year . '-' . $sequence;
+        return Helpers::generate_reference_number( 'LV', $wpdb->prefix . 'sfs_hr_leave_requests' );
     }
 
     public function menu(): void {
@@ -1598,6 +1587,9 @@ public function handle_cancel(): void {
     self::log_event( $id, 'cancelled', [
         'by' => $is_requester ? __( 'Requester', 'sfs-hr' ) : __( 'HR', 'sfs-hr' ),
     ] );
+
+    // Fire hook for AuditTrail
+    do_action( 'sfs_hr_leave_request_status_changed', $id, 'pending', 'cancelled' );
 
     wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&ok=1' ) );
     exit;

@@ -543,6 +543,37 @@ public static function asset_status_badge( string $status ): string {
     return '<span class="' . esc_attr( $class ) . '">' . esc_html( $label ) . '</span>';
 }
 
+    /**
+     * Generate a reference number for HR requests.
+     * Format: PREFIX-YYYY-NNNN (e.g., LV-2026-0001)
+     *
+     * @param string      $prefix     The prefix (e.g., 'LV', 'LN', 'RS', 'ST', 'SS', 'EL')
+     * @param string      $table      The database table name (with wpdb prefix)
+     * @param string      $column     The column name storing the reference number (default: 'request_number')
+     * @param string|null $created_at Optional date to determine the year (for backfilling historical data)
+     * @return string The generated reference number
+     */
+    public static function generate_reference_number(
+        string $prefix,
+        string $table,
+        string $column = 'request_number',
+        ?string $created_at = null
+    ): string {
+        global $wpdb;
 
-    
+        $year = $created_at ? date( 'Y', strtotime( $created_at ) ) : wp_date( 'Y' );
+        $like_pattern = $prefix . '-' . $year . '-%';
+
+        // Get count for this year with this prefix
+        $count = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM `{$table}` WHERE `{$column}` LIKE %s",
+                $like_pattern
+            )
+        );
+
+        $sequence = str_pad( $count + 1, 4, '0', STR_PAD_LEFT );
+        return $prefix . '-' . $year . '-' . $sequence;
+    }
+
 }

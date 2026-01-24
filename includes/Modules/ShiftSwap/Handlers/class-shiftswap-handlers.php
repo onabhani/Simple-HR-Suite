@@ -123,16 +123,8 @@ class ShiftSwap_Handlers {
         // Notify requester
         do_action('sfs_hr_shift_swap_responded', $swap_id, $response);
 
-        // Audit log
-        if (class_exists('\SFS\HR\Core\AuditTrail')) {
-            \SFS\HR\Core\AuditTrail::log(
-                'shift_swap_' . $response . 'ed',
-                'shift_swaps',
-                $swap_id,
-                ['status' => 'pending'],
-                ['status' => $new_status]
-            );
-        }
+        // Fire hook for AuditTrail
+        do_action( 'sfs_hr_shift_swap_status_changed', $swap_id, 'pending', $new_status );
 
         if ($response === 'accept') {
             $this->redirect_with_success(__('Swap accepted! Awaiting manager approval.', 'sfs-hr'));
@@ -164,6 +156,9 @@ class ShiftSwap_Handlers {
         }
 
         ShiftSwap_Service::update_swap_status($swap_id, 'cancelled');
+
+        // Fire hook for AuditTrail
+        do_action( 'sfs_hr_shift_swap_status_changed', $swap_id, $swap['status'] ?? 'pending', 'cancelled' );
 
         $this->redirect_with_success(__('Swap request cancelled.', 'sfs-hr'));
     }
@@ -207,16 +202,8 @@ class ShiftSwap_Handlers {
             ShiftSwap_Service::execute_swap($swap);
         }
 
-        // Audit log
-        if (class_exists('\SFS\HR\Core\AuditTrail')) {
-            \SFS\HR\Core\AuditTrail::log(
-                'shift_swap_' . $decision . 'd',
-                'shift_swaps',
-                $swap_id,
-                ['status' => 'manager_pending'],
-                ['status' => $new_status]
-            );
-        }
+        // Fire hook for AuditTrail
+        do_action( 'sfs_hr_shift_swap_status_changed', $swap_id, 'manager_pending', $new_status );
 
         wp_safe_redirect(admin_url('admin.php?page=sfs-hr-attendance&tab=shift_swaps&success=' . rawurlencode(__('Swap ' . $decision . 'd.', 'sfs-hr'))));
         exit;

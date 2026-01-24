@@ -225,6 +225,9 @@ class Early_Leave_Rest {
             [ 'id' => $request_id ]
         );
 
+        // Fire hook for AuditTrail
+        do_action( 'sfs_hr_early_leave_status_changed', $request_id, 'pending', 'cancelled' );
+
         return rest_ensure_response( [
             'success' => true,
             'message' => __( 'Request cancelled successfully.', 'sfs-hr' ),
@@ -334,6 +337,9 @@ class Early_Leave_Rest {
             // Recalculate session to update status
             AttendanceModule::recalc_session_for( (int) $request->employee_id, $request->request_date );
         }
+
+        // Fire hook for AuditTrail
+        do_action( 'sfs_hr_early_leave_status_changed', $request_id, 'pending', $new_status );
 
         // TODO: Send notification to employee
 

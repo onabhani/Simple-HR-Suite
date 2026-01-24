@@ -3098,18 +3098,7 @@ private static function add_unique_key_if_missing( \wpdb $wpdb, string $table, s
  */
 public static function generate_early_leave_request_number(): string {
     global $wpdb;
-    $table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
-    $year = wp_date('Y');
-
-    $count = (int)$wpdb->get_var(
-        $wpdb->prepare(
-            "SELECT COUNT(*) FROM `$table` WHERE request_number LIKE %s",
-            'EL-' . $year . '-%'
-        )
-    );
-
-    $sequence = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
-    return 'EL-' . $year . '-' . $sequence;
+    return Helpers::generate_reference_number( 'EL', $wpdb->prefix . 'sfs_hr_early_leave_requests' );
 }
 
 /**
