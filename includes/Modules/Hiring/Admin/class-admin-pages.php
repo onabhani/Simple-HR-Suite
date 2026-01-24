@@ -942,6 +942,21 @@ class AdminPages {
             </div>
         </div>
 
+        <!-- Create Account for existing trainee -->
+        <?php if (!$trainee->user_id && in_array($trainee->status, ['active', 'completed'])) : ?>
+            <div class="sfs-hr-card" style="background:#fff3cd; border-color:#ffc107;">
+                <h3><?php esc_html_e('WordPress Account', 'sfs-hr'); ?></h3>
+                <p><?php esc_html_e('This trainee does not have a WordPress account. Create one to allow access to My HR Profile.', 'sfs-hr'); ?></p>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <?php wp_nonce_field('sfs_hr_trainee_action'); ?>
+                    <input type="hidden" name="action" value="sfs_hr_trainee_action" />
+                    <input type="hidden" name="trainee_id" value="<?php echo (int) $trainee->id; ?>" />
+                    <input type="hidden" name="trainee_action" value="create_account" />
+                    <button type="submit" class="button button-primary"><?php esc_html_e('Create WordPress Account', 'sfs-hr'); ?></button>
+                </form>
+            </div>
+        <?php endif; ?>
+
         <!-- Actions -->
         <?php if ($trainee->status === 'active') : ?>
             <div class="sfs-hr-card">
@@ -985,15 +1000,93 @@ class AdminPages {
                     </form>
                 </div>
             </div>
-        <?php elseif ($trainee->status === 'completed') : ?>
-            <div class="sfs-hr-card">
-                <h3><?php esc_html_e('Actions', 'sfs-hr'); ?></h3>
+
+            <!-- Hire Directly (skip candidate workflow) -->
+            <div class="sfs-hr-card" style="background:#e8f5e9; border-color:#4caf50;">
+                <h3><?php esc_html_e('Hire Directly', 'sfs-hr'); ?></h3>
+                <p><?php esc_html_e('Convert this trainee directly to an employee, bypassing the candidate approval workflow.', 'sfs-hr'); ?></p>
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <?php wp_nonce_field('sfs_hr_trainee_action'); ?>
                     <input type="hidden" name="action" value="sfs_hr_trainee_action" />
                     <input type="hidden" name="trainee_id" value="<?php echo (int) $trainee->id; ?>" />
-                    <input type="hidden" name="trainee_action" value="convert" />
-                    <button type="submit" class="button button-primary"><?php esc_html_e('Convert to Candidate', 'sfs-hr'); ?></button>
+                    <input type="hidden" name="trainee_action" value="hire_direct" />
+
+                    <div class="sfs-hr-form-grid">
+                        <div class="sfs-hr-form-row">
+                            <label><?php esc_html_e('Hire Date', 'sfs-hr'); ?> *</label>
+                            <input type="date" name="hired_date" value="<?php echo esc_attr(current_time('Y-m-d')); ?>" required />
+                        </div>
+                        <div class="sfs-hr-form-row">
+                            <label><?php esc_html_e('Position', 'sfs-hr'); ?></label>
+                            <input type="text" name="offered_position" value="<?php echo esc_attr($trainee->position); ?>" />
+                        </div>
+                        <div class="sfs-hr-form-row">
+                            <label><?php esc_html_e('Salary', 'sfs-hr'); ?></label>
+                            <input type="number" name="offered_salary" step="0.01" placeholder="<?php esc_attr_e('Enter salary', 'sfs-hr'); ?>" />
+                        </div>
+                        <div class="sfs-hr-form-row">
+                            <label><?php esc_html_e('Probation Period', 'sfs-hr'); ?></label>
+                            <select name="probation_months">
+                                <option value="3"><?php esc_html_e('3 months', 'sfs-hr'); ?></option>
+                                <option value="6"><?php esc_html_e('6 months', 'sfs-hr'); ?></option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="button button-primary" style="margin-top:15px;" onclick="return confirm('<?php esc_attr_e('Are you sure you want to hire this trainee directly? This will create an employee record and WordPress account.', 'sfs-hr'); ?>');">
+                        <?php esc_html_e('Hire as Employee', 'sfs-hr'); ?>
+                    </button>
+                </form>
+            </div>
+        <?php elseif ($trainee->status === 'completed') : ?>
+            <div class="sfs-hr-card">
+                <h3><?php esc_html_e('Actions', 'sfs-hr'); ?></h3>
+                <div style="display:flex; gap:20px; flex-wrap:wrap;">
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <?php wp_nonce_field('sfs_hr_trainee_action'); ?>
+                        <input type="hidden" name="action" value="sfs_hr_trainee_action" />
+                        <input type="hidden" name="trainee_id" value="<?php echo (int) $trainee->id; ?>" />
+                        <input type="hidden" name="trainee_action" value="convert" />
+                        <button type="submit" class="button button-primary"><?php esc_html_e('Convert to Candidate', 'sfs-hr'); ?></button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Hire Directly for completed trainees too -->
+            <div class="sfs-hr-card" style="background:#e8f5e9; border-color:#4caf50;">
+                <h3><?php esc_html_e('Hire Directly', 'sfs-hr'); ?></h3>
+                <p><?php esc_html_e('Convert this trainee directly to an employee, bypassing the candidate approval workflow.', 'sfs-hr'); ?></p>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <?php wp_nonce_field('sfs_hr_trainee_action'); ?>
+                    <input type="hidden" name="action" value="sfs_hr_trainee_action" />
+                    <input type="hidden" name="trainee_id" value="<?php echo (int) $trainee->id; ?>" />
+                    <input type="hidden" name="trainee_action" value="hire_direct" />
+
+                    <div class="sfs-hr-form-grid">
+                        <div class="sfs-hr-form-row">
+                            <label><?php esc_html_e('Hire Date', 'sfs-hr'); ?> *</label>
+                            <input type="date" name="hired_date" value="<?php echo esc_attr(current_time('Y-m-d')); ?>" required />
+                        </div>
+                        <div class="sfs-hr-form-row">
+                            <label><?php esc_html_e('Position', 'sfs-hr'); ?></label>
+                            <input type="text" name="offered_position" value="<?php echo esc_attr($trainee->position); ?>" />
+                        </div>
+                        <div class="sfs-hr-form-row">
+                            <label><?php esc_html_e('Salary', 'sfs-hr'); ?></label>
+                            <input type="number" name="offered_salary" step="0.01" placeholder="<?php esc_attr_e('Enter salary', 'sfs-hr'); ?>" />
+                        </div>
+                        <div class="sfs-hr-form-row">
+                            <label><?php esc_html_e('Probation Period', 'sfs-hr'); ?></label>
+                            <select name="probation_months">
+                                <option value="3"><?php esc_html_e('3 months', 'sfs-hr'); ?></option>
+                                <option value="6"><?php esc_html_e('6 months', 'sfs-hr'); ?></option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="button button-primary" style="margin-top:15px;" onclick="return confirm('<?php esc_attr_e('Are you sure you want to hire this trainee directly? This will create an employee record and WordPress account.', 'sfs-hr'); ?>');">
+                        <?php esc_html_e('Hire as Employee', 'sfs-hr'); ?>
+                    </button>
                 </form>
             </div>
         <?php endif; ?>
@@ -1003,6 +1096,24 @@ class AdminPages {
                 <p>
                     <strong><?php esc_html_e('This trainee was converted to a candidate.', 'sfs-hr'); ?></strong>
                     <a href="?page=sfs-hr-hiring&tab=candidates&action=view&id=<?php echo (int) $trainee->candidate_id; ?>"><?php esc_html_e('View Candidate Record', 'sfs-hr'); ?></a>
+                </p>
+            </div>
+        <?php elseif ($trainee->status === 'converted' && !$trainee->candidate_id) :
+            // Check if directly hired by parsing notes for employee_id
+            $direct_hire_employee_id = null;
+            if (!empty($trainee->notes) && preg_match('/\[Direct Hire Info: ({.*?})\]/', $trainee->notes, $matches)) {
+                $hire_info = json_decode($matches[1], true);
+                if ($hire_info && isset($hire_info['direct_hire_employee_id'])) {
+                    $direct_hire_employee_id = (int) $hire_info['direct_hire_employee_id'];
+                }
+            }
+        ?>
+            <div class="sfs-hr-card" style="background:#c8e6c9;">
+                <p>
+                    <strong><?php esc_html_e('This trainee was hired directly as an employee.', 'sfs-hr'); ?></strong>
+                    <?php if ($direct_hire_employee_id) : ?>
+                        <a href="?page=sfs-hr-employees&action=view&id=<?php echo (int) $direct_hire_employee_id; ?>"><?php esc_html_e('View Employee Record', 'sfs-hr'); ?></a>
+                    <?php endif; ?>
                 </p>
             </div>
         <?php endif; ?>
@@ -1297,6 +1408,90 @@ class AdminPages {
                     'archived_at' => $now,
                     'updated_at' => $now,
                 ], ['id' => $id]);
+                break;
+
+            case 'create_account':
+                // Create WordPress account for existing trainee
+                $trainee = $wpdb->get_row($wpdb->prepare(
+                    "SELECT * FROM {$wpdb->prefix}sfs_hr_trainees WHERE id = %d",
+                    $id
+                ));
+
+                if ($trainee && !$trainee->user_id) {
+                    $email = $trainee->email;
+                    $first_name = $trainee->first_name;
+                    $last_name = $trainee->last_name ?? '';
+
+                    // Generate username
+                    $username = sanitize_user(strtolower($first_name . '.' . $last_name));
+                    $username = substr($username, 0, 50);
+
+                    $base_username = $username;
+                    $counter = 1;
+                    while (username_exists($username)) {
+                        $username = $base_username . $counter;
+                        $counter++;
+                    }
+
+                    // Check if email already exists
+                    if (email_exists($email)) {
+                        wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=trainees&action=view&id=' . $id . '&error=email_exists'));
+                        exit;
+                    }
+
+                    $password = wp_generate_password(12, true, true);
+                    $user_id = wp_create_user($username, $password, $email);
+
+                    if (!is_wp_error($user_id)) {
+                        wp_update_user([
+                            'ID' => $user_id,
+                            'first_name' => $first_name,
+                            'last_name' => $last_name,
+                            'display_name' => trim($first_name . ' ' . $last_name),
+                        ]);
+
+                        // Mark as trainee
+                        update_user_meta($user_id, 'sfs_hr_is_trainee', 1);
+
+                        // Link to trainee record
+                        $wpdb->update("{$wpdb->prefix}sfs_hr_trainees", [
+                            'user_id' => $user_id,
+                            'updated_at' => $now,
+                        ], ['id' => $id]);
+
+                        // Send welcome email with credentials
+                        $site_name = get_bloginfo('name');
+                        $login_url = wp_login_url();
+
+                        $subject = sprintf(__('[%s] Your Trainee Account', 'sfs-hr'), $site_name);
+                        $message = sprintf(__('Welcome to %s!', 'sfs-hr'), $site_name) . "\n\n";
+                        $message .= __('Your trainee account has been created. Here are your login credentials:', 'sfs-hr') . "\n\n";
+                        $message .= sprintf(__('Username: %s', 'sfs-hr'), $username) . "\n";
+                        $message .= sprintf(__('Password: %s', 'sfs-hr'), $password) . "\n\n";
+                        $message .= sprintf(__('Login URL: %s', 'sfs-hr'), $login_url) . "\n\n";
+                        $message .= __('Please change your password after your first login.', 'sfs-hr') . "\n";
+
+                        wp_mail($email, $subject, $message);
+
+                        wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=trainees&action=view&id=' . $id . '&message=account_created'));
+                        exit;
+                    }
+                }
+                break;
+
+            case 'hire_direct':
+                // Directly convert trainee to employee (bypass candidate workflow)
+                $employee_id = HiringModule::convert_trainee_to_employee($id, [
+                    'hired_date' => sanitize_text_field($_POST['hired_date'] ?? ''),
+                    'offered_position' => sanitize_text_field($_POST['offered_position'] ?? ''),
+                    'offered_salary' => floatval($_POST['offered_salary'] ?? 0) ?: null,
+                    'probation_months' => absint($_POST['probation_months'] ?? 3),
+                ]);
+
+                if ($employee_id) {
+                    wp_redirect(admin_url('admin.php?page=sfs-hr-employees&action=view&id=' . $employee_id . '&message=hired'));
+                    exit;
+                }
                 break;
         }
 
