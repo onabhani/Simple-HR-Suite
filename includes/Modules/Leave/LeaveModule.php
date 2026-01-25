@@ -3,9 +3,12 @@ namespace SFS\HR\Modules\Leave;
 
 use SFS\HR\Core\Helpers;
 use SFS\HR\Core\Notifications as CoreNotifications;
+use SFS\HR\Modules\Leave\Services\LeaveCalculationService;
 
 if (!defined('ABSPATH')) { exit; }
-// Load UI helper for chips
+
+// Load services and helpers
+require_once __DIR__ . '/Services/LeaveCalculationService.php';
 require_once __DIR__ . '/class-leave-ui.php';
 
 class LeaveModule {
@@ -48,18 +51,7 @@ class LeaveModule {
      */
     public static function generate_leave_request_number(): string {
         global $wpdb;
-        $table = $wpdb->prefix . 'sfs_hr_leave_requests';
-        $year = wp_date('Y');
-
-        $count = (int)$wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM `$table` WHERE request_number LIKE %s",
-                'LV-' . $year . '-%'
-            )
-        );
-
-        $sequence = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
-        return 'LV-' . $year . '-' . $sequence;
+        return Helpers::generate_reference_number( 'LV', $wpdb->prefix . 'sfs_hr_leave_requests' );
     }
 
     public function menu(): void {
@@ -149,10 +141,22 @@ public function render_requests(): void {
 
     // Dept-manager scoping (HR/admins/GM see all)
     $current_uid = get_current_user_id();
-    $is_hr = current_user_can('sfs_hr.manage') || current_user_can('sfs_hr_loans_gm_approve');
+
+    // Position-based checks for viewing: HR approvers, GM, or manage capability
+    $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
+    $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+    if ( ! $gm_user_id ) {
+        // Fallback to Loans setting for backward compatibility
+        $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+        $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
+        $gm_user_id = ! empty( $gm_user_ids ) ? (int) $gm_user_ids[0] : 0;
+    }
+    $is_hr_or_gm_for_view = current_user_can('sfs_hr.manage')
+        || ( ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true ) )
+        || ( $gm_user_id > 0 && $current_uid === $gm_user_id );
     $managed_depts = [];
 
-    if ( ! $is_hr ) {
+    if ( ! $is_hr_or_gm_for_view ) {
         $managed_depts = $this->manager_dept_ids_for_user($current_uid);
         if (empty($managed_depts)) {
             $this->output_leave_requests_styles();
@@ -172,7 +176,7 @@ public function render_requests(): void {
     $counts = ['all' => 0, 'pending' => 0, 'approved' => 0, 'rejected' => 0];
     $count_where = '1=1';
     $count_params = [];
-    if ( ! $is_hr && ! empty($managed_depts) ) {
+    if ( ! $is_hr_or_gm_for_view && ! empty($managed_depts) ) {
         $placeholders = implode(',', array_fill(0, count($managed_depts), '%d'));
         $count_where = "e.dept_id IN ($placeholders)";
         $count_params = array_map('intval', $managed_depts);
@@ -267,19 +271,22 @@ public function render_requests(): void {
                     <th class="hide-mobile"><?php esc_html_e('Days', 'sfs-hr'); ?></th>
                     <th><?php esc_html_e('Status', 'sfs-hr'); ?></th>
                     <th class="hide-mobile"><?php esc_html_e('Submitted', 'sfs-hr'); ?></th>
-                    <th class="hide-mobile"><?php esc_html_e('Actions', 'sfs-hr'); ?></th>
-                    <th class="show-mobile" style="width:50px;"></th>
+                    <th class="hide-mobile" style="width:60px;"></th>
+                    <th class="show-mobile" style="width:40px;"></th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (!$rows): ?>
                     <tr><td colspan="9"><?php esc_html_e('No requests found.', 'sfs-hr'); ?></td></tr>
                 <?php else: foreach ($rows as $idx => $r):
-                    // Check if current user can approve this specific request
+                    // Check if current user can approve this specific request (position-based)
+                    // Detailed approval logic is in render_detail_page; this is just for UI hints
                     $can_approve = false;
                     if ($r['status'] === 'pending') {
-                        // HR can approve all
-                        if ($is_hr) {
+                        // Position-based HR or GM can approve
+                        $is_hr_position = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
+                        $is_gm_position = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
+                        if ($is_hr_position || $is_gm_position) {
                             $can_approve = true;
                         }
                         // Department managers can approve requests from their departments
@@ -293,18 +300,18 @@ public function render_requests(): void {
                     }
 
                     $today = current_time('Y-m-d');
-                    $state_label = '—';
+                    $state_label = '';
                     $state_class = '';
                     if ($r['status'] === 'approved') {
                         if ($today < $r['start_date']) {
                             $state_label = __('Upcoming', 'sfs-hr');
-                            $state_class = 'sfs-hr-pill--status-upcoming';
+                            $state_class = 'sfs-hr-state-badge--upcoming';
                         } elseif ($today > $r['end_date']) {
                             $state_label = __('Returned', 'sfs-hr');
-                            $state_class = 'sfs-hr-pill--status-returned';
+                            $state_class = 'sfs-hr-state-badge--returned';
                         } else {
                             $state_label = __('On leave', 'sfs-hr');
-                            $state_class = 'sfs-hr-pill--status-onleave';
+                            $state_class = 'sfs-hr-state-badge--onleave';
                         }
                     }
 
@@ -345,15 +352,22 @@ public function render_requests(): void {
                         <td class="hide-mobile"><?php echo (int)$r['days']; ?></td>
                         <td>
                             <?php echo Leave_UI::leave_status_chip($status_key); ?>
-                            <?php if ($r['status'] === 'approved' && $state_class): ?>
-                                <span class="sfs-hr-pill <?php echo esc_attr($state_class); ?>" style="margin-left:4px;">
+                            <?php if ($r['status'] === 'approved' && $state_label): ?>
+                                <span class="sfs-hr-state-badge <?php echo esc_attr($state_class); ?>">
                                     <?php echo esc_html($state_label); ?>
                                 </span>
                             <?php endif; ?>
                         </td>
                         <td class="hide-mobile"><?php echo $this->fmt_dt($r['created_at'] ?? ''); ?></td>
-                        <td>
-                            <a href="?page=sfs-hr-leave-requests&action=view&id=<?php echo (int)$r['id']; ?>" class="sfs-hr-action-btn" title="<?php esc_attr_e('View Details', 'sfs-hr'); ?>">👁</a>
+                        <td class="hide-mobile">
+                            <a href="?page=sfs-hr-leave-requests&action=view&id=<?php echo (int)$r['id']; ?>" class="sfs-hr-view-btn" title="<?php esc_attr_e('View Details', 'sfs-hr'); ?>">
+                                <span class="dashicons dashicons-visibility"></span>
+                            </a>
+                        </td>
+                        <td class="show-mobile">
+                            <a href="?page=sfs-hr-leave-requests&action=view&id=<?php echo (int)$r['id']; ?>" class="sfs-hr-view-btn sfs-hr-view-btn--mobile" title="<?php esc_attr_e('View Details', 'sfs-hr'); ?>">
+                                <span class="dashicons dashicons-arrow-right-alt2"></span>
+                            </a>
                         </td>
                     </tr>
                 <?php endforeach; endif; ?>
@@ -427,10 +441,13 @@ public function render_requests(): void {
     </div>
 
     <script>
-    var sfsHrLeaveData = <?php echo wp_json_encode(array_values(array_map(function($r) use ($nonceA, $nonceR, $is_hr, $managed_depts, $current_uid) {
+    var sfsHrLeaveData = <?php echo wp_json_encode(array_values(array_map(function($r) use ($nonceA, $nonceR, $hr_user_ids, $gm_user_id, $managed_depts, $current_uid) {
         $can_approve = false;
         if ($r['status'] === 'pending') {
-            if ($is_hr) {
+            // Position-based HR or GM check
+            $is_hr_position = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
+            $is_gm_position = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
+            if ($is_hr_position || $is_gm_position) {
                 $can_approve = true;
             } elseif (!empty($managed_depts) && in_array((int)$r['dept_id'], $managed_depts, true)) {
                 $can_approve = true;
@@ -727,34 +744,76 @@ private function output_leave_requests_styles(): void {
             margin-top: 2px;
         }
 
-        /* Status Pills */
-        .sfs-hr-pill--status-upcoming {
-            background: #eff6ff;
-            color: #1d4ed8;
+        /* Status Pills - Secondary state badges */
+        .sfs-hr-state-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-left: 6px;
+            vertical-align: middle;
         }
-        .sfs-hr-pill--status-onleave {
+        .sfs-hr-state-badge--upcoming {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        .sfs-hr-state-badge--onleave {
             background: #fef3c7;
             color: #92400e;
         }
-        .sfs-hr-pill--status-returned {
-            background: #ecfdf3;
-            color: #166534;
+        .sfs-hr-state-badge--returned {
+            background: #d1fae5;
+            color: #065f46;
         }
 
-        /* Action Button */
-        .sfs-hr-action-btn {
-            background: #f6f7f7;
-            border: 1px solid #dcdcde;
-            border-radius: 4px;
-            padding: 6px 10px;
+        /* View Button */
+        .sfs-hr-view-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            background: #f0f6fc;
+            border: 1px solid #c5d9ed;
+            border-radius: 50%;
             cursor: pointer;
-            font-size: 16px;
-            line-height: 1;
+            text-decoration: none;
             transition: all 0.15s ease;
         }
-        .sfs-hr-action-btn:hover {
-            background: #fff;
+        .sfs-hr-view-btn .dashicons {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+            color: #2271b1;
+        }
+        .sfs-hr-view-btn:hover {
+            background: #2271b1;
             border-color: #2271b1;
+        }
+        .sfs-hr-view-btn:hover .dashicons {
+            color: #fff;
+        }
+        .sfs-hr-view-btn--mobile {
+            width: 32px;
+            height: 32px;
+            background: transparent;
+            border: none;
+        }
+        .sfs-hr-view-btn--mobile .dashicons {
+            font-size: 20px;
+            width: 20px;
+            height: 20px;
+            color: #787c82;
+        }
+        .sfs-hr-view-btn--mobile:hover {
+            background: #f0f6fc;
+        }
+        .sfs-hr-view-btn--mobile:hover .dashicons {
+            color: #2271b1;
         }
 
         /* Mobile Modal */
@@ -962,11 +1021,24 @@ public function handle_approve(): void {
     $leave_review_url = admin_url('admin.php?page=sfs-hr-leave-requests&action=view&id=' . $id);
 
     $current_uid     = get_current_user_id();
-    // Separate GM and HR capabilities
-    $is_gm           = current_user_can('sfs_hr_loans_gm_approve');
-    $is_hr           = current_user_can('sfs_hr.manage');
-    $is_hr_or_gm     = $is_hr || $is_gm;
     $approval_level  = (int) ( $row['approval_level'] ?? 1 );
+
+    // Position-based approval checks (not capability-based)
+    // GM: Check if user is the assigned GM
+    $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+    if ( ! $gm_user_id ) {
+        // Fallback to Loans setting for backward compatibility
+        $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+        $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
+        $gm_user_id = ! empty( $gm_user_ids ) ? (int) $gm_user_ids[0] : 0;
+    }
+    $is_gm = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
+
+    // HR: Check if user is in the assigned HR approvers list
+    $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
+    $is_hr = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
+
+    $is_hr_or_gm = $is_hr || $is_gm;
 
     // Check if requester is a department manager
     $requester_is_dept_manager = false;
@@ -1213,7 +1285,8 @@ public function handle_approve(): void {
             exit;
         }
 
-        // Block non-manager HR users from approving at level 1 when department has a manager
+        // HR can only approve at level 2+ (after department manager approved)
+        // Block HR users from approving at level 1 when department has a manager
         if ( $dept_has_manager && $approval_level < 2 ) {
             wp_safe_redirect(
                 add_query_arg(
@@ -1532,13 +1605,20 @@ public function handle_cancel(): void {
         exit;
     }
 
-    // Check permissions: requester can cancel their own, HR can cancel any
-    $empInfo = $wpdb->get_row( $wpdb->prepare( "SELECT user_id FROM $emp_t WHERE id=%d", (int) $row['employee_id'] ), ARRAY_A );
+    // Check permissions: requester can cancel their own, position-based HR can cancel any
+    $empInfo = $wpdb->get_row( $wpdb->prepare( "SELECT user_id, dept_id FROM $emp_t WHERE id=%d", (int) $row['employee_id'] ), ARRAY_A );
     $current_uid = get_current_user_id();
-    $is_hr = current_user_can( 'sfs_hr.manage' );
     $is_requester = ( (int) ( $empInfo['user_id'] ?? 0 ) === $current_uid );
 
-    if ( ! $is_hr && ! $is_requester ) {
+    // Position-based HR check
+    $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
+    $is_hr = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
+
+    // Department manager can also cancel requests from their department
+    $managed_depts = $this->manager_dept_ids_for_user( $current_uid );
+    $is_dept_manager = ! empty( $managed_depts ) && in_array( (int) ( $empInfo['dept_id'] ?? 0 ), $managed_depts, true );
+
+    if ( ! $is_hr && ! $is_requester && ! $is_dept_manager ) {
         wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&err=' . rawurlencode( __( 'You do not have permission to cancel this request.', 'sfs-hr' ) ) ) );
         exit;
     }
@@ -1559,6 +1639,9 @@ public function handle_cancel(): void {
     self::log_event( $id, 'cancelled', [
         'by' => $is_requester ? __( 'Requester', 'sfs-hr' ) : __( 'HR', 'sfs-hr' ),
     ] );
+
+    // Fire hook for AuditTrail
+    do_action( 'sfs_hr_leave_request_status_changed', $id, 'pending', 'cancelled' );
 
     wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&ok=1' ) );
     exit;
@@ -1988,6 +2071,58 @@ public function handle_cancel(): void {
                 </td>
               </tr>
               <tr>
+                <th><?php esc_html_e('GM (General Manager)','sfs-hr'); ?></th>
+                <td>
+                  <?php
+                  // Get current GM - try Leave setting first, then fall back to Loans setting
+                  $gm_user_id = (int) get_option('sfs_hr_leave_gm_approver', 0);
+                  if ( ! $gm_user_id ) {
+                      $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+                      $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
+                      $gm_user_id = ! empty( $gm_user_ids ) ? (int) $gm_user_ids[0] : 0;
+                  }
+                  // Get users who can be GM
+                  $gm_users = get_users([
+                      'role__in' => ['administrator', 'sfs_hr_manager'],
+                      'orderby'  => 'display_name',
+                      'order'    => 'ASC',
+                  ]);
+                  ?>
+                  <select name="leave_gm_approver" style="width:400px;">
+                    <option value=""><?php esc_html_e('— Select GM —','sfs-hr'); ?></option>
+                    <?php foreach ($gm_users as $user): ?>
+                      <option value="<?php echo (int)$user->ID; ?>" <?php selected($gm_user_id, $user->ID); ?>>
+                        <?php echo esc_html($user->display_name . ' (' . $user->user_email . ')'); ?>
+                      </option>
+                    <?php endforeach; ?>
+                  </select>
+                  <p class="description"><?php esc_html_e('The General Manager approves leave requests from Department Managers. This is also used for loan approvals.','sfs-hr'); ?></p>
+                </td>
+              </tr>
+              <tr>
+                <th><?php esc_html_e('HR Approvers','sfs-hr'); ?></th>
+                <td>
+                  <?php
+                  // Get current HR approvers
+                  $hr_approvers = (array) get_option('sfs_hr_leave_hr_approvers', []);
+                  // Get users who can be HR approvers
+                  $hr_users = get_users([
+                      'role__in' => ['administrator', 'sfs_hr_manager'],
+                      'orderby'  => 'display_name',
+                      'order'    => 'ASC',
+                  ]);
+                  ?>
+                  <select name="leave_hr_approvers[]" multiple style="width:400px;min-height:120px;">
+                    <?php foreach ($hr_users as $user): ?>
+                      <option value="<?php echo (int)$user->ID; ?>" <?php echo in_array($user->ID, $hr_approvers, true) ? 'selected' : ''; ?>>
+                        <?php echo esc_html($user->display_name . ' (' . $user->user_email . ')'); ?>
+                      </option>
+                    <?php endforeach; ?>
+                  </select>
+                  <p class="description"><?php esc_html_e('Select users who can approve leave requests at the HR stage (Level 2). Hold Ctrl/Cmd to select multiple.','sfs-hr'); ?></p>
+                </td>
+              </tr>
+              <tr>
                 <th><?php esc_html_e('Holiday Notifications','sfs-hr'); ?></th>
                 <td>
                   <label><input type="checkbox" name="holiday_notify_on_add" value="1" <?php checked($notify_on_add, true); ?>/> <?php esc_html_e('Email all employees when a holiday is added','sfs-hr'); ?></label><br/>
@@ -2081,6 +2216,19 @@ public function handle_cancel(): void {
         // Finance approver for employees with active loans
         $finance_approver = isset($_POST['leave_finance_approver']) ? (int)$_POST['leave_finance_approver'] : 0;
         update_option('sfs_hr_leave_finance_approver', (string)$finance_approver);
+
+        // GM (General Manager) approver
+        $gm_approver = isset($_POST['leave_gm_approver']) ? (int)$_POST['leave_gm_approver'] : 0;
+        update_option('sfs_hr_leave_gm_approver', $gm_approver);
+        // Also sync to Loans settings for consistency
+        $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+        $loan_settings['gm_user_ids'] = $gm_approver ? [ $gm_approver ] : [];
+        update_option( 'sfs_hr_loans_settings', $loan_settings );
+
+        // HR approvers (users who can approve at HR stage)
+        $hr_approvers = isset($_POST['leave_hr_approvers']) ? array_map('intval', (array)$_POST['leave_hr_approvers']) : [];
+        $hr_approvers = array_filter($hr_approvers); // Remove zeros
+        update_option('sfs_hr_leave_hr_approvers', $hr_approvers);
 
         $notify_on_add   = !empty($_POST['holiday_notify_on_add']) ? '1' : '0';
         $reminder_enable = !empty($_POST['holiday_reminder_enabled']) ? '1' : '0';
@@ -2904,103 +3052,35 @@ $types = array_values(array_filter($types, function($t) use ($gender) {
     }
 
     /* ---------------------------------- Validation / Utils ---------------------------------- */
+    /* Most utility functions are now in LeaveCalculationService */
 
     private function validate_dates(string $start, string $end): ?string {
-        if (!$start || !$end) return __('Start/End dates required.','sfs-hr');
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $end))
-            return __('Invalid date format (YYYY-MM-DD).','sfs-hr');
-        if ($end < $start) return __('End date must be after start date.','sfs-hr');
-        $today = current_time('Y-m-d');
-        if ($start < $today) return __('Cannot request leave in the past.','sfs-hr');
-        return null;
+        return LeaveCalculationService::validate_dates($start, $end);
     }
-    
-    
-private function append_approval_chain(?string $json, array $step): string {
-    $chain = [];
-    if ($json) {
-        $decoded = json_decode($json, true);
-        if (is_array($decoded)) {
-            $chain = $decoded;
-        }
-    }
-    $step['at'] = $step['at'] ?? Helpers::now_mysql();
-    $chain[] = [
-        'by'     => (int)($step['by'] ?? 0),
-        'role'   => (string)($step['role'] ?? ''),
-        'action' => (string)($step['action'] ?? ''),
-        'note'   => (string)($step['note'] ?? ''),
-        'at'     => (string)$step['at'],
-    ];
-    return wp_json_encode($chain);
-}
 
-    /** Business days for Sat–Thu workweek (Friday off) minus company holidays (option-based). Inclusive. */
+    private function append_approval_chain(?string $json, array $step): string {
+        return LeaveCalculationService::append_approval_chain($json, $step);
+    }
+
+    /** Business days for Sat–Thu workweek (Friday off) minus company holidays. */
     private function business_days(string $start, string $end): int {
-        $s = strtotime($start);
-        $e = strtotime($end);
-        if ($e < $s) return 0;
-
-        $holiday_map = array_fill_keys($this->holidays_in_range($start, $end), true);
-
-        $days = 0;
-        for ($d = $s; $d <= $e; $d += DAY_IN_SECONDS) {
-            $ymd = gmdate('Y-m-d', $d);
-            if (isset($holiday_map[$ymd])) continue;
-            $w = (int) gmdate('w', $d); // 0 Sun..6 Sat; Friday=5
-            if ($w === 5) continue;     // Friday off
-            $days++;
-        }
-        return $days;
+        return LeaveCalculationService::business_days($start, $end);
     }
 
-    /** Tenure-aware quota using options (<5y vs ≥5y). Falls back to type.annual_quota. */
+    /** Tenure-aware quota using options (<5y vs ≥5y). */
     private function compute_quota_for_year(array $type_row, ?string $hire_or_hired_at, int $year): int {
-        $quota = (int)($type_row['annual_quota'] ?? 0);
-        if (empty($type_row['is_annual'])) return $quota;
-        if (empty($hire_or_hired_at)) return $quota;
-        $as_of = strtotime($year.'-01-01');
-        $hd = strtotime($hire_or_hired_at);
-        if (!$hd) return $quota;
-        $years = (int)floor(($as_of - $hd) / (365.2425*DAY_IN_SECONDS));
-        if ($years < 0) $years = 0;
-        $lt5 = (int)get_option('sfs_hr_annual_lt5','21');
-        $ge5 = (int)get_option('sfs_hr_annual_ge5','30');
-        return ($years >= 5) ? $ge5 : $lt5;
+        return LeaveCalculationService::compute_quota_for_year($type_row, $hire_or_hired_at, $year);
     }
 
-    /** Available days = opening + accrued + carried_over - used (for year). */
+    /** Available days = opening + accrued + carried_over - used. */
     private function available_days(int $employee_id, int $type_id, int $year, int $annual_quota): int {
-        global $wpdb;
-        $bal = $wpdb->prefix.'sfs_hr_leave_balances';
-        $req = $wpdb->prefix.'sfs_hr_leave_requests';
-
-        $used = (int)$wpdb->get_var($wpdb->prepare(
-            "SELECT COALESCE(SUM(days),0) FROM $req WHERE employee_id=%d AND type_id=%d AND status='approved' AND YEAR(start_date)=%d",
-            $employee_id, $type_id, $year
-        ));
-
-        $row = $wpdb->get_row($wpdb->prepare(
-            "SELECT opening, accrued, carried_over FROM $bal WHERE employee_id=%d AND type_id=%d AND year=%d",
-            $employee_id, $type_id, $year
-        ), ARRAY_A);
-
-        $opening = (int)($row['opening'] ?? 0);
-        $accrued = isset($row['accrued']) ? (int)$row['accrued'] : (int)$annual_quota;
-        if ((int)($row['accrued'] ?? 0) === 0) $accrued = (int)$annual_quota;
-        $carried = (int)($row['carried_over'] ?? 0);
-
-        $available = $opening + $accrued + $carried - $used;
-        return max($available, 0);
+        return LeaveCalculationService::available_days($employee_id, $type_id, $year, $annual_quota);
     }
-    
-    /** Dept ids managed by a user (from sfs_hr_departments.manager_user_id) */
-private function manager_dept_ids_for_user(int $uid): array {
-    global $wpdb;
-    $tbl = $wpdb->prefix.'sfs_hr_departments';
-    $ids = $wpdb->get_col($wpdb->prepare("SELECT id FROM $tbl WHERE manager_user_id=%d AND active=1", $uid));
-    return array_map('intval', $ids ?: []);
-}
+
+    /** Dept ids managed by a user. */
+    private function manager_dept_ids_for_user(int $uid): array {
+        return LeaveCalculationService::manager_dept_ids_for_user($uid);
+    }
 
 /** Email approvers for a given employee: dept manager if set, else HR managers/admins as fallback, plus configured HR emails */
 private function email_approvers_for_employee(int $employee_id, string $subject, string $msg): void {
@@ -3055,13 +3135,7 @@ private function email_approvers_for_employee(int $employee_id, string $subject,
 
 
     private function has_overlap(int $employee_id, string $start, string $end): bool {
-        global $wpdb; $t = $wpdb->prefix.'sfs_hr_leave_requests';
-        $sql = "SELECT COUNT(*) FROM $t
-                WHERE employee_id=%d
-                  AND status IN ('pending','approved')
-                  AND NOT (end_date < %s OR start_date > %s)";
-        $cnt = (int)$wpdb->get_var($wpdb->prepare($sql, $employee_id, $start, $end));
-        return $cnt > 0;
+        return LeaveCalculationService::has_overlap($employee_id, $start, $end);
     }
 
     private function notify_requester(int $employee_id, string $subject, string $msg): void {
@@ -3277,75 +3351,12 @@ private function email_approvers_for_employee(int $employee_id, string $subject,
     /* ---------------------------------- Holidays helpers & cron ---------------------------------- */
 
     private function get_holidays_option(): array {
-        $list = get_option('sfs_hr_holidays', []);
-        if (!is_array($list)) $list = [];
-        $out = [];
-        foreach ($list as $h) {
-            $n = isset($h['name']) ? sanitize_text_field($h['name']) : '';
-            $r = !empty($h['repeat']) ? 1 : 0;
-
-            // Back-compat: single day record {date}
-            if (!empty($h['date'])) {
-                $d = sanitize_text_field($h['date']);
-                if ($d && preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) && $n) {
-                    $out[] = ['start'=>$d, 'end'=>$d, 'name'=>$n, 'repeat'=>$r];
-                }
-                continue;
-            }
-
-            $s = isset($h['start']) ? sanitize_text_field($h['start']) : '';
-            $e = isset($h['end'])   ? sanitize_text_field($h['end'])   : '';
-            if (!$s || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $s)) continue;
-            if (!$e || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $e)) $e = $s;
-            if ($e < $s) { $tmp=$s; $s=$e; $e=$tmp; }
-            if ($n) $out[] = ['start'=>$s, 'end'=>$e, 'name'=>$n, 'repeat'=>$r];
-        }
-        return $out;
+        return LeaveCalculationService::get_holidays();
     }
 
-    /** Return list of Y-m-d dates to exclude within [start,end] inclusive, expanding holiday ranges & repeats. */
+    /** Return list of Y-m-d dates to exclude within [start,end] inclusive. */
     private function holidays_in_range(string $start, string $end): array {
-        $s = strtotime($start);
-        $e = strtotime($end);
-        if ($e < $s) return [];
-
-        $list  = $this->get_holidays_option();
-        $years = range((int)gmdate('Y',$s), (int)gmdate('Y',$e));
-        $set   = [];
-
-        foreach ($list as $h) {
-            $s0 = $h['start'];
-            $e0 = $h['end'];
-
-            if (!empty($h['repeat'])) {
-                $sm = substr($s0,5); $em = substr($e0,5);
-                foreach ($years as $y) {
-                    $rs = $y.'-'.$sm;
-                    $re = ($em >= $sm) ? ($y.'-'.$em) : (($y+1).'-'.$em);
-                    $this->add_range_days_clipped($rs, $re, $start, $end, $set);
-                }
-            } else {
-                $this->add_range_days_clipped($s0, $e0, $start, $end, $set);
-            }
-        }
-        return array_keys($set);
-    }
-
-    /** Add each day of [rangeStart, rangeEnd] to $set, but only where it intersects [clipStart, clipEnd]. */
-    private function add_range_days_clipped(string $rangeStart, string $rangeEnd, string $clipStart, string $clipEnd, array &$set): void {
-        $rs = strtotime($rangeStart);
-        $re = strtotime($rangeEnd);
-        if ($re < $rs) return;
-
-        $cs = strtotime($clipStart);
-        $ce = strtotime($clipEnd);
-
-        $s = max($rs, $cs);
-        $e = min($re, $ce);
-
-        for ($d=$s; $d <= $e; $d += DAY_IN_SECONDS) {
-            $set[ gmdate('Y-m-d', $d) ] = true;
-        }
+        return LeaveCalculationService::holidays_in_range($start, $end);
     }
 
     /** Email all active employees about a newly added holiday (single day or range). */
@@ -3672,16 +3683,20 @@ public function handle_early_return(): void {
         ARRAY_A
     );
     $current_uid = get_current_user_id();
-    $is_hr       = current_user_can('sfs_hr.manage');
 
-    if ( ! $is_hr ) {
-        $managed = $this->manager_dept_ids_for_user($current_uid);
-        if ( empty($managed) || ! in_array((int) ($empInfo['dept_id'] ?? 0), $managed, true) ) {
-            wp_safe_redirect(
-                add_query_arg('err', rawurlencode(__('You can only adjust leaves for your department.', 'sfs-hr')), $redirect_base)
-            );
-            exit;
-        }
+    // Position-based HR check
+    $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
+    $is_hr = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
+
+    // Department manager check
+    $managed = $this->manager_dept_ids_for_user($current_uid);
+    $is_dept_manager = ! empty($managed) && in_array((int) ($empInfo['dept_id'] ?? 0), $managed, true);
+
+    if ( ! $is_hr && ! $is_dept_manager ) {
+        wp_safe_redirect(
+            add_query_arg('err', rawurlencode(__('You can only adjust leaves for your department.', 'sfs-hr')), $redirect_base)
+        );
+        exit;
     }
 
     $start = $row['start_date'];
@@ -4780,13 +4795,26 @@ public function render_calendar(): void {
         $approval_level = (int) ( $request->approval_level ?? 1 );
         $requester_is_dept_manager = ( (int) $request->manager_user_id === (int) $request->emp_user_id );
 
-        // Determine who can approve
+        // Determine who can approve (position-based, not capability-based)
         $current_uid = get_current_user_id();
-        $is_gm = current_user_can( 'sfs_hr_loans_gm_approve' );
-        $is_hr = current_user_can( 'sfs_hr.manage' );
-        $is_finance = current_user_can( 'sfs_hr_loans_finance_approve' );
+
+        // Department Manager: Check if user manages this employee's department
         $managed_depts = $this->manager_dept_ids_for_user( $current_uid );
         $is_dept_manager = ! empty( $managed_depts ) && in_array( (int) $request->dept_id, $managed_depts, true );
+
+        // GM: Check if user is the assigned GM
+        $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+        if ( ! $gm_user_id ) {
+            // Fallback to Loans setting for backward compatibility
+            $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+            $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
+            $gm_user_id = ! empty( $gm_user_ids ) ? (int) $gm_user_ids[0] : 0;
+        }
+        $is_gm = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
+
+        // HR: Check if user is in the assigned HR approvers list
+        $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
+        $is_hr = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
 
         // Finance approver check
         $finance_approver_id = (int) get_option( 'sfs_hr_leave_finance_approver', 0 );
@@ -4809,12 +4837,12 @@ public function render_calendar(): void {
             // Level 3+ = Finance stage
             if ( $approval_level >= 3 ) {
                 $approval_stage = 'finance';
-                $can_approve = $is_finance || $is_assigned_finance || $is_hr;
+                $can_approve = $is_assigned_finance;
             }
             // Level 2 = HR stage
             elseif ( $approval_level >= 2 ) {
                 $approval_stage = 'hr';
-                $can_approve = $is_hr || $is_gm;
+                $can_approve = $is_hr;
             }
             // Level 1 = GM (for dept managers) or Manager (for normal employees)
             elseif ( $requester_is_dept_manager ) {

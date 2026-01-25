@@ -390,9 +390,8 @@ add_action('plugins_loaded', function(){
     (new \SFS\HR\Modules\Employees\EmployeesModule())->hooks();
     (new \SFS\HR\Modules\Assets\AssetsModule())->hooks();
 
-    // From first version – keep Resignation & Settlement modules
-    (new \SFS\HR\Modules\Resignation\ResignationModule())->hooks();
-    (new \SFS\HR\Modules\Settlement\SettlementModule())->hooks();
+    // Employee Exit Module (unified Resignation + Settlement)
+    (new \SFS\HR\Modules\EmployeeExit\EmployeeExitModule())->hooks();
 
     // From second version – Loans (Cash Advances)
     new \SFS\HR\Modules\Loans\LoansModule();

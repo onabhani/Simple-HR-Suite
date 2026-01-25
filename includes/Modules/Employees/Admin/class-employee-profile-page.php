@@ -147,6 +147,49 @@ echo '<div class="wrap sfs-hr-wrap">';
         }
     }
 
+    // Hierarchy: Get manager and direct reports
+    $manager_info = null;
+    $direct_reports = [];
+    $is_manager = false;
+
+    if ( $dept_exists && $dept_id > 0 ) {
+        // Get this employee's department manager
+        $manager_user_id = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT manager_user_id FROM {$dept_table} WHERE id = %d AND active = 1",
+                $dept_id
+            )
+        );
+
+        // If this employee IS the manager, get direct reports
+        if ( $manager_user_id > 0 && $wp_user > 0 && $manager_user_id === $wp_user ) {
+            $is_manager = true;
+            // Get employees in this department (excluding self)
+            $direct_reports = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT id, first_name, last_name, position, photo_id
+                     FROM {$table}
+                     WHERE dept_id = %d AND status = 'active' AND id != %d
+                     ORDER BY first_name, last_name ASC",
+                    $dept_id,
+                    $employee_id
+                ),
+                ARRAY_A
+            );
+        } else if ( $manager_user_id > 0 ) {
+            // Get manager's employee record
+            $manager_info = $wpdb->get_row(
+                $wpdb->prepare(
+                    "SELECT e.id, e.first_name, e.last_name, e.position, e.photo_id
+                     FROM {$table} e
+                     WHERE e.user_id = %d AND e.status = 'active'",
+                    $manager_user_id
+                ),
+                ARRAY_A
+            );
+        }
+    }
+
     // WP user / username
     $wp_username = '';
     if ( $wp_user ) {
@@ -699,6 +742,60 @@ echo '<div class="wrap sfs-hr-wrap">';
                 <?php $this->render_assets_card( $employee_id ); ?>
                 <?php $this->render_documents_card( $employee_id ); ?>
                 <?php $this->render_requests_card( $employee_id ); ?>
+
+                <?php if ( $is_manager && ! empty( $direct_reports ) ) : ?>
+                <div class="sfs-hr-emp-card">
+                    <h3><?php esc_html_e( 'Direct Reports', 'sfs-hr' ); ?></h3>
+                    <div class="sfs-hr-hierarchy-list">
+                        <?php foreach ( $direct_reports as $report ) :
+                            $report_name = trim( $report['first_name'] . ' ' . $report['last_name'] );
+                            $report_url = admin_url( 'admin.php?page=sfs-hr-employee-profile&employee_id=' . $report['id'] );
+                            $report_avatar = ! empty( $report['photo_id'] ) ? wp_get_attachment_image_url( $report['photo_id'], 'thumbnail' ) : null;
+                        ?>
+                            <a href="<?php echo esc_url( $report_url ); ?>" class="sfs-hr-hierarchy-item">
+                                <span class="sfs-hr-hierarchy-avatar">
+                                    <?php if ( $report_avatar ) : ?>
+                                        <img src="<?php echo esc_url( $report_avatar ); ?>" alt="">
+                                    <?php else : ?>
+                                        <?php echo esc_html( strtoupper( substr( $report_name, 0, 1 ) ) ); ?>
+                                    <?php endif; ?>
+                                </span>
+                                <span class="sfs-hr-hierarchy-info">
+                                    <span class="sfs-hr-hierarchy-name"><?php echo esc_html( $report_name ); ?></span>
+                                    <?php if ( ! empty( $report['position'] ) ) : ?>
+                                        <span class="sfs-hr-hierarchy-position"><?php echo esc_html( $report['position'] ); ?></span>
+                                    <?php endif; ?>
+                                </span>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php elseif ( $manager_info ) : ?>
+                <div class="sfs-hr-emp-card">
+                    <h3><?php esc_html_e( 'Reports To', 'sfs-hr' ); ?></h3>
+                    <?php
+                    $mgr_name = trim( $manager_info['first_name'] . ' ' . $manager_info['last_name'] );
+                    $mgr_url = admin_url( 'admin.php?page=sfs-hr-employee-profile&employee_id=' . $manager_info['id'] );
+                    $mgr_avatar = ! empty( $manager_info['photo_id'] ) ? wp_get_attachment_image_url( $manager_info['photo_id'], 'thumbnail' ) : null;
+                    ?>
+                    <a href="<?php echo esc_url( $mgr_url ); ?>" class="sfs-hr-hierarchy-item sfs-hr-hierarchy-single">
+                        <span class="sfs-hr-hierarchy-avatar">
+                            <?php if ( $mgr_avatar ) : ?>
+                                <img src="<?php echo esc_url( $mgr_avatar ); ?>" alt="">
+                            <?php else : ?>
+                                <?php echo esc_html( strtoupper( substr( $mgr_name, 0, 1 ) ) ); ?>
+                            <?php endif; ?>
+                        </span>
+                        <span class="sfs-hr-hierarchy-info">
+                            <span class="sfs-hr-hierarchy-name"><?php echo esc_html( $mgr_name ); ?></span>
+                            <?php if ( ! empty( $manager_info['position'] ) ) : ?>
+                                <span class="sfs-hr-hierarchy-position"><?php echo esc_html( $manager_info['position'] ); ?></span>
+                            <?php endif; ?>
+                        </span>
+                        <span class="sfs-hr-hierarchy-badge"><?php esc_html_e( 'Manager', 'sfs-hr' ); ?></span>
+                    </a>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -1067,6 +1164,75 @@ echo '<div class="wrap sfs-hr-wrap">';
                 background:#0073aa14;
                 color:#005177;
                 border-color:#0073aa40;
+            }
+
+            /* Hierarchy styles */
+            .sfs-hr-hierarchy-list {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .sfs-hr-hierarchy-item {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 6px 10px;
+                background: #f6f7f7;
+                border: 1px solid #dcdcde;
+                border-radius: 6px;
+                text-decoration: none;
+                color: inherit;
+                transition: background 0.15s, border-color 0.15s;
+            }
+            .sfs-hr-hierarchy-item:hover {
+                background: #fff;
+                border-color: #2271b1;
+            }
+            .sfs-hr-hierarchy-single {
+                background: #fff;
+            }
+            .sfs-hr-hierarchy-avatar {
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                background: #2271b1;
+                color: #fff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 13px;
+                font-weight: 600;
+                flex-shrink: 0;
+                overflow: hidden;
+            }
+            .sfs-hr-hierarchy-avatar img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+            .sfs-hr-hierarchy-info {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                min-width: 0;
+            }
+            .sfs-hr-hierarchy-name {
+                font-size: 13px;
+                font-weight: 500;
+                color: #1d2327;
+            }
+            .sfs-hr-hierarchy-position {
+                font-size: 11px;
+                color: #646970;
+            }
+            .sfs-hr-hierarchy-badge {
+                margin-left: auto;
+                background: #2271b1;
+                color: #fff;
+                padding: 2px 8px;
+                border-radius: 10px;
+                font-size: 10px;
+                font-weight: 500;
             }
         </style>
         <?php

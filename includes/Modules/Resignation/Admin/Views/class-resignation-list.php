@@ -135,10 +135,14 @@ class Resignation_List {
                                 <td><?php echo Resignation_Service::render_status_pill($row['status'], intval($row['approval_level'] ?? 1)); ?></td>
                                 <td class="hide-mobile"><?php echo esc_html(wp_trim_words($row['reason'], 8, '...')); ?></td>
                                 <td class="hide-mobile">
-                                    <button type="button" class="sfs-hr-action-btn" onclick="showResignationDetails(<?php echo esc_attr($row['id']); ?>);" title="<?php esc_attr_e('View Details', 'sfs-hr'); ?>">👁</button>
+                                    <button type="button" class="sfs-hr-view-btn" onclick="showResignationDetails(<?php echo esc_attr($row['id']); ?>);" title="<?php esc_attr_e('View Details', 'sfs-hr'); ?>">
+                                        <span class="dashicons dashicons-visibility"></span>
+                                    </button>
                                 </td>
                                 <td class="show-mobile">
-                                    <button type="button" class="sfs-hr-action-btn sfs-mobile-detail-btn" title="<?php esc_attr_e('View Details', 'sfs-hr'); ?>">›</button>
+                                    <button type="button" class="sfs-hr-view-btn sfs-hr-view-btn--mobile sfs-mobile-detail-btn" title="<?php esc_attr_e('View Details', 'sfs-hr'); ?>">
+                                        <span class="dashicons dashicons-arrow-right-alt2"></span>
+                                    </button>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -238,11 +242,49 @@ class Resignation_List {
             .sfs-hr-pill--rejected { background: #ffebee; color: #c62828; }
             .sfs-hr-pill--cancelled { background: #fafafa; color: #757575; }
             .sfs-hr-pill--completed { background: #e3f2fd; color: #1565c0; }
-            .sfs-hr-action-btn {
-                background: #f6f7f7; border: 1px solid #dcdcde; border-radius: 4px;
-                padding: 6px 10px; cursor: pointer; font-size: 16px; line-height: 1; transition: all 0.15s ease;
+            .sfs-hr-view-btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 36px;
+                height: 36px;
+                background: #f0f6fc;
+                border: 1px solid #c5d9ed;
+                border-radius: 50%;
+                cursor: pointer;
+                transition: all 0.15s ease;
             }
-            .sfs-hr-action-btn:hover { background: #fff; border-color: #2271b1; }
+            .sfs-hr-view-btn .dashicons {
+                font-size: 18px;
+                width: 18px;
+                height: 18px;
+                color: #2271b1;
+            }
+            .sfs-hr-view-btn:hover {
+                background: #2271b1;
+                border-color: #2271b1;
+            }
+            .sfs-hr-view-btn:hover .dashicons {
+                color: #fff;
+            }
+            .sfs-hr-view-btn--mobile {
+                width: 32px;
+                height: 32px;
+                background: transparent;
+                border: none;
+            }
+            .sfs-hr-view-btn--mobile .dashicons {
+                font-size: 20px;
+                width: 20px;
+                height: 20px;
+                color: #787c82;
+            }
+            .sfs-hr-view-btn--mobile:hover {
+                background: #f0f6fc;
+            }
+            .sfs-hr-view-btn--mobile:hover .dashicons {
+                color: #2271b1;
+            }
             .sfs-hr-resignation-pagination {
                 padding: 16px 20px; border-top: 1px solid #e2e4e7; background: #f9fafb; text-align: center;
             }

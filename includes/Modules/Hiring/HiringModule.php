@@ -292,6 +292,177 @@ class HiringModule {
     }
 
     /**
+     * Convert trainee directly to employee (bypassing candidate workflow)
+     *
+     * @param int   $trainee_id Trainee ID
+     * @param array $extra_data Extra data (hired_date, offered_position, offered_salary, probation_months)
+     * @return int|null Employee ID or null on failure
+     */
+    public static function convert_trainee_to_employee(int $trainee_id, array $extra_data = []): ?int {
+        global $wpdb;
+
+        $trainee = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}sfs_hr_trainees WHERE id = %d",
+            $trainee_id
+        ));
+
+        if (!$trainee || !in_array($trainee->status, ['active', 'completed'])) {
+            return null;
+        }
+
+        $now = current_time('mysql');
+        $today = current_time('Y-m-d');
+
+        // Generate employee code
+        $prefix = "USR-";
+        $last = $wpdb->get_var(
+            "SELECT employee_code FROM {$wpdb->prefix}sfs_hr_employees
+             WHERE employee_code LIKE '{$prefix}%'
+             ORDER BY id DESC LIMIT 1"
+        );
+        $num = $last ? ((int) substr($last, -4) + 1) : 1;
+        $employee_code = $prefix . $num;
+
+        // Check if trainee already has a WordPress user account
+        $user_id = $trainee->user_id;
+
+        if (!$user_id) {
+            // Create WordPress user with username format: firstname.(first letter of lastname)
+            $last_initial = $trainee->last_name ? strtolower(substr($trainee->last_name, 0, 1)) : '';
+            $username = sanitize_user(strtolower($trainee->first_name) . ($last_initial ? '.' . $last_initial : ''));
+            $username = substr($username, 0, 50);
+
+            // Ensure unique username
+            $base_username = $username;
+            $counter = 1;
+            while (username_exists($username)) {
+                $username = $base_username . $counter;
+                $counter++;
+            }
+
+            // Check if email already used
+            if (email_exists($trainee->email)) {
+                return null;
+            }
+
+            $random_password = wp_generate_password(12, true, true);
+            $user_id = wp_create_user($username, $random_password, $trainee->email);
+
+            if (is_wp_error($user_id)) {
+                return null;
+            }
+
+            // Update user meta
+            wp_update_user([
+                'ID' => $user_id,
+                'first_name' => $trainee->first_name,
+                'last_name' => $trainee->last_name ?? '',
+                'display_name' => trim($trainee->first_name . ' ' . ($trainee->last_name ?? '')),
+            ]);
+
+            // Send welcome email with credentials
+            self::send_welcome_email($user_id, $username, $random_password);
+        } else {
+            // Remove trainee meta since they're now an employee
+            delete_user_meta($user_id, 'sfs_hr_is_trainee');
+        }
+
+        // Determine probation end date (3 months default)
+        $probation_months = isset($extra_data['probation_months']) ? (int) $extra_data['probation_months'] : 3;
+        $hired_date = $extra_data['hired_date'] ?? $today;
+        $probation_end = date('Y-m-d', strtotime("+{$probation_months} months", strtotime($hired_date)));
+
+        // Determine position and salary
+        $position = !empty($extra_data['offered_position']) ? $extra_data['offered_position'] : $trainee->position;
+        $salary = !empty($extra_data['offered_salary']) ? $extra_data['offered_salary'] : null;
+
+        // Create employee record
+        $wpdb->insert("{$wpdb->prefix}sfs_hr_employees", [
+            'user_id' => $user_id,
+            'employee_code' => $employee_code,
+            'first_name' => $trainee->first_name,
+            'last_name' => $trainee->last_name,
+            'email' => $trainee->email,
+            'phone' => $trainee->phone,
+            'dept_id' => $trainee->dept_id,
+            'position' => $position,
+            'gender' => $trainee->gender,
+            'status' => 'active',
+            'hired_at' => $hired_date,
+            'base_salary' => $salary,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $employee_id = $wpdb->insert_id;
+
+        if ($employee_id) {
+            // Update trainee status to converted and store employee_id
+            // Note: We store the employee_id in the notes field as JSON since there's no dedicated column
+            $existing_notes = $trainee->notes ?? '';
+            $hire_info = json_encode(['direct_hire_employee_id' => $employee_id, 'hired_date' => $hired_date]);
+            $updated_notes = $existing_notes ? $existing_notes . "\n\n[Direct Hire Info: " . $hire_info . "]" : "[Direct Hire Info: " . $hire_info . "]";
+
+            $wpdb->update(
+                "{$wpdb->prefix}sfs_hr_trainees",
+                [
+                    'status' => 'converted',
+                    'converted_at' => $now,
+                    'notes' => $updated_notes,
+                    'updated_at' => $now,
+                ],
+                ['id' => $trainee_id]
+            );
+
+            // Store probation info in user meta
+            update_user_meta($user_id, 'sfs_hr_probation_end', $probation_end);
+            update_user_meta($user_id, 'sfs_hr_probation_status', 'ongoing');
+
+            // Notify HR about new hire from trainee
+            self::notify_hr_trainee_hired($trainee, $employee_code, $hired_date, $position);
+        }
+
+        return $employee_id;
+    }
+
+    /**
+     * Notify HR team about trainee hired directly
+     */
+    private static function notify_hr_trainee_hired(object $trainee, string $employee_code, string $hired_date, ?string $position): void {
+        // Get HR emails from Core settings
+        $core_settings = CoreNotifications::get_settings();
+        $hr_emails = $core_settings['hr_emails'] ?? [];
+
+        if (empty($hr_emails) || !($core_settings['hr_notification'] ?? true)) {
+            return;
+        }
+
+        $employee_name = trim($trainee->first_name . ' ' . ($trainee->last_name ?? ''));
+        $position_text = $position ?? __('Not specified', 'sfs-hr');
+
+        $subject = sprintf(__('[HR Notice] Trainee hired as employee: %s', 'sfs-hr'), $employee_name);
+        $message = sprintf(
+            __("A trainee has been directly hired as an employee.\n\nTrainee Code: %s\nEmployee Name: %s\nEmployee Code: %s\nPosition: %s\nDepartment ID: %d\nHired Date: %s\nEmail: %s\nPhone: %s\n\nThe employee has been sent their login credentials (if new account created).", 'sfs-hr'),
+            $trainee->trainee_code,
+            $employee_name,
+            $employee_code,
+            $position_text,
+            (int) $trainee->dept_id,
+            $hired_date,
+            $trainee->email ?? 'N/A',
+            $trainee->phone ?? 'N/A'
+        );
+
+        // Send to all HR emails
+        foreach ($hr_emails as $hr_email) {
+            if (!is_email($hr_email)) {
+                continue;
+            }
+            Helpers::send_mail($hr_email, $subject, $message);
+        }
+    }
+
+    /**
      * Convert candidate to employee
      */
     public static function convert_candidate_to_employee(int $candidate_id, array $extra_data = []): ?int {
@@ -320,8 +491,9 @@ class HiringModule {
         $num = $last ? ((int) substr($last, -4) + 1) : 1;
         $employee_code = $prefix . $num;
 
-        // Create WordPress user first
-        $username = sanitize_user(strtolower($candidate->first_name . '.' . ($candidate->last_name ?? '')));
+        // Create WordPress user with username format: firstname.(first letter of lastname)
+        $last_initial = $candidate->last_name ? strtolower(substr($candidate->last_name, 0, 1)) : '';
+        $username = sanitize_user(strtolower($candidate->first_name) . ($last_initial ? '.' . $last_initial : ''));
         $username = substr($username, 0, 50);
 
         // Ensure unique username

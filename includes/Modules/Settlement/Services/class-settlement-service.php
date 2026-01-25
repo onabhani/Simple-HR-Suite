@@ -155,18 +155,7 @@ class Settlement_Service {
      */
     public static function generate_settlement_request_number(): string {
         global $wpdb;
-        $table = $wpdb->prefix . 'sfs_hr_settlements';
-        $year = wp_date('Y');
-
-        $count = (int)$wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM `$table` WHERE request_number LIKE %s",
-                'ST-' . $year . '-%'
-            )
-        );
-
-        $sequence = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
-        return 'ST-' . $year . '-' . $sequence;
+        return \SFS\HR\Core\Helpers::generate_reference_number( 'ST', $wpdb->prefix . 'sfs_hr_settlements' );
     }
 
     /**
@@ -176,12 +165,22 @@ class Settlement_Service {
         global $wpdb;
         $table = $wpdb->prefix . 'sfs_hr_settlements';
 
+        // Get old status for audit trail
+        $old_status = $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$table} WHERE id = %d", $settlement_id ) );
+
         $data = array_merge([
             'status'     => $status,
             'updated_at' => current_time('mysql'),
         ], $extra);
 
-        return $wpdb->update($table, $data, ['id' => $settlement_id]) !== false;
+        $result = $wpdb->update($table, $data, ['id' => $settlement_id]) !== false;
+
+        // Fire hook for AuditTrail
+        if ( $result && $old_status !== $status ) {
+            do_action( 'sfs_hr_settlement_status_changed', $settlement_id, $old_status ?: 'pending', $status );
+        }
+
+        return $result;
     }
 
     /**

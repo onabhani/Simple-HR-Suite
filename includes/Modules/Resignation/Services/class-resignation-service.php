@@ -175,18 +175,7 @@ class Resignation_Service {
      */
     public static function generate_resignation_request_number(): string {
         global $wpdb;
-        $table = $wpdb->prefix . 'sfs_hr_resignations';
-        $year = wp_date('Y');
-
-        $count = (int)$wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM `$table` WHERE request_number LIKE %s",
-                'RS-' . $year . '-%'
-            )
-        );
-
-        $sequence = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
-        return 'RS-' . $year . '-' . $sequence;
+        return \SFS\HR\Core\Helpers::generate_reference_number( 'RS', $wpdb->prefix . 'sfs_hr_resignations' );
     }
 
     /**

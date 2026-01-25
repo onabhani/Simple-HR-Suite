@@ -54,15 +54,16 @@ class Capabilities {
         global $wpdb;
         $uid = (int)$user->ID;
 
-        // Administrators get all HR capabilities (fallback if static caps weren't properly assigned)
+        // Administrators get base HR capabilities (fallback if static caps weren't properly assigned)
+        // Note: Loan approval capabilities are NOT automatically granted - those are position-based
+        // (must be assigned as GM or Finance approver in settings)
         if ( ! empty( $allcaps['manage_options'] ) ) {
             $allcaps['sfs_hr.view']           = true;
             $allcaps['sfs_hr.manage']         = true;
             $allcaps['sfs_hr.leave.manage']   = true;
             $allcaps['sfs_hr.leave.review']   = true;
             $allcaps['sfs_hr.leave.request']  = true;
-            $allcaps['sfs_hr_loans_finance_approve'] = true;
-            $allcaps['sfs_hr_loans_gm_approve']      = true;
+            // sfs_hr_loans_finance_approve and sfs_hr_loans_gm_approve are position-based only
         }
 
         // If an active employee row exists -> can request leave

@@ -256,6 +256,7 @@ $employee_filter = isset( $_GET['emp'] ) ? (int) $_GET['emp'] : 0;
 \SFS\HR\Core\Helpers::output_asset_status_badge_css();
 ?>
 
+<div class="sfs-hr-table-responsive">
 <table class="widefat striped">
     <thead>
     <tr>
@@ -443,3 +444,4 @@ $employee_filter = isset( $_GET['emp'] ) ? (int) $_GET['emp'] : 0;
     <?php endif; ?>
     </tbody>
 </table>
+</div>

@@ -331,19 +331,7 @@ class LoansModule {
      */
     public static function generate_loan_number(): string {
         global $wpdb;
-        $table = $wpdb->prefix . 'sfs_hr_loans';
-        $year  = wp_date( 'Y' );
-
-        // Get count for this year
-        $count = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$table} WHERE loan_number LIKE %s",
-                'LN-' . $year . '-%'
-            )
-        );
-
-        $sequence = str_pad( $count + 1, 4, '0', STR_PAD_LEFT );
-        return 'LN-' . $year . '-' . $sequence;
+        return Helpers::generate_reference_number( 'LN', $wpdb->prefix . 'sfs_hr_loans', 'loan_number' );
     }
 
     /**

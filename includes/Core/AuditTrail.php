@@ -54,6 +54,18 @@ class AuditTrail {
         add_action( 'sfs_hr_payroll_run_created', [ self::class, 'log_payroll_run' ], 10, 2 );
         add_action( 'sfs_hr_payroll_run_approved', [ self::class, 'log_payroll_approved' ], 10, 2 );
 
+        // Hook into resignation changes
+        add_action( 'sfs_hr_resignation_status_changed', [ self::class, 'log_resignation_status_change' ], 10, 3 );
+
+        // Hook into settlement changes
+        add_action( 'sfs_hr_settlement_status_changed', [ self::class, 'log_settlement_status_change' ], 10, 3 );
+
+        // Hook into shift swap changes
+        add_action( 'sfs_hr_shift_swap_status_changed', [ self::class, 'log_shift_swap_status_change' ], 10, 3 );
+
+        // Hook into early leave changes
+        add_action( 'sfs_hr_early_leave_status_changed', [ self::class, 'log_early_leave_status_change' ], 10, 3 );
+
         // Admin page
         if ( is_admin() ) {
             add_action( 'admin_menu', [ self::class, 'add_menu' ], 30 );
@@ -428,6 +440,54 @@ class AuditTrail {
         );
     }
 
+    public static function log_resignation_status_change( int $resignation_id, string $old_status, string $new_status ): void {
+        self::log(
+            'status_change',
+            'resignation',
+            $resignation_id,
+            "Resignation #{$resignation_id}",
+            [ 'status' => $old_status ],
+            [ 'status' => $new_status ],
+            "Resignation status changed: {$old_status} → {$new_status}"
+        );
+    }
+
+    public static function log_settlement_status_change( int $settlement_id, string $old_status, string $new_status ): void {
+        self::log(
+            'status_change',
+            'settlement',
+            $settlement_id,
+            "Settlement #{$settlement_id}",
+            [ 'status' => $old_status ],
+            [ 'status' => $new_status ],
+            "Settlement status changed: {$old_status} → {$new_status}"
+        );
+    }
+
+    public static function log_shift_swap_status_change( int $swap_id, string $old_status, string $new_status ): void {
+        self::log(
+            'status_change',
+            'shift_swap',
+            $swap_id,
+            "Shift Swap #{$swap_id}",
+            [ 'status' => $old_status ],
+            [ 'status' => $new_status ],
+            "Shift swap status changed: {$old_status} → {$new_status}"
+        );
+    }
+
+    public static function log_early_leave_status_change( int $request_id, string $old_status, string $new_status ): void {
+        self::log(
+            'status_change',
+            'early_leave',
+            $request_id,
+            "Early Leave #{$request_id}",
+            [ 'status' => $old_status ],
+            [ 'status' => $new_status ],
+            "Early leave status changed: {$old_status} → {$new_status}"
+        );
+    }
+
     // ===== Admin Page =====
 
     public static function add_menu(): void {
@@ -533,6 +593,9 @@ class AuditTrail {
             'loan'               => __( 'Loan', 'sfs-hr' ),
             'payroll_run'        => __( 'Payroll Run', 'sfs-hr' ),
             'early_leave'        => __( 'Early Leave', 'sfs-hr' ),
+            'resignation'        => __( 'Resignation', 'sfs-hr' ),
+            'settlement'         => __( 'Settlement', 'sfs-hr' ),
+            'shift_swap'         => __( 'Shift Swap', 'sfs-hr' ),
         ];
 
         $base_url = admin_url( 'admin.php?page=sfs-hr-audit-log' );

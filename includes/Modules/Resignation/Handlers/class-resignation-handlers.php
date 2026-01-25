@@ -142,6 +142,10 @@ class Resignation_Handlers {
 
         $wpdb->update($table, $update_data, ['id' => $resignation_id]);
 
+        // Fire hook for AuditTrail (log approval steps and final approval)
+        $new_status = $update_data['status'] ?? 'pending';
+        do_action( 'sfs_hr_resignation_status_changed', $resignation_id, $resignation['status'], $new_status );
+
         // Send notification
         Resignation_Notifications::notify_approval($resignation_id);
 
@@ -218,6 +222,9 @@ class Resignation_Handlers {
 
         Resignation_Notifications::notify_rejection($resignation_id);
 
+        // Fire hook for AuditTrail
+        do_action( 'sfs_hr_resignation_status_changed', $resignation_id, $resignation['status'], 'rejected' );
+
         Helpers::redirect_with_notice(
             admin_url('admin.php?page=sfs-hr-resignations'),
             'success',
@@ -279,6 +286,9 @@ class Resignation_Handlers {
             ], ['id' => $resignation['employee_id']]);
             $status_message = ' ' . __('Employee status has been reverted to active.', 'sfs-hr');
         }
+
+        // Fire hook for AuditTrail
+        do_action( 'sfs_hr_resignation_status_changed', $resignation_id, $resignation['status'], 'cancelled' );
 
         Helpers::redirect_with_notice(
             admin_url('admin.php?page=sfs-hr-resignations'),

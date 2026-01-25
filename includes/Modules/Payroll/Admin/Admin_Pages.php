@@ -233,7 +233,8 @@ class Admin_Pages {
                 <p><?php esc_html_e( 'No payroll periods found.', 'sfs-hr' ); ?></p>
             </div>
             <?php else: ?>
-            <table class="wp-list-table widefat fixed striped">
+            <div class="sfs-hr-table-responsive">
+            <table class="wp-list-table widefat striped">
                 <thead>
                     <tr>
                         <th><?php esc_html_e( 'Period Name', 'sfs-hr' ); ?></th>
@@ -282,6 +283,7 @@ class Admin_Pages {
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
             <?php endif; ?>
         </div>
         <?php
@@ -382,24 +384,6 @@ class Admin_Pages {
         );
 
         ?>
-        <style>
-            .sfs-hr-table-responsive {
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-            }
-            .sfs-hr-table-responsive table {
-                min-width: 600px;
-            }
-            .sfs-hr-table-responsive th {
-                white-space: nowrap;
-            }
-            @media (max-width: 782px) {
-                .sfs-hr-table-responsive {
-                    margin: 0 -12px;
-                    padding: 0 12px;
-                }
-            }
-        </style>
         <div class="sfs-hr-payroll-runs">
             <h2><?php esc_html_e( 'Payroll Runs', 'sfs-hr' ); ?></h2>
 

@@ -134,18 +134,7 @@ class ShiftSwapModule {
      */
     public static function generate_shift_swap_request_number(): string {
         global $wpdb;
-        $table = $wpdb->prefix . 'sfs_hr_shift_swaps';
-        $year = wp_date('Y');
-
-        $count = (int)$wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM `$table` WHERE request_number LIKE %s",
-                'SS-' . $year . '-%'
-            )
-        );
-
-        $sequence = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
-        return 'SS-' . $year . '-' . $sequence;
+        return \SFS\HR\Core\Helpers::generate_reference_number( 'SS', $wpdb->prefix . 'sfs_hr_shift_swaps' );
     }
 
     /**

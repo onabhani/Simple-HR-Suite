@@ -165,14 +165,16 @@ class Hooks {
         // Log the role change
         if (class_exists('\SFS\HR\Core\AuditTrail')) {
             AuditTrail::log(
-                'users',
-                $user_id,
                 'role_change',
+                'user',
+                $user_id,
+                null,
+                null,
                 [
                     'action' => 'demoted_to_terminated',
                     'new_role' => self::TERMINATED_ROLE,
                 ],
-                get_current_user_id() ?: $user_id
+                'User demoted to terminated role'
             );
         }
 
@@ -202,14 +204,13 @@ class Hooks {
         // Log the role change
         if (class_exists('\SFS\HR\Core\AuditTrail')) {
             AuditTrail::log(
-                'users',
-                $user_id,
                 'role_change',
-                [
-                    'action' => 'restored_from_terminated',
-                    'new_role' => $new_role,
-                ],
-                get_current_user_id()
+                'user',
+                $user_id,
+                null,
+                ['role' => self::TERMINATED_ROLE],
+                ['role' => $new_role],
+                'User role restored from terminated to ' . $new_role
             );
         }
 
@@ -263,16 +264,13 @@ class Hooks {
         // Log the change via audit trail if available
         if (class_exists('\SFS\HR\Core\AuditTrail')) {
             AuditTrail::log(
-                'employees',
-                $employee_id,
                 'update',
-                [
-                    'email' => [
-                        'old' => $old_user_data->user_email,
-                        'new' => $user->user_email,
-                    ],
-                ],
-                $user_id
+                'employee',
+                $employee_id,
+                null,
+                ['email' => $old_user_data->user_email],
+                ['email' => $user->user_email],
+                'Employee email synced from WordPress profile'
             );
         }
     }
