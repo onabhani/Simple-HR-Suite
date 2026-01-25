@@ -140,7 +140,7 @@ class Resignation_Notifications {
         }
 
         $employee_name = trim($resignation['first_name'] . ' ' . $resignation['last_name']);
-        $admin_url = admin_url('admin.php?page=sfs-hr-resignations&action=view&id=' . $resignation_id);
+        $admin_url = admin_url('admin.php?page=sfs-hr-finance-exit&tab=resignations&action=view&id=' . $resignation_id);
 
         switch ($event) {
             case 'submitted':

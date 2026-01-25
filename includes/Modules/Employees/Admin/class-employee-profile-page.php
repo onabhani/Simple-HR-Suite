@@ -2028,7 +2028,7 @@ echo '<div class="wrap sfs-hr-wrap">';
                     'dates'      => $res['resignation_date'] . ' - ' . ( $res['last_working_day'] ?: __( 'TBD', 'sfs-hr' ) ),
                     'status'     => $status_key,
                     'created_at' => $res['created_at'],
-                    'url'        => admin_url( 'admin.php?page=sfs-hr-resignations&tab=resignations' ),
+                    'url'        => admin_url( 'admin.php?page=sfs-hr-finance-exit&tab=resignations&tab=resignations' ),
                 ];
             }
         }
@@ -2064,7 +2064,7 @@ echo '<div class="wrap sfs-hr-wrap">';
                     'dates'      => $set['last_working_day'] ?: '',
                     'status'     => $set['status'],
                     'created_at' => $set['created_at'],
-                    'url'        => admin_url( 'admin.php?page=sfs-hr-settlements&action=view&id=' . (int) $set['id'] ),
+                    'url'        => admin_url( 'admin.php?page=sfs-hr-finance-exit&tab=settlements&action=view&id=' . (int) $set['id'] ),
                 ];
             }
         }

@@ -27,7 +27,7 @@ class Settlement_Form {
                 <div class="notice notice-info">
                     <p><?php esc_html_e('No approved resignations pending settlement. All approved resignations have been processed.', 'sfs-hr'); ?></p>
                 </div>
-                <p><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-settlements')); ?>" class="button">&larr; <?php esc_html_e('Back to Settlements', 'sfs-hr'); ?></a></p>
+                <p><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-finance-exit&tab=settlements')); ?>" class="button">&larr; <?php esc_html_e('Back to Settlements', 'sfs-hr'); ?></a></p>
             <?php else: ?>
 
             <form method="POST" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" id="settlement-form">
@@ -121,7 +121,7 @@ class Settlement_Form {
 
                     <p class="submit">
                         <button type="submit" class="button button-primary"><?php esc_html_e('Create Settlement', 'sfs-hr'); ?></button>
-                        <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-settlements')); ?>" class="button"><?php esc_html_e('Cancel', 'sfs-hr'); ?></a>
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-finance-exit&tab=settlements')); ?>" class="button"><?php esc_html_e('Cancel', 'sfs-hr'); ?></a>
                     </p>
                 </div>
             </form>

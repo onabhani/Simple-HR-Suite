@@ -32,20 +32,20 @@ class Settlement_List {
 
             <div class="sfs-hr-settlement-toolbar">
                 <ul class="sfs-hr-settlement-tabs">
-                    <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-settlements&status=pending')); ?>"
+                    <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-finance-exit&tab=settlements&status=pending')); ?>"
                         class="<?php echo $status === 'pending' ? 'current' : ''; ?>">
                         <?php esc_html_e('Pending', 'sfs-hr'); ?></a></li>
-                    <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-settlements&status=approved')); ?>"
+                    <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-finance-exit&tab=settlements&status=approved')); ?>"
                         class="<?php echo $status === 'approved' ? 'current' : ''; ?>">
                         <?php esc_html_e('Approved', 'sfs-hr'); ?></a></li>
-                    <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-settlements&status=paid')); ?>"
+                    <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-finance-exit&tab=settlements&status=paid')); ?>"
                         class="<?php echo $status === 'paid' ? 'current' : ''; ?>">
                         <?php esc_html_e('Paid', 'sfs-hr'); ?></a></li>
-                    <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-settlements&status=rejected')); ?>"
+                    <li><a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-finance-exit&tab=settlements&status=rejected')); ?>"
                         class="<?php echo $status === 'rejected' ? 'current' : ''; ?>">
                         <?php esc_html_e('Rejected', 'sfs-hr'); ?></a></li>
                 </ul>
-                <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-settlements&action=create')); ?>" class="button button-primary">
+                <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-finance-exit&tab=settlements&action=create')); ?>" class="button button-primary">
                     <?php esc_html_e('Create Settlement', 'sfs-hr'); ?>
                 </a>
             </div>
@@ -73,8 +73,8 @@ class Settlement_List {
                         <?php else: ?>
                             <?php foreach ($result['rows'] as $row):
                                 $emp_name = $row['first_name'] . ' ' . $row['last_name'];
-                                $view_url = admin_url('admin.php?page=sfs-hr-settlements&action=view&id=' . $row['id']);
-                                $edit_url = admin_url('admin.php?page=sfs-hr-settlements&action=edit&id=' . $row['id']);
+                                $view_url = admin_url('admin.php?page=sfs-hr-finance-exit&tab=settlements&action=view&id=' . $row['id']);
+                                $edit_url = admin_url('admin.php?page=sfs-hr-finance-exit&tab=settlements&action=edit&id=' . $row['id']);
                                 $can_edit = $row['status'] === 'pending' ? '1' : '0';
                             ?>
                                 <tr>
@@ -118,7 +118,7 @@ class Settlement_List {
                     <?php if ($i === $result['page']): ?>
                         <span class="current-page"><?php echo (int)$i; ?></span>
                     <?php else: ?>
-                        <a href="<?php echo esc_url(add_query_arg(['paged' => $i, 'status' => $status], admin_url('admin.php?page=sfs-hr-settlements'))); ?>"><?php echo (int)$i; ?></a>
+                        <a href="<?php echo esc_url(add_query_arg(['paged' => $i, 'status' => $status], admin_url('admin.php?page=sfs-hr-finance-exit&tab=settlements'))); ?>"><?php echo (int)$i; ?></a>
                     <?php endif; ?>
                 <?php endfor; ?>
             </div>

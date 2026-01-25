@@ -184,6 +184,11 @@ class Helpers {
                 'url'    => add_query_arg( 'page', 'sfs-hr-departments', $base ),
                 'parent' => 'sfs-hr',
             ],
+            'sfs-hr-finance-exit' => [
+                'label'  => __( 'Finance & Exit', 'sfs-hr' ),
+                'url'    => add_query_arg( 'page', 'sfs-hr-finance-exit', $base ),
+                'parent' => 'sfs-hr',
+            ],
             // Add more here if you have extra HR pages.
         ];
     }

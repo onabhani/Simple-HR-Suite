@@ -656,7 +656,7 @@ class Notifications {
                 'employee_count' => $data['employee_count'] ?? 0,
                 'total_net'      => number_format( (float) ( $data['total_net'] ?? 0 ), 2 ),
                 'approved_by'    => wp_get_current_user()->display_name,
-                'view_url'       => admin_url( 'admin.php?page=sfs-hr-payroll' ),
+                'view_url'       => admin_url( 'admin.php?page=sfs-hr-finance-exit&tab=payroll' ),
             ] );
 
             foreach ( $settings['hr_emails'] as $hr_email ) {
@@ -958,7 +958,7 @@ class Notifications {
                     'title' => __( 'Pending Resignations', 'sfs-hr' ),
                     'count' => count( $pending_resignations ),
                     'items' => $pending_resignations,
-                    'url'   => admin_url( 'admin.php?page=sfs-hr-resignations' ),
+                    'url'   => admin_url( 'admin.php?page=sfs-hr-finance-exit&tab=resignations' ),
                 ];
                 foreach ( $pending_resignations as $resign ) {
                     if ( $resign->manager_email ) {
@@ -1106,7 +1106,7 @@ class Notifications {
             'leave_requests'      => admin_url( 'admin.php?page=sfs-hr-leave-requests&status=pending' ),
             'loans_gm'            => admin_url( 'admin.php?page=sfs-hr-loans' ),
             'loans_finance'       => admin_url( 'admin.php?page=sfs-hr-loans' ),
-            'resignations'        => admin_url( 'admin.php?page=sfs-hr-resignations' ),
+            'resignations'        => admin_url( 'admin.php?page=sfs-hr-finance-exit&tab=resignations' ),
             'shift_swaps_pending' => home_url( '/my-profile/' ),
             'assets_pending'      => home_url( '/my-profile/?tab=assets' ),
             'hiring_dept'         => admin_url( 'admin.php?page=sfs-hr-hiring' ),

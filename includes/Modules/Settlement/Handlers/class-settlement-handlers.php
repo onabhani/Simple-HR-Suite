@@ -49,7 +49,7 @@ class Settlement_Handlers {
         Settlement_Service::create_settlement($data);
 
         Helpers::redirect_with_notice(
-            admin_url('admin.php?page=sfs-hr-settlements'),
+            admin_url('admin.php?page=sfs-hr-finance-exit&tab=settlements'),
             'success',
             __('Settlement created successfully.', 'sfs-hr')
         );
@@ -87,7 +87,7 @@ class Settlement_Handlers {
         ], ['id' => $settlement_id]);
 
         Helpers::redirect_with_notice(
-            admin_url('admin.php?page=sfs-hr-settlements&action=view&id=' . $settlement_id),
+            admin_url('admin.php?page=sfs-hr-finance-exit&tab=settlements&action=view&id=' . $settlement_id),
             'success',
             __('Settlement updated successfully.', 'sfs-hr')
         );
@@ -119,7 +119,7 @@ class Settlement_Handlers {
                         esc_html__('Cannot approve settlement. Employee has outstanding loan balance of %s SAR. Please settle all loans with Finance department first.', 'sfs-hr'),
                         '<strong>' . number_format($loan_status['outstanding'], 2) . '</strong>'
                     ),
-                    esc_url(admin_url('admin.php?page=sfs-hr-settlements&action=view&id=' . $settlement_id)),
+                    esc_url(admin_url('admin.php?page=sfs-hr-finance-exit&tab=settlements&action=view&id=' . $settlement_id)),
                     esc_html__('Back to Settlement', 'sfs-hr'),
                     esc_url(admin_url('admin.php?page=sfs-hr-loans&employee_id=' . $settlement['employee_id'])),
                     esc_html__('View Employee Loans', 'sfs-hr')
@@ -138,7 +138,7 @@ class Settlement_Handlers {
                         esc_html__('Cannot approve settlement. Employee has %d unreturned asset(s). All assets must be returned before settlement approval.', 'sfs-hr'),
                         '<strong>' . $asset_status['unreturned_count'] . '</strong>'
                     ),
-                    esc_url(admin_url('admin.php?page=sfs-hr-settlements&action=view&id=' . $settlement_id)),
+                    esc_url(admin_url('admin.php?page=sfs-hr-finance-exit&tab=settlements&action=view&id=' . $settlement_id)),
                     esc_html__('Back to Settlement', 'sfs-hr'),
                     esc_url(admin_url('admin.php?page=sfs-hr-employee-profile&id=' . $settlement['employee_id'] . '&tab=assets')),
                     esc_html__('View Employee Assets', 'sfs-hr')
@@ -153,7 +153,7 @@ class Settlement_Handlers {
         ]);
 
         Helpers::redirect_with_notice(
-            admin_url('admin.php?page=sfs-hr-settlements&action=view&id=' . $settlement_id),
+            admin_url('admin.php?page=sfs-hr-finance-exit&tab=settlements&action=view&id=' . $settlement_id),
             'success',
             __('Settlement approved successfully.', 'sfs-hr')
         );
@@ -176,7 +176,7 @@ class Settlement_Handlers {
         ]);
 
         Helpers::redirect_with_notice(
-            admin_url('admin.php?page=sfs-hr-settlements'),
+            admin_url('admin.php?page=sfs-hr-finance-exit&tab=settlements'),
             'success',
             __('Settlement rejected.', 'sfs-hr')
         );
@@ -210,7 +210,7 @@ class Settlement_Handlers {
                         '<strong style="color:red;">' . number_format($loan_status['outstanding'], 2) . '</strong>'
                     ),
                     esc_html__('All loans must be fully settled before releasing final exit settlement payment.', 'sfs-hr'),
-                    esc_url(admin_url('admin.php?page=sfs-hr-settlements&action=view&id=' . $settlement_id)),
+                    esc_url(admin_url('admin.php?page=sfs-hr-finance-exit&tab=settlements&action=view&id=' . $settlement_id)),
                     esc_html__('Back to Settlement', 'sfs-hr'),
                     esc_url(admin_url('admin.php?page=sfs-hr-loans&employee_id=' . $settlement['employee_id'])),
                     esc_html__('View Employee Loans', 'sfs-hr')
@@ -230,7 +230,7 @@ class Settlement_Handlers {
                         '<strong style="color:red;">' . $asset_status['unreturned_count'] . '</strong>'
                     ),
                     esc_html__('All assets must be returned before releasing final exit settlement payment.', 'sfs-hr'),
-                    esc_url(admin_url('admin.php?page=sfs-hr-settlements&action=view&id=' . $settlement_id)),
+                    esc_url(admin_url('admin.php?page=sfs-hr-finance-exit&tab=settlements&action=view&id=' . $settlement_id)),
                     esc_html__('Back to Settlement', 'sfs-hr'),
                     esc_url(admin_url('admin.php?page=sfs-hr-employee-profile&id=' . $settlement['employee_id'] . '&tab=assets')),
                     esc_html__('View Employee Assets', 'sfs-hr')
@@ -244,7 +244,7 @@ class Settlement_Handlers {
         ]);
 
         Helpers::redirect_with_notice(
-            admin_url('admin.php?page=sfs-hr-settlements&action=view&id=' . $settlement_id),
+            admin_url('admin.php?page=sfs-hr-finance-exit&tab=settlements&action=view&id=' . $settlement_id),
             'success',
             __('Payment recorded successfully.', 'sfs-hr')
         );

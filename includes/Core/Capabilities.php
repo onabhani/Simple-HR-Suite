@@ -13,6 +13,9 @@ class Capabilities {
         if (!get_role('sfs_hr_manager')) {
             add_role('sfs_hr_manager', __('HR Manager','sfs-hr'), ['read' => true]);
         }
+        if (!get_role('sfs_hr_trainee')) {
+            add_role('sfs_hr_trainee', __('HR Trainee (Intern)','sfs-hr'), ['read' => true]);
+        }
 
         // Static caps for our roles
         $caps_manage = [
@@ -25,11 +28,19 @@ class Capabilities {
             'sfs_hr.leave.request'  => true, // submit requests
         ];
 
+        // Trainee caps (limited - mainly attendance tracking)
+        $caps_trainee = [
+            'sfs_hr.leave.request'  => true, // can submit leave requests
+        ];
+
         if ($mgr = get_role('sfs_hr_manager')) {
             foreach ($caps_manage + $caps_employee as $k=>$v) { $mgr->add_cap($k, $v); }
         }
         if ($emp = get_role('sfs_hr_employee')) {
             foreach ($caps_employee as $k=>$v) { $emp->add_cap($k, $v); }
+        }
+        if ($trainee = get_role('sfs_hr_trainee')) {
+            foreach ($caps_trainee as $k=>$v) { $trainee->add_cap($k, $v); }
         }
         if ($adm = get_role('administrator')) {
             foreach ($caps_manage + $caps_employee as $k=>$v) { $adm->add_cap($k, $v); }
