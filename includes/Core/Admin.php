@@ -2429,6 +2429,59 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
     margin-top: 16px;
   }
 
+  /* Collapsible Add Employee Section */
+  .sfs-hr-add-employee-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    background: linear-gradient(135deg, #2271b1 0%, #135e96 100%);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(34, 113, 177, 0.3);
+    transition: all 0.2s ease;
+    margin: 24px 0 16px;
+  }
+  .sfs-hr-add-employee-toggle:hover {
+    background: linear-gradient(135deg, #135e96 0%, #0a4b7a 100%);
+    box-shadow: 0 4px 8px rgba(34, 113, 177, 0.4);
+    transform: translateY(-1px);
+  }
+  .sfs-hr-add-employee-toggle:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(34, 113, 177, 0.3);
+  }
+  .sfs-hr-add-employee-toggle .dashicons {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    transition: transform 0.3s ease;
+  }
+  .sfs-hr-add-employee-toggle.active .dashicons-plus-alt2 {
+    transform: rotate(45deg);
+  }
+  .sfs-hr-collapsible-section {
+    display: none;
+    animation: sfsHrSlideDown 0.3s ease-out;
+  }
+  .sfs-hr-collapsible-section.open {
+    display: block;
+  }
+  @keyframes sfsHrSlideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   /* Mobile responsive styles */
   @media (max-width: 782px) {
     /* Toolbar mobile */
@@ -2599,6 +2652,25 @@ document.getElementById('sfs-hr-action-modal').addEventListener('click', functio
               btn.classList.remove('active');
             }
           }
+
+          document.addEventListener('DOMContentLoaded', function() {
+            var toggleBtn = document.getElementById('sfs-hr-add-employee-toggle');
+            var section = document.getElementById('sfs-hr-add-employee-section');
+            if (toggleBtn && section) {
+              toggleBtn.addEventListener('click', function() {
+                var isOpen = section.classList.contains('open');
+                if (isOpen) {
+                  section.classList.remove('open');
+                  toggleBtn.classList.remove('active');
+                  toggleBtn.setAttribute('aria-expanded', 'false');
+                } else {
+                  section.classList.add('open');
+                  toggleBtn.classList.add('active');
+                  toggleBtn.setAttribute('aria-expanded', 'true');
+                }
+              });
+            }
+          });
           </script>
 
           <h2><?php echo esc_html__('Employees List','sfs-hr'); ?> <span style="font-weight:normal; font-size:14px; color:#50575e;">(<?php echo (int)$total; ?> <?php esc_html_e('total','sfs-hr'); ?>)</span></h2>
@@ -2663,9 +2735,12 @@ document.getElementById('sfs-hr-action-modal').addEventListener('click', functio
           </div>
           <?php endif; ?>
 
-                    <hr/>
-          <h2><?php esc_html_e('Add Employee','sfs-hr'); ?></h2>
+          <button type="button" class="sfs-hr-add-employee-toggle" id="sfs-hr-add-employee-toggle" aria-expanded="false" aria-controls="sfs-hr-add-employee-section">
+            <span class="dashicons dashicons-plus-alt2"></span>
+            <?php esc_html_e('Add New Employee','sfs-hr'); ?>
+          </button>
 
+          <div id="sfs-hr-add-employee-section" class="sfs-hr-collapsible-section">
           <div class="sfs-hr-emp-add-wrap">
             <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
               <input type="hidden" name="action" value="sfs_hr_add_employee" />
@@ -2943,6 +3018,7 @@ document.getElementById('sfs-hr-action-modal').addEventListener('click', functio
               </div>
             </form>
           </div>
+          </div><!-- .sfs-hr-collapsible-section -->
 
 
           <hr/>
