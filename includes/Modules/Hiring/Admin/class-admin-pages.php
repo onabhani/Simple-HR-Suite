@@ -166,7 +166,8 @@ class AdminPages {
                 <button type="submit" class="button"><?php esc_html_e('Filter', 'sfs-hr'); ?></button>
             </form>
 
-            <table class="wp-list-table widefat fixed striped">
+            <div class="sfs-hr-table-responsive">
+            <table class="wp-list-table widefat striped">
                 <thead>
                     <tr>
                         <th><?php esc_html_e('Name', 'sfs-hr'); ?></th>
@@ -212,6 +213,7 @@ class AdminPages {
                     <?php endif; ?>
                 </tbody>
             </table>
+            </div>
         </div>
         <?php
     }
@@ -674,7 +676,8 @@ class AdminPages {
                 <button type="submit" class="button"><?php esc_html_e('Filter', 'sfs-hr'); ?></button>
             </form>
 
-            <table class="wp-list-table widefat fixed striped">
+            <div class="sfs-hr-table-responsive">
+            <table class="wp-list-table widefat striped">
                 <thead>
                     <tr>
                         <th><?php esc_html_e('Code', 'sfs-hr'); ?></th>
@@ -720,6 +723,7 @@ class AdminPages {
                     <?php endif; ?>
                 </tbody>
             </table>
+            </div>
         </div>
         <?php
     }

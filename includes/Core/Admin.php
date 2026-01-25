@@ -112,6 +112,24 @@ class Admin {
             #adminmenu li.toplevel_page_sfs-hr + li.wp-menu-separator {
                 display: none !important;
             }
+
+            /* Responsive table wrapper for mobile */
+            .sfs-hr-table-responsive {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .sfs-hr-table-responsive table {
+                min-width: 600px;
+            }
+            .sfs-hr-table-responsive th {
+                white-space: nowrap;
+            }
+            @media (max-width: 782px) {
+                .sfs-hr-table-responsive {
+                    margin: 0 -12px;
+                    padding: 0 12px;
+                }
+            }
         </style>';
     }
 
