@@ -473,15 +473,15 @@ class Admin {
             'cap'   => 'sfs_hr.view',
         ],
         [
-            'page'  => 'sfs-hr-hiring',
+            'page'  => 'sfs-hr-lifecycle',
             'icon'  => 'dashicons-businessperson',
-            'label' => __( 'Hiring', 'sfs-hr' ),
+            'label' => __( 'Employee Lifecycle', 'sfs-hr' ),
             'cap'   => 'sfs_hr.view',
         ],
         [
-            'page'  => 'sfs-hr-finance-exit',
+            'page'  => 'sfs-hr-payroll',
             'icon'  => 'dashicons-money-alt',
-            'label' => __( 'Finance & Exit', 'sfs-hr' ),
+            'label' => __( 'Payroll', 'sfs-hr' ),
             'cap'   => 'sfs_hr.view',
         ],
         [
@@ -720,7 +720,7 @@ class Admin {
 
             if ( $pending_resignations > 0 ) {
                 $has_approval_cards = true;
-                echo '<a class="sfs-hr-card sfs-hr-approval-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-finance-exit&tab=resignations&tab=resignations&status=pending' ) ) . '">';
+                echo '<a class="sfs-hr-card sfs-hr-approval-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-lifecycle&tab=resignations&status=pending' ) ) . '">';
                 echo '<h2>' . esc_html__( 'Pending Resignations', 'sfs-hr' ) . '</h2>';
                 echo '<div class="sfs-hr-card-count">' . esc_html( number_format_i18n( $pending_resignations ) ) . '</div>';
                 echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting approval', 'sfs-hr' ) . '</div>';

@@ -173,7 +173,7 @@ class Resignation_Handlers {
         }
 
         Helpers::redirect_with_notice(
-            admin_url('admin.php?page=sfs-hr-finance-exit&tab=resignations'),
+            admin_url('admin.php?page=sfs-hr-lifecycle&tab=resignations'),
             'success',
             $success_message
         );
@@ -226,7 +226,7 @@ class Resignation_Handlers {
         do_action( 'sfs_hr_resignation_status_changed', $resignation_id, $resignation['status'], 'rejected' );
 
         Helpers::redirect_with_notice(
-            admin_url('admin.php?page=sfs-hr-finance-exit&tab=resignations'),
+            admin_url('admin.php?page=sfs-hr-lifecycle&tab=resignations'),
             'success',
             __('Resignation rejected.', 'sfs-hr')
         );
@@ -291,7 +291,7 @@ class Resignation_Handlers {
         do_action( 'sfs_hr_resignation_status_changed', $resignation_id, $resignation['status'], 'cancelled' );
 
         Helpers::redirect_with_notice(
-            admin_url('admin.php?page=sfs-hr-finance-exit&tab=resignations'),
+            admin_url('admin.php?page=sfs-hr-lifecycle&tab=resignations'),
             'success',
             __('Resignation cancelled successfully.', 'sfs-hr') . $status_message
         );
@@ -337,7 +337,7 @@ class Resignation_Handlers {
         $wpdb->update($table, $update_data, ['id' => $resignation_id]);
 
         Helpers::redirect_with_notice(
-            admin_url('admin.php?page=sfs-hr-finance-exit&tab=resignations&status=final_exit'),
+            admin_url('admin.php?page=sfs-hr-lifecycle&tab=resignations&status=final_exit'),
             'success',
             __('Final Exit data updated successfully.', 'sfs-hr')
         );
@@ -362,7 +362,7 @@ class Resignation_Handlers {
         $finance_approver = isset($_POST['finance_approver']) ? (int)$_POST['finance_approver'] : 0;
         update_option('sfs_hr_resignation_finance_approver', (string)$finance_approver);
 
-        wp_safe_redirect(admin_url('admin.php?page=sfs-hr-finance-exit&tab=resignations&tab=settings&ok=1'));
+        wp_safe_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=resignations&tab=settings&ok=1'));
         exit;
     }
 

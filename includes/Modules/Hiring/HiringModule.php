@@ -26,26 +26,9 @@ class HiringModule {
     }
 
     public function hooks(): void {
-        // Admin menu
-        add_action('admin_menu', [$this, 'add_admin_menus'], 25);
-
-        // Admin pages
+        // Admin pages (menu is now part of Employee Lifecycle)
         require_once __DIR__ . '/Admin/class-admin-pages.php';
         Admin\AdminPages::instance()->hooks();
-    }
-
-    /**
-     * Add admin menus
-     */
-    public function add_admin_menus(): void {
-        add_submenu_page(
-            'sfs-hr',
-            __('Hiring', 'sfs-hr'),
-            __('Hiring', 'sfs-hr'),
-            'sfs_hr.view',
-            'sfs-hr-hiring',
-            [Admin\AdminPages::instance(), 'render_page']
-        );
     }
 
     /**

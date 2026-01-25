@@ -41,7 +41,7 @@ class Settlement_View {
             </div>
 
             <p style="margin-top:20px;">
-                <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-finance-exit&tab=settlements')); ?>" class="button">&larr; <?php esc_html_e('Back to Settlements', 'sfs-hr'); ?></a>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-lifecycle&tab=settlements')); ?>" class="button">&larr; <?php esc_html_e('Back to Settlements', 'sfs-hr'); ?></a>
             </p>
 
             <?php self::render_modals($settlement); ?>

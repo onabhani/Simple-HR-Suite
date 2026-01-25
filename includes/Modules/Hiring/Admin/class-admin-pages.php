@@ -37,10 +37,10 @@ class AdminPages {
             <h1><?php esc_html_e('Hiring Management', 'sfs-hr'); ?></h1>
 
             <nav class="nav-tab-wrapper">
-                <a href="?page=sfs-hr-hiring&tab=candidates" class="nav-tab <?php echo $tab === 'candidates' ? 'nav-tab-active' : ''; ?>">
+                <a href="?page=sfs-hr-lifecycle&tab=candidates" class="nav-tab <?php echo $tab === 'candidates' ? 'nav-tab-active' : ''; ?>">
                     <?php esc_html_e('Candidates', 'sfs-hr'); ?>
                 </a>
-                <a href="?page=sfs-hr-hiring&tab=trainees" class="nav-tab <?php echo $tab === 'trainees' ? 'nav-tab-active' : ''; ?>">
+                <a href="?page=sfs-hr-lifecycle&tab=trainees" class="nav-tab <?php echo $tab === 'trainees' ? 'nav-tab-active' : ''; ?>">
                     <?php esc_html_e('Trainees', 'sfs-hr'); ?>
                 </a>
             </nav>
@@ -91,6 +91,13 @@ class AdminPages {
      * Render candidates tab
      */
     private function render_candidates_tab(string $action): void {
+        $this->render_candidates_tab_content($action);
+    }
+
+    /**
+     * Public method to render candidates tab content (for use by Employee Lifecycle page)
+     */
+    public function render_candidates_tab_content(string $action): void {
         switch ($action) {
             case 'add':
                 $this->render_candidate_form();
@@ -144,14 +151,14 @@ class AdminPages {
         <div class="sfs-hr-card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                 <h3 style="margin:0; border:none; padding:0;"><?php esc_html_e('Candidates', 'sfs-hr'); ?></h3>
-                <a href="?page=sfs-hr-hiring&tab=candidates&action=add" class="button button-primary">
+                <a href="?page=sfs-hr-lifecycle&tab=candidates&action=add" class="button button-primary">
                     <?php esc_html_e('Add Candidate', 'sfs-hr'); ?>
                 </a>
             </div>
 
             <!-- Filters -->
             <form method="get" style="margin-bottom:20px; display:flex; gap:10px; flex-wrap:wrap;">
-                <input type="hidden" name="page" value="sfs-hr-hiring" />
+                <input type="hidden" name="page" value="sfs-hr-lifecycle" />
                 <input type="hidden" name="tab" value="candidates" />
 
                 <select name="status">
@@ -204,9 +211,9 @@ class AdminPages {
                                 </td>
                                 <td><?php echo esc_html(wp_date('M j, Y', strtotime($c->created_at))); ?></td>
                                 <td>
-                                    <a href="?page=sfs-hr-hiring&tab=candidates&action=view&id=<?php echo (int) $c->id; ?>"><?php esc_html_e('View', 'sfs-hr'); ?></a>
+                                    <a href="?page=sfs-hr-lifecycle&tab=candidates&action=view&id=<?php echo (int) $c->id; ?>"><?php esc_html_e('View', 'sfs-hr'); ?></a>
                                     |
-                                    <a href="?page=sfs-hr-hiring&tab=candidates&action=edit&id=<?php echo (int) $c->id; ?>"><?php esc_html_e('Edit', 'sfs-hr'); ?></a>
+                                    <a href="?page=sfs-hr-lifecycle&tab=candidates&action=edit&id=<?php echo (int) $c->id; ?>"><?php esc_html_e('Edit', 'sfs-hr'); ?></a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -342,7 +349,7 @@ class AdminPages {
 
                 <p>
                     <button type="submit" class="button button-primary"><?php echo $is_edit ? esc_html__('Update Candidate', 'sfs-hr') : esc_html__('Add Candidate', 'sfs-hr'); ?></button>
-                    <a href="?page=sfs-hr-hiring&tab=candidates" class="button"><?php esc_html_e('Cancel', 'sfs-hr'); ?></a>
+                    <a href="?page=sfs-hr-lifecycle&tab=candidates" class="button"><?php esc_html_e('Cancel', 'sfs-hr'); ?></a>
                 </p>
             </form>
         </div>
@@ -386,7 +393,7 @@ class AdminPages {
                         <?php echo esc_html($statuses[$candidate->status] ?? $candidate->status); ?>
                     </span>
                 </div>
-                <a href="?page=sfs-hr-hiring&tab=candidates&action=edit&id=<?php echo (int) $candidate->id; ?>" class="button">
+                <a href="?page=sfs-hr-lifecycle&tab=candidates&action=edit&id=<?php echo (int) $candidate->id; ?>" class="button">
                     <?php esc_html_e('Edit', 'sfs-hr'); ?>
                 </a>
             </div>
@@ -598,7 +605,7 @@ class AdminPages {
         <?php endif; ?>
 
         <p>
-            <a href="?page=sfs-hr-hiring&tab=candidates" class="button"><?php esc_html_e('Back to List', 'sfs-hr'); ?></a>
+            <a href="?page=sfs-hr-lifecycle&tab=candidates" class="button"><?php esc_html_e('Back to List', 'sfs-hr'); ?></a>
         </p>
         <?php
     }
@@ -607,6 +614,13 @@ class AdminPages {
      * Render trainees tab
      */
     private function render_trainees_tab(string $action): void {
+        $this->render_trainees_tab_content($action);
+    }
+
+    /**
+     * Public method to render trainees tab content (for use by Employee Lifecycle page)
+     */
+    public function render_trainees_tab_content(string $action): void {
         switch ($action) {
             case 'add':
                 $this->render_trainee_form();
@@ -656,14 +670,14 @@ class AdminPages {
                     <h3 style="margin:0; border:none; padding:0;"><?php esc_html_e('Trainees', 'sfs-hr'); ?></h3>
                     <p style="margin:5px 0 0 0; color:#666; font-size:13px;"><?php esc_html_e('Student Internship Program', 'sfs-hr'); ?></p>
                 </div>
-                <a href="?page=sfs-hr-hiring&tab=trainees&action=add" class="button button-primary">
+                <a href="?page=sfs-hr-lifecycle&tab=trainees&action=add" class="button button-primary">
                     <?php esc_html_e('Add Trainee', 'sfs-hr'); ?>
                 </a>
             </div>
 
             <!-- Filters -->
             <form method="get" style="margin-bottom:20px; display:flex; gap:10px; flex-wrap:wrap;">
-                <input type="hidden" name="page" value="sfs-hr-hiring" />
+                <input type="hidden" name="page" value="sfs-hr-lifecycle" />
                 <input type="hidden" name="tab" value="trainees" />
 
                 <select name="status">
@@ -714,9 +728,9 @@ class AdminPages {
                                     </span>
                                 </td>
                                 <td>
-                                    <a href="?page=sfs-hr-hiring&tab=trainees&action=view&id=<?php echo (int) $t->id; ?>"><?php esc_html_e('View', 'sfs-hr'); ?></a>
+                                    <a href="?page=sfs-hr-lifecycle&tab=trainees&action=view&id=<?php echo (int) $t->id; ?>"><?php esc_html_e('View', 'sfs-hr'); ?></a>
                                     |
-                                    <a href="?page=sfs-hr-hiring&tab=trainees&action=edit&id=<?php echo (int) $t->id; ?>"><?php esc_html_e('Edit', 'sfs-hr'); ?></a>
+                                    <a href="?page=sfs-hr-lifecycle&tab=trainees&action=edit&id=<?php echo (int) $t->id; ?>"><?php esc_html_e('Edit', 'sfs-hr'); ?></a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -869,7 +883,7 @@ class AdminPages {
 
                 <p>
                     <button type="submit" class="button button-primary"><?php echo $is_edit ? esc_html__('Update Trainee', 'sfs-hr') : esc_html__('Add Trainee', 'sfs-hr'); ?></button>
-                    <a href="?page=sfs-hr-hiring&tab=trainees" class="button"><?php esc_html_e('Cancel', 'sfs-hr'); ?></a>
+                    <a href="?page=sfs-hr-lifecycle&tab=trainees" class="button"><?php esc_html_e('Cancel', 'sfs-hr'); ?></a>
                 </p>
             </form>
         </div>
@@ -911,7 +925,7 @@ class AdminPages {
                         <?php echo esc_html($statuses[$trainee->status] ?? $trainee->status); ?>
                     </span>
                 </div>
-                <a href="?page=sfs-hr-hiring&tab=trainees&action=edit&id=<?php echo (int) $trainee->id; ?>" class="button">
+                <a href="?page=sfs-hr-lifecycle&tab=trainees&action=edit&id=<?php echo (int) $trainee->id; ?>" class="button">
                     <?php esc_html_e('Edit', 'sfs-hr'); ?>
                 </a>
             </div>
@@ -1102,7 +1116,7 @@ class AdminPages {
             <div class="sfs-hr-card" style="background:#e8f5e9;">
                 <p>
                     <strong><?php esc_html_e('This trainee was converted to a candidate.', 'sfs-hr'); ?></strong>
-                    <a href="?page=sfs-hr-hiring&tab=candidates&action=view&id=<?php echo (int) $trainee->candidate_id; ?>"><?php esc_html_e('View Candidate Record', 'sfs-hr'); ?></a>
+                    <a href="?page=sfs-hr-lifecycle&tab=candidates&action=view&id=<?php echo (int) $trainee->candidate_id; ?>"><?php esc_html_e('View Candidate Record', 'sfs-hr'); ?></a>
                 </p>
             </div>
         <?php elseif ($trainee->status === 'converted' && !$trainee->candidate_id) :
@@ -1126,7 +1140,7 @@ class AdminPages {
         <?php endif; ?>
 
         <p>
-            <a href="?page=sfs-hr-hiring&tab=trainees" class="button"><?php esc_html_e('Back to List', 'sfs-hr'); ?></a>
+            <a href="?page=sfs-hr-lifecycle&tab=trainees" class="button"><?php esc_html_e('Back to List', 'sfs-hr'); ?></a>
         </p>
         <?php
     }
@@ -1162,7 +1176,7 @@ class AdminPages {
             'updated_at' => $now,
         ]);
 
-        wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=candidates&message=added'));
+        wp_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=candidates&message=added'));
         exit;
     }
 
@@ -1192,7 +1206,7 @@ class AdminPages {
             'updated_at' => current_time('mysql'),
         ], ['id' => $id]);
 
-        wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=candidates&action=view&id=' . $id . '&message=updated'));
+        wp_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=candidates&action=view&id=' . $id . '&message=updated'));
         exit;
     }
 
@@ -1264,13 +1278,13 @@ class AdminPages {
                 ]);
 
                 if ($employee_id) {
-                    wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=candidates&action=view&id=' . $id . '&message=hired'));
+                    wp_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=candidates&action=view&id=' . $id . '&message=hired'));
                     exit;
                 }
                 break;
         }
 
-        wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=candidates&action=view&id=' . $id));
+        wp_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=candidates&action=view&id=' . $id));
         exit;
     }
 
@@ -1343,7 +1357,7 @@ class AdminPages {
             'updated_at' => $now,
         ]);
 
-        wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=trainees&message=added'));
+        wp_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=trainees&message=added'));
         exit;
     }
 
@@ -1373,7 +1387,7 @@ class AdminPages {
             'updated_at' => current_time('mysql'),
         ], ['id' => $id]);
 
-        wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=trainees&action=view&id=' . $id . '&message=updated'));
+        wp_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=trainees&action=view&id=' . $id . '&message=updated'));
         exit;
     }
 
@@ -1405,7 +1419,7 @@ class AdminPages {
                 // Convert to candidate
                 $candidate_id = HiringModule::convert_trainee_to_candidate($id);
                 if ($candidate_id) {
-                    wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=candidates&action=view&id=' . $candidate_id . '&message=converted'));
+                    wp_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=candidates&action=view&id=' . $candidate_id . '&message=converted'));
                     exit;
                 }
                 break;
@@ -1445,7 +1459,7 @@ class AdminPages {
 
                     // Check if email already exists
                     if (email_exists($email)) {
-                        wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=trainees&action=view&id=' . $id . '&error=email_exists'));
+                        wp_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=trainees&action=view&id=' . $id . '&error=email_exists'));
                         exit;
                     }
 
@@ -1483,7 +1497,7 @@ class AdminPages {
 
                         wp_mail($email, $subject, $message);
 
-                        wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=trainees&action=view&id=' . $id . '&message=account_created'));
+                        wp_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=trainees&action=view&id=' . $id . '&message=account_created'));
                         exit;
                     }
                 }
@@ -1505,7 +1519,7 @@ class AdminPages {
                 break;
         }
 
-        wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=trainees&action=view&id=' . $id));
+        wp_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=trainees&action=view&id=' . $id));
         exit;
     }
 }
