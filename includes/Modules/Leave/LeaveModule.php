@@ -271,8 +271,8 @@ public function render_requests(): void {
                     <th class="hide-mobile"><?php esc_html_e('Days', 'sfs-hr'); ?></th>
                     <th><?php esc_html_e('Status', 'sfs-hr'); ?></th>
                     <th class="hide-mobile"><?php esc_html_e('Submitted', 'sfs-hr'); ?></th>
-                    <th class="hide-mobile"><?php esc_html_e('Actions', 'sfs-hr'); ?></th>
-                    <th class="show-mobile" style="width:50px;"></th>
+                    <th class="hide-mobile" style="width:60px;"></th>
+                    <th class="show-mobile" style="width:40px;"></th>
                 </tr>
             </thead>
             <tbody>
@@ -300,18 +300,18 @@ public function render_requests(): void {
                     }
 
                     $today = current_time('Y-m-d');
-                    $state_label = '—';
+                    $state_label = '';
                     $state_class = '';
                     if ($r['status'] === 'approved') {
                         if ($today < $r['start_date']) {
                             $state_label = __('Upcoming', 'sfs-hr');
-                            $state_class = 'sfs-hr-pill--status-upcoming';
+                            $state_class = 'sfs-hr-state-badge--upcoming';
                         } elseif ($today > $r['end_date']) {
                             $state_label = __('Returned', 'sfs-hr');
-                            $state_class = 'sfs-hr-pill--status-returned';
+                            $state_class = 'sfs-hr-state-badge--returned';
                         } else {
                             $state_label = __('On leave', 'sfs-hr');
-                            $state_class = 'sfs-hr-pill--status-onleave';
+                            $state_class = 'sfs-hr-state-badge--onleave';
                         }
                     }
 
@@ -352,15 +352,22 @@ public function render_requests(): void {
                         <td class="hide-mobile"><?php echo (int)$r['days']; ?></td>
                         <td>
                             <?php echo Leave_UI::leave_status_chip($status_key); ?>
-                            <?php if ($r['status'] === 'approved' && $state_class): ?>
-                                <span class="sfs-hr-pill <?php echo esc_attr($state_class); ?>" style="margin-left:4px;">
+                            <?php if ($r['status'] === 'approved' && $state_label): ?>
+                                <span class="sfs-hr-state-badge <?php echo esc_attr($state_class); ?>">
                                     <?php echo esc_html($state_label); ?>
                                 </span>
                             <?php endif; ?>
                         </td>
                         <td class="hide-mobile"><?php echo $this->fmt_dt($r['created_at'] ?? ''); ?></td>
-                        <td>
-                            <a href="?page=sfs-hr-leave-requests&action=view&id=<?php echo (int)$r['id']; ?>" class="sfs-hr-action-btn" title="<?php esc_attr_e('View Details', 'sfs-hr'); ?>">👁</a>
+                        <td class="hide-mobile">
+                            <a href="?page=sfs-hr-leave-requests&action=view&id=<?php echo (int)$r['id']; ?>" class="sfs-hr-view-btn" title="<?php esc_attr_e('View Details', 'sfs-hr'); ?>">
+                                <span class="dashicons dashicons-visibility"></span>
+                            </a>
+                        </td>
+                        <td class="show-mobile">
+                            <a href="?page=sfs-hr-leave-requests&action=view&id=<?php echo (int)$r['id']; ?>" class="sfs-hr-view-btn sfs-hr-view-btn--mobile" title="<?php esc_attr_e('View Details', 'sfs-hr'); ?>">
+                                <span class="dashicons dashicons-arrow-right-alt2"></span>
+                            </a>
                         </td>
                     </tr>
                 <?php endforeach; endif; ?>
@@ -737,34 +744,76 @@ private function output_leave_requests_styles(): void {
             margin-top: 2px;
         }
 
-        /* Status Pills */
-        .sfs-hr-pill--status-upcoming {
-            background: #eff6ff;
-            color: #1d4ed8;
+        /* Status Pills - Secondary state badges */
+        .sfs-hr-state-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-left: 6px;
+            vertical-align: middle;
         }
-        .sfs-hr-pill--status-onleave {
+        .sfs-hr-state-badge--upcoming {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        .sfs-hr-state-badge--onleave {
             background: #fef3c7;
             color: #92400e;
         }
-        .sfs-hr-pill--status-returned {
-            background: #ecfdf3;
-            color: #166534;
+        .sfs-hr-state-badge--returned {
+            background: #d1fae5;
+            color: #065f46;
         }
 
-        /* Action Button */
-        .sfs-hr-action-btn {
-            background: #f6f7f7;
-            border: 1px solid #dcdcde;
-            border-radius: 4px;
-            padding: 6px 10px;
+        /* View Button */
+        .sfs-hr-view-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            background: #f0f6fc;
+            border: 1px solid #c5d9ed;
+            border-radius: 50%;
             cursor: pointer;
-            font-size: 16px;
-            line-height: 1;
+            text-decoration: none;
             transition: all 0.15s ease;
         }
-        .sfs-hr-action-btn:hover {
-            background: #fff;
+        .sfs-hr-view-btn .dashicons {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+            color: #2271b1;
+        }
+        .sfs-hr-view-btn:hover {
+            background: #2271b1;
             border-color: #2271b1;
+        }
+        .sfs-hr-view-btn:hover .dashicons {
+            color: #fff;
+        }
+        .sfs-hr-view-btn--mobile {
+            width: 32px;
+            height: 32px;
+            background: transparent;
+            border: none;
+        }
+        .sfs-hr-view-btn--mobile .dashicons {
+            font-size: 20px;
+            width: 20px;
+            height: 20px;
+            color: #787c82;
+        }
+        .sfs-hr-view-btn--mobile:hover {
+            background: #f0f6fc;
+        }
+        .sfs-hr-view-btn--mobile:hover .dashicons {
+            color: #2271b1;
         }
 
         /* Mobile Modal */

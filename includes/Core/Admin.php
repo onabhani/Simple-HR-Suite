@@ -5763,7 +5763,6 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         ?>
         <div class="wrap sfs-hr-wrap">
             <?php Helpers::render_admin_nav(); ?>
-            <?php Helpers::render_admin_notice_bar(); ?>
 
             <h1><?php esc_html_e( 'HR Settings', 'sfs-hr' ); ?></h1>
 
