@@ -27,6 +27,33 @@ class Resignation_Settings {
             'orderby' => 'display_name',
         ]);
 
+        // Get finance approvers using same logic as loans module
+        // 1. Get users by role (administrator, sfs_hr_finance_approver)
+        $finance_by_role = get_users([
+            'role__in' => ['administrator', 'sfs_hr_finance_approver'],
+            'orderby' => 'display_name',
+        ]);
+
+        // 2. Get users with finance approval capability
+        $finance_by_cap = get_users([
+            'meta_query' => [
+                [
+                    'key' => 'wp_capabilities',
+                    'value' => 'sfs_hr_loans_finance_approve',
+                    'compare' => 'LIKE',
+                ],
+            ],
+        ]);
+
+        // Merge all finance users (includes hr_users who have sfs_hr.manage)
+        $finance_users = array_merge($finance_by_role, $hr_users, $finance_by_cap);
+        $finance_users = array_unique($finance_users, SORT_REGULAR);
+
+        // Sort by display_name
+        usort($finance_users, function($a, $b) {
+            return strcasecmp($a->display_name, $b->display_name);
+        });
+
         ?>
         <?php if (!empty($_GET['ok'])): ?>
             <div class="notice notice-success"><p><?php esc_html_e('Settings saved successfully.', 'sfs-hr'); ?></p></div>
@@ -89,7 +116,7 @@ class Resignation_Settings {
                     <td>
                         <select name="finance_approver" id="finance_approver" style="width:300px;">
                             <option value="0"><?php esc_html_e('-- No Finance approval required --', 'sfs-hr'); ?></option>
-                            <?php foreach ($hr_users as $user): ?>
+                            <?php foreach ($finance_users as $user): ?>
                                 <option value="<?php echo esc_attr($user->ID); ?>" <?php selected($finance_approver_id, $user->ID); ?>>
                                     <?php echo esc_html($user->display_name . ' (' . $user->user_email . ')'); ?>
                                 </option>
