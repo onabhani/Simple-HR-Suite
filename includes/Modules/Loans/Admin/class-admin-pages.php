@@ -1960,11 +1960,17 @@ class AdminPages {
                 $approved_gm_amount = isset( $_POST['approved_gm_amount'] ) ? (float) $_POST['approved_gm_amount'] : null;
                 $approved_gm_note = isset( $_POST['approved_gm_note'] ) ? sanitize_textarea_field( $_POST['approved_gm_note'] ) : '';
 
-                // Get original loan to compare amounts
+                // Get original loan to compare amounts and verify current status
                 $original_loan = $wpdb->get_row( $wpdb->prepare(
-                    "SELECT principal_amount FROM {$loans_table} WHERE id = %d",
+                    "SELECT principal_amount, status FROM {$loans_table} WHERE id = %d",
                     $loan_id
                 ) );
+
+                // Prevent duplicate approval: only process if loan is still pending_gm
+                if ( ! $original_loan || $original_loan->status !== 'pending_gm' ) {
+                    wp_safe_redirect( add_query_arg( [ 'page' => 'sfs-hr-loans', 'action' => 'view', 'id' => $loan_id ], admin_url( 'admin.php' ) ) );
+                    exit;
+                }
 
                 $update_data = [
                     'status'             => 'pending_finance',
@@ -2011,6 +2017,16 @@ class AdminPages {
                     return;
                 }
                 check_admin_referer( 'sfs_hr_loan_approve_finance_' . $loan_id );
+
+                // Prevent duplicate approval: only process if loan is still pending_finance
+                $current_loan = $wpdb->get_row( $wpdb->prepare(
+                    "SELECT status FROM {$loans_table} WHERE id = %d",
+                    $loan_id
+                ) );
+                if ( ! $current_loan || $current_loan->status !== 'pending_finance' ) {
+                    wp_safe_redirect( add_query_arg( [ 'page' => 'sfs-hr-loans', 'action' => 'view', 'id' => $loan_id ], admin_url( 'admin.php' ) ) );
+                    exit;
+                }
 
                 $principal = (float) ( $_POST['principal_amount'] ?? 0 );
                 $installments = (int) ( $_POST['installments_count'] ?? 0 );
@@ -2065,6 +2081,16 @@ class AdminPages {
                     return;
                 }
                 check_admin_referer( 'sfs_hr_loan_reject_' . $loan_id );
+
+                // Prevent duplicate rejection: only process if loan is still in a pending state
+                $current_loan_rej = $wpdb->get_row( $wpdb->prepare(
+                    "SELECT status FROM {$loans_table} WHERE id = %d",
+                    $loan_id
+                ) );
+                if ( ! $current_loan_rej || ! in_array( $current_loan_rej->status, [ 'pending_gm', 'pending_finance' ], true ) ) {
+                    wp_safe_redirect( add_query_arg( [ 'page' => 'sfs-hr-loans', 'action' => 'view', 'id' => $loan_id ], admin_url( 'admin.php' ) ) );
+                    exit;
+                }
 
                 $reason = sanitize_textarea_field( $_POST['rejection_reason'] ?? '' );
 
