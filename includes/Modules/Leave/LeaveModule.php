@@ -25,6 +25,11 @@ class LeaveModule {
         add_action('admin_post_sfs_hr_leave_settings',       [$this, 'handle_settings']);
         add_action('admin_post_sfs_hr_leave_update_balance', [$this, 'handle_update_balance']);
 
+        // Leave cancellation workflow (post-approval)
+        add_action('admin_post_sfs_hr_leave_cancel_approved',       [$this, 'handle_cancel_approved']);
+        add_action('admin_post_sfs_hr_leave_cancellation_approve',  [$this, 'handle_cancellation_approve']);
+        add_action('admin_post_sfs_hr_leave_cancellation_reject',   [$this, 'handle_cancellation_reject']);
+
         // Holidays (option-based, supports single-day & multi-day with yearly repeat)
         add_action('admin_post_sfs_hr_holiday_add',          [$this, 'handle_holiday_add']);
         add_action('admin_post_sfs_hr_holiday_del',          [$this, 'handle_holiday_del']);
@@ -52,6 +57,15 @@ class LeaveModule {
     public static function generate_leave_request_number(): string {
         global $wpdb;
         return Helpers::generate_reference_number( 'LV', $wpdb->prefix . 'sfs_hr_leave_requests' );
+    }
+
+    /**
+     * Generate reference number for leave cancellation requests
+     * Format: LC-YYYY-NNNN (e.g., LC-2026-0001)
+     */
+    public static function generate_cancellation_request_number(): string {
+        global $wpdb;
+        return Helpers::generate_reference_number( 'LC', $wpdb->prefix . 'sfs_hr_leave_cancellations' );
     }
 
     public function menu(): void {
@@ -1647,6 +1661,986 @@ public function handle_cancel(): void {
     exit;
 }
 
+
+    /* ---------------------------------- Leave Cancellation Workflow ---------------------------------- */
+
+/**
+ * HR initiates cancellation of an approved leave request.
+ * Creates a cancellation record and starts the approval chain:
+ * Dept Manager → GM → final approval.
+ */
+public function handle_cancel_approved(): void {
+    $id = isset( $_POST['leave_request_id'] ) ? (int) $_POST['leave_request_id'] : 0;
+    check_admin_referer( 'sfs_hr_leave_cancel_approved_' . $id );
+
+    $redirect_base = admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests' );
+
+    if ( $id <= 0 ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Invalid request.', 'sfs-hr' ) );
+    }
+
+    global $wpdb;
+    $req_t    = $wpdb->prefix . 'sfs_hr_leave_requests';
+    $emp_t    = $wpdb->prefix . 'sfs_hr_employees';
+    $cancel_t = $wpdb->prefix . 'sfs_hr_leave_cancellations';
+    $dept_t   = $wpdb->prefix . 'sfs_hr_departments';
+
+    // Fetch the leave request
+    $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $req_t WHERE id=%d", $id ), ARRAY_A );
+    if ( ! $row || ! in_array( $row['status'], [ 'approved', 'on_leave' ], true ) ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Only approved or on-leave requests can be cancelled.', 'sfs-hr' ) );
+    }
+
+    // Check if there's already a pending cancellation
+    $existing = $wpdb->get_var( $wpdb->prepare(
+        "SELECT COUNT(*) FROM $cancel_t WHERE leave_request_id = %d AND status = 'pending'",
+        $id
+    ) );
+    if ( (int) $existing > 0 ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'A cancellation request is already pending for this leave.', 'sfs-hr' ) );
+    }
+
+    // Only HR can initiate
+    $current_uid = get_current_user_id();
+    $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
+    $is_hr = ( ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true ) )
+             || current_user_can( 'sfs_hr.leave.manage' );
+
+    if ( ! $is_hr ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Only HR can initiate a leave cancellation.', 'sfs-hr' ) );
+    }
+
+    $reason = isset( $_POST['cancel_reason'] ) ? sanitize_text_field( $_POST['cancel_reason'] ) : '';
+    if ( empty( trim( $reason ) ) ) {
+        Helpers::redirect_with_notice(
+            admin_url( 'admin.php?page=sfs-hr-leave-requests&action=view&id=' . $id ),
+            'error',
+            __( 'Cancellation reason is required.', 'sfs-hr' )
+        );
+    }
+
+    // Create cancellation record
+    $ref_number = self::generate_cancellation_request_number();
+    $now = Helpers::now_mysql();
+
+    $wpdb->insert( $cancel_t, [
+        'leave_request_id' => $id,
+        'request_number'   => $ref_number,
+        'reason'           => $reason,
+        'status'           => 'pending',
+        'approval_level'   => 1,
+        'approval_chain'   => wp_json_encode( [] ),
+        'initiated_by'     => $current_uid,
+        'created_at'       => $now,
+        'updated_at'       => $now,
+    ] );
+    $cancel_id = (int) $wpdb->insert_id;
+
+    // Log event on the leave request
+    self::log_event( $id, 'cancellation_initiated', [
+        'cancellation_id'     => $cancel_id,
+        'cancellation_ref'    => $ref_number,
+        'reason'              => $reason,
+        'initiated_by'        => wp_get_current_user()->display_name,
+    ] );
+
+    // Get employee info for notifications
+    $empInfo = $wpdb->get_row( $wpdb->prepare(
+        "SELECT e.first_name, e.last_name, e.employee_code, e.dept_id, d.manager_user_id
+         FROM $emp_t e LEFT JOIN $dept_t d ON d.id = e.dept_id
+         WHERE e.id = %d",
+        (int) $row['employee_id']
+    ) );
+    $emp_name = trim( ( $empInfo->first_name ?? '' ) . ' ' . ( $empInfo->last_name ?? '' ) );
+    if ( empty( $emp_name ) ) {
+        $emp_name = $empInfo->employee_code ?? __( 'Employee', 'sfs-hr' );
+    }
+
+    // Notify department manager
+    $mgr_uid = (int) ( $empInfo->manager_user_id ?? 0 );
+    if ( $mgr_uid > 0 ) {
+        $mgr_user = get_user_by( 'id', $mgr_uid );
+        if ( $mgr_user && $mgr_user->user_email ) {
+            $review_url = admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=cancellations&action=view_cancellation&cancel_id=' . $cancel_id );
+            Helpers::send_mail(
+                $mgr_user->user_email,
+                sprintf( __( '[Leave Cancellation] %s - Approval Required', 'sfs-hr' ), $emp_name ),
+                sprintf(
+                    __( "A leave cancellation request requires your approval.\n\nEmployee: %s\nLeave Dates: %s → %s\nDuration: %d day(s)\nReason: %s\n\nReview this request:\n%s", 'sfs-hr' ),
+                    $emp_name,
+                    $row['start_date'],
+                    $row['end_date'],
+                    (int) $row['days'],
+                    $reason,
+                    $review_url
+                )
+            );
+        }
+    }
+
+    Helpers::redirect_with_notice(
+        admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=cancellations&action=view_cancellation&cancel_id=' . $cancel_id ),
+        'success',
+        __( 'Leave cancellation request submitted. Awaiting department manager approval.', 'sfs-hr' )
+    );
+}
+
+/**
+ * Department Manager or GM approves a leave cancellation request.
+ * Level 1 (Manager) → escalates to GM.
+ * Level 2 (GM) → final approval → leave becomes cancelled, balance restored.
+ */
+public function handle_cancellation_approve(): void {
+    $cancel_id = isset( $_POST['cancel_id'] ) ? (int) $_POST['cancel_id'] : 0;
+    check_admin_referer( 'sfs_hr_leave_cancellation_approve_' . $cancel_id );
+
+    $redirect_base = admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=cancellations' );
+
+    if ( $cancel_id <= 0 ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Invalid cancellation request.', 'sfs-hr' ) );
+    }
+
+    global $wpdb;
+    $cancel_t = $wpdb->prefix . 'sfs_hr_leave_cancellations';
+    $req_t    = $wpdb->prefix . 'sfs_hr_leave_requests';
+    $emp_t    = $wpdb->prefix . 'sfs_hr_employees';
+    $types_t  = $wpdb->prefix . 'sfs_hr_leave_types';
+    $bal_t    = $wpdb->prefix . 'sfs_hr_leave_balances';
+    $dept_t   = $wpdb->prefix . 'sfs_hr_departments';
+
+    $cancel = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $cancel_t WHERE id=%d", $cancel_id ), ARRAY_A );
+    if ( ! $cancel || $cancel['status'] !== 'pending' ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Cancellation not found or already processed.', 'sfs-hr' ) );
+    }
+
+    $leave = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $req_t WHERE id=%d", (int) $cancel['leave_request_id'] ), ARRAY_A );
+    if ( ! $leave ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Leave request not found.', 'sfs-hr' ) );
+    }
+
+    $empInfo = $wpdb->get_row( $wpdb->prepare(
+        "SELECT e.*, d.manager_user_id FROM $emp_t e LEFT JOIN $dept_t d ON d.id = e.dept_id WHERE e.id = %d",
+        (int) $leave['employee_id']
+    ), ARRAY_A );
+
+    $current_uid     = get_current_user_id();
+    $approval_level  = (int) $cancel['approval_level'];
+    $note            = isset( $_POST['note'] ) ? sanitize_text_field( $_POST['note'] ) : '';
+
+    // GM check
+    $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+    if ( ! $gm_user_id ) {
+        $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+        $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
+        $gm_user_id = ! empty( $gm_user_ids ) ? (int) $gm_user_ids[0] : 0;
+    }
+    $is_gm = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
+
+    // Dept manager check
+    $managed_depts = $this->manager_dept_ids_for_user( $current_uid );
+    $is_dept_manager = ! empty( $managed_depts ) && in_array( (int) ( $empInfo['dept_id'] ?? 0 ), $managed_depts, true );
+
+    // Prevent self-approval
+    if ( (int) ( $empInfo['user_id'] ?? 0 ) === $current_uid ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'You cannot approve a cancellation for your own leave.', 'sfs-hr' ) );
+    }
+
+    $emp_name = trim( ( $empInfo['first_name'] ?? '' ) . ' ' . ( $empInfo['last_name'] ?? '' ) );
+    if ( empty( $emp_name ) ) {
+        $emp_name = $empInfo['employee_code'] ?? __( 'Employee', 'sfs-hr' );
+    }
+
+    // ==================== LEVEL 1: Department Manager Approval ====================
+    if ( $approval_level < 2 ) {
+        if ( ! $is_dept_manager ) {
+            Helpers::redirect_with_notice( $redirect_base, 'error', __( 'This cancellation requires department manager approval first.', 'sfs-hr' ) );
+        }
+
+        $new_chain = $this->append_approval_chain( $cancel['approval_chain'] ?? null, [
+            'by'     => $current_uid,
+            'role'   => 'manager',
+            'action' => 'approve',
+            'note'   => $note,
+        ] );
+
+        $wpdb->update( $cancel_t, [
+            'approval_level' => 2,
+            'approver_id'    => $current_uid,
+            'approver_note'  => $note,
+            'approval_chain' => $new_chain,
+            'updated_at'     => Helpers::now_mysql(),
+        ], [ 'id' => $cancel_id ] );
+
+        self::log_event( (int) $cancel['leave_request_id'], 'cancellation_manager_approved', [
+            'cancellation_id' => $cancel_id,
+            'note'            => $note ?: __( 'Manager approved cancellation, escalated to GM', 'sfs-hr' ),
+        ] );
+
+        // Notify GM
+        if ( $gm_user_id > 0 ) {
+            $gm_user = get_user_by( 'id', $gm_user_id );
+            if ( $gm_user && $gm_user->user_email ) {
+                $review_url = admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=cancellations&action=view_cancellation&cancel_id=' . $cancel_id );
+                Helpers::send_mail(
+                    $gm_user->user_email,
+                    sprintf( __( '[Leave Cancellation] %s - GM Approval Required', 'sfs-hr' ), $emp_name ),
+                    sprintf(
+                        __( "A leave cancellation request has been approved by the department manager and requires your final approval.\n\nEmployee: %s\nLeave Dates: %s → %s\nDuration: %d day(s)\nReason: %s\n\nReview this request:\n%s", 'sfs-hr' ),
+                        $emp_name,
+                        $leave['start_date'],
+                        $leave['end_date'],
+                        (int) $leave['days'],
+                        $cancel['reason'],
+                        $review_url
+                    )
+                );
+            }
+        }
+
+        Helpers::redirect_with_notice(
+            admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=cancellations&action=view_cancellation&cancel_id=' . $cancel_id ),
+            'success',
+            __( 'Cancellation approved by manager. Escalated to GM for final approval.', 'sfs-hr' )
+        );
+    }
+
+    // ==================== LEVEL 2: GM Final Approval ====================
+    if ( ! $is_gm ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'This cancellation requires GM approval.', 'sfs-hr' ) );
+    }
+
+    $new_chain = $this->append_approval_chain( $cancel['approval_chain'] ?? null, [
+        'by'     => $current_uid,
+        'role'   => 'gm',
+        'action' => 'approve',
+        'note'   => $note,
+    ] );
+
+    // Approve the cancellation
+    $wpdb->update( $cancel_t, [
+        'status'         => 'approved',
+        'approval_level' => 2,
+        'approver_id'    => $current_uid,
+        'approver_note'  => $note,
+        'approval_chain' => $new_chain,
+        'decided_at'     => Helpers::now_mysql(),
+        'updated_at'     => Helpers::now_mysql(),
+    ], [ 'id' => $cancel_id ] );
+
+    // Change leave request status to cancelled
+    $wpdb->update( $req_t, [
+        'status'     => 'cancelled',
+        'updated_at' => Helpers::now_mysql(),
+    ], [ 'id' => (int) $cancel['leave_request_id'] ] );
+
+    self::log_event( (int) $cancel['leave_request_id'], 'cancellation_gm_approved', [
+        'cancellation_id' => $cancel_id,
+        'note'            => $note ?: __( 'GM approved cancellation. Leave cancelled.', 'sfs-hr' ),
+    ] );
+
+    do_action( 'sfs_hr_leave_request_status_changed', (int) $cancel['leave_request_id'], 'approved', 'cancelled' );
+
+    // Restore leave balance
+    $year  = (int) substr( $leave['start_date'], 0, 4 );
+    $used = (int) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COALESCE(SUM(days),0) FROM $req_t
+         WHERE employee_id=%d AND type_id=%d AND status='approved' AND YEAR(start_date)=%d",
+        (int) $leave['employee_id'],
+        (int) $leave['type_id'],
+        $year
+    ) );
+
+    $type = $wpdb->get_row( $wpdb->prepare(
+        "SELECT annual_quota, is_annual FROM $types_t WHERE id=%d",
+        (int) $leave['type_id']
+    ), ARRAY_A );
+
+    $quota = (int) ( $type['annual_quota'] ?? 0 );
+    if ( ! empty( $type['is_annual'] ) ) {
+        $hire = $wpdb->get_var( $wpdb->prepare(
+            "SELECT COALESCE(hire_date, hired_at) FROM $emp_t WHERE id=%d",
+            (int) $leave['employee_id']
+        ) );
+        $quota = LeaveCalculationService::compute_quota_for_year( $type, $hire, $year );
+    }
+
+    $bal_id = $wpdb->get_var( $wpdb->prepare(
+        "SELECT id FROM $bal_t WHERE employee_id=%d AND type_id=%d AND year=%d",
+        (int) $leave['employee_id'],
+        (int) $leave['type_id'],
+        $year
+    ) );
+
+    $opening = 0;
+    $carried = 0;
+    $accrued = $quota;
+    $closing = $opening + $accrued + $carried - $used;
+
+    if ( $bal_id ) {
+        $wpdb->update( $bal_t, [
+            'used'       => $used,
+            'closing'    => $closing,
+            'updated_at' => Helpers::now_mysql(),
+        ], [ 'id' => $bal_id ] );
+    }
+
+    self::log_event( (int) $cancel['leave_request_id'], 'balance_restored', [
+        'days_restored' => (int) $leave['days'],
+        'new_used'      => $used,
+    ] );
+
+    // Notify HR that cancellation was approved
+    $this->notify_hr_users(
+        sprintf( __( '[Leave Cancellation Approved] %s', 'sfs-hr' ), $emp_name ),
+        sprintf(
+            __( "The leave cancellation for %s has been approved by GM.\n\nLeave Dates: %s → %s\nDays restored: %d\nReason: %s", 'sfs-hr' ),
+            $emp_name,
+            $leave['start_date'],
+            $leave['end_date'],
+            (int) $leave['days'],
+            $cancel['reason']
+        )
+    );
+
+    // Notify employee
+    $this->notify_requester(
+        (int) $leave['employee_id'],
+        __( 'Leave Cancelled', 'sfs-hr' ),
+        sprintf(
+            __( "Your approved leave (%s → %s) has been cancelled.\nReason: %s\n\nYour leave balance has been restored.", 'sfs-hr' ),
+            $leave['start_date'],
+            $leave['end_date'],
+            $cancel['reason']
+        )
+    );
+
+    Helpers::redirect_with_notice(
+        admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=cancellations&action=view_cancellation&cancel_id=' . $cancel_id ),
+        'success',
+        __( 'Leave cancellation approved. Leave balance restored.', 'sfs-hr' )
+    );
+}
+
+/**
+ * Department Manager or GM rejects a leave cancellation request.
+ * The leave request remains approved.
+ */
+public function handle_cancellation_reject(): void {
+    $cancel_id = isset( $_POST['cancel_id'] ) ? (int) $_POST['cancel_id'] : 0;
+    check_admin_referer( 'sfs_hr_leave_cancellation_reject_' . $cancel_id );
+
+    $redirect_base = admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=cancellations' );
+
+    if ( $cancel_id <= 0 ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Invalid cancellation request.', 'sfs-hr' ) );
+    }
+
+    global $wpdb;
+    $cancel_t = $wpdb->prefix . 'sfs_hr_leave_cancellations';
+    $req_t    = $wpdb->prefix . 'sfs_hr_leave_requests';
+    $emp_t    = $wpdb->prefix . 'sfs_hr_employees';
+    $dept_t   = $wpdb->prefix . 'sfs_hr_departments';
+
+    $cancel = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $cancel_t WHERE id=%d", $cancel_id ), ARRAY_A );
+    if ( ! $cancel || $cancel['status'] !== 'pending' ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Cancellation not found or already processed.', 'sfs-hr' ) );
+    }
+
+    $note = isset( $_POST['note'] ) ? sanitize_text_field( $_POST['note'] ) : '';
+    if ( empty( trim( $note ) ) ) {
+        Helpers::redirect_with_notice(
+            admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=cancellations&action=view_cancellation&cancel_id=' . $cancel_id ),
+            'error',
+            __( 'Rejection reason is required.', 'sfs-hr' )
+        );
+    }
+
+    $current_uid    = get_current_user_id();
+    $approval_level = (int) $cancel['approval_level'];
+
+    // Permission check
+    $leave = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $req_t WHERE id=%d", (int) $cancel['leave_request_id'] ), ARRAY_A );
+    $empInfo = $wpdb->get_row( $wpdb->prepare(
+        "SELECT e.*, d.manager_user_id FROM $emp_t e LEFT JOIN $dept_t d ON d.id = e.dept_id WHERE e.id = %d",
+        (int) $leave['employee_id']
+    ), ARRAY_A );
+
+    $managed_depts = $this->manager_dept_ids_for_user( $current_uid );
+    $is_dept_manager = ! empty( $managed_depts ) && in_array( (int) ( $empInfo['dept_id'] ?? 0 ), $managed_depts, true );
+
+    $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+    if ( ! $gm_user_id ) {
+        $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+        $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
+        $gm_user_id = ! empty( $gm_user_ids ) ? (int) $gm_user_ids[0] : 0;
+    }
+    $is_gm = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
+
+    if ( $approval_level < 2 && ! $is_dept_manager && ! $is_gm ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'You do not have permission to reject this cancellation.', 'sfs-hr' ) );
+    }
+    if ( $approval_level >= 2 && ! $is_gm ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'This cancellation requires GM decision.', 'sfs-hr' ) );
+    }
+
+    $role = $is_gm ? 'gm' : 'manager';
+
+    $new_chain = $this->append_approval_chain( $cancel['approval_chain'] ?? null, [
+        'by'     => $current_uid,
+        'role'   => $role,
+        'action' => 'reject',
+        'note'   => $note,
+    ] );
+
+    $wpdb->update( $cancel_t, [
+        'status'         => 'rejected',
+        'approver_id'    => $current_uid,
+        'approver_note'  => $note,
+        'approval_chain' => $new_chain,
+        'decided_at'     => Helpers::now_mysql(),
+        'updated_at'     => Helpers::now_mysql(),
+    ], [ 'id' => $cancel_id ] );
+
+    self::log_event( (int) $cancel['leave_request_id'], 'cancellation_rejected', [
+        'cancellation_id' => $cancel_id,
+        'rejected_by'     => $role,
+        'reason'          => $note,
+    ] );
+
+    // Notify HR about rejection
+    $emp_name = trim( ( $empInfo['first_name'] ?? '' ) . ' ' . ( $empInfo['last_name'] ?? '' ) );
+    $this->notify_hr_users(
+        sprintf( __( '[Leave Cancellation Rejected] %s', 'sfs-hr' ), $emp_name ),
+        sprintf(
+            __( "The leave cancellation request for %s has been rejected.\n\nRejected by: %s\nReason: %s", 'sfs-hr' ),
+            $emp_name,
+            wp_get_current_user()->display_name,
+            $note
+        )
+    );
+
+    Helpers::redirect_with_notice(
+        admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=cancellations&action=view_cancellation&cancel_id=' . $cancel_id ),
+        'success',
+        __( 'Leave cancellation rejected. The leave remains approved.', 'sfs-hr' )
+    );
+}
+
+/* ---------------------------------- Cancellation List & Detail Views ---------------------------------- */
+
+/**
+ * Render the cancellations list tab
+ */
+public function render_cancellations(): void {
+    global $wpdb;
+
+    $cancel_t = $wpdb->prefix . 'sfs_hr_leave_cancellations';
+    $req_t    = $wpdb->prefix . 'sfs_hr_leave_requests';
+    $emp_t    = $wpdb->prefix . 'sfs_hr_employees';
+    $types_t  = $wpdb->prefix . 'sfs_hr_leave_types';
+
+    $status_filter = isset( $_GET['cancel_status'] ) ? sanitize_key( $_GET['cancel_status'] ) : 'all';
+    $page   = isset( $_GET['paged'] ) ? max( 1, intval( $_GET['paged'] ) ) : 1;
+    $pp     = 20;
+    $offset = ( $page - 1 ) * $pp;
+
+    $where  = '1=1';
+    $params = [];
+
+    if ( in_array( $status_filter, [ 'pending', 'approved', 'rejected' ], true ) ) {
+        $where   .= ' AND c.status = %s';
+        $params[] = $status_filter;
+    }
+
+    $sql_total = "SELECT COUNT(*) FROM $cancel_t c
+                  JOIN $req_t r ON r.id = c.leave_request_id
+                  JOIN $emp_t e ON e.id = r.employee_id
+                  WHERE $where";
+    $total = $params
+        ? (int) $wpdb->get_var( $wpdb->prepare( $sql_total, ...$params ) )
+        : (int) $wpdb->get_var( $sql_total );
+
+    $sql = "SELECT c.*, r.start_date, r.end_date, r.days, r.request_number AS leave_ref,
+                   e.first_name, e.last_name, e.employee_code,
+                   t.name AS type_name
+            FROM $cancel_t c
+            JOIN $req_t r ON r.id = c.leave_request_id
+            JOIN $emp_t e ON e.id = r.employee_id
+            JOIN $types_t t ON t.id = r.type_id
+            WHERE $where
+            ORDER BY c.id DESC
+            LIMIT %d OFFSET %d";
+    $all_params = array_merge( $params, [ $pp, $offset ] );
+    $rows = $wpdb->get_results( $wpdb->prepare( $sql, ...$all_params ), ARRAY_A );
+
+    // Status counts
+    $counts = [ 'all' => 0, 'pending' => 0, 'approved' => 0, 'rejected' => 0 ];
+    foreach ( [ 'pending', 'approved', 'rejected' ] as $s ) {
+        $counts[ $s ] = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM $cancel_t WHERE status = %s", $s
+        ) );
+    }
+    $counts['all'] = $counts['pending'] + $counts['approved'] + $counts['rejected'];
+
+    $pages = max( 1, (int) ceil( $total / $pp ) );
+
+    ?>
+    <!-- Status filter tabs -->
+    <ul class="subsubsub" style="margin-bottom:10px;">
+        <?php
+        $base_url = admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=cancellations' );
+        $statuses = [
+            'all'      => __( 'All', 'sfs-hr' ),
+            'pending'  => __( 'Pending', 'sfs-hr' ),
+            'approved' => __( 'Approved', 'sfs-hr' ),
+            'rejected' => __( 'Rejected', 'sfs-hr' ),
+        ];
+        $last = array_key_last( $statuses );
+        foreach ( $statuses as $key => $label ) :
+            $url   = add_query_arg( 'cancel_status', $key, $base_url );
+            $class = $status_filter === $key ? 'current' : '';
+            $count = $counts[ $key ];
+        ?>
+            <li>
+                <a href="<?php echo esc_url( $url ); ?>" class="<?php echo esc_attr( $class ); ?>">
+                    <?php echo esc_html( $label ); ?>
+                    <span class="count">(<?php echo (int) $count; ?>)</span>
+                </a><?php echo $key !== $last ? ' |' : ''; ?>
+            </li>
+        <?php endforeach; ?>
+    </ul>
+
+    <table class="widefat striped" style="margin-top:10px;">
+        <thead>
+            <tr>
+                <th><?php esc_html_e( 'Ref #', 'sfs-hr' ); ?></th>
+                <th><?php esc_html_e( 'Leave Ref', 'sfs-hr' ); ?></th>
+                <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
+                <th><?php esc_html_e( 'Type', 'sfs-hr' ); ?></th>
+                <th><?php esc_html_e( 'Leave Dates', 'sfs-hr' ); ?></th>
+                <th><?php esc_html_e( 'Days', 'sfs-hr' ); ?></th>
+                <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
+                <th><?php esc_html_e( 'Submitted', 'sfs-hr' ); ?></th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if ( empty( $rows ) ) : ?>
+                <tr><td colspan="9"><?php esc_html_e( 'No cancellation requests found.', 'sfs-hr' ); ?></td></tr>
+            <?php else : foreach ( $rows as $r ) :
+                $emp_name = trim( $r['first_name'] . ' ' . $r['last_name'] );
+                $cancel_status_key = $r['status'];
+                if ( $cancel_status_key === 'pending' ) {
+                    $cancel_status_key = (int) $r['approval_level'] >= 2
+                        ? 'cancellation_pending_gm'
+                        : 'cancellation_pending';
+                } elseif ( $cancel_status_key === 'approved' ) {
+                    $cancel_status_key = 'cancellation_approved';
+                } elseif ( $cancel_status_key === 'rejected' ) {
+                    $cancel_status_key = 'cancellation_rejected';
+                }
+            ?>
+                <tr>
+                    <td><strong><?php echo esc_html( $r['request_number'] ?? '-' ); ?></strong></td>
+                    <td>
+                        <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-leave-requests&action=view&id=' . (int) $r['leave_request_id'] ) ); ?>">
+                            <?php echo esc_html( $r['leave_ref'] ?? '-' ); ?>
+                        </a>
+                    </td>
+                    <td>
+                        <strong><?php echo esc_html( $emp_name ); ?></strong>
+                        <?php if ( $r['employee_code'] ) : ?>
+                            <br><small style="color:#666;"><?php echo esc_html( $r['employee_code'] ); ?></small>
+                        <?php endif; ?>
+                    </td>
+                    <td><?php echo esc_html( $r['type_name'] ); ?></td>
+                    <td><?php echo esc_html( $r['start_date'] . ' → ' . $r['end_date'] ); ?></td>
+                    <td><?php echo (int) $r['days']; ?></td>
+                    <td><?php echo Leave_UI::leave_status_chip( $cancel_status_key ); ?></td>
+                    <td><?php echo esc_html( wp_date( 'M j, Y', strtotime( $r['created_at'] ) ) ); ?></td>
+                    <td>
+                        <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=cancellations&action=view_cancellation&cancel_id=' . (int) $r['id'] ) ); ?>" class="button button-small">
+                            <?php esc_html_e( 'View', 'sfs-hr' ); ?>
+                        </a>
+                    </td>
+                </tr>
+            <?php endforeach; endif; ?>
+        </tbody>
+    </table>
+
+    <?php if ( $pages > 1 ) : ?>
+        <?php echo $this->paginate_admin( $page, $pages, [ 'page' => 'sfs-hr-leave-requests', 'tab' => 'cancellations', 'cancel_status' => $status_filter ] ); ?>
+    <?php endif; ?>
+    <?php
+}
+
+/**
+ * Render cancellation detail view
+ */
+private function render_cancellation_detail( int $cancel_id ): void {
+    global $wpdb;
+
+    $cancel_t = $wpdb->prefix . 'sfs_hr_leave_cancellations';
+    $req_t    = $wpdb->prefix . 'sfs_hr_leave_requests';
+    $emp_t    = $wpdb->prefix . 'sfs_hr_employees';
+    $types_t  = $wpdb->prefix . 'sfs_hr_leave_types';
+    $dept_t   = $wpdb->prefix . 'sfs_hr_departments';
+
+    $cancel = $wpdb->get_row( $wpdb->prepare(
+        "SELECT c.*, r.start_date, r.end_date, r.days, r.reason AS leave_reason,
+                r.request_number AS leave_ref, r.status AS leave_status, r.employee_id, r.type_id,
+                e.first_name, e.last_name, e.employee_code, e.dept_id, e.user_id AS emp_user_id,
+                t.name AS type_name,
+                d.name AS department_name, d.manager_user_id
+         FROM $cancel_t c
+         JOIN $req_t r ON r.id = c.leave_request_id
+         JOIN $emp_t e ON e.id = r.employee_id
+         JOIN $types_t t ON t.id = r.type_id
+         LEFT JOIN $dept_t d ON d.id = e.dept_id
+         WHERE c.id = %d",
+        $cancel_id
+    ) );
+
+    if ( ! $cancel ) {
+        echo '<div class="wrap"><div class="notice notice-error"><p>' . esc_html__( 'Cancellation request not found.', 'sfs-hr' ) . '</p></div></div>';
+        return;
+    }
+
+    $approval_level = (int) $cancel->approval_level;
+    $current_uid    = get_current_user_id();
+
+    // Permission checks
+    $managed_depts = $this->manager_dept_ids_for_user( $current_uid );
+    $is_dept_manager = ! empty( $managed_depts ) && in_array( (int) $cancel->dept_id, $managed_depts, true );
+
+    $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+    if ( ! $gm_user_id ) {
+        $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+        $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
+        $gm_user_id = ! empty( $gm_user_ids ) ? (int) $gm_user_ids[0] : 0;
+    }
+    $is_gm = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
+
+    // Can approve?
+    $can_approve = false;
+    $approval_stage = '';
+    if ( $cancel->status === 'pending' ) {
+        if ( $approval_level >= 2 ) {
+            $approval_stage = 'gm';
+            $can_approve = $is_gm;
+        } else {
+            $approval_stage = 'manager';
+            $can_approve = $is_dept_manager;
+        }
+        // Prevent self-approval
+        if ( (int) $cancel->emp_user_id === $current_uid ) {
+            $can_approve = false;
+        }
+    }
+
+    // Decode approval chain
+    $chain = json_decode( $cancel->approval_chain ?: '[]', true );
+    if ( ! is_array( $chain ) ) $chain = [];
+
+    // Get initiator name
+    $initiator_name = '';
+    if ( $cancel->initiated_by ) {
+        $initiator = get_user_by( 'id', (int) $cancel->initiated_by );
+        $initiator_name = $initiator ? $initiator->display_name : '';
+    }
+
+    // Get dept manager name
+    $dept_manager_name = '';
+    if ( ! empty( $cancel->manager_user_id ) ) {
+        $mgr = get_user_by( 'id', (int) $cancel->manager_user_id );
+        $dept_manager_name = $mgr ? $mgr->display_name : '';
+    }
+
+    // GM name
+    $gm_name = '';
+    if ( $gm_user_id > 0 ) {
+        $gm = get_user_by( 'id', $gm_user_id );
+        $gm_name = $gm ? $gm->display_name : '';
+    }
+
+    // Status key for chip
+    $cancel_status_key = $cancel->status;
+    if ( $cancel_status_key === 'pending' ) {
+        $cancel_status_key = $approval_level >= 2 ? 'cancellation_pending_gm' : 'cancellation_pending';
+    } elseif ( $cancel_status_key === 'approved' ) {
+        $cancel_status_key = 'cancellation_approved';
+    } elseif ( $cancel_status_key === 'rejected' ) {
+        $cancel_status_key = 'cancellation_rejected';
+    }
+
+    $employee_name = trim( $cancel->first_name . ' ' . $cancel->last_name );
+
+    // Get leave request history for context
+    $history = self::get_history( (int) $cancel->leave_request_id );
+
+    ?>
+    <div class="wrap sfs-hr-wrap">
+        <h1 class="wp-heading-inline">
+            <?php esc_html_e( 'Leave Cancellation', 'sfs-hr' ); ?> — <?php echo esc_html( $cancel->request_number ?? '' ); ?>
+            <a href="?page=sfs-hr-leave-requests&tab=cancellations" class="page-title-action"><?php esc_html_e( '← Back to Cancellations', 'sfs-hr' ); ?></a>
+        </h1>
+
+        <?php Helpers::render_admin_nav(); ?>
+        <?php Helpers::render_admin_notice_bar(); ?>
+
+        <hr class="wp-header-end" />
+
+        <style>
+            .sfs-cancel-detail-grid { display:flex; gap:20px; margin-top:20px; }
+            .sfs-cancel-detail-main { flex:2; min-width:0; }
+            .sfs-cancel-detail-sidebar { flex:1; min-width:300px; }
+            @media (max-width:1200px) {
+                .sfs-cancel-detail-grid { flex-direction:column; }
+                .sfs-cancel-detail-sidebar { min-width:100%; }
+            }
+        </style>
+
+        <div class="sfs-cancel-detail-grid">
+            <div class="sfs-cancel-detail-main">
+                <!-- Cancellation Information Card -->
+                <div style="background:#fff;padding:20px;border:1px solid #ccc;border-radius:4px;">
+                    <h2><?php esc_html_e( 'Cancellation Details', 'sfs-hr' ); ?></h2>
+
+                    <table class="form-table">
+                        <tr>
+                            <th><?php esc_html_e( 'Cancellation Ref #', 'sfs-hr' ); ?></th>
+                            <td><strong style="font-size:1.1em;"><?php echo esc_html( $cancel->request_number ?? '-' ); ?></strong></td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
+                            <td><?php echo Leave_UI::leave_status_chip( $cancel_status_key ); ?></td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Initiated By', 'sfs-hr' ); ?></th>
+                            <td>
+                                <?php echo esc_html( $initiator_name ); ?>
+                                <br><small><?php echo esc_html( wp_date( 'F j, Y g:i a', strtotime( $cancel->created_at ) ) ); ?></small>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Reason', 'sfs-hr' ); ?></th>
+                            <td style="color:#b32d2e;font-weight:500;"><?php echo esc_html( $cancel->reason ); ?></td>
+                        </tr>
+                    </table>
+
+                    <hr style="margin:20px 0;">
+
+                    <h3><?php esc_html_e( 'Original Leave Request', 'sfs-hr' ); ?></h3>
+                    <table class="form-table">
+                        <tr>
+                            <th><?php esc_html_e( 'Leave Ref #', 'sfs-hr' ); ?></th>
+                            <td>
+                                <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-leave-requests&action=view&id=' . (int) $cancel->leave_request_id ) ); ?>">
+                                    <strong><?php echo esc_html( $cancel->leave_ref ?? '-' ); ?></strong>
+                                </a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
+                            <td>
+                                <strong><?php echo esc_html( $employee_name ); ?></strong>
+                                <br><small><?php echo esc_html( $cancel->employee_code ); ?> — <?php echo esc_html( $cancel->department_name ?: __( 'No Department', 'sfs-hr' ) ); ?></small>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Leave Type', 'sfs-hr' ); ?></th>
+                            <td><?php echo esc_html( $cancel->type_name ); ?></td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Dates', 'sfs-hr' ); ?></th>
+                            <td>
+                                <strong><?php echo esc_html( wp_date( 'F j, Y', strtotime( $cancel->start_date ) ) ); ?></strong>
+                                →
+                                <strong><?php echo esc_html( wp_date( 'F j, Y', strtotime( $cancel->end_date ) ) ); ?></strong>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Days', 'sfs-hr' ); ?></th>
+                            <td><strong><?php echo (int) $cancel->days; ?></strong> <?php esc_html_e( 'days', 'sfs-hr' ); ?></td>
+                        </tr>
+                    </table>
+
+                    <!-- Approval Progress -->
+                    <hr style="margin:20px 0;">
+                    <h3><?php esc_html_e( 'Approval Progress', 'sfs-hr' ); ?></h3>
+
+                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:20px;">
+                        <?php
+                        // Step 1: HR Initiated
+                        echo '<div style="padding:8px 14px;border-radius:6px;background:#ecfdf3;border:1px solid #bbf7d0;font-size:12px;">';
+                        echo '<strong>' . esc_html__( '1. HR Initiated', 'sfs-hr' ) . '</strong>';
+                        echo '<br><small>' . esc_html( $initiator_name ) . '</small>';
+                        echo '</div>';
+                        echo '<span style="color:#999;">→</span>';
+
+                        // Step 2: Manager
+                        $mgr_step = null;
+                        foreach ( $chain as $step ) {
+                            if ( ( $step['role'] ?? '' ) === 'manager' ) { $mgr_step = $step; break; }
+                        }
+                        $mgr_bg = '#f3f4f6'; $mgr_border = '#e5e7eb';
+                        if ( $mgr_step && ( $mgr_step['action'] ?? '' ) === 'approve' ) { $mgr_bg = '#ecfdf3'; $mgr_border = '#bbf7d0'; }
+                        elseif ( $mgr_step && ( $mgr_step['action'] ?? '' ) === 'reject' ) { $mgr_bg = '#fef2f2'; $mgr_border = '#fecaca'; }
+                        elseif ( $approval_level < 2 && $cancel->status === 'pending' ) { $mgr_bg = '#fef9c3'; $mgr_border = '#facc15'; }
+
+                        echo '<div style="padding:8px 14px;border-radius:6px;background:' . $mgr_bg . ';border:1px solid ' . $mgr_border . ';font-size:12px;">';
+                        echo '<strong>' . esc_html__( '2. Dept Manager', 'sfs-hr' ) . '</strong>';
+                        if ( $dept_manager_name ) echo '<br><small>' . esc_html( $dept_manager_name ) . '</small>';
+                        if ( $mgr_step ) {
+                            echo '<br><small>' . esc_html( ucfirst( $mgr_step['action'] ?? '' ) ) . '</small>';
+                        } elseif ( $cancel->status === 'pending' && $approval_level < 2 ) {
+                            echo '<br><small>' . esc_html__( 'Awaiting', 'sfs-hr' ) . '</small>';
+                        }
+                        echo '</div>';
+                        echo '<span style="color:#999;">→</span>';
+
+                        // Step 3: GM
+                        $gm_step = null;
+                        foreach ( $chain as $step ) {
+                            if ( ( $step['role'] ?? '' ) === 'gm' ) { $gm_step = $step; break; }
+                        }
+                        $gm_bg = '#f3f4f6'; $gm_border = '#e5e7eb';
+                        if ( $gm_step && ( $gm_step['action'] ?? '' ) === 'approve' ) { $gm_bg = '#ecfdf3'; $gm_border = '#bbf7d0'; }
+                        elseif ( $gm_step && ( $gm_step['action'] ?? '' ) === 'reject' ) { $gm_bg = '#fef2f2'; $gm_border = '#fecaca'; }
+                        elseif ( $approval_level >= 2 && $cancel->status === 'pending' ) { $gm_bg = '#ffedd5'; $gm_border = '#fdba74'; }
+
+                        echo '<div style="padding:8px 14px;border-radius:6px;background:' . $gm_bg . ';border:1px solid ' . $gm_border . ';font-size:12px;">';
+                        echo '<strong>' . esc_html__( '3. General Manager', 'sfs-hr' ) . '</strong>';
+                        if ( $gm_name ) echo '<br><small>' . esc_html( $gm_name ) . '</small>';
+                        if ( $gm_step ) {
+                            echo '<br><small>' . esc_html( ucfirst( $gm_step['action'] ?? '' ) ) . '</small>';
+                        } elseif ( $cancel->status === 'pending' && $approval_level >= 2 ) {
+                            echo '<br><small>' . esc_html__( 'Awaiting', 'sfs-hr' ) . '</small>';
+                        }
+                        echo '</div>';
+                        ?>
+                    </div>
+
+                    <!-- Approval Actions -->
+                    <?php if ( $cancel->status === 'pending' ) : ?>
+                        <hr style="margin:20px 0;">
+
+                        <?php if ( $approval_stage === 'manager' ) : ?>
+                            <h3><?php esc_html_e( 'Department Manager Decision', 'sfs-hr' ); ?></h3>
+                            <?php if ( $can_approve ) : ?>
+                                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                                    <input type="hidden" name="action" value="sfs_hr_leave_cancellation_approve" />
+                                    <?php wp_nonce_field( 'sfs_hr_leave_cancellation_approve_' . $cancel_id, '_wpnonce' ); ?>
+                                    <input type="hidden" name="cancel_id" value="<?php echo (int) $cancel_id; ?>" />
+                                    <button type="submit" class="button button-primary"><?php esc_html_e( 'Approve Cancellation', 'sfs-hr' ); ?></button>
+                                    <input type="text" name="note" placeholder="<?php esc_attr_e( 'Note (optional)', 'sfs-hr' ); ?>" style="width:300px;" />
+                                </form>
+                                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;margin-top:10px;" onsubmit="return sfsHrConfirmCancelReject(this);">
+                                    <input type="hidden" name="action" value="sfs_hr_leave_cancellation_reject" />
+                                    <?php wp_nonce_field( 'sfs_hr_leave_cancellation_reject_' . $cancel_id, '_wpnonce' ); ?>
+                                    <input type="hidden" name="cancel_id" value="<?php echo (int) $cancel_id; ?>" />
+                                    <input type="text" name="note" class="cancel-reject-note" placeholder="<?php esc_attr_e( 'Reason (required)', 'sfs-hr' ); ?>" style="width:300px;" />
+                                    <button type="submit" class="button" style="color:#b32d2e;"><?php esc_html_e( 'Reject Cancellation', 'sfs-hr' ); ?></button>
+                                </form>
+                            <?php else : ?>
+                                <div class="notice notice-info inline" style="margin:0;">
+                                    <p><?php
+                                        if ( $dept_manager_name ) {
+                                            printf( esc_html__( 'Awaiting approval from department manager: %s', 'sfs-hr' ), '<strong>' . esc_html( $dept_manager_name ) . '</strong>' );
+                                        } else {
+                                            esc_html_e( 'Awaiting department manager approval.', 'sfs-hr' );
+                                        }
+                                    ?></p>
+                                </div>
+                            <?php endif; ?>
+
+                        <?php elseif ( $approval_stage === 'gm' ) : ?>
+                            <h3><?php esc_html_e( 'GM Final Decision', 'sfs-hr' ); ?></h3>
+                            <?php if ( $can_approve ) : ?>
+                                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                                    <input type="hidden" name="action" value="sfs_hr_leave_cancellation_approve" />
+                                    <?php wp_nonce_field( 'sfs_hr_leave_cancellation_approve_' . $cancel_id, '_wpnonce' ); ?>
+                                    <input type="hidden" name="cancel_id" value="<?php echo (int) $cancel_id; ?>" />
+                                    <button type="submit" class="button button-primary"><?php esc_html_e( 'Approve Cancellation (GM)', 'sfs-hr' ); ?></button>
+                                    <input type="text" name="note" placeholder="<?php esc_attr_e( 'Note (optional)', 'sfs-hr' ); ?>" style="width:300px;" />
+                                </form>
+                                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;margin-top:10px;" onsubmit="return sfsHrConfirmCancelReject(this);">
+                                    <input type="hidden" name="action" value="sfs_hr_leave_cancellation_reject" />
+                                    <?php wp_nonce_field( 'sfs_hr_leave_cancellation_reject_' . $cancel_id, '_wpnonce' ); ?>
+                                    <input type="hidden" name="cancel_id" value="<?php echo (int) $cancel_id; ?>" />
+                                    <input type="text" name="note" class="cancel-reject-note" placeholder="<?php esc_attr_e( 'Reason (required)', 'sfs-hr' ); ?>" style="width:300px;" />
+                                    <button type="submit" class="button" style="color:#b32d2e;"><?php esc_html_e( 'Reject Cancellation', 'sfs-hr' ); ?></button>
+                                </form>
+                            <?php else : ?>
+                                <div class="notice notice-info inline" style="margin:0;">
+                                    <p><?php
+                                        if ( $gm_name ) {
+                                            printf( esc_html__( 'Awaiting GM approval from: %s', 'sfs-hr' ), '<strong>' . esc_html( $gm_name ) . '</strong>' );
+                                        } else {
+                                            esc_html_e( 'Awaiting GM approval.', 'sfs-hr' );
+                                        }
+                                    ?></p>
+                                </div>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                    <?php endif; ?>
+
+                    <?php if ( $cancel->status !== 'pending' && $cancel->approver_note ) : ?>
+                        <hr style="margin:20px 0;">
+                        <h3><?php echo $cancel->status === 'rejected' ? esc_html__( 'Rejection Reason', 'sfs-hr' ) : esc_html__( 'Final Note', 'sfs-hr' ); ?></h3>
+                        <p style="<?php echo $cancel->status === 'rejected' ? 'color:#b32d2e;' : ''; ?>"><?php echo esc_html( $cancel->approver_note ); ?></p>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- Sidebar: History -->
+            <div class="sfs-cancel-detail-sidebar">
+                <div style="background:#fff;padding:20px;border:1px solid #ccc;border-radius:4px;">
+                    <h2><?php esc_html_e( 'History', 'sfs-hr' ); ?></h2>
+                    <?php if ( ! empty( $history ) ) : ?>
+                        <div style="max-height:600px;overflow-y:auto;">
+                            <?php foreach ( $history as $event ) : ?>
+                                <div style="border-bottom:1px solid #eee;padding:10px 0;">
+                                    <div style="font-size:11px;color:#666;"><?php echo esc_html( wp_date( 'M j, Y g:i a', strtotime( $event['created_at'] ) ) ); ?></div>
+                                    <div style="font-weight:600;margin:4px 0;"><?php echo esc_html( str_replace( '_', ' ', ucwords( $event['event_type'], '_' ) ) ); ?></div>
+                                    <div style="font-size:12px;color:#555;"><?php echo esc_html( $event['user_name'] ?: __( 'System', 'sfs-hr' ) ); ?></div>
+                                    <?php
+                                    if ( $event['meta'] ) {
+                                        $meta = json_decode( $event['meta'], true );
+                                        if ( is_array( $meta ) && ! empty( $meta ) ) {
+                                            echo '<div style="font-size:11px;margin-top:6px;background:#f9f9f9;padding:6px;border-radius:3px;">';
+                                            foreach ( $meta as $key => $value ) {
+                                                $label = ucwords( str_replace( '_', ' ', $key ) );
+                                                echo '<strong>' . esc_html( $label ) . ':</strong> ' . esc_html( $value ) . '<br>';
+                                            }
+                                            echo '</div>';
+                                        }
+                                    }
+                                    ?>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php else : ?>
+                        <p style="color:#666;"><?php esc_html_e( 'No history available.', 'sfs-hr' ); ?></p>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        function sfsHrConfirmCancelReject(form) {
+            var noteInput = form.querySelector('.cancel-reject-note');
+            if (!noteInput.value.trim()) {
+                alert('<?php echo esc_js( __( 'Rejection reason is required.', 'sfs-hr' ) ); ?>');
+                noteInput.focus();
+                return false;
+            }
+            return confirm('<?php echo esc_js( __( 'Are you sure you want to reject this cancellation? The leave will remain approved.', 'sfs-hr' ) ); ?>');
+        }
+        </script>
+    </div>
+    <?php
+}
 
     /* ---------------------------------- Types & Balances (Admin) ---------------------------------- */
 
@@ -3563,21 +4557,32 @@ if (!$has_idx) {
         return;
     }
 
+    // Route: cancellation detail view
+    $cancel_id = isset( $_GET['cancel_id'] ) ? (int) $_GET['cancel_id'] : 0;
+    if ( $action === 'view_cancellation' && $cancel_id > 0 ) {
+        $this->render_cancellation_detail( $cancel_id );
+        return;
+    }
+
     // Which tab?
     $tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'requests';
 
     $tabs = [
-        'requests' => __( 'Requests',  'sfs-hr' ),
-        'calendar' => __( 'Calendar',  'sfs-hr' ),
-        'types'    => __( 'Types',     'sfs-hr' ),
-        'balances' => __( 'Balances',  'sfs-hr' ),
-        'settings' => __( 'Settings',  'sfs-hr' ),
+        'requests'      => __( 'Requests',      'sfs-hr' ),
+        'cancellations' => __( 'Cancellations',  'sfs-hr' ),
+        'calendar'      => __( 'Calendar',       'sfs-hr' ),
+        'types'         => __( 'Types',          'sfs-hr' ),
+        'balances'      => __( 'Balances',       'sfs-hr' ),
+        'settings'      => __( 'Settings',       'sfs-hr' ),
     ];
 
-    // If user cannot manage leave types/settings, hide those tabs
+    // If user cannot manage leave types/settings, show only requests + cancellations
     if ( ! current_user_can( 'sfs_hr.leave.manage' ) ) {
-        $tabs = [ 'requests' => $tabs['requests'] ];
-        if ( $tab !== 'requests' ) {
+        $tabs = [
+            'requests'      => $tabs['requests'],
+            'cancellations' => $tabs['cancellations'],
+        ];
+        if ( ! isset( $tabs[ $tab ] ) ) {
             $tab = 'requests';
         }
     }
@@ -3610,8 +4615,14 @@ if (!$has_idx) {
     }
     echo '</h2>';
 
+    // Render notice bar
+    \SFS\HR\Core\Helpers::render_admin_notice_bar();
+
     // Render the inner content (existing logic)
     switch ( $tab ) {
+        case 'cancellations':
+            $this->render_cancellations();
+            break;
         case 'calendar':
             $this->render_calendar();
             break;
@@ -5154,11 +6165,83 @@ public function render_calendar(): void {
                                 </form>
                             <?php endif; ?>
                         <?php endif; ?>
+
+                        <?php
+                        // === HR can initiate cancellation of approved/on_leave requests ===
+                        if ( in_array( $request->status, [ 'approved', 'on_leave' ], true ) && $is_hr ) :
+                            // Check for existing pending cancellation
+                            $cancel_t = $wpdb->prefix . 'sfs_hr_leave_cancellations';
+                            $pending_cancellation = $wpdb->get_row( $wpdb->prepare(
+                                "SELECT * FROM $cancel_t WHERE leave_request_id = %d AND status = 'pending' LIMIT 1",
+                                $request_id
+                            ) );
+                        ?>
+                            <hr style="margin: 30px 0;">
+                            <?php if ( $pending_cancellation ) : ?>
+                                <div class="notice notice-warning inline" style="margin:0;">
+                                    <p>
+                                        <?php esc_html_e( 'A cancellation request is already in progress for this leave.', 'sfs-hr' ); ?>
+                                        <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=cancellations&action=view_cancellation&cancel_id=' . (int) $pending_cancellation->id ) ); ?>" class="button button-small" style="margin-left:10px;">
+                                            <?php esc_html_e( 'View Cancellation', 'sfs-hr' ); ?>
+                                        </a>
+                                    </p>
+                                </div>
+                            <?php else : ?>
+                                <h3 style="color:#b32d2e;"><?php esc_html_e( 'Request Leave Cancellation', 'sfs-hr' ); ?></h3>
+                                <p class="description"><?php esc_html_e( 'This will start a cancellation workflow that requires approval from the department manager and the GM.', 'sfs-hr' ); ?></p>
+                                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return sfsHrConfirmCancelApproved(this);" style="margin-top:10px;">
+                                    <input type="hidden" name="action" value="sfs_hr_leave_cancel_approved" />
+                                    <?php wp_nonce_field( 'sfs_hr_leave_cancel_approved_' . $request_id, '_wpnonce' ); ?>
+                                    <input type="hidden" name="leave_request_id" value="<?php echo (int) $request_id; ?>" />
+                                    <p>
+                                        <label for="cancel_reason"><strong><?php esc_html_e( 'Reason for cancellation:', 'sfs-hr' ); ?></strong></label><br>
+                                        <textarea name="cancel_reason" id="cancel_reason" rows="3" style="width:100%;max-width:500px;" placeholder="<?php esc_attr_e( 'Explain why this approved leave needs to be cancelled...', 'sfs-hr' ); ?>"></textarea>
+                                    </p>
+                                    <button type="submit" class="button" style="color:#b32d2e;"><?php esc_html_e( 'Submit Cancellation Request', 'sfs-hr' ); ?></button>
+                                </form>
+                            <?php endif; ?>
+                        <?php endif; ?>
                     </div>
                 </div>
 
-                <!-- Sidebar: History -->
+                <!-- Sidebar: History + Cancellations -->
                 <div class="sfs-leave-detail-sidebar">
+                    <?php
+                    // Show cancellation requests for this leave
+                    $cancel_t = $wpdb->prefix . 'sfs_hr_leave_cancellations';
+                    $cancellations = $wpdb->get_results( $wpdb->prepare(
+                        "SELECT * FROM $cancel_t WHERE leave_request_id = %d ORDER BY id DESC",
+                        $request_id
+                    ) );
+                    if ( ! empty( $cancellations ) ) :
+                    ?>
+                    <div style="background:#fff;padding:20px;border:1px solid #ccc;border-radius:4px;margin-bottom:20px;">
+                        <h2><?php esc_html_e( 'Cancellation Requests', 'sfs-hr' ); ?></h2>
+                        <?php foreach ( $cancellations as $canc ) :
+                            $canc_status_key = $canc->status;
+                            if ( $canc_status_key === 'pending' ) {
+                                $canc_status_key = (int) $canc->approval_level >= 2 ? 'cancellation_pending_gm' : 'cancellation_pending';
+                            } elseif ( $canc_status_key === 'approved' ) {
+                                $canc_status_key = 'cancellation_approved';
+                            } elseif ( $canc_status_key === 'rejected' ) {
+                                $canc_status_key = 'cancellation_rejected';
+                            }
+                        ?>
+                            <div style="border-bottom:1px solid #eee;padding:10px 0;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;">
+                                    <strong><?php echo esc_html( $canc->request_number ?? '' ); ?></strong>
+                                    <?php echo Leave_UI::leave_status_chip( $canc_status_key ); ?>
+                                </div>
+                                <div style="font-size:12px;color:#666;margin-top:4px;"><?php echo esc_html( $canc->reason ); ?></div>
+                                <div style="font-size:11px;color:#999;margin-top:4px;"><?php echo esc_html( wp_date( 'M j, Y g:i a', strtotime( $canc->created_at ) ) ); ?></div>
+                                <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=cancellations&action=view_cancellation&cancel_id=' . (int) $canc->id ) ); ?>" class="button button-small" style="margin-top:6px;">
+                                    <?php esc_html_e( 'View Details', 'sfs-hr' ); ?>
+                                </a>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
+
                     <div style="background:#fff;padding:20px;border:1px solid #ccc;border-radius:4px;">
                         <h2><?php esc_html_e( 'Leave History', 'sfs-hr' ); ?></h2>
                         <?php if ( ! empty( $history ) ) : ?>
@@ -5200,6 +6283,15 @@ public function render_calendar(): void {
                     return false;
                 }
                 return confirm('<?php echo esc_js( __( 'Are you sure you want to reject this leave request?', 'sfs-hr' ) ); ?>');
+            }
+            function sfsHrConfirmCancelApproved(form) {
+                var reason = form.querySelector('#cancel_reason');
+                if (!reason || !reason.value.trim()) {
+                    alert('<?php echo esc_js( __( 'Cancellation reason is required.', 'sfs-hr' ) ); ?>');
+                    if (reason) reason.focus();
+                    return false;
+                }
+                return confirm('<?php echo esc_js( __( 'Are you sure you want to submit a cancellation request for this approved leave?', 'sfs-hr' ) ); ?>');
             }
             </script>
         </div>

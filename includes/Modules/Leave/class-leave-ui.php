@@ -25,6 +25,10 @@ class Leave_UI {
     'on_leave'          => __( 'On Leave', 'sfs-hr' ),
     'returned'          => __( 'Returned', 'sfs-hr' ),
     'early_returned'    => __( 'Early Returned', 'sfs-hr' ),
+    'cancellation_pending'    => __( 'Cancellation Pending', 'sfs-hr' ),
+    'cancellation_pending_gm' => __( 'Cancellation Pending - GM', 'sfs-hr' ),
+    'cancellation_approved'   => __( 'Cancellation Approved', 'sfs-hr' ),
+    'cancellation_rejected'   => __( 'Cancellation Rejected', 'sfs-hr' ),
     'unknown'           => __( 'Unknown', 'sfs-hr' ),
 ];
 
@@ -61,7 +65,17 @@ class Leave_UI {
 
     case 'rejected':
     case 'cancelled':
+    case 'cancellation_approved':
         return 'red';
+
+    case 'cancellation_pending':
+        return 'orange';
+
+    case 'cancellation_pending_gm':
+        return 'yellow';
+
+    case 'cancellation_rejected':
+        return 'gray';
 
     default:
         return 'gray';

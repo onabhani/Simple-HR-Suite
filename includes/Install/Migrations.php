@@ -257,6 +257,28 @@ class Migrations {
             KEY `event_type` (`event_type`)
         ) $charset");
 
+        /** LEAVE CANCELLATIONS (post-approval cancellation workflow) */
+        $leave_cancel = $wpdb->prefix.'sfs_hr_leave_cancellations';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$leave_cancel` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `leave_request_id` BIGINT(20) UNSIGNED NOT NULL,
+            `request_number` VARCHAR(50) NULL,
+            `reason` TEXT NOT NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `approval_level` TINYINT(3) UNSIGNED NOT NULL DEFAULT 1,
+            `approval_chain` LONGTEXT NULL,
+            `initiated_by` BIGINT(20) UNSIGNED NOT NULL,
+            `approver_id` BIGINT(20) UNSIGNED NULL,
+            `approver_note` TEXT NULL,
+            `decided_at` DATETIME NULL,
+            `created_at` DATETIME NULL,
+            `updated_at` DATETIME NULL,
+            PRIMARY KEY (`id`),
+            KEY `leave_req_idx` (`leave_request_id`),
+            KEY `status_idx` (`status`),
+            UNIQUE KEY `request_number` (`request_number`)
+        ) $charset");
+
         /** Seed Departments + assign */
         $has_dept = (int)$wpdb->get_var("SELECT COUNT(*) FROM `$dept`");
         if ($has_dept === 0) {
