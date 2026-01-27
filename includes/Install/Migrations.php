@@ -242,6 +242,43 @@ class Migrations {
         // Generate reference numbers for existing records that don't have them
         self::backfill_request_numbers();
 
+        /** CANDIDATES – add columns for enhanced workflow */
+        $candidates = $wpdb->prefix.'sfs_hr_candidates';
+        $cand_exists = (int)$wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s",
+            $candidates
+        ));
+        if ($cand_exists) {
+            self::add_column_if_missing($candidates, 'request_number', "VARCHAR(50) NULL");
+            self::add_unique_key_if_missing($candidates, 'request_number', 'request_number');
+            self::add_column_if_missing($candidates, 'approval_chain', "LONGTEXT NULL");
+            self::add_column_if_missing($candidates, 'hr_reviewer_id', "BIGINT(20) UNSIGNED NULL");
+            self::add_column_if_missing($candidates, 'hr_reviewed_at', "DATETIME NULL");
+            self::add_column_if_missing($candidates, 'hr_notes', "TEXT NULL");
+
+            // Expand ENUM to include hr_reviewed status
+            $col_type = $wpdb->get_var($wpdb->prepare(
+                "SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'status'",
+                $candidates
+            ));
+            if ($col_type && strpos($col_type, 'hr_reviewed') === false) {
+                $wpdb->query("ALTER TABLE `$candidates` MODIFY `status` ENUM('applied','screening','hr_reviewed','dept_pending','dept_approved','gm_pending','gm_approved','hired','rejected') NOT NULL DEFAULT 'applied'");
+            }
+
+            // Backfill reference numbers for existing candidates
+            $missing_cnd = $wpdb->get_results(
+                "SELECT id, created_at FROM `$candidates` WHERE request_number IS NULL OR request_number = '' ORDER BY id ASC"
+            );
+            foreach ($missing_cnd as $row) {
+                $number = self::generate_request_number('CND', $candidates, $row->created_at);
+                $wpdb->update($candidates, ['request_number' => $number], ['id' => $row->id]);
+            }
+        }
+
+        /** EMPLOYEES – add probation tracking columns */
+        self::add_column_if_missing($emp, 'probation_end_date', "DATE NULL");
+        self::add_column_if_missing($emp, 'probation_status', "VARCHAR(20) NULL DEFAULT NULL");
+
         /** LEAVE REQUEST HISTORY (audit trail) */
         $leave_history = $wpdb->prefix.'sfs_hr_leave_request_history';
         $wpdb->query("CREATE TABLE IF NOT EXISTS `$leave_history` (

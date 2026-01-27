@@ -1047,7 +1047,7 @@ class Notifications {
                     'title' => __( 'Pending Hiring Actions', 'sfs-hr' ),
                     'count' => count( $pending_candidates ),
                     'items' => $pending_candidates,
-                    'url'   => admin_url( 'admin.php?page=sfs-hr-lifecycle&tab=candidates' ),
+                    'url'   => admin_url( 'admin.php?page=sfs-hr-hiring&tab=candidates' ),
                 ];
 
                 // Get GM emails (users with manage_options)
@@ -1109,8 +1109,8 @@ class Notifications {
             'resignations'        => admin_url( 'admin.php?page=sfs-hr-lifecycle&tab=resignations' ),
             'shift_swaps_pending' => home_url( '/my-profile/' ),
             'assets_pending'      => home_url( '/my-profile/?tab=assets' ),
-            'hiring_dept'         => admin_url( 'admin.php?page=sfs-hr-lifecycle&tab=candidates' ),
-            'hiring_gm'           => admin_url( 'admin.php?page=sfs-hr-lifecycle&tab=candidates' ),
+            'hiring_dept'         => admin_url( 'admin.php?page=sfs-hr-hiring&tab=candidates' ),
+            'hiring_gm'           => admin_url( 'admin.php?page=sfs-hr-hiring&tab=candidates' ),
         ];
 
         foreach ( $assignee_reminders as $email => $types ) {

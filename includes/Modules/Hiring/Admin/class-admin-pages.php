@@ -37,10 +37,10 @@ class AdminPages {
             <h1><?php esc_html_e('Hiring Management', 'sfs-hr'); ?></h1>
 
             <nav class="nav-tab-wrapper">
-                <a href="?page=sfs-hr-lifecycle&tab=candidates" class="nav-tab <?php echo $tab === 'candidates' ? 'nav-tab-active' : ''; ?>">
+                <a href="?page=sfs-hr-hiring&tab=candidates" class="nav-tab <?php echo $tab === 'candidates' ? 'nav-tab-active' : ''; ?>">
                     <?php esc_html_e('Candidates', 'sfs-hr'); ?>
                 </a>
-                <a href="?page=sfs-hr-lifecycle&tab=trainees" class="nav-tab <?php echo $tab === 'trainees' ? 'nav-tab-active' : ''; ?>">
+                <a href="?page=sfs-hr-hiring&tab=trainees" class="nav-tab <?php echo $tab === 'trainees' ? 'nav-tab-active' : ''; ?>">
                     <?php esc_html_e('Trainees', 'sfs-hr'); ?>
                 </a>
             </nav>
@@ -73,6 +73,7 @@ class AdminPages {
             .sfs-hr-status-badge { display:inline-block; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:500; }
             .sfs-hr-status-applied { background:#e3f2fd; color:#1565c0; }
             .sfs-hr-status-screening { background:#fff3e0; color:#ef6c00; }
+            .sfs-hr-status-hr_reviewed { background:#e1f5fe; color:#0277bd; }
             .sfs-hr-status-dept_pending { background:#fce4ec; color:#c2185b; }
             .sfs-hr-status-dept_approved { background:#e8f5e9; color:#2e7d32; }
             .sfs-hr-status-gm_pending { background:#f3e5f5; color:#7b1fa2; }
@@ -151,14 +152,14 @@ class AdminPages {
         <div class="sfs-hr-card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                 <h3 style="margin:0; border:none; padding:0;"><?php esc_html_e('Candidates', 'sfs-hr'); ?></h3>
-                <a href="?page=sfs-hr-lifecycle&tab=candidates&action=add" class="button button-primary">
+                <a href="?page=sfs-hr-hiring&tab=candidates&action=add" class="button button-primary">
                     <?php esc_html_e('Add Candidate', 'sfs-hr'); ?>
                 </a>
             </div>
 
             <!-- Filters -->
             <form method="get" style="margin-bottom:20px; display:flex; gap:10px; flex-wrap:wrap;">
-                <input type="hidden" name="page" value="sfs-hr-lifecycle" />
+                <input type="hidden" name="page" value="sfs-hr-hiring" />
                 <input type="hidden" name="tab" value="candidates" />
 
                 <select name="status">
@@ -177,6 +178,7 @@ class AdminPages {
             <table class="wp-list-table widefat striped">
                 <thead>
                     <tr>
+                        <th><?php esc_html_e('Ref #', 'sfs-hr'); ?></th>
                         <th><?php esc_html_e('Name', 'sfs-hr'); ?></th>
                         <th><?php esc_html_e('Email', 'sfs-hr'); ?></th>
                         <th><?php esc_html_e('Position', 'sfs-hr'); ?></th>
@@ -189,10 +191,13 @@ class AdminPages {
                 </thead>
                 <tbody>
                     <?php if (empty($candidates)) : ?>
-                        <tr><td colspan="8"><?php esc_html_e('No candidates found.', 'sfs-hr'); ?></td></tr>
+                        <tr><td colspan="9"><?php esc_html_e('No candidates found.', 'sfs-hr'); ?></td></tr>
                     <?php else : ?>
                         <?php foreach ($candidates as $c) : ?>
                             <tr>
+                                <td>
+                                    <code><?php echo esc_html($c->request_number ?: '—'); ?></code>
+                                </td>
                                 <td>
                                     <strong><?php echo esc_html($c->first_name . ' ' . $c->last_name); ?></strong>
                                 </td>
@@ -211,9 +216,9 @@ class AdminPages {
                                 </td>
                                 <td><?php echo esc_html(wp_date('M j, Y', strtotime($c->created_at))); ?></td>
                                 <td>
-                                    <a href="?page=sfs-hr-lifecycle&tab=candidates&action=view&id=<?php echo (int) $c->id; ?>"><?php esc_html_e('View', 'sfs-hr'); ?></a>
+                                    <a href="?page=sfs-hr-hiring&tab=candidates&action=view&id=<?php echo (int) $c->id; ?>"><?php esc_html_e('View', 'sfs-hr'); ?></a>
                                     |
-                                    <a href="?page=sfs-hr-lifecycle&tab=candidates&action=edit&id=<?php echo (int) $c->id; ?>"><?php esc_html_e('Edit', 'sfs-hr'); ?></a>
+                                    <a href="?page=sfs-hr-hiring&tab=candidates&action=edit&id=<?php echo (int) $c->id; ?>"><?php esc_html_e('Edit', 'sfs-hr'); ?></a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -349,7 +354,7 @@ class AdminPages {
 
                 <p>
                     <button type="submit" class="button button-primary"><?php echo $is_edit ? esc_html__('Update Candidate', 'sfs-hr') : esc_html__('Add Candidate', 'sfs-hr'); ?></button>
-                    <a href="?page=sfs-hr-lifecycle&tab=candidates" class="button"><?php esc_html_e('Cancel', 'sfs-hr'); ?></a>
+                    <a href="?page=sfs-hr-hiring&tab=candidates" class="button"><?php esc_html_e('Cancel', 'sfs-hr'); ?></a>
                 </p>
             </form>
         </div>
@@ -388,12 +393,15 @@ class AdminPages {
                 <div>
                     <h3 style="margin:0; border:none; padding:0;">
                         <?php echo esc_html($candidate->first_name . ' ' . $candidate->last_name); ?>
+                        <?php if ($candidate->request_number) : ?>
+                            <code style="margin-left:10px; font-size:14px;"><?php echo esc_html($candidate->request_number); ?></code>
+                        <?php endif; ?>
                     </h3>
                     <span class="sfs-hr-status-badge sfs-hr-status-<?php echo esc_attr($candidate->status); ?>" style="margin-top:10px;">
                         <?php echo esc_html($statuses[$candidate->status] ?? $candidate->status); ?>
                     </span>
                 </div>
-                <a href="?page=sfs-hr-lifecycle&tab=candidates&action=edit&id=<?php echo (int) $candidate->id; ?>" class="button">
+                <a href="?page=sfs-hr-hiring&tab=candidates&action=edit&id=<?php echo (int) $candidate->id; ?>" class="button">
                     <?php esc_html_e('Edit', 'sfs-hr'); ?>
                 </a>
             </div>
@@ -443,15 +451,64 @@ class AdminPages {
                 // Show appropriate action based on status
                 switch ($candidate->status) {
                     case 'applied':
-                    case 'screening':
-                        // Move to Dept Manager Approval
+                        // Step 1a: Start screening
                         ?>
+                        <p><strong><?php esc_html_e('Step 1: HR Review', 'sfs-hr'); ?></strong></p>
+                        <p class="description"><?php esc_html_e('Review the candidate application and begin the screening process.', 'sfs-hr'); ?></p>
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-bottom:15px;">
+                            <?php wp_nonce_field('sfs_hr_candidate_action'); ?>
+                            <input type="hidden" name="action" value="sfs_hr_candidate_action" />
+                            <input type="hidden" name="candidate_id" value="<?php echo (int) $candidate->id; ?>" />
+                            <input type="hidden" name="workflow_action" value="start_screening" />
+                            <button type="submit" class="button button-primary"><?php esc_html_e('Start Screening', 'sfs-hr'); ?></button>
+                        </form>
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline-block;">
+                            <?php wp_nonce_field('sfs_hr_candidate_action'); ?>
+                            <input type="hidden" name="action" value="sfs_hr_candidate_action" />
+                            <input type="hidden" name="candidate_id" value="<?php echo (int) $candidate->id; ?>" />
+                            <input type="hidden" name="workflow_action" value="reject" />
+                            <button type="submit" class="button" onclick="return confirm('<?php esc_attr_e('Are you sure you want to reject this candidate?', 'sfs-hr'); ?>');"><?php esc_html_e('Reject', 'sfs-hr'); ?></button>
+                        </form>
+                        <?php
+                        break;
+
+                    case 'screening':
+                        // Step 1b: Complete HR review
+                        ?>
+                        <p><strong><?php esc_html_e('Step 1: Complete HR Review', 'sfs-hr'); ?></strong></p>
+                        <p class="description"><?php esc_html_e('Finalize the HR review and add your assessment notes.', 'sfs-hr'); ?></p>
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-bottom:15px;">
+                            <?php wp_nonce_field('sfs_hr_candidate_action'); ?>
+                            <input type="hidden" name="action" value="sfs_hr_candidate_action" />
+                            <input type="hidden" name="candidate_id" value="<?php echo (int) $candidate->id; ?>" />
+                            <input type="hidden" name="workflow_action" value="hr_review_complete" />
+                            <div class="sfs-hr-form-row">
+                                <label><?php esc_html_e('HR Review Notes', 'sfs-hr'); ?></label>
+                                <textarea name="notes" rows="3" style="width:100%; max-width:500px;"></textarea>
+                            </div>
+                            <button type="submit" class="button button-primary"><?php esc_html_e('Complete HR Review', 'sfs-hr'); ?></button>
+                        </form>
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline-block;">
+                            <?php wp_nonce_field('sfs_hr_candidate_action'); ?>
+                            <input type="hidden" name="action" value="sfs_hr_candidate_action" />
+                            <input type="hidden" name="candidate_id" value="<?php echo (int) $candidate->id; ?>" />
+                            <input type="hidden" name="workflow_action" value="reject" />
+                            <button type="submit" class="button" onclick="return confirm('<?php esc_attr_e('Are you sure you want to reject this candidate?', 'sfs-hr'); ?>');"><?php esc_html_e('Reject', 'sfs-hr'); ?></button>
+                        </form>
+                        <?php
+                        break;
+
+                    case 'hr_reviewed':
+                        // Step 2: Send to Dept Manager
+                        ?>
+                        <p><strong><?php esc_html_e('Step 2: Department Manager Approval', 'sfs-hr'); ?></strong></p>
+                        <p class="description"><?php esc_html_e('HR review complete. Send to the department manager for approval.', 'sfs-hr'); ?></p>
                         <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-bottom:15px;">
                             <?php wp_nonce_field('sfs_hr_candidate_action'); ?>
                             <input type="hidden" name="action" value="sfs_hr_candidate_action" />
                             <input type="hidden" name="candidate_id" value="<?php echo (int) $candidate->id; ?>" />
                             <input type="hidden" name="workflow_action" value="send_to_dept" />
-                            <button type="submit" class="button button-primary"><?php esc_html_e('Send to Department Manager for Approval', 'sfs-hr'); ?></button>
+                            <button type="submit" class="button button-primary"><?php esc_html_e('Send to Department Manager', 'sfs-hr'); ?></button>
                         </form>
                         <?php
                         break;
@@ -459,7 +516,7 @@ class AdminPages {
                     case 'dept_pending':
                         if ($can_dept_approve) :
                             ?>
-                            <p><strong><?php esc_html_e('Department Manager Approval Required', 'sfs-hr'); ?></strong></p>
+                            <p><strong><?php esc_html_e('Step 2: Department Manager Approval Required', 'sfs-hr'); ?></strong></p>
                             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline-block; margin-right:10px;">
                                 <?php wp_nonce_field('sfs_hr_candidate_action'); ?>
                                 <input type="hidden" name="action" value="sfs_hr_candidate_action" />
@@ -485,6 +542,8 @@ class AdminPages {
                     case 'dept_approved':
                         // Move to GM Approval
                         ?>
+                        <p><strong><?php esc_html_e('Step 3: GM Final Approval', 'sfs-hr'); ?></strong></p>
+                        <p class="description"><?php esc_html_e('Department manager has approved. Send to GM for final approval.', 'sfs-hr'); ?></p>
                         <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-bottom:15px;">
                             <?php wp_nonce_field('sfs_hr_candidate_action'); ?>
                             <input type="hidden" name="action" value="sfs_hr_candidate_action" />
@@ -498,7 +557,7 @@ class AdminPages {
                     case 'gm_pending':
                         if ($can_gm_approve) :
                             ?>
-                            <p><strong><?php esc_html_e('GM Final Approval Required', 'sfs-hr'); ?></strong></p>
+                            <p><strong><?php esc_html_e('Step 3: GM Final Approval Required', 'sfs-hr'); ?></strong></p>
                             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-bottom:15px;">
                                 <?php wp_nonce_field('sfs_hr_candidate_action'); ?>
                                 <input type="hidden" name="action" value="sfs_hr_candidate_action" />
@@ -563,36 +622,92 @@ class AdminPages {
         <?php endif; ?>
 
         <!-- Approval History -->
-        <?php if ($candidate->dept_approved_at || $candidate->gm_approved_at || $candidate->rejection_reason) : ?>
+        <?php
+        $has_history = $candidate->hr_reviewed_at || $candidate->dept_approved_at || $candidate->gm_approved_at || $candidate->rejection_reason || $candidate->hired_at;
+        $approval_chain = !empty($candidate->approval_chain) ? json_decode($candidate->approval_chain, true) : [];
+        ?>
+        <?php if ($has_history || !empty($approval_chain)) : ?>
             <div class="sfs-hr-card">
                 <h3><?php esc_html_e('Approval History', 'sfs-hr'); ?></h3>
                 <table class="widefat">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e('Step', 'sfs-hr'); ?></th>
+                            <th><?php esc_html_e('Date', 'sfs-hr'); ?></th>
+                            <th><?php esc_html_e('By', 'sfs-hr'); ?></th>
+                            <th><?php esc_html_e('Notes', 'sfs-hr'); ?></th>
+                        </tr>
+                    </thead>
                     <tbody>
-                        <?php if ($candidate->dept_approved_at) : ?>
-                            <tr>
-                                <td><strong><?php esc_html_e('Dept. Manager Approved', 'sfs-hr'); ?></strong></td>
-                                <td><?php echo esc_html(wp_date('M j, Y H:i', strtotime($candidate->dept_approved_at))); ?></td>
-                                <td><?php echo $candidate->dept_notes ? esc_html($candidate->dept_notes) : '—'; ?></td>
-                            </tr>
-                        <?php endif; ?>
-                        <?php if ($candidate->gm_approved_at) : ?>
-                            <tr>
-                                <td><strong><?php esc_html_e('GM Approved', 'sfs-hr'); ?></strong></td>
-                                <td><?php echo esc_html(wp_date('M j, Y H:i', strtotime($candidate->gm_approved_at))); ?></td>
-                                <td><?php echo $candidate->gm_notes ? esc_html($candidate->gm_notes) : '—'; ?></td>
-                            </tr>
+                        <?php if (!empty($approval_chain)) : ?>
+                            <?php foreach ($approval_chain as $step) : ?>
+                                <tr<?php echo ($step['action'] ?? '') === 'reject' ? ' style="background:#ffebee;"' : ''; ?>>
+                                    <td><strong><?php echo esc_html($step['label'] ?? $step['role'] ?? '—'); ?></strong></td>
+                                    <td><?php echo isset($step['at']) ? esc_html(wp_date('M j, Y H:i', strtotime($step['at']))) : '—'; ?></td>
+                                    <td><?php
+                                        if (!empty($step['by'])) {
+                                            $u = get_userdata((int)$step['by']);
+                                            echo $u ? esc_html($u->display_name) : esc_html('#' . $step['by']);
+                                        } else {
+                                            echo '—';
+                                        }
+                                    ?></td>
+                                    <td><?php echo !empty($step['note']) ? esc_html($step['note']) : '—'; ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php else : ?>
+                            <?php // Fallback: show from individual columns for older records ?>
+                            <?php if ($candidate->hr_reviewed_at) : ?>
+                                <tr>
+                                    <td><strong><?php esc_html_e('HR Reviewed', 'sfs-hr'); ?></strong></td>
+                                    <td><?php echo esc_html(wp_date('M j, Y H:i', strtotime($candidate->hr_reviewed_at))); ?></td>
+                                    <td><?php
+                                        if ($candidate->hr_reviewer_id) {
+                                            $u = get_userdata((int)$candidate->hr_reviewer_id);
+                                            echo $u ? esc_html($u->display_name) : '—';
+                                        } else { echo '—'; }
+                                    ?></td>
+                                    <td><?php echo $candidate->hr_notes ? esc_html($candidate->hr_notes) : '—'; ?></td>
+                                </tr>
+                            <?php endif; ?>
+                            <?php if ($candidate->dept_approved_at) : ?>
+                                <tr>
+                                    <td><strong><?php esc_html_e('Dept. Manager Approved', 'sfs-hr'); ?></strong></td>
+                                    <td><?php echo esc_html(wp_date('M j, Y H:i', strtotime($candidate->dept_approved_at))); ?></td>
+                                    <td><?php
+                                        if ($candidate->dept_manager_id) {
+                                            $u = get_userdata((int)$candidate->dept_manager_id);
+                                            echo $u ? esc_html($u->display_name) : '—';
+                                        } else { echo '—'; }
+                                    ?></td>
+                                    <td><?php echo $candidate->dept_notes ? esc_html($candidate->dept_notes) : '—'; ?></td>
+                                </tr>
+                            <?php endif; ?>
+                            <?php if ($candidate->gm_approved_at) : ?>
+                                <tr>
+                                    <td><strong><?php esc_html_e('GM Approved', 'sfs-hr'); ?></strong></td>
+                                    <td><?php echo esc_html(wp_date('M j, Y H:i', strtotime($candidate->gm_approved_at))); ?></td>
+                                    <td><?php
+                                        if ($candidate->gm_id) {
+                                            $u = get_userdata((int)$candidate->gm_id);
+                                            echo $u ? esc_html($u->display_name) : '—';
+                                        } else { echo '—'; }
+                                    ?></td>
+                                    <td><?php echo $candidate->gm_notes ? esc_html($candidate->gm_notes) : '—'; ?></td>
+                                </tr>
+                            <?php endif; ?>
                         <?php endif; ?>
                         <?php if ($candidate->rejection_reason) : ?>
                             <tr style="background:#ffebee;">
                                 <td><strong><?php esc_html_e('Rejected', 'sfs-hr'); ?></strong></td>
-                                <td colspan="2"><?php echo esc_html($candidate->rejection_reason); ?></td>
+                                <td colspan="3"><?php echo esc_html($candidate->rejection_reason); ?></td>
                             </tr>
                         <?php endif; ?>
                         <?php if ($candidate->hired_at) : ?>
                             <tr style="background:#e8f5e9;">
                                 <td><strong><?php esc_html_e('Hired', 'sfs-hr'); ?></strong></td>
                                 <td><?php echo esc_html(wp_date('M j, Y', strtotime($candidate->hired_at))); ?></td>
-                                <td>
+                                <td colspan="2">
                                     <?php if ($candidate->employee_id) : ?>
                                         <a href="?page=sfs-hr-employees&action=view&id=<?php echo (int) $candidate->employee_id; ?>"><?php esc_html_e('View Employee Record', 'sfs-hr'); ?></a>
                                     <?php endif; ?>
@@ -605,7 +720,7 @@ class AdminPages {
         <?php endif; ?>
 
         <p>
-            <a href="?page=sfs-hr-lifecycle&tab=candidates" class="button"><?php esc_html_e('Back to List', 'sfs-hr'); ?></a>
+            <a href="?page=sfs-hr-hiring&tab=candidates" class="button"><?php esc_html_e('Back to List', 'sfs-hr'); ?></a>
         </p>
         <?php
     }
@@ -670,14 +785,14 @@ class AdminPages {
                     <h3 style="margin:0; border:none; padding:0;"><?php esc_html_e('Trainees', 'sfs-hr'); ?></h3>
                     <p style="margin:5px 0 0 0; color:#666; font-size:13px;"><?php esc_html_e('Student Internship Program', 'sfs-hr'); ?></p>
                 </div>
-                <a href="?page=sfs-hr-lifecycle&tab=trainees&action=add" class="button button-primary">
+                <a href="?page=sfs-hr-hiring&tab=trainees&action=add" class="button button-primary">
                     <?php esc_html_e('Add Trainee', 'sfs-hr'); ?>
                 </a>
             </div>
 
             <!-- Filters -->
             <form method="get" style="margin-bottom:20px; display:flex; gap:10px; flex-wrap:wrap;">
-                <input type="hidden" name="page" value="sfs-hr-lifecycle" />
+                <input type="hidden" name="page" value="sfs-hr-hiring" />
                 <input type="hidden" name="tab" value="trainees" />
 
                 <select name="status">
@@ -728,9 +843,9 @@ class AdminPages {
                                     </span>
                                 </td>
                                 <td>
-                                    <a href="?page=sfs-hr-lifecycle&tab=trainees&action=view&id=<?php echo (int) $t->id; ?>"><?php esc_html_e('View', 'sfs-hr'); ?></a>
+                                    <a href="?page=sfs-hr-hiring&tab=trainees&action=view&id=<?php echo (int) $t->id; ?>"><?php esc_html_e('View', 'sfs-hr'); ?></a>
                                     |
-                                    <a href="?page=sfs-hr-lifecycle&tab=trainees&action=edit&id=<?php echo (int) $t->id; ?>"><?php esc_html_e('Edit', 'sfs-hr'); ?></a>
+                                    <a href="?page=sfs-hr-hiring&tab=trainees&action=edit&id=<?php echo (int) $t->id; ?>"><?php esc_html_e('Edit', 'sfs-hr'); ?></a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -883,7 +998,7 @@ class AdminPages {
 
                 <p>
                     <button type="submit" class="button button-primary"><?php echo $is_edit ? esc_html__('Update Trainee', 'sfs-hr') : esc_html__('Add Trainee', 'sfs-hr'); ?></button>
-                    <a href="?page=sfs-hr-lifecycle&tab=trainees" class="button"><?php esc_html_e('Cancel', 'sfs-hr'); ?></a>
+                    <a href="?page=sfs-hr-hiring&tab=trainees" class="button"><?php esc_html_e('Cancel', 'sfs-hr'); ?></a>
                 </p>
             </form>
         </div>
@@ -925,7 +1040,7 @@ class AdminPages {
                         <?php echo esc_html($statuses[$trainee->status] ?? $trainee->status); ?>
                     </span>
                 </div>
-                <a href="?page=sfs-hr-lifecycle&tab=trainees&action=edit&id=<?php echo (int) $trainee->id; ?>" class="button">
+                <a href="?page=sfs-hr-hiring&tab=trainees&action=edit&id=<?php echo (int) $trainee->id; ?>" class="button">
                     <?php esc_html_e('Edit', 'sfs-hr'); ?>
                 </a>
             </div>
@@ -1116,7 +1231,7 @@ class AdminPages {
             <div class="sfs-hr-card" style="background:#e8f5e9;">
                 <p>
                     <strong><?php esc_html_e('This trainee was converted to a candidate.', 'sfs-hr'); ?></strong>
-                    <a href="?page=sfs-hr-lifecycle&tab=candidates&action=view&id=<?php echo (int) $trainee->candidate_id; ?>"><?php esc_html_e('View Candidate Record', 'sfs-hr'); ?></a>
+                    <a href="?page=sfs-hr-hiring&tab=candidates&action=view&id=<?php echo (int) $trainee->candidate_id; ?>"><?php esc_html_e('View Candidate Record', 'sfs-hr'); ?></a>
                 </p>
             </div>
         <?php elseif ($trainee->status === 'converted' && !$trainee->candidate_id) :
@@ -1140,7 +1255,7 @@ class AdminPages {
         <?php endif; ?>
 
         <p>
-            <a href="?page=sfs-hr-lifecycle&tab=trainees" class="button"><?php esc_html_e('Back to List', 'sfs-hr'); ?></a>
+            <a href="?page=sfs-hr-hiring&tab=trainees" class="button"><?php esc_html_e('Back to List', 'sfs-hr'); ?></a>
         </p>
         <?php
     }
@@ -1154,8 +1269,10 @@ class AdminPages {
 
         global $wpdb;
         $now = current_time('mysql');
+        $request_number = HiringModule::generate_candidate_reference();
 
         $wpdb->insert("{$wpdb->prefix}sfs_hr_candidates", [
+            'request_number' => $request_number,
             'first_name' => sanitize_text_field($_POST['first_name'] ?? ''),
             'last_name' => sanitize_text_field($_POST['last_name'] ?? ''),
             'email' => sanitize_email($_POST['email'] ?? ''),
@@ -1176,7 +1293,7 @@ class AdminPages {
             'updated_at' => $now,
         ]);
 
-        wp_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=candidates&message=added'));
+        wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=candidates&message=added'));
         exit;
     }
 
@@ -1206,7 +1323,7 @@ class AdminPages {
             'updated_at' => current_time('mysql'),
         ], ['id' => $id]);
 
-        wp_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=candidates&action=view&id=' . $id . '&message=updated'));
+        wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=candidates&action=view&id=' . $id . '&message=updated'));
         exit;
     }
 
@@ -1219,55 +1336,158 @@ class AdminPages {
         $id = absint($_POST['candidate_id'] ?? 0);
         $action = sanitize_text_field($_POST['workflow_action'] ?? '');
         $now = current_time('mysql');
+        $current_user_id = get_current_user_id();
+
+        // Load existing approval chain
+        $candidate = $wpdb->get_row($wpdb->prepare(
+            "SELECT approval_chain FROM {$wpdb->prefix}sfs_hr_candidates WHERE id = %d",
+            $id
+        ));
+        $chain = !empty($candidate->approval_chain) ? json_decode($candidate->approval_chain, true) : [];
 
         switch ($action) {
+            case 'start_screening':
+                $chain[] = [
+                    'role' => 'hr',
+                    'label' => __('Screening Started', 'sfs-hr'),
+                    'action' => 'start_screening',
+                    'by' => $current_user_id,
+                    'at' => $now,
+                    'note' => '',
+                ];
+                $wpdb->update("{$wpdb->prefix}sfs_hr_candidates", [
+                    'status' => 'screening',
+                    'approval_chain' => wp_json_encode($chain),
+                    'updated_at' => $now,
+                ], ['id' => $id]);
+                break;
+
+            case 'hr_review_complete':
+                $notes = sanitize_textarea_field($_POST['notes'] ?? '');
+                $chain[] = [
+                    'role' => 'hr',
+                    'label' => __('HR Review Completed', 'sfs-hr'),
+                    'action' => 'hr_review',
+                    'by' => $current_user_id,
+                    'at' => $now,
+                    'note' => $notes,
+                ];
+                $wpdb->update("{$wpdb->prefix}sfs_hr_candidates", [
+                    'status' => 'hr_reviewed',
+                    'hr_reviewer_id' => $current_user_id,
+                    'hr_reviewed_at' => $now,
+                    'hr_notes' => $notes,
+                    'approval_chain' => wp_json_encode($chain),
+                    'updated_at' => $now,
+                ], ['id' => $id]);
+                break;
+
             case 'send_to_dept':
+                $chain[] = [
+                    'role' => 'hr',
+                    'label' => __('Sent to Dept. Manager', 'sfs-hr'),
+                    'action' => 'escalate',
+                    'by' => $current_user_id,
+                    'at' => $now,
+                    'note' => '',
+                ];
                 $wpdb->update("{$wpdb->prefix}sfs_hr_candidates", [
                     'status' => 'dept_pending',
+                    'approval_chain' => wp_json_encode($chain),
                     'updated_at' => $now,
                 ], ['id' => $id]);
                 break;
 
             case 'dept_approve':
+                $notes = sanitize_textarea_field($_POST['notes'] ?? '');
+                $chain[] = [
+                    'role' => 'manager',
+                    'label' => __('Dept. Manager Approved', 'sfs-hr'),
+                    'action' => 'approve',
+                    'by' => $current_user_id,
+                    'at' => $now,
+                    'note' => $notes,
+                ];
                 $wpdb->update("{$wpdb->prefix}sfs_hr_candidates", [
                     'status' => 'dept_approved',
-                    'dept_manager_id' => get_current_user_id(),
+                    'dept_manager_id' => $current_user_id,
                     'dept_approved_at' => $now,
-                    'dept_notes' => sanitize_textarea_field($_POST['notes'] ?? ''),
+                    'dept_notes' => $notes,
+                    'approval_chain' => wp_json_encode($chain),
                     'updated_at' => $now,
                 ], ['id' => $id]);
                 break;
 
             case 'send_to_gm':
+                $chain[] = [
+                    'role' => 'hr',
+                    'label' => __('Sent to GM', 'sfs-hr'),
+                    'action' => 'escalate',
+                    'by' => $current_user_id,
+                    'at' => $now,
+                    'note' => '',
+                ];
                 $wpdb->update("{$wpdb->prefix}sfs_hr_candidates", [
                     'status' => 'gm_pending',
+                    'approval_chain' => wp_json_encode($chain),
                     'updated_at' => $now,
                 ], ['id' => $id]);
                 break;
 
             case 'gm_approve':
+                $notes = sanitize_textarea_field($_POST['notes'] ?? '');
+                $chain[] = [
+                    'role' => 'gm',
+                    'label' => __('GM Approved', 'sfs-hr'),
+                    'action' => 'approve',
+                    'by' => $current_user_id,
+                    'at' => $now,
+                    'note' => $notes,
+                ];
                 $wpdb->update("{$wpdb->prefix}sfs_hr_candidates", [
                     'status' => 'gm_approved',
-                    'gm_id' => get_current_user_id(),
+                    'gm_id' => $current_user_id,
                     'gm_approved_at' => $now,
-                    'gm_notes' => sanitize_textarea_field($_POST['notes'] ?? ''),
+                    'gm_notes' => $notes,
+                    'approval_chain' => wp_json_encode($chain),
                     'updated_at' => $now,
                 ], ['id' => $id]);
                 break;
 
             case 'reject':
+                $reason = sanitize_textarea_field($_POST['rejection_reason'] ?? 'Rejected');
+                $chain[] = [
+                    'role' => 'reviewer',
+                    'label' => __('Rejected', 'sfs-hr'),
+                    'action' => 'reject',
+                    'by' => $current_user_id,
+                    'at' => $now,
+                    'note' => $reason,
+                ];
                 $wpdb->update("{$wpdb->prefix}sfs_hr_candidates", [
                     'status' => 'rejected',
-                    'rejection_reason' => sanitize_textarea_field($_POST['rejection_reason'] ?? 'Rejected'),
+                    'rejection_reason' => $reason,
+                    'approval_chain' => wp_json_encode($chain),
                     'updated_at' => $now,
                 ], ['id' => $id]);
                 break;
 
             case 'hire':
+                // Track hire in approval chain
+                $chain[] = [
+                    'role' => 'hr',
+                    'label' => __('Hired', 'sfs-hr'),
+                    'action' => 'hire',
+                    'by' => $current_user_id,
+                    'at' => $now,
+                    'note' => '',
+                ];
+
                 // Update offered position/salary first
                 $wpdb->update("{$wpdb->prefix}sfs_hr_candidates", [
                     'offered_position' => sanitize_text_field($_POST['offered_position'] ?? ''),
                     'offered_salary' => floatval($_POST['offered_salary'] ?? 0) ?: null,
+                    'approval_chain' => wp_json_encode($chain),
                     'updated_at' => $now,
                 ], ['id' => $id]);
 
@@ -1278,13 +1498,13 @@ class AdminPages {
                 ]);
 
                 if ($employee_id) {
-                    wp_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=candidates&action=view&id=' . $id . '&message=hired'));
+                    wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=candidates&action=view&id=' . $id . '&message=hired'));
                     exit;
                 }
                 break;
         }
 
-        wp_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=candidates&action=view&id=' . $id));
+        wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=candidates&action=view&id=' . $id));
         exit;
     }
 
@@ -1357,7 +1577,7 @@ class AdminPages {
             'updated_at' => $now,
         ]);
 
-        wp_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=trainees&message=added'));
+        wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=trainees&message=added'));
         exit;
     }
 
@@ -1387,7 +1607,7 @@ class AdminPages {
             'updated_at' => current_time('mysql'),
         ], ['id' => $id]);
 
-        wp_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=trainees&action=view&id=' . $id . '&message=updated'));
+        wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=trainees&action=view&id=' . $id . '&message=updated'));
         exit;
     }
 
@@ -1419,7 +1639,7 @@ class AdminPages {
                 // Convert to candidate
                 $candidate_id = HiringModule::convert_trainee_to_candidate($id);
                 if ($candidate_id) {
-                    wp_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=candidates&action=view&id=' . $candidate_id . '&message=converted'));
+                    wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=candidates&action=view&id=' . $candidate_id . '&message=converted'));
                     exit;
                 }
                 break;
@@ -1459,7 +1679,7 @@ class AdminPages {
 
                     // Check if email already exists
                     if (email_exists($email)) {
-                        wp_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=trainees&action=view&id=' . $id . '&error=email_exists'));
+                        wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=trainees&action=view&id=' . $id . '&error=email_exists'));
                         exit;
                     }
 
@@ -1497,7 +1717,7 @@ class AdminPages {
 
                         wp_mail($email, $subject, $message);
 
-                        wp_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=trainees&action=view&id=' . $id . '&message=account_created'));
+                        wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=trainees&action=view&id=' . $id . '&message=account_created'));
                         exit;
                     }
                 }
@@ -1519,7 +1739,7 @@ class AdminPages {
                 break;
         }
 
-        wp_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=trainees&action=view&id=' . $id));
+        wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=trainees&action=view&id=' . $id));
         exit;
     }
 }
