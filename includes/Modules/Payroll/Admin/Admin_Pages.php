@@ -15,7 +15,8 @@ defined( 'ABSPATH' ) || exit;
 class Admin_Pages {
 
     public function hooks(): void {
-        add_action( 'admin_menu', [ $this, 'menu' ], 25 );
+        // Register standalone Payroll menu
+        add_action( 'admin_menu', [ $this, 'register_menu' ], 25 );
         add_action( 'admin_post_sfs_hr_payroll_create_period', [ $this, 'handle_create_period' ] );
         add_action( 'admin_post_sfs_hr_payroll_run_payroll', [ $this, 'handle_run_payroll' ] );
         add_action( 'admin_post_sfs_hr_payroll_approve_run', [ $this, 'handle_approve_run' ] );
@@ -26,7 +27,39 @@ class Admin_Pages {
         add_action( 'admin_post_sfs_hr_payroll_export_detailed', [ $this, 'handle_export_detailed' ] );
     }
 
-    public function menu(): void {
+    /**
+     * Render tab content for unified Finance & Exit page
+     */
+    public function render_tab_content( string $tab ): void {
+        switch ( $tab ) {
+            case 'overview':
+                $this->render_overview();
+                break;
+            case 'periods':
+                $this->render_periods();
+                break;
+            case 'runs':
+                $this->render_runs();
+                break;
+            case 'components':
+                $this->render_components();
+                break;
+            case 'payslips':
+                $this->render_payslips();
+                break;
+            case 'export':
+                $this->render_export();
+                break;
+            default:
+                $this->render_overview();
+                break;
+        }
+    }
+
+    /**
+     * Register standalone Payroll menu
+     */
+    public function register_menu(): void {
         add_submenu_page(
             'sfs-hr',
             __( 'Payroll', 'sfs-hr' ),
@@ -57,14 +90,14 @@ class Admin_Pages {
             'export'     => __( 'Export', 'sfs-hr' ),
         ];
 
-        $active_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'overview';
+        $active_tab = isset( $_GET['payroll_tab'] ) ? sanitize_key( $_GET['payroll_tab'] ) : 'overview';
         if ( ! isset( $tabs[ $active_tab ] ) ) {
             $active_tab = 'overview';
         }
 
         echo '<h2 class="nav-tab-wrapper">';
         foreach ( $tabs as $slug => $label ) {
-            $url   = add_query_arg( 'tab', $slug, admin_url( 'admin.php?page=sfs-hr-payroll' ) );
+            $url   = add_query_arg( 'payroll_tab', $slug, admin_url( 'admin.php?page=sfs-hr-payroll' ) );
             $class = $active_tab === $slug ? 'nav-tab nav-tab-active' : 'nav-tab';
             echo '<a href="' . esc_url( $url ) . '" class="' . esc_attr( $class ) . '">' . esc_html( $label ) . '</a>';
         }
@@ -180,7 +213,7 @@ class Admin_Pages {
             <div class="notice notice-warning" style="margin:0;">
                 <p><?php esc_html_e( 'No payroll periods found. Create a period to get started.', 'sfs-hr' ); ?></p>
                 <p>
-                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&tab=periods' ) ); ?>" class="button button-primary">
+                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=periods' ) ); ?>" class="button button-primary">
                         <?php esc_html_e( 'Create Period', 'sfs-hr' ); ?>
                     </a>
                 </p>
@@ -191,13 +224,13 @@ class Admin_Pages {
             <div style="background:#f0f6fc; padding:20px; border-radius:8px;">
                 <h3 style="margin:0 0 15px;"><?php esc_html_e( 'Quick Actions', 'sfs-hr' ); ?></h3>
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&tab=periods&action=new' ) ); ?>" class="button">
+                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=periods&action=new' ) ); ?>" class="button">
                         <?php esc_html_e( 'Create New Period', 'sfs-hr' ); ?>
                     </a>
-                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&tab=components' ) ); ?>" class="button">
+                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=components' ) ); ?>" class="button">
                         <?php esc_html_e( 'Manage Components', 'sfs-hr' ); ?>
                     </a>
-                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&tab=runs' ) ); ?>" class="button">
+                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=runs' ) ); ?>" class="button">
                         <?php esc_html_e( 'View Payroll History', 'sfs-hr' ); ?>
                     </a>
                 </div>
@@ -223,7 +256,7 @@ class Admin_Pages {
         ?>
         <div class="sfs-hr-payroll-periods">
             <div style="margin-bottom:15px;">
-                <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&tab=periods&action=new' ) ); ?>" class="button button-primary">
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=periods&action=new' ) ); ?>" class="button button-primary">
                     <?php esc_html_e( 'Create New Period', 'sfs-hr' ); ?>
                 </a>
             </div>
@@ -352,7 +385,7 @@ class Admin_Pages {
 
                 <p class="submit">
                     <button type="submit" class="button button-primary"><?php esc_html_e( 'Create Period', 'sfs-hr' ); ?></button>
-                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&tab=periods' ) ); ?>" class="button"><?php esc_html_e( 'Cancel', 'sfs-hr' ); ?></a>
+                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=periods' ) ); ?>" class="button"><?php esc_html_e( 'Cancel', 'sfs-hr' ); ?></a>
                 </p>
             </form>
         </div>
@@ -437,7 +470,7 @@ class Admin_Pages {
                         <td><strong><?php echo esc_html( number_format( (float) $run->total_net, 2 ) ); ?></strong></td>
                         <td><?php echo esc_html( date_i18n( 'M j, Y', strtotime( $run->created_at ) ) ); ?></td>
                         <td>
-                            <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&tab=runs&view=detail&run_id=' . $run->id ) ); ?>" class="button button-small">
+                            <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=runs&view=detail&run_id=' . $run->id ) ); ?>" class="button button-small">
                                 <?php esc_html_e( 'View', 'sfs-hr' ); ?>
                             </a>
 
@@ -502,7 +535,7 @@ class Admin_Pages {
         ?>
         <div class="sfs-hr-run-detail">
             <p>
-                <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&tab=runs' ) ); ?>">&larr; <?php esc_html_e( 'Back to Runs', 'sfs-hr' ); ?></a>
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=runs' ) ); ?>">&larr; <?php esc_html_e( 'Back to Runs', 'sfs-hr' ); ?></a>
             </p>
 
             <h2><?php echo esc_html( $run->period_name ); ?> - <?php esc_html_e( 'Payroll Run', 'sfs-hr' ); ?> #<?php echo intval( $run->id ); ?></h2>
@@ -788,7 +821,7 @@ class Admin_Pages {
         $notes = sanitize_textarea_field( $_POST['notes'] ?? '' );
 
         if ( ! $start_date || ! $end_date || ! $pay_date ) {
-            wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&tab=periods&error=missing_dates' ) );
+            wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=periods&error=missing_dates' ) );
             exit;
         }
 
@@ -808,7 +841,7 @@ class Admin_Pages {
             'updated_at'  => $now,
         ] );
 
-        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&tab=periods&created=1' ) );
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=periods&created=1' ) );
         exit;
     }
 
@@ -935,7 +968,7 @@ class Admin_Pages {
             'updated_at' => $now,
         ], [ 'id' => $period_id ] );
 
-        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&tab=runs&view=detail&run_id=' . $run_id ) );
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=runs&view=detail&run_id=' . $run_id ) );
         exit;
     }
 
@@ -959,7 +992,7 @@ class Admin_Pages {
         ) );
 
         if ( ! $run || $run->status !== 'review' ) {
-            wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&tab=runs&error=invalid_run' ) );
+            wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=runs&error=invalid_run' ) );
             exit;
         }
 
@@ -1003,7 +1036,7 @@ class Admin_Pages {
             'updated_at' => $now,
         ], [ 'id' => $run->period_id ] );
 
-        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&tab=runs&view=detail&run_id=' . $run_id . '&approved=1' ) );
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=runs&view=detail&run_id=' . $run_id . '&approved=1' ) );
         exit;
     }
 
@@ -1262,7 +1295,7 @@ class Admin_Pages {
                 (int) $period_id
             ) );
             if ( ! $period ) {
-                wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&tab=export&error=invalid_period' ) );
+                wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=export&error=invalid_period' ) );
                 exit;
             }
             $start_date = $period->start_date;
@@ -1378,7 +1411,7 @@ class Admin_Pages {
         ) );
 
         if ( ! $run || ! in_array( $run->status, [ 'approved', 'paid' ], true ) ) {
-            wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&tab=export&error=invalid_run' ) );
+            wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=export&error=invalid_run' ) );
             exit;
         }
 
@@ -1533,7 +1566,7 @@ class Admin_Pages {
         ) );
 
         if ( ! $run || ! in_array( $run->status, [ 'approved', 'paid' ], true ) ) {
-            wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&tab=export&error=invalid_run' ) );
+            wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=export&error=invalid_run' ) );
             exit;
         }
 
@@ -1739,7 +1772,7 @@ class Admin_Pages {
         ) );
 
         if ( ! $run || ! in_array( $run->status, [ 'approved', 'paid' ], true ) ) {
-            wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&tab=runs&error=invalid_run' ) );
+            wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=runs&error=invalid_run' ) );
             exit;
         }
 

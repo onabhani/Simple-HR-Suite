@@ -10,9 +10,14 @@ if (!defined('ABSPATH')) { exit; }
  * Hiring Module
  * Manages candidates and trainee students
  *
- * Workflow:
- * - Candidates: Applied/Manual → Dept Manager Approval → GM Approval → Hired/Rejected
- * - Trainees: Training Period (3-6 months) → Convert to Candidate OR Archive
+ * Candidate Workflow:
+ * 1. Applied/Manual → HR Review (screening)
+ * 2. HR Reviewed → Department Manager Approval
+ * 3. Dept Approved → GM Final Approval
+ * 4. GM Approved → Hire (creates WordPress user with department role, starts probation)
+ *
+ * Trainee Workflow:
+ * - Training Period (3-6 months) → Convert to Candidate OR Archive
  */
 class HiringModule {
 
@@ -26,23 +31,21 @@ class HiringModule {
     }
 
     public function hooks(): void {
-        // Admin menu
-        add_action('admin_menu', [$this, 'add_admin_menus'], 25);
-
-        // Admin pages
+        // Admin pages – Hiring has its own submenu under HR → Employees
         require_once __DIR__ . '/Admin/class-admin-pages.php';
         Admin\AdminPages::instance()->hooks();
+        add_action('admin_menu', [$this, 'register_menu'], 12);
     }
 
     /**
-     * Add admin menus
+     * Register Hiring submenu page (placed right after Employees)
      */
-    public function add_admin_menus(): void {
+    public function register_menu(): void {
         add_submenu_page(
             'sfs-hr',
             __('Hiring', 'sfs-hr'),
             __('Hiring', 'sfs-hr'),
-            'sfs_hr.view',
+            'sfs_hr.manage',
             'sfs-hr-hiring',
             [Admin\AdminPages::instance(), 'render_page']
         );
@@ -59,6 +62,9 @@ class HiringModule {
         // Candidates table
         $candidates = "CREATE TABLE {$wpdb->prefix}sfs_hr_candidates (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+
+            -- Reference Number (CND-YYYY-NNNN)
+            request_number VARCHAR(50) NULL,
 
             -- Basic Info
             first_name VARCHAR(191) NOT NULL,
@@ -87,10 +93,16 @@ class HiringModule {
             notes TEXT NULL,
 
             -- Status & Workflow
-            status ENUM('applied','screening','dept_pending','dept_approved','gm_pending','gm_approved','hired','rejected') NOT NULL DEFAULT 'applied',
+            status ENUM('applied','screening','hr_reviewed','dept_pending','dept_approved','gm_pending','gm_approved','hired','rejected') NOT NULL DEFAULT 'applied',
             rejection_reason TEXT NULL,
 
+            -- Approval Chain (JSON array of approval steps)
+            approval_chain LONGTEXT NULL,
+
             -- Approval Tracking
+            hr_reviewer_id BIGINT UNSIGNED NULL,
+            hr_reviewed_at DATETIME NULL,
+            hr_notes TEXT NULL,
             dept_manager_id BIGINT UNSIGNED NULL,
             dept_approved_at DATETIME NULL,
             dept_notes TEXT NULL,
@@ -113,6 +125,7 @@ class HiringModule {
             updated_at DATETIME NOT NULL,
 
             PRIMARY KEY (id),
+            UNIQUE KEY request_number (request_number),
             KEY idx_status (status),
             KEY idx_dept (dept_id),
             KEY idx_email (email)
@@ -189,6 +202,7 @@ class HiringModule {
         return [
             'applied' => __('Applied', 'sfs-hr'),
             'screening' => __('Screening', 'sfs-hr'),
+            'hr_reviewed' => __('HR Reviewed', 'sfs-hr'),
             'dept_pending' => __('Pending Dept. Manager', 'sfs-hr'),
             'dept_approved' => __('Dept. Manager Approved', 'sfs-hr'),
             'gm_pending' => __('Pending GM', 'sfs-hr'),
@@ -196,6 +210,18 @@ class HiringModule {
             'hired' => __('Hired', 'sfs-hr'),
             'rejected' => __('Rejected', 'sfs-hr'),
         ];
+    }
+
+    /**
+     * Generate unique candidate reference number (CND-YYYY-NNNN)
+     */
+    public static function generate_candidate_reference(): string {
+        global $wpdb;
+        return Helpers::generate_reference_number(
+            'CND',
+            $wpdb->prefix . 'sfs_hr_candidates',
+            'request_number'
+        );
     }
 
     /**
@@ -251,8 +277,12 @@ class HiringModule {
 
         $now = current_time('mysql');
 
+        // Generate reference number
+        $request_number = self::generate_candidate_reference();
+
         // Create candidate from trainee data
         $wpdb->insert("{$wpdb->prefix}sfs_hr_candidates", [
+            'request_number' => $request_number,
             'first_name' => $trainee->first_name,
             'last_name' => $trainee->last_name,
             'email' => $trainee->email,
@@ -264,7 +294,7 @@ class HiringModule {
             'position_applied' => $trainee->position,
             'dept_id' => $trainee->dept_id,
             'application_source' => 'manual',
-            'status' => 'dept_pending',
+            'status' => 'hr_reviewed',
             'converted_from_trainee_id' => $trainee_id,
             'notes' => sprintf(__('Converted from trainee %s', 'sfs-hr'), $trainee->trainee_code),
             'created_by' => get_current_user_id(),
@@ -367,6 +397,20 @@ class HiringModule {
             delete_user_meta($user_id, 'sfs_hr_is_trainee');
         }
 
+        // Assign role based on department's auto_role, fallback to sfs_hr_employee
+        $wp_role = 'sfs_hr_employee';
+        if ($trainee->dept_id) {
+            $dept_role = $wpdb->get_var($wpdb->prepare(
+                "SELECT auto_role FROM {$wpdb->prefix}sfs_hr_departments WHERE id = %d AND active = 1",
+                $trainee->dept_id
+            ));
+            if ($dept_role && wp_roles()->is_role($dept_role)) {
+                $wp_role = $dept_role;
+            }
+        }
+        $wp_user = new \WP_User($user_id);
+        $wp_user->set_role($wp_role);
+
         // Determine probation end date (3 months default)
         $probation_months = isset($extra_data['probation_months']) ? (int) $extra_data['probation_months'] : 3;
         $hired_date = $extra_data['hired_date'] ?? $today;
@@ -376,7 +420,7 @@ class HiringModule {
         $position = !empty($extra_data['offered_position']) ? $extra_data['offered_position'] : $trainee->position;
         $salary = !empty($extra_data['offered_salary']) ? $extra_data['offered_salary'] : null;
 
-        // Create employee record
+        // Create employee record with probation tracking
         $wpdb->insert("{$wpdb->prefix}sfs_hr_employees", [
             'user_id' => $user_id,
             'employee_code' => $employee_code,
@@ -390,6 +434,8 @@ class HiringModule {
             'status' => 'active',
             'hired_at' => $hired_date,
             'base_salary' => $salary,
+            'probation_end_date' => $probation_end,
+            'probation_status' => 'ongoing',
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -464,6 +510,9 @@ class HiringModule {
 
     /**
      * Convert candidate to employee
+     *
+     * Creates a WordPress user account, assigns the department-based role,
+     * creates the employee record, and starts the probation period.
      */
     public static function convert_candidate_to_employee(int $candidate_id, array $extra_data = []): ?int {
         global $wpdb;
@@ -481,7 +530,6 @@ class HiringModule {
         $today = current_time('Y-m-d');
 
         // Generate employee code
-        $year = date('Y');
         $prefix = "USR-";
         $last = $wpdb->get_var(
             "SELECT employee_code FROM {$wpdb->prefix}sfs_hr_employees
@@ -519,12 +567,26 @@ class HiringModule {
             'display_name' => trim($candidate->first_name . ' ' . ($candidate->last_name ?? '')),
         ]);
 
-        // Determine probation end date (3 months default)
+        // Assign role based on department's auto_role, fallback to sfs_hr_employee
+        $wp_role = 'sfs_hr_employee';
+        if ($candidate->dept_id) {
+            $dept_role = $wpdb->get_var($wpdb->prepare(
+                "SELECT auto_role FROM {$wpdb->prefix}sfs_hr_departments WHERE id = %d AND active = 1",
+                $candidate->dept_id
+            ));
+            if ($dept_role && wp_roles()->is_role($dept_role)) {
+                $wp_role = $dept_role;
+            }
+        }
+        $user = new \WP_User($user_id);
+        $user->set_role($wp_role);
+
+        // Determine probation period
         $probation_months = isset($extra_data['probation_months']) ? (int) $extra_data['probation_months'] : 3;
         $hired_date = $extra_data['hired_date'] ?? $today;
         $probation_end = date('Y-m-d', strtotime("+{$probation_months} months", strtotime($hired_date)));
 
-        // Create employee record
+        // Create employee record with probation tracking
         $wpdb->insert("{$wpdb->prefix}sfs_hr_employees", [
             'user_id' => $user_id,
             'employee_code' => $employee_code,
@@ -538,6 +600,8 @@ class HiringModule {
             'status' => 'active',
             'hired_at' => $hired_date,
             'base_salary' => $candidate->offered_salary ?? $candidate->expected_salary,
+            'probation_end_date' => $probation_end,
+            'probation_status' => 'ongoing',
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -557,7 +621,7 @@ class HiringModule {
                 ['id' => $candidate_id]
             );
 
-            // Store probation info in employee meta or custom field
+            // Also store probation in user meta for backwards compatibility
             update_user_meta($user_id, 'sfs_hr_probation_end', $probation_end);
             update_user_meta($user_id, 'sfs_hr_probation_status', 'ongoing');
 

@@ -42,7 +42,7 @@ class Resignation_List {
                 <input type="search" name="s" value="<?php echo esc_attr($search); ?>" placeholder="<?php esc_attr_e('Search employee name or code...', 'sfs-hr'); ?>" />
                 <button type="submit" class="button"><?php esc_html_e('Search', 'sfs-hr'); ?></button>
                 <?php if ($search !== ''): ?>
-                    <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-resignations&tab=resignations&status=' . $current_status)); ?>" class="button"><?php esc_html_e('Clear', 'sfs-hr'); ?></a>
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-lifecycle&tab=resignations&tab=resignations&status=' . $current_status)); ?>" class="button"><?php esc_html_e('Clear', 'sfs-hr'); ?></a>
                 <?php endif; ?>
             </form>
         </div>

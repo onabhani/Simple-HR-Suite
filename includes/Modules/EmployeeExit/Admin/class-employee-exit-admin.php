@@ -12,7 +12,12 @@ if (!defined('ABSPATH')) { exit; }
 
 /**
  * Employee Exit Admin
- * Unified admin page for resignation and settlement management
+ * Unified admin page for the employee exit workflow:
+ * - Resignations
+ * - Settlements
+ * - Exit Settings
+ *
+ * Note: Hiring (Candidates, Trainees) is now a separate page under HR → Hiring.
  */
 class Employee_Exit_Admin {
 
@@ -20,60 +25,54 @@ class Employee_Exit_Admin {
      * Register hooks
      */
     public function hooks(): void {
-        add_action('admin_menu', [$this, 'register_menu']);
+        add_action('admin_menu', [$this, 'register_menu'], 25);
     }
 
     /**
-     * Register admin menu - single unified page for employee exit
+     * Register admin menu
      */
     public function register_menu(): void {
-        // Main Employee Exit page
         add_submenu_page(
             'sfs-hr',
-            __('Resignations', 'sfs-hr'),
-            __('Resignations', 'sfs-hr'),
+            __('Employee Exit', 'sfs-hr'),
+            __('Employee Exit', 'sfs-hr'),
             'sfs_hr.view',
-            'sfs-hr-resignations',
-            [$this, 'render_resignations_page']
-        );
-
-        // Settlements as separate menu item but part of exit workflow
-        add_submenu_page(
-            'sfs-hr',
-            __('Settlements', 'sfs-hr'),
-            __('Settlements', 'sfs-hr'),
-            'sfs_hr.manage',
-            'sfs-hr-settlements',
-            [$this, 'render_settlements_page']
+            'sfs-hr-lifecycle',
+            [$this, 'render_hub']
         );
     }
 
     /**
-     * Render resignations page
+     * Render the hub page with tabs
      */
-    public function render_resignations_page(): void {
+    public function render_hub(): void {
         $tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'resignations';
 
         echo '<div class="wrap sfs-hr-wrap">';
-        echo '<h1 class="wp-heading-inline">' . esc_html__('Resignations', 'sfs-hr') . '</h1>';
+        echo '<h1 class="wp-heading-inline">' . esc_html__('Employee Exit', 'sfs-hr') . '</h1>';
         Helpers::render_admin_nav();
         echo '<hr class="wp-header-end" />';
 
         // Tab navigation
-        if (current_user_can('sfs_hr.manage')) {
-            $this->render_resignation_tabs($tab);
-        }
+        $this->render_tabs($tab);
 
         switch ($tab) {
-            case 'settings':
+            case 'resignations':
+                $this->render_resignations_content();
+                break;
+
+            case 'settlements':
+                $this->render_settlements_content();
+                break;
+
+            case 'exit-settings':
                 if (current_user_can('sfs_hr.manage')) {
                     Resignation_Settings::render();
                 }
                 break;
 
-            case 'resignations':
             default:
-                Resignation_List::render();
+                $this->render_resignations_content();
                 break;
         }
 
@@ -81,9 +80,42 @@ class Employee_Exit_Admin {
     }
 
     /**
-     * Render settlements page
+     * Render tab navigation
      */
-    public function render_settlements_page(): void {
+    private function render_tabs(string $current_tab): void {
+        $tabs = [
+            'resignations' => __('Resignations', 'sfs-hr'),
+            'settlements' => __('Settlements', 'sfs-hr'),
+        ];
+
+        // Add settings tab only for managers
+        if (current_user_can('sfs_hr.manage')) {
+            $tabs['exit-settings'] = __('Exit Settings', 'sfs-hr');
+        }
+
+        echo '<h2 class="nav-tab-wrapper">';
+
+        foreach ($tabs as $slug => $label) {
+            $url = add_query_arg(['page' => 'sfs-hr-lifecycle', 'tab' => $slug], admin_url('admin.php'));
+            $class = ($current_tab === $slug) ? 'nav-tab nav-tab-active' : 'nav-tab';
+            echo '<a href="' . esc_url($url) . '" class="' . esc_attr($class) . '">' . esc_html($label) . '</a>';
+        }
+
+        echo '</h2>';
+        echo '<div style="margin-top: 20px;"></div>';
+    }
+
+    /**
+     * Render resignations content
+     */
+    private function render_resignations_content(): void {
+        Resignation_List::render();
+    }
+
+    /**
+     * Render settlements content
+     */
+    private function render_settlements_content(): void {
         $action = isset($_GET['action']) ? sanitize_key($_GET['action']) : 'list';
         $settlement_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
@@ -105,30 +137,5 @@ class Employee_Exit_Admin {
                 Settlement_List::render();
                 break;
         }
-    }
-
-    /**
-     * Render resignation tab navigation
-     */
-    private function render_resignation_tabs(string $current_tab): void {
-        ?>
-        <style>
-            .sfs-hr-exit-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
-            .sfs-hr-exit-tabs .sfs-exit-tab {
-                padding: 10px 20px; background: #f6f7f7; border: 1px solid #dcdcde;
-                border-radius: 4px; text-decoration: none; color: #50575e; font-weight: 500;
-            }
-            .sfs-hr-exit-tabs .sfs-exit-tab:hover { background: #fff; border-color: #2271b1; color: #2271b1; }
-            .sfs-hr-exit-tabs .sfs-exit-tab.active { background: #2271b1; border-color: #2271b1; color: #fff; }
-        </style>
-        <div class="sfs-hr-exit-tabs">
-            <a href="?page=sfs-hr-resignations&tab=resignations" class="sfs-exit-tab<?php echo $current_tab === 'resignations' ? ' active' : ''; ?>">
-                <?php esc_html_e('Resignations', 'sfs-hr'); ?>
-            </a>
-            <a href="?page=sfs-hr-resignations&tab=settings" class="sfs-exit-tab<?php echo $current_tab === 'settings' ? ' active' : ''; ?>">
-                <?php esc_html_e('Settings', 'sfs-hr'); ?>
-            </a>
-        </div>
-        <?php
     }
 }

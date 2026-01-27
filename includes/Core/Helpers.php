@@ -184,6 +184,16 @@ class Helpers {
                 'url'    => add_query_arg( 'page', 'sfs-hr-departments', $base ),
                 'parent' => 'sfs-hr',
             ],
+            'sfs-hr-lifecycle' => [
+                'label'  => __( 'Employee Lifecycle', 'sfs-hr' ),
+                'url'    => add_query_arg( 'page', 'sfs-hr-lifecycle', $base ),
+                'parent' => 'sfs-hr',
+            ],
+            'sfs-hr-payroll' => [
+                'label'  => __( 'Payroll', 'sfs-hr' ),
+                'url'    => add_query_arg( 'page', 'sfs-hr-payroll', $base ),
+                'parent' => 'sfs-hr',
+            ],
             // Add more here if you have extra HR pages.
         ];
     }
