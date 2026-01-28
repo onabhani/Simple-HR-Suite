@@ -2661,68 +2661,6 @@ document.getElementById('sfs-hr-action-modal').addEventListener('click', functio
           });
           </script>
 
-          <h2><?php echo esc_html__('Employees List','sfs-hr'); ?> <span style="font-weight:normal; font-size:14px; color:#50575e;">(<?php echo (int)$total; ?> <?php esc_html_e('total','sfs-hr'); ?>)</span></h2>
-
-          <div class="sfs-hr-emp-table">
-            <table class="widefat striped">
-              <thead><tr>
-                <th class="hide-mobile"><?php esc_html_e('ID','sfs-hr'); ?></th>
-                <th class="hide-mobile"><?php esc_html_e('Code','sfs-hr'); ?></th>
-                <th><?php esc_html_e('Name','sfs-hr'); ?></th>
-                <th class="hide-mobile"><?php esc_html_e('Email','sfs-hr'); ?></th>
-                <th class="hide-mobile"><?php esc_html_e('Department','sfs-hr'); ?></th>
-                <th class="hide-mobile"><?php esc_html_e('Position','sfs-hr'); ?></th>
-                <th><?php esc_html_e('Status','sfs-hr'); ?></th>
-                <th><?php esc_html_e('Actions','sfs-hr'); ?></th>
-              </tr></thead>
-              <tbody>
-              <?php if (empty($rows)): ?>
-                <tr><td colspan="8"><?php esc_html_e('No employees found.','sfs-hr'); ?></td></tr>
-              <?php else:
-                foreach ($rows as $r):
-                  $name     = trim(($r['first_name']??'').' '.($r['last_name']??''));
-                  $status   = $r['status'];
-                  $edit_url = wp_nonce_url( admin_url('admin.php?page=sfs-hr-employees&action=edit&id='.(int)$r['id']), 'sfs_hr_edit_'.(int)$r['id'] );
-                  $del_url  = wp_nonce_url( admin_url('admin-post.php?action=sfs_hr_delete_employee&id='.(int)$r['id']), 'sfs_hr_del_'.(int)$r['id'] );
-                  $dept_name = empty($r['dept_id']) ? __('General','sfs-hr') : ($dept_map[(int)$r['dept_id']] ?? '#'.(int)$r['dept_id']);
-              ?>
-                <tr>
-                  <td class="hide-mobile"><?php echo (int)$r['id']; ?></td>
-                  <td class="hide-mobile"><span class="emp-code"><?php echo esc_html($r['employee_code']); ?></span></td>
-                  <td><span class="emp-name"><?php echo esc_html($name ?: $r['employee_code']); ?></span></td>
-                  <td class="hide-mobile"><?php echo esc_html($r['email']); ?></td>
-                  <td class="hide-mobile"><?php echo esc_html($dept_name); ?></td>
-                  <td class="hide-mobile"><?php echo esc_html($r['position']); ?></td>
-                  <td><span class="sfs-hr-badge status-<?php echo esc_attr($status); ?>"><?php echo esc_html(ucfirst($status)); ?></span></td>
-                  <td>
-                    <!-- Desktop action buttons -->
-                    <div class="sfs-hr-actions">
-                      <a class="button button-small" href="<?php echo esc_url($edit_url); ?>"><?php esc_html_e('Edit','sfs-hr'); ?></a>
-                      <a class="button button-small button-danger" href="<?php echo esc_url($del_url); ?>" onclick="return confirm('<?php echo esc_js(__('Delete permanently? This cannot be undone.', 'sfs-hr')); ?>');"><?php esc_html_e('Delete','sfs-hr'); ?></a>
-                    </div>
-                    <!-- Mobile action button (vertical dots) -->
-                    <button type="button" class="sfs-hr-action-mobile-btn" onclick="sfsHrOpenModal('<?php echo esc_js($name ?: $r['employee_code']); ?>', '<?php echo esc_js($edit_url); ?>', '<?php echo esc_js($del_url); ?>')">
-                      <span></span>
-                    </button>
-                  </td>
-                </tr>
-              <?php endforeach; endif; ?>
-              </tbody>
-            </table>
-          </div>
-
-          <?php if ($pages > 1): ?>
-          <div class="sfs-hr-pagination">
-            <?php for($i=1;$i<=$pages;$i++): ?>
-              <?php if ($i === $page): ?>
-                <span class="current-page"><?php echo (int)$i; ?></span>
-              <?php else: ?>
-                <a href="<?php echo esc_url( add_query_arg(['paged'=>$i,'per_page'=>$per_page,'s'=>$q], admin_url('admin.php?page=sfs-hr-employees')) ); ?>"><?php echo (int)$i; ?></a>
-              <?php endif; ?>
-            <?php endfor; ?>
-          </div>
-          <?php endif; ?>
-
           <button type="button" class="sfs-hr-add-employee-toggle" id="sfs-hr-add-employee-toggle" aria-expanded="false" aria-controls="sfs-hr-add-employee-section">
             <span class="dashicons dashicons-plus-alt2"></span>
             <?php esc_html_e('Add New Employee','sfs-hr'); ?>
@@ -3007,6 +2945,69 @@ document.getElementById('sfs-hr-action-modal').addEventListener('click', functio
             </form>
           </div>
           </div><!-- .sfs-hr-collapsible-section -->
+
+          <h2><?php echo esc_html__('Employees List','sfs-hr'); ?> <span style="font-weight:normal; font-size:14px; color:#50575e;">(<?php echo (int)$total; ?> <?php esc_html_e('total','sfs-hr'); ?>)</span></h2>
+
+          <div class="sfs-hr-emp-table">
+            <table class="widefat striped">
+              <thead><tr>
+                <th class="hide-mobile"><?php esc_html_e('ID','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Code','sfs-hr'); ?></th>
+                <th><?php esc_html_e('Name','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Email','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Department','sfs-hr'); ?></th>
+                <th class="hide-mobile"><?php esc_html_e('Position','sfs-hr'); ?></th>
+                <th><?php esc_html_e('Status','sfs-hr'); ?></th>
+                <th><?php esc_html_e('Actions','sfs-hr'); ?></th>
+              </tr></thead>
+              <tbody>
+              <?php if (empty($rows)): ?>
+                <tr><td colspan="8"><?php esc_html_e('No employees found.','sfs-hr'); ?></td></tr>
+              <?php else:
+                foreach ($rows as $r):
+                  $name     = trim(($r['first_name']??'').' '.($r['last_name']??''));
+                  $status   = $r['status'];
+                  $edit_url = wp_nonce_url( admin_url('admin.php?page=sfs-hr-employees&action=edit&id='.(int)$r['id']), 'sfs_hr_edit_'.(int)$r['id'] );
+                  $del_url  = wp_nonce_url( admin_url('admin-post.php?action=sfs_hr_delete_employee&id='.(int)$r['id']), 'sfs_hr_del_'.(int)$r['id'] );
+                  $dept_name = empty($r['dept_id']) ? __('General','sfs-hr') : ($dept_map[(int)$r['dept_id']] ?? '#'.(int)$r['dept_id']);
+              ?>
+                <tr>
+                  <td class="hide-mobile"><?php echo (int)$r['id']; ?></td>
+                  <td class="hide-mobile"><span class="emp-code"><?php echo esc_html($r['employee_code']); ?></span></td>
+                  <td><span class="emp-name"><?php echo esc_html($name ?: $r['employee_code']); ?></span></td>
+                  <td class="hide-mobile"><?php echo esc_html($r['email']); ?></td>
+                  <td class="hide-mobile"><?php echo esc_html($dept_name); ?></td>
+                  <td class="hide-mobile"><?php echo esc_html($r['position']); ?></td>
+                  <td><span class="sfs-hr-badge status-<?php echo esc_attr($status); ?>"><?php echo esc_html(ucfirst($status)); ?></span></td>
+                  <td>
+                    <!-- Desktop action buttons -->
+                    <div class="sfs-hr-actions">
+                      <a class="button button-small" href="<?php echo esc_url($edit_url); ?>"><?php esc_html_e('Edit','sfs-hr'); ?></a>
+                      <a class="button button-small button-danger" href="<?php echo esc_url($del_url); ?>" onclick="return confirm('<?php echo esc_js(__('Delete permanently? This cannot be undone.', 'sfs-hr')); ?>');"><?php esc_html_e('Delete','sfs-hr'); ?></a>
+                    </div>
+                    <!-- Mobile action button (vertical dots) -->
+                    <button type="button" class="sfs-hr-action-mobile-btn" onclick="sfsHrOpenModal('<?php echo esc_js($name ?: $r['employee_code']); ?>', '<?php echo esc_js($edit_url); ?>', '<?php echo esc_js($del_url); ?>')">
+                      <span></span>
+                    </button>
+                  </td>
+                </tr>
+              <?php endforeach; endif; ?>
+              </tbody>
+            </table>
+          </div>
+
+          <?php if ($pages > 1): ?>
+          <div class="sfs-hr-pagination">
+            <?php for($i=1;$i<=$pages;$i++): ?>
+              <?php if ($i === $page): ?>
+                <span class="current-page"><?php echo (int)$i; ?></span>
+              <?php else: ?>
+                <a href="<?php echo esc_url( add_query_arg(['paged'=>$i,'per_page'=>$per_page,'s'=>$q], admin_url('admin.php?page=sfs-hr-employees')) ); ?>"><?php echo (int)$i; ?></a>
+              <?php endif; ?>
+            <?php endfor; ?>
+          </div>
+          <?php endif; ?>
+
 
 
           <hr/>
