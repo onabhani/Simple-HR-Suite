@@ -1048,9 +1048,10 @@ public function handle_approve(): void {
     }
     $is_gm = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
 
-    // HR: Check if user is in the assigned HR approvers list
+    // HR: Check if user is in the assigned HR approvers list or has the leave.manage capability
     $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
-    $is_hr = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
+    $is_hr = ( ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true ) )
+             || current_user_can( 'sfs_hr.leave.manage' );
 
     $is_hr_or_gm = $is_hr || $is_gm;
 
@@ -1624,9 +1625,10 @@ public function handle_cancel(): void {
     $current_uid = get_current_user_id();
     $is_requester = ( (int) ( $empInfo['user_id'] ?? 0 ) === $current_uid );
 
-    // Position-based HR check
+    // Position-based HR check or capability
     $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
-    $is_hr = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
+    $is_hr = ( ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true ) )
+             || current_user_can( 'sfs_hr.leave.manage' );
 
     // Department manager can also cancel requests from their department
     $managed_depts = $this->manager_dept_ids_for_user( $current_uid );
@@ -4695,9 +4697,10 @@ public function handle_early_return(): void {
     );
     $current_uid = get_current_user_id();
 
-    // Position-based HR check
+    // Position-based HR check or capability
     $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
-    $is_hr = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
+    $is_hr = ( ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true ) )
+             || current_user_can( 'sfs_hr.leave.manage' );
 
     // Department manager check
     $managed = $this->manager_dept_ids_for_user($current_uid);
@@ -5823,9 +5826,10 @@ public function render_calendar(): void {
         }
         $is_gm = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
 
-        // HR: Check if user is in the assigned HR approvers list
+        // HR: Check if user is in the assigned HR approvers list or has the leave.manage capability
         $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
-        $is_hr = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
+        $is_hr = ( ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true ) )
+                 || current_user_can( 'sfs_hr.leave.manage' );
 
         // Finance approver check
         $finance_approver_id = (int) get_option( 'sfs_hr_leave_finance_approver', 0 );
