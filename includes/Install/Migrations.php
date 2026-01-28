@@ -316,6 +316,23 @@ class Migrations {
             UNIQUE KEY `request_number` (`request_number`)
         ) $charset");
 
+        /** EXIT HISTORY (audit trail for resignations and settlements) */
+        $exit_history = $wpdb->prefix.'sfs_hr_exit_history';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$exit_history` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `resignation_id` BIGINT(20) UNSIGNED NULL,
+            `settlement_id` BIGINT(20) UNSIGNED NULL,
+            `created_at` DATETIME NOT NULL,
+            `user_id` BIGINT(20) UNSIGNED NULL,
+            `event_type` VARCHAR(50) NOT NULL,
+            `meta` LONGTEXT NULL,
+            PRIMARY KEY (`id`),
+            KEY `resignation_id` (`resignation_id`),
+            KEY `settlement_id` (`settlement_id`),
+            KEY `created_at` (`created_at`),
+            KEY `event_type` (`event_type`)
+        ) $charset");
+
         /** Seed Departments + assign */
         $has_dept = (int)$wpdb->get_var("SELECT COUNT(*) FROM `$dept`");
         if ($has_dept === 0) {

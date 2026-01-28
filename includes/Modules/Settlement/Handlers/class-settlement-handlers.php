@@ -3,6 +3,7 @@ namespace SFS\HR\Modules\Settlement\Handlers;
 
 use SFS\HR\Core\Helpers;
 use SFS\HR\Modules\Settlement\Services\Settlement_Service;
+use SFS\HR\Modules\EmployeeExit\EmployeeExitModule;
 
 if (!defined('ABSPATH')) { exit; }
 
@@ -46,7 +47,15 @@ class Settlement_Handlers {
             'total_settlement'  => floatval($_POST['total_settlement'] ?? 0),
         ];
 
-        Settlement_Service::create_settlement($data);
+        $settlement_id = Settlement_Service::create_settlement($data);
+
+        // Log the creation event
+        EmployeeExitModule::log_settlement_event( $settlement_id, 'created', [
+            'total_settlement' => $data['total_settlement'],
+            'gratuity_amount'  => $data['gratuity_amount'],
+            'leave_encashment' => $data['leave_encashment'],
+            'resignation_id'   => $data['resignation_id'] ?: null,
+        ] );
 
         Helpers::redirect_with_notice(
             admin_url('admin.php?page=sfs-hr-lifecycle&tab=settlements'),
@@ -73,6 +82,8 @@ class Settlement_Handlers {
         global $wpdb;
         $table = $wpdb->prefix . 'sfs_hr_settlements';
 
+        $new_total = floatval($_POST['total_settlement'] ?? 0);
+
         $wpdb->update($table, [
             'basic_salary'      => floatval($_POST['basic_salary'] ?? 0),
             'gratuity_amount'   => floatval($_POST['gratuity_amount'] ?? 0),
@@ -82,9 +93,16 @@ class Settlement_Handlers {
             'other_allowances'  => floatval($_POST['other_allowances'] ?? 0),
             'deductions'        => floatval($_POST['deductions'] ?? 0),
             'deduction_notes'   => sanitize_textarea_field($_POST['deduction_notes'] ?? ''),
-            'total_settlement'  => floatval($_POST['total_settlement'] ?? 0),
+            'total_settlement'  => $new_total,
             'updated_at'        => current_time('mysql'),
         ], ['id' => $settlement_id]);
+
+        // Log the update event
+        $log_meta = [ 'total_settlement' => $new_total ];
+        if ( abs( $new_total - floatval( $settlement['total_settlement'] ) ) > 0.01 ) {
+            $log_meta['previous_total'] = $settlement['total_settlement'];
+        }
+        EmployeeExitModule::log_settlement_event( $settlement_id, 'updated', $log_meta );
 
         Helpers::redirect_with_notice(
             admin_url('admin.php?page=sfs-hr-lifecycle&tab=settlements&action=view&id=' . $settlement_id),
@@ -152,6 +170,12 @@ class Settlement_Handlers {
             'decided_at'    => current_time('mysql'),
         ]);
 
+        // Log the approval event
+        EmployeeExitModule::log_settlement_event( $settlement_id, 'approved', [
+            'note'             => $note ?: null,
+            'total_settlement' => $settlement['total_settlement'],
+        ] );
+
         Helpers::redirect_with_notice(
             admin_url('admin.php?page=sfs-hr-lifecycle&tab=settlements&action=view&id=' . $settlement_id),
             'success',
@@ -174,6 +198,11 @@ class Settlement_Handlers {
             'approver_note' => $note,
             'decided_at'    => current_time('mysql'),
         ]);
+
+        // Log the rejection event
+        EmployeeExitModule::log_settlement_event( $settlement_id, 'rejected', [
+            'reason' => $note,
+        ] );
 
         Helpers::redirect_with_notice(
             admin_url('admin.php?page=sfs-hr-lifecycle&tab=settlements'),
@@ -242,6 +271,13 @@ class Settlement_Handlers {
             'payment_date'      => $payment_date,
             'payment_reference' => $payment_reference,
         ]);
+
+        // Log the payment event
+        EmployeeExitModule::log_settlement_event( $settlement_id, 'paid', [
+            'payment_date'      => $payment_date,
+            'payment_reference' => $payment_reference ?: null,
+            'total_settlement'  => $settlement['total_settlement'],
+        ] );
 
         Helpers::redirect_with_notice(
             admin_url('admin.php?page=sfs-hr-lifecycle&tab=settlements&action=view&id=' . $settlement_id),

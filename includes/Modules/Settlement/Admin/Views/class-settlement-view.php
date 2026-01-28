@@ -3,6 +3,7 @@ namespace SFS\HR\Modules\Settlement\Admin\Views;
 
 use SFS\HR\Core\Helpers;
 use SFS\HR\Modules\Settlement\Services\Settlement_Service;
+use SFS\HR\Modules\EmployeeExit\EmployeeExitModule;
 
 if (!defined('ABSPATH')) { exit; }
 
@@ -30,14 +31,20 @@ class Settlement_View {
             <h1><?php esc_html_e('Settlement Details', 'sfs-hr'); ?> #<?php echo esc_html($settlement['id']); ?></h1>
             <?php Helpers::render_admin_nav(); ?>
 
-            <div style="background:#fff;padding:20px;border:1px solid #ddd;margin-top:20px;">
-                <?php self::render_employee_info($settlement); ?>
-                <?php self::render_breakdown($settlement); ?>
-                <?php self::render_clearance_status($settlement); ?>
-                <?php self::render_loan_status($settlement, $loan_status); ?>
-                <?php self::render_asset_status($settlement, $asset_status); ?>
-                <?php self::render_approval_status($settlement); ?>
-                <?php self::render_action_buttons($settlement); ?>
+            <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:20px;">
+                <!-- Main Content -->
+                <div style="flex:1;min-width:500px;background:#fff;padding:20px;border:1px solid #ddd;">
+                    <?php self::render_employee_info($settlement); ?>
+                    <?php self::render_breakdown($settlement); ?>
+                    <?php self::render_clearance_status($settlement); ?>
+                    <?php self::render_loan_status($settlement, $loan_status); ?>
+                    <?php self::render_asset_status($settlement, $asset_status); ?>
+                    <?php self::render_approval_status($settlement); ?>
+                    <?php self::render_action_buttons($settlement); ?>
+                </div>
+
+                <!-- Sidebar: History -->
+                <?php self::render_history($settlement_id); ?>
             </div>
 
             <p style="margin-top:20px;">
@@ -268,6 +275,57 @@ class Settlement_View {
             </a>
         </div>
         <?php endif;
+    }
+
+    /**
+     * Render history sidebar
+     */
+    private static function render_history(int $settlement_id): void {
+        $history = EmployeeExitModule::get_settlement_history($settlement_id);
+        if (empty($history)) {
+            return;
+        }
+        ?>
+        <div style="width:320px;background:#fff;padding:20px;border:1px solid #ccc;border-radius:4px;align-self:flex-start;">
+            <h2><?php esc_html_e('Settlement History', 'sfs-hr'); ?></h2>
+            <div style="max-height:600px;overflow-y:auto;">
+                <?php foreach ($history as $event): ?>
+                    <div style="border-bottom:1px solid #eee;padding:10px 0;">
+                        <div style="font-size:11px;color:#666;">
+                            <?php echo esc_html(wp_date('M j, Y g:i a', strtotime($event['created_at']))); ?>
+                        </div>
+                        <div style="font-weight:600;margin:4px 0;">
+                            <?php echo esc_html(str_replace('_', ' ', ucwords($event['event_type'], '_'))); ?>
+                        </div>
+                        <div style="font-size:12px;color:#555;">
+                            <?php echo esc_html($event['user_name'] ?: __('System', 'sfs-hr')); ?>
+                        </div>
+                        <?php
+                        if ($event['meta']) {
+                            $meta = json_decode($event['meta'], true);
+                            if (is_array($meta) && !empty($meta)) {
+                                echo '<div style="font-size:11px;margin-top:6px;background:#f9f9f9;padding:6px;border-radius:3px;">';
+                                foreach ($meta as $key => $value) {
+                                    if ($value === null || $value === '') continue;
+                                    $label = ucwords(str_replace('_', ' ', $key));
+                                    if (is_numeric($value) && !in_array($key, ['resignation_id', 'approval_level', 'notice_period_days'], true)) {
+                                        $display_value = number_format((float)$value, 2);
+                                    } elseif (is_bool($value)) {
+                                        $display_value = $value ? __('Yes', 'sfs-hr') : __('No', 'sfs-hr');
+                                    } else {
+                                        $display_value = esc_html($value);
+                                    }
+                                    echo '<strong>' . esc_html($label) . ':</strong> ' . $display_value . '<br>';
+                                }
+                                echo '</div>';
+                            }
+                        }
+                        ?>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <?php
     }
 
     /**

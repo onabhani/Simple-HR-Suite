@@ -4,6 +4,7 @@ namespace SFS\HR\Modules\Resignation\Handlers;
 use SFS\HR\Core\Helpers;
 use SFS\HR\Modules\Resignation\Services\Resignation_Service;
 use SFS\HR\Modules\Resignation\Notifications\Resignation_Notifications;
+use SFS\HR\Modules\EmployeeExit\EmployeeExitModule;
 
 if (!defined('ABSPATH')) { exit; }
 
@@ -59,6 +60,14 @@ class Resignation_Handlers {
             'last_working_day'   => $last_working_day,
             'reason'             => $reason,
         ]);
+
+        // Log the submission event
+        EmployeeExitModule::log_resignation_event( $resignation_id, 'submitted', [
+            'resignation_type'   => $resignation_type,
+            'resignation_date'   => $resignation_date,
+            'last_working_day'   => $last_working_day,
+            'notice_period_days' => $notice_period_days,
+        ] );
 
         // Send notification to manager
         Resignation_Notifications::notify_new_submission($resignation_id);
@@ -142,6 +151,15 @@ class Resignation_Handlers {
 
         $wpdb->update($table, $update_data, ['id' => $resignation_id]);
 
+        // Log the approval event
+        $role_name = $current_level === 1 ? 'manager' : ($current_level === 2 ? 'hr' : 'finance');
+        EmployeeExitModule::log_resignation_event( $resignation_id, $role_name . '_approved', [
+            'approval_level' => $current_level,
+            'note'           => $note ?: null,
+            'next_level'     => $update_data['approval_level'] ?? null,
+            'final'          => $is_final_approval,
+        ] );
+
         // Fire hook for AuditTrail (log approval steps and final approval)
         $new_status = $update_data['status'] ?? 'pending';
         do_action( 'sfs_hr_resignation_status_changed', $resignation_id, $resignation['status'], $new_status );
@@ -220,6 +238,14 @@ class Resignation_Handlers {
             'updated_at'     => current_time('mysql'),
         ], ['id' => $resignation_id]);
 
+        // Log the rejection event
+        $role_name = $current_level === 1 ? 'manager' : 'hr';
+        EmployeeExitModule::log_resignation_event( $resignation_id, 'rejected', [
+            'rejected_by'    => $role_name,
+            'approval_level' => $current_level,
+            'reason'         => $note,
+        ] );
+
         Resignation_Notifications::notify_rejection($resignation_id);
 
         // Fire hook for AuditTrail
@@ -272,6 +298,11 @@ class Resignation_Handlers {
             'updated_at'     => current_time('mysql'),
         ], ['id' => $resignation_id]);
 
+        // Log the cancellation event
+        EmployeeExitModule::log_resignation_event( $resignation_id, 'cancelled', [
+            'reason' => $note,
+        ] );
+
         // Check if employee was terminated
         $employee = $wpdb->get_row($wpdb->prepare(
             "SELECT status FROM {$emp_table} WHERE id = %d",
@@ -285,6 +316,11 @@ class Resignation_Handlers {
                 'updated_at' => current_time('mysql'),
             ], ['id' => $resignation['employee_id']]);
             $status_message = ' ' . __('Employee status has been reverted to active.', 'sfs-hr');
+
+            // Log employee reactivation
+            EmployeeExitModule::log_resignation_event( $resignation_id, 'employee_reactivated', [
+                'note' => __('Employee status reverted to active after resignation cancellation.', 'sfs-hr'),
+            ] );
         }
 
         // Fire hook for AuditTrail
@@ -336,6 +372,21 @@ class Resignation_Handlers {
 
         $wpdb->update($table, $update_data, ['id' => $resignation_id]);
 
+        // Log the final exit update event
+        $log_meta = [
+            'final_exit_status' => $final_exit_status,
+        ];
+        if ( ! empty( $update_data['final_exit_number'] ) ) {
+            $log_meta['final_exit_number'] = $update_data['final_exit_number'];
+        }
+        if ( ! empty( $update_data['actual_exit_date'] ) ) {
+            $log_meta['actual_exit_date'] = $update_data['actual_exit_date'];
+        }
+        if ( $final_exit_status === 'completed' ) {
+            $log_meta['completed'] = true;
+        }
+        EmployeeExitModule::log_resignation_event( $resignation_id, 'final_exit_updated', $log_meta );
+
         Helpers::redirect_with_notice(
             admin_url('admin.php?page=sfs-hr-lifecycle&tab=resignations&status=final_exit'),
             'success',
@@ -386,6 +437,19 @@ class Resignation_Handlers {
             wp_send_json_error(['message' => __('Resignation not found', 'sfs-hr')]);
         }
 
+        // Get history for this resignation
+        $history = EmployeeExitModule::get_resignation_history($resignation_id);
+        $formatted_history = [];
+        foreach ($history as $event) {
+            $meta = $event['meta'] ? json_decode($event['meta'], true) : [];
+            $formatted_history[] = [
+                'date'       => wp_date('M j, Y g:i a', strtotime($event['created_at'])),
+                'event_type' => str_replace('_', ' ', ucwords($event['event_type'], '_')),
+                'user_name'  => $event['user_name'] ?: __('System', 'sfs-hr'),
+                'meta'       => $meta,
+            ];
+        }
+
         $data = [
             'id'                         => $resignation['id'],
             'employee_name'              => trim($resignation['first_name'] . ' ' . $resignation['last_name']),
@@ -405,6 +469,7 @@ class Resignation_Handlers {
             'exit_stamp_received'        => $resignation['exit_stamp_received'] ?? 0,
             'can_approve'                => Resignation_Service::can_approve_resignation($resignation),
             'can_manage'                 => current_user_can('sfs_hr.manage'),
+            'history'                    => $formatted_history,
         ];
 
         wp_send_json_success($data);
