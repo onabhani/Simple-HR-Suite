@@ -1702,14 +1702,15 @@ public function handle_cancel_approved(): void {
         Helpers::redirect_with_notice( $redirect_base, 'error', __( 'A cancellation request is already pending for this leave.', 'sfs-hr' ) );
     }
 
-    // Only HR can initiate
+    // Only HR or administrators can initiate
     $current_uid = get_current_user_id();
     $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
     $is_hr = ( ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true ) )
-             || current_user_can( 'sfs_hr.leave.manage' );
+             || current_user_can( 'sfs_hr.leave.manage' )
+             || current_user_can( 'administrator' );
 
     if ( ! $is_hr ) {
-        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Only HR can initiate a leave cancellation.', 'sfs-hr' ) );
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Only HR or administrators can initiate a leave cancellation.', 'sfs-hr' ) );
     }
 
     $reason = isset( $_POST['cancel_reason'] ) ? sanitize_text_field( $_POST['cancel_reason'] ) : '';
@@ -5827,9 +5828,11 @@ public function render_calendar(): void {
         $is_gm = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
 
         // HR: Check if user is in the assigned HR approvers list or has the leave.manage capability
+        // Also allow administrators (temporary)
         $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
         $is_hr = ( ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true ) )
-                 || current_user_can( 'sfs_hr.leave.manage' );
+                 || current_user_can( 'sfs_hr.leave.manage' )
+                 || current_user_can( 'administrator' );
 
         // Finance approver check
         $finance_approver_id = (int) get_option( 'sfs_hr_leave_finance_approver', 0 );
