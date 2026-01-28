@@ -13,7 +13,7 @@ class AdminPages {
     public function __construct() {
         add_action( 'admin_menu', [ $this, 'menu' ], 20 );
         add_action( 'admin_init', [ $this, 'save_settings' ] );
-        add_action( 'admin_init', [ $this, 'handle_loan_actions' ] );
+        add_action( 'admin_post_sfs_hr_loan_action', [ $this, 'handle_loan_actions' ] );
         add_action( 'admin_init', [ $this, 'handle_installment_actions' ] );
         add_action( 'admin_init', [ $this, 'export_installments_csv' ] );
     }
@@ -759,9 +759,10 @@ class AdminPages {
             <?php endif; ?>
 
             <div style="background:#fff;padding:20px;border:1px solid #ccc;border-radius:4px;margin-top:20px;max-width:800px;">
-                <form method="post" action="">
+                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
                     <?php wp_nonce_field( 'sfs_hr_loan_create' ); ?>
-                    <input type="hidden" name="action" value="create_loan" />
+                    <input type="hidden" name="action" value="sfs_hr_loan_action" />
+                    <input type="hidden" name="loan_action" value="create_loan" />
 
                     <table class="form-table">
                         <tr>
@@ -1675,9 +1676,10 @@ class AdminPages {
                     <h3><?php esc_html_e( 'GM Approval', 'sfs-hr' ); ?></h3>
 
                     <?php if ( \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm() ) : ?>
-                        <form method="post" action="" style="margin-bottom:20px;">
+                        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-bottom:20px;">
                             <?php wp_nonce_field( 'sfs_hr_loan_approve_gm_' . $loan_id ); ?>
-                            <input type="hidden" name="action" value="approve_gm" />
+                            <input type="hidden" name="action" value="sfs_hr_loan_action" />
+                            <input type="hidden" name="loan_action" value="approve_gm" />
                             <input type="hidden" name="loan_id" value="<?php echo (int) $loan_id; ?>" />
 
                             <table class="form-table" style="margin-bottom:15px;">
@@ -1701,9 +1703,10 @@ class AdminPages {
                         </form>
 
                         <hr style="margin:20px 0;">
-                        <form method="post" action="" onsubmit="return confirm('<?php esc_attr_e( 'Are you sure you want to reject this loan?', 'sfs-hr' ); ?>');">
+                        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php esc_attr_e( 'Are you sure you want to reject this loan?', 'sfs-hr' ); ?>');">
                             <?php wp_nonce_field( 'sfs_hr_loan_reject_' . $loan_id ); ?>
-                            <input type="hidden" name="action" value="reject_loan" />
+                            <input type="hidden" name="action" value="sfs_hr_loan_action" />
+                            <input type="hidden" name="loan_action" value="reject_loan" />
                             <input type="hidden" name="loan_id" value="<?php echo (int) $loan_id; ?>" />
                             <input type="text" name="rejection_reason" placeholder="<?php esc_attr_e( 'Reason (required)', 'sfs-hr' ); ?>" required style="width:300px;" />
                             <button type="submit" class="button"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>
@@ -1756,9 +1759,10 @@ class AdminPages {
                     <h3><?php esc_html_e( 'Finance Approval', 'sfs-hr' ); ?></h3>
 
                     <?php if ( \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_finance() ) : ?>
-                        <form method="post" action="">
+                        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
                             <?php wp_nonce_field( 'sfs_hr_loan_approve_finance_' . $loan_id ); ?>
-                            <input type="hidden" name="action" value="approve_finance" />
+                            <input type="hidden" name="action" value="sfs_hr_loan_action" />
+                            <input type="hidden" name="loan_action" value="approve_finance" />
                             <input type="hidden" name="loan_id" value="<?php echo (int) $loan_id; ?>" />
 
                             <table class="form-table">
@@ -1797,9 +1801,10 @@ class AdminPages {
                         </form>
 
                         <hr style="margin:20px 0;">
-                        <form method="post" action="" onsubmit="return confirm('<?php esc_attr_e( 'Are you sure you want to reject this loan?', 'sfs-hr' ); ?>');">
+                        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php esc_attr_e( 'Are you sure you want to reject this loan?', 'sfs-hr' ); ?>');">
                             <?php wp_nonce_field( 'sfs_hr_loan_reject_' . $loan_id ); ?>
-                            <input type="hidden" name="action" value="reject_loan" />
+                            <input type="hidden" name="action" value="sfs_hr_loan_action" />
+                            <input type="hidden" name="loan_action" value="reject_loan" />
                             <input type="hidden" name="loan_id" value="<?php echo (int) $loan_id; ?>" />
                             <input type="text" name="rejection_reason" placeholder="<?php esc_attr_e( 'Reason (required)', 'sfs-hr' ); ?>" required style="width:400px;" />
                             <button type="submit" class="button"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>
@@ -1912,11 +1917,11 @@ class AdminPages {
      * Handle loan actions (approve, reject, etc.)
      */
     public function handle_loan_actions(): void {
-        if ( ! isset( $_POST['action'] ) ) {
+        if ( ! isset( $_POST['loan_action'] ) ) {
             return;
         }
 
-        $action = $_POST['action'];
+        $action = $_POST['loan_action'];
         $loan_id = isset( $_POST['loan_id'] ) ? (int) $_POST['loan_id'] : 0;
 
         // Check capability based on action type
