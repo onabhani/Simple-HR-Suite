@@ -873,8 +873,11 @@ class Admin_Pages {
         $leave_map = $this->get_today_leave_map( $emp_ids, $args['today_date'] );
         $risk_map  = $this->get_risk_flags_map( $emp_ids, $args['today_date'] );
 
-        // Check if today is a working day (not holiday, not day off)
-        $is_working_day = $this->is_working_day( $args['today_date'] );
+        // Get shift information for all employees (shift-specific off days)
+        $shift_map = $this->get_employee_shifts_map( $emp_ids, $args['today_date'] );
+
+        // Check if today is a global holiday (applies to all employees)
+        $is_global_holiday = $this->is_holiday( $args['today_date'] );
 
         $tabs   = $this->get_status_tabs();
         $counts = $this->empty_counts();
@@ -903,8 +906,16 @@ if ( isset( $leave_map[ $emp_id ] ) ) {
     $status_key = 'on_leave';
 }
 
-// If not clocked in, not on leave, and it's a working day → mark as absent
-if ( $status_key === 'not_clocked_in' && $is_working_day ) {
+// Check if it's a working day for this specific employee (shift-based)
+$shift_info = $shift_map[ $emp_id ] ?? null;
+$is_working_day_for_emp = ! $is_global_holiday && $this->is_working_day_for_employee( $args['today_date'], $shift_info );
+
+// Time-based absent detection: only mark absent if past shift start time
+$shift_start_time = $shift_info['start_time'] ?? null;
+$is_past_start = $this->is_past_shift_start( $shift_start_time );
+
+// If not clocked in, not on leave, it's a working day, and past shift start → mark as absent
+if ( $status_key === 'not_clocked_in' && $is_working_day_for_emp && $is_past_start ) {
     $status_key = 'absent';
     $leave_label = __( 'Absent', 'sfs-hr' );
 }
@@ -1152,29 +1163,112 @@ $risk_flag = $risk_map[ $emp_id ] ?? '';
     }
 
     /**
-     * Check if a given date is a day off (Friday by default).
-     * Friday is the standard off day in Saudi Arabia.
+     * Get shift information for all employees for a given date.
+     * Returns a map of employee_id => shift_info or null if day off.
      *
-     * @param string $ymd Date in Y-m-d format.
-     * @return bool True if day off, false otherwise.
+     * @param array  $emp_ids Array of employee IDs.
+     * @param string $ymd     Date in Y-m-d format.
+     * @return array Map of employee_id => ['shift' => object|null, 'is_day_off' => bool, 'start_time' => string|null]
      */
-    protected function is_day_off( string $ymd ): bool {
-        $tz = wp_timezone();
-        $date = new \DateTimeImmutable( $ymd . ' 00:00:00', $tz );
-        $day_of_week = (int) $date->format( 'w' ); // 0 = Sun, 5 = Fri, 6 = Sat
+    protected function get_employee_shifts_map( array $emp_ids, string $ymd ): array {
+        if ( empty( $emp_ids ) ) {
+            return [];
+        }
 
-        // Friday (5) is the standard off day
-        return $day_of_week === 5;
+        $map = [];
+
+        // Use AttendanceModule to resolve shifts if available
+        if ( class_exists( '\SFS\HR\Modules\Attendance\AttendanceModule' ) ) {
+            foreach ( $emp_ids as $emp_id ) {
+                $shift = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $emp_id, $ymd );
+
+                if ( $shift === null ) {
+                    // No shift assigned = day off for this employee
+                    $map[ $emp_id ] = [
+                        'shift'      => null,
+                        'is_day_off' => true,
+                        'start_time' => null,
+                    ];
+                } else {
+                    $map[ $emp_id ] = [
+                        'shift'      => $shift,
+                        'is_day_off' => false,
+                        'start_time' => $shift->start_time ?? null,
+                    ];
+                }
+            }
+        } else {
+            // Fallback: use simple Friday check if AttendanceModule not available
+            $is_friday = $this->is_friday( $ymd );
+            foreach ( $emp_ids as $emp_id ) {
+                $map[ $emp_id ] = [
+                    'shift'      => null,
+                    'is_day_off' => $is_friday,
+                    'start_time' => null,
+                ];
+            }
+        }
+
+        return $map;
     }
 
     /**
-     * Check if a given date is a working day (not holiday, not day off).
+     * Check if date is Friday (fallback for when no shift system).
      *
      * @param string $ymd Date in Y-m-d format.
+     * @return bool True if Friday.
+     */
+    protected function is_friday( string $ymd ): bool {
+        $tz = wp_timezone();
+        $date = new \DateTimeImmutable( $ymd . ' 00:00:00', $tz );
+        return (int) $date->format( 'w' ) === 5;
+    }
+
+    /**
+     * Check if current time is past the shift start time.
+     * Only mark as absent if the workday has started.
+     *
+     * @param string|null $start_time Shift start time (H:i:s format).
+     * @return bool True if current time is past shift start time.
+     */
+    protected function is_past_shift_start( ?string $start_time ): bool {
+        if ( empty( $start_time ) ) {
+            // No shift time defined, use default business hours start (8:00 AM)
+            $start_time = '08:00:00';
+        }
+
+        $tz = wp_timezone();
+        $now = new \DateTimeImmutable( 'now', $tz );
+        $current_time = $now->format( 'H:i:s' );
+
+        return $current_time >= $start_time;
+    }
+
+    /**
+     * Check if a given date is a working day for a specific employee.
+     * Takes into account: holidays, shift-specific off days.
+     *
+     * @param string     $ymd        Date in Y-m-d format.
+     * @param array|null $shift_info Shift info from get_employee_shifts_map() or null.
      * @return bool True if working day, false otherwise.
      */
-    protected function is_working_day( string $ymd ): bool {
-        return ! $this->is_holiday( $ymd ) && ! $this->is_day_off( $ymd );
+    protected function is_working_day_for_employee( string $ymd, ?array $shift_info ): bool {
+        // Check holiday first (applies to all employees)
+        if ( $this->is_holiday( $ymd ) ) {
+            return false;
+        }
+
+        // Check shift-specific day off
+        if ( $shift_info !== null && $shift_info['is_day_off'] ) {
+            return false;
+        }
+
+        // If no shift info available, fall back to Friday check
+        if ( $shift_info === null && $this->is_friday( $ymd ) ) {
+            return false;
+        }
+
+        return true;
     }
 
     protected function empty_counts(): array {
