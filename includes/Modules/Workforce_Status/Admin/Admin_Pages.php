@@ -298,6 +298,11 @@ class Admin_Pages {
                 color: #6c757d;
                 border-color: #e9ecef;
             }
+            .sfs-hr-pill--status-absent {
+                background: #f8d7da;
+                color: #721c24;
+                border-color: #f5c6cb;
+            }
             .sfs-hr-pill--leave-duty {
                 background: #d4edda;
                 color: #155724;
@@ -486,6 +491,7 @@ class Admin_Pages {
             'on_break'       => [ 'label' => __( 'On break', 'sfs-hr' ) ],
             'clocked_out'    => [ 'label' => __( 'Clocked out', 'sfs-hr' ) ],
             'not_clocked_in' => [ 'label' => __( 'Not Clocked-IN', 'sfs-hr' ) ],
+            'absent'         => [ 'label' => __( 'Absent', 'sfs-hr' ) ],
             'on_leave'       => [ 'label' => __( 'On leave', 'sfs-hr' ) ],
         ];
     }
@@ -753,6 +759,9 @@ class Admin_Pages {
             // reuse the leave-on color so it's visually consistent
             $class = 'sfs-hr-pill--leave-on';
             break;
+        case 'absent':
+            $class = 'sfs-hr-pill--status-absent';
+            break;
         case 'not_clocked_in':
         default:
             $class = 'sfs-hr-pill--status-notin';
@@ -769,8 +778,15 @@ class Admin_Pages {
      */
     protected function render_leave_badge( string $label ): string {
         $is_on_leave = ( stripos( $label, 'On leave' ) === 0 ); // text prefix is stable
+        $is_absent   = ( $label === __( 'Absent', 'sfs-hr' ) );
 
-        $class = $is_on_leave ? 'sfs-hr-pill--leave-on' : 'sfs-hr-pill--leave-duty';
+        if ( $is_absent ) {
+            $class = 'sfs-hr-pill--status-absent';
+        } elseif ( $is_on_leave ) {
+            $class = 'sfs-hr-pill--leave-on';
+        } else {
+            $class = 'sfs-hr-pill--leave-duty';
+        }
 
         return '<span class="sfs-hr-pill ' . esc_attr( $class ) . '">' . esc_html( $label ) . '</span>';
     }
@@ -857,6 +873,9 @@ class Admin_Pages {
         $leave_map = $this->get_today_leave_map( $emp_ids, $args['today_date'] );
         $risk_map  = $this->get_risk_flags_map( $emp_ids, $args['today_date'] );
 
+        // Check if today is a working day (not holiday, not day off)
+        $is_working_day = $this->is_working_day( $args['today_date'] );
+
         $tabs   = $this->get_status_tabs();
         $counts = $this->empty_counts();
         $rows   = [];
@@ -882,6 +901,12 @@ $leave_label = $leave_map[ $emp_id ] ?? __( 'On duty', 'sfs-hr' );
 // If on leave today → force into "on_leave" tab
 if ( isset( $leave_map[ $emp_id ] ) ) {
     $status_key = 'on_leave';
+}
+
+// If not clocked in, not on leave, and it's a working day → mark as absent
+if ( $status_key === 'not_clocked_in' && $is_working_day ) {
+    $status_key = 'absent';
+    $leave_label = __( 'Absent', 'sfs-hr' );
 }
 
 if ( ! isset( $tabs[ $status_key ] ) ) {
@@ -1079,6 +1104,77 @@ $risk_flag = $risk_map[ $emp_id ] ?? '';
             default:
                 return 'not_clocked_in';
         }
+    }
+
+    /**
+     * Check if a given date is a public holiday.
+     *
+     * @param string $ymd Date in Y-m-d format.
+     * @return bool True if holiday, false otherwise.
+     */
+    protected function is_holiday( string $ymd ): bool {
+        $holidays = get_option( 'sfs_hr_holidays', [] );
+        if ( ! is_array( $holidays ) ) {
+            return false;
+        }
+
+        $year = (int) substr( $ymd, 0, 4 );
+
+        foreach ( $holidays as $h ) {
+            // Support both old format (start_date/end_date) and new format (start/end)
+            $s = isset( $h['start'] ) ? $h['start'] : ( isset( $h['start_date'] ) ? $h['start_date'] : '' );
+            $e = isset( $h['end'] ) ? $h['end'] : ( isset( $h['end_date'] ) ? $h['end_date'] : $s );
+
+            if ( empty( $s ) ) {
+                continue;
+            }
+
+            // Handle repeating holidays (annual)
+            if ( ! empty( $h['repeat'] ) ) {
+                // Extract month-day and apply to current year
+                $sm = substr( $s, 5 ); // MM-DD
+                $em = substr( $e, 5 );
+                $rs = $year . '-' . $sm;
+                $re = ( $em >= $sm ) ? ( $year . '-' . $em ) : ( ( $year + 1 ) . '-' . $em );
+
+                if ( $ymd >= $rs && $ymd <= $re ) {
+                    return true;
+                }
+            } else {
+                // Non-repeating holiday
+                if ( $ymd >= $s && $ymd <= $e ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if a given date is a day off (Friday by default).
+     * Friday is the standard off day in Saudi Arabia.
+     *
+     * @param string $ymd Date in Y-m-d format.
+     * @return bool True if day off, false otherwise.
+     */
+    protected function is_day_off( string $ymd ): bool {
+        $tz = wp_timezone();
+        $date = new \DateTimeImmutable( $ymd . ' 00:00:00', $tz );
+        $day_of_week = (int) $date->format( 'w' ); // 0 = Sun, 5 = Fri, 6 = Sat
+
+        // Friday (5) is the standard off day
+        return $day_of_week === 5;
+    }
+
+    /**
+     * Check if a given date is a working day (not holiday, not day off).
+     *
+     * @param string $ymd Date in Y-m-d format.
+     * @return bool True if working day, false otherwise.
+     */
+    protected function is_working_day( string $ymd ): bool {
+        return ! $this->is_holiday( $ymd ) && ! $this->is_day_off( $ymd );
     }
 
     protected function empty_counts(): array {
