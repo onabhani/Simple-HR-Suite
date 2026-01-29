@@ -47,6 +47,8 @@ class Admin_Pages {
     add_action( 'admin_post_sfs_hr_att_save_template', [ $this, 'handle_save_template' ] );
     add_action( 'admin_post_sfs_hr_att_delete_template', [ $this, 'handle_delete_template' ] );
     add_action( 'admin_post_sfs_hr_att_apply_template', [ $this, 'handle_apply_template' ] );
+    add_action( 'admin_post_sfs_hr_att_save_policy', [ $this, 'handle_save_policy' ] );
+    add_action( 'admin_post_sfs_hr_att_delete_policy', [ $this, 'handle_delete_policy' ] );
 
     // Auto-assign on new employee
     add_action( 'sfs_hr_employee_created', [ $this, 'auto_assign_on_employee_created' ], 10, 2 );
@@ -271,6 +273,7 @@ public function render_attendance_hub(): void {
     $tabs = [
         'settings'    => __( 'Settings', 'sfs-hr' ),
         'automation'  => __( 'Automation', 'sfs-hr' ),
+        'policies'    => __( 'Policies', 'sfs-hr' ),
         'shifts'      => __( 'Shifts', 'sfs-hr' ),
         'assign'      => __( 'Assignments', 'sfs-hr' ),
         'early_leave' => __( 'Early Leave Requests', 'sfs-hr' ),
@@ -315,6 +318,7 @@ public function render_attendance_hub(): void {
             case 'punches':  $this->render_punches();  break;
             case 'sessions': $this->render_sessions(); break;
             case 'early_leave': $this->render_early_leave(); break;
+            case 'policies':    $this->render_policies(); break;
     }
     echo '</div>';
 }
@@ -4042,5 +4046,258 @@ private function render_early_leave(): void {
     <?php
 }
 
+// =========================================================================
+// POLICIES TAB
+// =========================================================================
+
+/**
+ * Render the Policies tab — role-based attendance policies.
+ */
+private function render_policies(): void {
+    $policies = \SFS\HR\Modules\Attendance\Services\Policy_Service::get_all_policies();
+    $edit_id  = isset( $_GET['edit_policy'] ) ? (int) $_GET['edit_policy'] : 0;
+    $editing  = $edit_id ? \SFS\HR\Modules\Attendance\Services\Policy_Service::get_policy( $edit_id ) : null;
+
+    // Gather all WP roles for the role selector
+    $wp_roles = wp_roles()->get_names();
+    ?>
+    <div class="sfs-hr-policies-wrap" style="display:flex; gap:30px; margin-top:20px;">
+
+        <!-- LEFT: Policy Form -->
+        <div style="flex:0 0 420px;">
+            <div class="postbox" style="padding:16px;">
+                <h3 style="margin-top:0;">
+                    <?php echo $editing ? esc_html__( 'Edit Policy', 'sfs-hr' ) : esc_html__( 'Add New Policy', 'sfs-hr' ); ?>
+                </h3>
+                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                    <?php wp_nonce_field( 'sfs_hr_att_save_policy' ); ?>
+                    <input type="hidden" name="action" value="sfs_hr_att_save_policy" />
+                    <?php if ( $editing ) : ?>
+                        <input type="hidden" name="policy_id" value="<?php echo esc_attr( $editing->id ); ?>" />
+                    <?php endif; ?>
+
+                    <table class="form-table" style="margin:0;">
+                        <tr>
+                            <th><label for="policy_name"><?php esc_html_e( 'Policy Name', 'sfs-hr' ); ?></label></th>
+                            <td><input type="text" id="policy_name" name="name" class="regular-text" required value="<?php echo esc_attr( $editing->name ?? '' ); ?>" /></td>
+                        </tr>
+
+                        <tr>
+                            <th><?php esc_html_e( 'Clock-in Methods', 'sfs-hr' ); ?></th>
+                            <td>
+                                <label><input type="checkbox" name="clock_in_methods[]" value="kiosk" <?php checked( ! $editing || in_array( 'kiosk', $editing->clock_in_methods ?? [] ) ); ?> /> <?php esc_html_e( 'Kiosk', 'sfs-hr' ); ?></label><br>
+                                <label><input type="checkbox" name="clock_in_methods[]" value="self_web" <?php checked( ! $editing || in_array( 'self_web', $editing->clock_in_methods ?? [] ) ); ?> /> <?php esc_html_e( 'Self Web', 'sfs-hr' ); ?></label>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th><?php esc_html_e( 'Clock-out Methods', 'sfs-hr' ); ?></th>
+                            <td>
+                                <label><input type="checkbox" name="clock_out_methods[]" value="kiosk" <?php checked( ! $editing || in_array( 'kiosk', $editing->clock_out_methods ?? [] ) ); ?> /> <?php esc_html_e( 'Kiosk', 'sfs-hr' ); ?></label><br>
+                                <label><input type="checkbox" name="clock_out_methods[]" value="self_web" <?php checked( ! $editing || in_array( 'self_web', $editing->clock_out_methods ?? [] ) ); ?> /> <?php esc_html_e( 'Self Web', 'sfs-hr' ); ?></label>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th><?php esc_html_e( 'Clock-in Geofence', 'sfs-hr' ); ?></th>
+                            <td>
+                                <select name="clock_in_geofence">
+                                    <option value="enforced" <?php selected( ( $editing->clock_in_geofence ?? 'enforced' ), 'enforced' ); ?>><?php esc_html_e( 'Enforced', 'sfs-hr' ); ?></option>
+                                    <option value="none" <?php selected( ( $editing->clock_in_geofence ?? '' ), 'none' ); ?>><?php esc_html_e( 'None (any location)', 'sfs-hr' ); ?></option>
+                                </select>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th><?php esc_html_e( 'Clock-out Geofence', 'sfs-hr' ); ?></th>
+                            <td>
+                                <select name="clock_out_geofence">
+                                    <option value="enforced" <?php selected( ( $editing->clock_out_geofence ?? 'enforced' ), 'enforced' ); ?>><?php esc_html_e( 'Enforced', 'sfs-hr' ); ?></option>
+                                    <option value="none" <?php selected( ( $editing->clock_out_geofence ?? '' ), 'none' ); ?>><?php esc_html_e( 'None (any location)', 'sfs-hr' ); ?></option>
+                                </select>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th><?php esc_html_e( 'Calculation Mode', 'sfs-hr' ); ?></th>
+                            <td>
+                                <select name="calculation_mode" id="calc_mode_select">
+                                    <option value="shift_times" <?php selected( ( $editing->calculation_mode ?? 'shift_times' ), 'shift_times' ); ?>><?php esc_html_e( 'Shift Times (default)', 'sfs-hr' ); ?></option>
+                                    <option value="total_hours" <?php selected( ( $editing->calculation_mode ?? '' ), 'total_hours' ); ?>><?php esc_html_e( 'Total Hours', 'sfs-hr' ); ?></option>
+                                </select>
+                                <p class="description"><?php esc_html_e( 'Shift Times: compare punch vs shift start/end. Total Hours: compare total worked hours vs target.', 'sfs-hr' ); ?></p>
+                            </td>
+                        </tr>
+
+                        <tr class="total-hours-row" style="<?php echo ( $editing && $editing->calculation_mode === 'total_hours' ) ? '' : 'display:none;'; ?>">
+                            <th><label for="target_hours"><?php esc_html_e( 'Target Hours / Day', 'sfs-hr' ); ?></label></th>
+                            <td><input type="number" id="target_hours" name="target_hours" step="0.25" min="1" max="24" value="<?php echo esc_attr( $editing->target_hours ?? '8' ); ?>" class="small-text" /></td>
+                        </tr>
+
+                        <tr class="total-hours-row" style="<?php echo ( $editing && $editing->calculation_mode === 'total_hours' ) ? '' : 'display:none;'; ?>">
+                            <th><?php esc_html_e( 'Deduct Breaks', 'sfs-hr' ); ?></th>
+                            <td>
+                                <label><input type="checkbox" name="breaks_enabled" value="1" <?php checked( $editing->breaks_enabled ?? 0 ); ?> /> <?php esc_html_e( 'Enabled', 'sfs-hr' ); ?></label>
+                                <br>
+                                <label><?php esc_html_e( 'Break duration (minutes):', 'sfs-hr' ); ?>
+                                    <input type="number" name="break_duration_minutes" min="0" max="120" value="<?php echo esc_attr( $editing->break_duration_minutes ?? '60' ); ?>" class="small-text" />
+                                </label>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th><?php esc_html_e( 'Assign to Roles', 'sfs-hr' ); ?></th>
+                            <td>
+                                <select name="roles[]" multiple size="8" style="min-width:250px;">
+                                    <?php foreach ( $wp_roles as $slug => $label ) : ?>
+                                        <option value="<?php echo esc_attr( $slug ); ?>" <?php selected( $editing && in_array( $slug, $editing->roles ?? [] ) ); ?>>
+                                            <?php echo esc_html( $label ); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <p class="description"><?php esc_html_e( 'Ctrl/Cmd + click to select multiple roles.', 'sfs-hr' ); ?></p>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th><?php esc_html_e( 'Active', 'sfs-hr' ); ?></th>
+                            <td><label><input type="checkbox" name="active" value="1" <?php checked( ! $editing || ( $editing->active ?? 1 ) ); ?> /> <?php esc_html_e( 'Yes', 'sfs-hr' ); ?></label></td>
+                        </tr>
+                    </table>
+
+                    <p>
+                        <?php submit_button( $editing ? __( 'Update Policy', 'sfs-hr' ) : __( 'Create Policy', 'sfs-hr' ), 'primary', 'submit', false ); ?>
+                        <?php if ( $editing ) : ?>
+                            &nbsp;<a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs_hr_attendance&tab=policies' ) ); ?>" class="button"><?php esc_html_e( 'Cancel', 'sfs-hr' ); ?></a>
+                        <?php endif; ?>
+                    </p>
+                </form>
+            </div>
+        </div>
+
+        <!-- RIGHT: Policies List -->
+        <div style="flex:1;">
+            <?php if ( empty( $policies ) ) : ?>
+                <p><?php esc_html_e( 'No attendance policies created yet. Employees without a policy will use the default attendance behaviour.', 'sfs-hr' ); ?></p>
+            <?php else : ?>
+                <table class="wp-list-table widefat striped">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e( 'Name', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Clock-in', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Clock-out', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Geofence (In/Out)', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Mode', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Roles', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Active', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ( $policies as $p ) : ?>
+                            <tr>
+                                <td><strong><?php echo esc_html( $p->name ); ?></strong></td>
+                                <td><?php echo esc_html( implode( ', ', $p->clock_in_methods ) ); ?></td>
+                                <td><?php echo esc_html( implode( ', ', $p->clock_out_methods ) ); ?></td>
+                                <td>
+                                    <?php echo esc_html( ucfirst( $p->clock_in_geofence ) ); ?> /
+                                    <?php echo esc_html( ucfirst( $p->clock_out_geofence ) ); ?>
+                                </td>
+                                <td>
+                                    <?php
+                                    if ( $p->calculation_mode === 'total_hours' ) {
+                                        printf( '%s (%sh)', esc_html__( 'Total Hours', 'sfs-hr' ), esc_html( $p->target_hours ?: '8' ) );
+                                    } else {
+                                        esc_html_e( 'Shift Times', 'sfs-hr' );
+                                    }
+                                    ?>
+                                </td>
+                                <td>
+                                    <?php
+                                    if ( ! empty( $p->roles ) ) {
+                                        $labels = [];
+                                        foreach ( $p->roles as $r ) {
+                                            $labels[] = $wp_roles[ $r ] ?? $r;
+                                        }
+                                        echo esc_html( implode( ', ', $labels ) );
+                                    } else {
+                                        echo '<em>' . esc_html__( 'None', 'sfs-hr' ) . '</em>';
+                                    }
+                                    ?>
+                                </td>
+                                <td><?php echo $p->active ? '<span style="color:green;">&#10003;</span>' : '<span style="color:#999;">&#10005;</span>'; ?></td>
+                                <td>
+                                    <a href="<?php echo esc_url( add_query_arg( [ 'tab' => 'policies', 'edit_policy' => $p->id ], admin_url( 'admin.php?page=sfs_hr_attendance' ) ) ); ?>" class="button button-small"><?php esc_html_e( 'Edit', 'sfs-hr' ); ?></a>
+                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;" onsubmit="return confirm('<?php esc_attr_e( 'Delete this policy?', 'sfs-hr' ); ?>');">
+                                        <?php wp_nonce_field( 'sfs_hr_att_delete_policy' ); ?>
+                                        <input type="hidden" name="action" value="sfs_hr_att_delete_policy" />
+                                        <input type="hidden" name="policy_id" value="<?php echo esc_attr( $p->id ); ?>" />
+                                        <button type="submit" class="button button-small" style="color:#a00;"><?php esc_html_e( 'Delete', 'sfs-hr' ); ?></button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <script>
+    document.getElementById('calc_mode_select').addEventListener('change', function() {
+        var rows = document.querySelectorAll('.total-hours-row');
+        var show = this.value === 'total_hours';
+        rows.forEach(function(r) { r.style.display = show ? '' : 'none'; });
+    });
+    </script>
+    <?php
+}
+
+/**
+ * Handle save policy form submission.
+ */
+public function handle_save_policy(): void {
+    if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) { wp_die( 'Access denied' ); }
+    check_admin_referer( 'sfs_hr_att_save_policy' );
+
+    $data = [
+        'name'                   => $_POST['name'] ?? '',
+        'clock_in_methods'       => $_POST['clock_in_methods'] ?? [],
+        'clock_out_methods'      => $_POST['clock_out_methods'] ?? [],
+        'clock_in_geofence'      => $_POST['clock_in_geofence'] ?? 'enforced',
+        'clock_out_geofence'     => $_POST['clock_out_geofence'] ?? 'enforced',
+        'calculation_mode'       => $_POST['calculation_mode'] ?? 'shift_times',
+        'target_hours'           => $_POST['target_hours'] ?? null,
+        'breaks_enabled'         => $_POST['breaks_enabled'] ?? 0,
+        'break_duration_minutes' => $_POST['break_duration_minutes'] ?? null,
+        'active'                 => isset( $_POST['active'] ) ? 1 : 0,
+        'roles'                  => $_POST['roles'] ?? [],
+    ];
+
+    if ( ! empty( $_POST['policy_id'] ) ) {
+        $data['id'] = (int) $_POST['policy_id'];
+    }
+
+    \SFS\HR\Modules\Attendance\Services\Policy_Service::save_policy( $data );
+
+    wp_safe_redirect( admin_url( 'admin.php?page=sfs_hr_attendance&tab=policies&saved=1' ) );
+    exit;
+}
+
+/**
+ * Handle delete policy.
+ */
+public function handle_delete_policy(): void {
+    if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) { wp_die( 'Access denied' ); }
+    check_admin_referer( 'sfs_hr_att_delete_policy' );
+
+    $id = (int) ( $_POST['policy_id'] ?? 0 );
+    if ( $id > 0 ) {
+        \SFS\HR\Modules\Attendance\Services\Policy_Service::delete_policy( $id );
+    }
+
+    wp_safe_redirect( admin_url( 'admin.php?page=sfs_hr_attendance&tab=policies&deleted=1' ) );
+    exit;
+}
 
 }

@@ -3676,6 +3676,16 @@ foreach ($rows as $r) {
     // Net worked time = total worked minus break time
     $net = (int)$ev['worked_total'] - (int)$ev['break_total'];
     $net = max(0, $net); // Ensure non-negative
+
+    // ---- Total-hours mode (role-based attendance policy) ----
+    $is_total_hours = \SFS\HR\Modules\Attendance\Services\Policy_Service::is_total_hours_mode( $employee_id );
+    $policy_break   = \SFS\HR\Modules\Attendance\Services\Policy_Service::get_break_settings( $employee_id );
+
+    if ( $is_total_hours && $policy_break['enabled'] && $policy_break['duration_minutes'] > 0 ) {
+        // Deduct fixed break allowance from net worked time
+        $net = max( 0, $net - $policy_break['duration_minutes'] );
+    }
+
     if ($roundN > 0) $net = (int)round($net / $roundN) * $roundN;
 
     $scheduled = (int)$ev['scheduled_total'];
@@ -3688,6 +3698,25 @@ foreach ($rows as $r) {
         // Check if it's an actual company holiday first
         $is_company_holiday = self::is_company_holiday( $ymd );
         $status = $is_company_holiday ? 'holiday' : 'day_off';
+    } elseif ( $is_total_hours ) {
+        // Total-hours mode: compare worked hours against target, ignore shift times
+        $target_hours   = \SFS\HR\Modules\Attendance\Services\Policy_Service::get_target_hours( $employee_id );
+        $target_minutes = (int) ( $target_hours * 60 );
+
+        if ( count( $rows ) === 0 ) {
+            $status = 'absent';
+        } elseif ( in_array( 'incomplete', $ev['flags'], true ) ) {
+            $status = 'incomplete';
+        } elseif ( $net < $target_minutes ) {
+            // Worked but didn't reach target — flag as left_early (insufficient hours)
+            $status = 'left_early';
+            $ev['flags'][] = 'left_early';
+        } else {
+            $status = 'present';
+        }
+
+        // In total-hours mode, overtime is hours beyond target
+        $ot = max( 0, $net - $target_minutes );
     } elseif (in_array('incomplete', $ev['flags'], true)) {
         $status = 'incomplete';
     } elseif (in_array('missed_segment', $ev['flags'], true) && $net === 0) {
@@ -3695,8 +3724,10 @@ foreach ($rows as $r) {
     } elseif (in_array('missed_segment', $ev['flags'], true)) {
         $status = 'present';
     }
-    if (in_array('left_early',$ev['flags'],true)) $status = ($status==='present' ? 'left_early' : $status);
-    if (in_array('late',$ev['flags'],true))       $status = ($status==='present' ? 'late'       : $status);
+    if ( ! $is_total_hours ) {
+        if (in_array('left_early',$ev['flags'],true)) $status = ($status==='present' ? 'left_early' : $status);
+        if (in_array('late',$ev['flags'],true))       $status = ($status==='present' ? 'late'       : $status);
+    }
 
     // Geo/selfie counters (for completeness)
     $outside_geo = 0; $no_selfie = 0;
@@ -3717,6 +3748,14 @@ foreach ($rows as $r) {
         'grace'           => ['late'=>$grLate,'early'=>$grEarly],
         'counters'        => ['outside_geo'=>$outside_geo,'no_selfie'=>$no_selfie],
     ];
+
+    // Add total-hours policy info to calc_meta for diagnostics
+    if ( $is_total_hours ) {
+        $calcMeta['policy_mode']           = 'total_hours';
+        $calcMeta['target_hours']          = \SFS\HR\Modules\Attendance\Services\Policy_Service::get_target_hours( $employee_id );
+        $calcMeta['target_minutes']        = (int) ( $calcMeta['target_hours'] * 60 );
+        $calcMeta['policy_break_deducted'] = $policy_break['enabled'] ? $policy_break['duration_minutes'] : 0;
+    }
 
     $data = [
         'employee_id'         => $employee_id,
