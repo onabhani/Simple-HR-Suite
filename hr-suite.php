@@ -146,6 +146,12 @@ add_action('admin_init', function(){
     $candidates_table     = $wpdb->prefix . 'sfs_hr_candidates';
     $trainees_table       = $wpdb->prefix . 'sfs_hr_trainees';
 
+    // Performance module tables
+    $perf_snapshots_table = $wpdb->prefix . 'sfs_hr_performance_snapshots';
+    $perf_goals_table     = $wpdb->prefix . 'sfs_hr_performance_goals';
+    $perf_reviews_table   = $wpdb->prefix . 'sfs_hr_performance_reviews';
+    $perf_alerts_table    = $wpdb->prefix . 'sfs_hr_performance_alerts';
+
     $table_exists = function(string $table) use ($wpdb){
         return (bool) $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
@@ -184,7 +190,13 @@ add_action('admin_init', function(){
 
         // Hiring module
         !$table_exists($candidates_table)     ||
-        !$table_exists($trainees_table)
+        !$table_exists($trainees_table)       ||
+
+        // Performance module
+        !$table_exists($perf_snapshots_table) ||
+        !$table_exists($perf_goals_table)     ||
+        !$table_exists($perf_reviews_table)   ||
+        !$table_exists($perf_alerts_table)
     );
 
     $needs_columns = false;
@@ -419,6 +431,9 @@ add_action('plugins_loaded', function(){
 
     // Notification System (email/SMS alerts)
     \SFS\HR\Core\Notifications::init();
+
+    // Performance Module (attendance commitment, goals, reviews, alerts)
+    (new \SFS\HR\Modules\Performance\PerformanceModule())->hooks();
 });
 
 /**
