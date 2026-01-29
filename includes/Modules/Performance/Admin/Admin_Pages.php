@@ -103,14 +103,14 @@ class Admin_Pages {
     }
 
     /**
-     * Remove the WP core separator (position 59) that creates a gap below Performance.
+     * Remove WP core separator that creates a gap below Performance.
      */
     public function remove_separator_after_performance(): void {
         global $menu;
         foreach ( $menu as $key => $item ) {
-            if ( $key == 59 && ( $item[2] ?? '' ) === 'separator2' ) {
+            // Remove any separator sitting between Performance (57) and Appearance (60)
+            if ( $key >= 58 && $key <= 59 && isset( $item[4] ) && strpos( $item[4], 'wp-menu-separator' ) !== false ) {
                 unset( $menu[ $key ] );
-                break;
             }
         }
     }
