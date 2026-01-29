@@ -298,6 +298,11 @@ class Admin_Pages {
                 color: #6c757d;
                 border-color: #e9ecef;
             }
+            .sfs-hr-pill--status-absent {
+                background: #f8d7da;
+                color: #721c24;
+                border-color: #f5c6cb;
+            }
             .sfs-hr-pill--leave-duty {
                 background: #d4edda;
                 color: #155724;
@@ -486,6 +491,7 @@ class Admin_Pages {
             'on_break'       => [ 'label' => __( 'On break', 'sfs-hr' ) ],
             'clocked_out'    => [ 'label' => __( 'Clocked out', 'sfs-hr' ) ],
             'not_clocked_in' => [ 'label' => __( 'Not Clocked-IN', 'sfs-hr' ) ],
+            'absent'         => [ 'label' => __( 'Absent', 'sfs-hr' ) ],
             'on_leave'       => [ 'label' => __( 'On leave', 'sfs-hr' ) ],
         ];
     }
@@ -753,6 +759,9 @@ class Admin_Pages {
             // reuse the leave-on color so it's visually consistent
             $class = 'sfs-hr-pill--leave-on';
             break;
+        case 'absent':
+            $class = 'sfs-hr-pill--status-absent';
+            break;
         case 'not_clocked_in':
         default:
             $class = 'sfs-hr-pill--status-notin';
@@ -769,8 +778,15 @@ class Admin_Pages {
      */
     protected function render_leave_badge( string $label ): string {
         $is_on_leave = ( stripos( $label, 'On leave' ) === 0 ); // text prefix is stable
+        $is_absent   = ( $label === __( 'Absent', 'sfs-hr' ) );
 
-        $class = $is_on_leave ? 'sfs-hr-pill--leave-on' : 'sfs-hr-pill--leave-duty';
+        if ( $is_absent ) {
+            $class = 'sfs-hr-pill--status-absent';
+        } elseif ( $is_on_leave ) {
+            $class = 'sfs-hr-pill--leave-on';
+        } else {
+            $class = 'sfs-hr-pill--leave-duty';
+        }
 
         return '<span class="sfs-hr-pill ' . esc_attr( $class ) . '">' . esc_html( $label ) . '</span>';
     }
@@ -857,6 +873,12 @@ class Admin_Pages {
         $leave_map = $this->get_today_leave_map( $emp_ids, $args['today_date'] );
         $risk_map  = $this->get_risk_flags_map( $emp_ids, $args['today_date'] );
 
+        // Get shift information for all employees (shift-specific off days)
+        $shift_map = $this->get_employee_shifts_map( $emp_ids, $args['today_date'] );
+
+        // Check if today is a global holiday (applies to all employees)
+        $is_global_holiday = $this->is_holiday( $args['today_date'] );
+
         $tabs   = $this->get_status_tabs();
         $counts = $this->empty_counts();
         $rows   = [];
@@ -882,6 +904,20 @@ $leave_label = $leave_map[ $emp_id ] ?? __( 'On duty', 'sfs-hr' );
 // If on leave today → force into "on_leave" tab
 if ( isset( $leave_map[ $emp_id ] ) ) {
     $status_key = 'on_leave';
+}
+
+// Check if it's a working day for this specific employee (shift-based)
+$shift_info = $shift_map[ $emp_id ] ?? null;
+$is_working_day_for_emp = ! $is_global_holiday && $this->is_working_day_for_employee( $args['today_date'], $shift_info );
+
+// Time-based absent detection: only mark absent if past shift start time
+$shift_start_time = $shift_info['start_time'] ?? null;
+$is_past_start = $this->is_past_shift_start( $shift_start_time );
+
+// If not clocked in, not on leave, it's a working day, and past shift start → mark as absent
+if ( $status_key === 'not_clocked_in' && $is_working_day_for_emp && $is_past_start ) {
+    $status_key = 'absent';
+    $leave_label = __( 'Absent', 'sfs-hr' );
 }
 
 if ( ! isset( $tabs[ $status_key ] ) ) {
@@ -1079,6 +1115,160 @@ $risk_flag = $risk_map[ $emp_id ] ?? '';
             default:
                 return 'not_clocked_in';
         }
+    }
+
+    /**
+     * Check if a given date is a public holiday.
+     *
+     * @param string $ymd Date in Y-m-d format.
+     * @return bool True if holiday, false otherwise.
+     */
+    protected function is_holiday( string $ymd ): bool {
+        $holidays = get_option( 'sfs_hr_holidays', [] );
+        if ( ! is_array( $holidays ) ) {
+            return false;
+        }
+
+        $year = (int) substr( $ymd, 0, 4 );
+
+        foreach ( $holidays as $h ) {
+            // Support both old format (start_date/end_date) and new format (start/end)
+            $s = isset( $h['start'] ) ? $h['start'] : ( isset( $h['start_date'] ) ? $h['start_date'] : '' );
+            $e = isset( $h['end'] ) ? $h['end'] : ( isset( $h['end_date'] ) ? $h['end_date'] : $s );
+
+            if ( empty( $s ) ) {
+                continue;
+            }
+
+            // Handle repeating holidays (annual)
+            if ( ! empty( $h['repeat'] ) ) {
+                // Extract month-day and apply to current year
+                $sm = substr( $s, 5 ); // MM-DD
+                $em = substr( $e, 5 );
+                $rs = $year . '-' . $sm;
+                $re = ( $em >= $sm ) ? ( $year . '-' . $em ) : ( ( $year + 1 ) . '-' . $em );
+
+                if ( $ymd >= $rs && $ymd <= $re ) {
+                    return true;
+                }
+            } else {
+                // Non-repeating holiday
+                if ( $ymd >= $s && $ymd <= $e ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Get shift information for all employees for a given date.
+     * Returns a map of employee_id => shift_info or null if day off.
+     *
+     * @param array  $emp_ids Array of employee IDs.
+     * @param string $ymd     Date in Y-m-d format.
+     * @return array Map of employee_id => ['shift' => object|null, 'is_day_off' => bool, 'start_time' => string|null]
+     */
+    protected function get_employee_shifts_map( array $emp_ids, string $ymd ): array {
+        if ( empty( $emp_ids ) ) {
+            return [];
+        }
+
+        $map = [];
+
+        // Use AttendanceModule to resolve shifts if available
+        if ( class_exists( '\SFS\HR\Modules\Attendance\AttendanceModule' ) ) {
+            foreach ( $emp_ids as $emp_id ) {
+                $shift = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $emp_id, $ymd );
+
+                if ( $shift === null ) {
+                    // No shift assigned = day off for this employee
+                    $map[ $emp_id ] = [
+                        'shift'      => null,
+                        'is_day_off' => true,
+                        'start_time' => null,
+                    ];
+                } else {
+                    $map[ $emp_id ] = [
+                        'shift'      => $shift,
+                        'is_day_off' => false,
+                        'start_time' => $shift->start_time ?? null,
+                    ];
+                }
+            }
+        } else {
+            // Fallback: use simple Friday check if AttendanceModule not available
+            $is_friday = $this->is_friday( $ymd );
+            foreach ( $emp_ids as $emp_id ) {
+                $map[ $emp_id ] = [
+                    'shift'      => null,
+                    'is_day_off' => $is_friday,
+                    'start_time' => null,
+                ];
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * Check if date is Friday (fallback for when no shift system).
+     *
+     * @param string $ymd Date in Y-m-d format.
+     * @return bool True if Friday.
+     */
+    protected function is_friday( string $ymd ): bool {
+        $tz = wp_timezone();
+        $date = new \DateTimeImmutable( $ymd . ' 00:00:00', $tz );
+        return (int) $date->format( 'w' ) === 5;
+    }
+
+    /**
+     * Check if current time is past the shift start time.
+     * Only mark as absent if the workday has started.
+     *
+     * @param string|null $start_time Shift start time (H:i:s format).
+     * @return bool True if current time is past shift start time.
+     */
+    protected function is_past_shift_start( ?string $start_time ): bool {
+        if ( empty( $start_time ) ) {
+            // No shift time defined, use default business hours start (8:00 AM)
+            $start_time = '08:00:00';
+        }
+
+        $tz = wp_timezone();
+        $now = new \DateTimeImmutable( 'now', $tz );
+        $current_time = $now->format( 'H:i:s' );
+
+        return $current_time >= $start_time;
+    }
+
+    /**
+     * Check if a given date is a working day for a specific employee.
+     * Takes into account: holidays, shift-specific off days.
+     *
+     * @param string     $ymd        Date in Y-m-d format.
+     * @param array|null $shift_info Shift info from get_employee_shifts_map() or null.
+     * @return bool True if working day, false otherwise.
+     */
+    protected function is_working_day_for_employee( string $ymd, ?array $shift_info ): bool {
+        // Check holiday first (applies to all employees)
+        if ( $this->is_holiday( $ymd ) ) {
+            return false;
+        }
+
+        // Check shift-specific day off
+        if ( $shift_info !== null && $shift_info['is_day_off'] ) {
+            return false;
+        }
+
+        // If no shift info available, fall back to Friday check
+        if ( $shift_info === null && $this->is_friday( $ymd ) ) {
+            return false;
+        }
+
+        return true;
     }
 
     protected function empty_counts(): array {

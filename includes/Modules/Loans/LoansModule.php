@@ -1,6 +1,8 @@
 <?php
 namespace SFS\HR\Modules\Loans;
 
+use SFS\HR\Core\Helpers;
+
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }

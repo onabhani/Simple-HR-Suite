@@ -1693,6 +1693,12 @@ public function handle_cancel_approved(): void {
         Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Only approved or on-leave requests can be cancelled.', 'sfs-hr' ) );
     }
 
+    // Check if the leave has already ended (employee has returned)
+    $today = current_time( 'Y-m-d' );
+    if ( $today > $row['end_date'] ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Cannot cancel a leave that has already ended.', 'sfs-hr' ) );
+    }
+
     // Check if there's already a pending cancellation
     $existing = $wpdb->get_var( $wpdb->prepare(
         "SELECT COUNT(*) FROM $cancel_t WHERE leave_request_id = %d AND status = 'pending'",
@@ -6175,7 +6181,10 @@ public function render_calendar(): void {
 
                         <?php
                         // === HR can initiate cancellation of approved/on_leave requests ===
-                        if ( in_array( $request->status, [ 'approved', 'on_leave' ], true ) && $is_hr ) :
+                        // But not if the leave has already ended (employee has returned)
+                        $today = current_time( 'Y-m-d' );
+                        $has_returned = ( $today > $request->end_date );
+                        if ( in_array( $request->status, [ 'approved', 'on_leave' ], true ) && $is_hr && ! $has_returned ) :
                             // Check for existing pending cancellation
                             $cancel_t = $wpdb->prefix . 'sfs_hr_leave_cancellations';
                             $pending_cancellation = $wpdb->get_row( $wpdb->prepare(

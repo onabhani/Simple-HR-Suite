@@ -440,28 +440,76 @@ class Resignation_List {
         ?>
         <script>
         var sfsResignationAjaxNonce = '<?php echo wp_create_nonce('sfs_hr_resignation_ajax'); ?>';
+        var ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
 
         function showResignationDetails(id) {
             var tr = document.querySelector('tr[data-id="'+id+'"]');
             if(!tr) return;
             var body = document.getElementById('sfs-hr-resignation-modal-body');
             var actions = document.getElementById('sfs-hr-resignation-modal-actions');
-            body.innerHTML = '<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label">Reference #</span><span class="sfs-hr-resignation-modal-value"><strong>'+(tr.dataset.ref||'-')+'</strong></span></div>'
-                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label">Employee</span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.employee+'</span></div>'
-                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label">Code</span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.code+'</span></div>'
-                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label">Type</span><span class="sfs-hr-resignation-modal-value">'+(tr.dataset.type==='final_exit'?'Final Exit':'Regular')+'</span></div>'
-                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label">Date</span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.date+'</span></div>'
-                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label">LWD</span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.lwd+'</span></div>'
-                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label">Status</span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.status+'</span></div>'
-                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label">Reason</span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.reason+'</span></div>';
+
+            // Show basic info from data attributes first
+            body.innerHTML = '<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Reference #', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value"><strong>'+(tr.dataset.ref||'-')+'</strong></span></div>'
+                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Employee', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.employee+'</span></div>'
+                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Code', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.code+'</span></div>'
+                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Type', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+(tr.dataset.type==='final_exit'?'<?php esc_html_e('Final Exit', 'sfs-hr'); ?>':'<?php esc_html_e('Regular', 'sfs-hr'); ?>')+'</span></div>'
+                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Date', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.date+'</span></div>'
+                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Last Working Day', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.lwd+'</span></div>'
+                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Status', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.status+'</span></div>'
+                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Reason', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.reason+'</span></div>'
+                +'<div id="sfs-hr-resignation-history" style="margin-top:15px;"><p style="color:#999;font-size:12px;"><?php esc_html_e('Loading history...', 'sfs-hr'); ?></p></div>';
+
             var btns = '';
             if(tr.dataset.status === 'pending') {
-                btns += '<button class="button button-primary" onclick="showApproveModal('+id+');">Approve</button>';
-                btns += '<button class="button" onclick="showRejectModal('+id+');">Reject</button>';
-                btns += '<button class="button" onclick="showCancelModal('+id+');">Cancel</button>';
+                btns += '<button class="button button-primary" onclick="showApproveModal('+id+');"><?php esc_html_e('Approve', 'sfs-hr'); ?></button>';
+                btns += '<button class="button" onclick="showRejectModal('+id+');"><?php esc_html_e('Reject', 'sfs-hr'); ?></button>';
+                btns += '<button class="button" onclick="showCancelModal('+id+');"><?php esc_html_e('Cancel', 'sfs-hr'); ?></button>';
             }
             actions.innerHTML = btns;
             document.getElementById('sfs-hr-resignation-modal').classList.add('active');
+
+            // Fetch history via AJAX
+            var formData = new FormData();
+            formData.append('action', 'sfs_hr_get_resignation');
+            formData.append('nonce', sfsResignationAjaxNonce);
+            formData.append('resignation_id', id);
+
+            fetch(ajaxurl, {
+                method: 'POST',
+                body: formData
+            })
+            .then(function(response) { return response.json(); })
+            .then(function(result) {
+                var historyDiv = document.getElementById('sfs-hr-resignation-history');
+                if(result.success && result.data.history && result.data.history.length > 0) {
+                    var html = '<h4 style="margin:0 0 10px 0;padding-top:10px;border-top:1px solid #eee;"><?php esc_html_e('History', 'sfs-hr'); ?></h4>';
+                    html += '<div style="max-height:200px;overflow-y:auto;">';
+                    result.data.history.forEach(function(event) {
+                        html += '<div style="border-bottom:1px solid #f0f0f1;padding:8px 0;font-size:12px;">';
+                        html += '<div style="color:#666;font-size:11px;">'+event.date+'</div>';
+                        html += '<div style="font-weight:600;">'+event.event_type+'</div>';
+                        html += '<div style="color:#555;">'+event.user_name+'</div>';
+                        if(event.meta && Object.keys(event.meta).length > 0) {
+                            html += '<div style="background:#f9f9f9;padding:4px 6px;margin-top:4px;border-radius:3px;font-size:11px;">';
+                            for(var key in event.meta) {
+                                if(event.meta[key] !== null && event.meta[key] !== '') {
+                                    var label = key.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
+                                    html += '<strong>'+label+':</strong> '+event.meta[key]+'<br>';
+                                }
+                            }
+                            html += '</div>';
+                        }
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                    historyDiv.innerHTML = html;
+                } else {
+                    historyDiv.innerHTML = '<p style="color:#999;font-size:12px;margin:0;"><?php esc_html_e('No history recorded yet.', 'sfs-hr'); ?></p>';
+                }
+            })
+            .catch(function(error) {
+                document.getElementById('sfs-hr-resignation-history').innerHTML = '';
+            });
         }
 
         function closeResignationModal() { document.getElementById('sfs-hr-resignation-modal').classList.remove('active'); }

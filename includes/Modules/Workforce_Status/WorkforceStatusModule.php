@@ -1,16 +1,18 @@
 <?php
 namespace SFS\HR\Modules\Workforce_Status;
 
+use SFS\HR\Modules\Workforce_Status\Cron\Absent_Cron;
+
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 /**
  * WorkforceStatusModule
- * Version: 0.1.0-workforce-v1
+ * Version: 0.2.0-workforce-v2
  * Author: Omar Alnabhani (hdqah.com)
  *
  * Notes:
  * - Read-only aggregation on top of Attendance + Leave
- * - No schema changes, no writes
+ * - Absent employee notifications to department managers
  */
 class WorkforceStatusModule {
 
@@ -25,6 +27,7 @@ class WorkforceStatusModule {
             }
         } );
 
-        // No REST, no cron, no front-end hooks in v1.
+        // Register absent notification cron
+        ( new Absent_Cron() )->hooks();
     }
 }

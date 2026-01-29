@@ -316,6 +316,182 @@ class Migrations {
             UNIQUE KEY `request_number` (`request_number`)
         ) $charset");
 
+        /** EXIT HISTORY (audit trail for resignations and settlements) */
+        $exit_history = $wpdb->prefix.'sfs_hr_exit_history';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$exit_history` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `resignation_id` BIGINT(20) UNSIGNED NULL,
+            `settlement_id` BIGINT(20) UNSIGNED NULL,
+            `created_at` DATETIME NOT NULL,
+            `user_id` BIGINT(20) UNSIGNED NULL,
+            `event_type` VARCHAR(50) NOT NULL,
+            `meta` LONGTEXT NULL,
+            PRIMARY KEY (`id`),
+            KEY `resignation_id` (`resignation_id`),
+            KEY `settlement_id` (`settlement_id`),
+            KEY `created_at` (`created_at`),
+            KEY `event_type` (`event_type`)
+        ) $charset");
+
+        /** PERFORMANCE MODULE TABLES */
+
+        // Performance Snapshots - historical attendance commitment data
+        $perf_snapshots = $wpdb->prefix.'sfs_hr_performance_snapshots';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$perf_snapshots` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `employee_id` BIGINT(20) UNSIGNED NOT NULL,
+            `period_start` DATE NOT NULL,
+            `period_end` DATE NOT NULL,
+            `total_working_days` INT UNSIGNED NOT NULL DEFAULT 0,
+            `days_present` INT UNSIGNED NOT NULL DEFAULT 0,
+            `days_absent` INT UNSIGNED NOT NULL DEFAULT 0,
+            `late_count` INT UNSIGNED NOT NULL DEFAULT 0,
+            `early_leave_count` INT UNSIGNED NOT NULL DEFAULT 0,
+            `incomplete_count` INT UNSIGNED NOT NULL DEFAULT 0,
+            `attendance_commitment_pct` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+            `goals_completion_pct` DECIMAL(5,2) NULL,
+            `review_score` DECIMAL(5,2) NULL,
+            `overall_score` DECIMAL(5,2) NULL,
+            `meta_json` LONGTEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `employee_id` (`employee_id`),
+            KEY `period_start` (`period_start`),
+            KEY `period_end` (`period_end`),
+            UNIQUE KEY `uq_emp_period` (`employee_id`, `period_start`, `period_end`)
+        ) $charset");
+
+        // Goals / OKRs
+        $perf_goals = $wpdb->prefix.'sfs_hr_performance_goals';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$perf_goals` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `employee_id` BIGINT(20) UNSIGNED NOT NULL,
+            `title` VARCHAR(255) NOT NULL,
+            `description` TEXT NULL,
+            `target_date` DATE NULL,
+            `weight` TINYINT UNSIGNED NOT NULL DEFAULT 100,
+            `progress` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            `status` ENUM('active','completed','cancelled','on_hold') NOT NULL DEFAULT 'active',
+            `category` VARCHAR(50) NULL,
+            `parent_id` BIGINT(20) UNSIGNED NULL,
+            `created_by` BIGINT(20) UNSIGNED NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `employee_id` (`employee_id`),
+            KEY `status` (`status`),
+            KEY `target_date` (`target_date`),
+            KEY `parent_id` (`parent_id`)
+        ) $charset");
+
+        // Goal Progress History
+        $perf_goal_history = $wpdb->prefix.'sfs_hr_performance_goal_history';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$perf_goal_history` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `goal_id` BIGINT(20) UNSIGNED NOT NULL,
+            `progress` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            `note` TEXT NULL,
+            `updated_by` BIGINT(20) UNSIGNED NULL,
+            `created_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `goal_id` (`goal_id`),
+            KEY `created_at` (`created_at`)
+        ) $charset");
+
+        // Performance Reviews
+        $perf_reviews = $wpdb->prefix.'sfs_hr_performance_reviews';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$perf_reviews` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `employee_id` BIGINT(20) UNSIGNED NOT NULL,
+            `reviewer_id` BIGINT(20) UNSIGNED NOT NULL,
+            `review_type` ENUM('self','manager','peer','360') NOT NULL DEFAULT 'manager',
+            `review_cycle` VARCHAR(50) NULL,
+            `period_start` DATE NOT NULL,
+            `period_end` DATE NOT NULL,
+            `status` ENUM('draft','pending','submitted','acknowledged') NOT NULL DEFAULT 'draft',
+            `overall_rating` DECIMAL(3,2) NULL,
+            `ratings_json` LONGTEXT NULL,
+            `strengths` TEXT NULL,
+            `improvements` TEXT NULL,
+            `comments` TEXT NULL,
+            `employee_comments` TEXT NULL,
+            `acknowledged_at` DATETIME NULL,
+            `due_date` DATE NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `employee_id` (`employee_id`),
+            KEY `reviewer_id` (`reviewer_id`),
+            KEY `status` (`status`),
+            KEY `period_end` (`period_end`)
+        ) $charset");
+
+        // Review Templates / Criteria
+        $perf_review_criteria = $wpdb->prefix.'sfs_hr_performance_review_criteria';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$perf_review_criteria` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `name` VARCHAR(191) NOT NULL,
+            `description` TEXT NULL,
+            `category` VARCHAR(50) NULL,
+            `weight` TINYINT UNSIGNED NOT NULL DEFAULT 100,
+            `sort_order` INT NOT NULL DEFAULT 0,
+            `active` TINYINT(1) NOT NULL DEFAULT 1,
+            `created_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `category` (`category`),
+            KEY `active` (`active`)
+        ) $charset");
+
+        // Performance Alerts
+        $perf_alerts = $wpdb->prefix.'sfs_hr_performance_alerts';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$perf_alerts` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `employee_id` BIGINT(20) UNSIGNED NOT NULL,
+            `alert_type` VARCHAR(50) NOT NULL,
+            `severity` ENUM('info','warning','critical') NOT NULL DEFAULT 'warning',
+            `title` VARCHAR(255) NOT NULL,
+            `message` TEXT NULL,
+            `metric_value` DECIMAL(10,2) NULL,
+            `threshold_value` DECIMAL(10,2) NULL,
+            `status` ENUM('active','acknowledged','resolved') NOT NULL DEFAULT 'active',
+            `acknowledged_by` BIGINT(20) UNSIGNED NULL,
+            `acknowledged_at` DATETIME NULL,
+            `resolved_at` DATETIME NULL,
+            `meta_json` LONGTEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `employee_id` (`employee_id`),
+            KEY `alert_type` (`alert_type`),
+            KEY `status` (`status`),
+            KEY `severity` (`severity`),
+            KEY `created_at` (`created_at`)
+        ) $charset");
+
+        // Seed default review criteria if empty
+        $has_criteria = (int)$wpdb->get_var("SELECT COUNT(*) FROM `$perf_review_criteria`");
+        if ($has_criteria === 0) {
+            $now = current_time('mysql');
+            $default_criteria = [
+                ['Job Knowledge', 'Understanding of job duties and responsibilities', 'competency', 20, 1],
+                ['Quality of Work', 'Accuracy, thoroughness, and reliability of work', 'competency', 20, 2],
+                ['Productivity', 'Volume of work and efficiency', 'competency', 15, 3],
+                ['Communication', 'Clarity and effectiveness in communication', 'soft_skills', 15, 4],
+                ['Teamwork', 'Collaboration and support of colleagues', 'soft_skills', 15, 5],
+                ['Attendance & Punctuality', 'Reliability in attendance and timeliness', 'attendance', 15, 6],
+            ];
+            foreach ($default_criteria as $c) {
+                $wpdb->insert($perf_review_criteria, [
+                    'name'        => $c[0],
+                    'description' => $c[1],
+                    'category'    => $c[2],
+                    'weight'      => $c[3],
+                    'sort_order'  => $c[4],
+                    'active'      => 1,
+                    'created_at'  => $now,
+                ]);
+            }
+        }
+
         /** Seed Departments + assign */
         $has_dept = (int)$wpdb->get_var("SELECT COUNT(*) FROM `$dept`");
         if ($has_dept === 0) {
