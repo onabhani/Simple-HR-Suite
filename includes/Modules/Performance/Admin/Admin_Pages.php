@@ -24,6 +24,7 @@ class Admin_Pages {
      */
     public function hooks(): void {
         add_action( 'admin_menu', [ $this, 'register_menu' ] );
+        add_action( 'admin_menu', [ $this, 'remove_separator_after_performance' ], 999 );
         add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
         add_action( 'admin_post_sfs_hr_save_performance_settings', [ $this, 'handle_save_settings' ] );
         add_action( 'admin_post_sfs_hr_save_goal', [ $this, 'handle_save_goal' ] );
@@ -99,6 +100,19 @@ class Admin_Pages {
             'sfs-hr-performance-settings',
             [ $this, 'render_settings' ]
         );
+    }
+
+    /**
+     * Remove the WP core separator (position 59) that creates a gap below Performance.
+     */
+    public function remove_separator_after_performance(): void {
+        global $menu;
+        foreach ( $menu as $key => $item ) {
+            if ( $key == 59 && ( $item[2] ?? '' ) === 'separator2' ) {
+                unset( $menu[ $key ] );
+                break;
+            }
+        }
     }
 
     /**
