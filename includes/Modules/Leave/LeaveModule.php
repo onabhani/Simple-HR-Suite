@@ -1461,6 +1461,26 @@ public function handle_approve(): void {
         'note' => $note ?: __('Request approved', 'sfs-hr'),
     ]);
 
+    // If this approved leave covers past dates, flip any 'absent' attendance sessions to 'on_leave'.
+    // This handles retroactive sick leave: employee was absent, submitted sick leave within 3 days,
+    // and upon approval the absence is converted so salary deduction no longer applies.
+    $sessions_t = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+    $today_date = current_time( 'Y-m-d' );
+    if ( $row['start_date'] <= $today_date ) {
+        $flip_end = min( $row['end_date'], $today_date );
+        $wpdb->query( $wpdb->prepare(
+            "UPDATE {$sessions_t}
+             SET status = 'on_leave', updated_at = %s
+             WHERE employee_id = %d
+               AND work_date BETWEEN %s AND %s
+               AND status = 'absent'",
+            Helpers::now_mysql(),
+            (int) $row['employee_id'],
+            $row['start_date'],
+            $flip_end
+        ) );
+    }
+
     // Recalculate yearly used + closing balance for this type
     $used = (int) $wpdb->get_var(
         $wpdb->prepare(
@@ -3753,7 +3773,8 @@ public function shortcode_request($atts = []): string {
                    '</p></div>' . $this->render_request_form($emp);
         }
 
-        $err = $this->validate_dates($start, $end);
+        $special_code = isset($type['special_code']) ? strtoupper(trim($type['special_code'])) : '';
+        $err = $this->validate_dates($start, $end, $special_code);
         if ($err) {
             return $out . '<div class="notice notice-error"><p>' . esc_html($err) . '</p></div>' .
                    $this->render_request_form($emp);
@@ -4057,8 +4078,8 @@ $types = array_values(array_filter($types, function($t) use ($gender) {
     /* ---------------------------------- Validation / Utils ---------------------------------- */
     /* Most utility functions are now in LeaveCalculationService */
 
-    private function validate_dates(string $start, string $end): ?string {
-        return LeaveCalculationService::validate_dates($start, $end);
+    private function validate_dates(string $start, string $end, string $special_code = ''): ?string {
+        return LeaveCalculationService::validate_dates($start, $end, $special_code);
     }
 
     private function append_approval_chain(?string $json, array $step): string {

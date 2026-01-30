@@ -96,9 +96,10 @@ class LeaveCalculationService {
 
     /**
      * Validate leave request dates
+     * @param string $special_code Optional leave type special code (e.g. SICK_SHORT, SICK_LONG)
      * @return string|null Error message or null if valid
      */
-    public static function validate_dates(string $start, string $end): ?string {
+    public static function validate_dates(string $start, string $end, string $special_code = ''): ?string {
         if (!$start || !$end) {
             return __('Start/End dates required.', 'sfs-hr');
         }
@@ -110,7 +111,16 @@ class LeaveCalculationService {
         }
         $today = current_time('Y-m-d');
         if ($start < $today) {
-            return __('Cannot request leave in the past.', 'sfs-hr');
+            // Allow sick leave up to 3 days in the past
+            $is_sick = in_array(strtoupper(trim($special_code)), ['SICK_SHORT', 'SICK_LONG'], true);
+            if ($is_sick) {
+                $three_days_ago = wp_date('Y-m-d', strtotime('-3 days'));
+                if ($start < $three_days_ago) {
+                    return __('Sick leave can only be submitted for absences within the last 3 days.', 'sfs-hr');
+                }
+            } else {
+                return __('Cannot request leave in the past.', 'sfs-hr');
+            }
         }
         return null;
     }
