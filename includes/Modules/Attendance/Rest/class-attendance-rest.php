@@ -2,6 +2,7 @@
 namespace SFS\HR\Modules\Attendance\Rest;
 
 use SFS\HR\Modules\Attendance\AttendanceModule;
+use SFS\HR\Modules\Attendance\Services\Policy_Service;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
@@ -488,6 +489,12 @@ if ( $last_attempt && is_array( $last_attempt ) ) {
     }
 }
 
+    // ---- Role-based attendance policy: validate punch method
+    $policy_method_check = Policy_Service::validate_method( (int) $emp, $punch_type, $source );
+    if ( is_wp_error( $policy_method_check ) ) {
+        return $policy_method_check;
+    }
+
     // ---- Resolve effective shift for today (Assignments override Automation)
     $dateYmd = wp_date( 'Y-m-d' );
     $assign  = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $emp, $dateYmd );
@@ -504,7 +511,8 @@ if ( $last_attempt && is_array( $last_attempt ) ) {
     }
 
     // ---- Department self-punch policy (web/mobile only; kiosk allowed regardless)
-    if ( $source !== 'kiosk' ) {
+    // Role-based policy may override department block (e.g. field teams allowed self-web)
+    if ( $source !== 'kiosk' && ! Policy_Service::should_bypass_dept_web_block( (int) $emp, $punch_type, $source ) ) {
         $opt = get_option( \SFS\HR\Modules\Attendance\AttendanceModule::OPT_SETTINGS, [] );
 
         // Get employee's department ID
@@ -521,12 +529,15 @@ if ( $last_attempt && is_array( $last_attempt ) ) {
     }
 
     // ---- GEO validation (server-side, BEFORE insert)
+    // Role-based policy may exempt geofence for specific punch types
+    $enforce_geo = Policy_Service::should_enforce_geofence( (int) $emp, $punch_type );
+
     $lat = isset( $params['geo_lat'] ) ? (float) $params['geo_lat'] : null;
     $lng = isset( $params['geo_lng'] ) ? (float) $params['geo_lng'] : null;
     $acc = isset( $params['geo_accuracy_m'] ) ? (int) $params['geo_accuracy_m'] : null;
 
     $valid_geo = 1;
-    if ( $assign->location_lat !== null && $assign->location_lng !== null && $assign->location_radius_m !== null ) {
+    if ( $enforce_geo && $assign->location_lat !== null && $assign->location_lng !== null && $assign->location_radius_m !== null ) {
         if ( $lat === null || $lng === null ) {
             $valid_geo = 0;
         } else {
@@ -535,7 +546,7 @@ if ( $last_attempt && is_array( $last_attempt ) ) {
         }
     }
     // Device-level geofence (if device is provided and active)
-if ( $device_id > 0 ) {
+if ( $enforce_geo && $device_id > 0 ) {
     $dT = $wpdb->prefix . 'sfs_hr_attendance_devices';
     $dev = $wpdb->get_row( $wpdb->prepare(
         "SELECT geo_lock_lat, geo_lock_lng, geo_lock_radius_m FROM {$dT} WHERE id=%d AND active=1",

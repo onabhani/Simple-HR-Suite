@@ -24,6 +24,7 @@ class Admin_Pages {
      */
     public function hooks(): void {
         add_action( 'admin_menu', [ $this, 'register_menu' ] );
+        add_action( 'admin_menu', [ $this, 'remove_separator_after_performance' ], 999 );
         add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
         add_action( 'admin_post_sfs_hr_save_performance_settings', [ $this, 'handle_save_settings' ] );
         add_action( 'admin_post_sfs_hr_save_goal', [ $this, 'handle_save_goal' ] );
@@ -102,6 +103,19 @@ class Admin_Pages {
     }
 
     /**
+     * Remove WP core separator that creates a gap below Performance.
+     */
+    public function remove_separator_after_performance(): void {
+        global $menu;
+        foreach ( $menu as $key => $item ) {
+            // Remove any separator sitting between Performance (57) and Appearance (60)
+            if ( $key >= 58 && $key <= 59 && isset( $item[4] ) && strpos( $item[4], 'wp-menu-separator' ) !== false ) {
+                unset( $menu[ $key ] );
+            }
+        }
+    }
+
+    /**
      * Enqueue assets.
      */
     public function enqueue_assets( string $hook ): void {
@@ -154,6 +168,71 @@ class Admin_Pages {
             .sfs-perf-alert.critical { background: #fee2e2; border: 1px solid #ef4444; }
             .sfs-perf-alert.info { background: #dbeafe; border: 1px solid #3b82f6; }
             .sfs-perf-chart-container { height: 300px; }
+
+            /* Mobile responsive styles */
+            @media (max-width: 768px) {
+                .sfs-perf-wrap { padding: 0 4px; }
+                .sfs-perf-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+                .sfs-perf-filters { flex-direction: column; align-items: stretch; gap: 10px; width: 100%; }
+                .sfs-perf-filters label { flex-direction: column; gap: 4px; }
+                .sfs-perf-filters select,
+                .sfs-perf-filters input[type="date"] { width: 100%; }
+                .sfs-perf-cards { grid-template-columns: 1fr 1fr; gap: 10px; }
+                .sfs-perf-card { padding: 14px; }
+                .sfs-perf-card .value { font-size: 24px; }
+
+                /* Table to cards */
+                .sfs-perf-table { border: none; background: transparent; overflow: visible; }
+                .sfs-perf-table table { border: none; }
+                .sfs-perf-table table thead { display: none; }
+                .sfs-perf-table table tbody tr {
+                    display: block;
+                    background: #fff;
+                    border: 1px solid #ddd;
+                    border-radius: 8px;
+                    margin-bottom: 12px;
+                    padding: 14px 16px;
+                }
+                .sfs-perf-table table tbody tr:nth-child(odd) { background: #fff; }
+                .sfs-perf-table table tbody td {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 6px 0;
+                    border: none;
+                    border-bottom: 1px solid #f0f0f0;
+                    font-size: 14px;
+                }
+                .sfs-perf-table table tbody td:last-child { border-bottom: none; }
+                .sfs-perf-table table tbody td::before {
+                    content: attr(data-label);
+                    font-weight: 600;
+                    color: #374151;
+                    margin-right: 12px;
+                    flex-shrink: 0;
+                }
+                .sfs-perf-table table tbody td.sfs-emp-cell {
+                    flex-direction: column;
+                    align-items: flex-start;
+                }
+                .sfs-perf-table table tbody td.sfs-emp-cell::before { display: none; }
+                .sfs-perf-table table tbody td.sfs-rank-cell {
+                    position: absolute;
+                    top: 14px;
+                    right: 16px;
+                    border: none;
+                    padding: 0;
+                    font-size: 13px;
+                    color: #9ca3af;
+                }
+                .sfs-perf-table table tbody td.sfs-rank-cell::before { display: none; }
+                .sfs-perf-table table tbody tr { position: relative; }
+                .sfs-perf-table table tbody td.sfs-actions-cell { justify-content: flex-end; }
+                .sfs-perf-table table tbody td.sfs-actions-cell::before { display: none; }
+            }
+            @media (max-width: 480px) {
+                .sfs-perf-cards { grid-template-columns: 1fr; }
+            }
         ';
     }
 
@@ -386,21 +465,31 @@ class Admin_Pages {
                             $grade_display = Performance_Calculator::get_grade_display( $emp['overall_grade'] );
                         ?>
                         <tr>
-                            <td><strong>#<?php echo esc_html( $emp['rank'] ); ?></strong></td>
-                            <td>
-                                <strong><?php echo esc_html( $emp['employee_name'] ); ?></strong><br>
+                            <td class="sfs-rank-cell"><strong>#<?php echo esc_html( $emp['rank'] ); ?></strong></td>
+                            <td class="sfs-emp-cell">
+                                <?php
+                                $detail_url = add_query_arg( [
+                                    'page'        => 'sfs-hr-performance-employees',
+                                    'employee_id' => $emp['employee_id'],
+                                    'start_date'  => $start_date,
+                                    'end_date'    => $end_date,
+                                ], admin_url( 'admin.php' ) );
+                                ?>
+                                <a href="<?php echo esc_url( $detail_url ); ?>" style="text-decoration: none; color: inherit;">
+                                    <strong><?php echo esc_html( $emp['employee_name'] ); ?></strong>
+                                </a><br>
                                 <small style="color: #666;"><?php echo esc_html( $emp['employee_code'] ); ?></small>
                             </td>
-                            <td><?php echo $emp['attendance_score'] !== null ? esc_html( number_format( $emp['attendance_score'], 1 ) ) . '%' : '—'; ?></td>
-                            <td><?php echo $emp['goals_score'] !== null ? esc_html( number_format( $emp['goals_score'], 1 ) ) . '%' : '—'; ?></td>
-                            <td><?php echo $emp['reviews_score'] !== null ? esc_html( number_format( $emp['reviews_score'], 1 ) ) . '%' : '—'; ?></td>
-                            <td><strong><?php echo esc_html( number_format( $emp['overall_score'], 1 ) ); ?>%</strong></td>
-                            <td>
+                            <td data-label="<?php esc_attr_e( 'Attendance', 'sfs-hr' ); ?>"><?php echo $emp['attendance_score'] !== null ? esc_html( number_format( $emp['attendance_score'], 1 ) ) . '%' : '—'; ?></td>
+                            <td data-label="<?php esc_attr_e( 'Goals', 'sfs-hr' ); ?>"><?php echo $emp['goals_score'] !== null ? esc_html( number_format( $emp['goals_score'], 1 ) ) . '%' : '—'; ?></td>
+                            <td data-label="<?php esc_attr_e( 'Reviews', 'sfs-hr' ); ?>"><?php echo $emp['reviews_score'] !== null ? esc_html( number_format( $emp['reviews_score'], 1 ) ) . '%' : '—'; ?></td>
+                            <td data-label="<?php esc_attr_e( 'Overall', 'sfs-hr' ); ?>"><strong><?php echo esc_html( number_format( $emp['overall_score'], 1 ) ); ?>%</strong></td>
+                            <td data-label="<?php esc_attr_e( 'Grade', 'sfs-hr' ); ?>">
                                 <span class="sfs-perf-badge <?php echo esc_attr( $emp['overall_grade'] ); ?>">
                                     <?php echo esc_html( $grade_display['label'] ); ?>
                                 </span>
                             </td>
-                            <td>
+                            <td class="sfs-actions-cell">
                                 <a href="<?php echo esc_url( add_query_arg( [
                                     'page' => 'sfs-hr-performance-employees',
                                     'employee_id' => $emp['employee_id'],
@@ -504,6 +593,85 @@ class Admin_Pages {
                     <h3><?php esc_html_e( 'Review Score', 'sfs-hr' ); ?></h3>
                     <div class="value"><?php echo $score_data['components']['reviews']['raw_score'] !== null ? esc_html( number_format( $score_data['components']['reviews']['raw_score'], 1 ) ) . '/5' : '—'; ?></div>
                 </div>
+            </div>
+
+            <!-- Commitment Detail Breakdown -->
+            <div class="sfs-perf-section" style="margin-bottom: 20px;">
+                <h2><?php esc_html_e( 'Commitment Details', 'sfs-hr' ); ?></h2>
+                <p style="color: #666; margin-bottom: 15px;">
+                    <?php echo esc_html( sprintf(
+                        __( 'Period: %s to %s | Working Days: %d | Present: %d | Absent: %d | Late: %d | Early Leave: %d | Incomplete: %d', 'sfs-hr' ),
+                        wp_date( 'M j, Y', strtotime( $start_date ) ),
+                        wp_date( 'M j, Y', strtotime( $end_date ) ),
+                        $attendance_metrics['total_working_days'] ?? 0,
+                        $attendance_metrics['days_present'] ?? 0,
+                        $attendance_metrics['days_absent'] ?? 0,
+                        $attendance_metrics['late_count'] ?? 0,
+                        $attendance_metrics['early_leave_count'] ?? 0,
+                        $attendance_metrics['incomplete_count'] ?? 0
+                    ) ); ?>
+                </p>
+                <?php
+                $daily = $attendance_metrics['daily_breakdown'] ?? [];
+                // Filter to show only days with issues (absent, late, early leave, incomplete)
+                $issues = array_filter( $daily, function( $d ) {
+                    if ( $d['status'] === 'absent' ) return true;
+                    if ( ! empty( $d['flags'] ) && ( in_array( 'late', $d['flags'], true ) || in_array( 'left_early', $d['flags'], true ) || in_array( 'incomplete', $d['flags'], true ) ) ) return true;
+                    return $d['status'] === 'incomplete';
+                } );
+                ?>
+                <?php if ( empty( $issues ) ) : ?>
+                    <p style="color: #22c55e;">
+                        <span class="dashicons dashicons-yes-alt"></span>
+                        <?php esc_html_e( 'No attendance issues during this period.', 'sfs-hr' ); ?>
+                    </p>
+                <?php else : ?>
+                    <div class="sfs-perf-table">
+                        <table class="widefat striped">
+                            <thead>
+                                <tr>
+                                    <th><?php esc_html_e( 'Date', 'sfs-hr' ); ?></th>
+                                    <th><?php esc_html_e( 'Day', 'sfs-hr' ); ?></th>
+                                    <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
+                                    <th><?php esc_html_e( 'Flags', 'sfs-hr' ); ?></th>
+                                    <th><?php esc_html_e( 'Clock In', 'sfs-hr' ); ?></th>
+                                    <th><?php esc_html_e( 'Clock Out', 'sfs-hr' ); ?></th>
+                                    <th><?php esc_html_e( 'Worked', 'sfs-hr' ); ?></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ( $issues as $day ) :
+                                    $status_colors = [
+                                        'absent' => '#ef4444', 'late' => '#f59e0b', 'left_early' => '#f59e0b',
+                                        'incomplete' => '#f97316', 'present' => '#22c55e',
+                                    ];
+                                    $s_color = $status_colors[ $day['status'] ] ?? '#666';
+                                    $flag_labels = [];
+                                    foreach ( (array) $day['flags'] as $f ) {
+                                        $flag_labels[] = ucfirst( str_replace( '_', ' ', $f ) );
+                                    }
+                                    $hours   = floor( $day['minutes'] / 60 );
+                                    $mins    = $day['minutes'] % 60;
+                                ?>
+                                <tr>
+                                    <td><?php echo esc_html( wp_date( 'M j, Y', strtotime( $day['date'] ) ) ); ?></td>
+                                    <td><?php echo esc_html( wp_date( 'l', strtotime( $day['date'] ) ) ); ?></td>
+                                    <td style="color: <?php echo esc_attr( $s_color ); ?>; font-weight: 600;">
+                                        <?php echo esc_html( ucfirst( str_replace( '_', ' ', $day['status'] ) ) ); ?>
+                                    </td>
+                                    <td><?php echo esc_html( implode( ', ', $flag_labels ) ?: '—' ); ?></td>
+                                    <td><?php echo $day['in_time'] ? esc_html( wp_date( 'H:i', strtotime( $day['in_time'] ) ) ) : '—'; ?></td>
+                                    <td><?php echo $day['out_time'] ? esc_html( wp_date( 'H:i', strtotime( $day['out_time'] ) ) ) : '—'; ?></td>
+                                    <td><?php echo $day['minutes'] > 0 ? esc_html( $hours . 'h ' . $mins . 'm' ) : '—'; ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p style="color: #666; margin-top: 10px; font-size: 12px;">
+                        <?php echo esc_html( sprintf( __( 'Showing %d day(s) with attendance issues.', 'sfs-hr' ), count( $issues ) ) ); ?>
+                    </p>
+                <?php endif; ?>
             </div>
 
             <div class="sfs-perf-grid">

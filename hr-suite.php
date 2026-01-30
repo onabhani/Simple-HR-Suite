@@ -152,6 +152,10 @@ add_action('admin_init', function(){
     $perf_reviews_table   = $wpdb->prefix . 'sfs_hr_performance_reviews';
     $perf_alerts_table    = $wpdb->prefix . 'sfs_hr_performance_alerts';
 
+    // Attendance policy tables
+    $att_policies_table      = $wpdb->prefix . 'sfs_hr_attendance_policies';
+    $att_policy_roles_table  = $wpdb->prefix . 'sfs_hr_attendance_policy_roles';
+
     $table_exists = function(string $table) use ($wpdb){
         return (bool) $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
@@ -196,7 +200,11 @@ add_action('admin_init', function(){
         !$table_exists($perf_snapshots_table) ||
         !$table_exists($perf_goals_table)     ||
         !$table_exists($perf_reviews_table)   ||
-        !$table_exists($perf_alerts_table)
+        !$table_exists($perf_alerts_table)    ||
+
+        // Attendance policies
+        !$table_exists($att_policies_table)     ||
+        !$table_exists($att_policy_roles_table)
     );
 
     $needs_columns = false;

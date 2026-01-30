@@ -741,6 +741,9 @@ class Notifications {
         if ( $settings['notify_pending_actions'] ) {
             self::process_pending_action_reminders();
         }
+
+        // Process upcoming leave reminders (2-3 days before leave starts)
+        self::process_upcoming_leave_reminders();
     }
 
     /**
@@ -1529,6 +1532,111 @@ class Notifications {
     }
 
     /**
+     * Send reminders to employees whose approved leave starts in 2-3 days.
+     *
+     * Notifies the employee that:
+     * - Their leave is approaching
+     * - They will not be able to clock in during the leave period
+     * - They must apply for leave cancellation if they will not be taking the leave
+     * - They are responsible for any absence or delay if they fail to cancel
+     */
+    private static function process_upcoming_leave_reminders(): void {
+        global $wpdb;
+
+        $settings = self::get_settings();
+        if ( ! $settings['enabled'] || ! $settings['email_enabled'] ) {
+            return;
+        }
+
+        $leaves_table = $wpdb->prefix . 'sfs_hr_leave_requests';
+        $emp_table    = $wpdb->prefix . 'sfs_hr_employees';
+        $types_table  = $wpdb->prefix . 'sfs_hr_leave_types';
+
+        $today   = wp_date( 'Y-m-d' );
+        $day_2   = wp_date( 'Y-m-d', strtotime( '+2 days' ) );
+        $day_3   = wp_date( 'Y-m-d', strtotime( '+3 days' ) );
+
+        // Find approved leaves starting in exactly 2 or 3 days
+        $leaves = $wpdb->get_results( $wpdb->prepare(
+            "SELECT lr.id, lr.employee_id, lr.start_date, lr.end_date, lr.days,
+                    lt.name AS leave_type_name,
+                    COALESCE(NULLIF(TRIM(CONCAT(e.first_name, ' ', e.last_name)), ''), e.employee_code) AS employee_name,
+                    e.employee_code,
+                    e.phone AS employee_phone,
+                    e.user_id,
+                    u.user_email AS employee_email
+             FROM {$leaves_table} lr
+             LEFT JOIN {$types_table} lt ON lr.type_id = lt.id
+             LEFT JOIN {$emp_table} e ON lr.employee_id = e.id
+             LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+             WHERE lr.status = 'approved'
+               AND lr.start_date IN (%s, %s)
+               AND e.status = 'active'",
+            $day_2,
+            $day_3
+        ) );
+
+        if ( empty( $leaves ) ) {
+            return;
+        }
+
+        // Track sent reminders to avoid duplicates across cron runs
+        $sent_key  = 'sfs_hr_leave_reminder_sent';
+        $sent_list = get_option( $sent_key, [] );
+        if ( ! is_array( $sent_list ) ) {
+            $sent_list = [];
+        }
+
+        foreach ( $leaves as $leave ) {
+            $reminder_key = $leave->id . '|' . $today;
+
+            // Skip if already reminded today for this request
+            if ( ! empty( $sent_list[ $reminder_key ] ) ) {
+                continue;
+            }
+
+            if ( empty( $leave->employee_email ) ) {
+                continue;
+            }
+
+            $days_until = (int) ( ( strtotime( $leave->start_date ) - strtotime( $today ) ) / DAY_IN_SECONDS );
+
+            $subject = sprintf(
+                __( '[Leave Reminder] Your %s leave starts in %d days', 'sfs-hr' ),
+                $leave->leave_type_name ?: __( 'Leave', 'sfs-hr' ),
+                $days_until
+            );
+
+            $message = self::get_email_template( 'leave_upcoming_reminder_to_employee', [
+                'employee_name' => $leave->employee_name,
+                'leave_type'    => $leave->leave_type_name ?: __( 'Leave', 'sfs-hr' ),
+                'start_date'    => wp_date( 'F j, Y', strtotime( $leave->start_date ) ),
+                'end_date'      => wp_date( 'F j, Y', strtotime( $leave->end_date ) ),
+                'days'          => $leave->days,
+                'days_until'    => $days_until,
+            ] );
+
+            self::send_notification(
+                $leave->employee_email,
+                $subject,
+                $message,
+                $leave->employee_phone ?? '',
+                (int) $leave->user_id,
+                'leave_upcoming_reminder'
+            );
+
+            $sent_list[ $reminder_key ] = wp_date( 'Y-m-d H:i:s' );
+        }
+
+        // Prune old entries (keep last 500)
+        if ( count( $sent_list ) > 500 ) {
+            $sent_list = array_slice( $sent_list, -500, null, true );
+        }
+
+        update_option( $sent_key, $sent_list, false );
+    }
+
+    /**
      * Get leave request data with related info
      *
      * @param int $request_id Leave request ID
@@ -1714,6 +1822,31 @@ End Date: {end_date}
 Duration: {days} day(s)
 
 No action is required from your side.
+
+---
+{site_name}
+HR Management System
+",
+
+            'leave_upcoming_reminder_to_employee' => "
+Hello {employee_name},
+
+This is a reminder that your approved leave is starting in {days_until} day(s).
+
+Leave Details:
+--------------
+Leave Type: {leave_type}
+Start Date: {start_date}
+End Date: {end_date}
+Duration: {days} day(s)
+
+Important Notice:
+-----------------
+- You will NOT be able to clock in during your leave period.
+- If for any reason you will not be taking this leave, you MUST submit a Leave Cancellation Request before your leave start date.
+- You will be held responsible for any delay or days without clocking in if you fail to cancel your leave in advance.
+
+Please plan accordingly.
 
 ---
 {site_name}

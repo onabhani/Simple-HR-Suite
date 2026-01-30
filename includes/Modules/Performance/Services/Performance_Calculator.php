@@ -283,9 +283,9 @@ class Performance_Calculator {
             }
         }
 
-        // Sort by overall score descending
+        // Sort by overall score ascending (least commitment first)
         usort( $rankings, function( $a, $b ) {
-            return $b['overall_score'] <=> $a['overall_score'];
+            return $a['overall_score'] <=> $b['overall_score'];
         } );
 
         // Add rank

@@ -2,8 +2,10 @@
 namespace SFS\HR\Modules\Performance\Cron;
 
 use SFS\HR\Modules\Performance\Services\Alerts_Service;
+use SFS\HR\Modules\Performance\Services\Attendance_Metrics;
 use SFS\HR\Modules\Performance\Services\Performance_Calculator;
 use SFS\HR\Modules\Performance\PerformanceModule;
+use SFS\HR\Core\Helpers;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
@@ -13,13 +15,15 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  * Handles scheduled tasks:
  * - Daily alert checks
  * - Monthly snapshot generation
+ * - Monthly performance reports (26th of each month)
  *
- * @version 1.0.0
+ * @version 1.1.0
  */
 class Performance_Cron {
 
     const CRON_ALERTS = 'sfs_hr_performance_alerts_check';
     const CRON_SNAPSHOTS = 'sfs_hr_performance_snapshots';
+    const CRON_REPORTS = 'sfs_hr_performance_monthly_reports';
 
     /**
      * Register hooks.
@@ -28,6 +32,7 @@ class Performance_Cron {
         add_action( 'init', [ $this, 'schedule' ] );
         add_action( self::CRON_ALERTS, [ $this, 'run_alert_checks' ] );
         add_action( self::CRON_SNAPSHOTS, [ $this, 'run_snapshot_generation' ] );
+        add_action( self::CRON_REPORTS, [ $this, 'run_monthly_reports' ] );
     }
 
     /**
@@ -44,6 +49,12 @@ class Performance_Cron {
         if ( ! wp_next_scheduled( self::CRON_SNAPSHOTS ) ) {
             $timestamp = $this->get_first_of_month_timestamp();
             wp_schedule_event( $timestamp, 'monthly', self::CRON_SNAPSHOTS );
+        }
+
+        // Monthly performance reports on the 26th at 8 AM
+        if ( ! wp_next_scheduled( self::CRON_REPORTS ) ) {
+            $timestamp = $this->get_26th_timestamp();
+            wp_schedule_event( $timestamp, 'monthly', self::CRON_REPORTS );
         }
 
         // Register monthly interval if not exists
@@ -176,6 +187,219 @@ class Performance_Cron {
     }
 
     /**
+     * Get timestamp for the 26th of the current or next month at 8 AM.
+     */
+    private function get_26th_timestamp(): int {
+        $tz  = wp_timezone();
+        $now = new \DateTimeImmutable( 'now', $tz );
+        $target = \DateTimeImmutable::createFromFormat( 'Y-m-d H:i', $now->format( 'Y-m' ) . '-26 08:00', $tz );
+
+        if ( ! $target || $target <= $now ) {
+            $target = $now->modify( 'first day of next month' );
+            $target = \DateTimeImmutable::createFromFormat( 'Y-m-d H:i', $target->format( 'Y-m' ) . '-26 08:00', $tz );
+        }
+
+        return $target->getTimestamp();
+    }
+
+    /**
+     * Run monthly performance reports (triggered on the 26th).
+     *
+     * Sends:
+     * A) Full company report to GM
+     * B) Department report to each department manager
+     * C) Individual report to each employee (with thank-you if >= 95%)
+     */
+    public function run_monthly_reports(): void {
+        global $wpdb;
+
+        $emp_t  = $wpdb->prefix . 'sfs_hr_employees';
+        $dept_t = $wpdb->prefix . 'sfs_hr_departments';
+
+        // Period: 26th of previous month → 25th of current month
+        $tz  = wp_timezone();
+        $now = new \DateTimeImmutable( 'now', $tz );
+        $end_date   = $now->modify( '-1 day' )->format( 'Y-m-d' ); // 25th
+        $start_date = $now->modify( '-1 month' )->format( 'Y-m-d' ); // 26th of last month
+
+        // Collect all active employees with metrics
+        $employees = $wpdb->get_results(
+            "SELECT e.id, e.employee_code, e.first_name, e.last_name, e.dept_id, e.user_id,
+                    u.user_email, d.name AS dept_name
+             FROM {$emp_t} e
+             LEFT JOIN {$wpdb->users} u ON u.ID = e.user_id
+             LEFT JOIN {$dept_t} d ON d.id = e.dept_id
+             WHERE e.status = 'active'
+             ORDER BY d.name, e.first_name"
+        );
+
+        if ( empty( $employees ) ) {
+            return;
+        }
+
+        // Build metrics for every employee
+        $all_data     = []; // flat list
+        $by_dept      = []; // grouped by dept_id
+        $period_label = wp_date( 'M j', strtotime( $start_date ) ) . ' – ' . wp_date( 'M j, Y', strtotime( $end_date ) );
+
+        foreach ( $employees as $emp ) {
+            $metrics = Attendance_Metrics::get_employee_metrics( (int) $emp->id, $start_date, $end_date );
+            $entry = [
+                'employee_id'   => (int) $emp->id,
+                'employee_code' => $emp->employee_code,
+                'name'          => trim( $emp->first_name . ' ' . $emp->last_name ),
+                'dept_name'     => $emp->dept_name ?: __( 'General', 'sfs-hr' ),
+                'dept_id'       => (int) $emp->dept_id,
+                'email'         => $emp->user_email ?? '',
+                'user_id'       => (int) $emp->user_id,
+                'commitment'    => $metrics['commitment_pct'] ?? 0,
+                'late'          => $metrics['late_count'] ?? 0,
+                'early'         => $metrics['early_leave_count'] ?? 0,
+                'absent'        => $metrics['days_absent'] ?? 0,
+                'incomplete'    => $metrics['incomplete_count'] ?? 0,
+                'working_days'  => $metrics['total_working_days'] ?? 0,
+                'present'       => $metrics['days_present'] ?? 0,
+            ];
+            $all_data[] = $entry;
+            $by_dept[ (int) $emp->dept_id ][] = $entry;
+        }
+
+        // --- A) Send to GM ---
+        $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+        if ( $gm_user_id > 0 ) {
+            $gm_user = get_user_by( 'id', $gm_user_id );
+            if ( $gm_user && $gm_user->user_email ) {
+                $body = $this->build_report_table( $all_data, $period_label, __( 'Company Performance Report', 'sfs-hr' ) );
+                Helpers::send_mail(
+                    $gm_user->user_email,
+                    sprintf( __( '[Performance Report] %s', 'sfs-hr' ), $period_label ),
+                    $body
+                );
+            }
+        }
+
+        // --- B) Send to each Department Manager ---
+        $departments = $wpdb->get_results(
+            "SELECT id, name, manager_user_id FROM {$dept_t} WHERE active = 1 AND manager_user_id IS NOT NULL"
+        );
+
+        foreach ( $departments as $dept ) {
+            $mgr_uid = (int) $dept->manager_user_id;
+            if ( $mgr_uid <= 0 || empty( $by_dept[ (int) $dept->id ] ) ) {
+                continue;
+            }
+            $mgr_user = get_user_by( 'id', $mgr_uid );
+            if ( ! $mgr_user || ! $mgr_user->user_email ) {
+                continue;
+            }
+            $title = sprintf( __( '%s Department Performance Report', 'sfs-hr' ), $dept->name );
+            $body  = $this->build_report_table( $by_dept[ (int) $dept->id ], $period_label, $title );
+            Helpers::send_mail(
+                $mgr_user->user_email,
+                sprintf( __( '[Performance Report] %s – %s', 'sfs-hr' ), $dept->name, $period_label ),
+                $body
+            );
+        }
+
+        // --- C) Send to each employee ---
+        foreach ( $all_data as $entry ) {
+            if ( empty( $entry['email'] ) ) {
+                continue;
+            }
+            $is_excellent = $entry['commitment'] >= 95;
+
+            if ( $is_excellent ) {
+                $subject = sprintf( __( 'Great Job! Your Performance Report – %s', 'sfs-hr' ), $period_label );
+                $greeting = sprintf(
+                    __( "Dear %s,\n\nThank you for your outstanding commitment! Your attendance commitment for this period is %.1f%%, which is excellent. Keep up the great work.\n", 'sfs-hr' ),
+                    $entry['name'],
+                    $entry['commitment']
+                );
+            } else {
+                $subject = sprintf( __( 'Your Performance Report – %s', 'sfs-hr' ), $period_label );
+                $greeting = sprintf(
+                    __( "Dear %s,\n\nPlease find below your attendance commitment report for the period.\n", 'sfs-hr' ),
+                    $entry['name']
+                );
+            }
+
+            $body = $greeting . "\n"
+                  . sprintf( __( "Period: %s\n", 'sfs-hr' ), $period_label )
+                  . sprintf( __( "Commitment: %.1f%%\n", 'sfs-hr' ), $entry['commitment'] )
+                  . sprintf( __( "Working Days: %d\n", 'sfs-hr' ), $entry['working_days'] )
+                  . sprintf( __( "Days Present: %d\n", 'sfs-hr' ), $entry['present'] )
+                  . sprintf( __( "Days Absent: %d\n", 'sfs-hr' ), $entry['absent'] )
+                  . sprintf( __( "Late Arrivals: %d\n", 'sfs-hr' ), $entry['late'] )
+                  . sprintf( __( "Early Leaves: %d\n", 'sfs-hr' ), $entry['early'] )
+                  . sprintf( __( "Incomplete Days: %d\n", 'sfs-hr' ), $entry['incomplete'] )
+                  . "\n---\n" . get_bloginfo( 'name' ) . "\nHR Management System\n";
+
+            Helpers::send_mail( $entry['email'], $subject, $body );
+        }
+
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            error_log( sprintf(
+                '[SFS HR Performance] Monthly reports sent: %d employees, period %s to %s',
+                count( $all_data ),
+                $start_date,
+                $end_date
+            ) );
+        }
+
+        do_action( 'sfs_hr_performance_reports_sent', count( $all_data ), $start_date, $end_date );
+    }
+
+    /**
+     * Build a plain-text table for the performance report email.
+     */
+    private function build_report_table( array $data, string $period_label, string $title ): string {
+        $site_name = get_bloginfo( 'name' );
+
+        $lines   = [];
+        $lines[] = $title;
+        $lines[] = str_repeat( '=', strlen( $title ) );
+        $lines[] = sprintf( __( 'Period: %s', 'sfs-hr' ), $period_label );
+        $lines[] = sprintf( __( 'Total employees: %d', 'sfs-hr' ), count( $data ) );
+        $lines[] = '';
+        $lines[] = sprintf(
+            '%-6s  %-25s  %-15s  %10s  %5s  %5s  %6s  %6s',
+            __( 'Code', 'sfs-hr' ),
+            __( 'Name', 'sfs-hr' ),
+            __( 'Department', 'sfs-hr' ),
+            __( 'Commitment', 'sfs-hr' ),
+            __( 'Late', 'sfs-hr' ),
+            __( 'Early', 'sfs-hr' ),
+            __( 'Absent', 'sfs-hr' ),
+            __( 'Incomp', 'sfs-hr' )
+        );
+        $lines[] = str_repeat( '-', 90 );
+
+        // Sort by commitment ascending (lowest first)
+        usort( $data, fn( $a, $b ) => $a['commitment'] <=> $b['commitment'] );
+
+        foreach ( $data as $row ) {
+            $lines[] = sprintf(
+                '%-6s  %-25s  %-15s  %9.1f%%  %5d  %5d  %6d  %6d',
+                $row['employee_code'],
+                mb_substr( $row['name'], 0, 25 ),
+                mb_substr( $row['dept_name'], 0, 15 ),
+                $row['commitment'],
+                $row['late'],
+                $row['early'],
+                $row['absent'],
+                $row['incomplete']
+            );
+        }
+
+        $lines[] = '';
+        $lines[] = '---';
+        $lines[] = $site_name;
+        $lines[] = 'HR Management System';
+
+        return implode( "\n", $lines );
+    }
+
+    /**
      * Manually trigger alert checks.
      *
      * @return int Number of alerts created
@@ -231,6 +455,7 @@ class Performance_Cron {
     public static function get_status(): array {
         $alerts_next = wp_next_scheduled( self::CRON_ALERTS );
         $snapshots_next = wp_next_scheduled( self::CRON_SNAPSHOTS );
+        $reports_next = wp_next_scheduled( self::CRON_REPORTS );
 
         return [
             'alerts' => [
@@ -240,6 +465,10 @@ class Performance_Cron {
             'snapshots' => [
                 'scheduled' => (bool) $snapshots_next,
                 'next_run'  => $snapshots_next ? wp_date( 'Y-m-d H:i:s', $snapshots_next ) : null,
+            ],
+            'reports' => [
+                'scheduled' => (bool) $reports_next,
+                'next_run'  => $reports_next ? wp_date( 'Y-m-d H:i:s', $reports_next ) : null,
             ],
         ];
     }

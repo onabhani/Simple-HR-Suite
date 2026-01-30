@@ -1461,6 +1461,26 @@ public function handle_approve(): void {
         'note' => $note ?: __('Request approved', 'sfs-hr'),
     ]);
 
+    // If this approved leave covers past dates, flip any 'absent' attendance sessions to 'on_leave'.
+    // This handles retroactive sick leave: employee was absent, submitted sick leave within 3 days,
+    // and upon approval the absence is converted so salary deduction no longer applies.
+    $sessions_t = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+    $today_date = current_time( 'Y-m-d' );
+    if ( $row['start_date'] <= $today_date ) {
+        $flip_end = min( $row['end_date'], $today_date );
+        $wpdb->query( $wpdb->prepare(
+            "UPDATE {$sessions_t}
+             SET status = 'on_leave', updated_at = %s
+             WHERE employee_id = %d
+               AND work_date BETWEEN %s AND %s
+               AND status = 'absent'",
+            Helpers::now_mysql(),
+            (int) $row['employee_id'],
+            $row['start_date'],
+            $flip_end
+        ) );
+    }
+
     // Recalculate yearly used + closing balance for this type
     $used = (int) $wpdb->get_var(
         $wpdb->prepare(
@@ -1667,9 +1687,9 @@ public function handle_cancel(): void {
     /* ---------------------------------- Leave Cancellation Workflow ---------------------------------- */
 
 /**
- * HR initiates cancellation of an approved leave request.
+ * Employee or HR initiates cancellation of an approved leave request.
  * Creates a cancellation record and starts the approval chain:
- * Dept Manager → GM → final approval.
+ * Employee → Dept Manager → HR (final approval).
  */
 public function handle_cancel_approved(): void {
     $id = isset( $_POST['leave_request_id'] ) ? (int) $_POST['leave_request_id'] : 0;
@@ -1708,15 +1728,22 @@ public function handle_cancel_approved(): void {
         Helpers::redirect_with_notice( $redirect_base, 'error', __( 'A cancellation request is already pending for this leave.', 'sfs-hr' ) );
     }
 
-    // Only HR or administrators can initiate
+    // Allow the employee (leave owner) or HR/administrators to initiate cancellation
     $current_uid = get_current_user_id();
     $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
     $is_hr = ( ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true ) )
              || current_user_can( 'sfs_hr.leave.manage' )
              || current_user_can( 'administrator' );
 
-    if ( ! $is_hr ) {
-        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Only HR or administrators can initiate a leave cancellation.', 'sfs-hr' ) );
+    // Check if current user is the employee who owns this leave request
+    $emp_user_id = (int) $wpdb->get_var( $wpdb->prepare(
+        "SELECT user_id FROM $emp_t WHERE id = %d",
+        (int) $row['employee_id']
+    ) );
+    $is_owner = ( $emp_user_id > 0 && $current_uid === $emp_user_id );
+
+    if ( ! $is_hr && ! $is_owner ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Only the employee or HR can initiate a leave cancellation.', 'sfs-hr' ) );
     }
 
     $reason = isset( $_POST['cancel_reason'] ) ? sanitize_text_field( $_POST['cancel_reason'] ) : '';
@@ -1795,9 +1822,9 @@ public function handle_cancel_approved(): void {
 }
 
 /**
- * Department Manager or GM approves a leave cancellation request.
- * Level 1 (Manager) → escalates to GM.
- * Level 2 (GM) → final approval → leave becomes cancelled, balance restored.
+ * Department Manager or HR approves a leave cancellation request.
+ * Level 1 (Manager) → escalates to HR.
+ * Level 2 (HR) → final approval → leave becomes cancelled, balance restored.
  */
 public function handle_cancellation_approve(): void {
     $cancel_id = isset( $_POST['cancel_id'] ) ? (int) $_POST['cancel_id'] : 0;
@@ -1836,14 +1863,11 @@ public function handle_cancellation_approve(): void {
     $approval_level  = (int) $cancel['approval_level'];
     $note            = isset( $_POST['note'] ) ? sanitize_text_field( $_POST['note'] ) : '';
 
-    // GM check
-    $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
-    if ( ! $gm_user_id ) {
-        $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
-        $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
-        $gm_user_id = ! empty( $gm_user_ids ) ? (int) $gm_user_ids[0] : 0;
-    }
-    $is_gm = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
+    // HR check
+    $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
+    $is_hr = ( ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true ) )
+             || current_user_can( 'sfs_hr.leave.manage' )
+             || current_user_can( 'administrator' );
 
     // Dept manager check
     $managed_depts = $this->manager_dept_ids_for_user( $current_uid );
@@ -1882,45 +1906,38 @@ public function handle_cancellation_approve(): void {
 
         self::log_event( (int) $cancel['leave_request_id'], 'cancellation_manager_approved', [
             'cancellation_id' => $cancel_id,
-            'note'            => $note ?: __( 'Manager approved cancellation, escalated to GM', 'sfs-hr' ),
+            'note'            => $note ?: __( 'Manager approved cancellation, escalated to HR', 'sfs-hr' ),
         ] );
 
-        // Notify GM
-        if ( $gm_user_id > 0 ) {
-            $gm_user = get_user_by( 'id', $gm_user_id );
-            if ( $gm_user && $gm_user->user_email ) {
-                $review_url = admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=cancellations&action=view_cancellation&cancel_id=' . $cancel_id );
-                Helpers::send_mail(
-                    $gm_user->user_email,
-                    sprintf( __( '[Leave Cancellation] %s - GM Approval Required', 'sfs-hr' ), $emp_name ),
-                    sprintf(
-                        __( "A leave cancellation request has been approved by the department manager and requires your final approval.\n\nEmployee: %s\nLeave Dates: %s → %s\nDuration: %d day(s)\nReason: %s\n\nReview this request:\n%s", 'sfs-hr' ),
-                        $emp_name,
-                        $leave['start_date'],
-                        $leave['end_date'],
-                        (int) $leave['days'],
-                        $cancel['reason'],
-                        $review_url
-                    )
-                );
-            }
-        }
+        // Notify HR
+        $this->notify_hr_users(
+            sprintf( __( '[Leave Cancellation] %s - HR Approval Required', 'sfs-hr' ), $emp_name ),
+            sprintf(
+                __( "A leave cancellation request has been approved by the department manager and requires your final approval.\n\nEmployee: %s\nLeave Dates: %s → %s\nDuration: %d day(s)\nReason: %s\n\nReview this request:\n%s", 'sfs-hr' ),
+                $emp_name,
+                $leave['start_date'],
+                $leave['end_date'],
+                (int) $leave['days'],
+                $cancel['reason'],
+                admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=cancellations&action=view_cancellation&cancel_id=' . $cancel_id )
+            )
+        );
 
         Helpers::redirect_with_notice(
             admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=cancellations&action=view_cancellation&cancel_id=' . $cancel_id ),
             'success',
-            __( 'Cancellation approved by manager. Escalated to GM for final approval.', 'sfs-hr' )
+            __( 'Cancellation approved by manager. Escalated to HR for final approval.', 'sfs-hr' )
         );
     }
 
-    // ==================== LEVEL 2: GM Final Approval ====================
-    if ( ! $is_gm ) {
-        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'This cancellation requires GM approval.', 'sfs-hr' ) );
+    // ==================== LEVEL 2: HR Final Approval ====================
+    if ( ! $is_hr ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'This cancellation requires HR approval.', 'sfs-hr' ) );
     }
 
     $new_chain = $this->append_approval_chain( $cancel['approval_chain'] ?? null, [
         'by'     => $current_uid,
-        'role'   => 'gm',
+        'role'   => 'hr',
         'action' => 'approve',
         'note'   => $note,
     ] );
@@ -1942,9 +1959,9 @@ public function handle_cancellation_approve(): void {
         'updated_at' => Helpers::now_mysql(),
     ], [ 'id' => (int) $cancel['leave_request_id'] ] );
 
-    self::log_event( (int) $cancel['leave_request_id'], 'cancellation_gm_approved', [
+    self::log_event( (int) $cancel['leave_request_id'], 'cancellation_hr_approved', [
         'cancellation_id' => $cancel_id,
-        'note'            => $note ?: __( 'GM approved cancellation. Leave cancelled.', 'sfs-hr' ),
+        'note'            => $note ?: __( 'HR approved cancellation. Leave cancelled.', 'sfs-hr' ),
     ] );
 
     do_action( 'sfs_hr_leave_request_status_changed', (int) $cancel['leave_request_id'], 'approved', 'cancelled' );
@@ -1998,19 +2015,6 @@ public function handle_cancellation_approve(): void {
         'new_used'      => $used,
     ] );
 
-    // Notify HR that cancellation was approved
-    $this->notify_hr_users(
-        sprintf( __( '[Leave Cancellation Approved] %s', 'sfs-hr' ), $emp_name ),
-        sprintf(
-            __( "The leave cancellation for %s has been approved by GM.\n\nLeave Dates: %s → %s\nDays restored: %d\nReason: %s", 'sfs-hr' ),
-            $emp_name,
-            $leave['start_date'],
-            $leave['end_date'],
-            (int) $leave['days'],
-            $cancel['reason']
-        )
-    );
-
     // Notify employee
     $this->notify_requester(
         (int) $leave['employee_id'],
@@ -2031,7 +2035,7 @@ public function handle_cancellation_approve(): void {
 }
 
 /**
- * Department Manager or GM rejects a leave cancellation request.
+ * Department Manager or HR rejects a leave cancellation request.
  * The leave request remains approved.
  */
 public function handle_cancellation_reject(): void {
@@ -2077,22 +2081,19 @@ public function handle_cancellation_reject(): void {
     $managed_depts = $this->manager_dept_ids_for_user( $current_uid );
     $is_dept_manager = ! empty( $managed_depts ) && in_array( (int) ( $empInfo['dept_id'] ?? 0 ), $managed_depts, true );
 
-    $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
-    if ( ! $gm_user_id ) {
-        $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
-        $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
-        $gm_user_id = ! empty( $gm_user_ids ) ? (int) $gm_user_ids[0] : 0;
-    }
-    $is_gm = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
+    $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
+    $is_hr = ( ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true ) )
+             || current_user_can( 'sfs_hr.leave.manage' )
+             || current_user_can( 'administrator' );
 
-    if ( $approval_level < 2 && ! $is_dept_manager && ! $is_gm ) {
+    if ( $approval_level < 2 && ! $is_dept_manager && ! $is_hr ) {
         Helpers::redirect_with_notice( $redirect_base, 'error', __( 'You do not have permission to reject this cancellation.', 'sfs-hr' ) );
     }
-    if ( $approval_level >= 2 && ! $is_gm ) {
-        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'This cancellation requires GM decision.', 'sfs-hr' ) );
+    if ( $approval_level >= 2 && ! $is_hr ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'This cancellation requires HR decision.', 'sfs-hr' ) );
     }
 
-    $role = $is_gm ? 'gm' : 'manager';
+    $role = $is_hr ? 'hr' : 'manager';
 
     $new_chain = $this->append_approval_chain( $cancel['approval_chain'] ?? null, [
         'by'     => $current_uid,
@@ -3753,7 +3754,8 @@ public function shortcode_request($atts = []): string {
                    '</p></div>' . $this->render_request_form($emp);
         }
 
-        $err = $this->validate_dates($start, $end);
+        $special_code = isset($type['special_code']) ? strtoupper(trim($type['special_code'])) : '';
+        $err = $this->validate_dates($start, $end, $special_code);
         if ($err) {
             return $out . '<div class="notice notice-error"><p>' . esc_html($err) . '</p></div>' .
                    $this->render_request_form($emp);
@@ -4057,8 +4059,8 @@ $types = array_values(array_filter($types, function($t) use ($gender) {
     /* ---------------------------------- Validation / Utils ---------------------------------- */
     /* Most utility functions are now in LeaveCalculationService */
 
-    private function validate_dates(string $start, string $end): ?string {
-        return LeaveCalculationService::validate_dates($start, $end);
+    private function validate_dates(string $start, string $end, string $special_code = ''): ?string {
+        return LeaveCalculationService::validate_dates($start, $end, $special_code);
     }
 
     private function append_approval_chain(?string $json, array $step): string {
@@ -6180,11 +6182,12 @@ public function render_calendar(): void {
                         <?php endif; ?>
 
                         <?php
-                        // === HR can initiate cancellation of approved/on_leave requests ===
+                        // === Employee or HR can initiate cancellation of approved/on_leave requests ===
                         // But not if the leave has already ended (employee has returned)
                         $today = current_time( 'Y-m-d' );
                         $has_returned = ( $today > $request->end_date );
-                        if ( in_array( $request->status, [ 'approved', 'on_leave' ], true ) && $is_hr && ! $has_returned ) :
+                        $is_leave_owner = ( (int) $request->emp_user_id === $current_uid );
+                        if ( in_array( $request->status, [ 'approved', 'on_leave' ], true ) && ( $is_hr || $is_leave_owner ) && ! $has_returned ) :
                             // Check for existing pending cancellation
                             $cancel_t = $wpdb->prefix . 'sfs_hr_leave_cancellations';
                             $pending_cancellation = $wpdb->get_row( $wpdb->prepare(
@@ -6204,7 +6207,7 @@ public function render_calendar(): void {
                                 </div>
                             <?php else : ?>
                                 <h3 style="color:#b32d2e;"><?php esc_html_e( 'Request Leave Cancellation', 'sfs-hr' ); ?></h3>
-                                <p class="description"><?php esc_html_e( 'This will start a cancellation workflow that requires approval from the department manager and the GM.', 'sfs-hr' ); ?></p>
+                                <p class="description"><?php esc_html_e( 'This will start a cancellation workflow that requires approval from the department manager and HR.', 'sfs-hr' ); ?></p>
                                 <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return sfsHrConfirmCancelApproved(this);" style="margin-top:10px;">
                                     <input type="hidden" name="action" value="sfs_hr_leave_cancel_approved" />
                                     <?php wp_nonce_field( 'sfs_hr_leave_cancel_approved_' . $request_id, '_wpnonce' ); ?>

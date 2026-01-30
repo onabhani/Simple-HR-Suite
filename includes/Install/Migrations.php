@@ -467,6 +467,39 @@ class Migrations {
             KEY `created_at` (`created_at`)
         ) $charset");
 
+        /** ATTENDANCE POLICY TABLES */
+
+        // Attendance Policies - role-based clock-in/out rules
+        $att_policies = $wpdb->prefix.'sfs_hr_attendance_policies';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$att_policies` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `name` VARCHAR(255) NOT NULL,
+            `clock_in_methods` VARCHAR(255) NOT NULL DEFAULT '[\"kiosk\",\"self_web\"]',
+            `clock_out_methods` VARCHAR(255) NOT NULL DEFAULT '[\"kiosk\",\"self_web\"]',
+            `clock_in_geofence` ENUM('enforced','none') NOT NULL DEFAULT 'enforced',
+            `clock_out_geofence` ENUM('enforced','none') NOT NULL DEFAULT 'enforced',
+            `calculation_mode` ENUM('shift_times','total_hours') NOT NULL DEFAULT 'shift_times',
+            `target_hours` DECIMAL(4,2) NULL DEFAULT NULL,
+            `breaks_enabled` TINYINT(1) NOT NULL DEFAULT 0,
+            `break_duration_minutes` INT UNSIGNED NULL DEFAULT NULL,
+            `active` TINYINT(1) NOT NULL DEFAULT 1,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `active` (`active`)
+        ) $charset");
+
+        // Attendance Policy ↔ Role mapping
+        $att_policy_roles = $wpdb->prefix.'sfs_hr_attendance_policy_roles';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$att_policy_roles` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `policy_id` BIGINT(20) UNSIGNED NOT NULL,
+            `role_slug` VARCHAR(100) NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uq_policy_role` (`policy_id`, `role_slug`),
+            KEY `role_slug` (`role_slug`)
+        ) $charset");
+
         // Seed default review criteria if empty
         $has_criteria = (int)$wpdb->get_var("SELECT COUNT(*) FROM `$perf_review_criteria`");
         if ($has_criteria === 0) {
