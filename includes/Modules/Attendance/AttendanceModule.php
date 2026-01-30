@@ -3783,6 +3783,9 @@ foreach ($rows as $r) {
         $wpdb->insert($sT, $data);
     }
 
+    // Capture session ID for linking (used by auto-created early leave requests)
+    $session_id = $exists ? (int) $exists : (int) $wpdb->insert_id;
+
     // Fire notification hooks for late arrival and early leave (only once per session)
     $was_late = in_array('late', $existing_flags, true);
     $was_early = in_array('left_early', $existing_flags, true);
@@ -3819,6 +3822,67 @@ foreach ($rows as $r) {
             'work_date'     => $ymd,
             'type'          => 'attendance_flag',
         ]);
+
+        // Auto-create early leave request so manager sees it in the Early Leave tab
+        $el_table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+        $el_exists = $wpdb->get_var( $wpdb->prepare(
+            "SELECT id FROM {$el_table} WHERE employee_id = %d AND request_date = %s AND status IN ('pending','approved')",
+            $employee_id,
+            $ymd
+        ) );
+
+        if ( ! $el_exists ) {
+            // Scheduled end time from shift
+            $scheduled_end = ( $shift && ! empty( $shift->end_time ) ) ? $shift->end_time : null;
+
+            // Actual leave time (last clock-out) converted from UTC to local
+            $actual_leave_local = null;
+            if ( $lastOut ) {
+                $tz_el   = wp_timezone();
+                $utc_out = new \DateTimeImmutable( $lastOut, new \DateTimeZone( 'UTC' ) );
+                $actual_leave_local = $utc_out->setTimezone( $tz_el )->format( 'H:i:s' );
+            }
+
+            // Find department manager
+            $emp_tbl  = $wpdb->prefix . 'sfs_hr_employees';
+            $dept_tbl = $wpdb->prefix . 'sfs_hr_departments';
+            $emp_row  = $wpdb->get_row( $wpdb->prepare(
+                "SELECT dept_id FROM {$emp_tbl} WHERE id = %d", $employee_id
+            ) );
+            $mgr_id = null;
+            if ( $emp_row && $emp_row->dept_id ) {
+                $dept_row = $wpdb->get_row( $wpdb->prepare(
+                    "SELECT manager_user_id FROM {$dept_tbl} WHERE id = %d", $emp_row->dept_id
+                ) );
+                if ( $dept_row && $dept_row->manager_user_id ) {
+                    $mgr_id = (int) $dept_row->manager_user_id;
+                }
+            }
+
+            $now_el = current_time( 'mysql' );
+            $el_ref = self::generate_early_leave_request_number();
+
+            $wpdb->insert( $el_table, [
+                'employee_id'          => $employee_id,
+                'session_id'           => $session_id,
+                'request_date'         => $ymd,
+                'scheduled_end_time'   => $scheduled_end,
+                'requested_leave_time' => $actual_leave_local,
+                'actual_leave_time'    => $actual_leave_local,
+                'reason_type'          => 'other',
+                'reason_note'          => sprintf(
+                    /* translators: %d = number of minutes the employee left early */
+                    __( 'Auto-created: employee left %d minutes before shift end.', 'sfs-hr' ),
+                    $minutes_early
+                ),
+                'status'               => 'pending',
+                'request_number'       => $el_ref,
+                'manager_id'           => $mgr_id,
+                'affects_salary'       => 0,
+                'created_at'           => $now_el,
+                'updated_at'           => $now_el,
+            ] );
+        }
     }
 }
 
