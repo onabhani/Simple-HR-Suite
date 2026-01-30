@@ -176,16 +176,29 @@ class Absent_Notifications {
      * @return bool True if day off.
      */
     private static function is_employee_day_off( int $emp_id, string $ymd ): bool {
-        // Use AttendanceModule if available
+        // Check global weekly off days first (e.g., Friday = 5)
+        $tz   = wp_timezone();
+        $date = new \DateTimeImmutable( $ymd . ' 00:00:00', $tz );
+        $dow  = (int) $date->format( 'w' ); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+
+        $att_settings = get_option( 'sfs_hr_attendance_settings' ) ?: [];
+        $off_days     = $att_settings['weekly_off_days'] ?? [ 5 ]; // Default: Friday
+        if ( ! is_array( $off_days ) ) {
+            $off_days = [ 5 ];
+        }
+        $off_days = array_map( 'intval', $off_days );
+
+        if ( in_array( $dow, $off_days, true ) ) {
+            return true;
+        }
+
+        // Use AttendanceModule if available — null shift means day off
         if ( class_exists( '\SFS\HR\Modules\Attendance\AttendanceModule' ) ) {
             $shift = AttendanceModule::resolve_shift_for_date( $emp_id, $ymd );
             return $shift === null;
         }
 
-        // Fallback: Friday is day off
-        $tz = wp_timezone();
-        $date = new \DateTimeImmutable( $ymd . ' 00:00:00', $tz );
-        return (int) $date->format( 'w' ) === 5;
+        return false;
     }
 
     /**

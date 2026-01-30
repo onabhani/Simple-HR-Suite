@@ -3098,7 +3098,7 @@ private static function add_unique_key_if_missing( \wpdb $wpdb, string $table, s
  */
 public static function generate_early_leave_request_number(): string {
     global $wpdb;
-    return Helpers::generate_reference_number( 'EL', $wpdb->prefix . 'sfs_hr_early_leave_requests' );
+    return \SFS\HR\Core\Helpers::generate_reference_number( 'EL', $wpdb->prefix . 'sfs_hr_early_leave_requests' );
 }
 
 /**
@@ -3817,6 +3817,16 @@ foreach ($rows as $r) {
                 $minutes_early += (int) $seg['early_minutes'];
             }
         }
+        // Fallback: calculate from shift end time and last clock-out
+        if ( $minutes_early === 0 && $shift && ! empty( $shift->end_time ) && $lastOut ) {
+            $tz_fb       = wp_timezone();
+            $shift_end_dt = new \DateTimeImmutable( $ymd . ' ' . $shift->end_time, $tz_fb );
+            $last_out_dt  = ( new \DateTimeImmutable( $lastOut, new \DateTimeZone( 'UTC' ) ) )->setTimezone( $tz_fb );
+            $diff_secs    = $shift_end_dt->getTimestamp() - $last_out_dt->getTimestamp();
+            if ( $diff_secs > 0 ) {
+                $minutes_early = (int) round( $diff_secs / 60 );
+            }
+        }
         do_action('sfs_hr_attendance_early_leave', $employee_id, [
             'minutes_early' => $minutes_early,
             'work_date'     => $ymd,
@@ -3862,7 +3872,7 @@ foreach ($rows as $r) {
             $now_el = current_time( 'mysql' );
             $el_ref = self::generate_early_leave_request_number();
 
-            $wpdb->insert( $el_table, [
+            $inserted = $wpdb->insert( $el_table, [
                 'employee_id'          => $employee_id,
                 'session_id'           => $session_id,
                 'request_date'         => $ymd,
@@ -3882,6 +3892,13 @@ foreach ($rows as $r) {
                 'created_at'           => $now_el,
                 'updated_at'           => $now_el,
             ] );
+
+            if ( $inserted === false && defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( sprintf(
+                    '[SFS HR] Failed to auto-create early leave request for employee %d on %s: %s',
+                    $employee_id, $ymd, $wpdb->last_error
+                ) );
+            }
         }
     }
 }
@@ -4659,12 +4676,20 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
             }
         }
         $segFlags = [];
+        $late_min  = 0;
+        $early_min = 0;
 
         if ($ovMin === 0) {
             $segFlags[] = 'missed_segment';
         } else {
-            if ($firstIn !== null && ($firstIn - $S) > ($graceLateMin*60))  $segFlags[] = 'late';
-            if ($lastOut  !== null && ($E - $lastOut) > ($graceEarlyMin*60)) $segFlags[] = 'left_early';
+            if ($firstIn !== null && ($firstIn - $S) > ($graceLateMin*60)) {
+                $segFlags[] = 'late';
+                $late_min = (int) round( ($firstIn - $S) / 60 );
+            }
+            if ($lastOut !== null && ($E - $lastOut) > ($graceEarlyMin*60)) {
+                $segFlags[] = 'left_early';
+                $early_min = (int) round( ($E - $lastOut) / 60 );
+            }
         }
         $flags = array_values(array_unique(array_merge($flags, $segFlags)));
         $seg_details[] = [
@@ -4673,6 +4698,8 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
             'scheduled_min' => $seg['minutes'],
             'worked_min'    => $ovMin,
             'flags' => $segFlags,
+            'late_minutes'  => $late_min,
+            'early_minutes' => $early_min,
         ];
     }
 

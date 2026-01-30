@@ -169,6 +169,10 @@ class Admin_Pages {
             .sfs-perf-alert.info { background: #dbeafe; border: 1px solid #3b82f6; }
             .sfs-perf-chart-container { height: 300px; }
 
+            /* Distribution dots */
+            .sfs-dist-item { white-space: nowrap; margin-right: 6px; }
+            .sfs-dist-label { display: none; font-size: 11px; }
+
             /* Mobile responsive styles */
             @media (max-width: 768px) {
                 .sfs-perf-wrap { padding: 0 4px; }
@@ -181,54 +185,33 @@ class Admin_Pages {
                 .sfs-perf-card { padding: 14px; }
                 .sfs-perf-card .value { font-size: 24px; }
 
-                /* Table to cards */
-                .sfs-perf-table { border: none; background: transparent; overflow: visible; }
-                .sfs-perf-table table { border: none; }
-                .sfs-perf-table table thead { display: none; }
-                .sfs-perf-table table tbody tr {
-                    display: block;
-                    background: #fff;
-                    border: 1px solid #ddd;
-                    border-radius: 8px;
-                    margin-bottom: 12px;
-                    padding: 14px 16px;
-                }
-                .sfs-perf-table table tbody tr:nth-child(odd) { background: #fff; }
-                .sfs-perf-table table tbody td {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 6px 0;
-                    border: none;
-                    border-bottom: 1px solid #f0f0f0;
-                    font-size: 14px;
-                }
-                .sfs-perf-table table tbody td:last-child { border-bottom: none; }
-                .sfs-perf-table table tbody td::before {
-                    content: attr(data-label);
-                    font-weight: 600;
-                    color: #374151;
-                    margin-right: 12px;
-                    flex-shrink: 0;
-                }
-                .sfs-perf-table table tbody td.sfs-emp-cell {
-                    flex-direction: column;
-                    align-items: flex-start;
-                }
-                .sfs-perf-table table tbody td.sfs-emp-cell::before { display: none; }
-                .sfs-perf-table table tbody td.sfs-rank-cell {
-                    position: absolute;
-                    top: 14px;
-                    right: 16px;
-                    border: none;
-                    padding: 0;
-                    font-size: 13px;
-                    color: #9ca3af;
-                }
-                .sfs-perf-table table tbody td.sfs-rank-cell::before { display: none; }
-                .sfs-perf-table table tbody tr { position: relative; }
-                .sfs-perf-table table tbody td.sfs-actions-cell { justify-content: flex-end; }
-                .sfs-perf-table table tbody td.sfs-actions-cell::before { display: none; }
+                /* Compact tables on mobile — keep table layout, smaller text */
+                .sfs-perf-table { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+                .sfs-perf-table table { font-size: 13px; min-width: 0; }
+                .sfs-perf-table table th,
+                .sfs-perf-table table td { padding: 6px 8px; white-space: nowrap; }
+
+                /* Department table: show distribution labels */
+                .sfs-dist-label { display: inline; }
+                .sfs-dist-item { display: inline-block; margin-right: 4px; font-size: 12px; }
+
+                /* Ranking table: hide non-essential columns — keep Employee, Grade, Actions */
+                .sfs-ranking-table th:nth-child(1),
+                .sfs-ranking-table td:nth-child(1),
+                .sfs-ranking-table th:nth-child(3),
+                .sfs-ranking-table td:nth-child(3),
+                .sfs-ranking-table th:nth-child(4),
+                .sfs-ranking-table td:nth-child(4),
+                .sfs-ranking-table th:nth-child(5),
+                .sfs-ranking-table td:nth-child(5),
+                .sfs-ranking-table th:nth-child(6),
+                .sfs-ranking-table td:nth-child(6) { display: none; }
+
+                /* Commitment table: hide Day, Flags columns */
+                .sfs-commitment-table th:nth-child(2),
+                .sfs-commitment-table td:nth-child(2),
+                .sfs-commitment-table th:nth-child(4),
+                .sfs-commitment-table td:nth-child(4) { display: none; }
             }
             @media (max-width: 480px) {
                 .sfs-perf-cards { grid-template-columns: 1fr; }
@@ -343,10 +326,10 @@ class Admin_Pages {
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <span title="<?php esc_attr_e( 'Exceptional', 'sfs-hr' ); ?>" style="color: #22c55e;">●<?php echo $dept['grade_distribution']['exceptional']; ?></span>
-                                        <span title="<?php esc_attr_e( 'Exceeds', 'sfs-hr' ); ?>" style="color: #3b82f6;">●<?php echo $dept['grade_distribution']['exceeds']; ?></span>
-                                        <span title="<?php esc_attr_e( 'Meets', 'sfs-hr' ); ?>" style="color: #f59e0b;">●<?php echo $dept['grade_distribution']['meets']; ?></span>
-                                        <span title="<?php esc_attr_e( 'Needs Improvement', 'sfs-hr' ); ?>" style="color: #ef4444;">●<?php echo $dept['grade_distribution']['needs_improvement']; ?></span>
+                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Exceptional', 'sfs-hr' ); ?>" style="color: #22c55e;"><span class="sfs-dist-label">Exc </span>●<?php echo $dept['grade_distribution']['exceptional']; ?></span>
+                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Exceeds', 'sfs-hr' ); ?>" style="color: #3b82f6;"><span class="sfs-dist-label">Exc+ </span>●<?php echo $dept['grade_distribution']['exceeds']; ?></span>
+                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Meets', 'sfs-hr' ); ?>" style="color: #f59e0b;"><span class="sfs-dist-label">Meet </span>●<?php echo $dept['grade_distribution']['meets']; ?></span>
+                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Needs Improvement', 'sfs-hr' ); ?>" style="color: #ef4444;"><span class="sfs-dist-label">Low </span>●<?php echo $dept['grade_distribution']['needs_improvement']; ?></span>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -441,7 +424,7 @@ class Admin_Pages {
                 <button type="submit" class="button"><?php esc_html_e( 'Filter', 'sfs-hr' ); ?></button>
             </form>
 
-            <div class="sfs-perf-table">
+            <div class="sfs-perf-table sfs-ranking-table">
                 <table class="widefat striped">
                     <thead>
                         <tr>
@@ -626,7 +609,7 @@ class Admin_Pages {
                         <?php esc_html_e( 'No attendance issues during this period.', 'sfs-hr' ); ?>
                     </p>
                 <?php else : ?>
-                    <div class="sfs-perf-table">
+                    <div class="sfs-perf-table sfs-commitment-table">
                         <table class="widefat striped">
                             <thead>
                                 <tr>
