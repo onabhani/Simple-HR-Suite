@@ -168,6 +168,71 @@ class Admin_Pages {
             .sfs-perf-alert.critical { background: #fee2e2; border: 1px solid #ef4444; }
             .sfs-perf-alert.info { background: #dbeafe; border: 1px solid #3b82f6; }
             .sfs-perf-chart-container { height: 300px; }
+
+            /* Mobile responsive styles */
+            @media (max-width: 768px) {
+                .sfs-perf-wrap { padding: 0 4px; }
+                .sfs-perf-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+                .sfs-perf-filters { flex-direction: column; align-items: stretch; gap: 10px; width: 100%; }
+                .sfs-perf-filters label { flex-direction: column; gap: 4px; }
+                .sfs-perf-filters select,
+                .sfs-perf-filters input[type="date"] { width: 100%; }
+                .sfs-perf-cards { grid-template-columns: 1fr 1fr; gap: 10px; }
+                .sfs-perf-card { padding: 14px; }
+                .sfs-perf-card .value { font-size: 24px; }
+
+                /* Table to cards */
+                .sfs-perf-table { border: none; background: transparent; overflow: visible; }
+                .sfs-perf-table table { border: none; }
+                .sfs-perf-table table thead { display: none; }
+                .sfs-perf-table table tbody tr {
+                    display: block;
+                    background: #fff;
+                    border: 1px solid #ddd;
+                    border-radius: 8px;
+                    margin-bottom: 12px;
+                    padding: 14px 16px;
+                }
+                .sfs-perf-table table tbody tr:nth-child(odd) { background: #fff; }
+                .sfs-perf-table table tbody td {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 6px 0;
+                    border: none;
+                    border-bottom: 1px solid #f0f0f0;
+                    font-size: 14px;
+                }
+                .sfs-perf-table table tbody td:last-child { border-bottom: none; }
+                .sfs-perf-table table tbody td::before {
+                    content: attr(data-label);
+                    font-weight: 600;
+                    color: #374151;
+                    margin-right: 12px;
+                    flex-shrink: 0;
+                }
+                .sfs-perf-table table tbody td.sfs-emp-cell {
+                    flex-direction: column;
+                    align-items: flex-start;
+                }
+                .sfs-perf-table table tbody td.sfs-emp-cell::before { display: none; }
+                .sfs-perf-table table tbody td.sfs-rank-cell {
+                    position: absolute;
+                    top: 14px;
+                    right: 16px;
+                    border: none;
+                    padding: 0;
+                    font-size: 13px;
+                    color: #9ca3af;
+                }
+                .sfs-perf-table table tbody td.sfs-rank-cell::before { display: none; }
+                .sfs-perf-table table tbody tr { position: relative; }
+                .sfs-perf-table table tbody td.sfs-actions-cell { justify-content: flex-end; }
+                .sfs-perf-table table tbody td.sfs-actions-cell::before { display: none; }
+            }
+            @media (max-width: 480px) {
+                .sfs-perf-cards { grid-template-columns: 1fr; }
+            }
         ';
     }
 
@@ -400,21 +465,21 @@ class Admin_Pages {
                             $grade_display = Performance_Calculator::get_grade_display( $emp['overall_grade'] );
                         ?>
                         <tr>
-                            <td><strong>#<?php echo esc_html( $emp['rank'] ); ?></strong></td>
-                            <td>
+                            <td class="sfs-rank-cell"><strong>#<?php echo esc_html( $emp['rank'] ); ?></strong></td>
+                            <td class="sfs-emp-cell">
                                 <strong><?php echo esc_html( $emp['employee_name'] ); ?></strong><br>
                                 <small style="color: #666;"><?php echo esc_html( $emp['employee_code'] ); ?></small>
                             </td>
-                            <td><?php echo $emp['attendance_score'] !== null ? esc_html( number_format( $emp['attendance_score'], 1 ) ) . '%' : '—'; ?></td>
-                            <td><?php echo $emp['goals_score'] !== null ? esc_html( number_format( $emp['goals_score'], 1 ) ) . '%' : '—'; ?></td>
-                            <td><?php echo $emp['reviews_score'] !== null ? esc_html( number_format( $emp['reviews_score'], 1 ) ) . '%' : '—'; ?></td>
-                            <td><strong><?php echo esc_html( number_format( $emp['overall_score'], 1 ) ); ?>%</strong></td>
-                            <td>
+                            <td data-label="<?php esc_attr_e( 'Attendance', 'sfs-hr' ); ?>"><?php echo $emp['attendance_score'] !== null ? esc_html( number_format( $emp['attendance_score'], 1 ) ) . '%' : '—'; ?></td>
+                            <td data-label="<?php esc_attr_e( 'Goals', 'sfs-hr' ); ?>"><?php echo $emp['goals_score'] !== null ? esc_html( number_format( $emp['goals_score'], 1 ) ) . '%' : '—'; ?></td>
+                            <td data-label="<?php esc_attr_e( 'Reviews', 'sfs-hr' ); ?>"><?php echo $emp['reviews_score'] !== null ? esc_html( number_format( $emp['reviews_score'], 1 ) ) . '%' : '—'; ?></td>
+                            <td data-label="<?php esc_attr_e( 'Overall', 'sfs-hr' ); ?>"><strong><?php echo esc_html( number_format( $emp['overall_score'], 1 ) ); ?>%</strong></td>
+                            <td data-label="<?php esc_attr_e( 'Grade', 'sfs-hr' ); ?>">
                                 <span class="sfs-perf-badge <?php echo esc_attr( $emp['overall_grade'] ); ?>">
                                     <?php echo esc_html( $grade_display['label'] ); ?>
                                 </span>
                             </td>
-                            <td>
+                            <td class="sfs-actions-cell">
                                 <a href="<?php echo esc_url( add_query_arg( [
                                     'page' => 'sfs-hr-performance-employees',
                                     'employee_id' => $emp['employee_id'],
