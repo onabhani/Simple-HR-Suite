@@ -103,7 +103,7 @@ add_action('rest_api_init', function () {
         document.documentElement.classList.add('sfs-att-immersive');
         document.body.classList.add('sfs-att-immersive');
       </script>
-      <div class="sfs-att-veil" role="application" aria-label="Self Attendance">
+      <div class="sfs-att-veil" role="application" aria-label="<?php esc_attr_e( 'Self Attendance', 'sfs-hr' ); ?>">
     <?php endif; ?>
 
     <?php
@@ -1396,25 +1396,25 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
     </aside>
 
     <main class="sfs-kiosk-right">
-      <h2 class="sfs-title">Attendance Kiosk</h2>
-      <h1 id="sfs-greet-<?php echo $inst; ?>" class="sfs-greet">Good day!</h1>
+      <h2 class="sfs-title"><?php esc_html_e( 'Attendance Kiosk', 'sfs-hr' ); ?></h2>
+      <h1 id="sfs-greet-<?php echo $inst; ?>" class="sfs-greet"><?php esc_html_e( 'Good day!', 'sfs-hr' ); ?></h1>
 
 
       <!-- hero -->
-      <h2 class="sfs-title sr-only">Attendance Kiosk</h2>
+      <h2 class="sfs-title sr-only"><?php esc_html_e( 'Attendance Kiosk', 'sfs-hr' ); ?></h2>
 <div class="sfs-statusbar">
   <span id="sfs-status-dot-<?php echo $inst; ?>" class="sfs-dot sfs-dot--idle"></span>
-  <span id="sfs-status-text-<?php echo $inst; ?>">Ready</span>
+  <span id="sfs-status-text-<?php echo $inst; ?>"><?php esc_html_e( 'Ready', 'sfs-hr' ); ?></span>
 </div>
 
 
       <!-- lane -->
 <div id="sfs-kiosk-lane-<?php echo $inst; ?>" style="gap:8px;align-items:center;margin:10px 0;">
-        <strong id="sfs-kiosk-lane-label-<?php echo $inst; ?>" style="min-width:110px;">Current:</strong>
-        <span id="sfs-kiosk-lane-chip-<?php echo $inst; ?>" class="sfs-chip sfs-chip--in">Clock In</span>
+        <strong id="sfs-kiosk-lane-label-<?php echo $inst; ?>" style="min-width:110px;"><?php esc_html_e( 'Current:', 'sfs-hr' ); ?></strong>
+        <span id="sfs-kiosk-lane-chip-<?php echo $inst; ?>" class="sfs-chip sfs-chip--in"><?php esc_html_e( 'Clock In', 'sfs-hr' ); ?></span>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:10px">
-          <button type="button" data-action="in"          class="button sfs-lane-btn button-primary">Clock In</button>
-          <button type="button" data-action="out"         class="button sfs-lane-btn">Clock Out</button>
+          <button type="button" data-action="in"          class="button sfs-lane-btn button-primary"><?php esc_html_e( 'Clock In', 'sfs-hr' ); ?></button>
+          <button type="button" data-action="out"         class="button sfs-lane-btn"><?php esc_html_e( 'Clock Out', 'sfs-hr' ); ?></button>
         </div>
       </div>
 
@@ -1431,8 +1431,8 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
   <canvas id="sfs-kiosk-selfie-<?php echo $inst; ?>" width="480" height="480" hidden></canvas>
 
   <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
-    <button id="sfs-kiosk-qr-exit-<?php echo $inst; ?>" type="button" class="button button-secondary">Exit</button>
-    <button id="sfs-kiosk-qr-stop-<?php echo $inst; ?>" type="button" class="button" hidden>Stop Camera</button>
+    <button id="sfs-kiosk-qr-exit-<?php echo $inst; ?>" type="button" class="button button-secondary"><?php esc_html_e( 'Exit', 'sfs-hr' ); ?></button>
+    <button id="sfs-kiosk-qr-stop-<?php echo $inst; ?>" type="button" class="button" hidden><?php esc_html_e( 'Stop Camera', 'sfs-hr' ); ?></button>
     <span id="sfs-kiosk-qr-status-<?php echo $inst; ?>" style="font-size:12px;color:#646970;"></span>
   </div>
 </div>
@@ -1691,6 +1691,16 @@ wp_enqueue_script('wp-api');
 <script>
   // A guaranteed nonce you can use in console/tests and as a fallback in code
   window.SFS_ATT_NONCE = '<?php echo esc_js( wp_create_nonce('wp_rest') ); ?>';
+  window.SFS_ATT_I18N = {
+    clock_in:      <?php echo wp_json_encode( __( 'Clock In', 'sfs-hr' ) ); ?>,
+    clock_out:     <?php echo wp_json_encode( __( 'Clock Out', 'sfs-hr' ) ); ?>,
+    break_start:   <?php echo wp_json_encode( __( 'Break Start', 'sfs-hr' ) ); ?>,
+    break_end:     <?php echo wp_json_encode( __( 'Break End', 'sfs-hr' ) ); ?>,
+    ready:         <?php echo wp_json_encode( __( 'Ready', 'sfs-hr' ) ); ?>,
+    scanning:      <?php echo wp_json_encode( __( 'Scanning', 'sfs-hr' ) ); ?>,
+    action:        <?php echo wp_json_encode( __( 'action', 'sfs-hr' ) ); ?>,
+    selfie_required: <?php echo wp_json_encode( __( 'selfie required', 'sfs-hr' ) ); ?>
+  };
 </script>
 
     <script>
@@ -1814,8 +1824,8 @@ qrExit && qrExit.addEventListener('click', () => {
   ROOT.dataset.view = 'menu';
 
   // reset main status text so it’s clean next time
-  const tag = requiresSelfie ? ' — selfie required' : '';
-  setStat('Ready — action: ' + labelFor(currentAction) + tag, 'idle');
+  const tag = requiresSelfie ? ' — ' + ((window.SFS_ATT_I18N||{}).selfie_required||'selfie required') : '';
+  setStat(((window.SFS_ATT_I18N||{}).ready||'Ready') + ' — ' + ((window.SFS_ATT_I18N||{}).action||'action') + ': ' + labelFor(currentAction) + tag, 'idle');
 });
 
 
@@ -1929,7 +1939,7 @@ function touchActivity() {
 function exitToMenu(){
   stopQr();          // stops tracks + preview
   setMode('menu');   // shows big buttons again
-  setStat('Ready — action: ' + labelFor(currentAction) + (requiresSelfie?' — selfie required':''), 'idle');
+  setStat(((window.SFS_ATT_I18N||{}).ready||'Ready') + ' — ' + ((window.SFS_ATT_I18N||{}).action||'action') + ': ' + labelFor(currentAction) + (requiresSelfie?' — ' + ((window.SFS_ATT_I18N||{}).selfie_required||'selfie required'):''), 'idle');
 }
 
 // iOS inline playback hardening
@@ -2019,11 +2029,12 @@ const laneChip  = document.getElementById('sfs-kiosk-lane-chip-<?php echo $inst;
 
 
 function labelFor(a){
+  const t = window.SFS_ATT_I18N || {};
   switch(a){
-    case 'in': return 'Clock In';
-    case 'out': return 'Clock Out';
-    case 'break_start': return 'Break Start';
-    case 'break_end': return 'Break End';
+    case 'in': return t.clock_in || 'Clock In';
+    case 'out': return t.clock_out || 'Clock Out';
+    case 'break_start': return t.break_start || 'Break Start';
+    case 'break_end': return t.break_end || 'Break End';
     default: return a;
   }
 }
@@ -2043,7 +2054,7 @@ function setAction(a){
   laneChip.className   = chipClassFor(currentAction);
 
   setStat(
-    'Ready — action: ' + labelFor(currentAction) + (requiresSelfie ? ' — selfie required' : ''),
+    ((window.SFS_ATT_I18N||{}).ready||'Ready') + ' — ' + ((window.SFS_ATT_I18N||{}).action||'action') + ': ' + labelFor(currentAction) + (requiresSelfie ? ' — ' + ((window.SFS_ATT_I18N||{}).selfie_required||'selfie required') : ''),
     currentAction
   );
 }
@@ -2426,8 +2437,8 @@ async function startQr(){
   lastQrTs = 0;
   stopQr();
   lastUIBeat = 0;
-  const tag = requiresSelfie ? ' — selfie required' : '';
-  setStat('Scanning — action: ' + labelFor(currentAction) + tag, 'scanning');
+  const tag = requiresSelfie ? ' — ' + ((window.SFS_ATT_I18N||{}).selfie_required||'selfie required') : '';
+  setStat(((window.SFS_ATT_I18N||{}).scanning||'Scanning') + ' — ' + ((window.SFS_ATT_I18N||{}).action||'action') + ': ' + labelFor(currentAction) + tag, 'scanning');
 
   showScannerUI(true);
 
@@ -2680,8 +2691,8 @@ async function refresh(){
     const j = await r.json();
     if (!r.ok) throw new Error(j.message || 'Status error');
 
-    const tag = requiresSelfie ? ' — selfie required' : '';
-setStat('Ready — action: ' + labelFor(currentAction) + tag, currentAction);
+    const tag = requiresSelfie ? ' — ' + ((window.SFS_ATT_I18N||{}).selfie_required||'selfie required') : '';
+setStat(((window.SFS_ATT_I18N||{}).ready||'Ready') + ' — ' + ((window.SFS_ATT_I18N||{}).action||'action') + ': ' + labelFor(currentAction) + tag, currentAction);
 
 
 // Device-level features/policy
@@ -2689,7 +2700,7 @@ requiresSelfie = !!j.requires_selfie;
 const qrOn = (typeof j.qr_enabled === 'boolean') ? j.qr_enabled : true;
 
 // Single, unified status line
-setStat('Ready — action: ' + labelFor(currentAction) + tag, 'idle');
+setStat(((window.SFS_ATT_I18N||{}).ready||'Ready') + ' — ' + ((window.SFS_ATT_I18N||{}).action||'action') + ': ' + labelFor(currentAction) + tag, 'idle');
 if (laneChip) {
   laneChip.textContent = labelFor(currentAction);
   laneChip.className   = chipClassFor(currentAction);

@@ -390,6 +390,60 @@ add_action('admin_init', function(){
 });
 
 /**
+ * Load translations from JSON files for the sfs-hr text domain.
+ * Maps WP locale → language JSON, builds English→Translated lookup,
+ * then hooks into gettext for backend PHP __() / _e() calls.
+ */
+add_action( 'init', function () {
+    $locale = determine_locale();
+
+    // Map WP locale prefix to our JSON file key
+    $locale_map = [
+        'ar' => 'ar', 'fil' => 'fil', 'ur' => 'ur',
+    ];
+
+    $lang = $locale_map[ $locale ] ?? null;
+    if ( ! $lang ) {
+        // Try 2-letter prefix (e.g. ar_SA → ar)
+        $prefix = substr( $locale, 0, 2 );
+        $lang   = $locale_map[ $prefix ] ?? null;
+    }
+    if ( ! $lang ) {
+        return; // English or unsupported — no filter needed
+    }
+
+    $en_file   = SFS_HR_DIR . 'languages/en.json';
+    $lang_file = SFS_HR_DIR . "languages/{$lang}.json";
+    if ( ! file_exists( $en_file ) || ! file_exists( $lang_file ) ) {
+        return;
+    }
+
+    $en   = json_decode( (string) file_get_contents( $en_file ), true );
+    $tr   = json_decode( (string) file_get_contents( $lang_file ), true );
+    if ( ! is_array( $en ) || ! is_array( $tr ) ) {
+        return;
+    }
+
+    $map = [];
+    foreach ( $en as $key => $english ) {
+        if ( strpos( $key, '_comment' ) === 0 ) {
+            continue;
+        }
+        if ( isset( $tr[ $key ] ) && $tr[ $key ] !== $english ) {
+            $map[ $english ] = $tr[ $key ];
+        }
+    }
+
+    if ( empty( $map ) ) {
+        return;
+    }
+
+    add_filter( 'gettext_sfs-hr', function ( $translation, $text ) use ( $map ) {
+        return $map[ $text ] ?? $translation;
+    }, 10, 2 );
+}, 1 );
+
+/**
  * Bootstrap modules.
  */
 add_action('plugins_loaded', function(){

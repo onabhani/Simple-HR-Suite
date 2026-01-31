@@ -42,7 +42,7 @@ class Leaves {
               <tr>
                 <td><?php echo (int)$r['id']; ?></td>
                 <td><?php echo esc_html($r['name']); ?></td>
-                <td><a href="<?php echo esc_url($del); ?>" onclick="return confirm('Delete this type? It will be blocked if in use.');"><?php esc_html_e('Delete','sfs-hr'); ?></a></td>
+                <td><a href="<?php echo esc_url($del); ?>" onclick="return confirm('<?php echo esc_js( __( 'Delete this type? It will be blocked if in use.', 'sfs-hr' ) ); ?>');"><?php esc_html_e('Delete','sfs-hr'); ?></a></td>
               </tr>
             <?php endforeach; endif; ?>
             </tbody>

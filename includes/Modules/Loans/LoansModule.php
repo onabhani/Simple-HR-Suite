@@ -85,7 +85,7 @@ class LoansModule {
         check_admin_referer( 'sfs_hr_install_loans_tables' );
 
         if ( ! current_user_can( 'manage_options' ) ) {
-            wp_die( 'Unauthorized' );
+            wp_die( esc_html__( 'Unauthorized', 'sfs-hr' ) );
         }
 
         // Call the activation method to create tables

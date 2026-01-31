@@ -326,10 +326,10 @@ class Admin_Pages {
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Exceptional', 'sfs-hr' ); ?>" style="color: #22c55e;"><span class="sfs-dist-label">Exc </span>●<?php echo $dept['grade_distribution']['exceptional']; ?></span>
-                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Exceeds', 'sfs-hr' ); ?>" style="color: #3b82f6;"><span class="sfs-dist-label">Exc+ </span>●<?php echo $dept['grade_distribution']['exceeds']; ?></span>
-                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Meets', 'sfs-hr' ); ?>" style="color: #f59e0b;"><span class="sfs-dist-label">Meet </span>●<?php echo $dept['grade_distribution']['meets']; ?></span>
-                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Needs Improvement', 'sfs-hr' ); ?>" style="color: #ef4444;"><span class="sfs-dist-label">Low </span>●<?php echo $dept['grade_distribution']['needs_improvement']; ?></span>
+                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Exceptional', 'sfs-hr' ); ?>" style="color: #22c55e;"><span class="sfs-dist-label"><?php esc_html_e( 'Exc', 'sfs-hr' ); ?> </span>●<?php echo $dept['grade_distribution']['exceptional']; ?></span>
+                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Exceeds', 'sfs-hr' ); ?>" style="color: #3b82f6;"><span class="sfs-dist-label"><?php esc_html_e( 'Exc+', 'sfs-hr' ); ?> </span>●<?php echo $dept['grade_distribution']['exceeds']; ?></span>
+                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Meets', 'sfs-hr' ); ?>" style="color: #f59e0b;"><span class="sfs-dist-label"><?php esc_html_e( 'Meet', 'sfs-hr' ); ?> </span>●<?php echo $dept['grade_distribution']['meets']; ?></span>
+                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Needs Improvement', 'sfs-hr' ); ?>" style="color: #ef4444;"><span class="sfs-dist-label"><?php esc_html_e( 'Low', 'sfs-hr' ); ?> </span>●<?php echo $dept['grade_distribution']['needs_improvement']; ?></span>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -649,13 +649,13 @@ class Admin_Pages {
                                     <td><?php echo esc_html( implode( ', ', $flag_labels ) ?: '—' ); ?></td>
                                     <td><?php echo $day['in_time'] ? esc_html( wp_date( 'H:i', strtotime( $day['in_time'] ) ) ) : '—'; ?></td>
                                     <td><?php echo $day['out_time'] ? esc_html( wp_date( 'H:i', strtotime( $day['out_time'] ) ) ) : '—'; ?></td>
-                                    <td><?php echo $day['minutes'] > 0 ? esc_html( $hours . 'h ' . $mins . 'm' ) : '—'; ?></td>
+                                    <td><?php echo $day['minutes'] > 0 ? esc_html( sprintf( __( '%dh %dm', 'sfs-hr' ), $hours, $mins ) ) : '—'; ?></td>
                                     <td style="color: <?php echo ( $day['break_delay_minutes'] ?? 0 ) > 0 ? '#f59e0b' : ( ( $day['no_break_taken'] ?? 0 ) ? '#ef4444' : '#666' ); ?>; font-weight: <?php echo ( ( $day['break_delay_minutes'] ?? 0 ) > 0 || ( $day['no_break_taken'] ?? 0 ) ) ? '600' : 'normal'; ?>;">
                                         <?php
                                         $bd = (int) ( $day['break_delay_minutes'] ?? 0 );
                                         $nb = (int) ( $day['no_break_taken'] ?? 0 );
                                         if ( $bd > 0 ) {
-                                            echo esc_html( $bd . 'm' );
+                                            echo esc_html( sprintf( __( '%dm', 'sfs-hr' ), $bd ) );
                                             if ( in_array( 'break_delay', (array) $day['flags'], true ) && ! $nb ) {
                                                 // Has break_end punch but was late
                                             }
@@ -695,7 +695,7 @@ class Admin_Pages {
                             <div class="sfs-perf-progress">
                                 <div class="sfs-perf-progress-bar" style="width: <?php echo (int) $goal->progress; ?>%;"></div>
                             </div>
-                            <small style="color: #666;"><?php echo esc_html( $goal->progress ); ?>% complete</small>
+                            <small style="color: #666;"><?php echo esc_html( sprintf( __( '%s%% complete', 'sfs-hr' ), $goal->progress ) ); ?></small>
                         </div>
                         <?php endforeach; ?>
                     <?php endif; ?>

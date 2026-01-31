@@ -807,7 +807,7 @@ class Admin_Pages {
 
     public function handle_create_period(): void {
         if ( ! current_user_can( 'sfs_hr_payroll_admin' ) && ! current_user_can( 'sfs_hr.manage' ) ) {
-            wp_die( 'Access denied' );
+            wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
         }
         check_admin_referer( 'sfs_hr_payroll_create_period' );
 
@@ -847,7 +847,7 @@ class Admin_Pages {
 
     public function handle_run_payroll(): void {
         if ( ! current_user_can( 'sfs_hr_payroll_run' ) && ! current_user_can( 'sfs_hr.manage' ) ) {
-            wp_die( 'Access denied' );
+            wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
         }
         check_admin_referer( 'sfs_hr_payroll_run_payroll' );
 
@@ -974,7 +974,7 @@ class Admin_Pages {
 
     public function handle_approve_run(): void {
         if ( ! current_user_can( 'sfs_hr_payroll_admin' ) && ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'manage_options' ) ) {
-            wp_die( 'Access denied' );
+            wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
         }
         check_admin_referer( 'sfs_hr_payroll_approve_run' );
 
@@ -1270,7 +1270,7 @@ class Admin_Pages {
      */
     public function handle_export_attendance(): void {
         if ( ! current_user_can( 'sfs_hr.view' ) ) {
-            wp_die( 'Access denied' );
+            wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
         }
         check_admin_referer( 'sfs_hr_payroll_export_attendance' );
 
@@ -1388,7 +1388,7 @@ class Admin_Pages {
      */
     public function handle_export_wps(): void {
         if ( ! current_user_can( 'sfs_hr_payroll_admin' ) && ! current_user_can( 'sfs_hr.manage' ) ) {
-            wp_die( 'Access denied' );
+            wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
         }
         check_admin_referer( 'sfs_hr_payroll_export_wps' );
 
@@ -1537,7 +1537,7 @@ class Admin_Pages {
      */
     public function handle_export_detailed(): void {
         if ( ! current_user_can( 'sfs_hr_payroll_admin' ) && ! current_user_can( 'sfs_hr.manage' ) ) {
-            wp_die( 'Access denied' );
+            wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
         }
         check_admin_referer( 'sfs_hr_payroll_export_detailed' );
 
@@ -1752,7 +1752,7 @@ class Admin_Pages {
 
     public function handle_export_bank(): void {
         if ( ! current_user_can( 'sfs_hr_payroll_admin' ) && ! current_user_can( 'sfs_hr.manage' ) ) {
-            wp_die( 'Access denied' );
+            wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
         }
         check_admin_referer( 'sfs_hr_payroll_export_bank' );
 
