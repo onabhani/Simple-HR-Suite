@@ -1088,6 +1088,19 @@ class Notifications {
         if ( ! empty( $hr_pending_items ) && ! empty( $settings['hr_emails'] ) ) {
             self::send_hr_summary_reminder( $hr_pending_items, $settings['hr_emails'], $site_name, $today );
         }
+
+        // Send GM summary — same comprehensive overview as HR
+        $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+        if ( ! empty( $hr_pending_items ) && $gm_user_id > 0 ) {
+            $gm_user = get_user_by( 'id', $gm_user_id );
+            if ( $gm_user && $gm_user->user_email ) {
+                // Avoid double-sending if GM email is already in the HR emails list
+                $hr_list = $settings['hr_emails'] ?? [];
+                if ( ! in_array( $gm_user->user_email, $hr_list, true ) ) {
+                    self::send_hr_summary_reminder( $hr_pending_items, [ $gm_user->user_email ], $site_name, $today );
+                }
+            }
+        }
     }
 
     /**
