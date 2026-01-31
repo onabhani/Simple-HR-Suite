@@ -1191,14 +1191,12 @@ setInterval(tickClock, 1000);
             }
 
             if (requiresSelfie) {
-                // Preflight check: validate punch BEFORE opening camera
+                // Validate geo BEFORE opening camera to avoid wasting user's time
                 setStat(i18n.validating, 'busy');
-
-                let geo = null;
                 try {
-                    geo = await getGeo();
+                    await getGeo();
                 } catch(e) {
-                    // geo blocked, show error without opening camera
+                    // geo blocked → abort without opening camera
                     punchInProgress = false;
                     if (actionsWrap) {
                         actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
@@ -1209,69 +1207,10 @@ setInterval(tickClock, 1000);
                     return;
                 }
 
-                // Make preflight API call without selfie to check for server-side errors
-                const payload = { punch_type: type, source: 'self_web' };
-                if (geo && typeof geo.lat==='number' && typeof geo.lng==='number') {
-                    payload.geo_lat = geo.lat;
-                    payload.geo_lng = geo.lng;
-                    if (typeof geo.acc==='number') payload.geo_accuracy_m = Math.round(geo.acc);
-                }
-
-                try {
-                    const resp = await fetch(PUNCH_URL, {
-                        method: 'POST',
-                        headers: {
-                            'X-WP-Nonce': NONCE,
-                            'Content-Type': 'application/json'
-                        },
-                        credentials: 'same-origin',
-                        body: JSON.stringify(payload)
-                    });
-
-                    const text = await resp.text();
-                    let j = null;
-                    try { j = JSON.parse(text); } catch(_) {}
-
-                    const errCode = j && (j.code || (j.data && j.data.code)) || null;
-
-                    // If server says "selfie required", open camera
-                    if (!resp.ok && errCode === 'sfs_att_selfie_required') {
-                        await startSelfie(type);
-                        // Don't clear punchInProgress yet - selfie capture will handle the actual punch
-                        return;
-                    }
-
-                    // If success (no selfie needed), we're done
-                    if (resp.ok) {
-                        setStat(i18n.success, 'success');
-                        punchInProgress = false;
-                        setTimeout(refresh, 1000);
-                        return;
-                    }
-
-                    // Any other error: show it without opening camera
-                    const msg = (j && j.message) || 'Punch failed';
-                    setStat(i18n.error_prefix + ' ' + msg, 'error');
-                    punchInProgress = false;
-                    if (actionsWrap) {
-                        actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
-                            const t = btn.getAttribute('data-type');
-                            btn.disabled = !allowed[t];
-                        });
-                    }
-                    return;
-
-                } catch(e) {
-                    setStat(i18n.error_prefix + ' ' + e.message, 'error');
-                    punchInProgress = false;
-                    if (actionsWrap) {
-                        actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
-                            const t = btn.getAttribute('data-type');
-                            btn.disabled = !allowed[t];
-                        });
-                    }
-                    return;
-                }
+                // Go directly to camera for selfie capture.
+                // captureAndSubmit() → doPunch(type, blob) handles the actual punch + server errors.
+                await startSelfie(type);
+                return;
             } else {
                 await doPunch(type, null);
             }

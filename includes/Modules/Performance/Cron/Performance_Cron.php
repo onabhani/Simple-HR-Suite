@@ -6,6 +6,7 @@ use SFS\HR\Modules\Performance\Services\Attendance_Metrics;
 use SFS\HR\Modules\Performance\Services\Performance_Calculator;
 use SFS\HR\Modules\Performance\PerformanceModule;
 use SFS\HR\Core\Helpers;
+use SFS\HR\Core\Notifications;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
@@ -275,6 +276,23 @@ class Performance_Cron {
                     sprintf( __( '[Performance Report] %s', 'sfs-hr' ), $period_label ),
                     $body
                 );
+            }
+        }
+
+        // --- A2) Send to HR ---
+        $notif_settings = Notifications::get_settings();
+        $hr_emails      = $notif_settings['hr_emails'] ?? [];
+        if ( ! empty( $hr_emails ) ) {
+            $hr_body = $this->build_report_table( $all_data, $period_label, __( 'Company Performance Report', 'sfs-hr' ) );
+            $gm_email_str = ( $gm_user_id > 0 && isset( $gm_user ) && $gm_user ) ? $gm_user->user_email : '';
+            foreach ( $hr_emails as $hr_email ) {
+                if ( is_email( $hr_email ) && $hr_email !== $gm_email_str ) {
+                    Helpers::send_mail(
+                        $hr_email,
+                        sprintf( __( '[Performance Report] %s', 'sfs-hr' ), $period_label ),
+                        $hr_body
+                    );
+                }
             }
         }
 
