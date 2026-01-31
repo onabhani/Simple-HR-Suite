@@ -10,7 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 /**
  * Admin_Pages
  * Version: 0.1.1-admin-crud
- * Author: Omar Alnabhani (hdqah.com)
+ * Author: hdqah.com
  *
  * Menus:
  * - HR Attendance (root)

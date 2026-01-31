@@ -28,7 +28,7 @@ use SFS\HR\Modules\ShiftSwap\Notifications\ShiftSwap_Notifications;
  * - Notifications/  Email notifications
  *
  * Version: 0.2.0
- * Author: Omar Alnabhani (hdqah.com)
+ * Author: hdqah.com
  */
 class ShiftSwapModule {
 

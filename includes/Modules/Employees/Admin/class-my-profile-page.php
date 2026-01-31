@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  * My_Profile_Page
  * Employee self-service profile (tabs: overview, assets, leave, ...)
  * Version: 0.1.0-my-profile-v1
- * Author: Omar Alnabhani (hdqah.com)
+ * Author: hdqah.com
  */
 class My_Profile_Page {
 

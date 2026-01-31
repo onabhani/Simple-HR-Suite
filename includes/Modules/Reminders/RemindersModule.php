@@ -24,7 +24,7 @@ use SFS\HR\Modules\Reminders\Cron\Reminders_Cron;
  * - Cron/       Scheduled notification jobs
  *
  * Version: 0.2.0
- * Author: Omar Alnabhani (hdqah.com)
+ * Author: hdqah.com
  */
 class RemindersModule {
 

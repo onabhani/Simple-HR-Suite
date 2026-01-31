@@ -6,7 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 /**
  * Admin_REST
  * Version: 0.1.1-rest-admin
- * Author: Omar Alnabhani (hdqah.com)
+ * Author: hdqah.com
  *
  * REST for admin CRUD (shifts, assignments, devices, sessions rebuild)
  * Base: /sfs-hr/v1/attendance/...

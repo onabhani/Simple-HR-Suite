@@ -25,7 +25,7 @@ use SFS\HR\Modules\Documents\Rest\Documents_Rest;
  * - Rest/       REST API endpoints
  *
  * Version: 0.2.0
- * Author: Omar Alnabhani (hdqah.com)
+ * Author: hdqah.com
  */
 class DocumentsModule {
 

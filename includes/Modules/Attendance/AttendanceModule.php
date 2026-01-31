@@ -6,7 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 /**
  * AttendanceModule
  * Version: 0.1.2-admin-crud
- * Author: Omar Alnabhani (hdqah.com)
+ * Author: hdqah.com
  *
  * Notes:
  * - Employee mapping: {prefix}sfs_hr_employees.id and .user_id (to wp_users.ID)

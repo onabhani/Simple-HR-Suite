@@ -12,7 +12,7 @@ use SFS\HR\Modules\Assets\Rest\Assets_REST;
 
 class AssetsModule {
 
-    const VERSION        = '0.1.9-assets-mvp';
+    const VERSION        = '0.2.0-assets-mvp';
     const OPT_DB_VERSION = 'sfs_hr_assets_db_version';
 
     public function hooks(): void {

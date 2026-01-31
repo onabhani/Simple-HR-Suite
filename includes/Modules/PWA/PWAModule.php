@@ -8,7 +8,7 @@ if (!defined('ABSPATH')) { exit; }
  * Progressive Web App infrastructure for mobile attendance
  * Provides: service worker, manifest, offline sync, install prompt
  * Version: 0.2.0
- * Author: Omar Alnabhani (hdqah.com)
+ * Author: hdqah.com
  */
 class PWAModule {
 
