@@ -1667,6 +1667,10 @@ public function render_shifts(): void {
                         &nbsp;Unpaid break minutes:
                         <input type="number" name="unpaid_break_minutes" min="0" step="1" style="width:120px"
                                value="<?php echo esc_attr($editing->unpaid_break_minutes ?? 0); ?>"/>
+                        &nbsp;Break start time:
+                        <input type="time" name="break_start_time" style="width:120px"
+                               value="<?php echo esc_attr($editing->break_start_time ?? ''); ?>"/>
+                        <small style="color:#666;display:block;margin-top:4px;">Set break start time to calculate break delay. Break end = start + unpaid minutes.</small>
                     </td>
                 </tr>
 
@@ -1827,7 +1831,7 @@ public function render_shifts(): void {
                     ?></td>
                     <td><?php echo esc_html($r->start_time . ' → ' . $r->end_time); ?></td>
                     <td><?php echo esc_html($r->location_label . ' (' . (float)$r->location_radius_m . 'm)'); ?></td>
-                    <td><?php echo esc_html($r->break_policy . ' / ' . (int)$r->unpaid_break_minutes . 'm'); ?></td>
+                    <td><?php echo esc_html($r->break_policy . ' / ' . (int)$r->unpaid_break_minutes . 'm' . ($r->break_start_time ? ' @ ' . substr($r->break_start_time, 0, 5) : '')); ?></td>
                     <td><?php echo (int)$r->grace_late_minutes . '/' . (int)$r->grace_early_leave_minutes; ?></td>
                     <td><?php echo esc_html($r->rounding_rule); ?></td>
                     <td><?php echo $r->active ? 'Yes' : 'No'; ?></td>
@@ -1895,6 +1899,8 @@ $end   = $norm_time($_POST['end_time']   ?? '');
 
     $break_policy = in_array( $_POST['break_policy'] ?? 'auto', ['auto','punch','none'], true ) ? $_POST['break_policy'] : 'auto';
     $unpaid_break = max(0, (int)($_POST['unpaid_break_minutes'] ?? 0));
+    $break_start_time_raw = sanitize_text_field( $_POST['break_start_time'] ?? '' );
+    $break_start_time = preg_match( '/^\d{2}:\d{2}(:\d{2})?$/', $break_start_time_raw ) ? $break_start_time_raw : null;
 
     $grace_l = max(0, (int)($_POST['grace_late_minutes'] ?? 5));
     $grace_e = max(0, (int)($_POST['grace_early_leave_minutes'] ?? 5));
@@ -1940,6 +1946,7 @@ $end   = $norm_time($_POST['end_time']   ?? '');
         'start_time'               => $start,
         'end_time'                 => $end,
         'unpaid_break_minutes'     => $unpaid_break,
+        'break_start_time'         => $break_start_time,
         'break_policy'             => $break_policy,
         'grace_late_minutes'       => $grace_l,
         'grace_early_leave_minutes'=> $grace_e,

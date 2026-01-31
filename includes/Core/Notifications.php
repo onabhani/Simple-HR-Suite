@@ -46,6 +46,8 @@ class Notifications {
         add_action( 'sfs_hr_attendance_punch', [ __CLASS__, 'on_attendance_punch' ], 10, 3 );
         add_action( 'sfs_hr_attendance_late', [ __CLASS__, 'on_attendance_late' ], 10, 2 );
         add_action( 'sfs_hr_attendance_early_leave', [ __CLASS__, 'on_early_leave' ], 10, 2 );
+        add_action( 'sfs_hr_attendance_no_break_taken', [ __CLASS__, 'on_no_break_taken' ], 10, 2 );
+        add_action( 'sfs_hr_attendance_break_delay', [ __CLASS__, 'on_break_delay' ], 10, 2 );
 
         // Employee events
         add_action( 'sfs_hr_employee_created', [ __CLASS__, 'on_employee_created' ], 10, 2 );
@@ -106,6 +108,8 @@ class Notifications {
             'notify_late_arrival'      => true,
             'late_arrival_threshold'   => 15, // minutes
             'notify_early_leave'       => true,
+            'notify_no_break_taken'    => true,
+            'notify_break_delay'       => true,
             'notify_missed_punch'      => true,
 
             // Employee notifications
@@ -393,6 +397,113 @@ class Notifications {
 
             $manager_user_id = isset( $employee->manager_user_id ) ? (int) $employee->manager_user_id : 0;
             self::send_notification( $employee->manager_email, $subject, $message, '', $manager_user_id, 'early_leave' );
+        }
+    }
+
+    /**
+     * Handle no break taken
+     *
+     * @param int   $employee_id Employee ID
+     * @param array $data        Break data
+     */
+    public static function on_no_break_taken( int $employee_id, array $data ): void {
+        $settings = self::get_settings();
+
+        if ( ! $settings['enabled'] || ! $settings['notify_no_break_taken'] ) {
+            return;
+        }
+
+        $employee = self::get_employee_data( $employee_id );
+        if ( ! $employee ) {
+            return;
+        }
+
+        $configured_break = $data['configured_break'] ?? 0;
+
+        // Notify employee
+        if ( $settings['employee_notification'] && $employee->email ) {
+            $subject = sprintf(
+                __( '[No Break Taken] %s – Break is mandatory', 'sfs-hr' ),
+                $employee->full_name
+            );
+
+            $message = sprintf(
+                __( "Dear %s,\n\nYou did not take your scheduled break on %s.\nYour shift requires a %d-minute break which has been automatically deducted from your duty time.\n\nPlease ensure you take your break and record it properly.\n\n---\n%s\nHR Management System", 'sfs-hr' ),
+                $employee->full_name,
+                wp_date( 'F j, Y', strtotime( $data['work_date'] ?? '' ) ),
+                $configured_break,
+                get_bloginfo( 'name' )
+            );
+
+            self::send_notification( $employee->email, $subject, $message, '', $employee->user_id ?? 0, 'no_break_taken' );
+        }
+
+        // Notify manager
+        if ( $settings['manager_notification'] && $employee->manager_email ) {
+            $subject = sprintf(
+                __( '[No Break Taken] %s did not take break', 'sfs-hr' ),
+                $employee->full_name
+            );
+
+            $message = sprintf(
+                __( "Dear %s,\n\n%s (%s) did not take their scheduled %d-minute break on %s.\nThe break time has been automatically deducted from duty hours.\n\n---\n%s\nHR Management System", 'sfs-hr' ),
+                $employee->manager_name,
+                $employee->full_name,
+                $employee->employee_code,
+                $configured_break,
+                wp_date( 'F j, Y', strtotime( $data['work_date'] ?? '' ) ),
+                get_bloginfo( 'name' )
+            );
+
+            $manager_user_id = isset( $employee->manager_user_id ) ? (int) $employee->manager_user_id : 0;
+            self::send_notification( $employee->manager_email, $subject, $message, '', $manager_user_id, 'no_break_taken' );
+        }
+    }
+
+    /**
+     * Handle break delay (employee returned late from break)
+     *
+     * @param int   $employee_id Employee ID
+     * @param array $data        Break delay data
+     */
+    public static function on_break_delay( int $employee_id, array $data ): void {
+        $settings = self::get_settings();
+
+        if ( ! $settings['enabled'] || ! $settings['notify_break_delay'] ) {
+            return;
+        }
+
+        $employee = self::get_employee_data( $employee_id );
+        if ( ! $employee ) {
+            return;
+        }
+
+        $delay_minutes    = $data['delay_minutes'] ?? 0;
+        $configured_break = $data['configured_break'] ?? 0;
+        $actual_break     = $data['actual_break'] ?? 0;
+
+        // Notify manager
+        if ( $settings['manager_notification'] && $employee->manager_email ) {
+            $subject = sprintf(
+                __( '[Break Delay] %s returned %d minutes late from break', 'sfs-hr' ),
+                $employee->full_name,
+                $delay_minutes
+            );
+
+            $message = sprintf(
+                __( "Dear %s,\n\n%s (%s) exceeded their break time on %s.\n\nConfigured break: %d minutes\nActual break: %d minutes\nDelay: %d minutes\n\nThe extra time has been deducted from duty hours.\n\n---\n%s\nHR Management System", 'sfs-hr' ),
+                $employee->manager_name,
+                $employee->full_name,
+                $employee->employee_code,
+                wp_date( 'F j, Y', strtotime( $data['work_date'] ?? '' ) ),
+                $configured_break,
+                $actual_break,
+                $delay_minutes,
+                get_bloginfo( 'name' )
+            );
+
+            $manager_user_id = isset( $employee->manager_user_id ) ? (int) $employee->manager_user_id : 0;
+            self::send_notification( $employee->manager_email, $subject, $message, '', $manager_user_id, 'break_delay' );
         }
     }
 

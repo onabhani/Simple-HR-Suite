@@ -258,6 +258,8 @@ class Performance_Cron {
                 'early'         => $metrics['early_leave_count'] ?? 0,
                 'absent'        => $metrics['days_absent'] ?? 0,
                 'incomplete'    => $metrics['incomplete_count'] ?? 0,
+                'break_delay'   => $metrics['break_delay_count'] ?? 0,
+                'no_break'      => $metrics['no_break_taken_count'] ?? 0,
                 'working_days'  => $metrics['total_working_days'] ?? 0,
                 'present'       => $metrics['days_present'] ?? 0,
             ];
@@ -350,6 +352,8 @@ class Performance_Cron {
                   . sprintf( __( "Late Arrivals: %d\n", 'sfs-hr' ), $entry['late'] )
                   . sprintf( __( "Early Leaves: %d\n", 'sfs-hr' ), $entry['early'] )
                   . sprintf( __( "Incomplete Days: %d\n", 'sfs-hr' ), $entry['incomplete'] )
+                  . sprintf( __( "Break Delays: %d\n", 'sfs-hr' ), $entry['break_delay'] )
+                  . sprintf( __( "No Break Taken: %d\n", 'sfs-hr' ), $entry['no_break'] )
                   . "\n---\n" . get_bloginfo( 'name' ) . "\nHR Management System\n";
 
             Helpers::send_mail( $entry['email'], $subject, $body );
@@ -380,7 +384,7 @@ class Performance_Cron {
         $lines[] = sprintf( __( 'Total employees: %d', 'sfs-hr' ), count( $data ) );
         $lines[] = '';
         $lines[] = sprintf(
-            '%-6s  %-25s  %-15s  %10s  %5s  %5s  %6s  %6s',
+            '%-6s  %-25s  %-15s  %10s  %5s  %5s  %6s  %6s  %6s  %7s',
             __( 'Code', 'sfs-hr' ),
             __( 'Name', 'sfs-hr' ),
             __( 'Department', 'sfs-hr' ),
@@ -388,16 +392,18 @@ class Performance_Cron {
             __( 'Late', 'sfs-hr' ),
             __( 'Early', 'sfs-hr' ),
             __( 'Absent', 'sfs-hr' ),
-            __( 'Incomp', 'sfs-hr' )
+            __( 'Incomp', 'sfs-hr' ),
+            __( 'BrkDly', 'sfs-hr' ),
+            __( 'NoBrk', 'sfs-hr' )
         );
-        $lines[] = str_repeat( '-', 90 );
+        $lines[] = str_repeat( '-', 108 );
 
         // Sort by commitment ascending (lowest first)
         usort( $data, fn( $a, $b ) => $a['commitment'] <=> $b['commitment'] );
 
         foreach ( $data as $row ) {
             $lines[] = sprintf(
-                '%-6s  %-25s  %-15s  %9.1f%%  %5d  %5d  %6d  %6d',
+                '%-6s  %-25s  %-15s  %9.1f%%  %5d  %5d  %6d  %6d  %6d  %7d',
                 $row['employee_code'],
                 mb_substr( $row['name'], 0, 25 ),
                 mb_substr( $row['dept_name'], 0, 15 ),
@@ -405,7 +411,9 @@ class Performance_Cron {
                 $row['late'],
                 $row['early'],
                 $row['absent'],
-                $row['incomplete']
+                $row['incomplete'],
+                $row['break_delay'] ?? 0,
+                $row['no_break'] ?? 0
             );
         }
 
