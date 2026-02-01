@@ -259,7 +259,7 @@ class Resignation_Service {
 
         $color = $colors[$status] ?? '#777';
 
-        $label = ucfirst($status);
+        $label = __(ucfirst($status), 'sfs-hr');
         if ($status === 'pending') {
             if ($approval_level === 1) {
                 $label = __('Pending - Manager', 'sfs-hr');
@@ -331,7 +331,7 @@ class Resignation_Service {
         ];
 
         $color = $colors[$status] ?? '#777';
-        $label = $labels[$status] ?? ucfirst($status);
+        $label = $labels[$status] ?? __(ucfirst($status), 'sfs-hr');
 
         return sprintf(
             '<span style="background:%s;color:#fff;padding:4px 8px;border-radius:3px;font-size:11px;">%s</span>',
