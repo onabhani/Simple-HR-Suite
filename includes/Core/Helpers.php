@@ -194,6 +194,11 @@ class Helpers {
                 'url'    => add_query_arg( 'page', 'sfs-hr-payroll', $base ),
                 'parent' => 'sfs-hr',
             ],
+            'sfs-hr-design-samples' => [
+                'label'  => __( 'Design Samples', 'sfs-hr' ),
+                'url'    => add_query_arg( 'page', 'sfs-hr-design-samples', $base ),
+                'parent' => 'sfs-hr',
+            ],
             // Add more here if you have extra HR pages.
         ];
     }
