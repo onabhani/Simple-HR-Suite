@@ -679,7 +679,7 @@
     "absent_today": "Absent today",
     "marked_absent_today": "Marked as absent in today's sessions",
     "late_today": "Late today",
-    "sessions_status_late": "Sessions with status \"late\"",
+    "sessions_status_late": "Sessions with status “late”",
     "incomplete_sessions": "Incomplete sessions",
     "missing_punch_out": "Missing punch-out or similar issues",
     "on_holiday_today": "On holiday today",
@@ -1480,5 +1480,18 @@
     "day_off": "Day Off",
     "holiday_status": "Holiday",
     "empty_value": "empty",
-    "more_items_fmt": "+%d more"
+    "more_items_fmt": "+%d more",
+    "per_page_fmt": "%d/page",
+    "status_active": "Active",
+    "status_inactive": "Inactive",
+    "status_terminated": "Terminated",
+    "status_pending": "Pending",
+    "status_approved": "Approved",
+    "status_rejected": "Rejected",
+    "all_statuses": "All statuses",
+    "status_draft": "Draft",
+    "status_pending_approval": "Pending_approval",
+    "shift_hint_desc": "This is the employee’s default working shift. You can still override specific days in Attendance > Assignments.",
+    "reminders_daily": "Reminders run daily. We’ll avoid duplicates automatically.",
+    "device_selfie_settings_desc": "These settings are per device. Shift “require selfie” still applies to web/self, but kiosk can enforce its own selfie rule."
 }

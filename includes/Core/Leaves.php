@@ -96,7 +96,7 @@ class Leaves {
             <select name="status">
               <option value=""><?php esc_html_e('All statuses','sfs-hr'); ?></option>
               <?php foreach (['pending','approved','rejected'] as $s): ?>
-                <option value="<?php echo esc_attr($s); ?>" <?php selected($status,$s); ?>><?php echo esc_html(ucfirst($s)); ?></option>
+                <option value="<?php echo esc_attr($s); ?>" <?php selected($status,$s); ?>><?php echo esc_html(__(ucfirst($s), 'sfs-hr')); ?></option>
               <?php endforeach; ?>
             </select>
             <?php submit_button(__('Filter','sfs-hr'),'secondary','',false); ?>
@@ -128,7 +128,7 @@ class Leaves {
                   <td><?php echo esc_html($r['start_date'].' → '.$r['end_date']); ?></td>
                   <td><?php echo esc_html($r['days']); ?></td>
                   <td><?php echo esc_html($r['reason']); ?></td>
-                  <td><?php echo esc_html(ucfirst($r['status'])); ?></td>
+                  <td><?php echo esc_html(__(ucfirst($r['status']), 'sfs-hr')); ?></td>
                   <td>
                     <?php if ($r['status']==='pending'): ?>
                       <a href="<?php echo esc_url($approve); ?>"><?php esc_html_e('Approve','sfs-hr'); ?></a> |

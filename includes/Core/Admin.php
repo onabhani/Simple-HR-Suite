@@ -2589,7 +2589,7 @@ document.getElementById('sfs-hr-action-modal').addEventListener('click', functio
               <input type="search" name="s" value="<?php echo esc_attr($q); ?>" placeholder="<?php echo esc_attr__('Search name/email/code','sfs-hr'); ?>"/>
               <select name="per_page">
                 <?php foreach ([10,20,50,100] as $pp): ?>
-                  <option value="<?php echo (int)$pp; ?>" <?php selected($per_page,$pp); ?>><?php echo (int)$pp; ?>/page</option>
+                  <option value="<?php echo (int)$pp; ?>" <?php selected($per_page,$pp); ?>><?php printf(esc_html__('%d/page', 'sfs-hr'), (int)$pp); ?></option>
                 <?php endforeach; ?>
               </select>
               <?php submit_button(__('Search','sfs-hr'),'primary','',false); ?>
@@ -2978,7 +2978,7 @@ document.getElementById('sfs-hr-action-modal').addEventListener('click', functio
                   <td class="hide-mobile"><?php echo esc_html($r['email']); ?></td>
                   <td class="hide-mobile"><?php echo esc_html($dept_name); ?></td>
                   <td class="hide-mobile"><?php echo esc_html($r['position']); ?></td>
-                  <td><span class="sfs-hr-badge status-<?php echo esc_attr($status); ?>"><?php echo esc_html(ucfirst($status)); ?></span></td>
+                  <td><span class="sfs-hr-badge status-<?php echo esc_attr($status); ?>"><?php echo esc_html(__(ucfirst($status), 'sfs-hr')); ?></span></td>
                   <td>
                     <!-- Desktop action buttons -->
                     <div class="sfs-hr-actions">
@@ -5607,7 +5607,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             <input type="search" name="s" value="<?php echo esc_attr($q); ?>" placeholder="<?php echo esc_attr__('Search name/email/code','sfs-hr'); ?>"/>
             <select name="per_page">
               <?php foreach ([10,20,50,100] as $pp): ?>
-                <option value="<?php echo (int)$pp; ?>" <?php selected($per_page,$pp); ?>><?php echo (int)$pp; ?>/page</option>
+                <option value="<?php echo (int)$pp; ?>" <?php selected($per_page,$pp); ?>><?php printf(esc_html__('%d/page', 'sfs-hr'), (int)$pp); ?></option>
               <?php endforeach; ?>
             </select>
             <?php submit_button(__('Search','sfs-hr'),'primary','',false); ?>
@@ -5643,9 +5643,9 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                   <td class="hide-mobile"><?php echo esc_html($r['email']); ?></td>
                   <td class="hide-mobile"><?php echo esc_html($dept_name); ?></td>
                   <td class="hide-mobile"><?php echo esc_html($r['position']); ?></td>
-                  <td class="hide-mobile"><span class="sfs-hr-badge status-<?php echo esc_attr($status); ?>"><?php echo esc_html(ucfirst($status)); ?></span></td>
+                  <td class="hide-mobile"><span class="sfs-hr-badge status-<?php echo esc_attr($status); ?>"><?php echo esc_html(__(ucfirst($status), 'sfs-hr')); ?></span></td>
                   <td>
-                    <button type="button" class="sfs-hr-details-btn" onclick="sfsHrOpenDetailsModal('<?php echo esc_js($name ?: $r['employee_code']); ?>', '<?php echo esc_js($r['employee_code']); ?>', '<?php echo esc_js($r['email']); ?>', '<?php echo esc_js($dept_name); ?>', '<?php echo esc_js($r['position']); ?>', '<?php echo esc_js(ucfirst($status)); ?>')">
+                    <button type="button" class="sfs-hr-details-btn" onclick="sfsHrOpenDetailsModal('<?php echo esc_js($name ?: $r['employee_code']); ?>', '<?php echo esc_js($r['employee_code']); ?>', '<?php echo esc_js($r['email']); ?>', '<?php echo esc_js($dept_name); ?>', '<?php echo esc_js($r['position']); ?>', '<?php echo esc_js(__(ucfirst($status), 'sfs-hr')); ?>')">
                       <span></span>
                     </button>
                   </td>

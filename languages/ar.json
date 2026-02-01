@@ -679,7 +679,7 @@
     "absent_today": "غائبون اليوم",
     "marked_absent_today": "تم تسجيلهم غائبين في جلسات اليوم",
     "late_today": "متأخرون اليوم",
-    "sessions_status_late": "جلسات بحالة \"متأخر\"",
+    "sessions_status_late": "جلسات بحالة “متأخر”",
     "incomplete_sessions": "جلسات غير مكتملة",
     "missing_punch_out": "تسجيل انصراف مفقود أو مشاكل مماثلة",
     "on_holiday_today": "في عطلة اليوم",
@@ -1480,5 +1480,18 @@
     "day_off": "يوم إجازة",
     "holiday_status": "عطلة",
     "empty_value": "فارغ",
-    "more_items_fmt": "+%d المزيد"
+    "more_items_fmt": "+%d المزيد",
+    "per_page_fmt": "%d/صفحة",
+    "status_active": "نشط",
+    "status_inactive": "غير نشط",
+    "status_terminated": "منتهي الخدمة",
+    "status_pending": "قيد الانتظار",
+    "status_approved": "معتمد",
+    "status_rejected": "مرفوض",
+    "all_statuses": "جميع الحالات",
+    "status_draft": "مسودة",
+    "status_pending_approval": "بانتظار الموافقة",
+    "shift_hint_desc": "هذه هي وردية الحضور الافتراضية للموظف. يمكنك تجاوز أيام محددة في الحضور > التعيينات.",
+    "reminders_daily": "يتم تشغيل التذكيرات يومياً. سنتجنب التكرار تلقائياً.",
+    "device_selfie_settings_desc": "هذه الإعدادات لكل جهاز. إعداد “طلب صورة ذاتية” في الوردية لا يزال ينطبق على الويب/الذاتي، لكن الكشك يمكنه فرض قاعدة الصور الذاتية الخاصة به."
 }
