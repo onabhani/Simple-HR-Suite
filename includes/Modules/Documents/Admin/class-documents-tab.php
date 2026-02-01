@@ -510,10 +510,10 @@ class Documents_Tab {
         <div class="sfs-hr-doc-item">
             <div class="sfs-hr-doc-icon <?php echo esc_attr($icon_class); ?>">
                 <?php
-                if ($icon_class === 'pdf') echo 'PDF';
-                elseif ($icon_class === 'image') echo 'IMG';
-                elseif ($icon_class === 'doc') echo 'DOC';
-                else echo 'FILE';
+                if ($icon_class === 'pdf') echo esc_html__( 'PDF', 'sfs-hr' );
+                elseif ($icon_class === 'image') echo esc_html__( 'IMG', 'sfs-hr' );
+                elseif ($icon_class === 'doc') echo esc_html__( 'DOC', 'sfs-hr' );
+                else echo esc_html__( 'FILE', 'sfs-hr' );
                 ?>
             </div>
             <div class="sfs-hr-doc-info">

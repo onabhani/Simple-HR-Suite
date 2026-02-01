@@ -395,7 +395,7 @@ $total_count = count( $display_rows );
 <div class="sfs-hr-asset-modal" id="sfs-hr-asset-modal">
     <div class="sfs-hr-asset-modal-content">
         <div class="sfs-hr-asset-modal-header">
-            <h3 class="sfs-hr-asset-modal-title" id="sfs-hr-asset-modal-name">Asset Details</h3>
+            <h3 class="sfs-hr-asset-modal-title" id="sfs-hr-asset-modal-name"><?php esc_html_e( 'Asset Details', 'sfs-hr' ); ?></h3>
             <button type="button" class="sfs-hr-asset-modal-close" onclick="sfsHrCloseAssetModal()">&times;</button>
         </div>
         <ul class="sfs-hr-asset-details-list">

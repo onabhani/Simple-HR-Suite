@@ -260,22 +260,22 @@ class Settlement_List {
         <div class="sfs-hr-settlement-modal" id="sfs-hr-settlement-modal">
           <div class="sfs-hr-settlement-modal-content">
             <div class="sfs-hr-settlement-modal-header">
-              <h3 class="sfs-hr-settlement-modal-title" id="sfs-hr-settlement-modal-name">Settlement Details</h3>
+              <h3 class="sfs-hr-settlement-modal-title" id="sfs-hr-settlement-modal-name"><?php esc_html_e( 'Settlement Details', 'sfs-hr' ); ?></h3>
               <button type="button" class="sfs-hr-settlement-modal-close" onclick="sfsHrCloseSettlementModal()">&times;</button>
             </div>
             <ul class="sfs-hr-settlement-details-list">
-              <li><span class="sfs-hr-settlement-label">Employee Code</span><span class="sfs-hr-settlement-value" id="sfs-hr-settlement-code"></span></li>
-              <li><span class="sfs-hr-settlement-label">Last Working Day</span><span class="sfs-hr-settlement-value" id="sfs-hr-settlement-lwd"></span></li>
-              <li><span class="sfs-hr-settlement-label">Service Years</span><span class="sfs-hr-settlement-value" id="sfs-hr-settlement-years"></span></li>
-              <li><span class="sfs-hr-settlement-label">Total Amount</span><span class="sfs-hr-settlement-value" id="sfs-hr-settlement-amount" style="font-weight:600;"></span></li>
-              <li><span class="sfs-hr-settlement-label">Status</span><span class="sfs-hr-settlement-value" id="sfs-hr-settlement-status"></span></li>
+              <li><span class="sfs-hr-settlement-label"><?php esc_html_e( 'Employee Code', 'sfs-hr' ); ?></span><span class="sfs-hr-settlement-value" id="sfs-hr-settlement-code"></span></li>
+              <li><span class="sfs-hr-settlement-label"><?php esc_html_e( 'Last Working Day', 'sfs-hr' ); ?></span><span class="sfs-hr-settlement-value" id="sfs-hr-settlement-lwd"></span></li>
+              <li><span class="sfs-hr-settlement-label"><?php esc_html_e( 'Service Years', 'sfs-hr' ); ?></span><span class="sfs-hr-settlement-value" id="sfs-hr-settlement-years"></span></li>
+              <li><span class="sfs-hr-settlement-label"><?php esc_html_e( 'Total Amount', 'sfs-hr' ); ?></span><span class="sfs-hr-settlement-value" id="sfs-hr-settlement-amount" style="font-weight:600;"></span></li>
+              <li><span class="sfs-hr-settlement-label"><?php esc_html_e( 'Status', 'sfs-hr' ); ?></span><span class="sfs-hr-settlement-value" id="sfs-hr-settlement-status"></span></li>
             </ul>
             <div class="sfs-hr-settlement-modal-buttons">
               <a href="#" class="button button-primary" id="sfs-hr-settlement-view-btn">
-                <span class="dashicons dashicons-visibility"></span> View Details
+                <span class="dashicons dashicons-visibility"></span> <?php esc_html_e( 'View Details', 'sfs-hr' ); ?>
               </a>
               <a href="#" class="button button-secondary" id="sfs-hr-settlement-edit-btn" style="display:none;">
-                <span class="dashicons dashicons-edit"></span> Edit Settlement
+                <span class="dashicons dashicons-edit"></span> <?php esc_html_e( 'Edit Settlement', 'sfs-hr' ); ?>
               </a>
             </div>
           </div>
