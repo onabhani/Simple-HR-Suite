@@ -2134,7 +2134,7 @@ $departments = $this->get_departments( $wpdb );
             const id = sel.value;
             if (!META[id]) { box.textContent = ''; return; }
             const m = META[id];
-            box.textContent = `Location: ${m.label} | Dept: ${m.dept} | ${m.start} → ${m.end} | Radius: ${m.radius}m`;
+            box.textContent = `<?php echo esc_js( __( 'Location:', 'sfs-hr' ) ); ?> ${m.label} | <?php echo esc_js( __( 'Dept:', 'sfs-hr' ) ); ?> ${m.dept} | ${m.start} → ${m.end} | <?php echo esc_js( __( 'Radius:', 'sfs-hr' ) ); ?> ${m.radius}m`;
         }
         sel.addEventListener('change', render);
         render();
@@ -3061,9 +3061,9 @@ $this->att_log('Punches query done', [
   echo '<div class="sfs-hr-att-table-wrap">';
   echo '<div class="table-header"><h3>' . esc_html__('Punches', 'sfs-hr') . ' (' . esc_html($totalPunches) . ')</h3></div>';
   echo '<table class="sfs-hr-att-table"><thead><tr>
-        <th>ID</th><th>' . esc_html__('Employee', 'sfs-hr') . '</th><th>' . esc_html__('Employee Code', 'sfs-hr') . '</th><th>' . esc_html__('Type', 'sfs-hr') . '</th><th>' . esc_html__('Time (local)', 'sfs-hr') . '</th>
+        <th>' . esc_html__('ID', 'sfs-hr') . '</th><th>' . esc_html__('Employee', 'sfs-hr') . '</th><th>' . esc_html__('Employee Code', 'sfs-hr') . '</th><th>' . esc_html__('Type', 'sfs-hr') . '</th><th>' . esc_html__('Time (local)', 'sfs-hr') . '</th>
         <th>' . esc_html__('Source', 'sfs-hr') . '</th><th>' . esc_html__('Geo', 'sfs-hr') . '</th><th>' . esc_html__('Selfie', 'sfs-hr') . '</th>';
-if ($debug) { echo '<th>Selfie debug</th>'; }
+if ($debug) { echo '<th>' . esc_html__('Selfie debug', 'sfs-hr') . '</th>'; }
 echo '</tr></thead><tbody>';
 
   if ($rows) {

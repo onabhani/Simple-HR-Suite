@@ -66,9 +66,9 @@ add_action('rest_api_init', function () {
      * Place on a page restricted to logged-in employees.
      */
     public function shortcode_widget(): string {
-    if ( ! is_user_logged_in() ) { return '<div>Please sign in.</div>'; }
+    if ( ! is_user_logged_in() ) { return '<div>' . esc_html__( 'Please sign in.', 'sfs-hr' ) . '</div>'; }
     if ( ! current_user_can( 'sfs_hr_attendance_clock_self' ) ) {
-        return '<div>You do not have permission to clock in/out.</div>';
+        return '<div>' . esc_html__( 'You do not have permission to clock in/out.', 'sfs-hr' ) . '</div>';
     }
 
 
@@ -1316,9 +1316,9 @@ setInterval(tickClock, 1000);
  * Kiosk Widget
  */
 public function shortcode_kiosk( $atts = [] ): string {
-    if ( ! is_user_logged_in() ) { return '<div>Please sign in.</div>'; }
+    if ( ! is_user_logged_in() ) { return '<div>' . esc_html__( 'Please sign in.', 'sfs-hr' ) . '</div>'; }
     if ( ! current_user_can( 'sfs_hr_attendance_clock_kiosk' ) && ! current_user_can('sfs_hr_attendance_admin') ) {
-        return '<div>Access denied (kiosk only).</div>';
+        return '<div>' . esc_html__( 'Access denied (kiosk only).', 'sfs-hr' ) . '</div>';
     }
 
     $atts = shortcode_atts(['device' => 0], $atts, 'sfs_hr_kiosk');
@@ -1339,7 +1339,7 @@ $immersive = $atts['immersive'] === '1' || $atts['immersive'] === 1 || $atts['im
         $device_id = (int)$wpdb->get_var("SELECT id FROM {$devT} WHERE active=1 AND type='kiosk' ORDER BY id ASC LIMIT 1");
     }
     $device = $device_id ? $wpdb->get_row($wpdb->prepare("SELECT * FROM {$devT} WHERE id=%d", $device_id), ARRAY_A) : null;
-    if (!$device) { return '<div>No kiosk device configured.</div>'; }
+    if (!$device) { return '<div>' . esc_html__( 'No kiosk device configured.', 'sfs-hr' ) . '</div>'; }
 
     // Device meta
     $meta = [];
@@ -1699,13 +1699,53 @@ wp_enqueue_script('wp-api');
     ready:         <?php echo wp_json_encode( __( 'Ready', 'sfs-hr' ) ); ?>,
     scanning:      <?php echo wp_json_encode( __( 'Scanning', 'sfs-hr' ) ); ?>,
     action:        <?php echo wp_json_encode( __( 'action', 'sfs-hr' ) ); ?>,
-    selfie_required: <?php echo wp_json_encode( __( 'selfie required', 'sfs-hr' ) ); ?>
+    selfie_required: <?php echo wp_json_encode( __( 'selfie required', 'sfs-hr' ) ); ?>,
+    good_morning:  <?php echo wp_json_encode( __( 'Good morning!', 'sfs-hr' ) ); ?>,
+    good_afternoon: <?php echo wp_json_encode( __( 'Good afternoon!', 'sfs-hr' ) ); ?>,
+    good_evening:  <?php echo wp_json_encode( __( 'Good evening!', 'sfs-hr' ) ); ?>,
+    no_pending_scan: <?php echo wp_json_encode( __( 'No pending scan. Scan QR again.', 'sfs-hr' ) ); ?>,
+    no_camera_frame: <?php echo wp_json_encode( __( 'No camera frame yet. Keep face in frame and try again.', 'sfs-hr' ) ); ?>,
+    attempting_punch: <?php echo wp_json_encode( __( 'Attempting punch…', 'sfs-hr' ) ); ?>,
+    done_label:    <?php echo wp_json_encode( __( 'Done', 'sfs-hr' ) ); ?>,
+    next_label:    <?php echo wp_json_encode( __( 'Next', 'sfs-hr' ) ); ?>,
+    exiting:       <?php echo wp_json_encode( __( 'Exiting…', 'sfs-hr' ) ); ?>,
+    ready_choose_action: <?php echo wp_json_encode( __( 'Ready — choose an action', 'sfs-hr' ) ); ?>,
+    idle_timeout_menu: <?php echo wp_json_encode( __( 'Idle timeout — returning to menu', 'sfs-hr' ) ); ?>,
+    ready_pick_action: <?php echo wp_json_encode( __( 'Ready — pick an action', 'sfs-hr' ) ); ?>,
+    invalid_qr:    <?php echo wp_json_encode( __( 'Invalid QR', 'sfs-hr' ) ); ?>,
+    network_error: <?php echo wp_json_encode( __( 'Network error', 'sfs-hr' ) ); ?>,
+    scan_failed_invalid_reply: <?php echo wp_json_encode( __( 'Scan failed: invalid server reply', 'sfs-hr' ) ); ?>,
+    scan_failed_no_token: <?php echo wp_json_encode( __( 'Scan failed: no token', 'sfs-hr' ) ); ?>,
+    keep_face_capture_selfie: <?php echo wp_json_encode( __( 'Keep face in frame and press "Capture Selfie".', 'sfs-hr' ) ); ?>,
+    no_shift_contact_hr: <?php echo wp_json_encode( __( 'No shift configured. Contact your Manager or HR.', 'sfs-hr' ) ); ?>,
+    invalid_action_try_different: <?php echo wp_json_encode( __( 'Invalid action now. Try a different punch type.', 'sfs-hr' ) ); ?>,
+    punch_failed_prefix: <?php echo wp_json_encode( __( 'Punch failed:', 'sfs-hr' ) ); ?>,
+    unknown_error: <?php echo wp_json_encode( __( 'Unknown error', 'sfs-hr' ) ); ?>,
+    no_camera_found: <?php echo wp_json_encode( __( 'No camera found on this device.', 'sfs-hr' ) ); ?>,
+    no_camera_api: <?php echo wp_json_encode( __( 'No camera API available.', 'sfs-hr' ) ); ?>,
+    loading_qr_engine: <?php echo wp_json_encode( __( 'Loading QR engine…', 'sfs-hr' ) ); ?>,
+    qr_engine_not_loaded: <?php echo wp_json_encode( __( 'QR engine not loaded. Please wait and press Start again.', 'sfs-hr' ) ); ?>,
+    capture_selfie_first: <?php echo wp_json_encode( __( 'Please capture a selfie first.', 'sfs-hr' ) ); ?>,
+    employee_on_break: <?php echo wp_json_encode( __( 'Employee is on break. End the break before clocking out.', 'sfs-hr' ) ); ?>,
+    employee_not_clocked_in: <?php echo wp_json_encode( __( 'Employee is not clocked in.', 'sfs-hr' ) ); ?>,
+    already_clocked_in: <?php echo wp_json_encode( __( 'Already clocked in.', 'sfs-hr' ) ); ?>,
+    break_only_while_clocked_in: <?php echo wp_json_encode( __( 'Break can start only while clocked in.', 'sfs-hr' ) ); ?>,
+    no_active_break_to_end: <?php echo wp_json_encode( __( 'No active break to end.', 'sfs-hr' ) ); ?>,
+    invalid_action: <?php echo wp_json_encode( __( 'Invalid action.', 'sfs-hr' ) ); ?>,
+    checking_location: <?php echo wp_json_encode( __( 'Checking location…', 'sfs-hr' ) ); ?>,
+    capturing_photo: <?php echo wp_json_encode( __( 'Capturing photo…', 'sfs-hr' ) ); ?>,
+    recording_punch: <?php echo wp_json_encode( __( 'Recording punch…', 'sfs-hr' ) ); ?>,
+    uploading_recording: <?php echo wp_json_encode( __( 'Uploading & recording…', 'sfs-hr' ) ); ?>,
+    punch_colon:   <?php echo wp_json_encode( __( 'Punch:', 'sfs-hr' ) ); ?>,
+    error_prefix:  <?php echo wp_json_encode( __( 'Error:', 'sfs-hr' ) ); ?>,
+    working_ellipsis: <?php echo wp_json_encode( __( 'Working…', 'sfs-hr' ) ); ?>,
+    camera_error:  <?php echo wp_json_encode( __( 'Camera error:', 'sfs-hr' ) ); ?>
   };
 </script>
 
     <script>
     (function(){
-        
+        const t = window.SFS_ATT_I18N || {};
  // Safe debug logger for kiosk – won't break if debug is off
         const dbg = (...args) => {
             if (window.SFS_ATT_DEBUG) {
@@ -1772,7 +1812,7 @@ async function attemptPunch(type, scanToken, selfieBlob, geox) {
 async function autoPunchWithFallback(scanToken, selfieBlob, geox) {
   let last = null;
   for (const type of PUNCH_ORDER) {
-    setStat('Punch: ' + type + '…', 'busy');
+    setStat((t.punch_colon||'Punch:') + ' ' + type + '…', 'busy');
     const r = await attemptPunch(type, scanToken, selfieBlob, geox);
     if (r.ok) return r;
     last = r;
@@ -1815,7 +1855,7 @@ const SUGGEST_TIMES = {
 const qrExit = document.getElementById('sfs-kiosk-qr-exit-<?php echo $inst; ?>');
 qrExit && qrExit.addEventListener('click', () => {
   // show exiting while we stop camera
-  setStat('Exiting…', 'busy');
+  setStat(t.exiting||'Exiting…', 'busy');
 
   // hard stop camera + QR loop
   stopQr();
@@ -1865,35 +1905,35 @@ if (capture) {
   capture.addEventListener('click', async () => {
     try {
       if (!pendingPunch || !pendingPunch.scanToken) {
-        setStat('No pending scan. Scan QR again.', 'error');
+        setStat(t.no_pending_scan||'No pending scan. Scan QR again.', 'error');
         return;
       }
       const blob = await captureSelfieFromQrVideo();
       if (!blob) {
-        setStat('No camera frame yet. Keep face in frame and try again.', 'error');
+        setStat(t.no_camera_frame||'No camera frame yet. Keep face in frame and try again.', 'error');
         return;
       }
-      setStat('Attempting punch…', 'busy');
+      setStat(t.attempting_punch||'Attempting punch…', 'busy');
       const r = await attemptPunch(currentAction, pendingPunch.scanToken, blob, pendingPunch.geox);
       if (r.ok) {
   playActionTone(currentAction);
   flashPunchSuccess('ok');    // halo flash here too
   flash(currentAction);       // full-screen color flash
 
-  setStat((r.data?.label || 'Done') + ' — Next', 'ok');
+  setStat((r.data?.label || t.done_label||'Done') + ' — ' + (t.next_label||'Next'), 'ok');
   touchActivity();
   pendingPunch = null;
   manualSelfieMode = false;
   if (capture) capture.style.display = 'none';
   await refresh();
-  setTimeout(() => { if (uiMode !== 'error') setStat('Scanning…', 'scanning'); }, 400);
+  setTimeout(() => { if (uiMode !== 'error') setStat(t.scanning||'Scanning…', 'scanning'); }, 400);
 } else {
         playErrorTone();
-        setStat(r.data?.message || `Punch failed (HTTP ${r.status})`, 'error');
+        setStat(r.data?.message || (t.punch_failed_prefix||'Punch failed:') + ` (HTTP ${r.status})`, 'error');
       }
     } catch (e) {
       playErrorTone();
-      setStat('Error: ' + (e.message || e), 'error');
+      setStat((t.error_prefix||'Error:') + ' ' + (e.message || e), 'error');
     }
   });
 }
@@ -1911,12 +1951,12 @@ function setMode(next) {
   if (view === 'menu') {
     stopQr();                              // hard stop camera
     clearIdle();
-    setStat('Ready — choose an action', 'idle');
+    setStat(t.ready_choose_action||'Ready — choose an action', 'idle');
   } else {
     // scan
     kickScanner();                         // open camera (no auto-return per scan)
     touchActivity();                       // arm idle countdown
-    setStat('Scanning…', 'scanning');
+    setStat(t.scanning||'Scanning…', 'scanning');
   }
 }
 
@@ -1930,7 +1970,7 @@ function touchActivity() {
   clearIdle();
   if (view === 'scan') {
     idleTimer = setTimeout(() => {
-      setStat('Idle timeout — returning to menu', 'busy');
+      setStat(t.idle_timeout_menu||'Idle timeout — returning to menu', 'busy');
       returnToMenu();
     }, IDLE_MS);
   }
@@ -1997,7 +2037,7 @@ function setMode(view){
   } else {
     // back to menu — stop camera and reset UI
     stopQr();
-    setStat('Ready — pick an action', 'idle');
+    setStat(t.ready_pick_action||'Ready — pick an action', 'idle');
   }
 }
 
@@ -2216,7 +2256,7 @@ function playErrorTone() {
               });
             },
             function onReject(msg, code){
-              setStat(msg || 'Location check failed.', 'error');
+              setStat(msg || (t.location_check_failed||'Location check failed.'), 'error');
               reject(new Error('geo_blocked'));
             }
           );
@@ -2262,7 +2302,7 @@ async function handleQrFound(raw) {
     }
 
     if (!emp || !token || !url) {
-      setStat('Invalid QR', 'error');
+      setStat(t.invalid_qr||'Invalid QR', 'error');
       throw new Error('invalid_qr_payload');
     }
 
@@ -2276,7 +2316,7 @@ async function handleQrFound(raw) {
       });
       text = await resp.text();
     } catch (e) {
-      setStat('Network error', 'error');
+      setStat(t.network_error||'Network error', 'error');
       dbg('scan network error', e && e.message);
       // mild backoff to avoid hammering same frame
       lastQrValue = raw;
@@ -2287,7 +2327,7 @@ async function handleQrFound(raw) {
     // Try parse JSON; WP may return HTML on error
     try { data = JSON.parse(text); } catch {
       dbg('scan parse error; raw=', (text || '').slice(0, 200));
-      setStat('Scan failed: invalid server reply', 'error');
+      setStat(t.scan_failed_invalid_reply||'Scan failed: invalid server reply', 'error');
       lastQrValue = raw; lastQrTs = Date.now();
       throw new Error('invalid_json_from_scan');
     }
@@ -2296,7 +2336,7 @@ async function handleQrFound(raw) {
     if (!resp.ok || !data || data.ok === false) {
       const msg  = (data && (data.message || data.msg)) || `HTTP ${resp.status}`;
       const code = (data && (data.code || data.data?.status)) || resp.status;
-      setStat(`Scan failed: ${msg}`, 'error');
+      setStat((t.scan_failed_invalid_reply||'Scan failed:') + ` ${msg}`, 'error');
       dbg('scan failed', { status: resp.status, code, data });
       lastQrValue = raw; lastQrTs = Date.now();
       throw new Error(`scan_failed:${code}:${msg}`);
@@ -2305,7 +2345,7 @@ async function handleQrFound(raw) {
     // Expect { ok:true, scan_token: "...", employee_id, device_id, ttl }
     const scanToken = data.scan_token;
     if (!scanToken) {
-      setStat('Scan failed: no token', 'error');
+      setStat(t.scan_failed_no_token||'Scan failed: no token', 'error');
       dbg('scan ok but no scan_token', data);
       lastQrValue = raw; lastQrTs = Date.now();
       throw new Error('no_scan_token');
@@ -2314,7 +2354,7 @@ async function handleQrFound(raw) {
     const empName = (data && (data.employee_name || data.name))
   || `Employee #${data.employee_id || emp}`;
 
-setStat(`✓ ${empName} — Validating…`, 'ok');
+setStat(`✓ ${empName} — ${t.validating_ellipsis||'Validating…'}`, 'ok');
 dbg('scan ok', data);
 
 if (empEl) {
@@ -2329,10 +2369,10 @@ if (empEl) {
 
     if (!deviceIdSafe) {
         // Web/mobile source: get GPS from browser
-        if (qrStat) qrStat.textContent = '1/3 Checking location…';
+        if (qrStat) qrStat.textContent = '1/3 ' + (t.checking_location||'Checking location…');
         try {
             geox = await getGeo();
-            if (qrStat) qrStat.textContent = requiresSelfie ? '2/3 Capturing photo…' : '2/2 Recording punch…';
+            if (qrStat) qrStat.textContent = requiresSelfie ? '2/3 ' + (t.capturing_photo||'Capturing photo…') : '2/2 ' + (t.recording_punch||'Recording punch…');
         } catch(e){
             // geo_blocked → abort this scan and cool down this frame
             lastQrValue = raw;
@@ -2342,7 +2382,7 @@ if (empEl) {
     } else {
         // Kiosk source: skip GPS check (device has fixed configured location)
         // Server will validate against device's geo_lock settings
-        if (qrStat) qrStat.textContent = requiresSelfie ? '1/2 Capturing photo…' : '1/1 Recording punch…';
+        if (qrStat) qrStat.textContent = requiresSelfie ? '1/2 ' + (t.capturing_photo||'Capturing photo…') : '1/1 ' + (t.recording_punch||'Recording punch…');
     }
 
     // 2) Capture selfie frame (if needed)
@@ -2352,13 +2392,13 @@ if (empEl) {
       manualSelfieMode = true;
       pendingPunch = { scanToken, geox };
       if (capture) capture.style.display = '';
-      setStat('Keep face in frame and press "Capture Selfie".', 'error');
+      setStat(t.keep_face_capture_selfie||'Keep face in frame and press "Capture Selfie".', 'error');
       lastQrValue = raw;
       lastQrTs    = Date.now() + (BACKOFF_MS_SLF - QR_COOLDOWN_MS);
       return false;
     }
 
-    if (qrStat) qrStat.textContent = requiresSelfie ? '3/3 Uploading & recording…' : '2/2 Recording punch…';
+    if (qrStat) qrStat.textContent = requiresSelfie ? '3/3 ' + (t.uploading_recording||'Uploading & recording…') : '2/2 ' + (t.recording_punch||'Recording punch…');
     const r = await attemptPunch(currentAction, scanToken, selfieBlob, geox);
 
 
@@ -2367,7 +2407,7 @@ if (empEl) {
   flashPunchSuccess('ok');   // <- use halo on the whole kiosk
   flash(currentAction);      // full-screen color flash
 
-  setStat((r.data?.label || 'Done') + ' — Next', 'ok');
+  setStat((r.data?.label || t.done_label||'Done') + ' — ' + (t.next_label||'Next'), 'ok');
 
   lastQrValue = raw;
   lastQrTs    = Date.now() + BACKOFF_MS_OK;
@@ -2375,22 +2415,22 @@ if (empEl) {
   await refresh();
 
   setTimeout(() => {
-    if (uiMode !== 'error') setStat('Scanning…', 'scanning');
+    if (uiMode !== 'error') setStat(t.scanning||'Scanning…', 'scanning');
   }, 400);
 
   return true;
 }
  else {
       const code = (r.data && (r.data.code || r.data?.data?.code)) || '';
-      const msg  = r.data?.message || `Punch failed (HTTP ${r.status})`;
+      const msg  = r.data?.message || (t.punch_failed_prefix||'Punch failed:') + ` (HTTP ${r.status})`;
 
       if (r.status === 409) {
         if (code === 'no_shift') {
-          setStat('No shift configured. Contact your Manager or HR.', 'error');
+          setStat(t.no_shift_contact_hr||'No shift configured. Contact your Manager or HR.', 'error');
         } else if (code === 'invalid_transition') {
-          setStat('Invalid action now. Try a different punch type.', 'error');
+          setStat(t.invalid_action_try_different||'Invalid action now. Try a different punch type.', 'error');
         } else {
-          setStat('No shift, contact your Manager or HR.', 'error');
+          setStat(t.no_shift_contact_hr||'No shift, contact your Manager or HR.', 'error');
         }
 
         // Back off so the same frame doesn't hammer the API
@@ -2415,7 +2455,7 @@ if (empEl) {
 
   } catch (punchErr) {
     // ← ENHANCED error handling
-    setStat(`Punch failed: ${punchErr && punchErr.message ? punchErr.message : 'Unknown error'}`, 'error');
+    setStat((t.punch_failed_prefix||'Punch failed:') + ` ${punchErr && punchErr.message ? punchErr.message : (t.unknown_error||'Unknown error')}`, 'error');
     dbg('punch failed', punchErr);
     
     // Always arm cooldown to prevent infinite loops
@@ -2448,7 +2488,7 @@ async function startQr(){
       const devs = await navigator.mediaDevices.enumerateDevices();
       const cams = devs.filter(d => d.kind === 'videoinput');
       if (!cams.length) {
-        setStat('No camera found on this device.', 'error');
+        setStat(t.no_camera_found||'No camera found on this device.', 'error');
         return;
       }
     }
@@ -2461,7 +2501,7 @@ async function startQr(){
   if (!('jsQR' in window)) dbg('startQr: jsQR not yet loaded, will poll');
 
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    setStat('No camera API available.', 'error');
+    setStat(t.no_camera_api||'No camera API available.', 'error');
     dbg('startQr: no getUserMedia');
     return;
   }
@@ -2480,14 +2520,14 @@ async function startQr(){
 
   // Lazy-load jsQR if needed
   if (!useBarcodeDetector && typeof window.jsQR !== 'function'){
-    setStat('Loading QR engine…', 'busy');
+    setStat(t.loading_qr_engine||'Loading QR engine…', 'busy');
     const t0 = Date.now();
     while (typeof window.jsQR !== 'function' && (Date.now() - t0) < 3000) {
       await new Promise(r => setTimeout(r,100));
     }
     dbg('startQr: jsQR loaded?', typeof window.jsQR === 'function');
     if (typeof window.jsQR !== 'function'){
-      setStat('QR engine not loaded. Please wait and press Start again.', 'error');
+      setStat(t.qr_engine_not_loaded||'QR engine not loaded. Please wait and press Start again.', 'error');
       if (qrStop)  qrStop.disabled  = true;
       return;
     }
@@ -2521,7 +2561,7 @@ async function startQr(){
     if (camwrap) camwrap.style.display = 'grid';
 
     if (qrStop) qrStop.disabled = false;
-    if (qrStat) qrStat.textContent = 'Scanning…';
+    if (qrStat) qrStat.textContent = t.scanning||'Scanning…';
 
     // Start live selfie preview only if the selfie canvas exists
     if (document.getElementById('sfs-kiosk-canvas-<?php echo $inst; ?>')) {
@@ -2643,8 +2683,8 @@ async function startQr(){
 
       // Heartbeat: only while scanning and not in-flight
       if (uiMode === 'scanning' && !inflight && qrStat && (Date.now() - lastUIBeat) > 1000) {
-        if (qrStat.textContent === '' || qrStat.textContent === 'Scanning…') {
-          qrStat.textContent = 'Scanning…';
+        if (qrStat.textContent === '' || qrStat.textContent === (t.scanning||'Scanning…')) {
+          qrStat.textContent = t.scanning||'Scanning…';
           lastUIBeat = Date.now();
         }
       }
@@ -2656,7 +2696,7 @@ async function startQr(){
     dbg('startQr: tick loop started');
 
   } catch (e) {
-    setStat('Camera error: ' + (e && e.message ? e.message : e), 'error');
+    setStat((t.camera_error||'Camera error:') + ' ' + (e && e.message ? e.message : e), 'error');
     dbg('startQr: getUserMedia error', e && e.message);
   }
 }
@@ -2726,7 +2766,7 @@ if (laneChip) {
 
 
   } catch (e) {
-    setStat('Error: ' + (e.message || 'Status fetch failed'), 'error');
+    setStat((t.error_prefix||'Error:') + ' ' + (e.message || e), 'error');
   }
 }
 
@@ -2920,9 +2960,9 @@ tickDate();
   if (!greet) return;
   const h = new Date().getHours();
   greet.textContent =
-    h < 12 ? 'Good morning!' :
-    h < 18 ? 'Good afternoon!' :
-             'Good evening!';
+    h < 12 ? (t.good_morning||'Good morning!') :
+    h < 18 ? (t.good_afternoon||'Good afternoon!') :
+             (t.good_evening||'Good evening!');
 })();
 
 
@@ -2930,18 +2970,18 @@ tickDate();
 
       async function punch(type){
         if (!allowed[type]) {
-          let msg = 'Invalid action.';
-          if (type==='out' && state==='break')             msg = 'Employee is on break. End the break before clocking out.';
-          else if (type==='out' && state!=='in')           msg = 'Employee is not clocked in.';
-          else if (type==='in'  && state!=='idle')         msg = 'Already clocked in.';
-          else if (type==='break_start' && state!=='in')   msg = 'Break can start only while clocked in.';
-          else if (type==='break_end'   && state!=='break')msg = 'No active break to end.';
-          setStat('Error: ' + msg, 'error');
+          let msg = t.invalid_action||'Invalid action.';
+          if (type==='out' && state==='break')             msg = t.employee_on_break||'Employee is on break. End the break before clocking out.';
+          else if (type==='out' && state!=='in')           msg = t.employee_not_clocked_in||'Employee is not clocked in.';
+          else if (type==='in'  && state!=='idle')         msg = t.already_clocked_in||'Already clocked in.';
+          else if (type==='break_start' && state!=='in')   msg = t.break_only_while_clocked_in||'Break can start only while clocked in.';
+          else if (type==='break_end'   && state!=='break')msg = t.no_active_break_to_end||'No active break to end.';
+          setStat((t.error_prefix||'Error:') + ' ' + msg, 'error');
           return;
         }
 
 
-                setStat('Working…', 'busy');
+                setStat(t.working_ellipsis||'Working…', 'busy');
 
         let geo = null;
         try {
@@ -2956,7 +2996,7 @@ tickDate();
         let body;
 
         if (requiresSelfie) {
-          if (!lastBlob) { setStat('Error: please capture a selfie first.', 'error'); return; }
+          if (!lastBlob) { setStat((t.error_prefix||'Error:') + ' ' + (t.capture_selfie_first||'Please capture a selfie first.'), 'error'); return; }
           const fd = new FormData();
           fd.append('punch_type', String(type));
           fd.append('source', 'kiosk');
@@ -2994,18 +3034,18 @@ tickDate();
           const r = await fetch(punchUrl, { method:'POST', headers, credentials:'same-origin', body });
           const j = await r.json();
           if (!r.ok) throw new Error(j.message || 'Punch failed');
-          setStat(j.label || 'Done', 'ok');
+          setStat(j.label || t.done_label||'Done', 'ok');
 
           lastBlob = null;
           await refresh();
           ROOT.querySelectorAll('button[data-action]').forEach(b=>b.disabled = true);
           setTimeout(()=>ROOT.querySelectorAll('button[data-action]').forEach(b=>b.disabled = !allowed[b.getAttribute('data-type')]), 3000);
         }catch(e){
-          setStat('Error: ' + e.message, 'error');
+          setStat((t.error_prefix||'Error:') + ' ' + e.message, 'error');
         }
       }
 
-      
+
 
 ROOT.dataset.view = 'menu';
 setMode('menu');

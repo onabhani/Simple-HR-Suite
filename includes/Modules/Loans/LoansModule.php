@@ -68,9 +68,9 @@ class LoansModule {
             ?>
             <div class="notice notice-warning is-dismissible">
                 <p>
-                    <strong>SFS HR Loans:</strong> Database tables are missing.
+                    <strong>SFS HR Loans:</strong> <?php esc_html_e( 'Database tables are missing.', 'sfs-hr' ); ?>
                     <a href="<?php echo esc_url( $install_url ); ?>" class="button button-primary" style="margin-left:10px;">
-                        Install Tables Now
+                        <?php esc_html_e( 'Install Tables Now', 'sfs-hr' ); ?>
                     </a>
                 </p>
             </div>

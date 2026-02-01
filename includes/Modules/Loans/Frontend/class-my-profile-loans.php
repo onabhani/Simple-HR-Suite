@@ -148,7 +148,17 @@ class MyProfileLoans {
         echo '</tr>';
 
         // Add JavaScript calculator
+        $i18n_would_require = esc_js( __( 'Would require', 'sfs-hr' ) );
+        $i18n_months_max    = esc_js( __( 'months (maximum is 60). Please increase monthly amount.', 'sfs-hr' ) );
+        $i18n_monthly_of    = esc_js( __( 'monthly payments of', 'sfs-hr' ) );
+        $i18n_sar_total     = esc_js( __( 'SAR total', 'sfs-hr' ) );
         echo '<script>
+        var _li18n = {
+            would_require: "' . $i18n_would_require . '",
+            months_max: "' . $i18n_months_max . '",
+            monthly_of: "' . $i18n_monthly_of . '",
+            sar_total: "' . $i18n_sar_total . '"
+        };
         function calculateMonths() {
             var principal = parseFloat(document.getElementById("principal_amount").value) || 0;
             var monthly = parseFloat(document.getElementById("monthly_amount").value) || 0;
@@ -157,11 +167,11 @@ class MyProfileLoans {
             if (principal > 0 && monthly > 0) {
                 var months = Math.ceil(principal / monthly);
                 if (months > 60) {
-                    display.textContent = "⚠️ Would require " + months + " months (maximum is 60). Please increase monthly amount.";
+                    display.textContent = "⚠️ " + _li18n.would_require + " " + months + " " + _li18n.months_max;
                     display.style.color = "#dc3545";
                 } else {
                     var total = (monthly * months).toFixed(2);
-                    display.textContent = months + " monthly payments of " + monthly.toFixed(2) + " SAR = " + total + " SAR total";
+                    display.textContent = months + " " + _li18n.monthly_of + " " + monthly.toFixed(2) + " SAR = " + total + " " + _li18n.sar_total;
                     display.style.color = "#0073aa";
                 }
             } else {
@@ -295,12 +305,12 @@ class MyProfileLoans {
      */
     private function get_status_badge( string $status ): string {
         $badges = [
-            'pending_gm'      => '<span style="background:#ffa500;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">Pending GM</span>',
-            'pending_finance' => '<span style="background:#ff8c00;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">Pending Finance</span>',
-            'active'          => '<span style="background:#28a745;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">Active</span>',
-            'completed'       => '<span style="background:#6c757d;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">Completed</span>',
-            'rejected'        => '<span style="background:#dc3545;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">Rejected</span>',
-            'cancelled'       => '<span style="background:#6c757d;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">Cancelled</span>',
+            'pending_gm'      => '<span style="background:#ffa500;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">' . esc_html__( 'Pending GM', 'sfs-hr' ) . '</span>',
+            'pending_finance' => '<span style="background:#ff8c00;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">' . esc_html__( 'Pending Finance', 'sfs-hr' ) . '</span>',
+            'active'          => '<span style="background:#28a745;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">' . esc_html__( 'Active', 'sfs-hr' ) . '</span>',
+            'completed'       => '<span style="background:#6c757d;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">' . esc_html__( 'Completed', 'sfs-hr' ) . '</span>',
+            'rejected'        => '<span style="background:#dc3545;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">' . esc_html__( 'Rejected', 'sfs-hr' ) . '</span>',
+            'cancelled'       => '<span style="background:#6c757d;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">' . esc_html__( 'Cancelled', 'sfs-hr' ) . '</span>',
         ];
 
         return $badges[ $status ] ?? esc_html( $status );
@@ -311,10 +321,10 @@ class MyProfileLoans {
      */
     private function get_payment_status_badge( string $status ): string {
         $badges = [
-            'planned'  => '<span style="background:#ffc107;color:#000;padding:2px 6px;border-radius:3px;font-size:11px;">Planned</span>',
-            'paid'     => '<span style="background:#28a745;color:#fff;padding:2px 6px;border-radius:3px;font-size:11px;">Paid</span>',
-            'skipped'  => '<span style="background:#6c757d;color:#fff;padding:2px 6px;border-radius:3px;font-size:11px;">Skipped</span>',
-            'partial'  => '<span style="background:#17a2b8;color:#fff;padding:2px 6px;border-radius:3px;font-size:11px;">Partial</span>',
+            'planned'  => '<span style="background:#ffc107;color:#000;padding:2px 6px;border-radius:3px;font-size:11px;">' . esc_html__( 'Planned', 'sfs-hr' ) . '</span>',
+            'paid'     => '<span style="background:#28a745;color:#fff;padding:2px 6px;border-radius:3px;font-size:11px;">' . esc_html__( 'Paid', 'sfs-hr' ) . '</span>',
+            'skipped'  => '<span style="background:#6c757d;color:#fff;padding:2px 6px;border-radius:3px;font-size:11px;">' . esc_html__( 'Skipped', 'sfs-hr' ) . '</span>',
+            'partial'  => '<span style="background:#17a2b8;color:#fff;padding:2px 6px;border-radius:3px;font-size:11px;">' . esc_html__( 'Partial', 'sfs-hr' ) . '</span>',
         ];
 
         return $badges[ $status ] ?? esc_html( ucfirst( $status ) );

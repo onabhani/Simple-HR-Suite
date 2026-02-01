@@ -221,7 +221,21 @@ class LoansTab implements TabInterface {
      * Render loan calculator JavaScript
      */
     private function render_calculator_script(): void {
+        $i18n_would_require = esc_js( __( 'Would require', 'sfs-hr' ) );
+        $i18n_months_max    = esc_js( __( 'months (maximum is 60). Please increase monthly amount.', 'sfs-hr' ) );
+        $i18n_final_payment = esc_js( __( 'final payment', 'sfs-hr' ) );
+        $i18n_sar_total     = esc_js( __( 'SAR total', 'sfs-hr' ) );
+        $i18n_monthly_of    = esc_js( __( 'monthly payments of', 'sfs-hr' ) );
+        $i18n_months        = esc_js( __( 'months', 'sfs-hr' ) );
         echo '<script>
+var _li18n = {
+    would_require: "' . $i18n_would_require . '",
+    months_max: "' . $i18n_months_max . '",
+    final_payment: "' . $i18n_final_payment . '",
+    sar_total: "' . $i18n_sar_total . '",
+    monthly_of: "' . $i18n_monthly_of . '",
+    months: "' . $i18n_months . '"
+};
 function calculateLoanFrontend() {
     var principal = parseFloat(document.querySelector(\'input[name="principal_amount"]\').value) || 0;
     var monthly = parseFloat(document.getElementById("monthly_amount_frontend").value) || 0;
@@ -236,19 +250,19 @@ function calculateLoanFrontend() {
             var totalPaid = principal;
 
             if (totalMonths > 60) {
-                display.textContent = "⚠️ Would require " + totalMonths + " months (maximum is 60). Please increase monthly amount.";
+                display.textContent = "⚠️ " + _li18n.would_require + " " + totalMonths + " " + _li18n.months_max;
                 display.style.color = "#dc3545";
             } else {
-                display.textContent = fullMonths + " × " + monthly.toFixed(2) + " SAR + final payment " + lastPayment.toFixed(2) + " SAR = " + totalPaid.toFixed(2) + " SAR total (" + totalMonths + " months)";
+                display.textContent = fullMonths + " × " + monthly.toFixed(2) + " SAR + " + _li18n.final_payment + " " + lastPayment.toFixed(2) + " SAR = " + totalPaid.toFixed(2) + " " + _li18n.sar_total + " (" + totalMonths + " " + _li18n.months + ")";
                 display.style.color = "#0073aa";
             }
         } else {
             var months = fullMonths;
             if (months > 60) {
-                display.textContent = "⚠️ Would require " + months + " months (maximum is 60). Please increase monthly amount.";
+                display.textContent = "⚠️ " + _li18n.would_require + " " + months + " " + _li18n.months_max;
                 display.style.color = "#dc3545";
             } else {
-                display.textContent = months + " monthly payments of " + monthly.toFixed(2) + " SAR = " + principal.toFixed(2) + " SAR total";
+                display.textContent = months + " " + _li18n.monthly_of + " " + monthly.toFixed(2) + " SAR = " + principal.toFixed(2) + " " + _li18n.sar_total;
                 display.style.color = "#0073aa";
             }
         }
