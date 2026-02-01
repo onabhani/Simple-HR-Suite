@@ -348,6 +348,9 @@ class Migrations {
             `late_count` INT UNSIGNED NOT NULL DEFAULT 0,
             `early_leave_count` INT UNSIGNED NOT NULL DEFAULT 0,
             `incomplete_count` INT UNSIGNED NOT NULL DEFAULT 0,
+            `break_delay_count` INT UNSIGNED NOT NULL DEFAULT 0,
+            `no_break_taken_count` INT UNSIGNED NOT NULL DEFAULT 0,
+            `total_break_delay_minutes` INT UNSIGNED NOT NULL DEFAULT 0,
             `attendance_commitment_pct` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
             `goals_completion_pct` DECIMAL(5,2) NULL,
             `review_score` DECIMAL(5,2) NULL,
@@ -360,6 +363,11 @@ class Migrations {
             KEY `period_end` (`period_end`),
             UNIQUE KEY `uq_emp_period` (`employee_id`, `period_start`, `period_end`)
         ) $charset");
+
+        // Migration: add break delay columns to snapshots for existing installations
+        self::add_column_if_missing($perf_snapshots, 'break_delay_count', "INT UNSIGNED NOT NULL DEFAULT 0 AFTER `incomplete_count`");
+        self::add_column_if_missing($perf_snapshots, 'no_break_taken_count', "INT UNSIGNED NOT NULL DEFAULT 0 AFTER `break_delay_count`");
+        self::add_column_if_missing($perf_snapshots, 'total_break_delay_minutes', "INT UNSIGNED NOT NULL DEFAULT 0 AFTER `no_break_taken_count`");
 
         // Goals / OKRs
         $perf_goals = $wpdb->prefix.'sfs_hr_performance_goals';

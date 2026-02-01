@@ -2546,7 +2546,7 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
 <div class="sfs-hr-action-modal" id="sfs-hr-action-modal">
   <div class="sfs-hr-action-modal-content">
     <div class="sfs-hr-action-modal-header">
-      <h3 class="sfs-hr-action-modal-title" id="sfs-hr-modal-emp-name">Employee Actions</h3>
+      <h3 class="sfs-hr-action-modal-title" id="sfs-hr-modal-emp-name"><?php esc_html_e( 'Employee Actions', 'sfs-hr' ); ?></h3>
       <button type="button" class="sfs-hr-action-modal-close" onclick="sfsHrCloseModal()">&times;</button>
     </div>
     <div class="sfs-hr-action-modal-buttons">
@@ -4027,7 +4027,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                     'secondary',
                     '',
                     false,
-                    [ 'onclick' => "return confirm('Regenerate token? Old QR codes will stop working.');" ]
+                    [ 'onclick' => "return confirm('" . esc_js( __( 'Regenerate token? Old QR codes will stop working.', 'sfs-hr' ) ) . "');" ]
                 ); ?>
             </form>
 
@@ -5567,22 +5567,22 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         <div class="sfs-hr-details-modal" id="sfs-hr-details-modal">
           <div class="sfs-hr-details-modal-content">
             <div class="sfs-hr-details-modal-header">
-              <h3 class="sfs-hr-details-modal-title" id="sfs-hr-details-name">Employee Details</h3>
+              <h3 class="sfs-hr-details-modal-title" id="sfs-hr-details-name"><?php esc_html_e( 'Employee Details', 'sfs-hr' ); ?></h3>
               <button type="button" class="sfs-hr-details-modal-close" onclick="sfsHrCloseDetailsModal()">&times;</button>
             </div>
             <ul class="sfs-hr-details-list">
-              <li><span class="sfs-hr-details-label">Code</span><span class="sfs-hr-details-value" id="sfs-hr-details-code"></span></li>
-              <li><span class="sfs-hr-details-label">Email</span><span class="sfs-hr-details-value" id="sfs-hr-details-email"></span></li>
-              <li><span class="sfs-hr-details-label">Department</span><span class="sfs-hr-details-value" id="sfs-hr-details-dept"></span></li>
-              <li><span class="sfs-hr-details-label">Position</span><span class="sfs-hr-details-value" id="sfs-hr-details-position"></span></li>
-              <li><span class="sfs-hr-details-label">Status</span><span class="sfs-hr-details-value" id="sfs-hr-details-status"></span></li>
+              <li><span class="sfs-hr-details-label"><?php esc_html_e( 'Code', 'sfs-hr' ); ?></span><span class="sfs-hr-details-value" id="sfs-hr-details-code"></span></li>
+              <li><span class="sfs-hr-details-label"><?php esc_html_e( 'Email', 'sfs-hr' ); ?></span><span class="sfs-hr-details-value" id="sfs-hr-details-email"></span></li>
+              <li><span class="sfs-hr-details-label"><?php esc_html_e( 'Department', 'sfs-hr' ); ?></span><span class="sfs-hr-details-value" id="sfs-hr-details-dept"></span></li>
+              <li><span class="sfs-hr-details-label"><?php esc_html_e( 'Position', 'sfs-hr' ); ?></span><span class="sfs-hr-details-value" id="sfs-hr-details-position"></span></li>
+              <li><span class="sfs-hr-details-label"><?php esc_html_e( 'Status', 'sfs-hr' ); ?></span><span class="sfs-hr-details-value" id="sfs-hr-details-status"></span></li>
             </ul>
           </div>
         </div>
 
         <script>
         function sfsHrOpenDetailsModal(name, code, email, dept, position, status) {
-          document.getElementById('sfs-hr-details-name').textContent = name || 'Employee Details';
+          document.getElementById('sfs-hr-details-name').textContent = name || <?php echo wp_json_encode( __( 'Employee Details', 'sfs-hr' ) ); ?>;
           document.getElementById('sfs-hr-details-code').textContent = code;
           document.getElementById('sfs-hr-details-email').textContent = email || '-';
           document.getElementById('sfs-hr-details-dept').textContent = dept;

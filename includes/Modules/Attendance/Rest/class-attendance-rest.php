@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 /**
  * Public_REST
  * Version: 0.1.2-punch
- * Author: Omar Alnabhani (hdqah.com)
+ * Author: hdqah.com
  *
  * Routes:
  *  - POST /sfs-hr/v1/attendance/punch

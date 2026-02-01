@@ -6,7 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 /**
  * AttendanceModule
  * Version: 0.1.2-admin-crud
- * Author: Omar Alnabhani (hdqah.com)
+ * Author: hdqah.com
  *
  * Notes:
  * - Employee mapping: {prefix}sfs_hr_employees.id and .user_id (to wp_users.ID)
@@ -103,7 +103,7 @@ add_action('rest_api_init', function () {
         document.documentElement.classList.add('sfs-att-immersive');
         document.body.classList.add('sfs-att-immersive');
       </script>
-      <div class="sfs-att-veil" role="application" aria-label="Self Attendance">
+      <div class="sfs-att-veil" role="application" aria-label="<?php esc_attr_e( 'Self Attendance', 'sfs-hr' ); ?>">
     <?php endif; ?>
 
     <?php
@@ -1396,27 +1396,25 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
     </aside>
 
     <main class="sfs-kiosk-right">
-      <h2 class="sfs-title">Attendance Kiosk</h2>
-      <h1 id="sfs-greet-<?php echo $inst; ?>" class="sfs-greet">Good day!</h1>
+      <h2 class="sfs-title"><?php esc_html_e( 'Attendance Kiosk', 'sfs-hr' ); ?></h2>
+      <h1 id="sfs-greet-<?php echo $inst; ?>" class="sfs-greet"><?php esc_html_e( 'Good day!', 'sfs-hr' ); ?></h1>
 
 
       <!-- hero -->
-      <h2 class="sfs-title sr-only">Attendance Kiosk</h2>
+      <h2 class="sfs-title sr-only"><?php esc_html_e( 'Attendance Kiosk', 'sfs-hr' ); ?></h2>
 <div class="sfs-statusbar">
   <span id="sfs-status-dot-<?php echo $inst; ?>" class="sfs-dot sfs-dot--idle"></span>
-  <span id="sfs-status-text-<?php echo $inst; ?>">Ready</span>
+  <span id="sfs-status-text-<?php echo $inst; ?>"><?php esc_html_e( 'Ready', 'sfs-hr' ); ?></span>
 </div>
 
 
       <!-- lane -->
 <div id="sfs-kiosk-lane-<?php echo $inst; ?>" style="gap:8px;align-items:center;margin:10px 0;">
-        <strong id="sfs-kiosk-lane-label-<?php echo $inst; ?>" style="min-width:110px;">Current:</strong>
-        <span id="sfs-kiosk-lane-chip-<?php echo $inst; ?>" class="sfs-chip sfs-chip--in">Clock In</span>
+        <strong id="sfs-kiosk-lane-label-<?php echo $inst; ?>" style="min-width:110px;"><?php esc_html_e( 'Current:', 'sfs-hr' ); ?></strong>
+        <span id="sfs-kiosk-lane-chip-<?php echo $inst; ?>" class="sfs-chip sfs-chip--in"><?php esc_html_e( 'Clock In', 'sfs-hr' ); ?></span>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:10px">
-          <button type="button" data-action="in"          class="button sfs-lane-btn button-primary">Clock In</button>
-          <button type="button" data-action="break_start" class="button sfs-lane-btn">Break Start</button>
-          <button type="button" data-action="break_end"   class="button sfs-lane-btn">Break End</button>
-          <button type="button" data-action="out"         class="button sfs-lane-btn">Clock Out</button>
+          <button type="button" data-action="in"          class="button sfs-lane-btn button-primary"><?php esc_html_e( 'Clock In', 'sfs-hr' ); ?></button>
+          <button type="button" data-action="out"         class="button sfs-lane-btn"><?php esc_html_e( 'Clock Out', 'sfs-hr' ); ?></button>
         </div>
       </div>
 
@@ -1433,8 +1431,8 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
   <canvas id="sfs-kiosk-selfie-<?php echo $inst; ?>" width="480" height="480" hidden></canvas>
 
   <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
-    <button id="sfs-kiosk-qr-exit-<?php echo $inst; ?>" type="button" class="button button-secondary">Exit</button>
-    <button id="sfs-kiosk-qr-stop-<?php echo $inst; ?>" type="button" class="button" hidden>Stop Camera</button>
+    <button id="sfs-kiosk-qr-exit-<?php echo $inst; ?>" type="button" class="button button-secondary"><?php esc_html_e( 'Exit', 'sfs-hr' ); ?></button>
+    <button id="sfs-kiosk-qr-stop-<?php echo $inst; ?>" type="button" class="button" hidden><?php esc_html_e( 'Stop Camera', 'sfs-hr' ); ?></button>
     <span id="sfs-kiosk-qr-status-<?php echo $inst; ?>" style="font-size:12px;color:#646970;"></span>
   </div>
 </div>
@@ -1693,6 +1691,16 @@ wp_enqueue_script('wp-api');
 <script>
   // A guaranteed nonce you can use in console/tests and as a fallback in code
   window.SFS_ATT_NONCE = '<?php echo esc_js( wp_create_nonce('wp_rest') ); ?>';
+  window.SFS_ATT_I18N = {
+    clock_in:      <?php echo wp_json_encode( __( 'Clock In', 'sfs-hr' ) ); ?>,
+    clock_out:     <?php echo wp_json_encode( __( 'Clock Out', 'sfs-hr' ) ); ?>,
+    break_start:   <?php echo wp_json_encode( __( 'Break Start', 'sfs-hr' ) ); ?>,
+    break_end:     <?php echo wp_json_encode( __( 'Break End', 'sfs-hr' ) ); ?>,
+    ready:         <?php echo wp_json_encode( __( 'Ready', 'sfs-hr' ) ); ?>,
+    scanning:      <?php echo wp_json_encode( __( 'Scanning', 'sfs-hr' ) ); ?>,
+    action:        <?php echo wp_json_encode( __( 'action', 'sfs-hr' ) ); ?>,
+    selfie_required: <?php echo wp_json_encode( __( 'selfie required', 'sfs-hr' ) ); ?>
+  };
 </script>
 
     <script>
@@ -1816,8 +1824,8 @@ qrExit && qrExit.addEventListener('click', () => {
   ROOT.dataset.view = 'menu';
 
   // reset main status text so it’s clean next time
-  const tag = requiresSelfie ? ' — selfie required' : '';
-  setStat('Ready — action: ' + labelFor(currentAction) + tag, 'idle');
+  const tag = requiresSelfie ? ' — ' + ((window.SFS_ATT_I18N||{}).selfie_required||'selfie required') : '';
+  setStat(((window.SFS_ATT_I18N||{}).ready||'Ready') + ' — ' + ((window.SFS_ATT_I18N||{}).action||'action') + ': ' + labelFor(currentAction) + tag, 'idle');
 });
 
 
@@ -1931,7 +1939,7 @@ function touchActivity() {
 function exitToMenu(){
   stopQr();          // stops tracks + preview
   setMode('menu');   // shows big buttons again
-  setStat('Ready — action: ' + labelFor(currentAction) + (requiresSelfie?' — selfie required':''), 'idle');
+  setStat(((window.SFS_ATT_I18N||{}).ready||'Ready') + ' — ' + ((window.SFS_ATT_I18N||{}).action||'action') + ': ' + labelFor(currentAction) + (requiresSelfie?' — ' + ((window.SFS_ATT_I18N||{}).selfie_required||'selfie required'):''), 'idle');
 }
 
 // iOS inline playback hardening
@@ -2013,7 +2021,7 @@ document.addEventListener('keydown', (e)=>{
 });
 
 // --- Batch Action (lane) mode ---
-const ACTIONS = ['in','out','break_start','break_end'];
+const ACTIONS = ['in','out'];
 let currentAction = 'in';
 const laneRoot  = document.getElementById('sfs-kiosk-lane-<?php echo $inst; ?>');
 const laneChip  = document.getElementById('sfs-kiosk-lane-chip-<?php echo $inst; ?>');
@@ -2021,11 +2029,12 @@ const laneChip  = document.getElementById('sfs-kiosk-lane-chip-<?php echo $inst;
 
 
 function labelFor(a){
+  const t = window.SFS_ATT_I18N || {};
   switch(a){
-    case 'in': return 'Clock In';
-    case 'out': return 'Clock Out';
-    case 'break_start': return 'Break Start';
-    case 'break_end': return 'Break End';
+    case 'in': return t.clock_in || 'Clock In';
+    case 'out': return t.clock_out || 'Clock Out';
+    case 'break_start': return t.break_start || 'Break Start';
+    case 'break_end': return t.break_end || 'Break End';
     default: return a;
   }
 }
@@ -2045,7 +2054,7 @@ function setAction(a){
   laneChip.className   = chipClassFor(currentAction);
 
   setStat(
-    'Ready — action: ' + labelFor(currentAction) + (requiresSelfie ? ' — selfie required' : ''),
+    ((window.SFS_ATT_I18N||{}).ready||'Ready') + ' — ' + ((window.SFS_ATT_I18N||{}).action||'action') + ': ' + labelFor(currentAction) + (requiresSelfie ? ' — ' + ((window.SFS_ATT_I18N||{}).selfie_required||'selfie required') : ''),
     currentAction
   );
 }
@@ -2428,8 +2437,8 @@ async function startQr(){
   lastQrTs = 0;
   stopQr();
   lastUIBeat = 0;
-  const tag = requiresSelfie ? ' — selfie required' : '';
-  setStat('Scanning — action: ' + labelFor(currentAction) + tag, 'scanning');
+  const tag = requiresSelfie ? ' — ' + ((window.SFS_ATT_I18N||{}).selfie_required||'selfie required') : '';
+  setStat(((window.SFS_ATT_I18N||{}).scanning||'Scanning') + ' — ' + ((window.SFS_ATT_I18N||{}).action||'action') + ': ' + labelFor(currentAction) + tag, 'scanning');
 
   showScannerUI(true);
 
@@ -2682,8 +2691,8 @@ async function refresh(){
     const j = await r.json();
     if (!r.ok) throw new Error(j.message || 'Status error');
 
-    const tag = requiresSelfie ? ' — selfie required' : '';
-setStat('Ready — action: ' + labelFor(currentAction) + tag, currentAction);
+    const tag = requiresSelfie ? ' — ' + ((window.SFS_ATT_I18N||{}).selfie_required||'selfie required') : '';
+setStat(((window.SFS_ATT_I18N||{}).ready||'Ready') + ' — ' + ((window.SFS_ATT_I18N||{}).action||'action') + ': ' + labelFor(currentAction) + tag, currentAction);
 
 
 // Device-level features/policy
@@ -2691,7 +2700,7 @@ requiresSelfie = !!j.requires_selfie;
 const qrOn = (typeof j.qr_enabled === 'boolean') ? j.qr_enabled : true;
 
 // Single, unified status line
-setStat('Ready — action: ' + labelFor(currentAction) + tag, 'idle');
+setStat(((window.SFS_ATT_I18N||{}).ready||'Ready') + ' — ' + ((window.SFS_ATT_I18N||{}).action||'action') + ': ' + labelFor(currentAction) + tag, 'idle');
 if (laneChip) {
   laneChip.textContent = labelFor(currentAction);
   laneChip.className   = chipClassFor(currentAction);
@@ -3109,6 +3118,8 @@ private static function backfill_early_leave_request_numbers( \wpdb $wpdb ): voi
             in_time DATETIME NULL,
             out_time DATETIME NULL,
             break_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            break_delay_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            no_break_taken TINYINT(1) NOT NULL DEFAULT 0,
             net_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 0,
             rounded_net_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 0,
             status ENUM('present','late','left_early','absent','incomplete','on_leave','holiday','day_off') NOT NULL DEFAULT 'present',
@@ -3133,6 +3144,7 @@ private static function backfill_early_leave_request_numbers( \wpdb $wpdb ): voi
             start_time TIME NOT NULL,
             end_time TIME NOT NULL,
             unpaid_break_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            break_start_time TIME NULL COMMENT 'Scheduled break start for delay calculation',
             break_policy ENUM('auto','punch','none') NOT NULL DEFAULT 'auto',
             grace_late_minutes TINYINT UNSIGNED NOT NULL DEFAULT 5,
             grace_early_leave_minutes TINYINT UNSIGNED NOT NULL DEFAULT 5,
@@ -3303,6 +3315,13 @@ self::add_column_if_missing($wpdb, $t, 'suggest_out_time',        "suggest_out_t
         $sessions_table = "{$p}sfs_hr_attendance_sessions";
         self::add_column_if_missing($wpdb, $sessions_table, 'early_leave_approved', "early_leave_approved TINYINT(1) NOT NULL DEFAULT 0");
         self::add_column_if_missing($wpdb, $sessions_table, 'early_leave_request_id', "early_leave_request_id BIGINT UNSIGNED NULL");
+
+        // Break delay & no-break-taken tracking
+        self::add_column_if_missing($wpdb, $sessions_table, 'break_delay_minutes', "break_delay_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 0");
+        self::add_column_if_missing($wpdb, $sessions_table, 'no_break_taken', "no_break_taken TINYINT(1) NOT NULL DEFAULT 0");
+
+        // Scheduled break start time on shifts
+        self::add_column_if_missing($wpdb, $shifts_table, 'break_start_time', "break_start_time TIME NULL COMMENT 'Scheduled break start for delay calculation'");
 
         // Add request_number column for early leave requests
         $early_leave_table = "{$p}sfs_hr_early_leave_requests";
@@ -3556,6 +3575,8 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
             'in_time'             => null,
             'out_time'            => null,
             'break_minutes'       => 0,
+            'break_delay_minutes' => 0,
+            'no_break_taken'      => 0,
             'net_minutes'         => 0,
             'rounded_net_minutes' => 0,
             'overtime_minutes'    => 0,
@@ -3587,7 +3608,7 @@ $endUtc    = $nextLocal->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:
 
 // Pull all punches for that window
 $rows = $wpdb->get_results( $wpdb->prepare(
-    "SELECT punch_type, punch_time, valid_geo, valid_selfie
+    "SELECT punch_type, punch_time, valid_geo, valid_selfie, source
      FROM {$pT}
      WHERE employee_id = %d
        AND punch_time >= %s AND punch_time < %s
@@ -3612,16 +3633,74 @@ foreach ($rows as $r) {
     // Evaluate
     $ev = self::evaluate_segments($segments, $rows, $grLate, $grEarly);
 
-    // Net worked time = total worked minus break time
-    $net = (int)$ev['worked_total'] - (int)$ev['break_total'];
-    $net = max(0, $net); // Ensure non-negative
+    // ---- Break deduction logic ----
+    // Determine shift break config
+    $shift_break_minutes = $shift ? (int) ( $shift->unpaid_break_minutes ?? 0 ) : 0;
+    $shift_break_policy  = $shift ? ( $shift->break_policy ?? 'none' ) : 'none';
+    $shift_break_start   = $shift ? ( $shift->break_start_time ?? null ) : null;
+    $has_mandatory_break = ( $shift_break_policy !== 'none' && $shift_break_minutes > 0 );
+
+    // Detect if all in/out punches came from kiosk (kiosk = auto break, no punch needed)
+    $is_kiosk_day = false;
+    if ( ! empty( $rows ) ) {
+        $is_kiosk_day = true;
+        foreach ( $rows as $r ) {
+            if ( in_array( $r->punch_type, [ 'in', 'out' ], true ) && ( $r->source ?? '' ) !== 'kiosk' ) {
+                $is_kiosk_day = false;
+                break;
+            }
+        }
+    }
+
+    // Check if employee actually punched break_start/break_end
+    $has_break_punches = false;
+    foreach ( $rows as $r ) {
+        if ( in_array( $r->punch_type, [ 'break_start', 'break_end' ], true ) ) {
+            $has_break_punches = true;
+            break;
+        }
+    }
+
+    $break_delay_minutes = 0;
+    $no_break_taken      = 0;
+    $break_deduction     = 0; // total minutes to deduct for break (configured + any delay)
+
+    if ( $has_mandatory_break && count( $rows ) > 0 ) {
+        if ( $is_kiosk_day || ! $has_break_punches ) {
+            // Kiosk day OR employee didn't punch break at all:
+            // Always deduct configured break minutes (mandatory).
+            $break_deduction = $shift_break_minutes;
+
+            if ( ! $is_kiosk_day && ! $has_break_punches ) {
+                // Self-web with no break punches = no break taken (flag it)
+                $no_break_taken = 1;
+            }
+        } else {
+            // Employee punched break_start/break_end — use actual break time
+            $actual_break = (int) $ev['break_total']; // minutes from break_start..break_end pairs
+
+            if ( $actual_break > $shift_break_minutes ) {
+                // Returned late from break
+                $break_delay_minutes = $actual_break - $shift_break_minutes;
+            }
+            // Total deduction = configured break + any delay beyond it
+            $break_deduction = $shift_break_minutes + $break_delay_minutes;
+        }
+    } else {
+        // No mandatory break or no punches at all — deduct actual break punches only
+        $break_deduction = (int) $ev['break_total'];
+    }
+
+    // Net worked time = total worked minus break deduction
+    $net = (int) $ev['worked_total'] - $break_deduction;
+    $net = max( 0, $net );
 
     // ---- Total-hours mode (role-based attendance policy) ----
     $is_total_hours = \SFS\HR\Modules\Attendance\Services\Policy_Service::is_total_hours_mode( $employee_id );
     $policy_break   = \SFS\HR\Modules\Attendance\Services\Policy_Service::get_break_settings( $employee_id );
 
-    if ( $is_total_hours && $policy_break['enabled'] && $policy_break['duration_minutes'] > 0 ) {
-        // Deduct fixed break allowance from net worked time
+    if ( $is_total_hours && $policy_break['enabled'] && $policy_break['duration_minutes'] > 0 && ! $has_mandatory_break ) {
+        // Only apply policy-level break if shift doesn't already have a mandatory break
         $net = max( 0, $net - $policy_break['duration_minutes'] );
     }
 
@@ -3678,6 +3757,8 @@ foreach ($rows as $r) {
     $flags = array_values(array_unique($ev['flags']));
     if ($outside_geo > 0) $flags[] = 'outside_geofence';
     if ($no_selfie > 0)   $flags[] = 'no_selfie';
+    if ($no_break_taken)          $flags[] = 'no_break_taken';
+    if ($break_delay_minutes > 0) $flags[] = 'break_delay';
 
     $calcMeta = [
         'dept'            => $dept,
@@ -3688,12 +3769,26 @@ foreach ($rows as $r) {
         'counters'        => ['outside_geo'=>$outside_geo,'no_selfie'=>$no_selfie],
     ];
 
+    // Break diagnostics in calc_meta
+    if ( $has_mandatory_break ) {
+        $calcMeta['break'] = [
+            'policy'             => $shift_break_policy,
+            'configured_minutes' => $shift_break_minutes,
+            'break_start_time'   => $shift_break_start,
+            'actual_break'       => (int) $ev['break_total'],
+            'break_deduction'    => $break_deduction,
+            'break_delay'        => $break_delay_minutes,
+            'no_break_taken'     => $no_break_taken,
+            'is_kiosk_day'       => $is_kiosk_day,
+        ];
+    }
+
     // Add total-hours policy info to calc_meta for diagnostics
     if ( $is_total_hours ) {
         $calcMeta['policy_mode']           = 'total_hours';
         $calcMeta['target_hours']          = \SFS\HR\Modules\Attendance\Services\Policy_Service::get_target_hours( $employee_id );
         $calcMeta['target_minutes']        = (int) ( $calcMeta['target_hours'] * 60 );
-        $calcMeta['policy_break_deducted'] = $policy_break['enabled'] ? $policy_break['duration_minutes'] : 0;
+        $calcMeta['policy_break_deducted'] = ( $policy_break['enabled'] && ! $has_mandatory_break ) ? $policy_break['duration_minutes'] : 0;
     }
 
     $data = [
@@ -3701,7 +3796,9 @@ foreach ($rows as $r) {
         'work_date'           => $ymd,
         'in_time'             => $firstIn,
         'out_time'            => $lastOut,
-        'break_minutes'       => (int)$ev['break_total'],
+        'break_minutes'       => $break_deduction,
+        'break_delay_minutes' => $break_delay_minutes,
+        'no_break_taken'      => $no_break_taken,
         'net_minutes'         => (int)$ev['worked_total'],
         'rounded_net_minutes' => $net,
         'overtime_minutes'    => $ot,
@@ -3839,6 +3936,28 @@ foreach ($rows as $r) {
                 ) );
             }
         }
+    }
+
+    // Fire no-break-taken notification (only if newly detected)
+    $was_no_break = in_array( 'no_break_taken', $existing_flags, true );
+    if ( $no_break_taken && ! $was_no_break ) {
+        do_action( 'sfs_hr_attendance_no_break_taken', $employee_id, [
+            'work_date'           => $ymd,
+            'configured_break'    => $shift_break_minutes,
+            'type'                => 'attendance_flag',
+        ] );
+    }
+
+    // Fire break-delay notification (only if newly detected)
+    $was_break_delay = in_array( 'break_delay', $existing_flags, true );
+    if ( $break_delay_minutes > 0 && ! $was_break_delay ) {
+        do_action( 'sfs_hr_attendance_break_delay', $employee_id, [
+            'work_date'           => $ymd,
+            'delay_minutes'       => $break_delay_minutes,
+            'configured_break'    => $shift_break_minutes,
+            'actual_break'        => (int) $ev['break_total'],
+            'type'                => 'attendance_flag',
+        ] );
     }
 }
 

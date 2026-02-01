@@ -54,7 +54,8 @@ class Attendance_Metrics {
 
         // Get attendance sessions for the period
         $sessions = $wpdb->get_results( $wpdb->prepare(
-            "SELECT work_date, status, flags_json, net_minutes, in_time, out_time
+            "SELECT work_date, status, flags_json, net_minutes, in_time, out_time,
+                    break_delay_minutes, no_break_taken
              FROM {$sessions_table}
              WHERE employee_id = %d
                AND work_date >= %s
@@ -82,6 +83,9 @@ class Attendance_Metrics {
             'late_count'        => 0,
             'early_leave_count' => 0,
             'incomplete_count'  => 0,
+            'break_delay_count' => 0,
+            'no_break_taken_count' => 0,
+            'total_break_delay_minutes' => 0,
             'total_worked_minutes' => 0,
             'commitment_pct'    => 100.00,
             'attendance_grade'  => 'excellent',
@@ -102,6 +106,8 @@ class Attendance_Metrics {
                 'minutes' => (int) $session->net_minutes,
                 'in_time' => $session->in_time,
                 'out_time'=> $session->out_time,
+                'break_delay_minutes' => (int) ( $session->break_delay_minutes ?? 0 ),
+                'no_break_taken'      => (int) ( $session->no_break_taken ?? 0 ),
             ];
             $metrics['daily_breakdown'][] = $day_data;
 
@@ -164,6 +170,24 @@ class Attendance_Metrics {
                     'flag' => 'incomplete',
                 ];
             }
+            // Break delay tracking
+            $session_break_delay = (int) ( $session->break_delay_minutes ?? 0 );
+            if ( $session_break_delay > 0 ) {
+                $metrics['break_delay_count']++;
+                $metrics['total_break_delay_minutes'] += $session_break_delay;
+                $metrics['flag_details'][] = [
+                    'date'    => $session->work_date,
+                    'flag'    => 'break_delay',
+                    'minutes' => $session_break_delay,
+                ];
+            }
+            if ( (int) ( $session->no_break_taken ?? 0 ) === 1 ) {
+                $metrics['no_break_taken_count']++;
+                $metrics['flag_details'][] = [
+                    'date' => $session->work_date,
+                    'flag' => 'no_break_taken',
+                ];
+            }
         }
 
         // Calculate commitment percentage
@@ -175,6 +199,8 @@ class Attendance_Metrics {
             $issue_score += $metrics['late_count'] * 0.25; // 25% deduction per late
             $issue_score += $metrics['early_leave_count'] * 0.25; // 25% deduction per early leave
             $issue_score += $metrics['incomplete_count'] * 0.5; // 50% deduction per incomplete
+            $issue_score += $metrics['break_delay_count'] * 0.25; // 25% deduction per break delay
+            $issue_score += $metrics['no_break_taken_count'] * 0.15; // 15% deduction per no break taken
 
             $effective_present = $metrics['total_working_days'] - $issue_score;
             $effective_present = max( 0, $effective_present );
@@ -237,6 +263,8 @@ class Attendance_Metrics {
                 'total_early_leave_count' => 0,
                 'total_absent_days'     => 0,
                 'total_incomplete_count'=> 0,
+                'total_break_delay_count' => 0,
+                'total_no_break_taken_count' => 0,
                 'grade_distribution'    => [
                     'excellent' => 0,
                     'good'      => 0,
@@ -263,6 +291,8 @@ class Attendance_Metrics {
             $results['summary']['total_early_leave_count'] += $metrics['early_leave_count'];
             $results['summary']['total_absent_days'] += $metrics['days_absent'];
             $results['summary']['total_incomplete_count'] += $metrics['incomplete_count'];
+            $results['summary']['total_break_delay_count'] += $metrics['break_delay_count'];
+            $results['summary']['total_no_break_taken_count'] += $metrics['no_break_taken_count'];
             $results['summary']['grade_distribution'][ $metrics['attendance_grade'] ]++;
         }
 
@@ -415,6 +445,9 @@ class Attendance_Metrics {
             'late_count'             => $metrics['late_count'],
             'early_leave_count'      => $metrics['early_leave_count'],
             'incomplete_count'       => $metrics['incomplete_count'],
+            'break_delay_count'      => $metrics['break_delay_count'],
+            'no_break_taken_count'   => $metrics['no_break_taken_count'],
+            'total_break_delay_minutes' => $metrics['total_break_delay_minutes'],
             'attendance_commitment_pct' => $metrics['commitment_pct'],
             'meta_json'              => wp_json_encode( [
                 'days_on_leave'  => $metrics['days_on_leave'],

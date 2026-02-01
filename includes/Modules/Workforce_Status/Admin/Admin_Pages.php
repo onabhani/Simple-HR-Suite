@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  * Admin_Pages
  * Workforce Status dashboard (read-only)
  * Version: 0.1.5-workforce-v1.1
- * Author: Omar Alnabhani (hdqah.com)
+ * Author: hdqah.com
  */
 class Admin_Pages {
 

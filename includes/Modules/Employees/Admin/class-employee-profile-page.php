@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  * Employee_Profile_Page
  * Employee Profile screen (Phase 2)
  * Version: 0.1.6-profile-kpi
- * Author: Omar Alnabhani (hdqah.com)
+ * Author: hdqah.com
  */
 class Employee_Profile_Page {
 

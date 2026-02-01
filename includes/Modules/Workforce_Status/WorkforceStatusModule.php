@@ -8,7 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 /**
  * WorkforceStatusModule
  * Version: 0.2.0-workforce-v2
- * Author: Omar Alnabhani (hdqah.com)
+ * Author: hdqah.com
  *
  * Notes:
  * - Read-only aggregation on top of Attendance + Leave

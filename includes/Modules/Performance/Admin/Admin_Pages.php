@@ -326,10 +326,10 @@ class Admin_Pages {
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Exceptional', 'sfs-hr' ); ?>" style="color: #22c55e;"><span class="sfs-dist-label">Exc </span>●<?php echo $dept['grade_distribution']['exceptional']; ?></span>
-                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Exceeds', 'sfs-hr' ); ?>" style="color: #3b82f6;"><span class="sfs-dist-label">Exc+ </span>●<?php echo $dept['grade_distribution']['exceeds']; ?></span>
-                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Meets', 'sfs-hr' ); ?>" style="color: #f59e0b;"><span class="sfs-dist-label">Meet </span>●<?php echo $dept['grade_distribution']['meets']; ?></span>
-                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Needs Improvement', 'sfs-hr' ); ?>" style="color: #ef4444;"><span class="sfs-dist-label">Low </span>●<?php echo $dept['grade_distribution']['needs_improvement']; ?></span>
+                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Exceptional', 'sfs-hr' ); ?>" style="color: #22c55e;"><span class="sfs-dist-label"><?php esc_html_e( 'Exc', 'sfs-hr' ); ?> </span>●<?php echo $dept['grade_distribution']['exceptional']; ?></span>
+                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Exceeds', 'sfs-hr' ); ?>" style="color: #3b82f6;"><span class="sfs-dist-label"><?php esc_html_e( 'Exc+', 'sfs-hr' ); ?> </span>●<?php echo $dept['grade_distribution']['exceeds']; ?></span>
+                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Meets', 'sfs-hr' ); ?>" style="color: #f59e0b;"><span class="sfs-dist-label"><?php esc_html_e( 'Meet', 'sfs-hr' ); ?> </span>●<?php echo $dept['grade_distribution']['meets']; ?></span>
+                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Needs Improvement', 'sfs-hr' ); ?>" style="color: #ef4444;"><span class="sfs-dist-label"><?php esc_html_e( 'Low', 'sfs-hr' ); ?> </span>●<?php echo $dept['grade_distribution']['needs_improvement']; ?></span>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -555,10 +555,11 @@ class Admin_Pages {
                     <div class="value"><?php echo $score_data['components']['attendance']['normalized'] !== null ? esc_html( number_format( $score_data['components']['attendance']['normalized'], 1 ) ) . '%' : '—'; ?></div>
                     <div class="sub">
                         <?php echo esc_html( sprintf(
-                            __( 'Late: %d, Early: %d, Absent: %d', 'sfs-hr' ),
+                            __( 'Late: %d, Early: %d, Absent: %d, Brk Delay: %d', 'sfs-hr' ),
                             $attendance_metrics['late_count'] ?? 0,
                             $attendance_metrics['early_leave_count'] ?? 0,
-                            $attendance_metrics['days_absent'] ?? 0
+                            $attendance_metrics['days_absent'] ?? 0,
+                            $attendance_metrics['break_delay_count'] ?? 0
                         ) ); ?>
                     </div>
                 </div>
@@ -583,7 +584,7 @@ class Admin_Pages {
                 <h2><?php esc_html_e( 'Commitment Details', 'sfs-hr' ); ?></h2>
                 <p style="color: #666; margin-bottom: 15px;">
                     <?php echo esc_html( sprintf(
-                        __( 'Period: %s to %s | Working Days: %d | Present: %d | Absent: %d | Late: %d | Early Leave: %d | Incomplete: %d', 'sfs-hr' ),
+                        __( 'Period: %s to %s | Working Days: %d | Present: %d | Absent: %d | Late: %d | Early Leave: %d | Incomplete: %d | Break Delay: %d | No Break: %d', 'sfs-hr' ),
                         wp_date( 'M j, Y', strtotime( $start_date ) ),
                         wp_date( 'M j, Y', strtotime( $end_date ) ),
                         $attendance_metrics['total_working_days'] ?? 0,
@@ -591,15 +592,17 @@ class Admin_Pages {
                         $attendance_metrics['days_absent'] ?? 0,
                         $attendance_metrics['late_count'] ?? 0,
                         $attendance_metrics['early_leave_count'] ?? 0,
-                        $attendance_metrics['incomplete_count'] ?? 0
+                        $attendance_metrics['incomplete_count'] ?? 0,
+                        $attendance_metrics['break_delay_count'] ?? 0,
+                        $attendance_metrics['no_break_taken_count'] ?? 0
                     ) ); ?>
                 </p>
                 <?php
                 $daily = $attendance_metrics['daily_breakdown'] ?? [];
-                // Filter to show only days with issues (absent, late, early leave, incomplete)
+                // Filter to show only days with issues (absent, late, early leave, incomplete, break delay, no break)
                 $issues = array_filter( $daily, function( $d ) {
                     if ( $d['status'] === 'absent' ) return true;
-                    if ( ! empty( $d['flags'] ) && ( in_array( 'late', $d['flags'], true ) || in_array( 'left_early', $d['flags'], true ) || in_array( 'incomplete', $d['flags'], true ) ) ) return true;
+                    if ( ! empty( $d['flags'] ) && ( in_array( 'late', $d['flags'], true ) || in_array( 'left_early', $d['flags'], true ) || in_array( 'incomplete', $d['flags'], true ) || in_array( 'break_delay', $d['flags'], true ) || in_array( 'no_break_taken', $d['flags'], true ) ) ) return true;
                     return $d['status'] === 'incomplete';
                 } );
                 ?>
@@ -620,6 +623,7 @@ class Admin_Pages {
                                     <th><?php esc_html_e( 'Clock In', 'sfs-hr' ); ?></th>
                                     <th><?php esc_html_e( 'Clock Out', 'sfs-hr' ); ?></th>
                                     <th><?php esc_html_e( 'Worked', 'sfs-hr' ); ?></th>
+                                    <th><?php esc_html_e( 'Brk Delay', 'sfs-hr' ); ?></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -645,7 +649,23 @@ class Admin_Pages {
                                     <td><?php echo esc_html( implode( ', ', $flag_labels ) ?: '—' ); ?></td>
                                     <td><?php echo $day['in_time'] ? esc_html( wp_date( 'H:i', strtotime( $day['in_time'] ) ) ) : '—'; ?></td>
                                     <td><?php echo $day['out_time'] ? esc_html( wp_date( 'H:i', strtotime( $day['out_time'] ) ) ) : '—'; ?></td>
-                                    <td><?php echo $day['minutes'] > 0 ? esc_html( $hours . 'h ' . $mins . 'm' ) : '—'; ?></td>
+                                    <td><?php echo $day['minutes'] > 0 ? esc_html( sprintf( __( '%dh %dm', 'sfs-hr' ), $hours, $mins ) ) : '—'; ?></td>
+                                    <td style="color: <?php echo ( $day['break_delay_minutes'] ?? 0 ) > 0 ? '#f59e0b' : ( ( $day['no_break_taken'] ?? 0 ) ? '#ef4444' : '#666' ); ?>; font-weight: <?php echo ( ( $day['break_delay_minutes'] ?? 0 ) > 0 || ( $day['no_break_taken'] ?? 0 ) ) ? '600' : 'normal'; ?>;">
+                                        <?php
+                                        $bd = (int) ( $day['break_delay_minutes'] ?? 0 );
+                                        $nb = (int) ( $day['no_break_taken'] ?? 0 );
+                                        if ( $bd > 0 ) {
+                                            echo esc_html( sprintf( __( '%dm', 'sfs-hr' ), $bd ) );
+                                            if ( in_array( 'break_delay', (array) $day['flags'], true ) && ! $nb ) {
+                                                // Has break_end punch but was late
+                                            }
+                                        } elseif ( $nb ) {
+                                            esc_html_e( 'No break', 'sfs-hr' );
+                                        } else {
+                                            echo '—';
+                                        }
+                                        ?>
+                                    </td>
                                 </tr>
                                 <?php endforeach; ?>
                             </tbody>
@@ -675,7 +695,7 @@ class Admin_Pages {
                             <div class="sfs-perf-progress">
                                 <div class="sfs-perf-progress-bar" style="width: <?php echo (int) $goal->progress; ?>%;"></div>
                             </div>
-                            <small style="color: #666;"><?php echo esc_html( $goal->progress ); ?>% complete</small>
+                            <small style="color: #666;"><?php echo esc_html( sprintf( __( '%s%% complete', 'sfs-hr' ), $goal->progress ) ); ?></small>
                         </div>
                         <?php endforeach; ?>
                     <?php endif; ?>
