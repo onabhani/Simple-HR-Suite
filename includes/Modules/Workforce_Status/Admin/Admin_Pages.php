@@ -520,7 +520,7 @@ class Admin_Pages {
                 <select name="per_page">
                     <?php foreach ( [ 10, 20, 50, 100 ] as $pp ) : ?>
                         <option value="<?php echo (int) $pp; ?>" <?php selected( $per_page, $pp ); ?>>
-                            <?php echo (int) $pp; ?>/<?php esc_html_e( 'page', 'sfs-hr' ); ?>
+                            <?php printf( esc_html__( '%d/page', 'sfs-hr' ), (int) $pp ); ?>
                         </option>
                     <?php endforeach; ?>
                 </select>

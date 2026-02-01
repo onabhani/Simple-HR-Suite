@@ -635,7 +635,7 @@ class Admin_Pages {
                                     $s_color = $status_colors[ $day['status'] ] ?? '#666';
                                     $flag_labels = [];
                                     foreach ( (array) $day['flags'] as $f ) {
-                                        $flag_labels[] = ucfirst( str_replace( '_', ' ', $f ) );
+                                        $flag_labels[] = __( ucfirst( str_replace( '_', ' ', $f ) ), 'sfs-hr' );
                                     }
                                     $hours   = floor( $day['minutes'] / 60 );
                                     $mins    = $day['minutes'] % 60;
@@ -644,7 +644,7 @@ class Admin_Pages {
                                     <td><?php echo esc_html( wp_date( 'M j, Y', strtotime( $day['date'] ) ) ); ?></td>
                                     <td><?php echo esc_html( wp_date( 'l', strtotime( $day['date'] ) ) ); ?></td>
                                     <td style="color: <?php echo esc_attr( $s_color ); ?>; font-weight: 600;">
-                                        <?php echo esc_html( ucfirst( str_replace( '_', ' ', $day['status'] ) ) ); ?>
+                                        <?php echo esc_html( __( ucfirst( str_replace( '_', ' ', $day['status'] ) ), 'sfs-hr' ) ); ?>
                                     </td>
                                     <td><?php echo esc_html( implode( ', ', $flag_labels ) ?: '—' ); ?></td>
                                     <td><?php echo $day['in_time'] ? esc_html( wp_date( 'H:i', strtotime( $day['in_time'] ) ) ) : '—'; ?></td>
@@ -689,7 +689,7 @@ class Admin_Pages {
                             <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
                                 <strong><?php echo esc_html( $goal->title ); ?></strong>
                                 <span class="sfs-perf-badge <?php echo $goal->status === 'completed' ? 'excellent' : ( $goal->status === 'active' ? 'good' : 'fair' ); ?>">
-                                    <?php echo esc_html( ucfirst( $goal->status ) ); ?>
+                                    <?php echo esc_html( __( ucfirst( $goal->status ), 'sfs-hr' ) ); ?>
                                 </span>
                             </div>
                             <div class="sfs-perf-progress">
@@ -887,7 +887,7 @@ class Admin_Pages {
                             </td>
                             <td>
                                 <span class="sfs-perf-badge <?php echo $goal->status === 'completed' ? 'excellent' : ( $goal->status === 'active' ? 'good' : 'fair' ); ?>">
-                                    <?php echo esc_html( ucfirst( str_replace( '_', ' ', $goal->status ) ) ); ?>
+                                    <?php echo esc_html( __( ucfirst( str_replace( '_', ' ', $goal->status ) ), 'sfs-hr' ) ); ?>
                                 </span>
                             </td>
                             <td>
@@ -956,7 +956,7 @@ class Admin_Pages {
                                 <?php echo esc_html( wp_date( 'M Y', strtotime( $review->period_start ) ) ); ?> -
                                 <?php echo esc_html( wp_date( 'M Y', strtotime( $review->period_end ) ) ); ?>
                             </td>
-                            <td><?php echo esc_html( ucfirst( $review->review_type ) ); ?></td>
+                            <td><?php echo esc_html( __( ucfirst( $review->review_type ), 'sfs-hr' ) ); ?></td>
                             <td><?php echo esc_html( $review->reviewer_name ); ?></td>
                             <td>
                                 <?php if ( $review->overall_rating ) : ?>
@@ -967,7 +967,7 @@ class Admin_Pages {
                             </td>
                             <td>
                                 <span class="sfs-perf-badge <?php echo $review->status === 'acknowledged' ? 'excellent' : ( $review->status === 'submitted' ? 'good' : 'fair' ); ?>">
-                                    <?php echo esc_html( ucfirst( $review->status ) ); ?>
+                                    <?php echo esc_html( __( ucfirst( $review->status ), 'sfs-hr' ) ); ?>
                                 </span>
                             </td>
                         </tr>
@@ -1026,7 +1026,7 @@ class Admin_Pages {
                                 <div>
                                     <strong><?php echo esc_html( $alert->title ); ?></strong>
                                     <span class="sfs-perf-badge <?php echo esc_attr( $alert->severity ); ?>" style="margin-left: 10px;">
-                                        <?php echo esc_html( ucfirst( $alert->severity ) ); ?>
+                                        <?php echo esc_html( __( ucfirst( $alert->severity ), 'sfs-hr' ) ); ?>
                                     </span>
                                 </div>
                                 <small style="color: #666;">

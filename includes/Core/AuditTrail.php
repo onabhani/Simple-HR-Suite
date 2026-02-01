@@ -575,14 +575,19 @@ class AuditTrail {
         $actions = $wpdb->get_col( "SELECT DISTINCT action FROM {$table} ORDER BY action" );
 
         $action_labels = [
-            'create'        => __( 'Created', 'sfs-hr' ),
-            'update'        => __( 'Updated', 'sfs-hr' ),
-            'delete'        => __( 'Deleted', 'sfs-hr' ),
-            'status_change' => __( 'Status Change', 'sfs-hr' ),
-            'approve'       => __( 'Approved', 'sfs-hr' ),
-            'reject'        => __( 'Rejected', 'sfs-hr' ),
-            'punch_in'      => __( 'Punched In', 'sfs-hr' ),
-            'punch_out'     => __( 'Punched Out', 'sfs-hr' ),
+            'create'                   => __( 'Created', 'sfs-hr' ),
+            'update'                   => __( 'Updated', 'sfs-hr' ),
+            'delete'                   => __( 'Deleted', 'sfs-hr' ),
+            'status_change'            => __( 'Status Change', 'sfs-hr' ),
+            'approve'                  => __( 'Approved', 'sfs-hr' ),
+            'reject'                   => __( 'Rejected', 'sfs-hr' ),
+            'punch_in'                 => __( 'Punched In', 'sfs-hr' ),
+            'punch_out'                => __( 'Punched Out', 'sfs-hr' ),
+            'document_uploaded'        => __( 'Document Uploaded', 'sfs-hr' ),
+            'document_deleted'         => __( 'Document Deleted', 'sfs-hr' ),
+            'document_replaced'        => __( 'Document Replaced', 'sfs-hr' ),
+            'document_update_requested' => __( 'Update Requested', 'sfs-hr' ),
+            'document_reminder_sent'   => __( 'Reminder Sent', 'sfs-hr' ),
         ];
 
         $entity_labels = [
@@ -596,6 +601,10 @@ class AuditTrail {
             'resignation'        => __( 'Resignation', 'sfs-hr' ),
             'settlement'         => __( 'Settlement', 'sfs-hr' ),
             'shift_swap'         => __( 'Shift Swap', 'sfs-hr' ),
+            'employee_documents' => __( 'Employee Documents', 'sfs-hr' ),
+            'asset'              => __( 'Asset', 'sfs-hr' ),
+            'candidate'          => __( 'Candidate', 'sfs-hr' ),
+            'trainee'            => __( 'Trainee', 'sfs-hr' ),
         ];
 
         $base_url = admin_url( 'admin.php?page=sfs-hr-audit-log' );
@@ -617,7 +626,7 @@ class AuditTrail {
                             <option value=""><?php esc_html_e( 'All Types', 'sfs-hr' ); ?></option>
                             <?php foreach ( $entity_types as $et ): ?>
                             <option value="<?php echo esc_attr( $et ); ?>" <?php selected( $entity_type, $et ); ?>>
-                                <?php echo esc_html( $entity_labels[ $et ] ?? ucfirst( str_replace( '_', ' ', $et ) ) ); ?>
+                                <?php echo esc_html( $entity_labels[ $et ] ?? __( ucfirst( str_replace( '_', ' ', $et ) ), 'sfs-hr' ) ); ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
@@ -629,7 +638,7 @@ class AuditTrail {
                             <option value=""><?php esc_html_e( 'All Actions', 'sfs-hr' ); ?></option>
                             <?php foreach ( $actions as $a ): ?>
                             <option value="<?php echo esc_attr( $a ); ?>" <?php selected( $action_filter, $a ); ?>>
-                                <?php echo esc_html( $action_labels[ $a ] ?? ucfirst( str_replace( '_', ' ', $a ) ) ); ?>
+                                <?php echo esc_html( $action_labels[ $a ] ?? __( ucfirst( str_replace( '_', ' ', $a ) ), 'sfs-hr' ) ); ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
@@ -743,8 +752,8 @@ class AuditTrail {
                 </thead>
                 <tbody>
                     <?php foreach ( $logs as $log ):
-                        $action_label = $action_labels[ $log->action ] ?? ucfirst( str_replace( '_', ' ', $log->action ) );
-                        $entity_label = $entity_labels[ $log->entity_type ] ?? ucfirst( str_replace( '_', ' ', $log->entity_type ) );
+                        $action_label = $action_labels[ $log->action ] ?? __( ucfirst( str_replace( '_', ' ', $log->action ) ), 'sfs-hr' );
+                        $entity_label = $entity_labels[ $log->entity_type ] ?? __( ucfirst( str_replace( '_', ' ', $log->entity_type ) ), 'sfs-hr' );
 
                         $action_colors = [
                             'create' => '#00a32a',
