@@ -50,7 +50,7 @@ class Settlement_List {
                 </a>
             </div>
 
-            <h2><?php echo esc_html(ucfirst($status)); ?> <?php esc_html_e('Settlements', 'sfs-hr'); ?> <span style="font-weight:normal; font-size:14px; color:#50575e;">(<?php echo (int)$result['total']; ?>)</span></h2>
+            <h2><?php echo esc_html(__(ucfirst($status), 'sfs-hr')); ?> <?php esc_html_e('Settlements', 'sfs-hr'); ?> <span style="font-weight:normal; font-size:14px; color:#50575e;">(<?php echo (int)$result['total']; ?>)</span></h2>
 
             <div class="sfs-hr-settlement-table">
                 <table class="widefat striped">
