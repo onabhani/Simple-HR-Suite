@@ -412,7 +412,7 @@ class AdminPages {
                     <table class="form-table">
                         <tr><th><?php esc_html_e('Email', 'sfs-hr'); ?></th><td><?php echo esc_html($candidate->email); ?></td></tr>
                         <tr><th><?php esc_html_e('Phone', 'sfs-hr'); ?></th><td><?php echo esc_html($candidate->phone ?: '—'); ?></td></tr>
-                        <tr><th><?php esc_html_e('Gender', 'sfs-hr'); ?></th><td><?php echo esc_html(ucfirst($candidate->gender ?: '—')); ?></td></tr>
+                        <tr><th><?php esc_html_e('Gender', 'sfs-hr'); ?></th><td><?php echo esc_html(__(ucfirst($candidate->gender ?: '—'), 'sfs-hr')); ?></td></tr>
                         <tr><th><?php esc_html_e('Date of Birth', 'sfs-hr'); ?></th><td><?php echo $candidate->date_of_birth ? esc_html(wp_date('M j, Y', strtotime($candidate->date_of_birth))) : '—'; ?></td></tr>
                         <tr><th><?php esc_html_e('Nationality', 'sfs-hr'); ?></th><td><?php echo esc_html($candidate->nationality ?: '—'); ?></td></tr>
                     </table>
@@ -1051,7 +1051,7 @@ class AdminPages {
                     <table class="form-table">
                         <tr><th><?php esc_html_e('Email', 'sfs-hr'); ?></th><td><?php echo esc_html($trainee->email); ?></td></tr>
                         <tr><th><?php esc_html_e('Phone', 'sfs-hr'); ?></th><td><?php echo esc_html($trainee->phone ?: '—'); ?></td></tr>
-                        <tr><th><?php esc_html_e('Gender', 'sfs-hr'); ?></th><td><?php echo esc_html(ucfirst($trainee->gender ?: '—')); ?></td></tr>
+                        <tr><th><?php esc_html_e('Gender', 'sfs-hr'); ?></th><td><?php echo esc_html(__(ucfirst($trainee->gender ?: '—'), 'sfs-hr')); ?></td></tr>
                     </table>
 
                     <h4><?php esc_html_e('Education', 'sfs-hr'); ?></h4>

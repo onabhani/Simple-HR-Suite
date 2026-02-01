@@ -2502,7 +2502,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
                         echo '<strong>' . esc_html__( '2. Dept Manager', 'sfs-hr' ) . '</strong>';
                         if ( $dept_manager_name ) echo '<br><small>' . esc_html( $dept_manager_name ) . '</small>';
                         if ( $mgr_step ) {
-                            echo '<br><small>' . esc_html( ucfirst( $mgr_step['action'] ?? '' ) ) . '</small>';
+                            echo '<br><small>' . esc_html( __( ucfirst( $mgr_step['action'] ?? '' ), 'sfs-hr' ) ) . '</small>';
                         } elseif ( $cancel->status === 'pending' && $approval_level < 2 ) {
                             echo '<br><small>' . esc_html__( 'Awaiting', 'sfs-hr' ) . '</small>';
                         }
@@ -2523,7 +2523,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
                         echo '<strong>' . esc_html__( '3. General Manager', 'sfs-hr' ) . '</strong>';
                         if ( $gm_name ) echo '<br><small>' . esc_html( $gm_name ) . '</small>';
                         if ( $gm_step ) {
-                            echo '<br><small>' . esc_html( ucfirst( $gm_step['action'] ?? '' ) ) . '</small>';
+                            echo '<br><small>' . esc_html( __( ucfirst( $gm_step['action'] ?? '' ), 'sfs-hr' ) ) . '</small>';
                         } elseif ( $cancel->status === 'pending' && $approval_level >= 2 ) {
                             echo '<br><small>' . esc_html__( 'Awaiting', 'sfs-hr' ) . '</small>';
                         }
@@ -3456,7 +3456,7 @@ public function shortcode_leave_widget($atts = []): string {
             <tbody>
             <?php foreach ($requests as $r): ?>
               <?php
-              $status_label = ucfirst($r['status']);
+              $status_label = __(ucfirst($r['status']), 'sfs-hr');
               if ($r['status'] === 'pending') {
                   $lvl = (int)($r['approval_level'] ?? 1);
                   $status_label = $lvl <= 1
@@ -4047,7 +4047,7 @@ $types = array_values(array_filter($types, function($t) use ($gender) {
                 <td><?php echo esc_html($r['start_date'].' → '.$r['end_date']); ?></td>
                 <td><?php printf('%d', (int)$r['days']); ?></td>
                 <td><?php echo $this->fmt_dt($r['created_at'] ?? ''); ?></td>
-                <td><?php echo esc_html(ucfirst($r['status'])); ?></td>
+                <td><?php echo esc_html(__(ucfirst($r['status']), 'sfs-hr')); ?></td>
               </tr>
             <?php endforeach; endif; ?>
           </tbody>
