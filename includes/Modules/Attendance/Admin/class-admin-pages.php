@@ -3619,22 +3619,12 @@ public function handle_rebuild_sessions_day(): void {
     check_admin_referer('sfs_hr_att_rebuild_sessions_day');
 
     global $wpdb;
-    $pT = $wpdb->prefix . 'sfs_hr_attendance_punches';
 
     $date = ( isset($_GET['date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $_GET['date']) )
         ? (string) $_GET['date']
         : wp_date('Y-m-d');
 
-    // Get all employees with punches on this date
-    $emps = $wpdb->get_col( $wpdb->prepare(
-        "SELECT DISTINCT employee_id FROM {$pT} WHERE DATE(punch_time)=%s",
-        $date
-    ) );
-
-    // Use the proper recalc function which handles shift resolution, late/early detection, etc.
-    foreach ( (array) $emps as $eid ) {
-        \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( (int) $eid, $date, $wpdb );
-    }
+    $this->rebuild_all_sessions_for_date( $date );
 
     wp_safe_redirect( admin_url( 'admin.php?page=sfs_hr_attendance&tab=sessions&date=' . $date . '&rebuilt=1' ) );
     exit;
@@ -3684,18 +3674,39 @@ public function handle_rebuild_sessions_period(): void {
 }
 
 private function rebuild_sessions_for_date(string $date): void {
+    $this->rebuild_all_sessions_for_date( $date );
+}
+
+/**
+ * Rebuild sessions for ALL active employees on a given date.
+ *
+ * Processes employees with punches AND employees without punches (absent).
+ * recalc_session_for() handles leave, holidays, day-off, present, and absent
+ * status determination for each employee.
+ */
+private function rebuild_all_sessions_for_date( string $date ): void {
     global $wpdb;
-    $pT = $wpdb->prefix . 'sfs_hr_attendance_punches';
+    $pT  = $wpdb->prefix . 'sfs_hr_attendance_punches';
+    $eT  = $wpdb->prefix . 'sfs_hr_employees';
 
-    // Get all employees who have punches on this date
-    $emps = $wpdb->get_col( $wpdb->prepare(
-        "SELECT DISTINCT employee_id FROM {$pT} WHERE DATE(punch_time)=%s", $date
+    // 1. Employees with punches on this date (always process these)
+    $punched = $wpdb->get_col( $wpdb->prepare(
+        "SELECT DISTINCT employee_id FROM {$pT} WHERE DATE(punch_time)=%s",
+        $date
     ) );
+    $punched = array_map( 'intval', (array) $punched );
 
-    // Use the proper recalc function from AttendanceModule which handles
-    // shift resolution, late/early detection, overtime calculation, etc.
-    foreach ( (array) $emps as $eid ) {
-        \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( (int) $eid, $date, $wpdb );
+    // 2. All active employees (to detect absent employees with no punches)
+    $all_active = $wpdb->get_col(
+        "SELECT id FROM {$eT} WHERE status = 'active'"
+    );
+    $all_active = array_map( 'intval', (array) $all_active );
+
+    // Merge and deduplicate — process every active employee
+    $all_ids = array_values( array_unique( array_merge( $punched, $all_active ) ) );
+
+    foreach ( $all_ids as $eid ) {
+        \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( $eid, $date, $wpdb );
     }
 }
 
