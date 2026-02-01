@@ -195,7 +195,7 @@ class Admin_Pages {
                 </p>
                 <p>
                     <strong><?php esc_html_e( 'Status:', 'sfs-hr' ); ?></strong>
-                    <?php echo esc_html( ucfirst( $current_period->status ) ); ?>
+                    <?php echo esc_html( __( ucfirst( $current_period->status ), 'sfs-hr' ) ); ?>
                 </p>
 
                 <?php if ( $current_period->status === 'open' && current_user_can( 'sfs_hr_payroll_run' ) ): ?>
@@ -283,7 +283,7 @@ class Admin_Pages {
                     <?php foreach ( $periods as $period ): ?>
                     <tr>
                         <td><strong><?php echo esc_html( $period->name ); ?></strong></td>
-                        <td><?php echo esc_html( ucfirst( str_replace( '_', '-', $period->period_type ) ) ); ?></td>
+                        <td><?php echo esc_html( __( ucfirst( str_replace( '_', '-', $period->period_type ) ), 'sfs-hr' ) ); ?></td>
                         <td><?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $period->start_date ) ) ); ?></td>
                         <td><?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $period->end_date ) ) ); ?></td>
                         <td><?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $period->pay_date ) ) ); ?></td>
@@ -299,7 +299,7 @@ class Admin_Pages {
                             $color = $status_colors[ $period->status ] ?? '#777';
                             ?>
                             <span style="color:<?php echo esc_attr( $color ); ?>; font-weight:600;">
-                                <?php echo esc_html( ucfirst( $period->status ) ); ?>
+                                <?php echo esc_html( __( ucfirst( $period->status ), 'sfs-hr' ) ); ?>
                             </span>
                         </td>
                         <td>
@@ -444,9 +444,9 @@ class Admin_Pages {
                     <tr>
                         <td><?php echo intval( $run->id ); ?></td>
                         <td>
-                            <strong><?php echo esc_html( $run->period_name ); ?></strong>
+                            <strong><?php echo esc_html( PayrollModule::generate_period_name( $run->start_date, $run->end_date ) ); ?></strong>
                             <?php if ( $run->run_number > 1 ): ?>
-                            <small>(Run #<?php echo intval( $run->run_number ); ?>)</small>
+                            <small>(<?php printf( esc_html__( 'Run #%d', 'sfs-hr' ), intval( $run->run_number ) ); ?>)</small>
                             <?php endif; ?>
                         </td>
                         <td>
@@ -462,7 +462,7 @@ class Admin_Pages {
                             $color = $status_colors[ $run->status ] ?? '#777';
                             ?>
                             <span style="color:<?php echo esc_attr( $color ); ?>; font-weight:600;">
-                                <?php echo esc_html( ucfirst( $run->status ) ); ?>
+                                <?php echo esc_html( __( ucfirst( $run->status ), 'sfs-hr' ) ); ?>
                             </span>
                         </td>
                         <td><?php echo intval( $run->employee_count ); ?></td>
@@ -538,12 +538,12 @@ class Admin_Pages {
                 <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=runs' ) ); ?>">&larr; <?php esc_html_e( 'Back to Runs', 'sfs-hr' ); ?></a>
             </p>
 
-            <h2><?php echo esc_html( $run->period_name ); ?> - <?php esc_html_e( 'Payroll Run', 'sfs-hr' ); ?> #<?php echo intval( $run->id ); ?></h2>
+            <h2><?php echo esc_html( PayrollModule::generate_period_name( $run->start_date, $run->end_date ) ); ?> - <?php esc_html_e( 'Payroll Run', 'sfs-hr' ); ?> #<?php echo intval( $run->id ); ?></h2>
 
             <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:20px;">
                 <div style="background:#f0f6fc; padding:15px; border-radius:6px; flex:1; min-width:150px;">
                     <div style="font-size:12px; color:#646970;"><?php esc_html_e( 'Status', 'sfs-hr' ); ?></div>
-                    <div style="font-size:18px; font-weight:600;"><?php echo esc_html( ucfirst( $run->status ) ); ?></div>
+                    <div style="font-size:18px; font-weight:600;"><?php echo esc_html( __( ucfirst( $run->status ), 'sfs-hr' ) ); ?></div>
                 </div>
                 <div style="background:#f0f6fc; padding:15px; border-radius:6px; flex:1; min-width:150px;">
                     <div style="font-size:12px; color:#646970;"><?php esc_html_e( 'Employees', 'sfs-hr' ); ?></div>
@@ -660,7 +660,7 @@ class Admin_Pages {
                     <?php foreach ( $type_components as $comp ): ?>
                     <tr>
                         <td><code><?php echo esc_html( $comp->code ); ?></code></td>
-                        <td><strong><?php echo esc_html( $comp->name ); ?></strong></td>
+                        <td><strong><?php echo esc_html( __( $comp->name, 'sfs-hr' ) ); ?></strong></td>
                         <td>
                             <?php
                             switch ( $comp->calculation_type ) {

@@ -1497,16 +1497,26 @@ class AdminPages {
      * Get status badge HTML
      */
     private function get_status_badge( string $status ): string {
-        $badges = [
-            'pending_gm'      => '<span style="background:#ffa500;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">Pending GM</span>',
-            'pending_finance' => '<span style="background:#ff8c00;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">Pending Finance</span>',
-            'active'          => '<span style="background:#28a745;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">Active</span>',
-            'completed'       => '<span style="background:#6c757d;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">Completed</span>',
-            'rejected'        => '<span style="background:#dc3545;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">Rejected</span>',
-            'cancelled'       => '<span style="background:#6c757d;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">Cancelled</span>',
+        $labels = [
+            'pending_gm'      => __( 'Pending GM', 'sfs-hr' ),
+            'pending_finance' => __( 'Pending Finance', 'sfs-hr' ),
+            'active'          => __( 'Active', 'sfs-hr' ),
+            'completed'       => __( 'Completed', 'sfs-hr' ),
+            'rejected'        => __( 'Rejected', 'sfs-hr' ),
+            'cancelled'       => __( 'Cancelled', 'sfs-hr' ),
         ];
+        $colors = [
+            'pending_gm'      => '#ffa500',
+            'pending_finance' => '#ff8c00',
+            'active'          => '#28a745',
+            'completed'       => '#6c757d',
+            'rejected'        => '#dc3545',
+            'cancelled'       => '#6c757d',
+        ];
+        $label = $labels[ $status ] ?? esc_html( $status );
+        $color = $colors[ $status ] ?? '#777';
 
-        return $badges[ $status ] ?? esc_html( $status );
+        return sprintf( '<span style="background:%s;color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;">%s</span>', esc_attr( $color ), esc_html( $label ) );
     }
 
     /**
@@ -1641,8 +1651,7 @@ class AdminPages {
                     <tr>
                         <th><?php esc_html_e( 'Installments', 'sfs-hr' ); ?></th>
                         <td>
-                            <?php echo (int) $loan->installments_count; ?> installments ×
-                            <?php echo number_format( (float) $loan->installment_amount, 2 ); ?> <?php echo esc_html( $loan->currency ); ?>
+                            <?php printf( esc_html__( '%1$d installments × %2$s %3$s', 'sfs-hr' ), (int) $loan->installments_count, number_format( (float) $loan->installment_amount, 2 ), esc_html( $loan->currency ) ); ?>
                         </td>
                     </tr>
                     <tr>
@@ -1882,7 +1891,7 @@ class AdminPages {
                                 <?php foreach ( $history as $event ) : ?>
                                     <div style="border-bottom:1px solid #eee;padding:10px 0;">
                                         <div style="font-size:11px;color:#666;"><?php echo esc_html( wp_date( 'M j, Y g:i a', strtotime( $event->created_at ) ) ); ?></div>
-                                        <div style="font-weight:600;margin:4px 0;"><?php echo esc_html( str_replace( '_', ' ', ucwords( $event->event_type, '_' ) ) ); ?></div>
+                                        <div style="font-weight:600;margin:4px 0;"><?php echo esc_html( __( str_replace( '_', ' ', ucwords( $event->event_type, '_' ) ), 'sfs-hr' ) ); ?></div>
                                         <div style="font-size:12px;color:#555;"><?php echo esc_html( $event->user_name ?: __( 'System', 'sfs-hr' ) ); ?></div>
                                         <?php
                                         if ( $event->meta ) {
@@ -1890,7 +1899,7 @@ class AdminPages {
                                             if ( is_array( $meta ) && ! empty( $meta ) ) {
                                                 echo '<div style="font-size:11px;margin-top:6px;background:#f9f9f9;padding:6px;border-radius:3px;">';
                                                 foreach ( $meta as $key => $value ) {
-                                                    $label = ucwords( str_replace( '_', ' ', $key ) );
+                                                    $label = __( ucwords( str_replace( '_', ' ', $key ) ), 'sfs-hr' );
                                                     if ( is_numeric( $value ) && $key !== 'installments' ) {
                                                         $display_value = number_format( (float) $value, 2 );
                                                     } else {
