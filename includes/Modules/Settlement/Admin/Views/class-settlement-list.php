@@ -87,7 +87,7 @@ class Settlement_List {
                                     <td class="hide-mobile"><?php echo esc_html($row['last_working_day']); ?></td>
                                     <td class="hide-mobile"><?php echo esc_html(number_format($row['years_of_service'], 2)); ?> <?php esc_html_e('yrs', 'sfs-hr'); ?></td>
                                     <td><span class="amount"><?php echo esc_html(number_format($row['total_settlement'], 2)); ?></span></td>
-                                    <td><span class="sfs-hr-status-badge status-<?php echo esc_attr($row['status']); ?>"><?php echo esc_html(ucfirst($row['status'])); ?></span></td>
+                                    <td><span class="sfs-hr-status-badge status-<?php echo esc_attr($row['status']); ?>"><?php echo esc_html(__(ucfirst($row['status']), 'sfs-hr')); ?></span></td>
                                     <td>
                                         <!-- Desktop actions -->
                                         <div class="sfs-hr-settlement-actions">
@@ -101,7 +101,7 @@ class Settlement_List {
                                             <?php endif; ?>
                                         </div>
                                         <!-- Mobile button -->
-                                        <button type="button" class="sfs-hr-settlement-mobile-btn" onclick="sfsHrOpenSettlementModal('<?php echo esc_js($emp_name); ?>', '<?php echo esc_js($row['employee_code']); ?>', '<?php echo esc_js($row['last_working_day']); ?>', '<?php echo esc_js(number_format($row['years_of_service'], 2) . ' years'); ?>', '<?php echo esc_js(number_format($row['total_settlement'], 2)); ?>', '<?php echo esc_js(ucfirst($row['status'])); ?>', '<?php echo esc_js($view_url); ?>', '<?php echo esc_js($edit_url); ?>', '<?php echo $can_edit; ?>')">
+                                        <button type="button" class="sfs-hr-settlement-mobile-btn" onclick="sfsHrOpenSettlementModal('<?php echo esc_js($emp_name); ?>', '<?php echo esc_js($row['employee_code']); ?>', '<?php echo esc_js($row['last_working_day']); ?>', '<?php echo esc_js(number_format($row['years_of_service'], 2) . ' years'); ?>', '<?php echo esc_js(number_format($row['total_settlement'], 2)); ?>', '<?php echo esc_js(__(ucfirst($row['status']), 'sfs-hr')); ?>', '<?php echo esc_js($view_url); ?>', '<?php echo esc_js($edit_url); ?>', '<?php echo $can_edit; ?>')">
                                             <span class="dashicons dashicons-ellipsis"></span>
                                         </button>
                                     </td>

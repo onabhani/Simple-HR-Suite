@@ -286,7 +286,7 @@ class Resignation_Service {
      * Render status pill (CSS class based)
      */
     public static function render_status_pill(string $status, int $approval_level = 1): string {
-        $label = ucfirst($status);
+        $label = __(ucfirst($status), 'sfs-hr');
         $class = 'sfs-hr-pill--' . $status;
 
         if ($status === 'pending') {
