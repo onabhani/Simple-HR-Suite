@@ -474,7 +474,7 @@ class Alerts_Service {
 
         // Build email
         $employee_name = trim( $alert->first_name . ' ' . $alert->last_name );
-        $severity_label = ucfirst( $alert->severity );
+        $severity_label = __( ucfirst( $alert->severity ), 'sfs-hr' );
 
         $subject = sprintf(
             __( '[%s] Performance Alert: %s', 'sfs-hr' ),
@@ -520,7 +520,7 @@ class Alerts_Service {
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="background: <?php echo esc_attr( $color ); ?>; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
                 <h2 style="margin: 0; font-size: 18px;">
-                    <?php echo esc_html( ucfirst( $alert->severity ) ); ?> Alert
+                    <?php echo esc_html( sprintf( __( '%s Alert', 'sfs-hr' ), __( ucfirst( $alert->severity ), 'sfs-hr' ) ) ); ?>
                 </h2>
             </div>
 

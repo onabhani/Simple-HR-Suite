@@ -578,14 +578,14 @@ class PayrollModule {
      * Generate payroll period name
      */
     public static function generate_period_name( string $start_date, string $end_date ): string {
-        $start = new \DateTime( $start_date );
-        $end = new \DateTime( $end_date );
+        $start_ts = strtotime( $start_date );
+        $end_ts   = strtotime( $end_date );
 
-        if ( $start->format( 'Y-m' ) === $end->format( 'Y-m' ) ) {
-            return $start->format( 'F Y' );
+        if ( date( 'Y-m', $start_ts ) === date( 'Y-m', $end_ts ) ) {
+            return date_i18n( 'F Y', $start_ts );
         }
 
-        return $start->format( 'M j' ) . ' - ' . $end->format( 'M j, Y' );
+        return date_i18n( 'M j', $start_ts ) . ' - ' . date_i18n( 'M j, Y', $end_ts );
     }
 
     /**
