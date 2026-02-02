@@ -223,7 +223,7 @@ class Resignation_List {
             .sfs-hr-resignation-table-wrap .table-header h3 { margin: 0; font-size: 14px; font-weight: 600; color: #1d2327; }
             .sfs-hr-resignation-table { width: 100%; border-collapse: collapse; margin: 0; }
             .sfs-hr-resignation-table th {
-                background: #f9fafb; padding: 12px 16px; text-align: left;
+                background: #f9fafb; padding: 12px 16px; text-align: start;
                 font-weight: 600; font-size: 12px; color: #50575e;
                 text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 1px solid #e2e4e7;
             }

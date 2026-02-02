@@ -382,12 +382,8 @@ class ResignationTab implements TabInterface {
             .sfs-hr-resignations-table th,
             .sfs-hr-resignations-table td {
                 padding: 10px 12px;
-                text-align: left;
+                text-align: start;
                 border-bottom: 1px solid #e5e7eb;
-            }
-            [dir="rtl"] .sfs-hr-resignations-table th,
-            [dir="rtl"] .sfs-hr-resignations-table td {
-                text-align: right;
             }
             .sfs-hr-resignations-table td {
                 font-size: 13px;

@@ -261,7 +261,7 @@ class MyProfileLoans {
                     echo '<h4 style="margin:12px 0 8px;">' . esc_html__( 'Payment Schedule', 'sfs-hr' ) . '</h4>';
                     echo '<style>
                         .sfs-payment-schedule { width:100%; border-collapse:collapse; font-size:13px; }
-                        .sfs-payment-schedule th { text-align:left; padding:8px; background:#f6f7f7; font-weight:600; border-bottom:1px solid #dcdcde; }
+                        .sfs-payment-schedule th { text-align:start; padding:8px; background:#f6f7f7; font-weight:600; border-bottom:1px solid #dcdcde; }
                         .sfs-payment-schedule td { padding:8px; border-bottom:1px solid #f0f0f1; }
                         .sfs-payment-schedule .col-num { width:30px; text-align:center; }
                         .sfs-payment-schedule .col-amt { text-align:right; }

@@ -691,7 +691,7 @@ class AuditTrail {
                     letter-spacing: 0.5px;
                     color: #50575e;
                     padding: 12px 16px;
-                    text-align: left;
+                    text-align: start;
                     border-bottom: 1px solid #dcdcde;
                 }
                 .sfs-hr-audit-table td {

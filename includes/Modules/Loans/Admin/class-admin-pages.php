@@ -463,7 +463,7 @@ class AdminPages {
             .sfs-hr-loans-table th {
                 background: #f9fafb;
                 padding: 12px 16px;
-                text-align: left;
+                text-align: start;
                 font-weight: 600;
                 font-size: 12px;
                 color: #50575e;
