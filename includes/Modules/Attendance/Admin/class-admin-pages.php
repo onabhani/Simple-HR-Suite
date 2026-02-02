@@ -838,7 +838,7 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
     <style>
         .sfs-hr-rules-table { width: 100%; border-collapse: collapse; }
         .sfs-hr-rules-table th,
-        .sfs-hr-rules-table td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        .sfs-hr-rules-table td { padding: 10px; text-align: start; border-bottom: 1px solid #ddd; }
         .sfs-hr-rules-table th { background: #f9f9f9; }
         .sfs-hr-rule-conditions { display: flex; flex-wrap: wrap; gap: 10px; }
         .sfs-hr-rule-condition {
@@ -2842,7 +2842,7 @@ exit;
             .sfs-hr-att-table th {
                 background: #f9fafb;
                 padding: 12px 14px;
-                text-align: left;
+                text-align: start;
                 font-weight: 600;
                 font-size: 12px;
                 color: #50575e;

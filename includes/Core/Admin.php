@@ -995,7 +995,7 @@ private function render_expiry_alerts_section( $wpdb, string $emp_t, string $tod
             font-size: 13px;
         }
         .sfs-hr-expiry-table th {
-            text-align: left;
+            text-align: start;
             padding: 10px 12px;
             background: #f6f7f7;
             font-weight: 600;
@@ -1343,7 +1343,7 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
             font-size: 13px;
         }
         .sfs-hr-ot-table th {
-            text-align: left;
+            text-align: start;
             padding: 8px;
             background: #f6f7f7;
             font-weight: 600;
@@ -6365,7 +6365,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             .sfs-doc-types-table th,
             .sfs-doc-types-table td {
                 padding: 12px 15px;
-                text-align: left;
+                text-align: start;
                 border-bottom: 1px solid #eee;
             }
             .sfs-doc-types-table th {

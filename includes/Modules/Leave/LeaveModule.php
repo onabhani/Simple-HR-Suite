@@ -721,7 +721,7 @@ private function output_leave_requests_styles(): void {
         .sfs-hr-leave-table th {
             background: #f9fafb;
             padding: 12px 16px;
-            text-align: left;
+            text-align: start;
             font-weight: 600;
             font-size: 12px;
             color: #50575e;
@@ -3570,7 +3570,7 @@ if ($r['status'] === 'approved') {
     .sfs-hr-lw-table td {
         padding: 6px 4px;
         border-bottom: 1px solid #f3f4f6;
-        text-align: left;
+        text-align: start;
     }
     .sfs-hr-lw-table th {
         font-weight: 600;

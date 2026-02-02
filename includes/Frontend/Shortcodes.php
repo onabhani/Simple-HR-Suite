@@ -1517,7 +1517,7 @@ class Shortcodes {
     .sfs-hr-table td {
         padding:8px 10px;
         border-bottom:1px solid #eee;
-        text-align:left;
+        text-align:start;
         font-size:13px;
     }
 
@@ -2947,7 +2947,7 @@ private function render_my_attendance_frontend( int $employee_id ): void {
         </div>
         <style>
         .sfs-hr-table { width:100%; border-collapse: collapse; }
-        .sfs-hr-table th, .sfs-hr-table td { padding:8px 10px; border-bottom:1px solid #eee; text-align:left; }
+        .sfs-hr-table th, .sfs-hr-table td { padding:8px 10px; border-bottom:1px solid #eee; text-align:start; }
         .sfs-hr-alert { padding:12px; background:#fef3c7; border:1px solid #fde68a; border-radius:8px; }
         </style>
         <?php

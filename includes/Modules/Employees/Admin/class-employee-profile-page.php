@@ -1055,7 +1055,7 @@ echo '<div class="wrap sfs-hr-wrap">';
                 border-collapse:collapse;
             }
             #sfs-hr-employee-profile-wrap .sfs-hr-emp-basic-table th{
-                text-align:left;
+                text-align:start;
                 width:34%;
                 padding:3px 0;
                 font-weight:600;
@@ -1067,7 +1067,7 @@ echo '<div class="wrap sfs-hr-wrap">';
                 width:100%;
             }
             #sfs-hr-employee-profile-wrap .sfs-hr-emp-today-table th{
-                text-align:left;
+                text-align:start;
                 width:30%;
                 padding:4px 0;
                 font-weight:600;
