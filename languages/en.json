@@ -2182,5 +2182,10 @@
   "requested_leave_col": "Requested Leave",
   "reviewed_by_col": "Reviewed By",
   "actual_label": "Actual:",
-  "other_reason": "Other"
+  "other_reason": "Other",
+
+  "_comment_perf_detail_punches": "Performance Detail & Punches Missing Strings",
+  "late_early_absent_brk_fmt": "Late: %d, Early: %d, Absent: %d, Brk Delay: %d",
+  "period_commitment_fmt": "Period: %s to %s | Working Days: %d | Present: %d | Absent: %d | Late: %d | Early Leave: %d | Incomplete: %d | Break Delay: %d | No Break: %d",
+  "no_punches_found": "No punches found for this selection."
 }

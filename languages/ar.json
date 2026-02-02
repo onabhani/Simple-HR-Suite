@@ -2182,5 +2182,10 @@
   "requested_leave_col": "وقت المغادرة المطلوب",
   "reviewed_by_col": "تمت المراجعة بواسطة",
   "actual_label": "الفعلي:",
-  "other_reason": "أخرى"
+  "other_reason": "أخرى",
+
+  "_comment_perf_detail_punches": "Performance Detail & Punches Missing Strings",
+  "late_early_absent_brk_fmt": "متأخر: %d، مبكر: %d، غائب: %d، تأخير استراحة: %d",
+  "period_commitment_fmt": "الفترة: %s إلى %s | أيام العمل: %d | حاضر: %d | غائب: %d | متأخر: %d | مغادرة مبكرة: %d | غير مكتمل: %d | تأخير استراحة: %d | بدون استراحة: %d",
+  "no_punches_found": "لم يتم العثور على بصمات لهذا التحديد."
 }
