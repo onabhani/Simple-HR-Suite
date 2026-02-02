@@ -107,38 +107,36 @@ add_action('rest_api_init', function () {
     <?php endif; ?>
 
     <?php
-    // --- Geo for self attendance: read from today's shift, respect policy ---
-    $geo_lat    = '';
-    $geo_lng    = '';
-    $geo_radius = '';
+    // --- Geo for self attendance: always collect location, respect policy for enforcement ---
+    $geo_lat     = '';
+    $geo_lng     = '';
+    $geo_radius  = '';
+    $geo_enforce_in  = '1'; // default: enforce geofence
+    $geo_enforce_out = '1';
 
     $employee_id = self::employee_id_from_user( get_current_user_id() );
     if ( $employee_id ) {
         // Local date (site timezone), not UTC
         $today_ymd = wp_date( 'Y-m-d' );
 
-        // Check if the employee's policy allows geofence bypass
-        $enforce_geo = \SFS\HR\Modules\Attendance\Services\Policy_Service::should_enforce_geofence( $employee_id, 'in' );
+        // Check if the employee's policy allows geofence bypass per direction
+        $geo_enforce_in  = \SFS\HR\Modules\Attendance\Services\Policy_Service::should_enforce_geofence( $employee_id, 'in' )  ? '1' : '0';
+        $geo_enforce_out = \SFS\HR\Modules\Attendance\Services\Policy_Service::should_enforce_geofence( $employee_id, 'out' ) ? '1' : '0';
 
-        if ( $enforce_geo ) {
-            // Uses the helper already defined at bottom of this class
-            $shift = self::resolve_shift_for_date( $employee_id, $today_ymd );
+        // Always load shift coordinates (for logging even when not enforcing)
+        $shift = self::resolve_shift_for_date( $employee_id, $today_ymd );
 
-            if ( $shift ) {
-                // shift row is an object from sfs_hr_attendance_shifts
-                if ( isset( $shift->location_lat ) && $shift->location_lat !== null && $shift->location_lat !== '' ) {
-                    $geo_lat = trim( (string) $shift->location_lat );
-                }
-                if ( isset( $shift->location_lng ) && $shift->location_lng !== null && $shift->location_lng !== '' ) {
-                    $geo_lng = trim( (string) $shift->location_lng );
-                }
-                if ( isset( $shift->location_radius_m ) && $shift->location_radius_m !== null && $shift->location_radius_m !== '' ) {
-                    $geo_radius = trim( (string) $shift->location_radius_m ); // meters
-                }
+        if ( $shift ) {
+            if ( isset( $shift->location_lat ) && $shift->location_lat !== null && $shift->location_lat !== '' ) {
+                $geo_lat = trim( (string) $shift->location_lat );
+            }
+            if ( isset( $shift->location_lng ) && $shift->location_lng !== null && $shift->location_lng !== '' ) {
+                $geo_lng = trim( (string) $shift->location_lng );
+            }
+            if ( isset( $shift->location_radius_m ) && $shift->location_radius_m !== null && $shift->location_radius_m !== '' ) {
+                $geo_radius = trim( (string) $shift->location_radius_m ); // meters
             }
         }
-        // When policy says geofence = "none", geo_lat/geo_lng/geo_radius stay empty,
-        // so the frontend won't enforce location and the user can clock in from anywhere.
     }
 
 
@@ -151,9 +149,11 @@ add_action('rest_api_init', function () {
   data-geo-lng="<?php echo esc_attr( $geo_lng ); ?>"
   data-geo-radius="<?php echo esc_attr( $geo_radius ); ?>"
   data-geo-required="<?php echo ( $geo_lat && $geo_lng && $geo_radius ) ? '1' : '0'; ?>"
+  data-geo-enforce-in="<?php echo esc_attr( $geo_enforce_in ); ?>"
+  data-geo-enforce-out="<?php echo esc_attr( $geo_enforce_out ); ?>"
 >
 
-        
+
       <div class="sfs-att-shell">
 
         <aside class="sfs-att-left">
@@ -712,44 +712,69 @@ window.sfsAttI18n = window.sfsAttI18n || {
         return R * c;
     }
 
-    function getGeoConfig(root) {
-        if (!root) return { enabled:false, required:false, lat:null, lng:null, radius:null };
+    function getGeoConfig(root, punchType) {
+        if (!root) return { enabled:false, enforce:false, lat:null, lng:null, radius:null };
 
         const geoLat     = root.dataset.geoLat;
         const geoLng     = root.dataset.geoLng;
         const geoRadius  = root.dataset.geoRadius;
-        const required   = root.dataset.geoRequired === '1';
+
+        // Direction-specific enforcement
+        const enforce = (punchType === 'out')
+            ? root.dataset.geoEnforceOut === '1'
+            : root.dataset.geoEnforceIn  === '1'; // 'in', 'break_start', 'break_end' all use clock-in rule
 
         const lat    = parseFloat(geoLat);
         const lng    = parseFloat(geoLng);
         const radius = parseFloat(geoRadius);
 
         if (!lat || !lng || !radius) {
-            return { enabled:false, required, lat:null, lng:null, radius:null };
+            return { enabled:false, enforce, lat:null, lng:null, radius:null };
         }
-        return { enabled:true, required, lat, lng, radius };
+        return { enabled:true, enforce, lat, lng, radius };
     }
 
     /**
-     * requireInside(root, onAllow, onReject)
-     * - If no geofence configured → calls onAllow(null) without asking for location.
-     * - If geofence set → asks for location, checks radius:
+     * requireInside(root, onAllow, onReject, punchType)
+     * - If no geofence configured → still tries to get GPS for logging, then calls onAllow.
+     * - If geofence set + enforce=true → asks for location, checks radius:
      *   - inside  → onAllow({ latitude, longitude, distance })
      *   - outside / permission error → onReject(message, code)
+     * - If geofence set + enforce=false → asks for location for logging, always allows.
+     * @param {string} punchType - 'in', 'out', 'break_start', 'break_end'
      */
-    function requireInside(root, onAllow, onReject) {
-        const cfg = getGeoConfig(root);
+    function requireInside(root, onAllow, onReject, punchType) {
+        const cfg = getGeoConfig(root, punchType);
 
-        // No geofence on this widget/device → allow, no coords
-        if (!cfg.enabled) {
-            onAllow && onAllow(null);
+        // Always try to collect GPS for logging, even if geofence is not configured/enforced
+        if (!navigator.geolocation) {
+            if (cfg.enabled && cfg.enforce) {
+                onReject && onReject(
+                    i18n.location_required_not_supported || 'Location is required but this browser does not support it.',
+                    'NO_GEO'
+                );
+            } else {
+                // No geolocation support but not enforcing → allow without coords
+                onAllow && onAllow(null);
+            }
             return;
         }
 
-        if (!navigator.geolocation) {
-            onReject && onReject(
-                i18n.location_required_not_supported || 'Location is required but this browser does not support it.',
-                'NO_GEO'
+        // No geofence configured at all → still try to log GPS silently
+        if (!cfg.enabled) {
+            navigator.geolocation.getCurrentPosition(
+                pos => {
+                    onAllow && onAllow({
+                        latitude: pos.coords.latitude,
+                        longitude: pos.coords.longitude,
+                        distance: null
+                    });
+                },
+                () => {
+                    // GPS failed but not enforcing → allow without coords
+                    onAllow && onAllow(null);
+                },
+                { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
             );
             return;
         }
@@ -760,7 +785,8 @@ window.sfsAttI18n = window.sfsAttI18n || {
                 const lng = pos.coords.longitude;
                 const dist = haversineMeters(cfg.lat, cfg.lng, lat, lng);
 
-                if (dist > cfg.radius) {
+                // Only block when enforcement is on and user is outside radius
+                if (cfg.enforce && dist > cfg.radius) {
                     onReject && onReject(
                         i18n.outside_allowed_area || 'You are outside the allowed area. Please move closer to the workplace and try again.',
                         'OUTSIDE_RADIUS'
@@ -775,6 +801,12 @@ window.sfsAttI18n = window.sfsAttI18n || {
                 });
             },
             err => {
+                // When enforcement is off, GPS failure should not block the punch
+                if (!cfg.enforce) {
+                    onAllow && onAllow(null);
+                    return;
+                }
+
                 let msg;
                 if (err.code === err.PERMISSION_DENIED) {
                     msg = i18n.location_permission_denied || 'Location permission was denied. Enable it to use attendance.';
@@ -891,7 +923,7 @@ setInterval(tickClock, 1000);
             chipEl.className   = cls;
         }
 
-                async function getGeo(){
+                async function getGeo(punchType){
             const root = document.getElementById('<?php echo esc_js( $root_id ); ?>');
 
             // If helper missing for any reason → fallback to old behavior
@@ -910,7 +942,7 @@ setInterval(tickClock, 1000);
                 });
             }
 
-            // Normal path: enforce radius. If rejected → we abort punch.
+            // Normal path: check geofence per punch direction. If rejected → we abort punch.
             return new Promise((resolve, reject)=>{
                 window.sfsGeo.requireInside(
                     root,
@@ -930,7 +962,8 @@ setInterval(tickClock, 1000);
                         setStat(msg || i18n.location_check_failed, 'error');
                         // Hard block by rejecting; caller will bail
                         reject(new Error('geo_blocked'));
-                    }
+                    },
+                    punchType
                 );
             });
         }
@@ -1059,7 +1092,7 @@ setInterval(tickClock, 1000);
 
             let geo = null;
             try {
-                geo = await getGeo();
+                geo = await getGeo(type);
             } catch(e){
                 // geo_blocked → do not hit the REST API
                 punchInProgress = false;
@@ -1201,7 +1234,7 @@ setInterval(tickClock, 1000);
                 // Validate geo BEFORE opening camera to avoid wasting user's time
                 setStat(i18n.validating, 'busy');
                 try {
-                    await getGeo();
+                    await getGeo(type);
                 } catch(e) {
                     // geo blocked → abort without opening camera
                     punchInProgress = false;
@@ -1389,6 +1422,8 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
   data-geo-lng="<?php echo esc_attr( $geo_lng ); ?>"
   data-geo-radius="<?php echo esc_attr( $geo_radius ); ?>"
   data-geo-required="<?php echo ( $geo_lat && $geo_lng && $geo_radius ) ? '1' : '0'; ?>"
+  data-geo-enforce-in="1"
+  data-geo-enforce-out="1"
 >
 
   <div class="sfs-kiosk-shell">
@@ -2232,7 +2267,7 @@ function playErrorTone() {
 
 
 
-            async function getGeo(){
+            async function getGeo(punchType){
         const root = ROOT; // already defined at top for this kiosk instance
 
         if (!window.sfsGeo || !root) {
@@ -2265,7 +2300,8 @@ function playErrorTone() {
             function onReject(msg, code){
               setStat(msg || (t.location_check_failed||'Location check failed.'), 'error');
               reject(new Error('geo_blocked'));
-            }
+            },
+            punchType
           );
         });
       }
@@ -2992,7 +3028,7 @@ tickDate();
 
         let geo = null;
         try {
-            geo = await getGeo();
+            geo = await getGeo(type);
         } catch(e){
             // geo_blocked → stop here
             return;
