@@ -2137,5 +2137,21 @@
   "paternity_option": "Paternity – 3 days",
   "action_completed_leave": "Action completed.",
   "name_required_leave": "Name required",
-  "type_in_use": "Type in use; cannot delete"
+  "type_in_use": "Type in use; cannot delete",
+
+  "_comment_perf_grades": "Performance Grade Labels & Missing Strings",
+  "grade_exceptional": "Exceptional",
+  "grade_exceeds_expectations": "Exceeds Expectations",
+  "grade_meets_expectations": "Meets Expectations",
+  "grade_developing": "Developing",
+  "grade_needs_improvement": "Needs Improvement",
+  "avg_score_col": "Avg Score",
+  "distribution_col": "Distribution",
+  "exceeds_tooltip": "Exceeds",
+  "meets_tooltip": "Meets",
+  "brk_delay_col": "Brk Delay",
+  "no_perf_data": "No performance data available for this period.",
+  "select_employee_option": "Select Employee",
+  "alert_threshold_desc": "Alert when attendance commitment falls below this percentage.",
+  "notify_label": "Notify"
 }

@@ -2137,5 +2137,21 @@
   "paternity_option": "أبوة – 3 أيام",
   "action_completed_leave": "تمت العملية بنجاح.",
   "name_required_leave": "الاسم مطلوب",
-  "type_in_use": "النوع مستخدم؛ لا يمكن حذفه"
+  "type_in_use": "النوع مستخدم؛ لا يمكن حذفه",
+
+  "_comment_perf_grades": "Performance Grade Labels & Missing Strings",
+  "grade_exceptional": "استثنائي",
+  "grade_exceeds_expectations": "يتجاوز التوقعات",
+  "grade_meets_expectations": "يلبي التوقعات",
+  "grade_developing": "قيد التطوير",
+  "grade_needs_improvement": "يحتاج تحسين",
+  "avg_score_col": "متوسط النتيجة",
+  "distribution_col": "التوزيع",
+  "exceeds_tooltip": "يتجاوز",
+  "meets_tooltip": "يلبي",
+  "brk_delay_col": "تأخير الاستراحة",
+  "no_perf_data": "لا توجد بيانات أداء متاحة لهذه الفترة.",
+  "select_employee_option": "اختر موظفاً",
+  "alert_threshold_desc": "تنبيه عندما ينخفض التزام الحضور عن هذه النسبة.",
+  "notify_label": "الإشعارات"
 }
