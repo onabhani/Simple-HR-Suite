@@ -3778,7 +3778,10 @@ foreach ($rows as $r) {
     } elseif (in_array('incomplete', $ev['flags'], true)) {
         $status = 'incomplete';
     } elseif (in_array('missed_segment', $ev['flags'], true) && $net === 0) {
-        $status = 'absent';
+        // If the employee actually punched in/out (has punch records and worked time),
+        // they attended but their net is 0 due to break deduction or shift-window mismatch.
+        // Mark as incomplete (not absent) — they were physically present.
+        $status = (count($rows) > 0 && (int)$ev['worked_total'] > 0) ? 'incomplete' : 'absent';
     } elseif (in_array('missed_segment', $ev['flags'], true)) {
         $status = 'present';
     }

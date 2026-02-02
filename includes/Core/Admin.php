@@ -104,6 +104,16 @@ class Admin {
             'sfs-hr-settings',
             [$this, 'render_settings']
         );
+
+        // Design Samples (admin-only reference page)
+        add_submenu_page(
+            'sfs-hr',
+            __('Design Samples','sfs-hr'),
+            __('Design Samples','sfs-hr'),
+            'manage_options',
+            'sfs-hr-design-samples',
+            [ DesignSamples::class, 'render' ]
+        );
     }
 
     public function remove_menu_separator_css(): void {
