@@ -107,7 +107,7 @@ add_action('rest_api_init', function () {
     <?php endif; ?>
 
     <?php
-    // --- Geo for self attendance: read from today's shift ---
+    // --- Geo for self attendance: read from today's shift, respect policy ---
     $geo_lat    = '';
     $geo_lng    = '';
     $geo_radius = '';
@@ -117,21 +117,28 @@ add_action('rest_api_init', function () {
         // Local date (site timezone), not UTC
         $today_ymd = wp_date( 'Y-m-d' );
 
-        // Uses the helper already defined at bottom of this class
-        $shift = self::resolve_shift_for_date( $employee_id, $today_ymd );
+        // Check if the employee's policy allows geofence bypass
+        $enforce_geo = \SFS\HR\Modules\Attendance\Services\Policy_Service::should_enforce_geofence( $employee_id, 'in' );
 
-        if ( $shift ) {
-            // shift row is an object from sfs_hr_attendance_shifts
-            if ( isset( $shift->location_lat ) && $shift->location_lat !== null && $shift->location_lat !== '' ) {
-                $geo_lat = trim( (string) $shift->location_lat );
-            }
-            if ( isset( $shift->location_lng ) && $shift->location_lng !== null && $shift->location_lng !== '' ) {
-                $geo_lng = trim( (string) $shift->location_lng );
-            }
-            if ( isset( $shift->location_radius_m ) && $shift->location_radius_m !== null && $shift->location_radius_m !== '' ) {
-                $geo_radius = trim( (string) $shift->location_radius_m ); // meters
+        if ( $enforce_geo ) {
+            // Uses the helper already defined at bottom of this class
+            $shift = self::resolve_shift_for_date( $employee_id, $today_ymd );
+
+            if ( $shift ) {
+                // shift row is an object from sfs_hr_attendance_shifts
+                if ( isset( $shift->location_lat ) && $shift->location_lat !== null && $shift->location_lat !== '' ) {
+                    $geo_lat = trim( (string) $shift->location_lat );
+                }
+                if ( isset( $shift->location_lng ) && $shift->location_lng !== null && $shift->location_lng !== '' ) {
+                    $geo_lng = trim( (string) $shift->location_lng );
+                }
+                if ( isset( $shift->location_radius_m ) && $shift->location_radius_m !== null && $shift->location_radius_m !== '' ) {
+                    $geo_radius = trim( (string) $shift->location_radius_m ); // meters
+                }
             }
         }
+        // When policy says geofence = "none", geo_lat/geo_lng/geo_radius stay empty,
+        // so the frontend won't enforce location and the user can clock in from anywhere.
     }
 
 

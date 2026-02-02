@@ -3719,7 +3719,7 @@ private function render_early_leave(): void {
     $emp_table = $wpdb->prefix . 'sfs_hr_employees';
 
     // Get filter parameters
-    $status_filter = isset($_GET['status']) ? sanitize_text_field($_GET['status']) : 'pending';
+    $status_filter = isset($_GET['status']) ? sanitize_text_field($_GET['status']) : 'all';
     $date_from = isset($_GET['date_from']) ? sanitize_text_field($_GET['date_from']) : '';
     $date_to = isset($_GET['date_to']) ? sanitize_text_field($_GET['date_to']) : '';
 
@@ -3757,10 +3757,13 @@ private function render_early_leave(): void {
 
     // Get requests with employee names
     $sql = "
-        SELECT r.*, e.full_name as employee_name, e.emp_number,
+        SELECT r.*,
+               COALESCE(NULLIF(TRIM(CONCAT(COALESCE(e.first_name,''),' ',COALESCE(e.last_name,''))),''), u.display_name, CONCAT('#',e.id)) as employee_name,
+               e.employee_code,
                reviewer.display_name as reviewer_name
         FROM {$table} r
         LEFT JOIN {$emp_table} e ON r.employee_id = e.id
+        LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
         LEFT JOIN {$wpdb->users} reviewer ON r.reviewed_by = reviewer.ID
         {$where}
         ORDER BY
@@ -3888,8 +3891,8 @@ private function render_early_leave(): void {
                                 <a href="<?php echo esc_url($profile_url_el); ?>" style="color:#2271b1;text-decoration:none;">
                                     <strong><?php echo esc_html($emp_name_el); ?></strong>
                                 </a>
-                                <?php if ($req->emp_number): ?>
-                                    <br><small class="description"><?php echo esc_html($req->emp_number); ?></small>
+                                <?php if (!empty($req->employee_code)): ?>
+                                    <br><small class="description"><?php echo esc_html($req->employee_code); ?></small>
                                 <?php endif; ?>
                             </td>
                             <td><?php echo esc_html(date_i18n(get_option('date_format'), strtotime($req->request_date))); ?></td>
