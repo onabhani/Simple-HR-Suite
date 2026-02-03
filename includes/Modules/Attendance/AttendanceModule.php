@@ -761,6 +761,7 @@ window.sfsAttI18n = window.sfsAttI18n || {
         }
 
         // No geofence configured at all → still try to log GPS silently
+        // Use lower accuracy + cached position for better reliability
         if (!cfg.enabled) {
             navigator.geolocation.getCurrentPosition(
                 pos => {
@@ -774,7 +775,7 @@ window.sfsAttI18n = window.sfsAttI18n || {
                     // GPS failed but not enforcing → allow without coords
                     onAllow && onAllow(null);
                 },
-                { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+                { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
             );
             return;
         }
@@ -943,12 +944,12 @@ setInterval(tickClock, 1000);
             }
 
             // Normal path: check geofence per punch direction. If rejected → we abort punch.
-            return new Promise((resolve, reject)=>{
+            const result = await new Promise((resolve, reject)=>{
                 window.sfsGeo.requireInside(
                     root,
                     function onAllow(coords){
                         if (!coords) {
-                            // geofence not configured → no coords, but allowed
+                            // geofence not configured or GPS failed while not enforcing
                             resolve(null);
                             return;
                         }
@@ -964,6 +965,23 @@ setInterval(tickClock, 1000);
                         reject(new Error('geo_blocked'));
                     },
                     punchType
+                );
+            });
+
+            if (result) return result;
+
+            // Fallback: requireInside returned null (GPS failed while not enforcing).
+            // Try once more with lower-accuracy (WiFi/cell) and accept cached position.
+            if (!navigator.geolocation) return null;
+            return new Promise(resolve=>{
+                navigator.geolocation.getCurrentPosition(
+                    pos=>resolve({
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude,
+                        acc: Math.round(pos.coords.accuracy || 0)
+                    }),
+                    ()=>resolve(null),
+                    {enableHighAccuracy:false, timeout:5000, maximumAge:60000}
                 );
             });
         }
@@ -2286,11 +2304,11 @@ function playErrorTone() {
           });
         }
 
-        return new Promise((resolve, reject)=>{
+        const result = await new Promise((resolve, reject)=>{
           window.sfsGeo.requireInside(
             root,
             function onAllow(coords){
-              if (!coords) { resolve(null); return; } // no geofence configured
+              if (!coords) { resolve(null); return; }
               resolve({
                 lat: coords.latitude,
                 lng: coords.longitude,
@@ -2302,6 +2320,22 @@ function playErrorTone() {
               reject(new Error('geo_blocked'));
             },
             punchType
+          );
+        });
+
+        if (result) return result;
+
+        // Fallback: try lower-accuracy GPS (WiFi/cell) with cached position
+        if (!navigator.geolocation) return null;
+        return new Promise(resolve=>{
+          navigator.geolocation.getCurrentPosition(
+            pos=>resolve({
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              acc: Math.round(pos.coords.accuracy || 0)
+            }),
+            ()=>resolve(null),
+            {enableHighAccuracy:false, timeout:5000, maximumAge:60000}
           );
         });
       }
