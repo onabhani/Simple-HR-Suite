@@ -1986,22 +1986,44 @@ class AdminPages {
                     exit;
                 }
 
-                $update_data = [
-                    'status'             => 'pending_finance',
-                    'approved_gm_by'     => get_current_user_id(),
-                    'approved_gm_at'     => current_time( 'mysql' ),
-                    'approved_gm_note'   => $approved_gm_note,
-                    'updated_at'         => current_time( 'mysql' ),
+                // Build the SET clause dynamically
+                $set_parts = [
+                    $wpdb->prepare( 'status = %s', 'pending_finance' ),
+                    $wpdb->prepare( 'approved_gm_by = %d', get_current_user_id() ),
+                    $wpdb->prepare( 'approved_gm_at = %s', current_time( 'mysql' ) ),
+                    $wpdb->prepare( 'approved_gm_note = %s', $approved_gm_note ),
+                    $wpdb->prepare( 'updated_at = %s', current_time( 'mysql' ) ),
                 ];
 
                 // If GM approved a different amount, save it and update principal
                 if ( $approved_gm_amount !== null && $approved_gm_amount > 0 ) {
-                    $update_data['approved_gm_amount'] = $approved_gm_amount;
-                    // Update principal amount to the GM approved amount
-                    $update_data['principal_amount'] = $approved_gm_amount;
+                    $set_parts[] = $wpdb->prepare( 'approved_gm_amount = %f', $approved_gm_amount );
+                    $set_parts[] = $wpdb->prepare( 'principal_amount = %f', $approved_gm_amount );
                 }
 
-                $wpdb->update( $loans_table, $update_data, [ 'id' => $loan_id ] );
+                // Atomic update: WHERE includes current status to prevent race conditions
+                $set_sql = implode( ', ', $set_parts );
+                $result = $wpdb->query( $wpdb->prepare(
+                    "UPDATE {$loans_table} SET {$set_sql} WHERE id = %d AND status = 'pending_gm'",
+                    $loan_id
+                ) );
+
+                if ( $result === false || $result === 0 ) {
+                    error_log( sprintf(
+                        '[SFS Loans] GM approval UPDATE failed for loan #%d. Result: %s, Error: %s, Query: %s',
+                        $loan_id,
+                        var_export( $result, true ),
+                        $wpdb->last_error,
+                        $wpdb->last_query
+                    ) );
+                    wp_safe_redirect( add_query_arg( [
+                        'page'   => 'sfs-hr-loans',
+                        'action' => 'view',
+                        'id'     => $loan_id,
+                        'error'  => urlencode( __( 'Failed to update loan status. Please try again.', 'sfs-hr' ) ),
+                    ], admin_url( 'admin.php' ) ) );
+                    exit;
+                }
 
                 $log_meta = [
                     'status' => 'pending_gm → pending_finance',
@@ -2053,18 +2075,47 @@ class AdminPages {
 
                 $installment_amount = round( $principal / $installments, 2 );
 
-                // Update loan
-                $wpdb->update( $loans_table, [
-                    'principal_amount'       => $principal,
-                    'installments_count'     => $installments,
-                    'installment_amount'     => $installment_amount,
-                    'remaining_balance'      => $principal,
-                    'status'                 => 'active',
-                    'approved_finance_by'    => get_current_user_id(),
-                    'approved_finance_at'    => current_time( 'mysql' ),
-                    'approved_finance_note'  => $approved_finance_note,
-                    'updated_at'             => current_time( 'mysql' ),
-                ], [ 'id' => $loan_id ] );
+                // Atomic update: WHERE includes current status to prevent race conditions
+                $result = $wpdb->query( $wpdb->prepare(
+                    "UPDATE {$loans_table}
+                     SET principal_amount = %f,
+                         installments_count = %d,
+                         installment_amount = %f,
+                         remaining_balance = %f,
+                         status = %s,
+                         approved_finance_by = %d,
+                         approved_finance_at = %s,
+                         approved_finance_note = %s,
+                         updated_at = %s
+                     WHERE id = %d AND status = 'pending_finance'",
+                    $principal,
+                    $installments,
+                    $installment_amount,
+                    $principal,
+                    'active',
+                    get_current_user_id(),
+                    current_time( 'mysql' ),
+                    $approved_finance_note,
+                    current_time( 'mysql' ),
+                    $loan_id
+                ) );
+
+                if ( $result === false || $result === 0 ) {
+                    error_log( sprintf(
+                        '[SFS Loans] Finance approval UPDATE failed for loan #%d. Result: %s, Error: %s, Query: %s',
+                        $loan_id,
+                        var_export( $result, true ),
+                        $wpdb->last_error,
+                        $wpdb->last_query
+                    ) );
+                    wp_safe_redirect( add_query_arg( [
+                        'page'   => 'sfs-hr-loans',
+                        'action' => 'view',
+                        'id'     => $loan_id,
+                        'error'  => urlencode( __( 'Failed to update loan status. Please try again.', 'sfs-hr' ) ),
+                    ], admin_url( 'admin.php' ) ) );
+                    exit;
+                }
 
                 // Generate schedule
                 $this->generate_payment_schedule( $loan_id, $first_month, $installments, $installment_amount );
@@ -2112,20 +2163,47 @@ class AdminPages {
                     wp_die( __( 'Rejection reason is required', 'sfs-hr' ) );
                 }
 
-                $wpdb->update( $loans_table, [
-                    'status'           => 'rejected',
-                    'rejected_by'      => get_current_user_id(),
-                    'rejected_at'      => current_time( 'mysql' ),
-                    'rejection_reason' => $reason,
-                    'updated_at'       => current_time( 'mysql' ),
-                ], [ 'id' => $loan_id ] );
+                $old_status = $current_loan_rej->status;
+
+                // Atomic update: WHERE includes current status to prevent race conditions
+                $result = $wpdb->query( $wpdb->prepare(
+                    "UPDATE {$loans_table}
+                     SET status = 'rejected',
+                         rejected_by = %d,
+                         rejected_at = %s,
+                         rejection_reason = %s,
+                         updated_at = %s
+                     WHERE id = %d AND status IN ('pending_gm', 'pending_finance')",
+                    get_current_user_id(),
+                    current_time( 'mysql' ),
+                    $reason,
+                    current_time( 'mysql' ),
+                    $loan_id
+                ) );
+
+                if ( $result === false || $result === 0 ) {
+                    error_log( sprintf(
+                        '[SFS Loans] Rejection UPDATE failed for loan #%d. Result: %s, Error: %s, Query: %s',
+                        $loan_id,
+                        var_export( $result, true ),
+                        $wpdb->last_error,
+                        $wpdb->last_query
+                    ) );
+                    wp_safe_redirect( add_query_arg( [
+                        'page'   => 'sfs-hr-loans',
+                        'action' => 'view',
+                        'id'     => $loan_id,
+                        'error'  => urlencode( __( 'Failed to update loan status. Please try again.', 'sfs-hr' ) ),
+                    ], admin_url( 'admin.php' ) ) );
+                    exit;
+                }
 
                 \SFS\HR\Modules\Loans\LoansModule::log_event( $loan_id, 'rejected', [
                     'reason' => $reason,
                 ] );
 
                 // Audit Trail: loan status changed to rejected
-                do_action( 'sfs_hr_loan_status_changed', $loan_id, 'pending', 'rejected' );
+                do_action( 'sfs_hr_loan_status_changed', $loan_id, $old_status, 'rejected' );
 
                 // Send notification to Employee
                 \SFS\HR\Modules\Loans\Notifications::notify_loan_rejected( $loan_id );
