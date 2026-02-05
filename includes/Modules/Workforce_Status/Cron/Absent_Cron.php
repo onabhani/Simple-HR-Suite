@@ -102,20 +102,23 @@ class Absent_Cron {
 
         // Send notifications for today
         $today = current_time( 'Y-m-d' );
-        $sent_count = Absent_Notifications::send_absent_notifications( $today );
+        $manager_sent = Absent_Notifications::send_absent_notifications( $today );
+        $employee_sent = Absent_Notifications::send_employee_absent_notifications( $today );
 
         // Log the run
         do_action( 'sfs_hr_absent_cron_completed', [
-            'date'       => $today,
-            'sent_count' => $sent_count,
-            'run_time'   => current_time( 'mysql' ),
+            'date'          => $today,
+            'sent_count'    => $manager_sent,
+            'employee_sent' => $employee_sent,
+            'run_time'      => current_time( 'mysql' ),
         ] );
 
         // Optionally log to error log for debugging
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
             error_log( sprintf(
-                '[SFS HR] Absent notifications sent: %d notifications for date %s',
-                $sent_count,
+                '[SFS HR] Absent notifications sent: %d to managers, %d to employees for date %s',
+                $manager_sent,
+                $employee_sent,
                 $today
             ) );
         }
@@ -125,14 +128,17 @@ class Absent_Cron {
      * Manually trigger notifications (for testing or admin action).
      *
      * @param string|null $date Date in Y-m-d format. Defaults to today.
-     * @return int Number of notifications sent.
+     * @return int Number of notifications sent (managers + employees).
      */
     public static function trigger_manual( ?string $date = null ): int {
         if ( ! $date ) {
             $date = current_time( 'Y-m-d' );
         }
 
-        return Absent_Notifications::send_absent_notifications( $date );
+        $manager_sent  = Absent_Notifications::send_absent_notifications( $date );
+        $employee_sent = Absent_Notifications::send_employee_absent_notifications( $date );
+
+        return $manager_sent + $employee_sent;
     }
 
     /**

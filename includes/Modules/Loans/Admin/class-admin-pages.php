@@ -1842,6 +1842,50 @@ class AdminPages {
                         </div>
                     <?php endif; ?>
                 <?php endif; ?>
+
+                <?php
+                // --- Cancellation info (if already cancelled) ---
+                if ( $loan->status === 'cancelled' ) :
+                    $cancelled_by_user = $loan->cancelled_by ? get_user_by( 'id', $loan->cancelled_by ) : null;
+                    $cancelled_by_name = $cancelled_by_user ? $cancelled_by_user->display_name : __( 'Unknown', 'sfs-hr' );
+                ?>
+                    <div class="notice notice-warning inline" style="margin:0 0 20px 0;">
+                        <h4 style="margin:0 0 10px 0;"><?php esc_html_e( 'Loan Cancelled', 'sfs-hr' ); ?></h4>
+                        <p>
+                            <strong><?php esc_html_e( 'Cancelled by:', 'sfs-hr' ); ?></strong> <?php echo esc_html( $cancelled_by_name ); ?><br>
+                            <?php if ( $loan->cancelled_at ) : ?>
+                                <strong><?php esc_html_e( 'Date:', 'sfs-hr' ); ?></strong> <?php echo esc_html( wp_date( 'F j, Y g:i a', strtotime( $loan->cancelled_at ) ) ); ?><br>
+                            <?php endif; ?>
+                            <?php if ( ! empty( $loan->cancellation_reason ) ) : ?>
+                                <strong><?php esc_html_e( 'Reason:', 'sfs-hr' ); ?></strong> <?php echo esc_html( $loan->cancellation_reason ); ?>
+                            <?php endif; ?>
+                        </p>
+                    </div>
+                <?php endif; ?>
+
+                <?php
+                // --- Cancel button for GM / Administrator (any status except completed/cancelled) ---
+                $can_cancel = ( \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm()
+                             || current_user_can( 'sfs_hr.manage' ) )
+                           && ! in_array( $loan->status, [ 'completed', 'cancelled' ], true );
+
+                if ( $can_cancel ) :
+                ?>
+                    <hr style="margin:20px 0;">
+                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
+                          onsubmit="return confirm('<?php esc_attr_e( 'Are you sure you want to cancel this loan? This action cannot be undone.', 'sfs-hr' ); ?>');">
+                        <?php wp_nonce_field( 'sfs_hr_loan_cancel_' . $loan_id ); ?>
+                        <input type="hidden" name="action" value="sfs_hr_loan_action" />
+                        <input type="hidden" name="loan_action" value="cancel_loan" />
+                        <input type="hidden" name="loan_id" value="<?php echo (int) $loan_id; ?>" />
+                        <p>
+                            <label><strong><?php esc_html_e( 'Cancellation Reason:', 'sfs-hr' ); ?></strong></label><br>
+                            <textarea name="cancellation_reason" rows="2" required style="width:400px;"
+                                      placeholder="<?php esc_attr_e( 'e.g. Test request, duplicate, employee changed their mind', 'sfs-hr' ); ?>"></textarea>
+                        </p>
+                        <button type="submit" class="button" style="color:#b32d2e;border-color:#b32d2e;"><?php esc_html_e( 'Cancel Loan', 'sfs-hr' ); ?></button>
+                    </form>
+                <?php endif; ?>
             </div>
 
             <!-- Schedule -->
@@ -1946,6 +1990,11 @@ class AdminPages {
                 // GM or Finance can reject
                 $allowed = \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm()
                         || \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_finance();
+                break;
+            case 'cancel_loan':
+                // GM or Administrator can cancel any loan
+                $allowed = \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm()
+                        || current_user_can( 'sfs_hr.manage' );
                 break;
             case 'create_loan':
             case 'update_loan':
@@ -2207,6 +2256,88 @@ class AdminPages {
 
                 // Send notification to Employee
                 \SFS\HR\Modules\Loans\Notifications::notify_loan_rejected( $loan_id );
+
+                wp_safe_redirect( add_query_arg( [ 'page' => 'sfs-hr-loans', 'action' => 'view', 'id' => $loan_id, 'updated' => '1' ], admin_url( 'admin.php' ) ) );
+                exit;
+
+            case 'cancel_loan':
+                if ( ! $loan_id ) {
+                    return;
+                }
+                check_admin_referer( 'sfs_hr_loan_cancel_' . $loan_id );
+
+                // Allow cancellation from any status except already completed or cancelled
+                $current_loan_cancel = $wpdb->get_row( $wpdb->prepare(
+                    "SELECT status, remaining_balance FROM {$loans_table} WHERE id = %d",
+                    $loan_id
+                ) );
+                if ( ! $current_loan_cancel || in_array( $current_loan_cancel->status, [ 'completed', 'cancelled' ], true ) ) {
+                    wp_safe_redirect( add_query_arg( [ 'page' => 'sfs-hr-loans', 'action' => 'view', 'id' => $loan_id ], admin_url( 'admin.php' ) ) );
+                    exit;
+                }
+
+                $cancel_reason = sanitize_textarea_field( $_POST['cancellation_reason'] ?? '' );
+
+                if ( ! $cancel_reason ) {
+                    wp_die( __( 'Cancellation reason is required.', 'sfs-hr' ) );
+                }
+
+                $old_status = $current_loan_cancel->status;
+
+                // Cancel the loan — also zero out remaining balance and mark pending payments
+                $result = $wpdb->query( $wpdb->prepare(
+                    "UPDATE {$loans_table}
+                     SET status = 'cancelled',
+                         cancelled_by = %d,
+                         cancelled_at = %s,
+                         cancellation_reason = %s,
+                         remaining_balance = 0,
+                         updated_at = %s
+                     WHERE id = %d AND status NOT IN ('completed', 'cancelled')",
+                    get_current_user_id(),
+                    current_time( 'mysql' ),
+                    $cancel_reason,
+                    current_time( 'mysql' ),
+                    $loan_id
+                ) );
+
+                if ( $result === false || $result === 0 ) {
+                    error_log( sprintf(
+                        '[SFS Loans] Cancellation UPDATE failed for loan #%d. Result: %s, Error: %s, Query: %s',
+                        $loan_id,
+                        var_export( $result, true ),
+                        $wpdb->last_error,
+                        $wpdb->last_query
+                    ) );
+                    wp_safe_redirect( add_query_arg( [
+                        'page'   => 'sfs-hr-loans',
+                        'action' => 'view',
+                        'id'     => $loan_id,
+                        'error'  => urlencode( __( 'Failed to cancel loan. Please try again.', 'sfs-hr' ) ),
+                    ], admin_url( 'admin.php' ) ) );
+                    exit;
+                }
+
+                // Cancel any remaining planned payments
+                $payments_table = $wpdb->prefix . 'sfs_hr_loan_payments';
+                $wpdb->query( $wpdb->prepare(
+                    "UPDATE {$payments_table}
+                     SET status = 'skipped', updated_at = %s
+                     WHERE loan_id = %d AND status = 'planned'",
+                    current_time( 'mysql' ),
+                    $loan_id
+                ) );
+
+                \SFS\HR\Modules\Loans\LoansModule::log_event( $loan_id, 'loan_cancelled', [
+                    'reason'     => $cancel_reason,
+                    'old_status' => $old_status,
+                    'balance'    => $current_loan_cancel->remaining_balance,
+                ] );
+
+                do_action( 'sfs_hr_loan_status_changed', $loan_id, $old_status, 'cancelled' );
+
+                // Notify employee
+                \SFS\HR\Modules\Loans\Notifications::notify_loan_cancelled( $loan_id );
 
                 wp_safe_redirect( add_query_arg( [ 'page' => 'sfs-hr-loans', 'action' => 'view', 'id' => $loan_id, 'updated' => '1' ], admin_url( 'admin.php' ) ) );
                 exit;
