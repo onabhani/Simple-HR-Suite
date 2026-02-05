@@ -1593,6 +1593,12 @@ class AdminPages {
                 </div>
             <?php endif; ?>
 
+            <?php if ( isset( $_GET['error'] ) ) : ?>
+                <div class="notice notice-error is-dismissible">
+                    <p><?php echo esc_html( urldecode( $_GET['error'] ) ); ?></p>
+                </div>
+            <?php endif; ?>
+
             <style>
                 .sfs-loan-detail-grid {
                     display: flex;

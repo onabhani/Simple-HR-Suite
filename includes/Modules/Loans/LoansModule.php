@@ -43,6 +43,9 @@ class LoansModule {
 
             // Handle manual table installation
             add_action( 'admin_post_sfs_hr_install_loans_tables', [ __CLASS__, 'install_tables_action' ] );
+
+            // Auto-upgrade DB schema when code is updated without reactivation
+            add_action( 'admin_init', [ __CLASS__, 'maybe_upgrade_db' ] );
         }
 
         // Activation hook for DB and roles
@@ -102,6 +105,38 @@ class LoansModule {
             $redirect_url
         ) );
         exit;
+    }
+
+    /**
+     * Auto-upgrade DB schema when code is updated without plugin reactivation.
+     * Uses a version option so each migration only runs once.
+     */
+    public static function maybe_upgrade_db(): void {
+        $current_db_version = get_option( 'sfs_hr_loans_db_version', '1.0' );
+
+        if ( version_compare( $current_db_version, '1.1', '>=' ) ) {
+            return;
+        }
+
+        global $wpdb;
+        $loans_table = $wpdb->prefix . 'sfs_hr_loans';
+
+        // Ensure the table exists before trying to alter it
+        $table_exists = $wpdb->get_var( "SHOW TABLES LIKE '{$loans_table}'" ) === $loans_table;
+        if ( ! $table_exists ) {
+            return;
+        }
+
+        // v1.1: Add cancellation_reason column for loan cancellation feature
+        $col = $wpdb->get_results( "SHOW COLUMNS FROM {$loans_table} LIKE 'cancellation_reason'" );
+        if ( empty( $col ) ) {
+            $wpdb->query(
+                "ALTER TABLE {$loans_table}
+                ADD COLUMN cancellation_reason text DEFAULT NULL AFTER cancelled_at"
+            );
+        }
+
+        update_option( 'sfs_hr_loans_db_version', '1.1' );
     }
 
     /**
@@ -257,6 +292,9 @@ class LoansModule {
         dbDelta( $sql_loans );
         dbDelta( $sql_payments );
         dbDelta( $sql_history );
+
+        // Mark DB version so auto-upgrade doesn't re-run
+        update_option( 'sfs_hr_loans_db_version', '1.1' );
 
         // Also register roles on activation
         self::register_roles_and_caps();
