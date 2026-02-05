@@ -165,6 +165,17 @@ class LoansModule {
                     ADD COLUMN approved_finance_note text DEFAULT NULL AFTER approved_finance_at"
                 );
             }
+
+            // Add cancellation_reason column if it doesn't exist
+            $cancel_reason_exists = $wpdb->get_results(
+                "SHOW COLUMNS FROM {$loans_table} LIKE 'cancellation_reason'"
+            );
+            if ( empty( $cancel_reason_exists ) ) {
+                $wpdb->query(
+                    "ALTER TABLE {$loans_table}
+                    ADD COLUMN cancellation_reason text DEFAULT NULL AFTER cancelled_at"
+                );
+            }
         }
 
         // 1. Loans table
@@ -197,6 +208,7 @@ class LoansModule {
             rejection_reason text DEFAULT NULL,
             cancelled_by bigint(20) UNSIGNED DEFAULT NULL,
             cancelled_at datetime DEFAULT NULL,
+            cancellation_reason text DEFAULT NULL,
             created_at datetime NOT NULL,
             updated_at datetime NOT NULL,
             PRIMARY KEY (id),

@@ -246,6 +246,55 @@ class Notifications {
     }
 
     /**
+     * Send notification when loan is cancelled by GM or Administrator.
+     *
+     * @param int $loan_id Loan ID
+     */
+    public static function notify_loan_cancelled( int $loan_id ): void {
+        $settings = LoansModule::get_settings();
+
+        if ( ! ( $settings['enable_notifications'] ?? true ) ) {
+            return;
+        }
+
+        $loan = self::get_loan_data( $loan_id );
+        if ( ! $loan ) {
+            return;
+        }
+
+        // Get employee user
+        $employee_user = $loan->user_id ? get_userdata( $loan->user_id ) : null;
+        if ( ! $employee_user || ! $employee_user->user_email ) {
+            return;
+        }
+
+        // Get who cancelled
+        $cancelled_by_user = $loan->cancelled_by ? get_userdata( $loan->cancelled_by ) : null;
+        $cancelled_by_name = $cancelled_by_user ? $cancelled_by_user->display_name : __( 'Management', 'sfs-hr' );
+
+        $subject = sprintf(
+            /* translators: %s: Loan number */
+            __( '[Loan Request] Your loan %s has been cancelled', 'sfs-hr' ),
+            $loan->loan_number
+        );
+
+        $message = self::get_email_template( 'cancelled_to_employee', [
+            'employee_name'       => $loan->employee_name,
+            'loan_number'         => $loan->loan_number,
+            'amount'              => number_format( (float) $loan->principal_amount, 2 ),
+            'currency'            => $loan->currency,
+            'cancellation_reason' => $loan->cancellation_reason ?: __( 'Not specified', 'sfs-hr' ),
+            'cancelled_by'        => $cancelled_by_name,
+            'cancelled_date'      => $loan->cancelled_at ? wp_date( 'F j, Y', strtotime( $loan->cancelled_at ) ) : '',
+        ] );
+
+        self::send_notification( $employee_user->ID, $employee_user->user_email, $subject, $message, 'loan_cancelled' );
+
+        // Also notify HR of cancellation
+        self::notify_hr_loan_event( $loan, 'cancelled', $loan_id );
+    }
+
+    /**
      * Send notification when installment is skipped
      *
      * @param int $loan_id Loan ID
@@ -362,6 +411,26 @@ class Notifications {
                     number_format( (float) $loan->principal_amount, 2 ),
                     $loan->currency,
                     $loan->rejection_reason ?: __( 'Not specified', 'sfs-hr' ),
+                    $loan_url
+                );
+                break;
+
+            case 'cancelled':
+                $cancelled_by_user = $loan->cancelled_by ? get_userdata( $loan->cancelled_by ) : null;
+                $cancelled_by_name = $cancelled_by_user ? $cancelled_by_user->display_name : __( 'Unknown', 'sfs-hr' );
+                $subject = sprintf(
+                    __( '[HR Notice] Loan %s has been cancelled', 'sfs-hr' ),
+                    $loan->loan_number
+                );
+                $message = sprintf(
+                    __( "A loan has been cancelled.\n\nLoan Number: %s\nEmployee: %s (%s)\nAmount: %s %s\nCancelled By: %s\nReason: %s\n\nView details: %s", 'sfs-hr' ),
+                    $loan->loan_number,
+                    $loan->employee_name,
+                    $loan->employee_code,
+                    number_format( (float) $loan->principal_amount, 2 ),
+                    $loan->currency,
+                    $cancelled_by_name,
+                    $loan->cancellation_reason ?: __( 'Not specified', 'sfs-hr' ),
                     $loan_url
                 );
                 break;
@@ -506,6 +575,28 @@ Reason for Decline:
 {rejection_reason}
 
 If you have any questions or would like to discuss this further, please contact the HR department.
+
+---
+{site_name}
+HR Management System
+",
+
+            'cancelled_to_employee' => "
+Hello {employee_name},
+
+This is to inform you that your loan request has been cancelled.
+
+Loan Details:
+--------------
+Loan Number: {loan_number}
+Amount: {amount} {currency}
+Cancelled By: {cancelled_by}
+Cancelled Date: {cancelled_date}
+
+Reason for Cancellation:
+{cancellation_reason}
+
+If you have any questions, please contact the HR department.
 
 ---
 {site_name}
