@@ -25,6 +25,7 @@ class Performance_Cron {
     const CRON_ALERTS = 'sfs_hr_performance_alerts_check';
     const CRON_SNAPSHOTS = 'sfs_hr_performance_snapshots';
     const CRON_REPORTS = 'sfs_hr_performance_monthly_reports';
+    const CRON_WEEKLY_DIGEST = 'sfs_hr_performance_weekly_digest';
 
     /**
      * Register hooks.
@@ -34,6 +35,7 @@ class Performance_Cron {
         add_action( self::CRON_ALERTS, [ $this, 'run_alert_checks' ] );
         add_action( self::CRON_SNAPSHOTS, [ $this, 'run_snapshot_generation' ] );
         add_action( self::CRON_REPORTS, [ $this, 'run_monthly_reports' ] );
+        add_action( self::CRON_WEEKLY_DIGEST, [ $this, 'run_weekly_digest' ] );
     }
 
     /**
@@ -58,12 +60,24 @@ class Performance_Cron {
             wp_schedule_event( $timestamp, 'monthly', self::CRON_REPORTS );
         }
 
-        // Register monthly interval if not exists
+        // Weekly performance digest every Sunday at 8 AM
+        if ( ! wp_next_scheduled( self::CRON_WEEKLY_DIGEST ) ) {
+            $timestamp = $this->get_next_sunday_timestamp();
+            wp_schedule_event( $timestamp, 'weekly', self::CRON_WEEKLY_DIGEST );
+        }
+
+        // Register custom intervals if not already present
         add_filter( 'cron_schedules', function( $schedules ) {
             if ( ! isset( $schedules['monthly'] ) ) {
                 $schedules['monthly'] = [
                     'interval' => 30 * DAY_IN_SECONDS,
                     'display'  => __( 'Monthly', 'sfs-hr' ),
+                ];
+            }
+            if ( ! isset( $schedules['weekly'] ) ) {
+                $schedules['weekly'] = [
+                    'interval' => 7 * DAY_IN_SECONDS,
+                    'display'  => __( 'Weekly', 'sfs-hr' ),
                 ];
             }
             return $schedules;
@@ -204,6 +218,193 @@ class Performance_Cron {
     }
 
     /**
+     * Get timestamp for next Sunday at 8 AM.
+     */
+    private function get_next_sunday_timestamp(): int {
+        $tz  = wp_timezone();
+        $now = new \DateTimeImmutable( 'now', $tz );
+
+        $target = $now->modify( 'next Sunday' )->setTime( 8, 0 );
+
+        return $target->getTimestamp();
+    }
+
+    /**
+     * Run weekly performance digest for HR/admin and department managers.
+     *
+     * Replaces per-alert emails with a single consolidated report using the same
+     * table format as the monthly GM report. Covers the current performance
+     * period (26th of previous month through today).
+     */
+    public function run_weekly_digest(): void {
+        global $wpdb;
+
+        $settings = PerformanceModule::get_settings();
+
+        if ( ! $settings['enabled'] ) {
+            return;
+        }
+
+        $emp_t  = $wpdb->prefix . 'sfs_hr_employees';
+        $dept_t = $wpdb->prefix . 'sfs_hr_departments';
+
+        // Current performance period: 26th of previous month → today
+        $tz  = wp_timezone();
+        $now = new \DateTimeImmutable( 'now', $tz );
+
+        $day_of_month = (int) $now->format( 'd' );
+        if ( $day_of_month >= 26 ) {
+            // We're past the 26th, so current period started this month
+            $start_date = $now->format( 'Y-m' ) . '-26';
+        } else {
+            // Before the 26th, period started last month
+            $start_date = $now->modify( 'first day of last month' )->format( 'Y-m' ) . '-26';
+        }
+        $end_date = $now->format( 'Y-m-d' );
+
+        $period_label = wp_date( 'M j', strtotime( $start_date ) ) . ' – ' . wp_date( 'M j, Y', strtotime( $end_date ) );
+
+        // Collect all active employees with metrics
+        $employees = $wpdb->get_results(
+            "SELECT e.id, e.employee_code, e.first_name, e.last_name, e.dept_id, e.user_id,
+                    u.user_email, d.name AS dept_name
+             FROM {$emp_t} e
+             LEFT JOIN {$wpdb->users} u ON u.ID = e.user_id
+             LEFT JOIN {$dept_t} d ON d.id = e.dept_id
+             WHERE e.status = 'active'
+             ORDER BY d.name, e.first_name"
+        );
+
+        if ( empty( $employees ) ) {
+            return;
+        }
+
+        $all_data = [];
+        $by_dept  = [];
+
+        foreach ( $employees as $emp ) {
+            $metrics = Attendance_Metrics::get_employee_metrics( (int) $emp->id, $start_date, $end_date );
+            $entry = [
+                'employee_id'   => (int) $emp->id,
+                'employee_code' => $emp->employee_code,
+                'name'          => trim( $emp->first_name . ' ' . $emp->last_name ),
+                'dept_name'     => $emp->dept_name ?: __( 'General', 'sfs-hr' ),
+                'dept_id'       => (int) $emp->dept_id,
+                'commitment'    => $metrics['commitment_pct'] ?? 0,
+                'late'          => $metrics['late_count'] ?? 0,
+                'early'         => $metrics['early_leave_count'] ?? 0,
+                'absent'        => $metrics['days_absent'] ?? 0,
+                'incomplete'    => $metrics['incomplete_count'] ?? 0,
+                'break_delay'   => $metrics['break_delay_count'] ?? 0,
+                'no_break'      => $metrics['no_break_taken_count'] ?? 0,
+                'working_days'  => $metrics['total_working_days'] ?? 0,
+                'present'       => $metrics['days_present'] ?? 0,
+            ];
+            $all_data[] = $entry;
+            $by_dept[ (int) $emp->dept_id ][] = $entry;
+        }
+
+        // --- Active alerts summary ---
+        $alerts_table = $wpdb->prefix . 'sfs_hr_performance_alerts';
+        $active_alerts = $wpdb->get_results(
+            "SELECT a.alert_type, a.severity, a.title,
+                    CONCAT( e.first_name, ' ', e.last_name ) AS employee_name,
+                    e.employee_code
+             FROM {$alerts_table} a
+             JOIN {$emp_t} e ON e.id = a.employee_id
+             WHERE a.status = 'active'
+             ORDER BY
+                CASE a.severity WHEN 'critical' THEN 1 WHEN 'warning' THEN 2 ELSE 3 END,
+                a.created_at DESC"
+        );
+
+        $alerts_section = '';
+        if ( ! empty( $active_alerts ) ) {
+            $alerts_section .= "\n\n" . __( 'Active Alerts', 'sfs-hr' ) . "\n";
+            $alerts_section .= str_repeat( '=', 40 ) . "\n";
+            $alerts_section .= sprintf( __( 'Total active alerts: %d', 'sfs-hr' ), count( $active_alerts ) ) . "\n\n";
+
+            foreach ( $active_alerts as $a ) {
+                $severity_tag = strtoupper( $a->severity );
+                $alerts_section .= sprintf(
+                    "[%s] %s (%s) – %s\n",
+                    $severity_tag,
+                    $a->employee_name,
+                    $a->employee_code,
+                    $a->title
+                );
+            }
+        }
+
+        $subject = sprintf( __( '[Weekly Performance Digest] %s', 'sfs-hr' ), $period_label );
+
+        // --- Send to GM ---
+        $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+        $gm_email   = '';
+        if ( $gm_user_id > 0 ) {
+            $gm_user = get_user_by( 'id', $gm_user_id );
+            if ( $gm_user && $gm_user->user_email ) {
+                $gm_email = $gm_user->user_email;
+                $body = $this->build_report_table( $all_data, $period_label, __( 'Weekly Performance Digest', 'sfs-hr' ) )
+                       . $alerts_section;
+                Helpers::send_mail( $gm_email, $subject, $body );
+            }
+        }
+
+        // --- Send to HR ---
+        $notif_settings = Notifications::get_settings();
+        $hr_emails      = $notif_settings['hr_emails'] ?? [];
+        if ( ! empty( $hr_emails ) ) {
+            $hr_body = $this->build_report_table( $all_data, $period_label, __( 'Weekly Performance Digest', 'sfs-hr' ) )
+                     . $alerts_section;
+            foreach ( $hr_emails as $hr_email ) {
+                if ( is_email( $hr_email ) && $hr_email !== $gm_email ) {
+                    Helpers::send_mail( $hr_email, $subject, $hr_body );
+                }
+            }
+        }
+
+        // --- Send to each department manager (their dept only) ---
+        $departments = $wpdb->get_results(
+            "SELECT id, name, manager_user_id FROM {$dept_t} WHERE active = 1 AND manager_user_id IS NOT NULL"
+        );
+
+        foreach ( $departments as $dept ) {
+            $mgr_uid = (int) $dept->manager_user_id;
+            if ( $mgr_uid <= 0 || empty( $by_dept[ (int) $dept->id ] ) ) {
+                continue;
+            }
+            $mgr_user = get_user_by( 'id', $mgr_uid );
+            if ( ! $mgr_user || ! $mgr_user->user_email ) {
+                continue;
+            }
+            // Skip if already received the full report as GM or HR
+            if ( $mgr_user->user_email === $gm_email || in_array( $mgr_user->user_email, $hr_emails, true ) ) {
+                continue;
+            }
+            $title = sprintf( __( 'Weekly Performance Digest – %s', 'sfs-hr' ), $dept->name );
+            $body  = $this->build_report_table( $by_dept[ (int) $dept->id ], $period_label, $title );
+            Helpers::send_mail(
+                $mgr_user->user_email,
+                sprintf( __( '[Weekly Performance Digest] %s – %s', 'sfs-hr' ), $dept->name, $period_label ),
+                $body
+            );
+        }
+
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            error_log( sprintf(
+                '[SFS HR Performance] Weekly digest sent: %d employees, %d active alerts, period %s to %s',
+                count( $all_data ),
+                count( $active_alerts ),
+                $start_date,
+                $end_date
+            ) );
+        }
+
+        do_action( 'sfs_hr_performance_weekly_digest_sent', count( $all_data ), $start_date, $end_date );
+    }
+
+    /**
      * Run monthly performance reports (triggered on the 26th).
      *
      * Sends:
@@ -322,39 +523,60 @@ class Performance_Cron {
         }
 
         // --- C) Send to each employee ---
+        $excellent_threshold = (float) ( $settings['attendance_thresholds']['excellent'] ?? 95 );
+        $good_threshold      = (float) ( $settings['attendance_thresholds']['good'] ?? 85 );
+
         foreach ( $all_data as $entry ) {
             if ( empty( $entry['email'] ) ) {
                 continue;
             }
-            $is_excellent = $entry['commitment'] >= 95;
 
-            if ( $is_excellent ) {
+            $commitment = (float) $entry['commitment'];
+
+            // Build the metrics block (shared across all tiers)
+            $metrics_block = sprintf( __( "Period: %s\n", 'sfs-hr' ), $period_label )
+                           . sprintf( __( "Commitment: %.1f%%\n", 'sfs-hr' ), $commitment )
+                           . sprintf( __( "Working Days: %d\n", 'sfs-hr' ), $entry['working_days'] )
+                           . sprintf( __( "Days Present: %d\n", 'sfs-hr' ), $entry['present'] )
+                           . sprintf( __( "Days Absent: %d\n", 'sfs-hr' ), $entry['absent'] )
+                           . sprintf( __( "Late Arrivals: %d\n", 'sfs-hr' ), $entry['late'] )
+                           . sprintf( __( "Early Leaves: %d\n", 'sfs-hr' ), $entry['early'] )
+                           . sprintf( __( "Incomplete Days: %d\n", 'sfs-hr' ), $entry['incomplete'] )
+                           . sprintf( __( "Break Delays: %d\n", 'sfs-hr' ), $entry['break_delay'] )
+                           . sprintf( __( "No Break Taken: %d\n", 'sfs-hr' ), $entry['no_break'] );
+
+            if ( $commitment >= $excellent_threshold ) {
+                // --- Excellent performers: thank-you email ---
                 $subject = sprintf( __( 'Great Job! Your Performance Report – %s', 'sfs-hr' ), $period_label );
                 $greeting = sprintf(
-                    __( "Dear %s,\n\nThank you for your outstanding commitment! Your attendance commitment for this period is %.1f%%, which is excellent. Keep up the great work.\n", 'sfs-hr' ),
+                    __( "Dear %s,\n\nThank you for your outstanding commitment this period! Your attendance commitment is %.1f%%, which is excellent.\n\nYour dedication and discipline set a great example for the team. Keep up the fantastic work — we truly appreciate your efforts.\n", 'sfs-hr' ),
                     $entry['name'],
-                    $entry['commitment']
+                    $commitment
                 );
-            } else {
+            } elseif ( $commitment >= $good_threshold ) {
+                // --- Good performers: positive encouragement ---
                 $subject = sprintf( __( 'Your Performance Report – %s', 'sfs-hr' ), $period_label );
                 $greeting = sprintf(
-                    __( "Dear %s,\n\nPlease find below your attendance commitment report for the period.\n", 'sfs-hr' ),
-                    $entry['name']
+                    __( "Dear %s,\n\nThank you for your good commitment this period — your attendance commitment is %.1f%%.\n\nYou are very close to achieving an excellent rating! A small improvement in the areas below can help you reach the top. We believe you can do it.\n", 'sfs-hr' ),
+                    $entry['name'],
+                    $commitment
                 );
+                $greeting .= self::build_improvement_hints( $entry );
+            } else {
+                // --- Needs improvement: encouraging + specific guidance ---
+                $subject = sprintf( __( 'Your Performance Report – %s', 'sfs-hr' ), $period_label );
+                $greeting = sprintf(
+                    __( "Dear %s,\n\nPlease find below your attendance commitment report for this period. Your commitment is %.1f%%.\n\nWe would like to encourage you to focus on improving the following areas. Every day counts, and consistent attendance has a direct positive impact on your performance record and career growth.\n", 'sfs-hr' ),
+                    $entry['name'],
+                    $commitment
+                );
+                $greeting .= self::build_improvement_hints( $entry );
+                $greeting .= __( "\nIf you are facing any challenges, please don't hesitate to reach out to your manager or HR. We are here to support you.\n", 'sfs-hr' );
             }
 
             $body = $greeting . "\n"
-                  . sprintf( __( "Period: %s\n", 'sfs-hr' ), $period_label )
-                  . sprintf( __( "Commitment: %.1f%%\n", 'sfs-hr' ), $entry['commitment'] )
-                  . sprintf( __( "Working Days: %d\n", 'sfs-hr' ), $entry['working_days'] )
-                  . sprintf( __( "Days Present: %d\n", 'sfs-hr' ), $entry['present'] )
-                  . sprintf( __( "Days Absent: %d\n", 'sfs-hr' ), $entry['absent'] )
-                  . sprintf( __( "Late Arrivals: %d\n", 'sfs-hr' ), $entry['late'] )
-                  . sprintf( __( "Early Leaves: %d\n", 'sfs-hr' ), $entry['early'] )
-                  . sprintf( __( "Incomplete Days: %d\n", 'sfs-hr' ), $entry['incomplete'] )
-                  . sprintf( __( "Break Delays: %d\n", 'sfs-hr' ), $entry['break_delay'] )
-                  . sprintf( __( "No Break Taken: %d\n", 'sfs-hr' ), $entry['no_break'] )
-                  . "\n---\n" . get_bloginfo( 'name' ) . "\nHR Management System\n";
+                  . $metrics_block
+                  . "\n---\n" . get_bloginfo( 'name' ) . "\n" . __( 'HR Management System', 'sfs-hr' ) . "\n";
 
             Helpers::send_mail( $entry['email'], $subject, $body );
         }
@@ -426,6 +648,69 @@ class Performance_Cron {
     }
 
     /**
+     * Build specific improvement hints based on the employee's metrics.
+     *
+     * @param array $entry Employee metrics entry.
+     * @return string Bullet-point hints for areas that need improvement.
+     */
+    private static function build_improvement_hints( array $entry ): string {
+        $hints = [];
+
+        if ( ( $entry['absent'] ?? 0 ) > 0 ) {
+            $hints[] = sprintf(
+                __( 'Absences (%d days): Please ensure regular attendance. If you need to take a day off, submit a leave request in advance.', 'sfs-hr' ),
+                $entry['absent']
+            );
+        }
+
+        if ( ( $entry['late'] ?? 0 ) > 0 ) {
+            $hints[] = sprintf(
+                __( 'Late arrivals (%d times): Try to arrive on time for your scheduled shift. Punctuality directly impacts your commitment score.', 'sfs-hr' ),
+                $entry['late']
+            );
+        }
+
+        if ( ( $entry['early'] ?? 0 ) > 0 ) {
+            $hints[] = sprintf(
+                __( 'Early leaves (%d times): Please complete your full shift hours before leaving.', 'sfs-hr' ),
+                $entry['early']
+            );
+        }
+
+        if ( ( $entry['incomplete'] ?? 0 ) > 0 ) {
+            $hints[] = sprintf(
+                __( 'Incomplete days (%d): Ensure you clock both in and out to avoid incomplete records.', 'sfs-hr' ),
+                $entry['incomplete']
+            );
+        }
+
+        if ( ( $entry['break_delay'] ?? 0 ) > 0 ) {
+            $hints[] = sprintf(
+                __( 'Break delays (%d times): Please return from breaks on time.', 'sfs-hr' ),
+                $entry['break_delay']
+            );
+        }
+
+        if ( ( $entry['no_break'] ?? 0 ) > 0 ) {
+            $hints[] = sprintf(
+                __( 'Missed breaks (%d times): Remember to record your break — unrecorded breaks are automatically deducted.', 'sfs-hr' ),
+                $entry['no_break']
+            );
+        }
+
+        if ( empty( $hints ) ) {
+            return '';
+        }
+
+        $output = "\n" . __( 'Areas for improvement:', 'sfs-hr' ) . "\n";
+        foreach ( $hints as $hint ) {
+            $output .= '  • ' . $hint . "\n";
+        }
+
+        return $output;
+    }
+
+    /**
      * Manually trigger alert checks.
      *
      * @return int Number of alerts created
@@ -479,9 +764,10 @@ class Performance_Cron {
      * @return array
      */
     public static function get_status(): array {
-        $alerts_next = wp_next_scheduled( self::CRON_ALERTS );
+        $alerts_next    = wp_next_scheduled( self::CRON_ALERTS );
         $snapshots_next = wp_next_scheduled( self::CRON_SNAPSHOTS );
-        $reports_next = wp_next_scheduled( self::CRON_REPORTS );
+        $reports_next   = wp_next_scheduled( self::CRON_REPORTS );
+        $digest_next    = wp_next_scheduled( self::CRON_WEEKLY_DIGEST );
 
         return [
             'alerts' => [
@@ -495,6 +781,10 @@ class Performance_Cron {
             'reports' => [
                 'scheduled' => (bool) $reports_next,
                 'next_run'  => $reports_next ? wp_date( 'Y-m-d H:i:s', $reports_next ) : null,
+            ],
+            'weekly_digest' => [
+                'scheduled' => (bool) $digest_next,
+                'next_run'  => $digest_next ? wp_date( 'Y-m-d H:i:s', $digest_next ) : null,
             ],
         ];
     }

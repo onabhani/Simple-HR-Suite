@@ -409,6 +409,10 @@ class Alerts_Service {
     /**
      * Send notifications for an alert.
      *
+     * HR/admin and department-manager emails are NO LONGER sent per-alert.
+     * Instead, a weekly performance digest is sent (see Performance_Cron).
+     * Only the employee is notified immediately (if enabled in settings).
+     *
      * @param int $alert_id
      */
     public static function send_alert_notifications( int $alert_id ): void {
@@ -420,60 +424,28 @@ class Alerts_Service {
             return;
         }
 
+        // Only send immediate notification to the employee themselves (if enabled).
+        // HR/admin and managers now receive a consolidated weekly digest instead.
+        if ( empty( $settings['alerts']['notify_employee'] ) ) {
+            return;
+        }
+
         $table = $wpdb->prefix . 'sfs_hr_performance_alerts';
         $employees_table = $wpdb->prefix . 'sfs_hr_employees';
-        $dept_table = $wpdb->prefix . 'sfs_hr_departments';
 
         $alert = $wpdb->get_row( $wpdb->prepare(
-            "SELECT a.*, e.first_name, e.last_name, e.email, e.dept_id,
-                    d.manager_user_id, d.name as dept_name
+            "SELECT a.*, e.first_name, e.last_name, e.email
              FROM {$table} a
              JOIN {$employees_table} e ON e.id = a.employee_id
-             LEFT JOIN {$dept_table} d ON d.id = e.dept_id
              WHERE a.id = %d",
             $alert_id
         ) );
 
-        if ( ! $alert ) {
+        if ( ! $alert || empty( $alert->email ) ) {
             return;
         }
 
-        $recipients = [];
-
-        // Notify manager
-        if ( $settings['alerts']['notify_manager'] && $alert->manager_user_id ) {
-            $manager = get_user_by( 'ID', $alert->manager_user_id );
-            if ( $manager && $manager->user_email ) {
-                $recipients[] = $manager->user_email;
-            }
-        }
-
-        // Notify HR
-        if ( $settings['alerts']['notify_hr'] ) {
-            $hr_users = get_users( [
-                'role__in'   => [ 'administrator', 'sfs_hr_manager' ],
-                'capability' => 'sfs_hr.manage',
-            ] );
-            foreach ( $hr_users as $user ) {
-                if ( $user->user_email && ! in_array( $user->user_email, $recipients, true ) ) {
-                    $recipients[] = $user->user_email;
-                }
-            }
-        }
-
-        // Notify employee
-        if ( $settings['alerts']['notify_employee'] && $alert->email ) {
-            if ( ! in_array( $alert->email, $recipients, true ) ) {
-                $recipients[] = $alert->email;
-            }
-        }
-
-        if ( empty( $recipients ) ) {
-            return;
-        }
-
-        // Build email
-        $employee_name = trim( $alert->first_name . ' ' . $alert->last_name );
+        $employee_name  = trim( $alert->first_name . ' ' . $alert->last_name );
         $severity_label = __( ucfirst( $alert->severity ), 'sfs-hr' );
 
         $subject = sprintf(
@@ -484,13 +456,10 @@ class Alerts_Service {
 
         $message = self::build_alert_email( $alert, $employee_name );
 
-        // Send emails
-        foreach ( $recipients as $email ) {
-            if ( class_exists( 'SFS\\HR\\Core\\Helpers' ) && method_exists( Helpers::class, 'send_mail' ) ) {
-                Helpers::send_mail( $email, $subject, $message );
-            } else {
-                wp_mail( $email, $subject, $message, [ 'Content-Type: text/html; charset=UTF-8' ] );
-            }
+        if ( class_exists( 'SFS\\HR\\Core\\Helpers' ) && method_exists( Helpers::class, 'send_mail' ) ) {
+            Helpers::send_mail( $alert->email, $subject, $message );
+        } else {
+            wp_mail( $alert->email, $subject, $message, [ 'Content-Type: text/html; charset=UTF-8' ] );
         }
     }
 
