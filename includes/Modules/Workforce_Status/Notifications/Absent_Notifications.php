@@ -31,8 +31,11 @@ class Absent_Notifications {
         // Get all active employees with their departments
         $employees = $wpdb->get_results( $wpdb->prepare(
             "SELECT e.id, e.employee_code, e.first_name, e.last_name, e.email, e.dept_id,
+                    e.user_id, e.phone,
+                    COALESCE( u.user_email, e.email ) AS wp_email,
                     d.name as dept_name, d.manager_user_id
              FROM {$emp_table} e
+             LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
              LEFT JOIN {$dept_table} d ON e.dept_id = d.id
              WHERE e.status = 'active'
                AND e.dept_id IS NOT NULL
@@ -121,6 +124,9 @@ class Absent_Notifications {
                 'employee_code' => $emp['employee_code'],
                 'name'          => trim( $emp['first_name'] . ' ' . $emp['last_name'] ),
                 'email'         => $emp['email'],
+                'wp_email'      => $emp['wp_email'] ?? $emp['email'],
+                'user_id'       => (int) ( $emp['user_id'] ?? 0 ),
+                'phone'         => $emp['phone'] ?? '',
             ];
         }
 
@@ -338,15 +344,153 @@ class Absent_Notifications {
     }
 
     /**
+     * Send absent notifications directly to the absent employees.
+     *
+     * Informs each absent employee that they were marked absent and reminds them
+     * that they can submit a sick leave request within 3 days (with a supporting
+     * medical document) to clear the absence.
+     *
+     * @param string $date Date in Y-m-d format.
+     * @return int Number of employee notifications sent.
+     */
+    public static function send_employee_absent_notifications( string $date ): int {
+        $settings = self::get_settings();
+
+        if ( ! ( $settings['notify_employees'] ?? true ) ) {
+            return 0;
+        }
+
+        $absent_by_dept = self::get_absent_employees_by_department( $date );
+
+        if ( empty( $absent_by_dept ) ) {
+            return 0;
+        }
+
+        $sent_count     = 0;
+        $formatted_date = wp_date( 'l, F j, Y', strtotime( $date ) );
+        $leave_url      = home_url( '/my-profile/?tab=leave' );
+        $site_name      = get_bloginfo( 'name' );
+
+        foreach ( $absent_by_dept as $dept ) {
+            foreach ( $dept['employees'] as $emp ) {
+                $email = $emp['wp_email'] ?? $emp['email'] ?? '';
+                if ( ! $email || ! is_email( $email ) ) {
+                    continue;
+                }
+
+                $subject = sprintf(
+                    /* translators: 1: date */
+                    __( '[Absence Notice] You were marked absent on %s', 'sfs-hr' ),
+                    $formatted_date
+                );
+
+                $message = self::build_employee_absent_message( $emp, $date, $formatted_date, $leave_url, $site_name );
+
+                Helpers::send_mail( $email, $subject, $message );
+                $sent_count++;
+
+                do_action( 'sfs_hr_employee_absent_notification_sent', [
+                    'employee_id' => $emp['id'],
+                    'email'       => $email,
+                    'date'        => $date,
+                ] );
+            }
+        }
+
+        return $sent_count;
+    }
+
+    /**
+     * Build the notification email sent to an absent employee.
+     *
+     * @param array  $emp            Employee data.
+     * @param string $date           Date in Y-m-d format.
+     * @param string $formatted_date Human-readable date.
+     * @param string $leave_url      URL to the leave-request page.
+     * @param string $site_name      Site name.
+     * @return string HTML email content.
+     */
+    private static function build_employee_absent_message( array $emp, string $date, string $formatted_date, string $leave_url, string $site_name ): string {
+        $deadline = wp_date( 'l, F j, Y', strtotime( $date . ' +3 days' ) );
+
+        ob_start();
+        ?>
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #1d2327; border-bottom: 1px solid #ddd; padding-bottom: 10px;">
+                <?php esc_html_e( 'Absence Notice', 'sfs-hr' ); ?>
+            </h2>
+
+            <p style="color: #50575e; font-size: 14px;">
+                <?php
+                printf(
+                    /* translators: 1: employee name */
+                    esc_html__( 'Dear %s,', 'sfs-hr' ),
+                    esc_html( $emp['name'] )
+                );
+                ?>
+            </p>
+
+            <p style="color: #50575e; font-size: 14px;">
+                <?php
+                printf(
+                    /* translators: 1: date */
+                    esc_html__( 'Our records indicate that you were absent on %s. No clock-in was recorded for your scheduled shift and no approved leave was found for that date.', 'sfs-hr' ),
+                    '<strong>' . esc_html( $formatted_date ) . '</strong>'
+                );
+                ?>
+            </p>
+
+            <div style="background: #fef8ee; border-left: 4px solid #dba617; padding: 14px 18px; margin: 20px 0; border-radius: 3px;">
+                <p style="color: #50575e; font-size: 14px; margin: 0 0 8px 0;">
+                    <strong><?php esc_html_e( 'Important: You may still clear this absence', 'sfs-hr' ); ?></strong>
+                </p>
+                <p style="color: #50575e; font-size: 14px; margin: 0;">
+                    <?php
+                    printf(
+                        /* translators: 1: deadline date */
+                        esc_html__( 'If you were sick, you can submit a Sick Leave request for this date before %s (within 3 days of the absence). You must attach a supporting medical document. Once your sick leave is approved, the absence will be removed from your record.', 'sfs-hr' ),
+                        '<strong>' . esc_html( $deadline ) . '</strong>'
+                    );
+                    ?>
+                </p>
+            </div>
+
+            <p style="margin-top: 20px;">
+                <a href="<?php echo esc_url( $leave_url ); ?>"
+                   style="display: inline-block; background: #2271b1; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 3px;">
+                    <?php esc_html_e( 'Submit Leave Request', 'sfs-hr' ); ?>
+                </a>
+            </p>
+
+            <p style="color: #50575e; font-size: 13px; margin-top: 20px;">
+                <?php esc_html_e( 'If you believe this is an error, please contact your department manager or HR.', 'sfs-hr' ); ?>
+            </p>
+
+            <p style="color: #787c82; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+                <?php
+                printf(
+                    /* translators: 1: site name */
+                    esc_html__( 'This is an automated notification from %s HR System.', 'sfs-hr' ),
+                    esc_html( $site_name )
+                );
+                ?>
+            </p>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
+
+    /**
      * Get notification settings.
      *
      * @return array Settings array.
      */
     public static function get_settings(): array {
         $defaults = [
-            'enabled'       => true,
-            'send_time'     => '20:00', // 8 PM default
-            'min_employees' => 0,       // Send even for 1 absent employee
+            'enabled'          => true,
+            'send_time'        => '20:00', // 8 PM default
+            'min_employees'    => 0,       // Send even for 1 absent employee
+            'notify_employees' => true,    // Also notify the absent employees themselves
         ];
 
         $settings = get_option( 'sfs_hr_absent_notification_settings', [] );
