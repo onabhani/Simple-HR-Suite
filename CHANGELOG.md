@@ -2,6 +2,18 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.3.1] — 2026-02-10
+
+### Fixed
+- Policies table no longer requires horizontal scrolling (fixed-layout columns)
+- Early leave filter form page slug corrected (was breaking after date filter)
+- REST URL escaping fixed in early leave review script
+- Auto-rejected requests now display reason in status and reviewed-by columns
+
+### Changed
+- Auto-reject cron note updated to "no action was taken within 3 days"
+- Reviewed-by column shows "System" with reason for auto-rejected requests
+
 ## [0.3.0] — 2026-02-10
 
 ### Fixed

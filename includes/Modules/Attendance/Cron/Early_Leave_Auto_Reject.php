@@ -64,7 +64,7 @@ class Early_Leave_Auto_Reject {
                  updated_at   = %s
              WHERE id IN ({$placeholders})",
             array_merge(
-                [ $now, __( 'Auto-rejected: no action taken within 72 hours.', 'sfs-hr' ), $now ],
+                [ $now, __( 'Auto-rejected: no action was taken within 3 days.', 'sfs-hr' ), $now ],
                 $ids
             )
         ) );

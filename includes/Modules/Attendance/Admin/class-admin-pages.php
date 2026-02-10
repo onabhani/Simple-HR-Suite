@@ -3873,7 +3873,7 @@ private function render_early_leave(): void {
 
         <!-- Date Range Filter -->
         <form method="get" class="early-leave-filters" style="margin: 15px 0; padding: 10px; background: #f9f9f9; border: 1px solid #e5e5e5;">
-            <input type="hidden" name="page" value="sfs-hr-attendance" />
+            <input type="hidden" name="page" value="sfs_hr_attendance" />
             <input type="hidden" name="tab" value="early_leave" />
             <input type="hidden" name="status" value="<?php echo esc_attr($status_filter); ?>" />
 
@@ -4017,12 +4017,15 @@ private function render_early_leave(): void {
                                     'rejected' => '#d9534f',
                                     'cancelled' => '#777',
                                 ];
+                                $is_auto_rejected = ( $req->status === 'rejected' && empty( $req->reviewed_by ) && ! empty( $req->manager_note ) );
                                 ?>
                                 <span>
                                     <span class="<?php echo esc_attr($status_class); ?>" style="color: <?php echo esc_attr($status_colors[$req->status] ?? '#333'); ?>; font-weight: 600;">
                                         <?php echo esc_html($status_labels[$req->status] ?? $req->status); ?>
                                     </span>
-                                    <?php if ($req->reviewed_at): ?>
+                                    <?php if ($is_auto_rejected): ?>
+                                        <br><small class="description" style="color: #d9534f;"><?php echo esc_html($req->manager_note); ?></small>
+                                    <?php elseif ($req->reviewed_at): ?>
                                         <br><small class="description"><?php echo esc_html(date_i18n('M j, H:i', strtotime($req->reviewed_at))); ?></small>
                                     <?php endif; ?>
                                 </span>
@@ -4036,6 +4039,13 @@ private function render_early_leave(): void {
                                                 "<?php echo esc_html(wp_trim_words($req->manager_note, 5)); ?>"
                                             </small>
                                         <?php endif; ?>
+                                    </span>
+                                <?php elseif ($req->manager_note): ?>
+                                    <span>
+                                        <em><?php esc_html_e('System', 'sfs-hr'); ?></em>
+                                        <br><small class="description" title="<?php echo esc_attr($req->manager_note); ?>">
+                                            <?php echo esc_html(wp_trim_words($req->manager_note, 8)); ?>
+                                        </small>
                                     </span>
                                 <?php else: ?>
                                     —
@@ -4151,7 +4161,7 @@ private function render_early_leave(): void {
             $btn.prop('disabled', true).text('<?php echo esc_js(__('Processing...', 'sfs-hr')); ?>');
 
             $.ajax({
-                url: '<?php echo esc_url(rest_url('sfs-hr/v1/early-leave/review/')); ?>' + id,
+                url: '<?php echo esc_js(rest_url('sfs-hr/v1/early-leave/review/')); ?>' + id,
                 method: 'POST',
                 beforeSend: function(xhr) {
                     xhr.setRequestHeader('X-WP-Nonce', '<?php echo wp_create_nonce('wp_rest'); ?>');
@@ -4318,9 +4328,30 @@ private function render_policies(): void {
         flex: 1;
         min-width: 0;
     }
-    .sfs-hr-policies-list .table-scroll {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
+    .sfs-hr-policies-list .wp-list-table {
+        table-layout: fixed;
+        width: 100%;
+    }
+    .sfs-hr-policies-list .wp-list-table th,
+    .sfs-hr-policies-list .wp-list-table td {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        font-size: 13px;
+        padding: 8px 6px;
+    }
+    .sfs-hr-policies-list .wp-list-table .col-name { width: 18%; }
+    .sfs-hr-policies-list .wp-list-table .col-cin  { width: 11%; }
+    .sfs-hr-policies-list .wp-list-table .col-cout { width: 11%; }
+    .sfs-hr-policies-list .wp-list-table .col-geo  { width: 13%; }
+    .sfs-hr-policies-list .wp-list-table .col-mode { width: 14%; }
+    .sfs-hr-policies-list .wp-list-table .col-roles{ width: 17%; }
+    .sfs-hr-policies-list .wp-list-table .col-act  { width: 5%; text-align: center; }
+    .sfs-hr-policies-list .wp-list-table .col-actions { width: 11%; }
+    .sfs-hr-policies-list .wp-list-table .col-actions .button-small {
+        padding: 0 6px;
+        min-height: 28px;
+        line-height: 26px;
+        font-size: 12px;
     }
     @media screen and (max-width: 1024px) {
         .sfs-hr-policies-wrap {
@@ -4351,10 +4382,6 @@ private function render_policies(): void {
         .sfs-hr-policies-form .form-table select[multiple] {
             width: 100%;
             min-width: unset;
-        }
-        .sfs-hr-policies-list .wp-list-table th,
-        .sfs-hr-policies-list .wp-list-table td {
-            white-space: nowrap;
         }
         .sfs-hr-policies-list .wp-list-table .button-small {
             min-height: 36px;
@@ -4483,18 +4510,17 @@ private function render_policies(): void {
             <?php if ( empty( $policies ) ) : ?>
                 <p><?php esc_html_e( 'No attendance policies created yet. Employees without a policy will use the default attendance behaviour.', 'sfs-hr' ); ?></p>
             <?php else : ?>
-                <div class="table-scroll">
                 <table class="wp-list-table widefat striped">
                     <thead>
                         <tr>
-                            <th><?php esc_html_e( 'Name', 'sfs-hr' ); ?></th>
-                            <th><?php esc_html_e( 'Clock-in', 'sfs-hr' ); ?></th>
-                            <th><?php esc_html_e( 'Clock-out', 'sfs-hr' ); ?></th>
-                            <th><?php esc_html_e( 'Geofence (In/Out)', 'sfs-hr' ); ?></th>
-                            <th><?php esc_html_e( 'Mode', 'sfs-hr' ); ?></th>
-                            <th><?php esc_html_e( 'Roles', 'sfs-hr' ); ?></th>
-                            <th><?php esc_html_e( 'Active', 'sfs-hr' ); ?></th>
-                            <th><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
+                            <th class="col-name"><?php esc_html_e( 'Name', 'sfs-hr' ); ?></th>
+                            <th class="col-cin"><?php esc_html_e( 'Clock-in', 'sfs-hr' ); ?></th>
+                            <th class="col-cout"><?php esc_html_e( 'Clock-out', 'sfs-hr' ); ?></th>
+                            <th class="col-geo"><?php esc_html_e( 'Geofence (In/Out)', 'sfs-hr' ); ?></th>
+                            <th class="col-mode"><?php esc_html_e( 'Mode', 'sfs-hr' ); ?></th>
+                            <th class="col-roles"><?php esc_html_e( 'Roles', 'sfs-hr' ); ?></th>
+                            <th class="col-act"><?php esc_html_e( 'Active', 'sfs-hr' ); ?></th>
+                            <th class="col-actions"><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -4543,7 +4569,6 @@ private function render_policies(): void {
                         <?php endforeach; ?>
                     </tbody>
                 </table>
-                </div>
             <?php endif; ?>
         </div>
     </div>
