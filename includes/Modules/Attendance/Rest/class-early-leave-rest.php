@@ -47,7 +47,9 @@ class Early_Leave_Rest {
         register_rest_route( $ns, '/early-leave/review/(?P<id>\d+)', [
             'methods'             => 'POST',
             'callback'            => [ self::class, 'review_request' ],
-            'permission_callback' => fn() => current_user_can( 'sfs_hr_attendance_edit_team' ) || current_user_can( 'sfs_hr.leave.review' ),
+            'permission_callback' => fn() => current_user_can( 'sfs_hr_attendance_admin' )
+                || current_user_can( 'sfs_hr_loans_gm_approve' )
+                || current_user_can( 'sfs_hr.leave.review' ),
         ] );
 
         // Admin endpoints
@@ -303,8 +305,9 @@ class Early_Leave_Rest {
             return new \WP_Error( 'already_reviewed', __( 'Request has already been reviewed.', 'sfs-hr' ), [ 'status' => 400 ] );
         }
 
-        // Check permission: must be admin or the assigned manager
-        if ( ! current_user_can( 'sfs_hr_attendance_admin' ) && (int) $request->manager_id !== $user_id ) {
+        // Check permission: must be admin, GM, or the assigned department manager
+        $is_admin_or_gm = current_user_can( 'sfs_hr_attendance_admin' ) || current_user_can( 'sfs_hr_loans_gm_approve' );
+        if ( ! $is_admin_or_gm && (int) $request->manager_id !== $user_id ) {
             return new \WP_Error( 'forbidden', __( 'You are not authorized to review this request.', 'sfs-hr' ), [ 'status' => 403 ] );
         }
 

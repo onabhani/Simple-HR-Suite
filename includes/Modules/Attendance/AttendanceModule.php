@@ -59,6 +59,9 @@ add_action('rest_api_init', function () {
 
 
         add_shortcode('sfs_hr_attendance_widget', [ $this, 'shortcode_widget' ]);
+
+        // Auto-reject early leave requests after 72 hours of no action
+        ( new \SFS\HR\Modules\Attendance\Cron\Early_Leave_Auto_Reject() )->hooks();
     }
 
     /**
