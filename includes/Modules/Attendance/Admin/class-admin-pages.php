@@ -4123,10 +4123,69 @@ private function render_policies(): void {
     // Gather all WP roles for the role selector
     $wp_roles = wp_roles()->get_names();
     ?>
-    <div class="sfs-hr-policies-wrap" style="display:flex; gap:30px; margin-top:20px;">
+    <style>
+    .sfs-hr-policies-wrap {
+        display: flex;
+        gap: 30px;
+        margin-top: 20px;
+    }
+    .sfs-hr-policies-form {
+        flex: 0 0 420px;
+    }
+    .sfs-hr-policies-list {
+        flex: 1;
+        min-width: 0;
+    }
+    .sfs-hr-policies-list .table-scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    @media screen and (max-width: 1024px) {
+        .sfs-hr-policies-wrap {
+            flex-direction: column;
+            gap: 20px;
+        }
+        .sfs-hr-policies-form {
+            flex: none;
+            width: 100%;
+        }
+    }
+    @media screen and (max-width: 782px) {
+        .sfs-hr-policies-form .form-table th,
+        .sfs-hr-policies-form .form-table td {
+            display: block;
+            width: 100%;
+            padding-left: 0;
+            padding-right: 0;
+        }
+        .sfs-hr-policies-form .form-table th {
+            padding-bottom: 4px;
+        }
+        .sfs-hr-policies-form .form-table input.regular-text,
+        .sfs-hr-policies-form .form-table select {
+            width: 100%;
+            max-width: 100%;
+        }
+        .sfs-hr-policies-form .form-table select[multiple] {
+            width: 100%;
+            min-width: unset;
+        }
+        .sfs-hr-policies-list .wp-list-table th,
+        .sfs-hr-policies-list .wp-list-table td {
+            white-space: nowrap;
+        }
+        .sfs-hr-policies-list .wp-list-table .button-small {
+            min-height: 36px;
+            line-height: 34px;
+            padding: 0 10px;
+        }
+    }
+    </style>
+
+    <div class="sfs-hr-policies-wrap">
 
         <!-- LEFT: Policy Form -->
-        <div style="flex:0 0 420px;">
+        <div class="sfs-hr-policies-form">
             <div class="postbox" style="padding:16px;">
                 <h3 style="margin-top:0;">
                     <?php echo $editing ? esc_html__( 'Edit Policy', 'sfs-hr' ) : esc_html__( 'Add New Policy', 'sfs-hr' ); ?>
@@ -4210,7 +4269,7 @@ private function render_policies(): void {
                         <tr>
                             <th><?php esc_html_e( 'Assign to Roles', 'sfs-hr' ); ?></th>
                             <td>
-                                <select name="roles[]" multiple size="8" style="min-width:250px;">
+                                <select name="roles[]" multiple size="8" style="min-width:200px; max-width:100%;">
                                     <?php foreach ( $wp_roles as $slug => $label ) : ?>
                                         <option value="<?php echo esc_attr( $slug ); ?>" <?php selected( $editing && in_array( $slug, $editing->roles ?? [] ) ); ?>>
                                             <?php echo esc_html( $label ); ?>
@@ -4238,10 +4297,11 @@ private function render_policies(): void {
         </div>
 
         <!-- RIGHT: Policies List -->
-        <div style="flex:1;">
+        <div class="sfs-hr-policies-list">
             <?php if ( empty( $policies ) ) : ?>
                 <p><?php esc_html_e( 'No attendance policies created yet. Employees without a policy will use the default attendance behaviour.', 'sfs-hr' ); ?></p>
             <?php else : ?>
+                <div class="table-scroll">
                 <table class="wp-list-table widefat striped">
                     <thead>
                         <tr>
@@ -4301,6 +4361,7 @@ private function render_policies(): void {
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+                </div>
             <?php endif; ?>
         </div>
     </div>
