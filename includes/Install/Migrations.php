@@ -768,4 +768,58 @@ class Migrations {
             }
         }
     }
+
+    /**
+     * One-time cleanup: remove false auto-created early leave requests.
+     *
+     * Bug: The system created bogus early leave requests for:
+     *   1) Employees who left ON TIME or AFTER shift end ("left 0 minutes before shift end")
+     *   2) Total-hours policy employees where the irrelevant shift end time was used
+     *      (e.g., "left 292 minutes before shift end" when their policy is 8-hour duty)
+     *
+     * This runs once per installation via the option flag below.
+     */
+    public static function cleanup_false_early_leave_requests(): void {
+        $flag = 'sfs_hr_cleaned_false_early_leaves';
+        if ( get_option( $flag ) ) {
+            return; // already ran
+        }
+
+        global $wpdb;
+        $el_table  = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+        $pol_table = $wpdb->prefix . 'sfs_hr_attendance_policies';
+        $pr_table  = $wpdb->prefix . 'sfs_hr_attendance_policy_roles';
+        $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+
+        // 1) Delete "left 0 minutes" — employee was on time or late, not early
+        $deleted_zero = (int) $wpdb->query(
+            "DELETE FROM `{$el_table}`
+             WHERE reason_note LIKE 'Auto-created: employee left 0 minutes%'
+               AND status = 'pending'"
+        );
+
+        // 2) Delete auto-created requests for total-hours policy employees where
+        //    the shift end time was wrongly used. These are identifiable by:
+        //    - Auto-created reason note ("Auto-created: employee left%")
+        //    - Employee is on a total_hours policy
+        //    - Status is still pending (approved ones are left untouched)
+        $deleted_th = (int) $wpdb->query(
+            "DELETE el FROM `{$el_table}` el
+             INNER JOIN `{$emp_table}` e ON e.id = el.employee_id
+             INNER JOIN `{$wpdb->usermeta}` um ON um.user_id = e.user_id AND um.meta_key = '{$wpdb->prefix}capabilities'
+             INNER JOIN `{$pr_table}` pr ON LOCATE(pr.role_slug, um.meta_value) > 0
+             INNER JOIN `{$pol_table}` p ON p.id = pr.policy_id AND p.calculation_mode = 'total_hours' AND p.active = 1
+             WHERE el.reason_note LIKE 'Auto-created: employee left%'
+               AND el.status = 'pending'"
+        );
+
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            error_log( sprintf(
+                '[SFS HR] Early leave cleanup: removed %d zero-minute + %d total-hours false requests.',
+                $deleted_zero, $deleted_th
+            ) );
+        }
+
+        update_option( $flag, '1' );
+    }
 }

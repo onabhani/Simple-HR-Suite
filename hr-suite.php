@@ -224,6 +224,9 @@ add_action('admin_init', function(){
         update_option('sfs_hr_db_ver', SFS_HR_VER);
     }
 
+    // One-time cleanup: remove false early leave requests created by pre-fix code
+    \SFS\HR\Install\Migrations::cleanup_false_early_leave_requests();
+
     // Self-heal Hiring tables if missing
     if (!$table_exists($candidates_table) || !$table_exists($trainees_table)) {
         \SFS\HR\Modules\Hiring\HiringModule::install();
