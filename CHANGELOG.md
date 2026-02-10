@@ -2,6 +2,14 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.3.4] — 2026-02-10
+
+### Fixed
+- Duplicate leave requests: self-service handler now checks for overlapping pending/approved requests
+  before inserting (matching the validation already present in the shortcode handler)
+- Leave error/success flash messages now display on both admin My Profile and frontend leave tabs
+  (previously redirect query params were set but never read/displayed)
+
 ## [0.3.3] — 2026-02-10
 
 ### Fixed
