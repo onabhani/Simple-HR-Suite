@@ -441,6 +441,7 @@ class Resignation_List {
         <script>
         var sfsResignationAjaxNonce = '<?php echo wp_create_nonce('sfs_hr_resignation_ajax'); ?>';
         var ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
+        function sfsEsc(s){if(typeof s!=='string')return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
         function showResignationDetails(id) {
             var tr = document.querySelector('tr[data-id="'+id+'"]');
@@ -449,14 +450,14 @@ class Resignation_List {
             var actions = document.getElementById('sfs-hr-resignation-modal-actions');
 
             // Show basic info from data attributes first
-            body.innerHTML = '<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Reference #', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value"><strong>'+(tr.dataset.ref||'-')+'</strong></span></div>'
-                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Employee', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.employee+'</span></div>'
-                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Code', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.code+'</span></div>'
+            body.innerHTML = '<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Reference #', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value"><strong>'+sfsEsc(tr.dataset.ref||'-')+'</strong></span></div>'
+                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Employee', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+sfsEsc(tr.dataset.employee)+'</span></div>'
+                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Code', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+sfsEsc(tr.dataset.code)+'</span></div>'
                 +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Type', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+(tr.dataset.type==='final_exit'?'<?php esc_html_e('Final Exit', 'sfs-hr'); ?>':'<?php esc_html_e('Regular', 'sfs-hr'); ?>')+'</span></div>'
-                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Date', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.date+'</span></div>'
-                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Last Working Day', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.lwd+'</span></div>'
-                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Status', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.status+'</span></div>'
-                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Reason', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+tr.dataset.reason+'</span></div>'
+                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Date', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+sfsEsc(tr.dataset.date)+'</span></div>'
+                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Last Working Day', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+sfsEsc(tr.dataset.lwd)+'</span></div>'
+                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Status', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+sfsEsc(tr.dataset.status)+'</span></div>'
+                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Reason', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+sfsEsc(tr.dataset.reason)+'</span></div>'
                 +'<div id="sfs-hr-resignation-history" style="margin-top:15px;"><p style="color:#999;font-size:12px;"><?php esc_html_e('Loading history...', 'sfs-hr'); ?></p></div>';
 
             var btns = '';
@@ -486,15 +487,15 @@ class Resignation_List {
                     html += '<div style="max-height:200px;overflow-y:auto;">';
                     result.data.history.forEach(function(event) {
                         html += '<div style="border-bottom:1px solid #f0f0f1;padding:8px 0;font-size:12px;">';
-                        html += '<div style="color:#666;font-size:11px;">'+event.date+'</div>';
-                        html += '<div style="font-weight:600;">'+event.event_type+'</div>';
-                        html += '<div style="color:#555;">'+event.user_name+'</div>';
+                        html += '<div style="color:#666;font-size:11px;">'+sfsEsc(event.date)+'</div>';
+                        html += '<div style="font-weight:600;">'+sfsEsc(event.event_type)+'</div>';
+                        html += '<div style="color:#555;">'+sfsEsc(event.user_name)+'</div>';
                         if(event.meta && Object.keys(event.meta).length > 0) {
                             html += '<div style="background:#f9f9f9;padding:4px 6px;margin-top:4px;border-radius:3px;font-size:11px;">';
                             for(var key in event.meta) {
                                 if(event.meta[key] !== null && event.meta[key] !== '') {
                                     var label = key.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
-                                    html += '<strong>'+label+':</strong> '+event.meta[key]+'<br>';
+                                    html += '<strong>'+sfsEsc(label)+':</strong> '+sfsEsc(String(event.meta[key]))+'<br>';
                                 }
                             }
                             html += '</div>';

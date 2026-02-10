@@ -570,9 +570,17 @@ class AuditTrail {
         $sql = "SELECT * FROM {$table} {$where_sql} ORDER BY created_at DESC LIMIT %d OFFSET %d";
         $logs = $wpdb->get_results( $wpdb->prepare( $sql, ...$args ) );
 
-        // Get distinct entity types and actions for filters
-        $entity_types = $wpdb->get_col( "SELECT DISTINCT entity_type FROM {$table} ORDER BY entity_type" );
-        $actions = $wpdb->get_col( "SELECT DISTINCT action FROM {$table} ORDER BY action" );
+        // Get distinct entity types and actions for filters (cached 5 min)
+        $entity_types = wp_cache_get( 'sfs_hr_audit_entity_types' );
+        if ( false === $entity_types ) {
+            $entity_types = $wpdb->get_col( "SELECT DISTINCT entity_type FROM {$table} ORDER BY entity_type" );
+            wp_cache_set( 'sfs_hr_audit_entity_types', $entity_types, '', 300 );
+        }
+        $actions = wp_cache_get( 'sfs_hr_audit_actions' );
+        if ( false === $actions ) {
+            $actions = $wpdb->get_col( "SELECT DISTINCT action FROM {$table} ORDER BY action" );
+            wp_cache_set( 'sfs_hr_audit_actions', $actions, '', 300 );
+        }
 
         $action_labels = [
             'create'                   => __( 'Created', 'sfs-hr' ),

@@ -305,6 +305,7 @@ class AdminPages {
         </div>
 
         <script>
+        function sfsEsc(s){if(typeof s!=='string')return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
         (function() {
             var modal = document.getElementById('sfs-hr-loan-modal');
             var modalBody = document.getElementById('sfs-hr-loan-modal-body');
@@ -329,17 +330,17 @@ class AdminPages {
                 };
 
                 var html = '';
-                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Loan #', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + data.number + '</span></div>';
-                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Employee', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + data.employee + '</span></div>';
-                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Employee Code', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + data.code + '</span></div>';
-                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Principal', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + data.principal + ' ' + data.currency + '</span></div>';
-                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Remaining', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + data.remaining + ' ' + data.currency + '</span></div>';
-                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Installments', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + data.installments + ' × ' + data.installmentAmount + '</span></div>';
-                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Status', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + (statusLabels[data.status] || data.status) + '</span></div>';
-                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'First Due', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + (data.firstDue || '—') + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Loan #', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + sfsEsc(data.number) + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Employee', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + sfsEsc(data.employee) + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Employee Code', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + sfsEsc(data.code) + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Principal', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + sfsEsc(data.principal) + ' ' + sfsEsc(data.currency) + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Remaining', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + sfsEsc(data.remaining) + ' ' + sfsEsc(data.currency) + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Installments', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + sfsEsc(data.installments) + ' × ' + sfsEsc(data.installmentAmount) + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Status', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + (statusLabels[data.status] || sfsEsc(data.status)) + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'First Due', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + sfsEsc(data.firstDue || '—') + '</span></div>';
 
                 modalBody.innerHTML = html;
-                modalActions.innerHTML = '<a href="?page=sfs-hr-loans&action=view&id=' + data.id + '" class="button button-primary" style="width:100%;text-align:center;"><?php echo esc_js( __( 'View Full Details', 'sfs-hr' ) ); ?></a>';
+                modalActions.innerHTML = '<a href="?page=sfs-hr-loans&action=view&id=' + sfsEsc(data.id) + '" class="button button-primary" style="width:100%;text-align:center;"><?php echo esc_js( __( 'View Full Details', 'sfs-hr' ) ); ?></a>';
 
                 modal.classList.add('active');
                 document.body.style.overflow = 'hidden';
@@ -1136,28 +1137,28 @@ class AdminPages {
                 };
 
                 var html = '';
-                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Employee', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + currentInstData.employee + '</span></div>';
-                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Employee Code', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + currentInstData.code + '</span></div>';
-                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Loan #', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + currentInstData.loan + '</span></div>';
-                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Installment', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">#' + currentInstData.sequence + '</span></div>';
-                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Due Date', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + currentInstData.due + '</span></div>';
-                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Amount Planned', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + currentInstData.planned + ' ' + currentInstData.currency + '</span></div>';
-                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Amount Paid', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + currentInstData.paid + ' ' + currentInstData.currency + '</span></div>';
-                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Status', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + (statusLabels[currentInstData.status] || currentInstData.status) + '</span></div>';
-                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Remaining Loan', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + currentInstData.remaining + ' ' + currentInstData.currency + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Employee', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + sfsEsc(currentInstData.employee) + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Employee Code', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + sfsEsc(currentInstData.code) + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Loan #', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + sfsEsc(currentInstData.loan) + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Installment', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">#' + sfsEsc(currentInstData.sequence) + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Due Date', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + sfsEsc(currentInstData.due) + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Amount Planned', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + sfsEsc(currentInstData.planned) + ' ' + sfsEsc(currentInstData.currency) + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Amount Paid', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + sfsEsc(currentInstData.paid) + ' ' + sfsEsc(currentInstData.currency) + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Status', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + (statusLabels[currentInstData.status] || sfsEsc(currentInstData.status)) + '</span></div>';
+                html += '<div class="sfs-hr-loan-modal-row"><span class="sfs-hr-loan-modal-label"><?php echo esc_js( __( 'Remaining Loan', 'sfs-hr' ) ); ?></span><span class="sfs-hr-loan-modal-value">' + sfsEsc(currentInstData.remaining) + ' ' + sfsEsc(currentInstData.currency) + '</span></div>';
 
                 modalBody.innerHTML = html;
 
                 // Actions based on status
                 if (currentInstData.status === 'planned' || currentInstData.status === 'partial') {
                     var actionsHtml = '';
-                    actionsHtml += '<form method="post" action="" style="flex:1;"><input type="hidden" name="_wpnonce" value="' + currentInstData.nonce + '" /><input type="hidden" name="action" value="mark_installment_paid" /><input type="hidden" name="payment_id" value="' + currentInstData.id + '" /><input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" /><button type="submit" class="button button-primary" style="width:100%;"><?php echo esc_js( __( 'Mark Paid', 'sfs-hr' ) ); ?></button></form>';
+                    actionsHtml += '<form method="post" action="" style="flex:1;"><input type="hidden" name="_wpnonce" value="' + sfsEsc(currentInstData.nonce) + '" /><input type="hidden" name="action" value="mark_installment_paid" /><input type="hidden" name="payment_id" value="' + sfsEsc(currentInstData.id) + '" /><input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" /><button type="submit" class="button button-primary" style="width:100%;"><?php echo esc_js( __( 'Mark Paid', 'sfs-hr' ) ); ?></button></form>';
                     actionsHtml += '<button type="button" class="button" style="flex:1;" onclick="showModalPartial();"><?php echo esc_js( __( 'Partial', 'sfs-hr' ) ); ?></button>';
-                    actionsHtml += '<form method="post" action="" style="flex:1;" onsubmit="return confirm(\'<?php echo esc_js( __( 'Skip this payment?', 'sfs-hr' ) ); ?>\');"><input type="hidden" name="_wpnonce" value="' + currentInstData.nonce + '" /><input type="hidden" name="action" value="mark_installment_skipped" /><input type="hidden" name="payment_id" value="' + currentInstData.id + '" /><input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" /><button type="submit" class="button" style="width:100%;"><?php echo esc_js( __( 'Skip', 'sfs-hr' ) ); ?></button></form>';
+                    actionsHtml += '<form method="post" action="" style="flex:1;" onsubmit="return confirm(\'<?php echo esc_js( __( 'Skip this payment?', 'sfs-hr' ) ); ?>\');"><input type="hidden" name="_wpnonce" value="' + sfsEsc(currentInstData.nonce) + '" /><input type="hidden" name="action" value="mark_installment_skipped" /><input type="hidden" name="payment_id" value="' + sfsEsc(currentInstData.id) + '" /><input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" /><button type="submit" class="button" style="width:100%;"><?php echo esc_js( __( 'Skip', 'sfs-hr' ) ); ?></button></form>';
                     modalActions.innerHTML = actionsHtml;
                     modalActions.style.display = 'flex';
                 } else {
-                    modalActions.innerHTML = '<a href="?page=sfs-hr-loans&action=view&id=' + currentInstData.loanId + '" class="button button-primary" style="width:100%;text-align:center;"><?php echo esc_js( __( 'View Loan Details', 'sfs-hr' ) ); ?></a>';
+                    modalActions.innerHTML = '<a href="?page=sfs-hr-loans&action=view&id=' + sfsEsc(currentInstData.loanId) + '" class="button button-primary" style="width:100%;text-align:center;"><?php echo esc_js( __( 'View Loan Details', 'sfs-hr' ) ); ?></a>';
                     modalActions.style.display = 'block';
                 }
 

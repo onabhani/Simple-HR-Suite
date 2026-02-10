@@ -2,6 +2,18 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.3.3] — 2026-02-10
+
+### Fixed
+- XSS: escape all dynamic values in innerHTML across Resignation, Leave, and Loans modules
+  (added sfsEsc() HTML entity encoder for dataset/AJAX values injected into modal markup)
+- Settlement service: replaced NOT IN subquery with LEFT JOIN + IS NULL for better query performance
+
+### Added
+- Automated performance index creation in migration (employees, punches, sessions, shifts,
+  audit trail, early leave, loans, loan payments — 20+ indexes added idempotently)
+- Object cache (5 min TTL) for audit trail DISTINCT entity_type/action filter queries
+
 ## [0.3.2] — 2026-02-10
 
 ### Fixed
