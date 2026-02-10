@@ -2,6 +2,30 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.3.2] — 2026-02-10
+
+### Fixed
+- Email button layout artifact (dark square) in absence notification emails
+- send_mail() now skips wpautop() for pre-formatted HTML content
+
+### Changed
+- Weekly performance digest email redesigned from plain text to styled HTML table
+  with color-coded commitment percentages and severity-badged alerts section
+- All performance report emails (weekly + monthly) now use the HTML format
+- Email buttons use single-line markup to prevent wpautop interference
+
+## [0.3.1] — 2026-02-10
+
+### Fixed
+- Policies table no longer requires horizontal scrolling (fixed-layout columns)
+- Early leave filter form page slug corrected (was breaking after date filter)
+- REST URL escaping fixed in early leave review script
+- Auto-rejected requests now display reason in status and reviewed-by columns
+
+### Changed
+- Auto-reject cron note updated to "no action was taken within 3 days"
+- Reviewed-by column shows "System" with reason for auto-rejected requests
+
 ## [0.3.0] — 2026-02-10
 
 ### Fixed

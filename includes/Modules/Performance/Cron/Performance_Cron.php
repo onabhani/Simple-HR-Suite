@@ -318,24 +318,6 @@ class Performance_Cron {
                 a.created_at DESC"
         );
 
-        $alerts_section = '';
-        if ( ! empty( $active_alerts ) ) {
-            $alerts_section .= "\n\n" . __( 'Active Alerts', 'sfs-hr' ) . "\n";
-            $alerts_section .= str_repeat( '=', 40 ) . "\n";
-            $alerts_section .= sprintf( __( 'Total active alerts: %d', 'sfs-hr' ), count( $active_alerts ) ) . "\n\n";
-
-            foreach ( $active_alerts as $a ) {
-                $severity_tag = strtoupper( $a->severity );
-                $alerts_section .= sprintf(
-                    "[%s] %s (%s) – %s\n",
-                    $severity_tag,
-                    $a->employee_name,
-                    $a->employee_code,
-                    $a->title
-                );
-            }
-        }
-
         $subject = sprintf( __( '[Weekly Performance Digest] %s', 'sfs-hr' ), $period_label );
 
         // --- Send to GM ---
@@ -345,8 +327,7 @@ class Performance_Cron {
             $gm_user = get_user_by( 'id', $gm_user_id );
             if ( $gm_user && $gm_user->user_email ) {
                 $gm_email = $gm_user->user_email;
-                $body = $this->build_report_table( $all_data, $period_label, __( 'Weekly Performance Digest', 'sfs-hr' ) )
-                       . $alerts_section;
+                $body = $this->build_report_table( $all_data, $period_label, __( 'Weekly Performance Digest', 'sfs-hr' ), $active_alerts );
                 Helpers::send_mail( $gm_email, $subject, $body );
             }
         }
@@ -355,8 +336,7 @@ class Performance_Cron {
         $notif_settings = Notifications::get_settings();
         $hr_emails      = $notif_settings['hr_emails'] ?? [];
         if ( ! empty( $hr_emails ) ) {
-            $hr_body = $this->build_report_table( $all_data, $period_label, __( 'Weekly Performance Digest', 'sfs-hr' ) )
-                     . $alerts_section;
+            $hr_body = $this->build_report_table( $all_data, $period_label, __( 'Weekly Performance Digest', 'sfs-hr' ), $active_alerts );
             foreach ( $hr_emails as $hr_email ) {
                 if ( is_email( $hr_email ) && $hr_email !== $gm_email ) {
                     Helpers::send_mail( $hr_email, $subject, $hr_body );
@@ -596,55 +576,94 @@ class Performance_Cron {
     /**
      * Build a plain-text table for the performance report email.
      */
-    private function build_report_table( array $data, string $period_label, string $title ): string {
+    private function build_report_table( array $data, string $period_label, string $title, array $alerts = [] ): string {
         $site_name = get_bloginfo( 'name' );
-
-        $lines   = [];
-        $lines[] = $title;
-        $lines[] = str_repeat( '=', strlen( $title ) );
-        $lines[] = sprintf( __( 'Period: %s', 'sfs-hr' ), $period_label );
-        $lines[] = sprintf( __( 'Total employees: %d', 'sfs-hr' ), count( $data ) );
-        $lines[] = '';
-        $lines[] = sprintf(
-            '%-6s  %-25s  %-15s  %10s  %5s  %5s  %6s  %6s  %6s  %7s',
-            __( 'Code', 'sfs-hr' ),
-            __( 'Name', 'sfs-hr' ),
-            __( 'Department', 'sfs-hr' ),
-            __( 'Commitment', 'sfs-hr' ),
-            __( 'Late', 'sfs-hr' ),
-            __( 'Early', 'sfs-hr' ),
-            __( 'Absent', 'sfs-hr' ),
-            __( 'Incomp', 'sfs-hr' ),
-            __( 'BrkDly', 'sfs-hr' ),
-            __( 'NoBrk', 'sfs-hr' )
-        );
-        $lines[] = str_repeat( '-', 108 );
 
         // Sort by commitment ascending (lowest first)
         usort( $data, fn( $a, $b ) => $a['commitment'] <=> $b['commitment'] );
 
-        foreach ( $data as $row ) {
-            $lines[] = sprintf(
-                '%-6s  %-25s  %-15s  %9.1f%%  %5d  %5d  %6d  %6d  %6d  %7d',
-                $row['employee_code'],
-                mb_substr( $row['name'], 0, 25 ),
-                mb_substr( $row['dept_name'], 0, 15 ),
-                $row['commitment'],
-                $row['late'],
-                $row['early'],
-                $row['absent'],
-                $row['incomplete'],
-                $row['break_delay'] ?? 0,
-                $row['no_break'] ?? 0
-            );
-        }
+        $th = 'padding:8px 6px;text-align:left;border-bottom:2px solid #ddd;font-size:12px;color:#50575e;white-space:nowrap;';
+        $td = 'padding:8px 6px;border-bottom:1px solid #eee;font-size:13px;color:#1d2327;';
+        $num = $td . 'text-align:center;';
 
-        $lines[] = '';
-        $lines[] = '---';
-        $lines[] = $site_name;
-        $lines[] = 'HR Management System';
-
-        return implode( "\n", $lines );
+        ob_start();
+        ?>
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen-Sans,Ubuntu,Cantarell,'Helvetica Neue',sans-serif;max-width:700px;margin:0 auto;">
+            <h2 style="color:#1d2327;border-bottom:1px solid #ddd;padding-bottom:10px;"><?php echo esc_html( $title ); ?></h2>
+            <p style="color:#50575e;font-size:14px;margin:4px 0;">
+                <?php printf( esc_html__( 'Period: %s', 'sfs-hr' ), '<strong>' . esc_html( $period_label ) . '</strong>' ); ?>
+            </p>
+            <p style="color:#50575e;font-size:14px;margin:4px 0 16px;">
+                <?php printf( esc_html__( 'Total employees: %d', 'sfs-hr' ), count( $data ) ); ?>
+            </p>
+            <table style="width:100%;border-collapse:collapse;margin:0 0 20px;">
+                <thead>
+                    <tr style="background:#f0f0f1;">
+                        <th style="<?php echo $th; ?>"><?php esc_html_e( 'Code', 'sfs-hr' ); ?></th>
+                        <th style="<?php echo $th; ?>"><?php esc_html_e( 'Name', 'sfs-hr' ); ?></th>
+                        <th style="<?php echo $th; ?>"><?php esc_html_e( 'Dept', 'sfs-hr' ); ?></th>
+                        <th style="<?php echo $th; ?>text-align:center;"><?php esc_html_e( 'Commit.', 'sfs-hr' ); ?></th>
+                        <th style="<?php echo $th; ?>text-align:center;"><?php esc_html_e( 'Late', 'sfs-hr' ); ?></th>
+                        <th style="<?php echo $th; ?>text-align:center;"><?php esc_html_e( 'Early', 'sfs-hr' ); ?></th>
+                        <th style="<?php echo $th; ?>text-align:center;"><?php esc_html_e( 'Absent', 'sfs-hr' ); ?></th>
+                        <th style="<?php echo $th; ?>text-align:center;"><?php esc_html_e( 'Incomp', 'sfs-hr' ); ?></th>
+                        <th style="<?php echo $th; ?>text-align:center;"><?php esc_html_e( 'Brk Dly', 'sfs-hr' ); ?></th>
+                        <th style="<?php echo $th; ?>text-align:center;"><?php esc_html_e( 'No Brk', 'sfs-hr' ); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ( $data as $i => $row ) :
+                        $bg = $i % 2 ? '#f9f9f9' : '#fff';
+                        $c  = (float) $row['commitment'];
+                        if ( $c < 70 ) {
+                            $c_color = '#d63638'; $c_bg = '#fce4e4';
+                        } elseif ( $c < 85 ) {
+                            $c_color = '#996800'; $c_bg = '#fef8ee';
+                        } else {
+                            $c_color = '#00a32a'; $c_bg = '#edfaef';
+                        }
+                    ?>
+                    <tr style="background:<?php echo $bg; ?>;">
+                        <td style="<?php echo $td; ?>font-size:12px;"><?php echo esc_html( $row['employee_code'] ); ?></td>
+                        <td style="<?php echo $td; ?>"><?php echo esc_html( $row['name'] ); ?></td>
+                        <td style="<?php echo $td; ?>font-size:12px;"><?php echo esc_html( $row['dept_name'] ); ?></td>
+                        <td style="<?php echo $num; ?>font-weight:700;color:<?php echo $c_color; ?>;background:<?php echo $c_bg; ?>;border-radius:3px;"><?php echo esc_html( number_format( $c, 1 ) ); ?>%</td>
+                        <td style="<?php echo $num; ?><?php echo $row['late'] > 0 ? 'color:#996800;font-weight:600;' : ''; ?>"><?php echo (int) $row['late']; ?></td>
+                        <td style="<?php echo $num; ?><?php echo $row['early'] > 0 ? 'color:#996800;font-weight:600;' : ''; ?>"><?php echo (int) $row['early']; ?></td>
+                        <td style="<?php echo $num; ?><?php echo $row['absent'] > 0 ? 'color:#d63638;font-weight:600;' : ''; ?>"><?php echo (int) $row['absent']; ?></td>
+                        <td style="<?php echo $num; ?>"><?php echo (int) $row['incomplete']; ?></td>
+                        <td style="<?php echo $num; ?>"><?php echo (int) ( $row['break_delay'] ?? 0 ); ?></td>
+                        <td style="<?php echo $num; ?>"><?php echo (int) ( $row['no_break'] ?? 0 ); ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php if ( ! empty( $alerts ) ) : ?>
+            <div style="margin:20px 0;padding:16px;background:#fef8ee;border-left:4px solid #dba617;border-radius:3px;">
+                <h3 style="margin:0 0 10px;font-size:15px;color:#1d2327;"><?php esc_html_e( 'Active Alerts', 'sfs-hr' ); ?> <span style="color:#787c82;font-weight:400;">(<?php echo count( $alerts ); ?>)</span></h3>
+                <table style="width:100%;border-collapse:collapse;">
+                    <?php foreach ( $alerts as $a ) :
+                        $sev = strtolower( $a->severity ?? 'info' );
+                        if ( $sev === 'critical' ) { $badge_bg = '#d63638'; $badge_c = '#fff'; }
+                        elseif ( $sev === 'warning' ) { $badge_bg = '#dba617'; $badge_c = '#fff'; }
+                        else { $badge_bg = '#2271b1'; $badge_c = '#fff'; }
+                    ?>
+                    <tr>
+                        <td style="padding:4px 0;font-size:13px;color:#1d2327;vertical-align:top;">
+                            <span style="display:inline-block;background:<?php echo $badge_bg; ?>;color:<?php echo $badge_c; ?>;padding:2px 6px;border-radius:3px;font-size:11px;font-weight:600;text-transform:uppercase;"><?php echo esc_html( $a->severity ); ?></span>
+                            <?php echo esc_html( $a->employee_name ); ?> (<?php echo esc_html( $a->employee_code ); ?>) – <?php echo esc_html( $a->title ); ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </table>
+            </div>
+            <?php endif; ?>
+            <p style="color:#787c82;font-size:12px;margin-top:30px;padding-top:20px;border-top:1px solid #ddd;">
+                <?php echo esc_html( $site_name ); ?> · <?php esc_html_e( 'HR Management System', 'sfs-hr' ); ?>
+            </p>
+        </div>
+        <?php
+        return ob_get_clean();
     }
 
     /**

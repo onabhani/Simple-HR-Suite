@@ -323,10 +323,7 @@ class Absent_Notifications {
             </table>
 
             <p style="margin-top: 20px;">
-                <a href="<?php echo esc_url( $workforce_url ); ?>"
-                   style="display: inline-block; background: #2271b1; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 3px;">
-                    <?php esc_html_e( 'View Workforce Status', 'sfs-hr' ); ?>
-                </a>
+                <a href="<?php echo esc_url( $workforce_url ); ?>" style="display: inline-block; background: #2271b1; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 14px;"><?php esc_html_e( 'View Workforce Status', 'sfs-hr' ); ?></a>
             </p>
 
             <p style="color: #787c82; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
@@ -456,10 +453,7 @@ class Absent_Notifications {
             </div>
 
             <p style="margin-top: 20px;">
-                <a href="<?php echo esc_url( $leave_url ); ?>"
-                   style="display: inline-block; background: #2271b1; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 3px;">
-                    <?php esc_html_e( 'Submit Leave Request', 'sfs-hr' ); ?>
-                </a>
+                <a href="<?php echo esc_url( $leave_url ); ?>" style="display: inline-block; background: #2271b1; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 14px;"><?php esc_html_e( 'Submit Leave Request', 'sfs-hr' ); ?></a>
             </p>
 
             <p style="color: #50575e; font-size: 13px; margin-top: 20px;">
