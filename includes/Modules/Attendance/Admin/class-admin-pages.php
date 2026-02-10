@@ -3718,14 +3718,41 @@ private function render_early_leave(): void {
     $table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
     $emp_table = $wpdb->prefix . 'sfs_hr_employees';
 
+    // ── Access level: Admin/GM see all, department managers see only their department ──
+    $current_user_id = get_current_user_id();
+    $is_admin_or_gm  = current_user_can( 'sfs_hr_attendance_admin' ) || current_user_can( 'sfs_hr_loans_gm_approve' );
+
+    // Department IDs this user manages
+    $dept_tbl      = $wpdb->prefix . 'sfs_hr_departments';
+    $managed_depts = $wpdb->get_col( $wpdb->prepare(
+        "SELECT id FROM `{$dept_tbl}` WHERE manager_user_id = %d AND active = 1",
+        $current_user_id
+    ) );
+    $managed_depts = array_map( 'intval', $managed_depts ?: [] );
+
+    // Can this user review? (controls approve/reject button visibility)
+    $can_review = $is_admin_or_gm || ! empty( $managed_depts );
+
     // Get filter parameters
     $status_filter = isset($_GET['status']) ? sanitize_text_field($_GET['status']) : 'all';
     $date_from = isset($_GET['date_from']) ? sanitize_text_field($_GET['date_from']) : '';
     $date_to = isset($_GET['date_to']) ? sanitize_text_field($_GET['date_to']) : '';
 
+    // Build department scope clause (reused for both counts and listing)
+    $scope_where  = '';
+    $scope_params = [];
+    if ( ! $is_admin_or_gm && ! empty( $managed_depts ) ) {
+        $placeholders = implode( ',', array_fill( 0, count( $managed_depts ), '%d' ) );
+        $scope_where  = " AND e.dept_id IN ({$placeholders})";
+        $scope_params = $managed_depts;
+    } elseif ( ! $is_admin_or_gm ) {
+        // Has view_team cap but manages no departments — show nothing
+        $scope_where = " AND 1=0";
+    }
+
     // Build query
-    $where = "WHERE 1=1";
-    $params = [];
+    $where = "WHERE 1=1" . $scope_where;
+    $params = $scope_params;
 
     if ($status_filter && $status_filter !== 'all') {
         $where .= " AND r.status = %s";
@@ -3742,12 +3769,16 @@ private function render_early_leave(): void {
         $params[] = $date_to;
     }
 
-    // Count by status for tabs
-    $counts = $wpdb->get_results("
-        SELECT status, COUNT(*) as cnt
-        FROM {$table}
-        GROUP BY status
-    ", OBJECT_K);
+    // Count by status for tabs (respecting department scope)
+    $count_sql = "SELECT r.status, COUNT(*) as cnt
+        FROM {$table} r
+        LEFT JOIN {$emp_table} e ON e.id = r.employee_id
+        WHERE 1=1{$scope_where}
+        GROUP BY r.status";
+    if ( ! empty( $scope_params ) ) {
+        $count_sql = $wpdb->prepare( $count_sql, $scope_params );
+    }
+    $counts = $wpdb->get_results( $count_sql, OBJECT_K );
 
     $pending_count = isset($counts['pending']) ? $counts['pending']->cnt : 0;
     $approved_count = isset($counts['approved']) ? $counts['approved']->cnt : 0;
@@ -3943,7 +3974,15 @@ private function render_early_leave(): void {
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <?php if ($req->status === 'pending'): ?>
+                                <?php
+                                // Show approve/reject buttons only if:
+                                // - Request is pending, AND
+                                // - User is admin/GM OR the assigned department manager
+                                $can_act = ( $req->status === 'pending' ) && (
+                                    $is_admin_or_gm || (int) $req->manager_id === $current_user_id
+                                );
+                                ?>
+                                <?php if ($can_act): ?>
                                     <button type="button" class="button button-primary button-small early-leave-approve"
                                             data-id="<?php echo intval($req->id); ?>"
                                             title="<?php esc_attr_e('Approve', 'sfs-hr'); ?>">
@@ -3954,6 +3993,8 @@ private function render_early_leave(): void {
                                             title="<?php esc_attr_e('Reject', 'sfs-hr'); ?>">
                                         <span class="dashicons dashicons-no" style="margin-top: 3px;"></span>
                                     </button>
+                                <?php elseif ($req->status === 'pending'): ?>
+                                    <small class="description"><?php esc_html_e('Awaiting Review', 'sfs-hr'); ?></small>
                                 <?php elseif ($req->status === 'approved' || $req->status === 'rejected'): ?>
                                     <small class="description"><?php esc_html_e('Reviewed', 'sfs-hr'); ?></small>
                                 <?php else: ?>
