@@ -108,7 +108,9 @@ class Helpers {
 
         // Sanitize subject/body
         $subject = wp_specialchars_decode( wp_strip_all_tags($subject), ENT_QUOTES );
-        $body    = wpautop( wp_kses_post($message) );
+        $clean   = wp_kses_post( $message );
+        // Only apply wpautop to plain-text content; skip if already HTML
+        $body    = preg_match( '/<(div|table|h[1-6])\b/i', $clean ) ? $clean : wpautop( $clean );
 
         foreach ($recipients as $email) {
             if ($email) {

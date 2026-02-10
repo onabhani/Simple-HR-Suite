@@ -2,6 +2,18 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.3.2] — 2026-02-10
+
+### Fixed
+- Email button layout artifact (dark square) in absence notification emails
+- send_mail() now skips wpautop() for pre-formatted HTML content
+
+### Changed
+- Weekly performance digest email redesigned from plain text to styled HTML table
+  with color-coded commitment percentages and severity-badged alerts section
+- All performance report emails (weekly + monthly) now use the HTML format
+- Email buttons use single-line markup to prevent wpautop interference
+
 ## [0.3.1] — 2026-02-10
 
 ### Fixed
