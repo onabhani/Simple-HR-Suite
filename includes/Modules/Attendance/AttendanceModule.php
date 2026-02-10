@@ -3843,9 +3843,23 @@ foreach ($rows as $r) {
         } elseif ( in_array( 'incomplete', $ev['flags'], true ) ) {
             $status = 'incomplete';
         } elseif ( $net < $target_minutes ) {
-            // Worked but didn't reach target — flag as left_early (insufficient hours)
-            $status = 'left_early';
-            $ev['flags'][] = 'left_early';
+            // Worked but didn't reach target — only flag as left_early if the employee
+            // actually clocked out before the shift end time. Otherwise it's insufficient
+            // hours (e.g., late arrival) but NOT an early departure.
+            $actually_left_early = false;
+            if ( $lastOut && $shift && ! empty( $shift->end_time ) ) {
+                $tz_th        = wp_timezone();
+                $shift_end_th = new \DateTimeImmutable( $ymd . ' ' . $shift->end_time, $tz_th );
+                $last_out_th  = ( new \DateTimeImmutable( $lastOut, new \DateTimeZone( 'UTC' ) ) )->setTimezone( $tz_th );
+                $actually_left_early = ( $last_out_th < $shift_end_th );
+            }
+            if ( $actually_left_early ) {
+                $status = 'left_early';
+                $ev['flags'][] = 'left_early';
+            } else {
+                // Insufficient hours but stayed until/past shift end — mark present, not left_early
+                $status = 'present';
+            }
         } else {
             $status = 'present';
         }
@@ -3875,6 +3889,18 @@ foreach ($rows as $r) {
     }
 
     $flags = array_values(array_unique($ev['flags']));
+
+    // In total-hours mode, strip segment-based left_early/late flags — shift fixed times
+    // are irrelevant; only total worked hours matter. The status block above already
+    // determined whether to flag left_early based on actual hours + clock-out time.
+    if ( $is_total_hours ) {
+        $flags = array_values( array_diff( $flags, [ 'left_early', 'late' ] ) );
+        // Re-add left_early only if the total-hours status logic above set it
+        if ( $status === 'left_early' && ! in_array( 'left_early', $flags, true ) ) {
+            $flags[] = 'left_early';
+        }
+    }
+
     if ($outside_geo > 0) $flags[] = 'outside_geofence';
     if ($no_selfie > 0)   $flags[] = 'no_selfie';
     if ($no_break_taken)          $flags[] = 'no_break_taken';
@@ -3966,21 +3992,29 @@ foreach ($rows as $r) {
 
     // Fire early leave notification (only if newly detected)
     if ($is_early && !$was_early) {
-        // Calculate minutes left early from segments
         $minutes_early = 0;
-        foreach ($ev['segments'] as $seg) {
-            if (!empty($seg['early_minutes'])) {
-                $minutes_early += (int) $seg['early_minutes'];
+
+        if ( $is_total_hours ) {
+            // Total-hours mode: "early" means hours shortfall, not shift-time based.
+            // Calculate how many minutes short of the target the employee worked.
+            $th_target = (int) ( \SFS\HR\Modules\Attendance\Services\Policy_Service::get_target_hours( $employee_id ) * 60 );
+            $minutes_early = max( 0, $th_target - $net );
+        } else {
+            // Segment-based mode: calculate from segment early_minutes
+            foreach ($ev['segments'] as $seg) {
+                if (!empty($seg['early_minutes'])) {
+                    $minutes_early += (int) $seg['early_minutes'];
+                }
             }
-        }
-        // Fallback: calculate from shift end time and last clock-out
-        if ( $minutes_early === 0 && $shift && ! empty( $shift->end_time ) && $lastOut ) {
-            $tz_fb       = wp_timezone();
-            $shift_end_dt = new \DateTimeImmutable( $ymd . ' ' . $shift->end_time, $tz_fb );
-            $last_out_dt  = ( new \DateTimeImmutable( $lastOut, new \DateTimeZone( 'UTC' ) ) )->setTimezone( $tz_fb );
-            $diff_secs    = $shift_end_dt->getTimestamp() - $last_out_dt->getTimestamp();
-            if ( $diff_secs > 0 ) {
-                $minutes_early = (int) round( $diff_secs / 60 );
+            // Fallback: calculate from shift end time and last clock-out
+            if ( $minutes_early === 0 && $shift && ! empty( $shift->end_time ) && $lastOut ) {
+                $tz_fb       = wp_timezone();
+                $shift_end_dt = new \DateTimeImmutable( $ymd . ' ' . $shift->end_time, $tz_fb );
+                $last_out_dt  = ( new \DateTimeImmutable( $lastOut, new \DateTimeZone( 'UTC' ) ) )->setTimezone( $tz_fb );
+                $diff_secs    = $shift_end_dt->getTimestamp() - $last_out_dt->getTimestamp();
+                if ( $diff_secs > 0 ) {
+                    $minutes_early = (int) round( $diff_secs / 60 );
+                }
             }
         }
         do_action('sfs_hr_attendance_early_leave', $employee_id, [
@@ -3989,17 +4023,18 @@ foreach ($rows as $r) {
             'type'          => 'attendance_flag',
         ]);
 
-        // Auto-create early leave request so manager sees it in the Early Leave tab
+        // Auto-create early leave request so manager sees it in the Early Leave tab.
+        // Skip if the employee did not actually leave early (0 minutes = on time or after shift end).
         $el_table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
-        $el_exists = $wpdb->get_var( $wpdb->prepare(
+        $el_exists = ( $minutes_early > 0 ) ? $wpdb->get_var( $wpdb->prepare(
             "SELECT id FROM {$el_table} WHERE employee_id = %d AND request_date = %s AND status IN ('pending','approved')",
             $employee_id,
             $ymd
-        ) );
+        ) ) : true; // treat as "already exists" to skip creation
 
         if ( ! $el_exists ) {
-            // Scheduled end time from shift
-            $scheduled_end = ( $shift && ! empty( $shift->end_time ) ) ? $shift->end_time : null;
+            // Scheduled end time from shift (not meaningful in total-hours mode)
+            $scheduled_end = ( ! $is_total_hours && $shift && ! empty( $shift->end_time ) ) ? $shift->end_time : null;
 
             // Actual leave time (last clock-out) converted from UTC to local
             $actual_leave_local = null;
@@ -4028,6 +4063,19 @@ foreach ($rows as $r) {
             $now_el = current_time( 'mysql' );
             $el_ref = self::generate_early_leave_request_number();
 
+            // Build reason note based on mode
+            $el_reason_note = $is_total_hours
+                ? sprintf(
+                    /* translators: %d = number of minutes short of required hours */
+                    __( 'Auto-created: employee worked %d minutes less than required hours.', 'sfs-hr' ),
+                    $minutes_early
+                )
+                : sprintf(
+                    /* translators: %d = number of minutes the employee left early */
+                    __( 'Auto-created: employee left %d minutes before shift end.', 'sfs-hr' ),
+                    $minutes_early
+                );
+
             $inserted = $wpdb->insert( $el_table, [
                 'employee_id'          => $employee_id,
                 'session_id'           => $session_id,
@@ -4036,11 +4084,7 @@ foreach ($rows as $r) {
                 'requested_leave_time' => $actual_leave_local,
                 'actual_leave_time'    => $actual_leave_local,
                 'reason_type'          => 'other',
-                'reason_note'          => sprintf(
-                    /* translators: %d = number of minutes the employee left early */
-                    __( 'Auto-created: employee left %d minutes before shift end.', 'sfs-hr' ),
-                    $minutes_early
-                ),
+                'reason_note'          => $el_reason_note,
                 'status'               => 'pending',
                 'request_number'       => $el_ref,
                 'manager_id'           => $mgr_id,
@@ -4865,8 +4909,11 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
                 $late_min = (int) round( ($firstIn - $S) / 60 );
             }
             if ($lastOut !== null && ($E - $lastOut) > ($graceEarlyMin*60)) {
-                $segFlags[] = 'left_early';
                 $early_min = (int) round( ($E - $lastOut) / 60 );
+                // Only flag if at least 1 minute early (avoid 0-minute false positives from rounding)
+                if ( $early_min > 0 ) {
+                    $segFlags[] = 'left_early';
+                }
             }
         }
         $flags = array_values(array_unique(array_merge($flags, $segFlags)));
