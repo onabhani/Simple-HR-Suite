@@ -739,23 +739,42 @@ class Admin {
         }
     }
 
-    // EARLY LEAVE: Pending approvals (only for assigned managers)
-    if ( current_user_can('sfs_hr_attendance_view_team') || current_user_can('sfs_hr_attendance_admin') || current_user_can('sfs_hr.manage') ) {
+    // EARLY LEAVE: Pending approvals (Admin/GM see all, dept manager sees their department)
+    if ( current_user_can('sfs_hr_attendance_view_team') || current_user_can('sfs_hr_attendance_admin') || current_user_can('sfs_hr_loans_gm_approve') ) {
         $early_leave_t = $wpdb->prefix . 'sfs_hr_early_leave_requests';
         if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $early_leave_t ) ) ) {
             $user_id = get_current_user_id();
+            $is_admin_or_gm_el = current_user_can('sfs_hr_attendance_admin') || current_user_can('sfs_hr_loans_gm_approve');
 
-            // Count pending early leave requests assigned to this user
-            $pending_early_leaves = (int) $wpdb->get_var( $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$early_leave_t} WHERE status = 'pending' AND manager_id = %d",
+            // Get current user's employee_id to exclude own requests
+            $own_emp_id_el = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT id FROM {$emp_t} WHERE user_id = %d AND status = 'active'",
                 $user_id
             ) );
+            $exclude_own_el = $own_emp_id_el > 0 ? $wpdb->prepare( " AND el.employee_id != %d", $own_emp_id_el ) : "";
 
-            // For HR/Admin, also count requests without an assigned manager (fallback)
-            if ( current_user_can('sfs_hr_attendance_admin') || current_user_can('sfs_hr.manage') ) {
-                $pending_early_leaves += (int) $wpdb->get_var(
-                    "SELECT COUNT(*) FROM {$early_leave_t} WHERE status = 'pending' AND (manager_id IS NULL OR manager_id = 0)"
+            $pending_early_leaves = 0;
+
+            if ( $is_admin_or_gm_el ) {
+                // Admin/GM: count ALL pending requests (exclude own)
+                $pending_early_leaves = (int) $wpdb->get_var(
+                    "SELECT COUNT(*) FROM {$early_leave_t} el WHERE el.status = 'pending'" . $exclude_own_el
                 );
+            } else {
+                // Department manager: count pending requests from their department employees
+                $managed_dept_ids_el = $wpdb->get_col( $wpdb->prepare(
+                    "SELECT id FROM {$dept_t} WHERE manager_user_id = %d AND active = 1",
+                    $user_id
+                ) );
+                if ( ! empty( $managed_dept_ids_el ) ) {
+                    $ph_el = implode( ',', array_fill( 0, count( $managed_dept_ids_el ), '%d' ) );
+                    $pending_early_leaves = (int) $wpdb->get_var( $wpdb->prepare(
+                        "SELECT COUNT(*) FROM {$early_leave_t} el
+                         INNER JOIN {$emp_t} e ON e.id = el.employee_id
+                         WHERE el.status = 'pending' AND e.dept_id IN ({$ph_el})" . $exclude_own_el,
+                        ...$managed_dept_ids_el
+                    ) );
+                }
             }
 
             if ( $pending_early_leaves > 0 ) {
