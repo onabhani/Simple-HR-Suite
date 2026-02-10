@@ -3877,26 +3877,94 @@ private function render_early_leave(): void {
             <input type="hidden" name="tab" value="early_leave" />
             <input type="hidden" name="status" value="<?php echo esc_attr($status_filter); ?>" />
 
-            <label>
-                <?php esc_html_e('From:', 'sfs-hr'); ?>
-                <input type="date" name="date_from" value="<?php echo esc_attr($date_from); ?>" />
-            </label>
+            <div class="sfs-el-filter-row">
+                <label>
+                    <?php esc_html_e('From:', 'sfs-hr'); ?>
+                    <input type="date" name="date_from" value="<?php echo esc_attr($date_from); ?>" />
+                </label>
 
-            <label style="margin-left: 10px;">
-                <?php esc_html_e('To:', 'sfs-hr'); ?>
-                <input type="date" name="date_to" value="<?php echo esc_attr($date_to); ?>" />
-            </label>
+                <label>
+                    <?php esc_html_e('To:', 'sfs-hr'); ?>
+                    <input type="date" name="date_to" value="<?php echo esc_attr($date_to); ?>" />
+                </label>
 
-            <button type="submit" class="button" style="margin-left: 10px;"><?php esc_html_e('Filter', 'sfs-hr'); ?></button>
-            <a href="<?php echo esc_url($base_url); ?>" class="button" style="margin-left: 5px;"><?php esc_html_e('Reset', 'sfs-hr'); ?></a>
+                <span class="sfs-el-filter-buttons">
+                    <button type="submit" class="button"><?php esc_html_e('Filter', 'sfs-hr'); ?></button>
+                    <a href="<?php echo esc_url($base_url); ?>" class="button"><?php esc_html_e('Reset', 'sfs-hr'); ?></a>
+                </span>
+            </div>
         </form>
+
+        <style>
+        /* ── Early Leave Requests – responsive styles ── */
+        .sfs-el-filter-row {
+            display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end;
+        }
+        .sfs-el-filter-row label { white-space: nowrap; }
+        .sfs-el-filter-buttons { display: flex; gap: 4px; }
+
+        /* Card layout below 782px */
+        @media screen and (max-width: 782px) {
+            .sfs-el-table thead { display: none; }
+            .sfs-el-table,
+            .sfs-el-table tbody,
+            .sfs-el-table tr,
+            .sfs-el-table td { display: block; width: 100%; }
+            .sfs-el-table tr {
+                border: 1px solid #e5e5e5;
+                border-radius: 6px;
+                margin-bottom: 12px;
+                padding: 12px;
+                background: #fff;
+            }
+            .sfs-el-table td {
+                padding: 4px 0;
+                border: none;
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+            }
+            .sfs-el-table td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: #1d2327;
+                margin-right: 12px;
+                flex-shrink: 0;
+                min-width: 110px;
+            }
+            .sfs-el-table td.sfs-el-actions-cell {
+                justify-content: flex-end;
+                padding-top: 10px;
+                border-top: 1px solid #f0f0f0;
+                margin-top: 6px;
+                gap: 6px;
+            }
+            .sfs-el-table td.sfs-el-actions-cell::before { display: none; }
+            .sfs-el-table td.sfs-el-actions-cell .button-small {
+                min-height: 36px;
+                line-height: 34px;
+                padding: 0 14px;
+            }
+        }
+
+        /* Modal responsive */
+        @media screen and (max-width: 500px) {
+            .early-leave-modal-content {
+                min-width: auto !important;
+                max-width: 95vw !important;
+                width: calc(100vw - 30px) !important;
+                left: 50% !important;
+                padding: 16px !important;
+            }
+        }
+        </style>
 
         <?php if (empty($requests)): ?>
             <div class="notice notice-info">
                 <p><?php esc_html_e('No early leave requests found.', 'sfs-hr'); ?></p>
             </div>
         <?php else: ?>
-            <table class="wp-list-table widefat fixed striped">
+            <table class="wp-list-table widefat fixed striped sfs-el-table">
                 <thead>
                     <tr>
                         <th style="width: 60px;"><?php esc_html_e('ID', 'sfs-hr'); ?></th>
@@ -3913,38 +3981,44 @@ private function render_early_leave(): void {
                 <tbody>
                     <?php foreach ($requests as $req): ?>
                         <tr data-request-id="<?php echo intval($req->id); ?>">
-                            <td><?php echo intval($req->id); ?></td>
-                            <td>
+                            <td data-label="<?php esc_attr_e('ID', 'sfs-hr'); ?>"><?php echo intval($req->id); ?></td>
+                            <td data-label="<?php esc_attr_e('Employee', 'sfs-hr'); ?>">
                                 <?php
                                 $profile_url_el = admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . (int) $req->employee_id);
                                 $emp_name_el = $req->employee_name ?: __('Unknown', 'sfs-hr');
                                 ?>
-                                <a href="<?php echo esc_url($profile_url_el); ?>" style="color:#2271b1;text-decoration:none;">
-                                    <strong><?php echo esc_html($emp_name_el); ?></strong>
-                                </a>
-                                <?php if (!empty($req->employee_code)): ?>
-                                    <br><small class="description"><?php echo esc_html($req->employee_code); ?></small>
-                                <?php endif; ?>
-                            </td>
-                            <td><?php echo esc_html(date_i18n(get_option('date_format'), strtotime($req->request_date))); ?></td>
-                            <td><?php echo $req->scheduled_end_time ? esc_html(date_i18n('H:i', strtotime($req->scheduled_end_time))) : '—'; ?></td>
-                            <td>
-                                <strong><?php echo esc_html(date_i18n('H:i', strtotime($req->requested_leave_time))); ?></strong>
-                                <?php if ($req->actual_leave_time): ?>
-                                    <br><small><?php esc_html_e('Actual:', 'sfs-hr'); ?> <?php echo esc_html(date_i18n('H:i', strtotime($req->actual_leave_time))); ?></small>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <span class="reason-type reason-<?php echo esc_attr($req->reason_type); ?>">
-                                    <?php echo esc_html($reason_labels[$req->reason_type] ?? $req->reason_type); ?>
+                                <span>
+                                    <a href="<?php echo esc_url($profile_url_el); ?>" style="color:#2271b1;text-decoration:none;">
+                                        <strong><?php echo esc_html($emp_name_el); ?></strong>
+                                    </a>
+                                    <?php if (!empty($req->employee_code)): ?>
+                                        <br><small class="description"><?php echo esc_html($req->employee_code); ?></small>
+                                    <?php endif; ?>
                                 </span>
-                                <?php if ($req->reason_note): ?>
-                                    <br><small class="description" title="<?php echo esc_attr($req->reason_note); ?>">
-                                        <?php echo esc_html(wp_trim_words($req->reason_note, 8)); ?>
-                                    </small>
-                                <?php endif; ?>
                             </td>
-                            <td>
+                            <td data-label="<?php esc_attr_e('Date', 'sfs-hr'); ?>"><?php echo esc_html(date_i18n(get_option('date_format'), strtotime($req->request_date))); ?></td>
+                            <td data-label="<?php esc_attr_e('Scheduled End', 'sfs-hr'); ?>"><?php echo $req->scheduled_end_time ? esc_html(date_i18n('H:i', strtotime($req->scheduled_end_time))) : '—'; ?></td>
+                            <td data-label="<?php esc_attr_e('Requested Leave', 'sfs-hr'); ?>">
+                                <span>
+                                    <strong><?php echo esc_html(date_i18n('H:i', strtotime($req->requested_leave_time))); ?></strong>
+                                    <?php if ($req->actual_leave_time): ?>
+                                        <br><small><?php esc_html_e('Actual:', 'sfs-hr'); ?> <?php echo esc_html(date_i18n('H:i', strtotime($req->actual_leave_time))); ?></small>
+                                    <?php endif; ?>
+                                </span>
+                            </td>
+                            <td data-label="<?php esc_attr_e('Reason', 'sfs-hr'); ?>">
+                                <span>
+                                    <span class="reason-type reason-<?php echo esc_attr($req->reason_type); ?>">
+                                        <?php echo esc_html($reason_labels[$req->reason_type] ?? $req->reason_type); ?>
+                                    </span>
+                                    <?php if ($req->reason_note): ?>
+                                        <br><small class="description" title="<?php echo esc_attr($req->reason_note); ?>">
+                                            <?php echo esc_html(wp_trim_words($req->reason_note, 8)); ?>
+                                        </small>
+                                    <?php endif; ?>
+                                </span>
+                            </td>
+                            <td data-label="<?php esc_attr_e('Status', 'sfs-hr'); ?>">
                                 <?php
                                 $status_class = 'status-' . $req->status;
                                 $status_colors = [
@@ -3954,30 +4028,31 @@ private function render_early_leave(): void {
                                     'cancelled' => '#777',
                                 ];
                                 ?>
-                                <span class="<?php echo esc_attr($status_class); ?>" style="color: <?php echo esc_attr($status_colors[$req->status] ?? '#333'); ?>; font-weight: 600;">
-                                    <?php echo esc_html($status_labels[$req->status] ?? $req->status); ?>
-                                </span>
-                                <?php if ($req->reviewed_at): ?>
-                                    <br><small class="description"><?php echo esc_html(date_i18n('M j, H:i', strtotime($req->reviewed_at))); ?></small>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <?php if ($req->reviewer_name): ?>
-                                    <?php echo esc_html($req->reviewer_name); ?>
-                                    <?php if ($req->manager_note): ?>
-                                        <br><small class="description" title="<?php echo esc_attr($req->manager_note); ?>">
-                                            "<?php echo esc_html(wp_trim_words($req->manager_note, 5)); ?>"
-                                        </small>
+                                <span>
+                                    <span class="<?php echo esc_attr($status_class); ?>" style="color: <?php echo esc_attr($status_colors[$req->status] ?? '#333'); ?>; font-weight: 600;">
+                                        <?php echo esc_html($status_labels[$req->status] ?? $req->status); ?>
+                                    </span>
+                                    <?php if ($req->reviewed_at): ?>
+                                        <br><small class="description"><?php echo esc_html(date_i18n('M j, H:i', strtotime($req->reviewed_at))); ?></small>
                                     <?php endif; ?>
+                                </span>
+                            </td>
+                            <td data-label="<?php esc_attr_e('Reviewed By', 'sfs-hr'); ?>">
+                                <?php if ($req->reviewer_name): ?>
+                                    <span>
+                                        <?php echo esc_html($req->reviewer_name); ?>
+                                        <?php if ($req->manager_note): ?>
+                                            <br><small class="description" title="<?php echo esc_attr($req->manager_note); ?>">
+                                                "<?php echo esc_html(wp_trim_words($req->manager_note, 5)); ?>"
+                                            </small>
+                                        <?php endif; ?>
+                                    </span>
                                 <?php else: ?>
                                     —
                                 <?php endif; ?>
                             </td>
-                            <td>
+                            <td class="sfs-el-actions-cell">
                                 <?php
-                                // Show approve/reject buttons only if:
-                                // - Request is pending, AND
-                                // - User is admin/GM OR the assigned department manager
                                 $can_act = ( $req->status === 'pending' ) && (
                                     $is_admin_or_gm || (int) $req->manager_id === $current_user_id
                                 );
