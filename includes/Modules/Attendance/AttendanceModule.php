@@ -3843,9 +3843,23 @@ foreach ($rows as $r) {
         } elseif ( in_array( 'incomplete', $ev['flags'], true ) ) {
             $status = 'incomplete';
         } elseif ( $net < $target_minutes ) {
-            // Worked but didn't reach target — flag as left_early (insufficient hours)
-            $status = 'left_early';
-            $ev['flags'][] = 'left_early';
+            // Worked but didn't reach target — only flag as left_early if the employee
+            // actually clocked out before the shift end time. Otherwise it's insufficient
+            // hours (e.g., late arrival) but NOT an early departure.
+            $actually_left_early = false;
+            if ( $lastOut && $shift && ! empty( $shift->end_time ) ) {
+                $tz_th        = wp_timezone();
+                $shift_end_th = new \DateTimeImmutable( $ymd . ' ' . $shift->end_time, $tz_th );
+                $last_out_th  = ( new \DateTimeImmutable( $lastOut, new \DateTimeZone( 'UTC' ) ) )->setTimezone( $tz_th );
+                $actually_left_early = ( $last_out_th < $shift_end_th );
+            }
+            if ( $actually_left_early ) {
+                $status = 'left_early';
+                $ev['flags'][] = 'left_early';
+            } else {
+                // Insufficient hours but stayed until/past shift end — mark present, not left_early
+                $status = 'present';
+            }
         } else {
             $status = 'present';
         }
@@ -3989,13 +4003,14 @@ foreach ($rows as $r) {
             'type'          => 'attendance_flag',
         ]);
 
-        // Auto-create early leave request so manager sees it in the Early Leave tab
+        // Auto-create early leave request so manager sees it in the Early Leave tab.
+        // Skip if the employee did not actually leave early (0 minutes = on time or after shift end).
         $el_table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
-        $el_exists = $wpdb->get_var( $wpdb->prepare(
+        $el_exists = ( $minutes_early > 0 ) ? $wpdb->get_var( $wpdb->prepare(
             "SELECT id FROM {$el_table} WHERE employee_id = %d AND request_date = %s AND status IN ('pending','approved')",
             $employee_id,
             $ymd
-        ) );
+        ) ) : true; // treat as "already exists" to skip creation
 
         if ( ! $el_exists ) {
             // Scheduled end time from shift
@@ -4865,8 +4880,11 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
                 $late_min = (int) round( ($firstIn - $S) / 60 );
             }
             if ($lastOut !== null && ($E - $lastOut) > ($graceEarlyMin*60)) {
-                $segFlags[] = 'left_early';
                 $early_min = (int) round( ($E - $lastOut) / 60 );
+                // Only flag if at least 1 minute early (avoid 0-minute false positives from rounding)
+                if ( $early_min > 0 ) {
+                    $segFlags[] = 'left_early';
+                }
             }
         }
         $flags = array_values(array_unique(array_merge($flags, $segFlags)));
