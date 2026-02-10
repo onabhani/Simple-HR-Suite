@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1d6fa5"/>
+      <stop offset="100%" stop-color="#14486b"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="256" height="256" rx="32" fill="url(#bg)"/>
+  <!-- Person silhouette (center) -->
+  <circle cx="128" cy="82" r="28" fill="#fff" opacity="0.95"/>
+  <path d="M128 118c-30 0-54 18-54 40v10c0 4 3 7 7 7h94c4 0 7-3 7-7v-10c0-22-24-40-54-40z" fill="#fff" opacity="0.95"/>
+  <!-- Small person left -->
+  <circle cx="62" cy="100" r="18" fill="#fff" opacity="0.5"/>
+  <path d="M62 124c-20 0-36 12-36 27v6c0 3 2 5 5 5h62c3 0 5-2 5-5v-6c0-15-16-27-36-27z" fill="#fff" opacity="0.5"/>
+  <!-- Small person right -->
+  <circle cx="194" cy="100" r="18" fill="#fff" opacity="0.5"/>
+  <path d="M194 124c-20 0-36 12-36 27v6c0 3 2 5 5 5h62c3 0 5-2 5-5v-6c0-15-16-27-36-27z" fill="#fff" opacity="0.5"/>
+  <!-- Checkmark badge -->
+  <circle cx="200" cy="60" r="24" fill="#4caf50"/>
+  <circle cx="200" cy="60" r="22" fill="none" stroke="#fff" stroke-width="2" opacity="0.3"/>
+  <polyline points="189,60 197,68 213,52" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
