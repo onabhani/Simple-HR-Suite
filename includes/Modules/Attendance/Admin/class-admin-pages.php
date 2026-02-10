@@ -4318,42 +4318,35 @@ private function render_policies(): void {
     <style>
     .sfs-hr-policies-wrap {
         display: flex;
-        gap: 30px;
+        gap: 24px;
         margin-top: 20px;
     }
     .sfs-hr-policies-form {
-        flex: 0 0 420px;
+        flex: 0 0 360px;
     }
     .sfs-hr-policies-list {
         flex: 1;
         min-width: 0;
+        overflow-x: auto;
     }
     .sfs-hr-policies-list .wp-list-table {
-        table-layout: fixed;
-        width: 100%;
+        white-space: nowrap;
     }
     .sfs-hr-policies-list .wp-list-table th,
     .sfs-hr-policies-list .wp-list-table td {
-        word-wrap: break-word;
-        overflow-wrap: break-word;
         font-size: 13px;
-        padding: 8px 6px;
+        padding: 8px 10px;
     }
-    .sfs-hr-policies-list .wp-list-table .col-name { width: 18%; }
-    .sfs-hr-policies-list .wp-list-table .col-cin  { width: 11%; }
-    .sfs-hr-policies-list .wp-list-table .col-cout { width: 11%; }
-    .sfs-hr-policies-list .wp-list-table .col-geo  { width: 13%; }
-    .sfs-hr-policies-list .wp-list-table .col-mode { width: 14%; }
-    .sfs-hr-policies-list .wp-list-table .col-roles{ width: 17%; }
-    .sfs-hr-policies-list .wp-list-table .col-act  { width: 5%; text-align: center; }
-    .sfs-hr-policies-list .wp-list-table .col-actions { width: 11%; }
+    .sfs-hr-policies-list .wp-list-table .col-roles {
+        white-space: normal;
+        max-width: 180px;
+    }
     .sfs-hr-policies-list .wp-list-table .col-actions .button-small {
-        padding: 0 6px;
+        padding: 0 8px;
         min-height: 28px;
         line-height: 26px;
-        font-size: 12px;
     }
-    @media screen and (max-width: 1024px) {
+    @media screen and (max-width: 782px) {
         .sfs-hr-policies-wrap {
             flex-direction: column;
             gap: 20px;
@@ -4362,8 +4355,6 @@ private function render_policies(): void {
             flex: none;
             width: 100%;
         }
-    }
-    @media screen and (max-width: 782px) {
         .sfs-hr-policies-form .form-table th,
         .sfs-hr-policies-form .form-table td {
             display: block;
@@ -4513,13 +4504,12 @@ private function render_policies(): void {
                 <table class="wp-list-table widefat striped">
                     <thead>
                         <tr>
-                            <th class="col-name"><?php esc_html_e( 'Name', 'sfs-hr' ); ?></th>
-                            <th class="col-cin"><?php esc_html_e( 'Clock-in', 'sfs-hr' ); ?></th>
-                            <th class="col-cout"><?php esc_html_e( 'Clock-out', 'sfs-hr' ); ?></th>
-                            <th class="col-geo"><?php esc_html_e( 'Geofence (In/Out)', 'sfs-hr' ); ?></th>
-                            <th class="col-mode"><?php esc_html_e( 'Mode', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Name', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Methods (In / Out)', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Geofence', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Mode', 'sfs-hr' ); ?></th>
                             <th class="col-roles"><?php esc_html_e( 'Roles', 'sfs-hr' ); ?></th>
-                            <th class="col-act"><?php esc_html_e( 'Active', 'sfs-hr' ); ?></th>
+                            <th style="text-align:center;"><?php esc_html_e( 'Active', 'sfs-hr' ); ?></th>
                             <th class="col-actions"><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
                         </tr>
                     </thead>
@@ -4527,12 +4517,8 @@ private function render_policies(): void {
                         <?php foreach ( $policies as $p ) : ?>
                             <tr>
                                 <td><strong><?php echo esc_html( $p->name ); ?></strong></td>
-                                <td><?php echo esc_html( implode( ', ', $p->clock_in_methods ) ); ?></td>
-                                <td><?php echo esc_html( implode( ', ', $p->clock_out_methods ) ); ?></td>
-                                <td>
-                                    <?php echo esc_html( ucfirst( $p->clock_in_geofence ) ); ?> /
-                                    <?php echo esc_html( ucfirst( $p->clock_out_geofence ) ); ?>
-                                </td>
+                                <td><?php echo esc_html( implode( ', ', $p->clock_in_methods ) ); ?> / <?php echo esc_html( implode( ', ', $p->clock_out_methods ) ); ?></td>
+                                <td><?php echo esc_html( ucfirst( $p->clock_in_geofence ) ); ?> / <?php echo esc_html( ucfirst( $p->clock_out_geofence ) ); ?></td>
                                 <td>
                                     <?php
                                     if ( $p->calculation_mode === 'total_hours' ) {
@@ -4542,7 +4528,7 @@ private function render_policies(): void {
                                     }
                                     ?>
                                 </td>
-                                <td>
+                                <td class="col-roles">
                                     <?php
                                     if ( ! empty( $p->roles ) ) {
                                         $labels = [];
@@ -4555,8 +4541,8 @@ private function render_policies(): void {
                                     }
                                     ?>
                                 </td>
-                                <td><?php echo $p->active ? '<span style="color:green;">&#10003;</span>' : '<span style="color:#999;">&#10005;</span>'; ?></td>
-                                <td>
+                                <td style="text-align:center;"><?php echo $p->active ? '<span style="color:green;">&#10003;</span>' : '<span style="color:#999;">&#10005;</span>'; ?></td>
+                                <td class="col-actions">
                                     <a href="<?php echo esc_url( add_query_arg( [ 'tab' => 'policies', 'edit_policy' => $p->id ], admin_url( 'admin.php?page=sfs_hr_attendance' ) ) ); ?>" class="button button-small"><?php esc_html_e( 'Edit', 'sfs-hr' ); ?></a>
                                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;" onsubmit="return confirm('<?php esc_attr_e( 'Delete this policy?', 'sfs-hr' ); ?>');">
                                         <?php wp_nonce_field( 'sfs_hr_att_delete_policy' ); ?>
