@@ -3903,7 +3903,7 @@ private function render_early_leave(): void {
         .sfs-el-filter-row label { white-space: nowrap; }
         .sfs-el-filter-buttons { display: flex; gap: 4px; }
 
-        /* Card layout below 782px */
+        /* Mobile: compact card list — tap to open detail modal */
         @media screen and (max-width: 782px) {
             .sfs-el-table thead { display: none; }
             .sfs-el-table,
@@ -3913,40 +3913,32 @@ private function render_early_leave(): void {
             .sfs-el-table tr {
                 border: 1px solid #e5e5e5;
                 border-radius: 6px;
-                margin-bottom: 12px;
-                padding: 12px;
+                margin-bottom: 10px;
+                padding: 14px;
                 background: #fff;
+                cursor: pointer;
+                position: relative;
             }
-            .sfs-el-table td {
-                padding: 4px 0;
-                border: none;
-                display: flex;
-                justify-content: space-between;
-                align-items: baseline;
+            .sfs-el-table tr:active { background: #f6f7f7; }
+            /* Show only: Employee, Date, Status — hide everything else */
+            .sfs-el-table td { padding: 0; border: none; }
+            .sfs-el-table td.sfs-el-col-id,
+            .sfs-el-table td.sfs-el-col-sched,
+            .sfs-el-table td.sfs-el-col-leave,
+            .sfs-el-table td.sfs-el-col-reason,
+            .sfs-el-table td.sfs-el-col-reviewer,
+            .sfs-el-table td.sfs-el-actions-cell { display: none; }
+            .sfs-el-table td.sfs-el-col-employee {
+                font-weight: 600; font-size: 14px; margin-bottom: 4px;
             }
-            .sfs-el-table td::before {
-                content: attr(data-label);
-                font-weight: 600;
-                color: #1d2327;
-                margin-right: 12px;
-                flex-shrink: 0;
-                min-width: 110px;
+            .sfs-el-table td.sfs-el-col-date {
+                font-size: 12px; color: #50575e;
             }
-            .sfs-el-table td.sfs-el-actions-cell {
-                justify-content: flex-end;
-                padding-top: 10px;
-                border-top: 1px solid #f0f0f0;
-                margin-top: 6px;
-                gap: 6px;
-            }
-            .sfs-el-table td.sfs-el-actions-cell::before { display: none; }
-            .sfs-el-table td.sfs-el-actions-cell .button-small {
-                min-height: 36px;
-                line-height: 34px;
-                padding: 0 14px;
+            .sfs-el-table td.sfs-el-col-status {
+                position: absolute; top: 14px; right: 14px;
+                font-size: 12px; font-weight: 600;
             }
         }
-
         </style>
 
         <?php if (empty($requests)): ?>
@@ -3969,10 +3961,29 @@ private function render_early_leave(): void {
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($requests as $req): ?>
-                        <tr data-request-id="<?php echo intval($req->id); ?>">
-                            <td data-label="<?php esc_attr_e('ID', 'sfs-hr'); ?>"><?php echo intval($req->id); ?></td>
-                            <td data-label="<?php esc_attr_e('Employee', 'sfs-hr'); ?>">
+                    <?php foreach ($requests as $req):
+                        $can_act_data = ( $req->status === 'pending' ) && (
+                            $is_admin_or_gm || (int) $req->manager_id === $current_user_id
+                        );
+                    ?>
+                        <tr data-request-id="<?php echo intval($req->id); ?>"
+                            data-employee="<?php echo esc_attr($req->employee_name ?: __('Unknown', 'sfs-hr')); ?>"
+                            data-employee-code="<?php echo esc_attr($req->employee_code ?? ''); ?>"
+                            data-date="<?php echo esc_attr(date_i18n(get_option('date_format'), strtotime($req->request_date))); ?>"
+                            data-sched="<?php echo $req->scheduled_end_time ? esc_attr(date_i18n('H:i', strtotime($req->scheduled_end_time))) : '—'; ?>"
+                            data-leave="<?php echo esc_attr(date_i18n('H:i', strtotime($req->requested_leave_time))); ?>"
+                            data-actual="<?php echo $req->actual_leave_time ? esc_attr(date_i18n('H:i', strtotime($req->actual_leave_time))) : ''; ?>"
+                            data-reason-type="<?php echo esc_attr($reason_labels[$req->reason_type] ?? $req->reason_type); ?>"
+                            data-reason-note="<?php echo esc_attr($req->reason_note ?? ''); ?>"
+                            data-status="<?php echo esc_attr($req->status); ?>"
+                            data-status-label="<?php echo esc_attr($status_labels[$req->status] ?? $req->status); ?>"
+                            data-reviewer="<?php echo esc_attr($req->reviewer_name ?? ''); ?>"
+                            data-manager-note="<?php echo esc_attr($req->manager_note ?? ''); ?>"
+                            data-reviewed-at="<?php echo $req->reviewed_at ? esc_attr(date_i18n('M j, H:i', strtotime($req->reviewed_at))) : ''; ?>"
+                            data-can-act="<?php echo $can_act_data ? '1' : '0'; ?>"
+                        >
+                            <td class="sfs-el-col-id" data-label="<?php esc_attr_e('ID', 'sfs-hr'); ?>"><?php echo intval($req->id); ?></td>
+                            <td class="sfs-el-col-employee" data-label="<?php esc_attr_e('Employee', 'sfs-hr'); ?>">
                                 <?php
                                 $profile_url_el = admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . (int) $req->employee_id);
                                 $emp_name_el = $req->employee_name ?: __('Unknown', 'sfs-hr');
@@ -3986,9 +3997,9 @@ private function render_early_leave(): void {
                                     <?php endif; ?>
                                 </span>
                             </td>
-                            <td data-label="<?php esc_attr_e('Date', 'sfs-hr'); ?>"><?php echo esc_html(date_i18n(get_option('date_format'), strtotime($req->request_date))); ?></td>
-                            <td data-label="<?php esc_attr_e('Scheduled End', 'sfs-hr'); ?>"><?php echo $req->scheduled_end_time ? esc_html(date_i18n('H:i', strtotime($req->scheduled_end_time))) : '—'; ?></td>
-                            <td data-label="<?php esc_attr_e('Requested Leave', 'sfs-hr'); ?>">
+                            <td class="sfs-el-col-date" data-label="<?php esc_attr_e('Date', 'sfs-hr'); ?>"><?php echo esc_html(date_i18n(get_option('date_format'), strtotime($req->request_date))); ?></td>
+                            <td class="sfs-el-col-sched" data-label="<?php esc_attr_e('Scheduled End', 'sfs-hr'); ?>"><?php echo $req->scheduled_end_time ? esc_html(date_i18n('H:i', strtotime($req->scheduled_end_time))) : '—'; ?></td>
+                            <td class="sfs-el-col-leave" data-label="<?php esc_attr_e('Requested Leave', 'sfs-hr'); ?>">
                                 <span>
                                     <strong><?php echo esc_html(date_i18n('H:i', strtotime($req->requested_leave_time))); ?></strong>
                                     <?php if ($req->actual_leave_time): ?>
@@ -3996,7 +4007,7 @@ private function render_early_leave(): void {
                                     <?php endif; ?>
                                 </span>
                             </td>
-                            <td data-label="<?php esc_attr_e('Reason', 'sfs-hr'); ?>">
+                            <td class="sfs-el-col-reason" data-label="<?php esc_attr_e('Reason', 'sfs-hr'); ?>">
                                 <span>
                                     <span class="reason-type reason-<?php echo esc_attr($req->reason_type); ?>">
                                         <?php echo esc_html($reason_labels[$req->reason_type] ?? $req->reason_type); ?>
@@ -4008,7 +4019,7 @@ private function render_early_leave(): void {
                                     <?php endif; ?>
                                 </span>
                             </td>
-                            <td data-label="<?php esc_attr_e('Status', 'sfs-hr'); ?>">
+                            <td class="sfs-el-col-status" data-label="<?php esc_attr_e('Status', 'sfs-hr'); ?>">
                                 <?php
                                 $status_class = 'status-' . $req->status;
                                 $status_colors = [
@@ -4030,7 +4041,7 @@ private function render_early_leave(): void {
                                     <?php endif; ?>
                                 </span>
                             </td>
-                            <td data-label="<?php esc_attr_e('Reviewed By', 'sfs-hr'); ?>">
+                            <td class="sfs-el-col-reviewer" data-label="<?php esc_attr_e('Reviewed By', 'sfs-hr'); ?>">
                                 <?php if ($req->reviewer_name): ?>
                                     <span>
                                         <?php echo esc_html($req->reviewer_name); ?>
@@ -4082,44 +4093,68 @@ private function render_early_leave(): void {
             </table>
         <?php endif; ?>
 
-        <!-- Slide-up Review Modal -->
+        <!-- Slide-up Detail / Review Modal -->
         <div class="sfs-el-modal" id="sfs-el-review-modal">
             <div class="sfs-el-modal-content">
                 <div class="sfs-el-modal-header">
-                    <h3 class="sfs-el-modal-title" id="sfs-el-modal-title"><?php esc_html_e('Review Early Leave Request', 'sfs-hr'); ?></h3>
+                    <h3 class="sfs-el-modal-title" id="sfs-el-modal-title"><?php esc_html_e('Early Leave Request', 'sfs-hr'); ?></h3>
                     <button type="button" class="sfs-el-modal-close" id="sfs-el-modal-close">&times;</button>
                 </div>
                 <input type="hidden" id="early-leave-request-id" value="" />
                 <input type="hidden" id="early-leave-action" value="" />
 
-                <div class="sfs-el-modal-body">
-                    <label for="early-leave-note"><?php esc_html_e('Manager Note (optional):', 'sfs-hr'); ?></label>
-                    <textarea id="early-leave-note" rows="3"></textarea>
+                <!-- Detail section (shown when opening from row tap) -->
+                <div class="sfs-el-modal-details" id="sfs-el-modal-details"></div>
+
+                <!-- Review form (note + buttons) -->
+                <div class="sfs-el-modal-review" id="sfs-el-modal-review" style="display:none;">
+                    <div class="sfs-el-modal-body">
+                        <label for="early-leave-note"><?php esc_html_e('Manager Note (optional):', 'sfs-hr'); ?></label>
+                        <textarea id="early-leave-note" rows="3"></textarea>
+                    </div>
+                    <div class="sfs-el-modal-buttons">
+                        <button type="button" class="button button-primary" id="sfs-el-modal-submit">
+                            <span class="dashicons dashicons-yes"></span> <?php esc_html_e('Submit', 'sfs-hr'); ?>
+                        </button>
+                        <button type="button" class="button button-secondary" id="sfs-el-modal-review-cancel">
+                            <?php esc_html_e('Back', 'sfs-hr'); ?>
+                        </button>
+                    </div>
                 </div>
 
-                <div class="sfs-el-modal-buttons">
-                    <button type="button" class="button button-primary" id="sfs-el-modal-submit">
-                        <span class="dashicons dashicons-yes"></span> <?php esc_html_e('Submit', 'sfs-hr'); ?>
-                    </button>
-                    <button type="button" class="button button-secondary" id="sfs-el-modal-cancel">
-                        <?php esc_html_e('Cancel', 'sfs-hr'); ?>
-                    </button>
+                <!-- Action buttons (shown for pending requests) -->
+                <div class="sfs-el-modal-actions" id="sfs-el-modal-actions" style="display:none;">
+                    <div class="sfs-el-modal-buttons">
+                        <button type="button" class="button button-primary" id="sfs-el-detail-approve">
+                            <span class="dashicons dashicons-yes"></span> <?php esc_html_e('Approve', 'sfs-hr'); ?>
+                        </button>
+                        <button type="button" class="button sfs-el-btn-danger" id="sfs-el-detail-reject">
+                            <span class="dashicons dashicons-no"></span> <?php esc_html_e('Reject', 'sfs-hr'); ?>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Close button (shown for non-pending) -->
+                <div class="sfs-el-modal-close-btn" id="sfs-el-modal-close-btn" style="display:none;">
+                    <div class="sfs-el-modal-buttons">
+                        <button type="button" class="button button-secondary" id="sfs-el-modal-cancel">
+                            <?php esc_html_e('Close', 'sfs-hr'); ?>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
+    function sfsElEsc(s){if(typeof s!=='string')return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
     jQuery(function($) {
         var $modal = $('#sfs-el-review-modal');
 
-        function openModal(id, action, title) {
-            $('#early-leave-request-id').val(id);
-            $('#early-leave-action').val(action);
-            $('#sfs-el-modal-title').text(title);
-            // Style the submit button based on action
+        function showReviewForm(action) {
             var $btn = $('#sfs-el-modal-submit');
             $btn.prop('disabled', false);
+            $('#early-leave-action').val(action);
             if (action === 'rejected') {
                 $btn.removeClass('button-primary').addClass('sfs-el-btn-danger');
                 $btn.html('<span class="dashicons dashicons-no"></span> <?php echo esc_js(__('Reject', 'sfs-hr')); ?>');
@@ -4127,28 +4162,106 @@ private function render_early_leave(): void {
                 $btn.removeClass('sfs-el-btn-danger').addClass('button-primary');
                 $btn.html('<span class="dashicons dashicons-yes"></span> <?php echo esc_js(__('Approve', 'sfs-hr')); ?>');
             }
+            $('#sfs-el-modal-actions').hide();
+            $('#sfs-el-modal-close-btn').hide();
+            $('#sfs-el-modal-review').show();
+        }
+
+        /* Open detail modal from row tap (mobile) or inline button (all) */
+        function openDetailModal($row) {
+            var d = $row.data();
+            $('#early-leave-request-id').val(d.requestId);
+            $('#sfs-el-modal-title').text('<?php echo esc_js(__('Early Leave Request', 'sfs-hr')); ?>');
+
+            var statusColors = {pending:'#f0ad4e',approved:'#5cb85c',rejected:'#d9534f',cancelled:'#777'};
+            var html = '';
+            html += '<div class="sfs-el-detail-row"><span class="sfs-el-detail-label"><?php echo esc_js(__('Employee', 'sfs-hr')); ?></span><span class="sfs-el-detail-value"><strong>' + sfsElEsc(d.employee) + '</strong>';
+            if (d.employeeCode) html += '<br><small style="color:#666;">' + sfsElEsc(d.employeeCode) + '</small>';
+            html += '</span></div>';
+            html += '<div class="sfs-el-detail-row"><span class="sfs-el-detail-label"><?php echo esc_js(__('Date', 'sfs-hr')); ?></span><span class="sfs-el-detail-value">' + sfsElEsc(d.date) + '</span></div>';
+            html += '<div class="sfs-el-detail-row"><span class="sfs-el-detail-label"><?php echo esc_js(__('Scheduled End', 'sfs-hr')); ?></span><span class="sfs-el-detail-value">' + sfsElEsc(d.sched) + '</span></div>';
+            html += '<div class="sfs-el-detail-row"><span class="sfs-el-detail-label"><?php echo esc_js(__('Requested Leave', 'sfs-hr')); ?></span><span class="sfs-el-detail-value">' + sfsElEsc(d.leave);
+            if (d.actual) html += '<br><small><?php echo esc_js(__('Actual:', 'sfs-hr')); ?> ' + sfsElEsc(d.actual) + '</small>';
+            html += '</span></div>';
+            html += '<div class="sfs-el-detail-row"><span class="sfs-el-detail-label"><?php echo esc_js(__('Reason', 'sfs-hr')); ?></span><span class="sfs-el-detail-value">' + sfsElEsc(d.reasonType);
+            if (d.reasonNote) html += '<br><small style="color:#666;">' + sfsElEsc(d.reasonNote) + '</small>';
+            html += '</span></div>';
+            html += '<div class="sfs-el-detail-row"><span class="sfs-el-detail-label"><?php echo esc_js(__('Status', 'sfs-hr')); ?></span><span class="sfs-el-detail-value" style="color:' + (statusColors[d.status]||'#333') + ';font-weight:600;">' + sfsElEsc(d.statusLabel);
+            if (d.reviewedAt) html += '<br><small style="color:#666;font-weight:normal;">' + sfsElEsc(d.reviewedAt) + '</small>';
+            html += '</span></div>';
+            if (d.reviewer) {
+                html += '<div class="sfs-el-detail-row"><span class="sfs-el-detail-label"><?php echo esc_js(__('Reviewed By', 'sfs-hr')); ?></span><span class="sfs-el-detail-value">' + sfsElEsc(d.reviewer);
+                if (d.managerNote) html += '<br><small style="color:#666;">"' + sfsElEsc(d.managerNote) + '"</small>';
+                html += '</span></div>';
+            } else if (d.managerNote) {
+                html += '<div class="sfs-el-detail-row"><span class="sfs-el-detail-label"><?php echo esc_js(__('Reviewed By', 'sfs-hr')); ?></span><span class="sfs-el-detail-value"><em><?php echo esc_js(__('System', 'sfs-hr')); ?></em><br><small style="color:#666;">' + sfsElEsc(d.managerNote) + '</small></span></div>';
+            }
+
+            $('#sfs-el-modal-details').html(html);
+            $('#sfs-el-modal-review').hide();
+
+            if (d.canAct === 1 || d.canAct === '1') {
+                $('#sfs-el-modal-actions').show();
+                $('#sfs-el-modal-close-btn').hide();
+            } else {
+                $('#sfs-el-modal-actions').hide();
+                $('#sfs-el-modal-close-btn').show();
+            }
             $modal.addClass('active');
+        }
+
+        /* Direct approve/reject from desktop table buttons */
+        function openReviewDirect(id, action) {
+            var $row = $('tr[data-request-id="' + id + '"]');
+            openDetailModal($row);
+            showReviewForm(action);
         }
 
         function closeModal() {
             $modal.removeClass('active');
             $('#early-leave-note').val('');
+            $('#sfs-el-modal-review').hide();
         }
 
-        // Approve button click
-        $(document).on('click', '.early-leave-approve', function() {
-            openModal($(this).data('id'), 'approved', '<?php echo esc_js(__('Approve Early Leave', 'sfs-hr')); ?>');
+        // Row tap — open detail modal
+        $(document).on('click', '.sfs-el-table tbody tr', function(e) {
+            // Ignore if clicking a button or link
+            if ($(e.target).closest('button, a, .sfs-el-actions-cell').length) return;
+            openDetailModal($(this));
         });
 
-        // Reject button click
-        $(document).on('click', '.early-leave-reject', function() {
-            openModal($(this).data('id'), 'rejected', '<?php echo esc_js(__('Reject Early Leave', 'sfs-hr')); ?>');
+        // Desktop: Approve button click
+        $(document).on('click', '.early-leave-approve', function(e) {
+            e.stopPropagation();
+            openReviewDirect($(this).data('id'), 'approved');
+        });
+
+        // Desktop: Reject button click
+        $(document).on('click', '.early-leave-reject', function(e) {
+            e.stopPropagation();
+            openReviewDirect($(this).data('id'), 'rejected');
+        });
+
+        // Modal detail: approve/reject
+        $('#sfs-el-detail-approve').on('click', function() { showReviewForm('approved'); });
+        $('#sfs-el-detail-reject').on('click', function() { showReviewForm('rejected'); });
+
+        // Back from review form to detail
+        $('#sfs-el-modal-review-cancel').on('click', function() {
+            $('#sfs-el-modal-review').hide();
+            var canAct = $('#early-leave-request-id').val();
+            var $row = $('tr[data-request-id="' + canAct + '"]');
+            if ($row.data('canAct') === 1 || $row.data('canAct') === '1') {
+                $('#sfs-el-modal-actions').show();
+            } else {
+                $('#sfs-el-modal-close-btn').show();
+            }
         });
 
         // Close triggers
         $('#sfs-el-modal-cancel, #sfs-el-modal-close').on('click', closeModal);
         $modal.on('click', function(e) {
-            if (e.target === this) closeModal(); // click on overlay
+            if (e.target === this) closeModal();
         });
 
         // Submit review
@@ -4286,6 +4399,30 @@ private function render_early_leave(): void {
         border-color: #dcdcde;
         color: #50575e;
     }
+    /* Detail rows inside modal */
+    .sfs-el-modal-details {
+        margin-bottom: 16px;
+        max-height: 50vh;
+        overflow-y: auto;
+    }
+    .sfs-el-detail-row {
+        display: flex;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f1;
+        font-size: 14px;
+    }
+    .sfs-el-detail-row:last-child { border-bottom: none; }
+    .sfs-el-detail-label {
+        flex: 0 0 110px;
+        font-weight: 600;
+        color: #1d2327;
+        font-size: 13px;
+    }
+    .sfs-el-detail-value {
+        flex: 1;
+        color: #50575e;
+        word-break: break-word;
+    }
 
     .reason-sick { color: #d9534f; }
     .reason-external_task { color: #5bc0de; }
@@ -4330,12 +4467,16 @@ private function render_policies(): void {
         overflow-x: auto;
     }
     .sfs-hr-policies-list .wp-list-table {
-        white-space: nowrap;
+        width: auto;
+        min-width: 100%;
     }
     .sfs-hr-policies-list .wp-list-table th,
     .sfs-hr-policies-list .wp-list-table td {
         font-size: 13px;
         padding: 8px 10px;
+        white-space: nowrap;
+        word-wrap: normal;
+        overflow: visible;
     }
     .sfs-hr-policies-list .wp-list-table .col-roles {
         white-space: normal;
