@@ -3877,26 +3877,84 @@ private function render_early_leave(): void {
             <input type="hidden" name="tab" value="early_leave" />
             <input type="hidden" name="status" value="<?php echo esc_attr($status_filter); ?>" />
 
-            <label>
-                <?php esc_html_e('From:', 'sfs-hr'); ?>
-                <input type="date" name="date_from" value="<?php echo esc_attr($date_from); ?>" />
-            </label>
+            <div class="sfs-el-filter-row">
+                <label>
+                    <?php esc_html_e('From:', 'sfs-hr'); ?>
+                    <input type="date" name="date_from" value="<?php echo esc_attr($date_from); ?>" />
+                </label>
 
-            <label style="margin-left: 10px;">
-                <?php esc_html_e('To:', 'sfs-hr'); ?>
-                <input type="date" name="date_to" value="<?php echo esc_attr($date_to); ?>" />
-            </label>
+                <label>
+                    <?php esc_html_e('To:', 'sfs-hr'); ?>
+                    <input type="date" name="date_to" value="<?php echo esc_attr($date_to); ?>" />
+                </label>
 
-            <button type="submit" class="button" style="margin-left: 10px;"><?php esc_html_e('Filter', 'sfs-hr'); ?></button>
-            <a href="<?php echo esc_url($base_url); ?>" class="button" style="margin-left: 5px;"><?php esc_html_e('Reset', 'sfs-hr'); ?></a>
+                <span class="sfs-el-filter-buttons">
+                    <button type="submit" class="button"><?php esc_html_e('Filter', 'sfs-hr'); ?></button>
+                    <a href="<?php echo esc_url($base_url); ?>" class="button"><?php esc_html_e('Reset', 'sfs-hr'); ?></a>
+                </span>
+            </div>
         </form>
+
+        <style>
+        /* ── Early Leave Requests – responsive styles ── */
+        .sfs-el-filter-row {
+            display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end;
+        }
+        .sfs-el-filter-row label { white-space: nowrap; }
+        .sfs-el-filter-buttons { display: flex; gap: 4px; }
+
+        /* Card layout below 782px */
+        @media screen and (max-width: 782px) {
+            .sfs-el-table thead { display: none; }
+            .sfs-el-table,
+            .sfs-el-table tbody,
+            .sfs-el-table tr,
+            .sfs-el-table td { display: block; width: 100%; }
+            .sfs-el-table tr {
+                border: 1px solid #e5e5e5;
+                border-radius: 6px;
+                margin-bottom: 12px;
+                padding: 12px;
+                background: #fff;
+            }
+            .sfs-el-table td {
+                padding: 4px 0;
+                border: none;
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+            }
+            .sfs-el-table td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: #1d2327;
+                margin-right: 12px;
+                flex-shrink: 0;
+                min-width: 110px;
+            }
+            .sfs-el-table td.sfs-el-actions-cell {
+                justify-content: flex-end;
+                padding-top: 10px;
+                border-top: 1px solid #f0f0f0;
+                margin-top: 6px;
+                gap: 6px;
+            }
+            .sfs-el-table td.sfs-el-actions-cell::before { display: none; }
+            .sfs-el-table td.sfs-el-actions-cell .button-small {
+                min-height: 36px;
+                line-height: 34px;
+                padding: 0 14px;
+            }
+        }
+
+        </style>
 
         <?php if (empty($requests)): ?>
             <div class="notice notice-info">
                 <p><?php esc_html_e('No early leave requests found.', 'sfs-hr'); ?></p>
             </div>
         <?php else: ?>
-            <table class="wp-list-table widefat fixed striped">
+            <table class="wp-list-table widefat fixed striped sfs-el-table">
                 <thead>
                     <tr>
                         <th style="width: 60px;"><?php esc_html_e('ID', 'sfs-hr'); ?></th>
@@ -3913,38 +3971,44 @@ private function render_early_leave(): void {
                 <tbody>
                     <?php foreach ($requests as $req): ?>
                         <tr data-request-id="<?php echo intval($req->id); ?>">
-                            <td><?php echo intval($req->id); ?></td>
-                            <td>
+                            <td data-label="<?php esc_attr_e('ID', 'sfs-hr'); ?>"><?php echo intval($req->id); ?></td>
+                            <td data-label="<?php esc_attr_e('Employee', 'sfs-hr'); ?>">
                                 <?php
                                 $profile_url_el = admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . (int) $req->employee_id);
                                 $emp_name_el = $req->employee_name ?: __('Unknown', 'sfs-hr');
                                 ?>
-                                <a href="<?php echo esc_url($profile_url_el); ?>" style="color:#2271b1;text-decoration:none;">
-                                    <strong><?php echo esc_html($emp_name_el); ?></strong>
-                                </a>
-                                <?php if (!empty($req->employee_code)): ?>
-                                    <br><small class="description"><?php echo esc_html($req->employee_code); ?></small>
-                                <?php endif; ?>
-                            </td>
-                            <td><?php echo esc_html(date_i18n(get_option('date_format'), strtotime($req->request_date))); ?></td>
-                            <td><?php echo $req->scheduled_end_time ? esc_html(date_i18n('H:i', strtotime($req->scheduled_end_time))) : '—'; ?></td>
-                            <td>
-                                <strong><?php echo esc_html(date_i18n('H:i', strtotime($req->requested_leave_time))); ?></strong>
-                                <?php if ($req->actual_leave_time): ?>
-                                    <br><small><?php esc_html_e('Actual:', 'sfs-hr'); ?> <?php echo esc_html(date_i18n('H:i', strtotime($req->actual_leave_time))); ?></small>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <span class="reason-type reason-<?php echo esc_attr($req->reason_type); ?>">
-                                    <?php echo esc_html($reason_labels[$req->reason_type] ?? $req->reason_type); ?>
+                                <span>
+                                    <a href="<?php echo esc_url($profile_url_el); ?>" style="color:#2271b1;text-decoration:none;">
+                                        <strong><?php echo esc_html($emp_name_el); ?></strong>
+                                    </a>
+                                    <?php if (!empty($req->employee_code)): ?>
+                                        <br><small class="description"><?php echo esc_html($req->employee_code); ?></small>
+                                    <?php endif; ?>
                                 </span>
-                                <?php if ($req->reason_note): ?>
-                                    <br><small class="description" title="<?php echo esc_attr($req->reason_note); ?>">
-                                        <?php echo esc_html(wp_trim_words($req->reason_note, 8)); ?>
-                                    </small>
-                                <?php endif; ?>
                             </td>
-                            <td>
+                            <td data-label="<?php esc_attr_e('Date', 'sfs-hr'); ?>"><?php echo esc_html(date_i18n(get_option('date_format'), strtotime($req->request_date))); ?></td>
+                            <td data-label="<?php esc_attr_e('Scheduled End', 'sfs-hr'); ?>"><?php echo $req->scheduled_end_time ? esc_html(date_i18n('H:i', strtotime($req->scheduled_end_time))) : '—'; ?></td>
+                            <td data-label="<?php esc_attr_e('Requested Leave', 'sfs-hr'); ?>">
+                                <span>
+                                    <strong><?php echo esc_html(date_i18n('H:i', strtotime($req->requested_leave_time))); ?></strong>
+                                    <?php if ($req->actual_leave_time): ?>
+                                        <br><small><?php esc_html_e('Actual:', 'sfs-hr'); ?> <?php echo esc_html(date_i18n('H:i', strtotime($req->actual_leave_time))); ?></small>
+                                    <?php endif; ?>
+                                </span>
+                            </td>
+                            <td data-label="<?php esc_attr_e('Reason', 'sfs-hr'); ?>">
+                                <span>
+                                    <span class="reason-type reason-<?php echo esc_attr($req->reason_type); ?>">
+                                        <?php echo esc_html($reason_labels[$req->reason_type] ?? $req->reason_type); ?>
+                                    </span>
+                                    <?php if ($req->reason_note): ?>
+                                        <br><small class="description" title="<?php echo esc_attr($req->reason_note); ?>">
+                                            <?php echo esc_html(wp_trim_words($req->reason_note, 8)); ?>
+                                        </small>
+                                    <?php endif; ?>
+                                </span>
+                            </td>
+                            <td data-label="<?php esc_attr_e('Status', 'sfs-hr'); ?>">
                                 <?php
                                 $status_class = 'status-' . $req->status;
                                 $status_colors = [
@@ -3954,30 +4018,31 @@ private function render_early_leave(): void {
                                     'cancelled' => '#777',
                                 ];
                                 ?>
-                                <span class="<?php echo esc_attr($status_class); ?>" style="color: <?php echo esc_attr($status_colors[$req->status] ?? '#333'); ?>; font-weight: 600;">
-                                    <?php echo esc_html($status_labels[$req->status] ?? $req->status); ?>
-                                </span>
-                                <?php if ($req->reviewed_at): ?>
-                                    <br><small class="description"><?php echo esc_html(date_i18n('M j, H:i', strtotime($req->reviewed_at))); ?></small>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <?php if ($req->reviewer_name): ?>
-                                    <?php echo esc_html($req->reviewer_name); ?>
-                                    <?php if ($req->manager_note): ?>
-                                        <br><small class="description" title="<?php echo esc_attr($req->manager_note); ?>">
-                                            "<?php echo esc_html(wp_trim_words($req->manager_note, 5)); ?>"
-                                        </small>
+                                <span>
+                                    <span class="<?php echo esc_attr($status_class); ?>" style="color: <?php echo esc_attr($status_colors[$req->status] ?? '#333'); ?>; font-weight: 600;">
+                                        <?php echo esc_html($status_labels[$req->status] ?? $req->status); ?>
+                                    </span>
+                                    <?php if ($req->reviewed_at): ?>
+                                        <br><small class="description"><?php echo esc_html(date_i18n('M j, H:i', strtotime($req->reviewed_at))); ?></small>
                                     <?php endif; ?>
+                                </span>
+                            </td>
+                            <td data-label="<?php esc_attr_e('Reviewed By', 'sfs-hr'); ?>">
+                                <?php if ($req->reviewer_name): ?>
+                                    <span>
+                                        <?php echo esc_html($req->reviewer_name); ?>
+                                        <?php if ($req->manager_note): ?>
+                                            <br><small class="description" title="<?php echo esc_attr($req->manager_note); ?>">
+                                                "<?php echo esc_html(wp_trim_words($req->manager_note, 5)); ?>"
+                                            </small>
+                                        <?php endif; ?>
+                                    </span>
                                 <?php else: ?>
                                     —
                                 <?php endif; ?>
                             </td>
-                            <td>
+                            <td class="sfs-el-actions-cell">
                                 <?php
-                                // Show approve/reject buttons only if:
-                                // - Request is pending, AND
-                                // - User is admin/GM OR the assigned department manager
                                 $can_act = ( $req->status === 'pending' ) && (
                                     $is_admin_or_gm || (int) $req->manager_id === $current_user_id
                                 );
@@ -4007,62 +4072,83 @@ private function render_early_leave(): void {
             </table>
         <?php endif; ?>
 
-        <!-- Review Modal -->
-        <div id="early-leave-review-modal" style="display: none;">
-            <div class="early-leave-modal-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 100000;"></div>
-            <div class="early-leave-modal-content" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 20px; border-radius: 5px; z-index: 100001; min-width: 400px; max-width: 500px;">
-                <h3 id="early-leave-modal-title"><?php esc_html_e('Review Early Leave Request', 'sfs-hr'); ?></h3>
+        <!-- Slide-up Review Modal -->
+        <div class="sfs-el-modal" id="sfs-el-review-modal">
+            <div class="sfs-el-modal-content">
+                <div class="sfs-el-modal-header">
+                    <h3 class="sfs-el-modal-title" id="sfs-el-modal-title"><?php esc_html_e('Review Early Leave Request', 'sfs-hr'); ?></h3>
+                    <button type="button" class="sfs-el-modal-close" id="sfs-el-modal-close">&times;</button>
+                </div>
                 <input type="hidden" id="early-leave-request-id" value="" />
                 <input type="hidden" id="early-leave-action" value="" />
 
-                <p>
+                <div class="sfs-el-modal-body">
                     <label for="early-leave-note"><?php esc_html_e('Manager Note (optional):', 'sfs-hr'); ?></label>
-                    <textarea id="early-leave-note" rows="3" style="width: 100%;"></textarea>
-                </p>
+                    <textarea id="early-leave-note" rows="3"></textarea>
+                </div>
 
-                <p class="submit" style="text-align: right;">
-                    <button type="button" class="button early-leave-modal-cancel"><?php esc_html_e('Cancel', 'sfs-hr'); ?></button>
-                    <button type="button" class="button button-primary early-leave-modal-submit"><?php esc_html_e('Submit', 'sfs-hr'); ?></button>
-                </p>
+                <div class="sfs-el-modal-buttons">
+                    <button type="button" class="button button-primary" id="sfs-el-modal-submit">
+                        <span class="dashicons dashicons-yes"></span> <?php esc_html_e('Submit', 'sfs-hr'); ?>
+                    </button>
+                    <button type="button" class="button button-secondary" id="sfs-el-modal-cancel">
+                        <?php esc_html_e('Cancel', 'sfs-hr'); ?>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
     jQuery(function($) {
-        var $modal = $('#early-leave-review-modal');
+        var $modal = $('#sfs-el-review-modal');
+
+        function openModal(id, action, title) {
+            $('#early-leave-request-id').val(id);
+            $('#early-leave-action').val(action);
+            $('#sfs-el-modal-title').text(title);
+            // Style the submit button based on action
+            var $btn = $('#sfs-el-modal-submit');
+            $btn.prop('disabled', false);
+            if (action === 'rejected') {
+                $btn.removeClass('button-primary').addClass('sfs-el-btn-danger');
+                $btn.html('<span class="dashicons dashicons-no"></span> <?php echo esc_js(__('Reject', 'sfs-hr')); ?>');
+            } else {
+                $btn.removeClass('sfs-el-btn-danger').addClass('button-primary');
+                $btn.html('<span class="dashicons dashicons-yes"></span> <?php echo esc_js(__('Approve', 'sfs-hr')); ?>');
+            }
+            $modal.addClass('active');
+        }
+
+        function closeModal() {
+            $modal.removeClass('active');
+            $('#early-leave-note').val('');
+        }
 
         // Approve button click
-        $('.early-leave-approve').on('click', function() {
-            var id = $(this).data('id');
-            $('#early-leave-request-id').val(id);
-            $('#early-leave-action').val('approved');
-            $('#early-leave-modal-title').text('<?php echo esc_js(__('Approve Early Leave Request', 'sfs-hr')); ?>');
-            $modal.show();
+        $(document).on('click', '.early-leave-approve', function() {
+            openModal($(this).data('id'), 'approved', '<?php echo esc_js(__('Approve Early Leave', 'sfs-hr')); ?>');
         });
 
         // Reject button click
-        $('.early-leave-reject').on('click', function() {
-            var id = $(this).data('id');
-            $('#early-leave-request-id').val(id);
-            $('#early-leave-action').val('rejected');
-            $('#early-leave-modal-title').text('<?php echo esc_js(__('Reject Early Leave Request', 'sfs-hr')); ?>');
-            $modal.show();
+        $(document).on('click', '.early-leave-reject', function() {
+            openModal($(this).data('id'), 'rejected', '<?php echo esc_js(__('Reject Early Leave', 'sfs-hr')); ?>');
         });
 
-        // Modal cancel
-        $('.early-leave-modal-cancel, .early-leave-modal-overlay').on('click', function() {
-            $modal.hide();
-            $('#early-leave-note').val('');
+        // Close triggers
+        $('#sfs-el-modal-cancel, #sfs-el-modal-close').on('click', closeModal);
+        $modal.on('click', function(e) {
+            if (e.target === this) closeModal(); // click on overlay
         });
 
-        // Modal submit
-        $('.early-leave-modal-submit').on('click', function() {
+        // Submit review
+        $('#sfs-el-modal-submit').on('click', function() {
             var id = $('#early-leave-request-id').val();
             var action = $('#early-leave-action').val();
             var note = $('#early-leave-note').val();
+            var $btn = $(this);
 
-            $(this).prop('disabled', true).text('<?php echo esc_js(__('Processing...', 'sfs-hr')); ?>');
+            $btn.prop('disabled', true).text('<?php echo esc_js(__('Processing...', 'sfs-hr')); ?>');
 
             $.ajax({
                 url: '<?php echo esc_url(rest_url('sfs-hr/v1/early-leave/review/')); ?>' + id,
@@ -4079,7 +4165,7 @@ private function render_early_leave(): void {
                         location.reload();
                     } else {
                         alert(response.message || '<?php echo esc_js(__('An error occurred', 'sfs-hr')); ?>');
-                        $('.early-leave-modal-submit').prop('disabled', false).text('<?php echo esc_js(__('Submit', 'sfs-hr')); ?>');
+                        $btn.prop('disabled', false).text('<?php echo esc_js(__('Submit', 'sfs-hr')); ?>');
                     }
                 },
                 error: function(xhr) {
@@ -4087,7 +4173,7 @@ private function render_early_leave(): void {
                         ? xhr.responseJSON.message
                         : '<?php echo esc_js(__('An error occurred', 'sfs-hr')); ?>';
                     alert(msg);
-                    $('.early-leave-modal-submit').prop('disabled', false).text('<?php echo esc_js(__('Submit', 'sfs-hr')); ?>');
+                    $btn.prop('disabled', false).text('<?php echo esc_js(__('Submit', 'sfs-hr')); ?>');
                 }
             });
         });
@@ -4095,6 +4181,102 @@ private function render_early_leave(): void {
     </script>
 
     <style>
+    /* ── Slide-up review modal ── */
+    .sfs-el-modal {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        z-index: 100000;
+        background: rgba(0,0,0,0.5);
+        align-items: flex-end;
+        justify-content: center;
+    }
+    .sfs-el-modal.active { display: flex; }
+    .sfs-el-modal-content {
+        background: #fff;
+        width: 100%;
+        max-width: 480px;
+        border-radius: 16px 16px 0 0;
+        padding: 20px;
+        animation: sfsElSlideUp 0.2s ease-out;
+    }
+    @keyframes sfsElSlideUp {
+        from { transform: translateY(100%); }
+        to   { transform: translateY(0); }
+    }
+    .sfs-el-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #e5e5e5;
+    }
+    .sfs-el-modal-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1d2327;
+        margin: 0;
+    }
+    .sfs-el-modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #50575e;
+        padding: 0;
+        line-height: 1;
+    }
+    .sfs-el-modal-body {
+        margin-bottom: 16px;
+    }
+    .sfs-el-modal-body label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 6px;
+        color: #1d2327;
+    }
+    .sfs-el-modal-body textarea {
+        width: 100%;
+        border: 1px solid #dcdcde;
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-size: 14px;
+        resize: vertical;
+    }
+    .sfs-el-modal-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .sfs-el-modal-buttons .button {
+        width: 100%;
+        padding: 12px 20px;
+        font-size: 15px;
+        border-radius: 8px;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        cursor: pointer;
+    }
+    .sfs-el-modal-buttons .button-primary {
+        background: #2271b1;
+        border-color: #2271b1;
+        color: #fff;
+    }
+    .sfs-el-modal-buttons .sfs-el-btn-danger {
+        background: #d63638;
+        border-color: #d63638;
+        color: #fff;
+    }
+    .sfs-el-modal-buttons .button-secondary {
+        background: #f0f0f1;
+        border-color: #dcdcde;
+        color: #50575e;
+    }
+
     .reason-sick { color: #d9534f; }
     .reason-external_task { color: #5bc0de; }
     .reason-personal { color: #f0ad4e; }
@@ -4123,10 +4305,69 @@ private function render_policies(): void {
     // Gather all WP roles for the role selector
     $wp_roles = wp_roles()->get_names();
     ?>
-    <div class="sfs-hr-policies-wrap" style="display:flex; gap:30px; margin-top:20px;">
+    <style>
+    .sfs-hr-policies-wrap {
+        display: flex;
+        gap: 30px;
+        margin-top: 20px;
+    }
+    .sfs-hr-policies-form {
+        flex: 0 0 420px;
+    }
+    .sfs-hr-policies-list {
+        flex: 1;
+        min-width: 0;
+    }
+    .sfs-hr-policies-list .table-scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    @media screen and (max-width: 1024px) {
+        .sfs-hr-policies-wrap {
+            flex-direction: column;
+            gap: 20px;
+        }
+        .sfs-hr-policies-form {
+            flex: none;
+            width: 100%;
+        }
+    }
+    @media screen and (max-width: 782px) {
+        .sfs-hr-policies-form .form-table th,
+        .sfs-hr-policies-form .form-table td {
+            display: block;
+            width: 100%;
+            padding-left: 0;
+            padding-right: 0;
+        }
+        .sfs-hr-policies-form .form-table th {
+            padding-bottom: 4px;
+        }
+        .sfs-hr-policies-form .form-table input.regular-text,
+        .sfs-hr-policies-form .form-table select {
+            width: 100%;
+            max-width: 100%;
+        }
+        .sfs-hr-policies-form .form-table select[multiple] {
+            width: 100%;
+            min-width: unset;
+        }
+        .sfs-hr-policies-list .wp-list-table th,
+        .sfs-hr-policies-list .wp-list-table td {
+            white-space: nowrap;
+        }
+        .sfs-hr-policies-list .wp-list-table .button-small {
+            min-height: 36px;
+            line-height: 34px;
+            padding: 0 10px;
+        }
+    }
+    </style>
+
+    <div class="sfs-hr-policies-wrap">
 
         <!-- LEFT: Policy Form -->
-        <div style="flex:0 0 420px;">
+        <div class="sfs-hr-policies-form">
             <div class="postbox" style="padding:16px;">
                 <h3 style="margin-top:0;">
                     <?php echo $editing ? esc_html__( 'Edit Policy', 'sfs-hr' ) : esc_html__( 'Add New Policy', 'sfs-hr' ); ?>
@@ -4210,7 +4451,7 @@ private function render_policies(): void {
                         <tr>
                             <th><?php esc_html_e( 'Assign to Roles', 'sfs-hr' ); ?></th>
                             <td>
-                                <select name="roles[]" multiple size="8" style="min-width:250px;">
+                                <select name="roles[]" multiple size="8" style="min-width:200px; max-width:100%;">
                                     <?php foreach ( $wp_roles as $slug => $label ) : ?>
                                         <option value="<?php echo esc_attr( $slug ); ?>" <?php selected( $editing && in_array( $slug, $editing->roles ?? [] ) ); ?>>
                                             <?php echo esc_html( $label ); ?>
@@ -4238,10 +4479,11 @@ private function render_policies(): void {
         </div>
 
         <!-- RIGHT: Policies List -->
-        <div style="flex:1;">
+        <div class="sfs-hr-policies-list">
             <?php if ( empty( $policies ) ) : ?>
                 <p><?php esc_html_e( 'No attendance policies created yet. Employees without a policy will use the default attendance behaviour.', 'sfs-hr' ); ?></p>
             <?php else : ?>
+                <div class="table-scroll">
                 <table class="wp-list-table widefat striped">
                     <thead>
                         <tr>
@@ -4301,6 +4543,7 @@ private function render_policies(): void {
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+                </div>
             <?php endif; ?>
         </div>
     </div>
