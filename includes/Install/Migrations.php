@@ -583,6 +583,9 @@ class Migrations {
         add_option('sfs_hr_annual_ge5', '30'); // >=5y
         add_option('sfs_hr_global_approver_role', get_option('sfs_hr_global_approver_role','sfs_hr_manager') ?: 'sfs_hr_manager');
 
+        /** PERFORMANCE INDEXES — idempotent, safe to re-run */
+        self::ensure_performance_indexes();
+
         /** Recalculate balances for current year (non-destructive) */
         self::recalc_all_current_year();
     }
@@ -766,6 +769,109 @@ class Migrations {
                     ]);
                 }
             }
+        }
+    }
+
+    /**
+     * Add index if it doesn't already exist.
+     */
+    private static function add_index_if_missing(string $table, string $index_name, string $columns): void {
+        global $wpdb;
+        $exists = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.STATISTICS
+             WHERE table_schema = DATABASE() AND table_name = %s AND index_name = %s",
+            $table, $index_name
+        ) );
+        if ( $exists === 0 ) {
+            $wpdb->query( "ALTER TABLE `$table` ADD INDEX `$index_name` ($columns)" );
+        }
+    }
+
+    /**
+     * Create performance indexes across all major tables.
+     */
+    private static function ensure_performance_indexes(): void {
+        global $wpdb;
+
+        // Employees
+        $emp = $wpdb->prefix . 'sfs_hr_employees';
+        self::add_index_if_missing( $emp, 'idx_dept_id',    '`dept_id`' );
+        self::add_index_if_missing( $emp, 'idx_status',     '`status`' );
+
+        // Attendance punches (most critical for kiosk)
+        $punches = $wpdb->prefix . 'sfs_hr_attendance_punches';
+        $tbl_exists = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s", $punches
+        ) );
+        if ( $tbl_exists ) {
+            self::add_index_if_missing( $punches, 'idx_employee_date',   '`employee_id`, `punch_time`' );
+            self::add_index_if_missing( $punches, 'idx_date_type',       '`punch_time`, `punch_type`' );
+            self::add_index_if_missing( $punches, 'idx_emp_type_date',   '`employee_id`, `punch_type`, `punch_time`' );
+        }
+
+        // Shift assignments
+        $assigns = $wpdb->prefix . 'sfs_hr_attendance_shift_assign';
+        $tbl_exists = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s", $assigns
+        ) );
+        if ( $tbl_exists ) {
+            self::add_index_if_missing( $assigns, 'idx_emp_date',  '`employee_id`, `work_date`' );
+            self::add_index_if_missing( $assigns, 'idx_shift_id',  '`shift_id`' );
+            self::add_index_if_missing( $assigns, 'idx_work_date', '`work_date`' );
+        }
+
+        // Sessions
+        $sessions = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+        $tbl_exists = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s", $sessions
+        ) );
+        if ( $tbl_exists ) {
+            self::add_index_if_missing( $sessions, 'idx_emp_date',  '`employee_id`, `work_date`' );
+            self::add_index_if_missing( $sessions, 'idx_work_date', '`work_date`' );
+            self::add_index_if_missing( $sessions, 'idx_status',    '`status`' );
+        }
+
+        // Audit trail
+        $audit = $wpdb->prefix . 'sfs_hr_audit_trail';
+        $tbl_exists = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s", $audit
+        ) );
+        if ( $tbl_exists ) {
+            self::add_index_if_missing( $audit, 'idx_entity_type', '`entity_type`' );
+            self::add_index_if_missing( $audit, 'idx_action',      '`action`' );
+            self::add_index_if_missing( $audit, 'idx_created_at',  '`created_at`' );
+            self::add_index_if_missing( $audit, 'idx_user_id',     '`user_id`' );
+        }
+
+        // Early leave requests
+        $early = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+        $tbl_exists = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s", $early
+        ) );
+        if ( $tbl_exists ) {
+            self::add_index_if_missing( $early, 'idx_status_created', '`status`, `created_at`' );
+            self::add_index_if_missing( $early, 'idx_employee_id',    '`employee_id`' );
+        }
+
+        // Loans
+        $loans = $wpdb->prefix . 'sfs_hr_loans';
+        $tbl_exists = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s", $loans
+        ) );
+        if ( $tbl_exists ) {
+            self::add_index_if_missing( $loans, 'idx_employee_id', '`employee_id`' );
+            self::add_index_if_missing( $loans, 'idx_status',      '`status`' );
+        }
+
+        // Loan payments
+        $loan_pay = $wpdb->prefix . 'sfs_hr_loan_payments';
+        $tbl_exists = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s", $loan_pay
+        ) );
+        if ( $tbl_exists ) {
+            self::add_index_if_missing( $loan_pay, 'idx_loan_id',  '`loan_id`' );
+            self::add_index_if_missing( $loan_pay, 'idx_due_date', '`due_date`' );
+            self::add_index_if_missing( $loan_pay, 'idx_status',   '`status`' );
         }
     }
 

@@ -455,6 +455,7 @@ public function render_requests(): void {
     </div>
 
     <script>
+    function sfsEsc(s){if(typeof s!=='string')return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
     var sfsHrLeaveData = <?php echo wp_json_encode(array_values(array_map(function($r) use ($nonceA, $nonceR, $hr_user_ids, $gm_user_id, $managed_depts, $current_uid) {
         $can_approve = false;
         if ($r['status'] === 'pending') {
@@ -541,15 +542,15 @@ public function render_requests(): void {
         if (data.status === 'pending' && data.canApprove) {
             actionsDiv.innerHTML = '<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-bottom:10px;">' +
                 '<input type="hidden" name="action" value="sfs_hr_leave_approve"/>' +
-                '<input type="hidden" name="_wpnonce" value="' + data.nonceA + '"/>' +
-                '<input type="hidden" name="id" value="' + data.id + '"/>' +
+                '<input type="hidden" name="_wpnonce" value="' + sfsEsc(data.nonceA) + '"/>' +
+                '<input type="hidden" name="id" value="' + sfsEsc(data.id) + '"/>' +
                 '<div style="margin-bottom:8px;"><input type="text" name="note" placeholder="<?php echo esc_js(__('Approval note (optional)', 'sfs-hr')); ?>" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" /></div>' +
                 '<button class="button button-primary" style="width:100%;"><?php esc_html_e('Approve', 'sfs-hr'); ?></button>' +
                 '</form>' +
                 '<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" onsubmit="return sfsHrPromptRejectReason(this);">' +
                 '<input type="hidden" name="action" value="sfs_hr_leave_reject"/>' +
-                '<input type="hidden" name="_wpnonce" value="' + data.nonceR + '"/>' +
-                '<input type="hidden" name="id" value="' + data.id + '"/>' +
+                '<input type="hidden" name="_wpnonce" value="' + sfsEsc(data.nonceR) + '"/>' +
+                '<input type="hidden" name="id" value="' + sfsEsc(data.id) + '"/>' +
                 '<input type="hidden" name="note" class="reject-note-input" value=""/>' +
                 '<button class="button" style="width:100%;"><?php esc_html_e('Reject', 'sfs-hr'); ?></button>' +
                 '</form>';
@@ -566,14 +567,14 @@ public function render_requests(): void {
             var historyHtml = '';
             data.history.forEach(function(h) {
                 historyHtml += '<div style="border-bottom:1px solid #ddd;padding:8px 0;">';
-                historyHtml += '<div style="font-size:11px;color:#666;">' + h.date + '</div>';
-                historyHtml += '<div style="font-weight:600;margin:2px 0;">' + h.event + '</div>';
-                historyHtml += '<div style="font-size:12px;color:#555;">' + h.user + '</div>';
+                historyHtml += '<div style="font-size:11px;color:#666;">' + sfsEsc(h.date) + '</div>';
+                historyHtml += '<div style="font-weight:600;margin:2px 0;">' + sfsEsc(h.event) + '</div>';
+                historyHtml += '<div style="font-size:12px;color:#555;">' + sfsEsc(h.user) + '</div>';
                 if (h.meta && Object.keys(h.meta).length > 0) {
                     historyHtml += '<div style="font-size:11px;margin-top:4px;background:#fff;padding:4px;border-radius:2px;">';
                     for (var key in h.meta) {
                         var label = key.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
-                        historyHtml += '<strong>' + label + ':</strong> ' + h.meta[key] + '<br>';
+                        historyHtml += '<strong>' + sfsEsc(label) + ':</strong> ' + sfsEsc(h.meta[key]) + '<br>';
                     }
                     historyHtml += '</div>';
                 }

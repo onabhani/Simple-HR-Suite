@@ -107,8 +107,9 @@ class Settlement_Service {
         $sql = "SELECT r.*, e.employee_code, e.first_name, e.last_name, e.base_salary, e.hire_date, e.hired_at
                 FROM $resign_table r
                 JOIN $emp_table e ON e.id = r.employee_id
+                LEFT JOIN $settle_table s ON s.resignation_id = r.id
                 WHERE r.status = 'approved'
-                AND r.id NOT IN (SELECT resignation_id FROM $settle_table WHERE resignation_id IS NOT NULL)
+                AND s.id IS NULL
                 ORDER BY r.last_working_day DESC";
 
         return $wpdb->get_results($sql, ARRAY_A);
