@@ -6,6 +6,8 @@
  * Author: hdqah.com
  * Author URI: https://hdqah.com
  * Text Domain: sfs-hr
+ * GitHub Plugin URI: onabhani/Simple-HR-Suite
+ * GitHub Branch: main
  */
 
 if (!defined('ABSPATH')) { exit; }

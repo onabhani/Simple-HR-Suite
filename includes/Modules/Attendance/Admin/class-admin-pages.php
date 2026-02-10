@@ -3947,16 +3947,6 @@ private function render_early_leave(): void {
             }
         }
 
-        /* Modal responsive */
-        @media screen and (max-width: 500px) {
-            .early-leave-modal-content {
-                min-width: auto !important;
-                max-width: 95vw !important;
-                width: calc(100vw - 30px) !important;
-                left: 50% !important;
-                padding: 16px !important;
-            }
-        }
         </style>
 
         <?php if (empty($requests)): ?>
@@ -4082,62 +4072,83 @@ private function render_early_leave(): void {
             </table>
         <?php endif; ?>
 
-        <!-- Review Modal -->
-        <div id="early-leave-review-modal" style="display: none;">
-            <div class="early-leave-modal-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 100000;"></div>
-            <div class="early-leave-modal-content" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 20px; border-radius: 5px; z-index: 100001; min-width: 400px; max-width: 500px;">
-                <h3 id="early-leave-modal-title"><?php esc_html_e('Review Early Leave Request', 'sfs-hr'); ?></h3>
+        <!-- Slide-up Review Modal -->
+        <div class="sfs-el-modal" id="sfs-el-review-modal">
+            <div class="sfs-el-modal-content">
+                <div class="sfs-el-modal-header">
+                    <h3 class="sfs-el-modal-title" id="sfs-el-modal-title"><?php esc_html_e('Review Early Leave Request', 'sfs-hr'); ?></h3>
+                    <button type="button" class="sfs-el-modal-close" id="sfs-el-modal-close">&times;</button>
+                </div>
                 <input type="hidden" id="early-leave-request-id" value="" />
                 <input type="hidden" id="early-leave-action" value="" />
 
-                <p>
+                <div class="sfs-el-modal-body">
                     <label for="early-leave-note"><?php esc_html_e('Manager Note (optional):', 'sfs-hr'); ?></label>
-                    <textarea id="early-leave-note" rows="3" style="width: 100%;"></textarea>
-                </p>
+                    <textarea id="early-leave-note" rows="3"></textarea>
+                </div>
 
-                <p class="submit" style="text-align: right;">
-                    <button type="button" class="button early-leave-modal-cancel"><?php esc_html_e('Cancel', 'sfs-hr'); ?></button>
-                    <button type="button" class="button button-primary early-leave-modal-submit"><?php esc_html_e('Submit', 'sfs-hr'); ?></button>
-                </p>
+                <div class="sfs-el-modal-buttons">
+                    <button type="button" class="button button-primary" id="sfs-el-modal-submit">
+                        <span class="dashicons dashicons-yes"></span> <?php esc_html_e('Submit', 'sfs-hr'); ?>
+                    </button>
+                    <button type="button" class="button button-secondary" id="sfs-el-modal-cancel">
+                        <?php esc_html_e('Cancel', 'sfs-hr'); ?>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
     jQuery(function($) {
-        var $modal = $('#early-leave-review-modal');
+        var $modal = $('#sfs-el-review-modal');
+
+        function openModal(id, action, title) {
+            $('#early-leave-request-id').val(id);
+            $('#early-leave-action').val(action);
+            $('#sfs-el-modal-title').text(title);
+            // Style the submit button based on action
+            var $btn = $('#sfs-el-modal-submit');
+            $btn.prop('disabled', false);
+            if (action === 'rejected') {
+                $btn.removeClass('button-primary').addClass('sfs-el-btn-danger');
+                $btn.html('<span class="dashicons dashicons-no"></span> <?php echo esc_js(__('Reject', 'sfs-hr')); ?>');
+            } else {
+                $btn.removeClass('sfs-el-btn-danger').addClass('button-primary');
+                $btn.html('<span class="dashicons dashicons-yes"></span> <?php echo esc_js(__('Approve', 'sfs-hr')); ?>');
+            }
+            $modal.addClass('active');
+        }
+
+        function closeModal() {
+            $modal.removeClass('active');
+            $('#early-leave-note').val('');
+        }
 
         // Approve button click
-        $('.early-leave-approve').on('click', function() {
-            var id = $(this).data('id');
-            $('#early-leave-request-id').val(id);
-            $('#early-leave-action').val('approved');
-            $('#early-leave-modal-title').text('<?php echo esc_js(__('Approve Early Leave Request', 'sfs-hr')); ?>');
-            $modal.show();
+        $(document).on('click', '.early-leave-approve', function() {
+            openModal($(this).data('id'), 'approved', '<?php echo esc_js(__('Approve Early Leave', 'sfs-hr')); ?>');
         });
 
         // Reject button click
-        $('.early-leave-reject').on('click', function() {
-            var id = $(this).data('id');
-            $('#early-leave-request-id').val(id);
-            $('#early-leave-action').val('rejected');
-            $('#early-leave-modal-title').text('<?php echo esc_js(__('Reject Early Leave Request', 'sfs-hr')); ?>');
-            $modal.show();
+        $(document).on('click', '.early-leave-reject', function() {
+            openModal($(this).data('id'), 'rejected', '<?php echo esc_js(__('Reject Early Leave', 'sfs-hr')); ?>');
         });
 
-        // Modal cancel
-        $('.early-leave-modal-cancel, .early-leave-modal-overlay').on('click', function() {
-            $modal.hide();
-            $('#early-leave-note').val('');
+        // Close triggers
+        $('#sfs-el-modal-cancel, #sfs-el-modal-close').on('click', closeModal);
+        $modal.on('click', function(e) {
+            if (e.target === this) closeModal(); // click on overlay
         });
 
-        // Modal submit
-        $('.early-leave-modal-submit').on('click', function() {
+        // Submit review
+        $('#sfs-el-modal-submit').on('click', function() {
             var id = $('#early-leave-request-id').val();
             var action = $('#early-leave-action').val();
             var note = $('#early-leave-note').val();
+            var $btn = $(this);
 
-            $(this).prop('disabled', true).text('<?php echo esc_js(__('Processing...', 'sfs-hr')); ?>');
+            $btn.prop('disabled', true).text('<?php echo esc_js(__('Processing...', 'sfs-hr')); ?>');
 
             $.ajax({
                 url: '<?php echo esc_url(rest_url('sfs-hr/v1/early-leave/review/')); ?>' + id,
@@ -4154,7 +4165,7 @@ private function render_early_leave(): void {
                         location.reload();
                     } else {
                         alert(response.message || '<?php echo esc_js(__('An error occurred', 'sfs-hr')); ?>');
-                        $('.early-leave-modal-submit').prop('disabled', false).text('<?php echo esc_js(__('Submit', 'sfs-hr')); ?>');
+                        $btn.prop('disabled', false).text('<?php echo esc_js(__('Submit', 'sfs-hr')); ?>');
                     }
                 },
                 error: function(xhr) {
@@ -4162,7 +4173,7 @@ private function render_early_leave(): void {
                         ? xhr.responseJSON.message
                         : '<?php echo esc_js(__('An error occurred', 'sfs-hr')); ?>';
                     alert(msg);
-                    $('.early-leave-modal-submit').prop('disabled', false).text('<?php echo esc_js(__('Submit', 'sfs-hr')); ?>');
+                    $btn.prop('disabled', false).text('<?php echo esc_js(__('Submit', 'sfs-hr')); ?>');
                 }
             });
         });
@@ -4170,6 +4181,102 @@ private function render_early_leave(): void {
     </script>
 
     <style>
+    /* ── Slide-up review modal ── */
+    .sfs-el-modal {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        z-index: 100000;
+        background: rgba(0,0,0,0.5);
+        align-items: flex-end;
+        justify-content: center;
+    }
+    .sfs-el-modal.active { display: flex; }
+    .sfs-el-modal-content {
+        background: #fff;
+        width: 100%;
+        max-width: 480px;
+        border-radius: 16px 16px 0 0;
+        padding: 20px;
+        animation: sfsElSlideUp 0.2s ease-out;
+    }
+    @keyframes sfsElSlideUp {
+        from { transform: translateY(100%); }
+        to   { transform: translateY(0); }
+    }
+    .sfs-el-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #e5e5e5;
+    }
+    .sfs-el-modal-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1d2327;
+        margin: 0;
+    }
+    .sfs-el-modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #50575e;
+        padding: 0;
+        line-height: 1;
+    }
+    .sfs-el-modal-body {
+        margin-bottom: 16px;
+    }
+    .sfs-el-modal-body label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 6px;
+        color: #1d2327;
+    }
+    .sfs-el-modal-body textarea {
+        width: 100%;
+        border: 1px solid #dcdcde;
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-size: 14px;
+        resize: vertical;
+    }
+    .sfs-el-modal-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .sfs-el-modal-buttons .button {
+        width: 100%;
+        padding: 12px 20px;
+        font-size: 15px;
+        border-radius: 8px;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        cursor: pointer;
+    }
+    .sfs-el-modal-buttons .button-primary {
+        background: #2271b1;
+        border-color: #2271b1;
+        color: #fff;
+    }
+    .sfs-el-modal-buttons .sfs-el-btn-danger {
+        background: #d63638;
+        border-color: #d63638;
+        color: #fff;
+    }
+    .sfs-el-modal-buttons .button-secondary {
+        background: #f0f0f1;
+        border-color: #dcdcde;
+        color: #50575e;
+    }
+
     .reason-sick { color: #d9534f; }
     .reason-external_task { color: #5bc0de; }
     .reason-personal { color: #f0ad4e; }
