@@ -37,10 +37,13 @@ class Admin_Pages {
      * Register admin menu.
      */
     public function register_menu(): void {
+        $view_cap  = 'sfs_hr_performance_view';
+        $admin_cap = 'sfs_hr.manage';
+
         add_menu_page(
             __( 'Performance', 'sfs-hr' ),
             __( 'Performance', 'sfs-hr' ),
-            'sfs_hr.manage',
+            $view_cap,
             'sfs-hr-performance',
             [ $this, 'render_dashboard' ],
             'dashicons-chart-line',
@@ -51,7 +54,7 @@ class Admin_Pages {
             'sfs-hr-performance',
             __( 'Dashboard', 'sfs-hr' ),
             __( 'Dashboard', 'sfs-hr' ),
-            'sfs_hr.manage',
+            $view_cap,
             'sfs-hr-performance',
             [ $this, 'render_dashboard' ]
         );
@@ -60,7 +63,7 @@ class Admin_Pages {
             'sfs-hr-performance',
             __( 'Employees', 'sfs-hr' ),
             __( 'Employees', 'sfs-hr' ),
-            'sfs_hr.manage',
+            $view_cap,
             'sfs-hr-performance-employees',
             [ $this, 'render_employees' ]
         );
@@ -69,7 +72,7 @@ class Admin_Pages {
             'sfs-hr-performance',
             __( 'Goals', 'sfs-hr' ),
             __( 'Goals', 'sfs-hr' ),
-            'sfs_hr.manage',
+            $view_cap,
             'sfs-hr-performance-goals',
             [ $this, 'render_goals' ]
         );
@@ -78,7 +81,7 @@ class Admin_Pages {
             'sfs-hr-performance',
             __( 'Reviews', 'sfs-hr' ),
             __( 'Reviews', 'sfs-hr' ),
-            'sfs_hr.manage',
+            $view_cap,
             'sfs-hr-performance-reviews',
             [ $this, 'render_reviews' ]
         );
@@ -87,7 +90,7 @@ class Admin_Pages {
             'sfs-hr-performance',
             __( 'Alerts', 'sfs-hr' ),
             __( 'Alerts', 'sfs-hr' ),
-            'sfs_hr.manage',
+            $view_cap,
             'sfs-hr-performance-alerts',
             [ $this, 'render_alerts' ]
         );
@@ -96,7 +99,7 @@ class Admin_Pages {
             'sfs-hr-performance',
             __( 'Settings', 'sfs-hr' ),
             __( 'Settings', 'sfs-hr' ),
-            'sfs_hr.manage',
+            $admin_cap,
             'sfs-hr-performance-settings',
             [ $this, 'render_settings' ]
         );
