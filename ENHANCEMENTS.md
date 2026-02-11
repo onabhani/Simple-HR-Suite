@@ -50,11 +50,11 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 ## 3. Attendance Module Improvements
 
 ### 3.1 Configurable Attendance Period
-- [ ] **Add** a settings field for attendance period (e.g., weekly, biweekly, monthly, custom date range)
-- [ ] **Store** the configured period in the plugin options table
-- [ ] **Update** attendance reports to respect the configured period
-- [ ] **Update** absence analytics to use the configured period boundaries
-- [ ] **Add** period presets (Calendar Month, Payroll Cycle, Custom)
+- [x] **Add** a settings field for attendance period (e.g., weekly, biweekly, monthly, custom date range)
+- [x] **Store** the configured period in the plugin options table
+- [x] **Update** attendance reports to respect the configured period
+- [x] **Update** absence analytics to use the configured period boundaries
+- [x] **Add** period presets (Calendar Month, Payroll Cycle, Custom)
 
 ### 3.2 Attendance Policies Page — Mobile Responsiveness
 - [ ] **Audit** the attendance policies admin page on mobile viewports (320px–768px)

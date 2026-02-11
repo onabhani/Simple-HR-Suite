@@ -26,12 +26,15 @@ class Attendance_Metrics {
     public static function get_employee_metrics( int $employee_id, string $start_date = '', string $end_date = '' ): array {
         global $wpdb;
 
-        // Default date range: current month
-        if ( empty( $start_date ) ) {
-            $start_date = date( 'Y-m-01' );
-        }
-        if ( empty( $end_date ) ) {
-            $end_date = date( 'Y-m-d' );
+        // Default date range: current configured attendance period
+        if ( empty( $start_date ) || empty( $end_date ) ) {
+            $period = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period();
+            if ( empty( $start_date ) ) {
+                $start_date = $period['start'];
+            }
+            if ( empty( $end_date ) ) {
+                $end_date = $period['end'];
+            }
         }
 
         $sessions_table = $wpdb->prefix . 'sfs_hr_attendance_sessions';
@@ -230,12 +233,15 @@ class Attendance_Metrics {
 
         $employees_table = $wpdb->prefix . 'sfs_hr_employees';
 
-        // Default date range
-        if ( empty( $start_date ) ) {
-            $start_date = date( 'Y-m-01' );
-        }
-        if ( empty( $end_date ) ) {
-            $end_date = date( 'Y-m-d' );
+        // Default date range: current configured attendance period
+        if ( empty( $start_date ) || empty( $end_date ) ) {
+            $period = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period();
+            if ( empty( $start_date ) ) {
+                $start_date = $period['start'];
+            }
+            if ( empty( $end_date ) ) {
+                $end_date = $period['end'];
+            }
         }
 
         // Get employees
@@ -319,12 +325,15 @@ class Attendance_Metrics {
 
         $dept_table = $wpdb->prefix . 'sfs_hr_departments';
 
-        // Default date range
-        if ( empty( $start_date ) ) {
-            $start_date = date( 'Y-m-01' );
-        }
-        if ( empty( $end_date ) ) {
-            $end_date = date( 'Y-m-d' );
+        // Default date range: current configured attendance period
+        if ( empty( $start_date ) || empty( $end_date ) ) {
+            $period = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period();
+            if ( empty( $start_date ) ) {
+                $start_date = $period['start'];
+            }
+            if ( empty( $end_date ) ) {
+                $end_date = $period['end'];
+            }
         }
 
         $departments = $wpdb->get_results(

@@ -225,8 +225,9 @@ class Admin_Pages {
     public function render_dashboard(): void {
         global $wpdb;
 
-        $start_date = isset( $_GET['start_date'] ) ? sanitize_text_field( $_GET['start_date'] ) : date( 'Y-m-01' );
-        $end_date = isset( $_GET['end_date'] ) ? sanitize_text_field( $_GET['end_date'] ) : date( 'Y-m-d' );
+        $att_period = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period();
+        $start_date = isset( $_GET['start_date'] ) ? sanitize_text_field( $_GET['start_date'] ) : $att_period['start'];
+        $end_date = isset( $_GET['end_date'] ) ? sanitize_text_field( $_GET['end_date'] ) : $att_period['end'];
 
         // Get summary data
         $dept_summary = Performance_Calculator::get_departments_summary( $start_date, $end_date );
@@ -378,8 +379,9 @@ class Admin_Pages {
     public function render_employees(): void {
         global $wpdb;
 
-        $start_date = isset( $_GET['start_date'] ) ? sanitize_text_field( $_GET['start_date'] ) : date( 'Y-m-01' );
-        $end_date = isset( $_GET['end_date'] ) ? sanitize_text_field( $_GET['end_date'] ) : date( 'Y-m-d' );
+        $att_period = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period();
+        $start_date = isset( $_GET['start_date'] ) ? sanitize_text_field( $_GET['start_date'] ) : $att_period['start'];
+        $end_date = isset( $_GET['end_date'] ) ? sanitize_text_field( $_GET['end_date'] ) : $att_period['end'];
         $dept_id = isset( $_GET['dept_id'] ) ? (int) $_GET['dept_id'] : 0;
         $view_employee = isset( $_GET['employee_id'] ) ? (int) $_GET['employee_id'] : 0;
 

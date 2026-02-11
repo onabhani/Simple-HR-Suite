@@ -2,6 +2,14 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.3.5] — 2026-02-11
+
+### Added
+- Configurable attendance period in Attendance Settings (full calendar month or custom start day)
+- `AttendanceModule::get_current_period()` helper used across all modules
+- All date range defaults (dashboards, reports, alerts, CSV exports, frontend widgets)
+  now respect the configured attendance period instead of hardcoded calendar month
+
 ## [0.3.4] — 2026-02-10
 
 ### Fixed

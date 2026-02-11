@@ -1303,9 +1303,10 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
     // Warning threshold is 80% of limit
     $warning_threshold = (int) ( $monthly_ot_threshold * 0.8 );
 
-    // Get current month date range
-    $month_start = date( 'Y-m-01' );
-    $month_end   = date( 'Y-m-t' );
+    // Get current attendance period date range
+    $att_period  = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period();
+    $month_start = $att_period['start'];
+    $month_end   = $att_period['end'];
 
     // Query employees with high overtime this month
     $high_ot_employees = $wpdb->get_results( $wpdb->prepare(
@@ -5765,9 +5766,10 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                         <tr>
                             <th scope="row"><label><?php esc_html_e( 'Date Range', 'sfs-hr' ); ?></label></th>
                             <td>
-                                <input type="date" name="date_from" value="<?php echo esc_attr( $_GET['date_from'] ?? date( 'Y-m-01' ) ); ?>" style="width:150px;" />
+                                <?php $rpt_period = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period(); ?>
+                                <input type="date" name="date_from" value="<?php echo esc_attr( $_GET['date_from'] ?? $rpt_period['start'] ); ?>" style="width:150px;" />
                                 <span style="margin:0 8px;"><?php esc_html_e( 'to', 'sfs-hr' ); ?></span>
-                                <input type="date" name="date_to" value="<?php echo esc_attr( $_GET['date_to'] ?? date( 'Y-m-d' ) ); ?>" style="width:150px;" />
+                                <input type="date" name="date_to" value="<?php echo esc_attr( $_GET['date_to'] ?? $rpt_period['end'] ); ?>" style="width:150px;" />
                             </td>
                         </tr>
                         <tr>
