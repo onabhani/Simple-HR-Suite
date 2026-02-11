@@ -2,6 +2,19 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.3.6] — 2026-02-11
+
+### Changed
+- **Merged admin employee pages** (P1 §5.1): the old "Edit Employee" page now redirects
+  to the unified Employee Profile page in edit mode
+- Employee Profile edit mode expanded from ~15 to 35+ fields: Arabic names, nationality,
+  marital status, work location, contract dates, GOSI salary, visa/sponsor, driving license,
+  shift assignment with history, and QR code management
+- Employee Profile view mode enriched with the same fields (job & contract, documents,
+  driving license sections)
+- QR regen/toggle and save redirects now return to the Profile page
+- Success notices (updated, QR regen, QR toggle) displayed on Profile page
+
 ## [0.3.5] — 2026-02-11
 
 ### Added

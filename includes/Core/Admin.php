@@ -1527,7 +1527,7 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
      *   'other'    => [ ... ],
      * ]
      */
-    private function attendance_shifts_grouped(): array {
+    public static function attendance_shifts_grouped(): array {
         global $wpdb;
 
         $table = $wpdb->prefix . 'sfs_hr_attendance_shifts';
@@ -1622,7 +1622,7 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
      * Current default shift for employee (based on today) from emp_shifts table.
      * Returns an array with shift fields + start_date, or null.
      */
-    private function get_emp_default_shift( int $employee_id ): ?array {
+    public static function get_emp_default_shift( int $employee_id ): ?array {
         global $wpdb;
 
         if ( $employee_id <= 0 ) {
@@ -1669,7 +1669,7 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
     /**
      * Basic shift history for an employee (newest first).
      */
-    private function get_emp_shift_history( int $employee_id, int $limit = 5 ): array {
+    public static function get_emp_shift_history( int $employee_id, int $limit = 5 ): array {
         global $wpdb;
 
         if ( $employee_id <= 0 ) {
@@ -1717,7 +1717,7 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
 
 
     /** Ensure a random token exists for employee; return token string. */
-    private function ensure_qr_token(int $emp_id): string {
+    public static function ensure_qr_token(int $emp_id): string {
         global $wpdb; $t = $wpdb->prefix.'sfs_hr_employees';
         $row = $wpdb->get_row($wpdb->prepare("SELECT qr_token FROM {$t} WHERE id=%d", $emp_id), ARRAY_A);
         $tok = isset($row['qr_token']) ? (string)$row['qr_token'] : '';
@@ -1732,7 +1732,7 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
     }
 
     /** Build the URL encoded inside the QR. */
-    private function qr_payload_url(int $emp_id, string $token): string {
+    public static function qr_payload_url(int $emp_id, string $token): string {
         $base = home_url('/wp-json/sfs-hr/v1/attendance/scan');
         return add_query_arg(['emp' => $emp_id, 'token' => $token], $base);
     }
@@ -3609,6 +3609,13 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-employees&err=id' ) );
         exit;
     }
+
+    // Redirect to unified Employee Profile page in edit mode.
+    wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-employee-profile&employee_id=' . $id . '&mode=edit' ) );
+    exit;
+
+    // --- Legacy edit form below (kept for reference, no longer reached) ---
+
     Helpers::require_cap( 'sfs_hr.manage' );
 
     $nonce = wp_create_nonce( 'sfs_hr_save_edit_' . $id );
@@ -5044,7 +5051,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             'qr_updated_at' => Helpers::now_mysql(),
         ], ['id'=>$id]);
 
-        wp_safe_redirect( admin_url('admin.php?page=sfs-hr-employees&action=edit&id='.$id.'&ok=qrregen') ); exit;
+        wp_safe_redirect( admin_url('admin.php?page=sfs-hr-employee-profile&employee_id='.$id.'&mode=edit&ok=qrregen') ); exit;
     }
 
     public function handle_toggle_qr(): void {
@@ -5060,7 +5067,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             'qr_updated_at' => Helpers::now_mysql(),
         ], ['id'=>$id]);
 
-        wp_safe_redirect( admin_url('admin.php?page=sfs-hr-employees&action=edit&id='.$id.'&ok=qrtoggle') ); exit;
+        wp_safe_redirect( admin_url('admin.php?page=sfs-hr-employee-profile&employee_id='.$id.'&mode=edit&ok=qrtoggle') ); exit;
     }
     
     public function handle_download_qr_card(): void {

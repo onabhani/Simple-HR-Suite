@@ -83,12 +83,12 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 ## 5. Employee Profile Consolidation
 
 ### 5.1 Merge Admin Employee Profiles
-- [ ] **Audit** all places where employee data is displayed to admins (Employee module, quick views, other module references)
-- [ ] **Design** a single unified employee profile page for admins
-- [ ] **Merge** data from all modules into the unified profile (leave balances, attendance summary, loans, assets, performance scores, documents)
-- [ ] **Add** tabbed navigation on the unified profile (Overview, Leave, Attendance, Payroll, Performance, Documents, Assets)
-- [ ] **Remove** or redirect duplicate/scattered profile views
-- [ ] **Ensure** role-based access — tabs only visible if the admin has the relevant capability
+- [x] **Audit** all places where employee data is displayed to admins (Employee module, quick views, other module references)
+- [x] **Design** a single unified employee profile page for admins
+- [x] **Merge** data from all modules into the unified profile (leave balances, attendance summary, loans, assets, performance scores, documents)
+- [x] **Add** tabbed navigation on the unified profile (Overview, Leave, Attendance, Payroll, Performance, Documents, Assets)
+- [x] **Remove** or redirect duplicate/scattered profile views
+- [x] **Ensure** role-based access — tabs only visible if the admin has the relevant capability
 
 ---
 
