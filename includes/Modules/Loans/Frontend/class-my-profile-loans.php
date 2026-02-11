@@ -24,19 +24,26 @@ class MyProfileLoans {
     }
 
     /**
-     * Add "Loans" tab to My Profile tabs
+     * Add "Loans" tab to My Profile / Employee Profile tabs
      */
     public function add_loans_tab( \stdClass $employee ): void {
         $settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+        $page     = isset( $_GET['page'] ) ? sanitize_key( (string) $_GET['page'] ) : '';
 
-        // Only show if enabled in settings
-        if ( ! $settings['show_in_my_profile'] ) {
+        // On self-service: respect the setting
+        if ( $page !== 'sfs-hr-employee-profile' && ! $settings['show_in_my_profile'] ) {
             return;
         }
 
         $active = ( isset( $_GET['tab'] ) && $_GET['tab'] === 'loans' );
         $class  = 'nav-tab' . ( $active ? ' nav-tab-active' : '' );
-        $url    = admin_url( 'admin.php?page=sfs-hr-my-profile&tab=loans' );
+
+        if ( $page === 'sfs-hr-employee-profile' ) {
+            $employee_id = isset( $_GET['employee_id'] ) ? (int) $_GET['employee_id'] : (int) $employee->id;
+            $url = admin_url( 'admin.php?page=sfs-hr-employee-profile&employee_id=' . $employee_id . '&tab=loans' );
+        } else {
+            $url = admin_url( 'admin.php?page=sfs-hr-my-profile&tab=loans' );
+        }
 
         echo '<a href="' . esc_url( $url ) . '" class="' . esc_attr( $class ) . '">';
         esc_html_e( 'Loans', 'sfs-hr' );
@@ -48,6 +55,14 @@ class MyProfileLoans {
      */
     public function render_loans_content( \stdClass $employee, string $active_tab ): void {
         if ( $active_tab !== 'loans' ) {
+            return;
+        }
+
+        $page = isset( $_GET['page'] ) ? sanitize_key( (string) $_GET['page'] ) : '';
+
+        // Admin employee profile — render admin-oriented view
+        if ( $page === 'sfs-hr-employee-profile' ) {
+            $this->render_admin_loans_view( $employee );
             return;
         }
 
@@ -106,6 +121,104 @@ class MyProfileLoans {
         }
 
         echo '</div>'; // .sfs-hr-my-profile-loans
+    }
+
+    /**
+     * Render admin-oriented loans view for an employee profile
+     */
+    private function render_admin_loans_view( \stdClass $employee ): void {
+        global $wpdb;
+        $loans_table    = $wpdb->prefix . 'sfs_hr_loans';
+        $payments_table = $wpdb->prefix . 'sfs_hr_loan_payments';
+
+        $loans = $wpdb->get_results( $wpdb->prepare(
+            "SELECT * FROM {$loans_table} WHERE employee_id = %d ORDER BY created_at DESC",
+            $employee->id
+        ) );
+
+        echo '<div class="sfs-hr-admin-loans-view">';
+        echo '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
+        echo '<h2 style="margin:0;">' . esc_html( sprintf( __( 'Loans — %s', 'sfs-hr' ), $employee->first_name . ' ' . $employee->last_name ) ) . '</h2>';
+        echo '<a href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-loans' ) ) . '" class="button">' . esc_html__( 'All Loans', 'sfs-hr' ) . ' &rarr;</a>';
+        echo '</div>';
+
+        if ( empty( $loans ) ) {
+            echo '<p style="color:#666;">' . esc_html__( 'This employee has no loan records.', 'sfs-hr' ) . '</p>';
+            echo '</div>';
+            return;
+        }
+
+        // Summary cards
+        $total_principal = 0;
+        $total_remaining = 0;
+        $active_count    = 0;
+        foreach ( $loans as $loan ) {
+            $total_principal += (float) $loan->principal_amount;
+            $total_remaining += (float) $loan->remaining_balance;
+            if ( $loan->status === 'active' ) {
+                $active_count++;
+            }
+        }
+
+        echo '<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">';
+        echo '<div style="background:#fff;border:1px solid #dcdcde;border-radius:6px;padding:14px 20px;min-width:140px;">';
+        echo '<div style="font-size:11px;color:#666;text-transform:uppercase;">' . esc_html__( 'Total Loans', 'sfs-hr' ) . '</div>';
+        echo '<div style="font-size:22px;font-weight:600;color:#1d2327;">' . count( $loans ) . '</div>';
+        echo '</div>';
+        echo '<div style="background:#fff;border:1px solid #dcdcde;border-radius:6px;padding:14px 20px;min-width:140px;">';
+        echo '<div style="font-size:11px;color:#666;text-transform:uppercase;">' . esc_html__( 'Active', 'sfs-hr' ) . '</div>';
+        echo '<div style="font-size:22px;font-weight:600;color:#28a745;">' . $active_count . '</div>';
+        echo '</div>';
+        echo '<div style="background:#fff;border:1px solid #dcdcde;border-radius:6px;padding:14px 20px;min-width:140px;">';
+        echo '<div style="font-size:11px;color:#666;text-transform:uppercase;">' . esc_html__( 'Total Borrowed', 'sfs-hr' ) . '</div>';
+        echo '<div style="font-size:22px;font-weight:600;color:#1d2327;">' . number_format( $total_principal, 2 ) . ' <small style="font-size:12px;">SAR</small></div>';
+        echo '</div>';
+        echo '<div style="background:#fff;border:1px solid #dcdcde;border-radius:6px;padding:14px 20px;min-width:140px;">';
+        echo '<div style="font-size:11px;color:#666;text-transform:uppercase;">' . esc_html__( 'Remaining', 'sfs-hr' ) . '</div>';
+        echo '<div style="font-size:22px;font-weight:600;color:' . ( $total_remaining > 0 ? '#dc3545' : '#28a745' ) . ';">' . number_format( $total_remaining, 2 ) . ' <small style="font-size:12px;">SAR</small></div>';
+        echo '</div>';
+        echo '</div>';
+
+        // Loans table
+        echo '<table class="widefat fixed striped">';
+        echo '<thead><tr>';
+        echo '<th>' . esc_html__( 'Loan #', 'sfs-hr' ) . '</th>';
+        echo '<th>' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
+        echo '<th>' . esc_html__( 'Remaining', 'sfs-hr' ) . '</th>';
+        echo '<th>' . esc_html__( 'Installments', 'sfs-hr' ) . '</th>';
+        echo '<th>' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+        echo '<th>' . esc_html__( 'Date', 'sfs-hr' ) . '</th>';
+        echo '<th>' . esc_html__( 'Actions', 'sfs-hr' ) . '</th>';
+        echo '</tr></thead>';
+        echo '<tbody>';
+
+        foreach ( $loans as $loan ) {
+            $paid_count = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$payments_table} WHERE loan_id = %d AND status = 'paid'",
+                $loan->id
+            ) );
+            $view_url = admin_url( 'admin.php?page=sfs-hr-loans&action=view&id=' . (int) $loan->id );
+
+            echo '<tr>';
+            echo '<td><a href="' . esc_url( $view_url ) . '" style="font-weight:600;color:#2271b1;text-decoration:none;">' . esc_html( $loan->loan_number ) . '</a></td>';
+            echo '<td>' . number_format( (float) $loan->principal_amount, 2 ) . ' ' . esc_html( $loan->currency ) . '</td>';
+            echo '<td>' . number_format( (float) $loan->remaining_balance, 2 ) . ' ' . esc_html( $loan->currency ) . '</td>';
+            echo '<td>' . (int) $paid_count . ' / ' . (int) $loan->installments_count . '</td>';
+            echo '<td>' . $this->get_status_badge( $loan->status ) . '</td>';
+            echo '<td>' . esc_html( wp_date( 'M j, Y', strtotime( $loan->created_at ) ) ) . '</td>';
+            echo '<td><a href="' . esc_url( $view_url ) . '" class="button button-small">' . esc_html__( 'View', 'sfs-hr' ) . '</a></td>';
+            echo '</tr>';
+
+            // Show reason if present
+            if ( ! empty( $loan->reason ) ) {
+                echo '<tr><td colspan="7" style="padding:4px 10px 10px;background:#f9f9f9;border-top:0;font-size:12px;color:#666;">';
+                echo '<strong>' . esc_html__( 'Reason:', 'sfs-hr' ) . '</strong> ' . esc_html( $loan->reason );
+                echo '</td></tr>';
+            }
+        }
+
+        echo '</tbody></table>';
+        echo '</div>';
     }
 
     /**
