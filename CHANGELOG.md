@@ -2,6 +2,32 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.3.8] — 2026-02-11
+
+### Added
+- **Shift-level attendance policies** (P1 §1.1): shifts now carry optional policy fields
+  (`calculation_mode`, `target_hours`, `clock_in_methods`, `clock_out_methods`,
+  `geofence_in`, `geofence_out`). When set, these override role-based policies for
+  employees on that shift. When NULL (default), the existing role-based policy lookup
+  continues to apply — fully backward compatible.
+- **Per-day weekly schedule**: the Weekly Overrides section on shifts now supports
+  per-day start/end time overrides and day-off marks instead of pointing to other shifts.
+  Old integer-based overrides (shift ID) continue to work for backward compatibility.
+- New `Policy_Service::resolve_effective_policy()` method — two-tier policy resolution:
+  shift-level fields first, then role-based fallback per-field.
+
+### Changed
+- Shift admin form reorganised: weekly schedule uses inline time inputs + day-off
+  checkboxes; new "Attendance Policy" section with calculation mode, methods, and
+  geofence overrides.
+- Shifts list table now shows "Mode" column (Total Hours / Shift Times / Default).
+- All `Policy_Service` helper methods now accept optional `$shift` parameter for
+  shift-aware resolution.
+- REST punch endpoint reordered: shift is resolved before policy validation so
+  shift-level policy fields take effect.
+- Kiosk geofence check now uses shift-level policy when available.
+- Session recalculation passes resolved shift to all Policy_Service calls.
+
 ## [0.3.7] — 2026-02-11
 
 ### Changed

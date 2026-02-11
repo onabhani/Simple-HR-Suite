@@ -489,12 +489,6 @@ if ( $last_attempt && is_array( $last_attempt ) ) {
     }
 }
 
-    // ---- Role-based attendance policy: validate punch method
-    $policy_method_check = Policy_Service::validate_method( (int) $emp, $punch_type, $source );
-    if ( is_wp_error( $policy_method_check ) ) {
-        return $policy_method_check;
-    }
-
     // ---- Resolve effective shift for today (Assignments override Automation)
     $dateYmd = wp_date( 'Y-m-d' );
     $assign  = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $emp, $dateYmd );
@@ -505,14 +499,20 @@ if ( $last_attempt && is_array( $last_attempt ) ) {
         return new \WP_Error( 'holiday', 'Today is marked as a holiday.', [ 'status' => 409 ] );
     }
 
+    // ---- Attendance policy: validate punch method (shift-level → role-based fallback)
+    $policy_method_check = Policy_Service::validate_method( (int) $emp, $punch_type, $source, $assign );
+    if ( is_wp_error( $policy_method_check ) ) {
+        return $policy_method_check;
+    }
+
     // Block if on approved leave/holiday (external module/option)
     if ( \SFS\HR\Modules\Attendance\AttendanceModule::is_blocked_by_leave_or_holiday( (int) $emp, $dateYmd ) ) {
         return new \WP_Error( 'on_leave', 'You are on approved leave/holiday today.', [ 'status' => 409 ] );
     }
 
     // ---- Department self-punch policy (web/mobile only; kiosk allowed regardless)
-    // Role-based policy may override department block (e.g. field teams allowed self-web)
-    if ( $source !== 'kiosk' && ! Policy_Service::should_bypass_dept_web_block( (int) $emp, $punch_type, $source ) ) {
+    // Policy may override department block (e.g. field teams allowed self-web)
+    if ( $source !== 'kiosk' && ! Policy_Service::should_bypass_dept_web_block( (int) $emp, $punch_type, $source, $assign ) ) {
         $opt = get_option( \SFS\HR\Modules\Attendance\AttendanceModule::OPT_SETTINGS, [] );
 
         // Get employee's department ID
@@ -529,8 +529,8 @@ if ( $last_attempt && is_array( $last_attempt ) ) {
     }
 
     // ---- GEO validation (server-side, BEFORE insert)
-    // Role-based policy may exempt geofence for specific punch types
-    $enforce_geo = Policy_Service::should_enforce_geofence( (int) $emp, $punch_type );
+    // Policy may exempt geofence for specific punch types (shift-level → role-based fallback)
+    $enforce_geo = Policy_Service::should_enforce_geofence( (int) $emp, $punch_type, $assign );
 
     $lat = isset( $params['geo_lat'] ) ? (float) $params['geo_lat'] : null;
     $lng = isset( $params['geo_lng'] ) ? (float) $params['geo_lng'] : null;

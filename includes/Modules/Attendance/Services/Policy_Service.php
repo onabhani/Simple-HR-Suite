@@ -6,23 +6,116 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 /**
  * Attendance Policy Service
  *
- * Looks up role-based attendance policies and provides validation helpers
- * for the punch flow. When no policy is found for an employee's role,
- * the system falls through to existing default behaviour — no disruption.
+ * Resolves attendance policies with a two-tier lookup:
+ *  1. Shift-level policy fields (if any non-NULL field exists on the shift).
+ *  2. Role-based policy from sfs_hr_attendance_policies (legacy/fallback).
  *
- * @version 1.0.0
+ * When neither source provides a policy the system falls through to
+ * default behaviour — no disruption.
+ *
+ * @version 2.0.0
  */
 class Policy_Service {
 
     /**
-     * Runtime cache: employee_id → policy row (or null).
+     * Runtime cache: employee_id → role-based policy row (or null).
      *
      * @var array<int, object|null|false>  false = not yet looked up
      */
     private static array $cache = [];
 
     // =========================================================================
-    // Lookup
+    // Core resolver
+    // =========================================================================
+
+    /**
+     * Resolve the effective attendance policy for an employee.
+     *
+     * Priority:
+     *  1. If $shift has any policy override field set (non-NULL), build a
+     *     synthetic policy from shift fields, falling back per-field to the
+     *     role-based policy when the shift field is NULL.
+     *  2. Otherwise return the role-based policy (or null).
+     *
+     * @param int          $employee_id  HR employee ID.
+     * @param object|null  $shift        Resolved shift object (from resolve_shift_for_date).
+     * @return object|null  Policy-like object, or null when nothing applies.
+     */
+    public static function resolve_effective_policy( int $employee_id, ?object $shift = null ): ?object {
+        $role_policy = self::get_policy_for_employee( $employee_id );
+
+        if ( ! $shift ) {
+            return $role_policy;
+        }
+
+        // Check whether the shift carries ANY policy override field
+        $has_override = (
+            ( isset( $shift->calculation_mode ) && $shift->calculation_mode !== null ) ||
+            ( isset( $shift->clock_in_methods )  && $shift->clock_in_methods  !== null ) ||
+            ( isset( $shift->clock_out_methods ) && $shift->clock_out_methods !== null ) ||
+            ( isset( $shift->geofence_in )  && $shift->geofence_in  !== null ) ||
+            ( isset( $shift->geofence_out ) && $shift->geofence_out !== null ) ||
+            ( isset( $shift->target_hours ) && $shift->target_hours !== null )
+        );
+
+        if ( ! $has_override ) {
+            return $role_policy;
+        }
+
+        // Build merged policy: shift fields → role policy → system defaults
+        $p = new \stdClass();
+        $p->id     = 0; // synthetic
+        $p->name   = 'Shift: ' . ( $shift->name ?? '' );
+        $p->active = 1;
+
+        // Clock-in methods
+        if ( isset( $shift->clock_in_methods ) && $shift->clock_in_methods !== null ) {
+            $m = is_string( $shift->clock_in_methods )
+                ? json_decode( $shift->clock_in_methods, true )
+                : $shift->clock_in_methods;
+            $p->clock_in_methods = is_array( $m ) && ! empty( $m ) ? $m : [ 'kiosk', 'self_web' ];
+        } else {
+            $p->clock_in_methods = $role_policy ? $role_policy->clock_in_methods : [ 'kiosk', 'self_web' ];
+        }
+
+        // Clock-out methods
+        if ( isset( $shift->clock_out_methods ) && $shift->clock_out_methods !== null ) {
+            $m = is_string( $shift->clock_out_methods )
+                ? json_decode( $shift->clock_out_methods, true )
+                : $shift->clock_out_methods;
+            $p->clock_out_methods = is_array( $m ) && ! empty( $m ) ? $m : [ 'kiosk', 'self_web' ];
+        } else {
+            $p->clock_out_methods = $role_policy ? $role_policy->clock_out_methods : [ 'kiosk', 'self_web' ];
+        }
+
+        // Geofence
+        $p->clock_in_geofence  = ( isset( $shift->geofence_in )  && $shift->geofence_in  !== null )
+            ? $shift->geofence_in
+            : ( $role_policy->clock_in_geofence ?? 'enforced' );
+
+        $p->clock_out_geofence = ( isset( $shift->geofence_out ) && $shift->geofence_out !== null )
+            ? $shift->geofence_out
+            : ( $role_policy->clock_out_geofence ?? 'enforced' );
+
+        // Calculation mode
+        $p->calculation_mode = ( isset( $shift->calculation_mode ) && $shift->calculation_mode !== null )
+            ? $shift->calculation_mode
+            : ( $role_policy->calculation_mode ?? 'shift_times' );
+
+        // Target hours
+        $p->target_hours = ( isset( $shift->target_hours ) && $shift->target_hours !== null )
+            ? $shift->target_hours
+            : ( $role_policy->target_hours ?? null );
+
+        // Break settings: always from shift's own break config when shift has policy fields
+        $p->breaks_enabled        = ( ( $shift->break_policy ?? 'none' ) !== 'none' ) ? 1 : 0;
+        $p->break_duration_minutes = (int) ( $shift->unpaid_break_minutes ?? 0 );
+
+        return $p;
+    }
+
+    // =========================================================================
+    // Lookup (role-based, legacy)
     // =========================================================================
 
     /**
@@ -97,13 +190,14 @@ class Policy_Service {
     /**
      * Check whether a punch method is allowed for an employee.
      *
-     * @param int    $employee_id
-     * @param string $punch_type   'in', 'out', 'break_start', 'break_end'
-     * @param string $source       'kiosk', 'self_web', etc.
+     * @param int         $employee_id
+     * @param string      $punch_type   'in', 'out', 'break_start', 'break_end'
+     * @param string      $source       'kiosk', 'self_web', etc.
+     * @param object|null $shift        Resolved shift (optional).
      * @return true|\WP_Error  True if allowed, WP_Error if blocked.
      */
-    public static function validate_method( int $employee_id, string $punch_type, string $source ): mixed {
-        $policy = self::get_policy_for_employee( $employee_id );
+    public static function validate_method( int $employee_id, string $punch_type, string $source, ?object $shift = null ): mixed {
+        $policy = self::resolve_effective_policy( $employee_id, $shift );
 
         // No policy → fall through to default behaviour
         if ( ! $policy ) {
@@ -141,12 +235,13 @@ class Policy_Service {
     /**
      * Should geofence be enforced for this punch?
      *
-     * @param int    $employee_id
-     * @param string $punch_type  'in' or 'out'
+     * @param int         $employee_id
+     * @param string      $punch_type  'in' or 'out'
+     * @param object|null $shift       Resolved shift (optional).
      * @return bool  True = enforce geofence (default). False = skip geofence.
      */
-    public static function should_enforce_geofence( int $employee_id, string $punch_type ): bool {
-        $policy = self::get_policy_for_employee( $employee_id );
+    public static function should_enforce_geofence( int $employee_id, string $punch_type, ?object $shift = null ): bool {
+        $policy = self::resolve_effective_policy( $employee_id, $shift );
 
         // No policy → enforce (default behaviour)
         if ( ! $policy ) {
@@ -164,20 +259,21 @@ class Policy_Service {
     /**
      * Should department web-punch restriction be bypassed?
      *
-     * When a role-based policy explicitly allows self_web, department-level
+     * When a policy explicitly allows self_web, department-level
      * web-punch blocking should not apply.
      *
-     * @param int    $employee_id
-     * @param string $punch_type  'in', 'out', etc.
-     * @param string $source      'self_web', 'kiosk', etc.
+     * @param int         $employee_id
+     * @param string      $punch_type  'in', 'out', etc.
+     * @param string      $source      'self_web', 'kiosk', etc.
+     * @param object|null $shift       Resolved shift (optional).
      * @return bool  True = bypass department restriction.
      */
-    public static function should_bypass_dept_web_block( int $employee_id, string $punch_type, string $source ): bool {
+    public static function should_bypass_dept_web_block( int $employee_id, string $punch_type, string $source, ?object $shift = null ): bool {
         if ( $source !== 'self_web' ) {
             return false;
         }
 
-        $policy = self::get_policy_for_employee( $employee_id );
+        $policy = self::resolve_effective_policy( $employee_id, $shift );
 
         if ( ! $policy ) {
             return false;
@@ -191,11 +287,12 @@ class Policy_Service {
     /**
      * Is this employee under a total-hours calculation policy?
      *
-     * @param int $employee_id
+     * @param int         $employee_id
+     * @param object|null $shift  Resolved shift (optional).
      * @return bool
      */
-    public static function is_total_hours_mode( int $employee_id ): bool {
-        $policy = self::get_policy_for_employee( $employee_id );
+    public static function is_total_hours_mode( int $employee_id, ?object $shift = null ): bool {
+        $policy = self::resolve_effective_policy( $employee_id, $shift );
 
         return $policy && $policy->calculation_mode === 'total_hours';
     }
@@ -203,11 +300,12 @@ class Policy_Service {
     /**
      * Get the target hours for total-hours mode.
      *
-     * @param int $employee_id
+     * @param int         $employee_id
+     * @param object|null $shift  Resolved shift (optional).
      * @return float  Target hours, defaults to 8.0
      */
-    public static function get_target_hours( int $employee_id ): float {
-        $policy = self::get_policy_for_employee( $employee_id );
+    public static function get_target_hours( int $employee_id, ?object $shift = null ): float {
+        $policy = self::resolve_effective_policy( $employee_id, $shift );
 
         if ( $policy && $policy->target_hours ) {
             return (float) $policy->target_hours;
@@ -219,11 +317,12 @@ class Policy_Service {
     /**
      * Get break settings for an employee's policy.
      *
-     * @param int $employee_id
+     * @param int         $employee_id
+     * @param object|null $shift  Resolved shift (optional).
      * @return array{enabled: bool, duration_minutes: int}
      */
-    public static function get_break_settings( int $employee_id ): array {
-        $policy = self::get_policy_for_employee( $employee_id );
+    public static function get_break_settings( int $employee_id, ?object $shift = null ): array {
+        $policy = self::resolve_effective_policy( $employee_id, $shift );
 
         if ( ! $policy ) {
             return [ 'enabled' => false, 'duration_minutes' => 0 ];
