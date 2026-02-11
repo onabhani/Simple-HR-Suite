@@ -422,7 +422,7 @@ class Employee_Profile_Page {
         $overview_url   = remove_query_arg( 'tab', $tabs_base_url );
         $overview_class = 'nav-tab' . ( $active_tab === 'overview' ? ' nav-tab-active' : '' );
         ?>
-        <h2 class="nav-tab-wrapper sfs-hr-employee-tabs">
+        <h2 class="nav-tab-wrapper sfs-hr-employee-tabs" style="margin-bottom:20px;">
             <a href="<?php echo esc_url( $overview_url ); ?>" class="<?php echo esc_attr( $overview_class ); ?>">
                 <?php esc_html_e( 'Overview', 'sfs-hr' ); ?>
             </a>
@@ -461,7 +461,7 @@ class Employee_Profile_Page {
 
             <div class="sfs-ep-edit-grid">
             <div class="sfs-ep-card"><h3><?php esc_html_e( 'Personal & Contact', 'sfs-hr' ); ?></h3><table class="sfs-ep-form-table"><tbody>
-                <tr><th><?php esc_html_e( 'Employee code', 'sfs-hr' ); ?></th><td><input type="text" name="employee_code" class="regular-text" value="<?php echo esc_attr( $code ); ?>" /></td></tr>
+                <tr><th><?php esc_html_e( 'Employee ID', 'sfs-hr' ); ?></th><td><input type="text" name="employee_code" class="regular-text" value="<?php echo esc_attr( $code ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'First name', 'sfs-hr' ); ?></th><td><input type="text" name="first_name" class="regular-text" value="<?php echo esc_attr( $first_name ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Last name', 'sfs-hr' ); ?></th><td><input type="text" name="last_name" class="regular-text" value="<?php echo esc_attr( $last_name ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'First name (Arabic)', 'sfs-hr' ); ?></th><td><input type="text" name="first_name_ar" class="regular-text" dir="rtl" value="<?php echo esc_attr( $first_name_ar ); ?>" /></td></tr>
@@ -644,7 +644,6 @@ class Employee_Profile_Page {
                     <tr><th><?php esc_html_e( 'Position', 'sfs-hr' ); ?></th><td><?php echo $fmt_val( $position ); ?></td></tr>
                     <tr><th><?php esc_html_e( 'Hire date', 'sfs-hr' ); ?></th><td><?php echo $fmt_date( $hire_date ); ?></td></tr>
                     <tr><th><?php esc_html_e( 'Entry (KSA)', 'sfs-hr' ); ?></th><td><?php echo $fmt_date( $entry_date_ksa ); ?></td></tr>
-                    <tr><th><?php esc_html_e( 'Employee ID', 'sfs-hr' ); ?></th><td><?php echo (int) $emp['id']; ?></td></tr>
                 </tbody></table>
                 <table class="sfs-ep-info-table"><tbody>
                     <tr><th><?php esc_html_e( 'Contract type', 'sfs-hr' ); ?></th><td><?php echo $fmt_val( $contract_type ); ?></td></tr>
@@ -703,10 +702,7 @@ class Employee_Profile_Page {
                 <div class="sfs-hr-emp-month-kpi"><span class="sfs-hr-emp-month-kpi-label"><?php esc_html_e( 'Left early', 'sfs-hr' ); ?></span><span class="sfs-hr-emp-month-kpi-value"><?php echo (int) $kpi['left_early_days']; ?></span></div>
             </div>
             <?php endif; ?>
-            <div class="sfs-hr-emp-month-layout">
-                <div class="sfs-hr-emp-col sfs-hr-emp-col--left"><div class="sfs-hr-emp-card"><h3><?php esc_html_e( 'Status counts', 'sfs-hr' ); ?></h3><?php if ( empty( $month_data['counts'] ) ) : ?><p class="description"><?php esc_html_e( 'No attendance sessions for this month.', 'sfs-hr' ); ?></p><?php else : ?><table class="widefat striped sfs-hr-emp-month-table"><thead><tr><th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th><th style="width:80px;text-align:right;"><?php esc_html_e( 'Days', 'sfs-hr' ); ?></th></tr></thead><tbody><?php foreach ( $month_data['counts'] as $st => $cnt ) : ?><tr><td><?php echo esc_html( $st ); ?></td><td style="text-align:right;"><?php echo (int) $cnt; ?></td></tr><?php endforeach; ?></tbody><tfoot><tr><th><?php esc_html_e( 'Total days with records', 'sfs-hr' ); ?></th><th style="text-align:right;"><?php echo (int) $month_data['total_days']; ?></th></tr></tfoot></table><?php endif; ?></div></div>
-                <div class="sfs-hr-emp-col sfs-hr-emp-col--right"><div class="sfs-hr-emp-card"><h3><?php esc_html_e( 'Daily history', 'sfs-hr' ); ?></h3><?php if ( empty( $month_data['rows'] ) ) : ?><p class="description"><?php esc_html_e( 'No attendance sessions for this month.', 'sfs-hr' ); ?></p><?php else : ?><table class="widefat striped sfs-hr-emp-month-table"><thead><tr><th style="width:120px;"><?php esc_html_e( 'Date', 'sfs-hr' ); ?></th><th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th></tr></thead><tbody><?php foreach ( $month_data['rows'] as $row ) : ?><tr><td><?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $row['work_date'] ) ) ); ?></td><td><?php echo esc_html( $row['status'] ); ?></td></tr><?php endforeach; ?></tbody></table><?php endif; ?></div></div>
-            </div>
+            <div class="sfs-hr-emp-card"><?php if ( empty( $month_data['rows'] ) ) : ?><p class="description"><?php esc_html_e( 'No attendance sessions for this month.', 'sfs-hr' ); ?></p><?php else : ?><table class="widefat striped sfs-hr-emp-month-table"><thead><tr><th style="width:120px;"><?php esc_html_e( 'Date', 'sfs-hr' ); ?></th><th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th></tr></thead><tbody><?php foreach ( $month_data['rows'] as $row ) : ?><tr><td><?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $row['work_date'] ) ) ); ?></td><td><?php echo esc_html( $row['status'] ); ?></td></tr><?php endforeach; ?></tbody></table><?php endif; ?></div>
         </div>
 
         <?php endif; // view vs edit ?>
@@ -729,6 +725,9 @@ class Employee_Profile_Page {
         $done = true;
         ?>
         <style>
+            /* ═══ Layout constraint ═══ */
+            #sfs-hr-employee-profile-wrap{max-width:1200px;}
+
             /* ═══ Hero Header ═══ */
             .sfs-ep-header{display:flex;align-items:center;gap:20px;background:#fff;border:1px solid #c3c4c7;border-radius:8px;padding:20px 24px;margin-bottom:16px;flex-wrap:wrap;}
             .sfs-ep-header__photo{flex-shrink:0;}
@@ -1392,11 +1391,12 @@ class Employee_Profile_Page {
         if ( ! $mysql ) {
             return '—';
         }
-        $ts = strtotime( $mysql );
-        if ( ! $ts ) {
+        try {
+            $utc = new \DateTimeImmutable( $mysql, new \DateTimeZone( 'UTC' ) );
+            return wp_date( get_option( 'time_format' ), $utc->getTimestamp(), new \DateTimeZone( 'Asia/Riyadh' ) );
+        } catch ( \Throwable $e ) {
             return '—';
         }
-        return date_i18n( get_option( 'time_format' ), $ts );
     }
 
     protected function manager_dept_ids_for_current_user(): array {
