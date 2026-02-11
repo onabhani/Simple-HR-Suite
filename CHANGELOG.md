@@ -2,6 +2,28 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.3.7] — 2026-02-11
+
+### Changed
+- **Employee Profile redesign**: modern hero header with photo/initials avatar, status badges,
+  and action buttons replacing the duplicate heading
+- Overview tab reorganised into categorised cards (Personal, Contact, Job & Contract,
+  Payroll, Documents, Driving License) using a responsive CSS Grid layout
+- Quick-stats row shows today's attendance, leave status, present/late/absent day counts,
+  and commitment percentage with grade (from Performance module)
+- "Reports To" section redesigned with larger avatar, linked manager name and position
+- Edit mode fields grouped into matching card categories with a cleaner grid form layout
+
+### Added
+- "Create WordPress User" button on profile header when no WP account is linked
+  (generates username from first.last, assigns subscriber role)
+- Loans tab on admin Employee Profile now shows the employee's loans with summary
+  cards and links to admin loan detail pages (previously opened self-service "My Loans")
+
+### Fixed
+- Loans tab URL on admin Employee Profile now routes to the correct employee context
+  instead of redirecting to the logged-in user's self-service page
+
 ## [0.3.6] — 2026-02-11
 
 ### Changed
