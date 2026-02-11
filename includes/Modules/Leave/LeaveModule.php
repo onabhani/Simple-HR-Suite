@@ -4962,6 +4962,24 @@ if ($new_days <= 0) {
 
     echo '<div class="sfs-hr-employee-leave-tab" style="margin-top:16px;">';
 
+    // Display flash messages from self-service leave request redirects
+    if ( ! empty( $_GET['leave_err'] ) ) {
+        $err_code = sanitize_key( $_GET['leave_err'] );
+        $err_messages = [
+            'no_employee'    => __( 'Your account is not linked to an employee record.', 'sfs-hr' ),
+            'missing_fields' => __( 'Please fill in all required fields.', 'sfs-hr' ),
+            'invalid_dates'  => __( 'Invalid dates. End date must be on or after the start date.', 'sfs-hr' ),
+            'overlap'        => __( 'You already have a pending or approved request overlapping these dates.', 'sfs-hr' ),
+            'doc_upload'     => __( 'Supporting document upload failed. Please try again.', 'sfs-hr' ),
+            'doc_required'   => __( 'A supporting document is required for sick leave.', 'sfs-hr' ),
+            'db_error'       => __( 'Something went wrong saving your request. Please try again.', 'sfs-hr' ),
+        ];
+        $msg = $err_messages[ $err_code ] ?? __( 'An error occurred. Please try again.', 'sfs-hr' );
+        echo '<div class="notice notice-error"><p>' . esc_html( $msg ) . '</p></div>';
+    } elseif ( ! empty( $_GET['leave_msg'] ) && $_GET['leave_msg'] === 'submitted' ) {
+        echo '<div class="notice notice-success"><p>' . esc_html__( 'Your leave request has been submitted successfully.', 'sfs-hr' ) . '</p></div>';
+    }
+
     if ( $page === 'sfs-hr-my-profile' ) {
         echo '<h2>' . esc_html__( 'My Leave', 'sfs-hr' ) . '</h2>';
 
@@ -5175,6 +5193,11 @@ public function handle_self_request(): void {
     $days = (int) floor( ( $end_ts - $start_ts ) / DAY_IN_SECONDS ) + 1;
     if ( $days < 1 ) {
         $days = 1;
+    }
+
+    // Prevent duplicate requests for overlapping dates
+    if ( LeaveCalculationService::has_overlap( $employee_id, $start, $end ) ) {
+        $this->redirect_back_with_msg( 'leave_err', 'overlap' );
     }
 
     // Get leave type special_code to know if this is sick leave

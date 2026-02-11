@@ -2668,8 +2668,9 @@ private function render_my_attendance_frontend( int $employee_id ): void {
 
     // ---------- Current month history ----------
 
-    $month_start = wp_date( 'Y-m-01' );
-    $month_end   = wp_date( 'Y-m-t' );
+    $att_period  = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period();
+    $month_start = $att_period['start'];
+    $month_end   = $att_period['end'];
 
     $rows = $wpdb->get_results(
         $wpdb->prepare(

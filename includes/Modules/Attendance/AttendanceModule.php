@@ -24,6 +24,49 @@ class AttendanceModule {
 
     const OPT_SETTINGS = 'sfs_hr_attendance_settings';
 
+    /**
+     * Get the current attendance period boundaries based on configured settings.
+     *
+     * @param string $reference_date Optional Y-m-d date to calculate around (defaults to today).
+     * @return array{start: string, end: string} Y-m-d formatted start and end dates.
+     */
+    public static function get_current_period( string $reference_date = '' ): array {
+        $opt        = get_option( self::OPT_SETTINGS, [] );
+        $type       = $opt['period_type'] ?? 'full_month';
+        $start_day  = isset( $opt['period_start_day'] ) ? (int) $opt['period_start_day'] : 1;
+
+        if ( empty( $reference_date ) ) {
+            $reference_date = current_time( 'Y-m-d' );
+        }
+
+        $ref_ts = strtotime( $reference_date );
+        $year   = (int) date( 'Y', $ref_ts );
+        $month  = (int) date( 'n', $ref_ts );
+        $day    = (int) date( 'j', $ref_ts );
+
+        if ( $type === 'custom' && $start_day > 1 ) {
+            if ( $day >= $start_day ) {
+                // Period starts this month
+                $start = sprintf( '%04d-%02d-%02d', $year, $month, $start_day );
+                // Ends on (start_day - 1) of next month
+                $next  = mktime( 0, 0, 0, $month + 1, $start_day - 1, $year );
+                $end   = date( 'Y-m-d', $next );
+            } else {
+                // Period started last month
+                $prev  = mktime( 0, 0, 0, $month - 1, $start_day, $year );
+                $start = date( 'Y-m-d', $prev );
+                // Ends on (start_day - 1) of this month
+                $end   = sprintf( '%04d-%02d-%02d', $year, $month, $start_day - 1 );
+            }
+        } else {
+            // Full calendar month
+            $start = sprintf( '%04d-%02d-01', $year, $month );
+            $end   = date( 'Y-m-t', $ref_ts );
+        }
+
+        return [ 'start' => $start, 'end' => $end ];
+    }
+
     public function hooks(): void {
         add_action('admin_init', [ $this, 'maybe_install' ]);
 

@@ -187,11 +187,36 @@ class LeaveTab implements TabInterface {
 
         // ===================== Output =====================
         $this->render_styles();
+        $this->render_flash_messages();
         $this->render_dashboard( $emp, $year, $requests_count, $annual_available, $total_used, $pending_count, $next_leave_text );
         $this->render_request_form( $employee_id, $types );
         $this->render_history( $rows );
 
         echo '</div>'; // .sfs-hr-my-profile-leave wrapper
+    }
+
+    /**
+     * Display flash messages from leave request redirects.
+     */
+    private function render_flash_messages(): void {
+        if ( ! empty( $_GET['leave_err'] ) ) {
+            $err_code = sanitize_key( $_GET['leave_err'] );
+            $err_messages = [
+                'no_employee'    => __( 'Your account is not linked to an employee record.', 'sfs-hr' ),
+                'missing_fields' => __( 'Please fill in all required fields.', 'sfs-hr' ),
+                'invalid_dates'  => __( 'Invalid dates. End date must be on or after the start date.', 'sfs-hr' ),
+                'overlap'        => __( 'You already have a pending or approved request overlapping these dates.', 'sfs-hr' ),
+                'doc_upload'     => __( 'Supporting document upload failed. Please try again.', 'sfs-hr' ),
+                'doc_required'   => __( 'A supporting document is required for sick leave.', 'sfs-hr' ),
+                'db_error'       => __( 'Something went wrong saving your request. Please try again.', 'sfs-hr' ),
+            ];
+            $msg = $err_messages[ $err_code ] ?? __( 'An error occurred. Please try again.', 'sfs-hr' );
+            echo '<div style="background:#fef2f2;border:1px solid #fca5a5;color:#991b1b;padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:13px;">'
+               . esc_html( $msg ) . '</div>';
+        } elseif ( ! empty( $_GET['leave_msg'] ) && $_GET['leave_msg'] === 'submitted' ) {
+            echo '<div style="background:#f0fdf4;border:1px solid #86efac;color:#166534;padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:13px;">'
+               . esc_html__( 'Your leave request has been submitted successfully.', 'sfs-hr' ) . '</div>';
+        }
     }
 
     /**

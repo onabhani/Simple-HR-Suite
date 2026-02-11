@@ -2,6 +2,35 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.3.6] — 2026-02-11
+
+### Changed
+- **Merged admin employee pages** (P1 §5.1): the old "Edit Employee" page now redirects
+  to the unified Employee Profile page in edit mode
+- Employee Profile edit mode expanded from ~15 to 35+ fields: Arabic names, nationality,
+  marital status, work location, contract dates, GOSI salary, visa/sponsor, driving license,
+  shift assignment with history, and QR code management
+- Employee Profile view mode enriched with the same fields (job & contract, documents,
+  driving license sections)
+- QR regen/toggle and save redirects now return to the Profile page
+- Success notices (updated, QR regen, QR toggle) displayed on Profile page
+
+## [0.3.5] — 2026-02-11
+
+### Added
+- Configurable attendance period in Attendance Settings (full calendar month or custom start day)
+- `AttendanceModule::get_current_period()` helper used across all modules
+- All date range defaults (dashboards, reports, alerts, CSV exports, frontend widgets)
+  now respect the configured attendance period instead of hardcoded calendar month
+
+## [0.3.4] — 2026-02-10
+
+### Fixed
+- Duplicate leave requests: self-service handler now checks for overlapping pending/approved requests
+  before inserting (matching the validation already present in the shortcode handler)
+- Leave error/success flash messages now display on both admin My Profile and frontend leave tabs
+  (previously redirect query params were set but never read/displayed)
+
 ## [0.3.3] — 2026-02-10
 
 ### Fixed

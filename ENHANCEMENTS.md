@@ -50,11 +50,11 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 ## 3. Attendance Module Improvements
 
 ### 3.1 Configurable Attendance Period
-- [ ] **Add** a settings field for attendance period (e.g., weekly, biweekly, monthly, custom date range)
-- [ ] **Store** the configured period in the plugin options table
-- [ ] **Update** attendance reports to respect the configured period
-- [ ] **Update** absence analytics to use the configured period boundaries
-- [ ] **Add** period presets (Calendar Month, Payroll Cycle, Custom)
+- [x] **Add** a settings field for attendance period (e.g., weekly, biweekly, monthly, custom date range)
+- [x] **Store** the configured period in the plugin options table
+- [x] **Update** attendance reports to respect the configured period
+- [x] **Update** absence analytics to use the configured period boundaries
+- [x] **Add** period presets (Calendar Month, Payroll Cycle, Custom)
 
 ### 3.2 Attendance Policies Page — Mobile Responsiveness
 - [ ] **Audit** the attendance policies admin page on mobile viewports (320px–768px)
@@ -83,12 +83,12 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 ## 5. Employee Profile Consolidation
 
 ### 5.1 Merge Admin Employee Profiles
-- [ ] **Audit** all places where employee data is displayed to admins (Employee module, quick views, other module references)
-- [ ] **Design** a single unified employee profile page for admins
-- [ ] **Merge** data from all modules into the unified profile (leave balances, attendance summary, loans, assets, performance scores, documents)
-- [ ] **Add** tabbed navigation on the unified profile (Overview, Leave, Attendance, Payroll, Performance, Documents, Assets)
-- [ ] **Remove** or redirect duplicate/scattered profile views
-- [ ] **Ensure** role-based access — tabs only visible if the admin has the relevant capability
+- [x] **Audit** all places where employee data is displayed to admins (Employee module, quick views, other module references)
+- [x] **Design** a single unified employee profile page for admins
+- [x] **Merge** data from all modules into the unified profile (leave balances, attendance summary, loans, assets, performance scores, documents)
+- [x] **Add** tabbed navigation on the unified profile (Overview, Leave, Attendance, Payroll, Performance, Documents, Assets)
+- [x] **Remove** or redirect duplicate/scattered profile views
+- [x] **Ensure** role-based access — tabs only visible if the admin has the relevant capability
 
 ---
 

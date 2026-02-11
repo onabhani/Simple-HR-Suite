@@ -26,12 +26,15 @@ class Attendance_Metrics {
     public static function get_employee_metrics( int $employee_id, string $start_date = '', string $end_date = '' ): array {
         global $wpdb;
 
-        // Default date range: current month
-        if ( empty( $start_date ) ) {
-            $start_date = date( 'Y-m-01' );
-        }
-        if ( empty( $end_date ) ) {
-            $end_date = date( 'Y-m-d' );
+        // Default date range: current configured attendance period
+        if ( empty( $start_date ) || empty( $end_date ) ) {
+            $period = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period();
+            if ( empty( $start_date ) ) {
+                $start_date = $period['start'];
+            }
+            if ( empty( $end_date ) ) {
+                $end_date = $period['end'];
+            }
         }
 
         $sessions_table = $wpdb->prefix . 'sfs_hr_attendance_sessions';
@@ -54,7 +57,7 @@ class Attendance_Metrics {
 
         // Get attendance sessions for the period
         $sessions = $wpdb->get_results( $wpdb->prepare(
-            "SELECT work_date, status, flags_json, net_minutes, in_time, out_time,
+            "SELECT work_date, status, flags_json, rounded_net_minutes, in_time, out_time,
                     break_delay_minutes, no_break_taken
              FROM {$sessions_table}
              WHERE employee_id = %d
@@ -103,7 +106,7 @@ class Attendance_Metrics {
                 'date'    => $session->work_date,
                 'status'  => $status,
                 'flags'   => $flags,
-                'minutes' => (int) $session->net_minutes,
+                'minutes' => (int) $session->rounded_net_minutes,
                 'in_time' => $session->in_time,
                 'out_time'=> $session->out_time,
                 'break_delay_minutes' => (int) ( $session->break_delay_minutes ?? 0 ),
@@ -118,7 +121,7 @@ class Attendance_Metrics {
                 case 'left_early':
                     $metrics['total_working_days']++;
                     $metrics['days_present']++;
-                    $metrics['total_worked_minutes'] += (int) $session->net_minutes;
+                    $metrics['total_worked_minutes'] += (int) $session->rounded_net_minutes;
                     break;
 
                 case 'absent':
@@ -130,7 +133,7 @@ class Attendance_Metrics {
                     $metrics['total_working_days']++;
                     $metrics['days_present']++; // Partial day
                     $metrics['incomplete_count']++;
-                    $metrics['total_worked_minutes'] += (int) $session->net_minutes;
+                    $metrics['total_worked_minutes'] += (int) $session->rounded_net_minutes;
                     break;
 
                 case 'on_leave':
@@ -230,12 +233,15 @@ class Attendance_Metrics {
 
         $employees_table = $wpdb->prefix . 'sfs_hr_employees';
 
-        // Default date range
-        if ( empty( $start_date ) ) {
-            $start_date = date( 'Y-m-01' );
-        }
-        if ( empty( $end_date ) ) {
-            $end_date = date( 'Y-m-d' );
+        // Default date range: current configured attendance period
+        if ( empty( $start_date ) || empty( $end_date ) ) {
+            $period = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period();
+            if ( empty( $start_date ) ) {
+                $start_date = $period['start'];
+            }
+            if ( empty( $end_date ) ) {
+                $end_date = $period['end'];
+            }
         }
 
         // Get employees
@@ -319,12 +325,15 @@ class Attendance_Metrics {
 
         $dept_table = $wpdb->prefix . 'sfs_hr_departments';
 
-        // Default date range
-        if ( empty( $start_date ) ) {
-            $start_date = date( 'Y-m-01' );
-        }
-        if ( empty( $end_date ) ) {
-            $end_date = date( 'Y-m-d' );
+        // Default date range: current configured attendance period
+        if ( empty( $start_date ) || empty( $end_date ) ) {
+            $period = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period();
+            if ( empty( $start_date ) ) {
+                $start_date = $period['start'];
+            }
+            if ( empty( $end_date ) ) {
+                $end_date = $period['end'];
+            }
         }
 
         $departments = $wpdb->get_results(

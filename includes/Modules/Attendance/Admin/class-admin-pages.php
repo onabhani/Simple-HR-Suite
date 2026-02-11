@@ -159,6 +159,8 @@ private function get_table_columns( $table ): array {
         $def_gl      = isset($opt['default_grace_late']) ? (int)$opt['default_grace_late'] : 5;
         $def_ge      = isset($opt['default_grace_early']) ? (int)$opt['default_grace_early'] : 5;
         $monthly_ot  = isset($opt['monthly_ot_threshold']) ? (int)$opt['monthly_ot_threshold'] : 2400; // minutes (40 hours default)
+        $period_type = $opt['period_type'] ?? 'full_month';
+        $period_day  = isset($opt['period_start_day']) ? (int)$opt['period_start_day'] : 1;
 
         ?>
         <div class="wrap">
@@ -238,6 +240,61 @@ private function get_table_columns( $table ): array {
                         </td>
                     </tr>
                 </table>
+
+                <h2><?php esc_html_e( 'Attendance Period', 'sfs-hr' ); ?></h2>
+                <p class="description" style="margin-bottom:12px;">
+                    <?php esc_html_e( 'Configure the monthly attendance period used for reports and performance calculations.', 'sfs-hr' ); ?>
+                </p>
+                <table class="form-table">
+                    <tr>
+                        <th><?php esc_html_e( 'Period type', 'sfs-hr' ); ?></th>
+                        <td>
+                            <fieldset>
+                                <label style="display:block;margin-bottom:6px;">
+                                    <input type="radio" name="period_type" value="full_month" <?php checked( $period_type, 'full_month' ); ?> />
+                                    <?php esc_html_e( 'Full calendar month', 'sfs-hr' ); ?>
+                                    <span class="description"> — <?php esc_html_e( '1st to end of month', 'sfs-hr' ); ?></span>
+                                </label>
+                                <label style="display:block;">
+                                    <input type="radio" name="period_type" value="custom" <?php checked( $period_type, 'custom' ); ?> />
+                                    <?php esc_html_e( 'Custom period', 'sfs-hr' ); ?>
+                                    <span class="description"> — <?php esc_html_e( 'starts on a specific day each month', 'sfs-hr' ); ?></span>
+                                </label>
+                            </fieldset>
+                        </td>
+                    </tr>
+                    <tr id="sfs-period-day-row" style="<?php echo $period_type !== 'custom' ? 'display:none;' : ''; ?>">
+                        <th><?php esc_html_e( 'Period start day', 'sfs-hr' ); ?></th>
+                        <td>
+                            <select name="period_start_day">
+                                <?php for ( $d = 1; $d <= 28; $d++ ) : ?>
+                                    <option value="<?php echo $d; ?>" <?php selected( $period_day, $d ); ?>><?php echo $d; ?></option>
+                                <?php endfor; ?>
+                            </select>
+                            <p class="description">
+                                <?php
+                                    printf(
+                                        /* translators: %1$s = example start, %2$s = example end */
+                                        esc_html__( 'Example: if you choose 26, the period runs from the 26th of one month to the 25th of the next month.', 'sfs-hr' ),
+                                        '<strong>26</strong>',
+                                        '<strong>25</strong>'
+                                    );
+                                ?>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+                <script>
+                (function(){
+                    var radios = document.querySelectorAll('input[name="period_type"]');
+                    var dayRow = document.getElementById('sfs-period-day-row');
+                    radios.forEach(function(r){
+                        r.addEventListener('change', function(){
+                            dayRow.style.display = this.value === 'custom' ? '' : 'none';
+                        });
+                    });
+                })();
+                </script>
 
                 <?php submit_button( __( 'Save Settings', 'sfs-hr' ) ); ?>
             </form>
@@ -344,6 +401,10 @@ public function render_attendance_hub(): void {
             }
         }
 
+        $period_type = in_array( ( $_POST['period_type'] ?? 'full_month' ), [ 'full_month', 'custom' ], true )
+            ? $_POST['period_type'] : 'full_month';
+        $period_start_day = max( 1, min( 28, (int) ( $_POST['period_start_day'] ?? 1 ) ) );
+
         $input = [
             'web_allowed_by_dept_id'     => $web_allowed_by_dept_id,
             'selfie_required_by_dept_id' => $selfie_required_by_dept_id,
@@ -352,6 +413,8 @@ public function render_attendance_hub(): void {
             'default_grace_late'         => max( 0, (int) ( $_POST['default_grace_late'] ?? 5 ) ),
             'default_grace_early'        => max( 0, (int) ( $_POST['default_grace_early'] ?? 5 ) ),
             'monthly_ot_threshold'       => max( 0, (int) ( $_POST['monthly_ot_threshold'] ?? 2400 ) ),
+            'period_type'                => $period_type,
+            'period_start_day'           => $period_start_day,
         ];
 
         $existing = get_option( AttendanceModule::OPT_SETTINGS, [] );
@@ -2318,8 +2381,9 @@ public function render_exceptions(): void {
 
     global $wpdb;
 
-    $from = isset($_GET['from']) ? sanitize_text_field($_GET['from']) : wp_date('Y-m-01');
-    $to   = isset($_GET['to'])   ? sanitize_text_field($_GET['to'])   : wp_date('Y-m-d');
+    $att_period = AttendanceModule::get_current_period();
+    $from = isset($_GET['from']) ? sanitize_text_field($_GET['from']) : $att_period['start'];
+    $to   = isset($_GET['to'])   ? sanitize_text_field($_GET['to'])   : $att_period['end'];
     if ( !preg_match('/^\d{4}-\d{2}-\d{2}$/',$from) || !preg_match('/^\d{4}-\d{2}-\d{2}$/',$to) || $to < $from ) {
         wp_die( esc_html__( 'Invalid date range', 'sfs-hr' ) );
     }
@@ -3640,12 +3704,13 @@ public function handle_rebuild_sessions_period(): void {
     global $wpdb;
     $pT = $wpdb->prefix . 'sfs_hr_attendance_punches';
 
+    $att_period_def = AttendanceModule::get_current_period();
     $from = ( isset($_GET['from']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $_GET['from']) )
         ? (string) $_GET['from']
-        : wp_date('Y-m-01');
+        : $att_period_def['start'];
     $to = ( isset($_GET['to']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $_GET['to']) )
         ? (string) $_GET['to']
-        : wp_date('Y-m-d');
+        : $att_period_def['end'];
 
     // Validate date range
     if ($to < $from) {

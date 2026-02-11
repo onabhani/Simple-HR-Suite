@@ -205,8 +205,9 @@ class Alerts_Service {
         );
 
         $alerts_created = 0;
-        $start_date = date( 'Y-m-01' ); // Current month
-        $end_date = date( 'Y-m-d' );
+        $att_period = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period();
+        $start_date = $att_period['start'];
+        $end_date   = $att_period['end'];
 
         foreach ( $employees as $emp ) {
             $metrics = Attendance_Metrics::get_employee_metrics( $emp->id, $start_date, $end_date );
