@@ -2078,7 +2078,23 @@ async function attemptPunch(type, scanToken, selfieBlob, geox) {
     try { json = JSON.parse(text); } catch(_) {}
   } catch (e) {
     dbg('attemptPunch network error', e && (e.message || e));
-    return { ok:false, status:0, data:{ message:'Network error' }, code:null, raw:text };
+
+    // Offline queueing: store punch locally if enabled
+    if (OFFLINE_ENABLED && window.sfsHrPwa && window.sfsHrPwa.db) {
+      try {
+        await window.sfsHrPwa.db.storePunch({
+          url: punchUrl,
+          nonce: nonce,
+          data: { punch_type: type, source: 'kiosk', device: String(DEVICE_ID), employee_scan_token: scanToken }
+        });
+        dbg('punch queued offline');
+        return { ok:true, status:0, data:{ message: t.offline_queued || 'Offline — will sync when connection is restored', label: t.offline_queued_short || 'Queued offline' }, code:'offline_queued', raw:'' };
+      } catch(qe) {
+        dbg('offline queue failed', qe);
+      }
+    }
+
+    return { ok:false, status:0, data:{ message: t.network_error || 'Network error' }, code:null, raw:text };
   }
 
   // Safe debug head
@@ -2113,6 +2129,7 @@ async function autoPunchWithFallback(scanToken, selfieBlob, geox) {
       // Device flags
       // NEW (server is source of truth via /status)
     const DEVICE_ID = <?php echo (int)$device_id; ?>;
+    const OFFLINE_ENABLED = <?php echo !empty($device['kiosk_offline']) ? 'true' : 'false'; ?>;
 
 // Time-based action suggestions (±30 minutes window)
 const SUGGEST_TIMES = {
@@ -2621,7 +2638,7 @@ async function handleQrFound(raw) {
       });
       text = await resp.text();
     } catch (e) {
-      setStat(t.network_error||'Network error', 'error');
+      setStat(OFFLINE_ENABLED ? (t.offline_no_connection||'No connection — offline mode active') : (t.network_error||'Network error'), 'error');
       dbg('scan network error', e && e.message);
       // mild backoff to avoid hammering same frame
       lastQrValue = raw;

@@ -2,6 +2,24 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.4.5] — 2026-02-12
+
+### Added
+- **Kiosk offline punch queueing** (§9.1): when a kiosk device has "Allow offline" enabled
+  and the network is down, punches are stored in IndexedDB and automatically synced via
+  Background Sync when connection is restored. Notification shown on successful sync.
+- **Shortcodes reference page** (§7.1): new "Shortcodes" tab in Settings lists all 8
+  available shortcodes with descriptions, parameters, capability requirements, and
+  one-click copy buttons.
+
+### Improved
+- **Service worker v2**: removed broken `/offline.html` precache reference, skip caching
+  `/wp-admin/` pages, improved sync with fresh nonce retrieval from open client windows,
+  handle 409 duplicates during offline sync gracefully.
+- **PWA app script**: responds to service worker nonce requests for reliable offline sync,
+  removed notification permission auto-prompt, cleaner initialization.
+- **Chart.js** loaded with `defer` attribute in admin dashboard for faster page rendering.
+
 ## [0.4.4] — 2026-02-12
 
 ### Improved
