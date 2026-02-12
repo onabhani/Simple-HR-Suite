@@ -244,6 +244,9 @@ add_action('rest_api_init', function () {
             </div>
 
 
+            <!-- Success flash overlay -->
+            <div class="sfs-flash" id="sfs-att-flash-<?php echo $inst; ?>"></div>
+
             <!-- Selfie overlay (fullscreen on mobile for better UX) -->
             <div id="sfs-att-selfie-panel" class="sfs-att-selfie-overlay">
               <div class="sfs-att-selfie-overlay__inner">
@@ -688,6 +691,18 @@ add_action('rest_api_init', function () {
           padding:20px 16px;
         }
       }
+
+      /* Success flash overlay */
+      #<?php echo esc_attr( $root_id ); ?> .sfs-flash {
+        position:fixed; top:0; left:0; right:0; bottom:0;
+        pointer-events:none; opacity:0;
+        transition:opacity 0.35s ease-out; z-index:9998;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-flash.show { opacity:1; }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-flash--in { background:rgba(34,197,94,0.35); }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-flash--out { background:rgba(239,68,68,0.35); }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-flash--break_start { background:rgba(245,158,11,0.35); }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-flash--break_end { background:rgba(59,130,246,0.35); }
     </style>
 
 <!-- Global translations for attendance widget -->
@@ -983,6 +998,33 @@ window.sfsAttI18n = window.sfsAttI18n || {
         let refreshing     = false;
         let queued         = false;
         let punchInProgress = false; // Prevent duplicate submissions
+        let lastRefreshAt  = 0;      // timestamp of last successful refresh
+        let cachedGeo      = null;   // { lat, lng, acc, ts }
+
+        // Flash + tone feedback
+        const flashEl = document.getElementById('sfs-att-flash-<?php echo $inst; ?>');
+
+        function flash(kind) {
+            if (!flashEl) return;
+            flashEl.className = 'sfs-flash sfs-flash--' + (kind || 'in');
+            void flashEl.offsetWidth; // reflow to restart animation
+            flashEl.classList.add('show');
+            setTimeout(() => flashEl.classList.remove('show'), 400);
+        }
+        async function playActionTone(kind) {
+            const freq = { in: 920, out: 420, break_start: 680, break_end: 560 }[kind] || 750;
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                if (ctx.state === 'suspended') await ctx.resume();
+                const o = ctx.createOscillator(), g = ctx.createGain();
+                o.type = 'sine'; o.frequency.value = freq;
+                o.connect(g); g.connect(ctx.destination);
+                g.gain.value = 0.25;
+                o.start();
+                g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
+                setTimeout(() => { o.stop(); ctx.close(); }, 260);
+            } catch(_) {}
+        }
 
         const STATUS_URL = '<?php echo esc_js( $status_url ); ?>';
         const PUNCH_URL  = '<?php echo esc_js( $punch_url ); ?>';
@@ -1057,7 +1099,12 @@ setInterval(tickClock, 1000);
             chipEl.className   = cls;
         }
 
-                async function getGeo(punchType){
+                async function getGeo(punchType, useCache = false){
+            // Return cached geo if available and fresh (within 30s)
+            if (useCache && cachedGeo && (Date.now() - cachedGeo.ts < 30000)) {
+                return { lat: cachedGeo.lat, lng: cachedGeo.lng, acc: cachedGeo.acc };
+            }
+
             const root = document.getElementById('<?php echo esc_js( $root_id ); ?>');
 
             // If helper missing for any reason → fallback to old behavior
@@ -1101,7 +1148,10 @@ setInterval(tickClock, 1000);
                 );
             });
 
-            if (result) return result;
+            if (result) {
+                cachedGeo = { ...result, ts: Date.now() };
+                return result;
+            }
 
             // Fallback: requireInside returned null (GPS failed while not enforcing).
             // Try once more with lower-accuracy (WiFi/cell) and accept cached position.
@@ -1159,6 +1209,7 @@ setInterval(tickClock, 1000);
             if (selfieWrap)  selfieWrap.style.display  = 'none';
         }
 
+                lastRefreshAt = Date.now();
                 updateChip();
                 setStat(j.label || i18n.ready, 'idle');
 
@@ -1276,7 +1327,7 @@ setInterval(tickClock, 1000);
 
             let geo = null;
             try {
-                geo = await getGeo(type);
+                geo = await getGeo(type, true); // use cached geo from pre-flight
             } catch(e){
                 // geo_blocked → do not hit the REST API
                 punchInProgress = false;
@@ -1381,9 +1432,18 @@ setInterval(tickClock, 1000);
             throw new Error((j && j.message) || 'Punch failed');
         }
 
+                // Success feedback — immediate flash + tone
+                flash(type);
+                playActionTone(type);
+                stopSelfiePreview();
 
-                await refresh();
+                // Show success status immediately, then refresh in background
+                const successLabel = (j && j.data && j.data.label) || punchTypeLabel(type);
+                setStat(successLabel, type);
                 punchInProgress = false;
+
+                // Non-blocking refresh to update buttons/state
+                refresh();
 
             } catch (e) {
                 const errMsg = i18n.error_prefix + ' ' + e.message;
@@ -1413,9 +1473,11 @@ setInterval(tickClock, 1000);
                 actionsWrap.querySelectorAll('button[data-type]').forEach(btn => btn.disabled = true);
             }
 
-            // Refresh status to ensure latest state before punch attempt
-            setStat(i18n.checking_status, 'busy');
-            await refresh();
+            // Refresh status only if stale (>10s) to avoid unnecessary round-trip
+            if (Date.now() - lastRefreshAt > 10000) {
+                setStat(i18n.checking_status, 'busy');
+                await refresh();
+            }
 
             if (!allowed[type]) {
                 let msg = 'Invalid action.';
@@ -5081,16 +5143,11 @@ public static function selfie_mode_for( int $employee_id, $dept_id, array $ctx =
         }
     }
 
-    // 5) Shift-level minimum requirement
+    // 5) Shift-level requirement — overrides everything to 'all'
     $shift_requires = ! empty( $ctx['shift_requires'] );
 
-    if ( $shift_requires ) {
-        // Shift says "selfie required" → upgrade weak modes to 'all'
-        // so every punch type (in, out, break_start, break_end) requires a selfie.
-        if ( in_array( $mode, [ 'never', 'optional' ], true ) ) {
-            $mode = 'all';
-        }
-        // If device/policy already say in_only / in_out / all we don't downgrade it
+    if ( $shift_requires && $mode !== 'all' ) {
+        $mode = 'all';
     }
 
     // Safety net
