@@ -2,7 +2,7 @@
 
 A comprehensive WordPress HR management plugin built for small-to-medium businesses. Covers the full employee lifecycle — from hiring and onboarding through daily attendance, leave management, payroll, performance tracking, and end-of-service settlement.
 
-**Current Version:** 0.4.8
+**Current Version:** 0.4.9
 **Requires WordPress:** 5.8+
 **Requires PHP:** 7.4+
 **License:** Proprietary

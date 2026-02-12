@@ -2,6 +2,14 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.4.9] — 2026-02-12
+
+### Fixed
+- **Shift save: start_time/end_time no longer required when weekly schedule provides
+  per-day times.** Creating a shift with per-day overrides but empty main times was
+  rejected with "Missing required fields: start_time, end_time." Fixed in both the
+  admin form handler and the REST API endpoint.
+
 ## [0.4.8] — 2026-02-12
 
 ### Fixed
