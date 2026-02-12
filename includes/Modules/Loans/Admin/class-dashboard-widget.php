@@ -90,11 +90,11 @@ class DashboardWidget {
             "SELECT COUNT(*) FROM {$loans_table} WHERE status = 'pending_finance'"
         );
 
-        // Total loans this month
-        $this_month_start = wp_date( 'Y-m-01' );
+        // Total loans this period
+        $att_period = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period();
         $this_month_count = (int) $wpdb->get_var( $wpdb->prepare(
             "SELECT COUNT(*) FROM {$loans_table} WHERE DATE(created_at) >= %s",
-            $this_month_start
+            $att_period['start']
         ) );
 
         // Completed loans

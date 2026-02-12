@@ -67,6 +67,46 @@ class AttendanceModule {
         return [ 'start' => $start, 'end' => $end ];
     }
 
+    /**
+     * Get the previous attendance period (the one just before the current one).
+     *
+     * @param string $reference_date  Optional Y-m-d to calculate around (defaults to today).
+     * @return array{start: string, end: string}
+     */
+    public static function get_previous_period( string $reference_date = '' ): array {
+        $current = self::get_current_period( $reference_date );
+        // Go to one day before the current period start
+        $day_before = date( 'Y-m-d', strtotime( $current['start'] . ' -1 day' ) );
+        return self::get_current_period( $day_before );
+    }
+
+    /**
+     * Format a period as a human-readable label.
+     *
+     * @param array{start: string, end: string} $period
+     * @return string e.g. "Jan 25 – Feb 24, 2026" or "February 2026"
+     */
+    public static function format_period_label( array $period ): string {
+        $start_ts = strtotime( $period['start'] );
+        $end_ts   = strtotime( $period['end'] );
+
+        $start_day = (int) date( 'j', $start_ts );
+        $end_day   = (int) date( 'j', $end_ts );
+        $same_month = date( 'Y-m', $start_ts ) === date( 'Y-m', $end_ts );
+
+        // If it's a full calendar month (1st to last day), show "Month YYYY"
+        if ( $start_day === 1 && $same_month && $end_day === (int) date( 't', $start_ts ) ) {
+            return date_i18n( 'F Y', $start_ts );
+        }
+
+        // Custom period: show "Mon D – Mon D, YYYY"
+        $same_year = date( 'Y', $start_ts ) === date( 'Y', $end_ts );
+        if ( $same_year ) {
+            return date_i18n( 'M j', $start_ts ) . ' – ' . date_i18n( 'M j, Y', $end_ts );
+        }
+        return date_i18n( 'M j, Y', $start_ts ) . ' – ' . date_i18n( 'M j, Y', $end_ts );
+    }
+
     public function hooks(): void {
         add_action('admin_init', [ $this, 'maybe_install' ]);
 

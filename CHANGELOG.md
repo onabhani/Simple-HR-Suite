@@ -2,6 +2,26 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.5.4] — 2026-02-12
+
+### Fixed
+- **Loans dashboard widget**: replaced hardcoded `Y-m-01` with
+  `AttendanceModule::get_current_period()` so "this period" loan count
+  respects custom attendance periods (e.g. 25th-to-25th).
+- **Performance Calculator defaults**: three methods (`calculate_overall_score`,
+  `get_performance_ranking`, `get_departments_summary`) now default to the
+  configured attendance period instead of hardcoded calendar boundaries.
+
+### Added
+- **Period comparison on Performance Dashboard**: summary cards now show a
+  delta indicator (▲/▼) comparing the current period average to the previous
+  period. Department table gains a "Prev Period" column with per-department
+  deltas. A "Previous Period" quick-nav button lets admins jump back one period.
+- `AttendanceModule::get_previous_period()` — computes the period immediately
+  before the current one.
+- `AttendanceModule::format_period_label()` — returns human-readable labels
+  like "February 2026" or "Jan 25 – Feb 24, 2026".
+
 ## [0.5.3] — 2026-02-12
 
 ### Added
