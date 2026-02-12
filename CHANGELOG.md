@@ -2,6 +2,16 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.3.9] — 2026-02-12
+
+### Removed
+- **Policies tab** removed from Attendance admin — all policy configuration now lives
+  directly on shifts. Existing role-based policy data remains in DB as silent fallback.
+
+### Changed
+- Location and start/end time fields are now optional for `total_hours` mode shifts
+  (HTML `required` removed, server-side validation relaxed).
+
 ## [0.3.8] — 2026-02-11
 
 ### Added
