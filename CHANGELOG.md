@@ -2,6 +2,16 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.5.5] — 2026-02-12
+
+### Added
+- **System brochure** (`docs/Simple-HR-Suite-Brochure.md`): marketing-style
+  documentation covering all 17 modules — employee management, attendance,
+  leave, payroll, loans, performance, hiring, exit & settlement, assets,
+  documents, shift swap, celebrations, workforce status, reports, self-service
+  portal, audit trail, and mobile/offline capabilities. Designed for customer
+  presentations during implementation (§6.1).
+
 ## [0.5.4] — 2026-02-12
 
 ### Fixed

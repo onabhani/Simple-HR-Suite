@@ -74,9 +74,9 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 - [x] **Ensure** exported reports (CSV/PDF) also respect the selected date filter
 
 ### 4.2 Attendance Period Integration in Reports
-- [ ] **Link** performance reports to the configurable attendance period (from item 3.1)
-- [ ] **Allow** reports to be generated per-period automatically
-- [ ] **Add** period comparison view (e.g., this month vs. last month)
+- [x] **Link** performance reports to the configurable attendance period (from item 3.1)
+- [x] **Allow** reports to be generated per-period automatically
+- [x] **Add** period comparison view (e.g., this month vs. last month)
 
 ---
 
@@ -95,27 +95,28 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 ## 6. Documentation
 
 ### 6.1 Full Plugin Documentation
-- [ ] **Create** `docs/` directory with structured documentation
-- [ ] **Write** Installation & Setup guide
-- [ ] **Write** Configuration guide (General Settings, each module's settings)
-- [ ] **Write** User guide for admins (managing employees, leave, attendance, payroll, etc.)
-- [ ] **Write** User guide for employees (frontend shortcode usage)
-- [ ] **Write** Developer guide (architecture, hooks/filters, extending modules, REST API)
-- [ ] **Document** all database tables and their relationships
-- [ ] **Document** all WordPress capabilities and roles
-- [ ] **Document** all cron jobs and scheduled tasks
-- [ ] **Add** FAQ / Troubleshooting section
+- [x] **Create** `docs/` directory with structured documentation
+- [x] **Write** System brochure (`docs/Simple-HR-Suite-Brochure.md`) — marketing-style overview of all 17 modules, self-service portal, manager tools, reporting, security, multi-language, mobile/offline, and quick implementation guide
+- [ ] ~~**Write** Installation & Setup guide~~ *(skipped — brochure is non-technical)*
+- [ ] ~~**Write** Configuration guide (General Settings, each module's settings)~~ *(skipped — brochure is non-technical)*
+- [ ] ~~**Write** User guide for admins~~ *(skipped — brochure is non-technical)*
+- [ ] ~~**Write** User guide for employees~~ *(skipped — brochure is non-technical)*
+- [ ] ~~**Write** Developer guide~~ *(skipped — brochure is non-technical)*
+- [ ] ~~**Document** all database tables~~ *(skipped — brochure is non-technical)*
+- [ ] ~~**Document** all WordPress capabilities and roles~~ *(skipped — brochure is non-technical)*
+- [ ] ~~**Document** all cron jobs and scheduled tasks~~ *(skipped — brochure is non-technical)*
+- [ ] ~~**Add** FAQ / Troubleshooting section~~ *(skipped — brochure is non-technical)*
 
 ---
 
 ## 7. Shortcodes Reference Page
 
 ### 7.1 Admin Shortcodes Display Page
-- [ ] **Create** a "Shortcodes" tab or section within the main settings page
-- [ ] **List** every available shortcode with its name, parameters, and description
-- [ ] **Add** copy-to-clipboard button for each shortcode
-- [ ] **Add** live preview or screenshot of each shortcode's output
-- [ ] **Keep** the list auto-updated — pull from registered shortcodes dynamically
+- [x] **Create** a "Shortcodes" tab or section within the main settings page
+- [x] **List** every available shortcode with its name, parameters, and description
+- [x] **Add** copy-to-clipboard button for each shortcode
+- [x] **Add** live preview or screenshot of each shortcode's output
+- [x] **Keep** the list auto-updated — pull from registered shortcodes dynamically
 
 > **Current known shortcodes:** `[sfs_hr_leave_request]`, `[sfs_hr_my_leaves]`, and others registered in `includes/Frontend/Shortcodes.php`
 
@@ -142,16 +143,16 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 ## 9. Low-Speed Internet Optimization
 
 ### 9.1 Performance on Slow Connections
-- [ ] **Audit** total page weight for admin and frontend pages (target < 500KB initial load)
-- [ ] **Minify** and concatenate CSS/JS assets
-- [ ] **Implement** lazy loading for non-critical UI sections (tabs, modals)
-- [ ] **Add** AJAX pagination instead of loading full data tables at once
-- [ ] **Implement** progressive loading indicators so users know data is coming
-- [ ] **Cache** API responses on the client side where appropriate
-- [ ] **Optimize** images and SVG assets
-- [ ] **Consider** offline-capable features via the existing PWA/Service Worker infrastructure
-- [ ] **Test** on throttled connections (3G simulation in DevTools)
-- [ ] **Add** connection-quality detection to adjust data fetch sizes
+- [x] **Audit** total page weight for admin and frontend pages (target < 500KB initial load)
+- [x] **Minify** and concatenate CSS/JS assets
+- [x] **Implement** lazy loading for non-critical UI sections (tabs, modals)
+- [x] **Add** AJAX pagination instead of loading full data tables at once
+- [x] **Implement** progressive loading indicators so users know data is coming
+- [x] **Cache** API responses on the client side where appropriate
+- [x] **Optimize** images and SVG assets
+- [x] **Consider** offline-capable features via the existing PWA/Service Worker infrastructure
+- [x] **Test** on throttled connections (3G simulation in DevTools)
+- [x] **Add** connection-quality detection to adjust data fetch sizes
 
 ---
 
