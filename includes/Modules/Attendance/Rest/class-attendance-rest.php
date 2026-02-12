@@ -431,63 +431,37 @@ if ( $source === 'kiosk' && $scan_token !== '' ) {
         return new \WP_Error( 'invalid_transition', $msg, [ 'status' => 409 ] );
     }
     
-    // === ADD: 5-minute cooldown guard (kiosk & self_web) ========================
-$cooldownSec  = 300;  // default 5 min
-$cooldownLite = 30;   // 30 sec for break toggles
+    // === Duplicate-punch cooldown ================================================
+    // Only block the SAME action type within a short window to prevent accidental
+    // double-taps. Cross-type transitions (in→out, in→break_start, etc.) are always
+    // allowed immediately — the state-machine check above already ensures validity.
+    $pT   = $wpdb->prefix . 'sfs_hr_attendance_punches';
+    $last = $wpdb->get_row( $wpdb->prepare(
+        "SELECT punch_type, punch_time FROM {$pT}
+         WHERE employee_id=%d ORDER BY punch_time DESC LIMIT 1", (int) $emp
+    ) );
 
-$pT   = $wpdb->prefix . 'sfs_hr_attendance_punches';
-$last = $wpdb->get_row( $wpdb->prepare(
-    "SELECT punch_type, punch_time FROM {$pT}
-     WHERE employee_id=%d ORDER BY punch_time DESC LIMIT 1", (int) $emp
-) );
+    if ( $last && (string) $last->punch_type === $punch_type ) {
+        $now_utc = current_time( 'timestamp', true );
+        $then    = strtotime( $last->punch_time . ' UTC' );
+        $diff    = $now_utc - $then;
 
-$now = current_time('timestamp', true);
-
-if ( $last ) {
-    $then = strtotime( $last->punch_time . ' UTC' );
-    $diff = $now - $then;
-
-    // Lite cooldown for break transitions, or when source=kiosk (operator throughput)
-    $effectiveCooldown = (
-        in_array( $punch_type, ['break_start','break_end'], true ) || $source === 'kiosk'
-    ) ? $cooldownLite : $cooldownSec;
-
-    if ( $diff < $effectiveCooldown ) {
-        // Tell the kiosk what the current state is
-        $st   = $pre['state'] ?? 'idle';
-        $when = wp_date( 'H:i', $then ); // wp_date handles site TZ
-        $msg  = sprintf(
-            'You already are %s (last: %s at %s). Please wait %d minutes.',
-            ($st === 'break' ? 'on break' : ($st === 'in' ? 'clocked in' : 'clocked out')),
-            strtoupper( str_replace('_',' ', (string) $last->punch_type ) ),
-            $when,
-            ceil( ($effectiveCooldown - $diff) / 60 )
-        );
-        return new \WP_Error( 'cooldown', $msg, [ 'status' => 429 ] );
+        // Same action within 30 seconds → almost certainly a duplicate tap
+        if ( $diff < 30 ) {
+            $when = wp_date( 'H:i', $then );
+            return new \WP_Error(
+                'cooldown',
+                sprintf(
+                    'You already recorded %s at %s. Please wait %d seconds before trying again.',
+                    strtoupper( str_replace( '_', ' ', $punch_type ) ),
+                    $when,
+                    30 - $diff
+                ),
+                [ 'status' => 429 ]
+            );
+        }
     }
-}
-// ===========================================================================
-
-// Smart cooldown: Only block if attempting the SAME action type within cooldown period
-$last_attempt_key = 'sfs_att_last_attempt_' . (int)$emp;
-$last_attempt     = get_transient( $last_attempt_key );
-$now_ts           = time();
-
-if ( $last_attempt && is_array( $last_attempt ) ) {
-    $last_ts     = (int) ( $last_attempt['timestamp'] ?? 0 );
-    $last_action = (string) ( $last_attempt['action'] ?? '' );
-    $elapsed     = $now_ts - $last_ts;
-
-    // Only block if attempting SAME action AND within cooldown period (5 seconds)
-    if ( $last_action === $punch_type && $elapsed < 5 ) {
-        $action_label = str_replace( '_', ' ', strtoupper( $punch_type ) );
-        return new \WP_Error(
-            'cooldown',
-            sprintf( 'Please wait %d seconds before attempting %s again.', 5 - $elapsed, $action_label ),
-            [ 'status' => 429 ]
-        );
-    }
-}
+    // =========================================================================
 
     // ---- Resolve effective shift for today (Assignments override Automation)
     $dateYmd = wp_date( 'Y-m-d' );
@@ -577,8 +551,15 @@ $mode = \SFS\HR\Modules\Attendance\AttendanceModule::selfie_mode_for(
     ]
 );
 
-$require_selfie = in_array($mode, ['in_only','in_out','all'], true)
-    && in_array($punch_type, ['in','out','break_start','break_end'], true);
+// Determine if selfie is required for THIS specific punch type + mode
+$require_selfie = false;
+if ( $mode === 'in_only' ) {
+    $require_selfie = ( $punch_type === 'in' );
+} elseif ( $mode === 'in_out' ) {
+    $require_selfie = in_array( $punch_type, [ 'in', 'out' ], true );
+} elseif ( $mode === 'all' ) {
+    $require_selfie = in_array( $punch_type, [ 'in', 'out', 'break_start', 'break_end' ], true );
+}
 
 // ---- Consolidated selfie handling (accept upload OR existing attachment id)
 $valid_selfie    = $require_selfie ? 0 : 1;
@@ -785,12 +766,14 @@ if ( $selfie_media_id ) {
     $shift = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $emp, $today );
     $dept_id = $shift && ! empty( $shift->dept_id ) ? (int) $shift->dept_id : 0;
 
-    // نحسب المود / إلزامية السيلفي "للنقطة التالية" بنفس منطق /status
+    // Compute selfie mode for next punch (same logic as /status endpoint)
+    $shift_requires_next = $shift && ! empty( $shift->require_selfie );
     $mode_next = \SFS\HR\Modules\Attendance\AttendanceModule::selfie_mode_for(
         (int) $emp,
         $dept_id,
         [
-            'device_id' => $device_id ?: null,
+            'device_id'      => $device_id ?: null,
+            'shift_requires' => $shift_requires_next,
         ]
     );
     $requires_selfie_next = in_array( $mode_next, [ 'in_only', 'in_out', 'all' ], true );

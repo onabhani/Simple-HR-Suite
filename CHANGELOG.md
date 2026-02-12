@@ -2,6 +2,28 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.4.1] — 2026-02-12
+
+### Fixed
+- **Punch cooldown**: replaced aggressive 5-minute blanket cooldown (blocked ALL punch
+  types) with a 30-second same-type cooldown. Cross-type transitions (clock-in → clock-out)
+  are now allowed immediately — the state-machine already validates transition legality.
+- Error messages from failed selfie punches now scroll into view on mobile (prevents
+  invisible errors when camera panel collapses).
+
+## [0.4.0] — 2026-02-12
+
+### Fixed
+- **Critical recalc bug**: `total_hours` shifts without start/end times were incorrectly
+  marked as `day_off` (empty segments short-circuited status rollup). Total-hours mode is
+  now evaluated first, before the empty-segments fallback.
+- **Selfie mode `in_only`**: server-side and client-side now correctly require selfie only
+  for clock-in (not all punch types). Mode `in_out` → in+out, `all` → all types.
+- **Punch response** now includes `shift_requires` in selfie mode calculation, matching
+  the status endpoint logic.
+- Client-side selfie decision uses per-punch-type check (`needsSelfieForType`) instead of
+  global boolean.
+
 ## [0.3.9] — 2026-02-12
 
 ### Removed
