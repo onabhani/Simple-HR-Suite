@@ -2,6 +2,16 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.4.3] — 2026-02-12
+
+### Fixed
+- **Shift re-assignment**: changing an employee's shift back to one previously used on the
+  same date now works. The duplicate check now only skips if the _latest_ assignment for
+  that date is already the same shift (not any historical entry).
+- **Duplicate selfie uploads**: tapping the capture button multiple times on mobile no
+  longer creates multiple selfie uploads per punch. `pendingType` is cleared synchronously
+  and the capture button is disabled immediately on first tap.
+
 ## [0.4.2] — 2026-02-12
 
 ### Fixed

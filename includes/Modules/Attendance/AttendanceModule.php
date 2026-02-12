@@ -1391,10 +1391,20 @@ setInterval(tickClock, 1000);
             if (!pendingType) return;
             if (!selfieVideo || !selfieCanvas) return;
 
+            // Grab the type and clear pendingType SYNCHRONOUSLY to prevent
+            // double-clicks from firing multiple toBlob → doPunch calls.
+            const capturedType = pendingType;
+            pendingType = null;
+
+            // Disable the capture button immediately
+            if (selfieCapture) selfieCapture.disabled = true;
+
             const vw = selfieVideo.videoWidth;
             const vh = selfieVideo.videoHeight;
             if (!vw || !vh) {
                 setStat(i18n.camera_not_ready, 'error');
+                pendingType = capturedType; // restore so user can retry
+                if (selfieCapture) selfieCapture.disabled = false;
                 return;
             }
 
@@ -1408,6 +1418,8 @@ setInterval(tickClock, 1000);
             selfieCanvas.toBlob(async function(blob){
                 if (!blob) {
                     setStat(i18n.could_not_capture_selfie, 'error');
+                    pendingType = capturedType; // restore so user can retry
+                    if (selfieCapture) selfieCapture.disabled = false;
                     punchInProgress = false;
                     if (actionsWrap) {
                         actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
@@ -1417,9 +1429,9 @@ setInterval(tickClock, 1000);
                     }
                     return;
                 }
-                await doPunch(pendingType, blob);
-                pendingType = null;
+                await doPunch(capturedType, blob);
                 stopSelfiePreview();
+                if (selfieCapture) selfieCapture.disabled = false;
             }, 'image/jpeg', 0.9);
         }
 
