@@ -1896,7 +1896,7 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         <?php if ( ! empty( $dept_headcount ) ) : ?>
@@ -5875,6 +5875,10 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                    class="nav-tab <?php echo $tab === 'documents' ? 'nav-tab-active' : ''; ?>">
                     <?php esc_html_e( 'Documents', 'sfs-hr' ); ?>
                 </a>
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-settings&tab=shortcodes' ) ); ?>"
+                   class="nav-tab <?php echo $tab === 'shortcodes' ? 'nav-tab-active' : ''; ?>">
+                    <?php esc_html_e( 'Shortcodes', 'sfs-hr' ); ?>
+                </a>
             </nav>
 
             <div class="sfs-hr-settings-content" style="margin-top: 20px;">
@@ -5883,10 +5887,240 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                     $this->render_notification_settings( $settings );
                 } elseif ( $tab === 'documents' ) {
                     $this->render_document_settings();
+                } elseif ( $tab === 'shortcodes' ) {
+                    $this->render_shortcodes_reference();
                 }
                 ?>
             </div>
         </div>
+        <?php
+    }
+
+    /**
+     * Render shortcodes reference tab
+     */
+    private function render_shortcodes_reference(): void {
+        $shortcodes = [
+            [
+                'tag'         => 'sfs_hr_my_profile',
+                'description' => __( 'Employee self-service profile with tabs for overview, leave, attendance, loans, resignation, settlement, and documents. Includes dark mode, multi-language, and PWA install prompt.', 'sfs-hr' ),
+                'params'      => [],
+                'capability'  => __( 'Logged-in employee', 'sfs-hr' ),
+            ],
+            [
+                'tag'         => 'sfs_hr_attendance_widget',
+                'description' => __( 'Self-service clock in/out widget with live clock, selfie capture, geofence validation, and break management.', 'sfs-hr' ),
+                'params'      => [
+                    'immersive' => __( '1 (default) = hides theme chrome for fullscreen feel, 0 = inline', 'sfs-hr' ),
+                ],
+                'capability'  => 'sfs_hr_attendance_clock_self',
+            ],
+            [
+                'tag'         => 'sfs_hr_kiosk',
+                'description' => __( 'Fullscreen attendance kiosk with QR code scanning, selfie capture, and multi-employee support. Designed for shared devices at workplace entrances.', 'sfs-hr' ),
+                'params'      => [
+                    'device'    => __( 'Kiosk device ID (default: auto-selects first active kiosk)', 'sfs-hr' ),
+                    'immersive' => __( '1 (default) = fullscreen mode, 0 = inline', 'sfs-hr' ),
+                ],
+                'capability'  => 'sfs_hr_attendance_clock_kiosk',
+            ],
+            [
+                'tag'         => 'sfs_hr_leave_widget',
+                'description' => __( 'Leave dashboard showing KPIs (requests count, available days, used days, annual balance) and recent leave requests.', 'sfs-hr' ),
+                'params'      => [],
+                'capability'  => __( 'Logged-in employee', 'sfs-hr' ),
+            ],
+            [
+                'tag'         => 'sfs_hr_resignation_submit',
+                'description' => __( 'Resignation submission form with date picker, type selection (regular/final exit), and notice period display.', 'sfs-hr' ),
+                'params'      => [],
+                'capability'  => __( 'Logged-in employee', 'sfs-hr' ),
+            ],
+            [
+                'tag'         => 'sfs_hr_my_resignations',
+                'description' => __( 'Lists all submitted resignations for the employee with status badges and approval tracking.', 'sfs-hr' ),
+                'params'      => [],
+                'capability'  => __( 'Logged-in employee', 'sfs-hr' ),
+            ],
+            [
+                'tag'         => 'sfs_hr_my_loans',
+                'description' => __( 'Employee loan listing showing loan ID, status, principal, outstanding balance, monthly installment, and period.', 'sfs-hr' ),
+                'params'      => [],
+                'capability'  => __( 'Logged-in employee', 'sfs-hr' ),
+            ],
+            [
+                'tag'         => 'sfs_hr_leave_request',
+                'description' => __( 'Deprecated — redirects to the leave tab in sfs_hr_my_profile.', 'sfs-hr' ),
+                'params'      => [],
+                'capability'  => __( 'Logged-in employee', 'sfs-hr' ),
+                'deprecated'  => true,
+            ],
+            [
+                'tag'         => 'sfs_hr_my_leaves',
+                'description' => __( 'Deprecated — redirects to the leave tab in sfs_hr_my_profile.', 'sfs-hr' ),
+                'params'      => [],
+                'capability'  => __( 'Logged-in employee', 'sfs-hr' ),
+                'deprecated'  => true,
+            ],
+        ];
+        ?>
+        <style>
+            .sfs-hr-shortcodes { max-width: 900px; }
+            .sfs-hr-sc-card {
+                background: #fff;
+                border: 1px solid #c3c4c7;
+                border-radius: 6px;
+                padding: 16px 20px;
+                margin-bottom: 12px;
+            }
+            .sfs-hr-sc-card.deprecated { opacity: 0.6; }
+            .sfs-hr-sc-header {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 8px;
+            }
+            .sfs-hr-sc-tag {
+                font-family: monospace;
+                font-size: 14px;
+                font-weight: 600;
+                background: #f0f0f1;
+                border: 1px solid #c3c4c7;
+                border-radius: 4px;
+                padding: 4px 10px;
+                color: #1d2327;
+                cursor: pointer;
+                user-select: all;
+            }
+            .sfs-hr-sc-tag:hover { background: #e0e0e0; }
+            .sfs-hr-sc-copy {
+                background: none;
+                border: 1px solid #c3c4c7;
+                border-radius: 4px;
+                padding: 4px 10px;
+                cursor: pointer;
+                font-size: 12px;
+                color: #2271b1;
+                white-space: nowrap;
+            }
+            .sfs-hr-sc-copy:hover { background: #f6f7f7; }
+            .sfs-hr-sc-copy.copied {
+                background: #00a32a;
+                color: #fff;
+                border-color: #00a32a;
+            }
+            .sfs-hr-sc-badge {
+                font-size: 11px;
+                padding: 2px 8px;
+                border-radius: 10px;
+                font-weight: 500;
+            }
+            .sfs-hr-sc-badge--dep {
+                background: #fcf0f1;
+                color: #8b1a1a;
+            }
+            .sfs-hr-sc-desc {
+                color: #50575e;
+                font-size: 13px;
+                line-height: 1.5;
+                margin-bottom: 8px;
+            }
+            .sfs-hr-sc-meta {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 16px;
+                font-size: 12px;
+                color: #646970;
+            }
+            .sfs-hr-sc-meta strong { color: #1d2327; }
+            .sfs-hr-sc-params {
+                margin-top: 6px;
+                padding: 8px 12px;
+                background: #f6f7f7;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+            .sfs-hr-sc-params dt {
+                font-family: monospace;
+                font-weight: 600;
+                color: #1d2327;
+                margin-top: 4px;
+            }
+            .sfs-hr-sc-params dd {
+                margin: 0 0 0 16px;
+                color: #646970;
+            }
+        </style>
+
+        <div class="sfs-hr-shortcodes">
+            <p><?php esc_html_e( 'Copy any shortcode below and paste it into a WordPress page or post to display it on the frontend.', 'sfs-hr' ); ?></p>
+
+            <?php foreach ( $shortcodes as $sc ) :
+                $tag_str   = '[' . $sc['tag'] . ']';
+                $is_dep    = ! empty( $sc['deprecated'] );
+            ?>
+            <div class="sfs-hr-sc-card <?php echo $is_dep ? 'deprecated' : ''; ?>">
+                <div class="sfs-hr-sc-header">
+                    <code class="sfs-hr-sc-tag"><?php echo esc_html( $tag_str ); ?></code>
+                    <button type="button" class="sfs-hr-sc-copy" data-copy="<?php echo esc_attr( $tag_str ); ?>">
+                        <?php esc_html_e( 'Copy', 'sfs-hr' ); ?>
+                    </button>
+                    <?php if ( $is_dep ) : ?>
+                        <span class="sfs-hr-sc-badge sfs-hr-sc-badge--dep"><?php esc_html_e( 'Deprecated', 'sfs-hr' ); ?></span>
+                    <?php endif; ?>
+                </div>
+                <div class="sfs-hr-sc-desc"><?php echo esc_html( $sc['description'] ); ?></div>
+                <?php if ( ! empty( $sc['params'] ) ) : ?>
+                    <div class="sfs-hr-sc-params">
+                        <strong><?php esc_html_e( 'Parameters:', 'sfs-hr' ); ?></strong>
+                        <dl>
+                            <?php foreach ( $sc['params'] as $pname => $pdesc ) : ?>
+                                <dt><?php echo esc_html( $pname ); ?></dt>
+                                <dd><?php echo esc_html( $pdesc ); ?></dd>
+                            <?php endforeach; ?>
+                        </dl>
+                    </div>
+                <?php endif; ?>
+                <div class="sfs-hr-sc-meta">
+                    <span><strong><?php esc_html_e( 'Capability:', 'sfs-hr' ); ?></strong> <?php echo esc_html( $sc['capability'] ); ?></span>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+
+        <script>
+        document.querySelectorAll('.sfs-hr-sc-copy').forEach(function(btn){
+            btn.addEventListener('click', function(){
+                var text = btn.getAttribute('data-copy');
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(function(){
+                        btn.textContent = '<?php echo esc_js( __( 'Copied!', 'sfs-hr' ) ); ?>';
+                        btn.classList.add('copied');
+                        setTimeout(function(){
+                            btn.textContent = '<?php echo esc_js( __( 'Copy', 'sfs-hr' ) ); ?>';
+                            btn.classList.remove('copied');
+                        }, 2000);
+                    });
+                } else {
+                    // Fallback for older browsers
+                    var ta = document.createElement('textarea');
+                    ta.value = text;
+                    ta.style.position = 'fixed';
+                    ta.style.opacity = '0';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    btn.textContent = '<?php echo esc_js( __( 'Copied!', 'sfs-hr' ) ); ?>';
+                    btn.classList.add('copied');
+                    setTimeout(function(){
+                        btn.textContent = '<?php echo esc_js( __( 'Copy', 'sfs-hr' ) ); ?>';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                }
+            });
+        });
+        </script>
         <?php
     }
 

@@ -3,13 +3,10 @@
  * Provides offline capability for punch in/out
  */
 
-const CACHE_NAME = 'sfs-hr-pwa-v1';
-const OFFLINE_URL = '/offline.html';
+const CACHE_NAME = 'sfs-hr-pwa-v2';
 
-// Assets to cache for offline use
+// Assets to cache for offline use (only safe, always-available assets)
 const PRECACHE_ASSETS = [
-    '/',
-    '/offline.html',
     '/wp-includes/css/dashicons.min.css',
 ];
 
@@ -17,9 +14,8 @@ const PRECACHE_ASSETS = [
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
-            console.log('[SW] Pre-caching offline assets');
             return cache.addAll(PRECACHE_ASSETS).catch(err => {
-                console.log('[SW] Pre-cache failed (some assets may not exist):', err);
+                console.log('[SW] Pre-cache partial failure:', err);
             });
         })
     );
@@ -33,7 +29,6 @@ self.addEventListener('activate', (event) => {
             return Promise.all(
                 cacheNames.map((cacheName) => {
                     if (cacheName !== CACHE_NAME) {
-                        console.log('[SW] Deleting old cache:', cacheName);
                         return caches.delete(cacheName);
                     }
                 })
@@ -43,55 +38,34 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// Fetch event - network first, cache fallback
+// Fetch event - network first, cache fallback for GET requests
 self.addEventListener('fetch', (event) => {
-    // Skip non-GET requests
-    if (event.request.method !== 'GET') {
-        return;
-    }
+    if (event.request.method !== 'GET') return;
 
-    // Only cache http/https requests (skip chrome-extension://, etc.)
     const url = new URL(event.request.url);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-        return;
-    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
-    // Skip API requests - always go to network
-    if (event.request.url.includes('/wp-json/') || event.request.url.includes('admin-ajax.php')) {
-        return;
-    }
+    // Skip API / AJAX requests — always go to network
+    if (url.pathname.includes('/wp-json/') || url.pathname.includes('admin-ajax.php')) return;
+
+    // Skip WP admin pages — don't cache them
+    if (url.pathname.includes('/wp-admin/')) return;
 
     event.respondWith(
         fetch(event.request)
             .then((response) => {
-                // Clone the response for caching
-                const responseClone = response.clone();
-
-                // Cache successful responses
                 if (response.status === 200) {
+                    const responseClone = response.clone();
                     caches.open(CACHE_NAME).then((cache) => {
                         cache.put(event.request, responseClone);
                     });
                 }
-
                 return response;
             })
             .catch(() => {
-                // Network failed, try cache
-                return caches.match(event.request).then((cachedResponse) => {
-                    if (cachedResponse) {
-                        return cachedResponse;
-                    }
-
-                    // If it's a navigation request, show offline page
-                    if (event.request.mode === 'navigate') {
-                        return caches.match(OFFLINE_URL);
-                    }
-
-                    return new Response('Offline', {
-                        status: 503,
-                        statusText: 'Service Unavailable'
-                    });
+                return caches.match(event.request).then((cached) => {
+                    if (cached) return cached;
+                    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
                 });
             })
     );
@@ -109,27 +83,57 @@ async function syncPunches() {
     const db = await openDB();
     const punches = await getAllPendingPunches(db);
 
+    if (!punches.length) return;
+
+    // Get a fresh nonce from any open client window
+    let freshNonce = null;
+    try {
+        const clients = await self.clients.matchAll({ type: 'window' });
+        for (const client of clients) {
+            // Ask the client for a fresh nonce via postMessage
+            freshNonce = await new Promise((resolve) => {
+                const channel = new MessageChannel();
+                channel.port1.onmessage = (e) => resolve(e.data?.nonce || null);
+                client.postMessage({ type: 'sfs-hr-get-nonce' }, [channel.port2]);
+                setTimeout(() => resolve(null), 3000);
+            });
+            if (freshNonce) break;
+        }
+    } catch (_) {}
+
+    let synced = 0;
     for (const punch of punches) {
         try {
+            const useNonce = freshNonce || punch.nonce;
             const response = await fetch(punch.url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-WP-Nonce': punch.nonce
+                    'X-WP-Nonce': useNonce
                 },
                 body: JSON.stringify(punch.data)
             });
 
-            if (response.ok) {
+            if (response.ok || response.status === 409) {
+                // 409 = duplicate/invalid transition — remove from queue anyway
                 await deletePunch(db, punch.id);
-                self.registration.showNotification('HR Suite', {
-                    body: 'Offline punch synced successfully!',
-                    icon: '/wp-content/plugins/hr-suite/assets/pwa/icon-192.png'
-                });
+                synced++;
             }
+            // 401/403 = nonce expired — keep in queue for next sync attempt
         } catch (err) {
-            console.log('[SW] Sync failed for punch:', punch.id);
+            console.log('[SW] Sync failed for punch:', punch.id, err);
+            // Network still down — stop trying
+            break;
         }
+    }
+
+    if (synced > 0) {
+        self.registration.showNotification('HR Suite', {
+            body: synced === 1
+                ? 'Offline punch synced successfully!'
+                : `${synced} offline punches synced successfully!`,
+            icon: '/wp-content/plugins/hr-suite/assets/pwa/icon-192.svg'
+        });
     }
 }
 
@@ -137,10 +141,8 @@ async function syncPunches() {
 function openDB() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open('sfs-hr-punches', 1);
-
         request.onerror = () => reject(request.error);
         request.onsuccess = () => resolve(request.result);
-
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
             if (!db.objectStoreNames.contains('punches')) {
@@ -152,10 +154,9 @@ function openDB() {
 
 function getAllPendingPunches(db) {
     return new Promise((resolve, reject) => {
-        const transaction = db.transaction('punches', 'readonly');
-        const store = transaction.objectStore('punches');
+        const tx = db.transaction('punches', 'readonly');
+        const store = tx.objectStore('punches');
         const request = store.getAll();
-
         request.onerror = () => reject(request.error);
         request.onsuccess = () => resolve(request.result);
     });
@@ -163,10 +164,9 @@ function getAllPendingPunches(db) {
 
 function deletePunch(db, id) {
     return new Promise((resolve, reject) => {
-        const transaction = db.transaction('punches', 'readwrite');
-        const store = transaction.objectStore('punches');
+        const tx = db.transaction('punches', 'readwrite');
+        const store = tx.objectStore('punches');
         const request = store.delete(id);
-
         request.onerror = () => reject(request.error);
         request.onsuccess = () => resolve();
     });
@@ -175,38 +175,30 @@ function deletePunch(db, id) {
 // Push notifications
 self.addEventListener('push', (event) => {
     if (!event.data) return;
-
     const data = event.data.json();
-
-    const options = {
-        body: data.body || '',
-        icon: data.icon || '/wp-content/plugins/hr-suite/assets/pwa/icon-192.png',
-        badge: '/wp-content/plugins/hr-suite/assets/pwa/badge-72.png',
-        vibrate: [100, 50, 100],
-        data: data.url || '/',
-        actions: data.actions || []
-    };
-
     event.waitUntil(
-        self.registration.showNotification(data.title || 'HR Suite', options)
+        self.registration.showNotification(data.title || 'HR Suite', {
+            body: data.body || '',
+            icon: data.icon || '/wp-content/plugins/hr-suite/assets/pwa/icon-192.svg',
+            vibrate: [100, 50, 100],
+            data: data.url || '/',
+            actions: data.actions || []
+        })
     );
 });
 
 // Handle notification click
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-
     event.waitUntil(
-        clients.matchAll({ type: 'window' }).then((clientList) => {
-            // Focus existing window if available
+        self.clients.matchAll({ type: 'window' }).then((clientList) => {
             for (const client of clientList) {
                 if (client.url === event.notification.data && 'focus' in client) {
                     return client.focus();
                 }
             }
-            // Otherwise open new window
-            if (clients.openWindow) {
-                return clients.openWindow(event.notification.data);
+            if (self.clients.openWindow) {
+                return self.clients.openWindow(event.notification.data);
             }
         })
     );
