@@ -494,7 +494,23 @@ add_action('rest_api_init', function () {
   font-weight:500;
 }
 
-
+/* success status — color coded per action */
+#<?php echo esc_attr( $root_id ); ?> .sfs-att-statusline[data-mode="in"]{
+  color:#166534; background:#dcfce7; border:1px solid #bbf7d0;
+  border-radius:8px; padding:8px 10px; font-weight:600;
+}
+#<?php echo esc_attr( $root_id ); ?> .sfs-att-statusline[data-mode="out"]{
+  color:#b91c1c; background:#fee2e2; border:1px solid #fecaca;
+  border-radius:8px; padding:8px 10px; font-weight:600;
+}
+#<?php echo esc_attr( $root_id ); ?> .sfs-att-statusline[data-mode="break_start"]{
+  color:#92400e; background:#fef3c7; border:1px solid #fde68a;
+  border-radius:8px; padding:8px 10px; font-weight:600;
+}
+#<?php echo esc_attr( $root_id ); ?> .sfs-att-statusline[data-mode="break_end"]{
+  color:#1e40af; background:#dbeafe; border:1px solid #bfdbfe;
+  border-radius:8px; padding:8px 10px; font-weight:600;
+}
 
       #<?php echo esc_attr( $root_id ); ?> .sfs-att-actions{
         display:flex;
@@ -684,11 +700,18 @@ add_action('rest_api_init', function () {
           grid-template-columns:1fr;
         }
         #<?php echo esc_attr( $root_id ); ?>.sfs-att-app{
-          background:linear-gradient(180deg,var(--sfs-teal) 0 220px, var(--sfs-surface) 220px 100%);
+          background:linear-gradient(180deg,var(--sfs-teal) 0 200px, var(--sfs-surface) 200px 100%);
         }
         #<?php echo esc_attr( $root_id ); ?> .sfs-att-left{
-          min-height:220px;
-          padding:20px 16px;
+          min-height:180px;
+          padding:20px 16px 40px;
+        }
+        #<?php echo esc_attr( $root_id ); ?> .sfs-att-right{
+          padding:0 16px 24px;
+          margin-top:-32px;
+        }
+        #<?php echo esc_attr( $root_id ); ?> .sfs-att-card{
+          box-shadow:0 6px 20px rgba(15,23,42,0.10);
         }
       }
 
@@ -741,6 +764,16 @@ window.sfsAttI18n = window.sfsAttI18n || {
     selfie_required_hint: '<?php echo esc_js( __( 'Selfie required for this shift. Location may also be required.', 'sfs-hr' ) ); ?>',
     location_hint: '<?php echo esc_js( __( 'Your location may be required. Allow the browser location prompt if asked.', 'sfs-hr' ) ); ?>',
     selfie_required_capture: '<?php echo esc_js( __( 'Selfie is required for this shift. Please capture a photo.', 'sfs-hr' ) ); ?>',
+    // Punch type labels
+    clock_in: '<?php echo esc_js( __( 'Clock In', 'sfs-hr' ) ); ?>',
+    clock_out: '<?php echo esc_js( __( 'Clock Out', 'sfs-hr' ) ); ?>',
+    start_break: '<?php echo esc_js( __( 'Start Break', 'sfs-hr' ) ); ?>',
+    end_break: '<?php echo esc_js( __( 'End Break', 'sfs-hr' ) ); ?>',
+    break_start: '<?php echo esc_js( __( 'Break Start', 'sfs-hr' ) ); ?>',
+    break_end: '<?php echo esc_js( __( 'Break End', 'sfs-hr' ) ); ?>',
+    // Cooldown
+    please_wait: '<?php echo esc_js( __( 'Please wait', 'sfs-hr' ) ); ?>',
+    seconds_short: '<?php echo esc_js( __( 's', 'sfs-hr' ) ); ?>',
     // Error
     error_prefix: '<?php echo esc_js( __( 'Error:', 'sfs-hr' ) ); ?>',
     request_timed_out: '<?php echo esc_js( __( 'Request timed out', 'sfs-hr' ) ); ?>'
@@ -782,7 +815,9 @@ window.sfsAttI18n = window.sfsAttI18n || {
                 'device_no_camera_preview', 'ready_capture_submit', 'camera_not_ready', 'could_not_capture_selfie',
                 'location_check_failed', 'location_required_not_supported', 'outside_allowed_area',
                 'location_permission_denied', 'location_unavailable', 'location_timeout', 'location_error_generic',
-                'selfie_required_hint', 'location_hint', 'selfie_required_capture', 'error_prefix', 'request_timed_out'];
+                'selfie_required_hint', 'location_hint', 'selfie_required_capture', 'error_prefix', 'request_timed_out',
+                'clock_in', 'clock_out', 'start_break', 'end_break', 'break_start', 'break_end',
+                'please_wait', 'seconds_short'];
 
             keys.forEach(function(key) {
                 if (strings[key]) {
@@ -1515,7 +1550,7 @@ setInterval(tickClock, 1000);
             const isSameType = (cooldownType === type);
             const cdRemaining = isSameType ? cooldownSec : cooldownCrossSec;
             if (cdRemaining > 0) {
-                setStat(i18n.error_prefix + ' ' + (i18n.please_wait || 'Please wait') + ' ' + cdRemaining + 's', 'error');
+                setStat(i18n.error_prefix + ' ' + (i18n.please_wait || 'Please wait') + ' ' + cdRemaining + (i18n.seconds_short || 's'), 'error');
                 punchInProgress = false;
                 if (actionsWrap) {
                     actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
@@ -1527,12 +1562,17 @@ setInterval(tickClock, 1000);
             }
 
             if (needsSelfieForType(type)) {
-                // Validate geo BEFORE opening camera to avoid wasting user's time
+                // Start geo validation and camera open in PARALLEL for speed.
+                // If cached geo is available, validation is instant; otherwise GPS
+                // runs while the camera warms up (user still sees the viewfinder).
                 setStat(i18n.validating, 'busy');
-                try {
-                    await getGeo(type);
-                } catch(e) {
-                    // geo blocked → abort without opening camera
+                const geoPromise = getGeo(type).catch(e => e);
+                const cameraPromise = startSelfie(type);
+                const geoResult = await geoPromise;
+
+                if (geoResult instanceof Error) {
+                    // geo blocked → close camera and abort
+                    stopSelfiePreview();
                     punchInProgress = false;
                     if (actionsWrap) {
                         actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
@@ -1543,9 +1583,7 @@ setInterval(tickClock, 1000);
                     return;
                 }
 
-                // Go directly to camera for selfie capture.
-                // captureAndSubmit() → doPunch(type, blob) handles the actual punch + server errors.
-                await startSelfie(type);
+                await cameraPromise;
                 return;
             } else {
                 await doPunch(type, null);
@@ -1645,10 +1683,14 @@ setInterval(tickClock, 1000);
             if (!document.hidden) refresh();
         });
 
-        // Pre-request location permission on page load
+        // Pre-request GPS on page load to warm up coordinates cache
         (async function preloadGeo() {
             try {
-                await getGeo();
+                const g = await getGeo('in');
+                // Cache result for faster first punch
+                if (g && !cachedGeo) {
+                    cachedGeo = { ...g, ts: Date.now() };
+                }
             } catch(e) {
                 // Location denied or unavailable - user will see error when they try to punch
             }
