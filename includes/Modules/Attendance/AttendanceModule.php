@@ -144,6 +144,10 @@ add_action('rest_api_init', function () {
     
     
     ob_start(); ?>
+    <?php if ( $geo_lat && $geo_lng ) : ?>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="" defer></script>
+    <?php endif; ?>
     <?php if ( $immersive ): ?>
       <script>
         document.documentElement.classList.add('sfs-att-immersive');
@@ -243,6 +247,11 @@ add_action('rest_api_init', function () {
                       class="button" style="display:none" data-i18n-key="end_break"><?php esc_html_e( 'End Break', 'sfs-hr' ); ?></button>
             </div>
 
+
+            <?php if ( $geo_lat && $geo_lng ) : ?>
+            <!-- Mini-map: geofence + live position -->
+            <div id="sfs-att-map-<?php echo $inst; ?>" style="height:180px;border-radius:10px;margin-top:10px;z-index:1;"></div>
+            <?php endif; ?>
 
             <!-- Success flash overlay -->
             <div class="sfs-flash" id="sfs-att-flash-<?php echo $inst; ?>"></div>
@@ -783,7 +792,7 @@ window.sfsAttI18n = window.sfsAttI18n || {
 (function() {
     var langUrl = '<?php echo esc_js( \SFS_HR_URL . 'languages/' ); ?>';
     var translations = {};
-    var currentLang = localStorage.getItem('sfs_hr_lang') || 'en';
+    var currentLang = localStorage.getItem('sfs_hr_lang') || '<?php echo esc_js( substr( get_locale(), 0, 2 ) ); ?>' || 'en';
 
     function loadTranslations(lang) {
         return new Promise(function(resolve) {
@@ -842,6 +851,9 @@ window.sfsAttI18n = window.sfsAttI18n || {
                     container.setAttribute('dir', 'ltr');
                 }
             }
+
+            // Notify other scripts to re-render dynamic elements
+            window.dispatchEvent(new CustomEvent('sfs_hr_i18n_updated'));
         });
     }
 
@@ -1696,10 +1708,63 @@ setInterval(tickClock, 1000);
             }
         })();
 
+        // Re-render dynamic elements when translations arrive (fixes race with refresh)
+        window.addEventListener('sfs_hr_i18n_updated', function() {
+            updateChip();
+            if (requiresSelfie) {
+                hint && (hint.textContent = i18n.selfie_required_hint);
+            } else {
+                hint && (hint.textContent = i18n.location_hint);
+            }
+            // Re-apply button labels
+            if (actionsWrap) {
+                actionsWrap.querySelectorAll('button[data-i18n-key]').forEach(function(btn) {
+                    var key = btn.dataset.i18nKey;
+                    if (key && i18n[key]) btn.textContent = i18n[key];
+                });
+            }
+        });
+
         // Initial load
         refresh();
     })();
     </script>
+    <?php if ( $geo_lat && $geo_lng ) : ?>
+    <script>
+    (function(){
+        var mapEl = document.getElementById('sfs-att-map-<?php echo esc_js( $inst ); ?>');
+        if (!mapEl) return;
+        var geoLat = <?php echo (float) $geo_lat; ?>;
+        var geoLng = <?php echo (float) $geo_lng; ?>;
+        var geoRad = <?php echo (int) ( $geo_radius ?: 150 ); ?>;
+        var map, circle, userMarker;
+
+        function initMap() {
+            if (typeof L === 'undefined') { setTimeout(initMap, 200); return; }
+            map = L.map(mapEl, { zoomControl: false, attributionControl: false }).setView([geoLat, geoLng], 16);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+            circle = L.circle([geoLat, geoLng], { radius: geoRad, color: '#0f4c5c', fillColor: '#0f4c5c', fillOpacity: 0.12, weight: 2 }).addTo(map);
+            L.marker([geoLat, geoLng]).addTo(map).bindPopup('<?php echo esc_js( __( 'Workplace', 'sfs-hr' ) ); ?>');
+            map.fitBounds(circle.getBounds().pad(0.15));
+            updateUserPos();
+        }
+
+        function updateUserPos() {
+            if (!navigator.geolocation) return;
+            navigator.geolocation.watchPosition(function(pos) {
+                var ll = [pos.coords.latitude, pos.coords.longitude];
+                if (!userMarker) {
+                    userMarker = L.circleMarker(ll, { radius: 7, color: '#fff', fillColor: '#2563eb', fillOpacity: 1, weight: 2 }).addTo(map);
+                } else {
+                    userMarker.setLatLng(ll);
+                }
+            }, function(){}, { enableHighAccuracy: true, maximumAge: 10000 });
+        }
+
+        initMap();
+    })();
+    </script>
+    <?php endif; ?>
     <?php
     return ob_get_clean();
 }

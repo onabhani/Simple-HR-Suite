@@ -462,6 +462,7 @@
   "selfie_required_hint": "Selfie required for this shift. Location may also be required.",
   "selfie_required_capture": "Selfie is required for this shift. Please capture a photo.",
   "back_to_profile": "Back to My HR Profile",
+  "camera_fallback_hint": "Your device does not support live camera preview. Capture a selfie, then the system will submit it.",
   "_comment_admin": "Admin Panel Strings",
   "access_denied": "Access denied",
   "unauthorized": "Unauthorized",

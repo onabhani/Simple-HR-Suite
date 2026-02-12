@@ -1687,13 +1687,83 @@ public function render_shifts(): void {
                 <tr>
                     <th><?php esc_html_e( 'Location (lat, lng, radius m)', 'sfs-hr' ); ?></th>
                     <td>
-                        <input type="text" name="location_lat" style="width:120px"
+                        <input type="text" name="location_lat" id="sfs-shift-lat" style="width:120px"
                                value="<?php echo esc_attr($editing->location_lat ?? ''); ?>" placeholder="24.7136"/>
-                        <input type="text" name="location_lng" style="width:120px"
+                        <input type="text" name="location_lng" id="sfs-shift-lng" style="width:120px"
                                value="<?php echo esc_attr($editing->location_lng ?? ''); ?>" placeholder="46.6753"/>
-                        <input type="number" name="location_radius_m" min="10" step="1" style="width:120px"
+                        <input type="number" name="location_radius_m" id="sfs-shift-radius" min="10" step="1" style="width:120px"
                                value="<?php echo esc_attr($editing->location_radius_m ?? ''); ?>" placeholder="150"/>
-                        <p class="description"><?php esc_html_e( 'Geofence is mandatory for Office/Showrooms/Warehouse/Factory.', 'sfs-hr' ); ?></p>
+                        <p class="description"><?php esc_html_e( 'Click on the map to set location. Drag marker to adjust.', 'sfs-hr' ); ?></p>
+                        <div id="sfs-shift-map" style="height:300px;margin-top:8px;border:1px solid #c3c4c7;border-radius:4px;"></div>
+                        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+                        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+                        <script>
+                        (function(){
+                            var mapEl = document.getElementById('sfs-shift-map');
+                            var latIn = document.getElementById('sfs-shift-lat');
+                            var lngIn = document.getElementById('sfs-shift-lng');
+                            var radIn = document.getElementById('sfs-shift-radius');
+                            if (!mapEl) return;
+
+                            function initMap() {
+                                if (typeof L === 'undefined') { setTimeout(initMap, 200); return; }
+                                var lat = parseFloat(latIn.value) || 24.7136;
+                                var lng = parseFloat(lngIn.value) || 46.6753;
+                                var rad = parseInt(radIn.value) || 150;
+                                var hasCoords = latIn.value && lngIn.value;
+
+                                var map = L.map(mapEl).setView([lat, lng], hasCoords ? 16 : 6);
+                                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+                                var marker = null;
+                                var circle = null;
+
+                                function placeMarker(ll, r) {
+                                    if (marker) { marker.setLatLng(ll); } else {
+                                        marker = L.marker(ll, { draggable: true }).addTo(map);
+                                        marker.on('dragend', function() {
+                                            var p = marker.getLatLng();
+                                            latIn.value = p.lat.toFixed(7);
+                                            lngIn.value = p.lng.toFixed(7);
+                                            if (circle) circle.setLatLng(p);
+                                        });
+                                    }
+                                    if (circle) { circle.setLatLng(ll).setRadius(r); } else {
+                                        circle = L.circle(ll, { radius: r, color: '#0f4c5c', fillColor: '#0f4c5c', fillOpacity: 0.12, weight: 2 }).addTo(map);
+                                    }
+                                }
+
+                                if (hasCoords) {
+                                    placeMarker([lat, lng], rad);
+                                    map.fitBounds(circle.getBounds().pad(0.15));
+                                }
+
+                                map.on('click', function(e) {
+                                    var r = parseInt(radIn.value) || 150;
+                                    latIn.value = e.latlng.lat.toFixed(7);
+                                    lngIn.value = e.latlng.lng.toFixed(7);
+                                    if (!radIn.value) radIn.value = 150;
+                                    placeMarker(e.latlng, r);
+                                });
+
+                                radIn.addEventListener('input', function() {
+                                    if (circle) circle.setRadius(parseInt(this.value) || 150);
+                                });
+
+                                function syncFromInputs() {
+                                    var lt = parseFloat(latIn.value), ln = parseFloat(lngIn.value);
+                                    if (!isNaN(lt) && !isNaN(ln)) {
+                                        var r = parseInt(radIn.value) || 150;
+                                        placeMarker([lt, ln], r);
+                                        map.setView([lt, ln], 16);
+                                    }
+                                }
+                                latIn.addEventListener('change', syncFromInputs);
+                                lngIn.addEventListener('change', syncFromInputs);
+                            }
+                            initMap();
+                        })();
+                        </script>
                     </td>
                 </tr>
 

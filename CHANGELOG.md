@@ -2,6 +2,22 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.5.2] — 2026-02-12
+
+### Fixed
+- **Translation race condition**: language now auto-detected from WordPress locale
+  (no longer defaults to English). After async translations load, dynamic elements
+  (status chip, hints, button labels) are re-rendered so they always show the
+  correct language.
+
+### Added
+- **Employee clock-in map**: interactive Leaflet/OpenStreetMap mini-map on the
+  self-service attendance widget showing the geofence circle and the employee's
+  live GPS position (blue dot). Only shown when shift has geofence coordinates.
+- **Admin shift location map**: interactive map picker in the shift edit form.
+  Click to set location, drag marker to adjust, radius circle updates live.
+  Replaces the need to manually enter lat/lng coordinates.
+
 ## [0.5.1] — 2026-02-12
 
 ### Fixed

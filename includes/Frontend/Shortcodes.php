@@ -2167,7 +2167,7 @@ class Shortcodes {
             }
 
             // Load saved language and apply
-            var savedLang = localStorage.getItem('sfs_hr_lang') || 'en';
+            var savedLang = localStorage.getItem('sfs_hr_lang') || '<?php echo esc_js( substr( get_locale(), 0, 2 ) ); ?>' || 'en';
             // Preload English as fallback, then apply saved language
             try {
                 loadTranslations('en').then(function() {

@@ -462,6 +462,7 @@
   "selfie_required_hint": "الصورة الذاتية مطلوبة لهذه الوردية. قد يكون الموقع مطلوباً أيضاً.",
   "selfie_required_capture": "الصورة الذاتية مطلوبة لهذه الوردية. يرجى التقاط صورة.",
   "back_to_profile": "العودة إلى ملفي الشخصي",
+  "camera_fallback_hint": "جهازك لا يدعم معاينة الكاميرا المباشرة. التقط صورة سيلفي، وسيتم إرسالها تلقائياً.",
   "_comment_admin": "Admin Panel Strings",
   "access_denied": "تم رفض الوصول",
   "unauthorized": "غير مصرح",
