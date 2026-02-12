@@ -41,9 +41,9 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 - [x] **Review** cron job efficiency (Reminders, Workforce Status modules)
 
 ### 2.3 Early Access Feature Review
-- [ ] **Test** the early access functionality end-to-end
-- [ ] **Document** what "early access" covers and expected behavior
-- [ ] **Fix** any issues found during testing
+- [x] **Test** the early access functionality end-to-end
+- [x] **Document** what "early access" covers and expected behavior
+- [x] **Fix** any issues found during testing
 
 ---
 
@@ -57,21 +57,21 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 - [x] **Add** period presets (Calendar Month, Payroll Cycle, Custom)
 
 ### 3.2 Attendance Policies Page — Mobile Responsiveness
-- [ ] **Audit** the attendance policies admin page on mobile viewports (320px–768px)
-- [ ] **Fix** table layouts — use responsive tables or card-based layouts on small screens
-- [ ] **Fix** form inputs and buttons for touch targets (minimum 44px)
-- [ ] **Test** on actual mobile devices and browser DevTools
-- [ ] **Ensure** all modals and dropdowns work on mobile
+- [x] **Audit** the attendance policies admin page on mobile viewports (320px–768px)
+- [x] **Fix** table layouts — use responsive tables or card-based layouts on small screens
+- [x] **Fix** form inputs and buttons for touch targets (minimum 44px)
+- [x] **Test** on actual mobile devices and browser DevTools
+- [x] **Ensure** all modals and dropdowns work on mobile
 
 ---
 
 ## 4. Performance Reports
 
 ### 4.1 Date Filtering on Performance Reports
-- [ ] **Investigate** current report queries — confirm they use overall date range rather than filtered range
-- [ ] **Update** report queries to respect user-selected date filters
-- [ ] **Add** date range picker to performance report UI if not already present
-- [ ] **Ensure** exported reports (CSV/PDF) also respect the selected date filter
+- [x] **Investigate** current report queries — confirm they use overall date range rather than filtered range
+- [x] **Update** report queries to respect user-selected date filters
+- [x] **Add** date range picker to performance report UI if not already present
+- [x] **Ensure** exported reports (CSV/PDF) also respect the selected date filter
 
 ### 4.2 Attendance Period Integration in Reports
 - [ ] **Link** performance reports to the configurable attendance period (from item 3.1)

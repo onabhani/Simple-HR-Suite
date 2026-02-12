@@ -77,6 +77,11 @@ class Capabilities {
             // sfs_hr_loans_finance_approve and sfs_hr_loans_gm_approve are position-based only
         }
 
+        // Anyone with sfs_hr.manage automatically gets performance view
+        if ( ! empty( $allcaps['sfs_hr.manage'] ) ) {
+            $allcaps['sfs_hr_performance_view'] = true;
+        }
+
         // If an active employee row exists -> can request leave
         $emp_tbl = $wpdb->prefix . 'sfs_hr_employees';
         $has_emp = (int)$wpdb->get_var($wpdb->prepare(

@@ -165,12 +165,12 @@ add_action('rest_api_init', function () {
         // Local date (site timezone), not UTC
         $today_ymd = wp_date( 'Y-m-d' );
 
-        // Check if the employee's policy allows geofence bypass per direction
-        $geo_enforce_in  = \SFS\HR\Modules\Attendance\Services\Policy_Service::should_enforce_geofence( $employee_id, 'in' )  ? '1' : '0';
-        $geo_enforce_out = \SFS\HR\Modules\Attendance\Services\Policy_Service::should_enforce_geofence( $employee_id, 'out' ) ? '1' : '0';
-
-        // Always load shift coordinates (for logging even when not enforcing)
+        // Always load shift coordinates first (for logging even when not enforcing)
         $shift = self::resolve_shift_for_date( $employee_id, $today_ymd );
+
+        // Check if the policy allows geofence bypass per direction (shift-level → role-based fallback)
+        $geo_enforce_in  = \SFS\HR\Modules\Attendance\Services\Policy_Service::should_enforce_geofence( $employee_id, 'in',  $shift ) ? '1' : '0';
+        $geo_enforce_out = \SFS\HR\Modules\Attendance\Services\Policy_Service::should_enforce_geofence( $employee_id, 'out', $shift ) ? '1' : '0';
 
         if ( $shift ) {
             if ( isset( $shift->location_lat ) && $shift->location_lat !== null && $shift->location_lat !== '' ) {
@@ -3858,9 +3858,9 @@ foreach ($rows as $r) {
     $net = (int) $ev['worked_total'] - $break_deduction;
     $net = max( 0, $net );
 
-    // ---- Total-hours mode (role-based attendance policy) ----
-    $is_total_hours = \SFS\HR\Modules\Attendance\Services\Policy_Service::is_total_hours_mode( $employee_id );
-    $policy_break   = \SFS\HR\Modules\Attendance\Services\Policy_Service::get_break_settings( $employee_id );
+    // ---- Total-hours mode (shift-level → role-based policy fallback) ----
+    $is_total_hours = \SFS\HR\Modules\Attendance\Services\Policy_Service::is_total_hours_mode( $employee_id, $shift );
+    $policy_break   = \SFS\HR\Modules\Attendance\Services\Policy_Service::get_break_settings( $employee_id, $shift );
 
     if ( $is_total_hours && $policy_break['enabled'] && $policy_break['duration_minutes'] > 0 && ! $has_mandatory_break ) {
         // Only apply policy-level break if shift doesn't already have a mandatory break
@@ -3881,7 +3881,7 @@ foreach ($rows as $r) {
         $status = $is_company_holiday ? 'holiday' : 'day_off';
     } elseif ( $is_total_hours ) {
         // Total-hours mode: compare worked hours against target, ignore shift times
-        $target_hours   = \SFS\HR\Modules\Attendance\Services\Policy_Service::get_target_hours( $employee_id );
+        $target_hours   = \SFS\HR\Modules\Attendance\Services\Policy_Service::get_target_hours( $employee_id, $shift );
         $target_minutes = (int) ( $target_hours * 60 );
 
         if ( count( $rows ) === 0 ) {
@@ -3978,7 +3978,7 @@ foreach ($rows as $r) {
     // Add total-hours policy info to calc_meta for diagnostics
     if ( $is_total_hours ) {
         $calcMeta['policy_mode']           = 'total_hours';
-        $calcMeta['target_hours']          = \SFS\HR\Modules\Attendance\Services\Policy_Service::get_target_hours( $employee_id );
+        $calcMeta['target_hours']          = \SFS\HR\Modules\Attendance\Services\Policy_Service::get_target_hours( $employee_id, $shift );
         $calcMeta['target_minutes']        = (int) ( $calcMeta['target_hours'] * 60 );
         $calcMeta['policy_break_deducted'] = ( $policy_break['enabled'] && ! $has_mandatory_break ) ? $policy_break['duration_minutes'] : 0;
     }
@@ -4043,7 +4043,7 @@ foreach ($rows as $r) {
         if ( $is_total_hours ) {
             // Total-hours mode: "early" means hours shortfall, not shift-time based.
             // Calculate how many minutes short of the target the employee worked.
-            $th_target = (int) ( \SFS\HR\Modules\Attendance\Services\Policy_Service::get_target_hours( $employee_id ) * 60 );
+            $th_target = (int) ( \SFS\HR\Modules\Attendance\Services\Policy_Service::get_target_hours( $employee_id, $shift ) * 60 );
             $minutes_early = max( 0, $th_target - $net );
         } else {
             // Segment-based mode: calculate from segment early_minutes
@@ -4692,40 +4692,59 @@ public static function resolve_shift_for_date(
 
 /**
  * Apply weekly overrides to a shift for a given date.
- * If the shift has weekly_overrides configured for the day-of-week,
- * load and return the override shift instead.
+ *
+ * Supports two formats in the weekly_overrides JSON:
+ *  - Legacy (integer): loads a different shift by ID.
+ *  - New per-day schedule:
+ *      {"friday": {"start":"08:00:00","end":"14:00:00"}} — override times
+ *      {"saturday": null}                                 — day off
+ *    When a day key is missing the shift's default times apply.
  */
 private static function apply_weekly_override( ?\stdClass $shift, string $ymd, \wpdb $wpdb = null ): ?\stdClass {
     if ( ! $shift ) {
         return $shift;
     }
 
-    // Check if shift has weekly_overrides
     if ( empty( $shift->weekly_overrides ) ) {
         return $shift;
     }
 
     $wpdb = $wpdb ?: $GLOBALS['wpdb'];
 
-    // Decode weekly overrides JSON
     $overrides = json_decode( $shift->weekly_overrides, true );
     if ( ! is_array( $overrides ) || empty( $overrides ) ) {
         return $shift;
     }
 
-    // Get day of week from date (monday, tuesday, etc.)
     $tz = wp_timezone();
     $date = new \DateTimeImmutable( $ymd . ' 00:00:00', $tz );
-    $day_of_week = strtolower( $date->format( 'l' ) ); // monday, tuesday, etc.
+    $day_of_week = strtolower( $date->format( 'l' ) );
 
-    // Check if there's an override for this day
-    if ( ! isset( $overrides[ $day_of_week ] ) || (int) $overrides[ $day_of_week ] <= 0 ) {
+    if ( ! array_key_exists( $day_of_week, $overrides ) ) {
         return $shift;
     }
 
-    $override_shift_id = (int) $overrides[ $day_of_week ];
+    $override_value = $overrides[ $day_of_week ];
 
-    // Load the override shift
+    // --- New format: null = day off ---
+    if ( $override_value === null ) {
+        return null;
+    }
+
+    // --- New format: object with start/end times ---
+    if ( is_array( $override_value ) && isset( $override_value['start'], $override_value['end'] ) ) {
+        $cloned = clone $shift;
+        $cloned->start_time = $override_value['start'];
+        $cloned->end_time   = $override_value['end'];
+        return $cloned;
+    }
+
+    // --- Legacy format: integer shift ID ---
+    $override_shift_id = (int) $override_value;
+    if ( $override_shift_id <= 0 ) {
+        return $shift;
+    }
+
     $shiftT = $wpdb->prefix . 'sfs_hr_attendance_shifts';
     $override_shift = $wpdb->get_row(
         $wpdb->prepare(
@@ -4735,14 +4754,12 @@ private static function apply_weekly_override( ?\stdClass $shift, string $ymd, \
     );
 
     if ( ! $override_shift ) {
-        // Override shift not found or inactive, return original
         return $shift;
     }
 
-    // Preserve key properties from original shift
-    $override_shift->__virtual = $shift->__virtual ?? 0;
+    $override_shift->__virtual  = $shift->__virtual ?? 0;
     $override_shift->is_holiday = $shift->is_holiday ?? 0;
-    $override_shift->dept_id = $shift->dept_id ?? null;
+    $override_shift->dept_id    = $shift->dept_id ?? null;
 
     return $override_shift;
 }

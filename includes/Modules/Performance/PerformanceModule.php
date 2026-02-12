@@ -116,7 +116,7 @@ class PerformanceModule {
     public function ajax_get_employee_metrics(): void {
         check_ajax_referer( 'sfs_hr_performance', 'nonce' );
 
-        if ( ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'sfs_hr.attendance.view' ) ) {
+        if ( ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'sfs_hr_performance_view' ) && ! current_user_can( 'sfs_hr.attendance.view' ) ) {
             wp_send_json_error( [ 'message' => __( 'Permission denied', 'sfs-hr' ) ] );
         }
 
@@ -138,7 +138,7 @@ class PerformanceModule {
     public function ajax_get_department_metrics(): void {
         check_ajax_referer( 'sfs_hr_performance', 'nonce' );
 
-        if ( ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'sfs_hr.attendance.view' ) ) {
+        if ( ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'sfs_hr_performance_view' ) && ! current_user_can( 'sfs_hr.attendance.view' ) ) {
             wp_send_json_error( [ 'message' => __( 'Permission denied', 'sfs-hr' ) ] );
         }
 

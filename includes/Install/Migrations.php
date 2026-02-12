@@ -533,6 +533,21 @@ class Migrations {
             }
         }
 
+        /** ATTENDANCE SHIFTS — merge policy fields into shifts (v0.3.8) */
+        $att_shifts = $wpdb->prefix . 'sfs_hr_attendance_shifts';
+        $shift_tbl_exists = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s",
+            $att_shifts
+        ) );
+        if ( $shift_tbl_exists ) {
+            self::add_column_if_missing( $att_shifts, 'clock_in_methods',  "VARCHAR(255) NULL DEFAULT NULL" );
+            self::add_column_if_missing( $att_shifts, 'clock_out_methods', "VARCHAR(255) NULL DEFAULT NULL" );
+            self::add_column_if_missing( $att_shifts, 'geofence_in',       "VARCHAR(20) NULL DEFAULT NULL" );
+            self::add_column_if_missing( $att_shifts, 'geofence_out',      "VARCHAR(20) NULL DEFAULT NULL" );
+            self::add_column_if_missing( $att_shifts, 'calculation_mode',  "VARCHAR(20) NULL DEFAULT NULL" );
+            self::add_column_if_missing( $att_shifts, 'target_hours',      "DECIMAL(4,2) NULL DEFAULT NULL" );
+        }
+
         /** Seed Departments + assign */
         $has_dept = (int)$wpdb->get_var("SELECT COUNT(*) FROM `$dept`");
         if ($has_dept === 0) {

@@ -1793,13 +1793,12 @@ public function render_shifts(): void {
                 </tr>
 
                 <tr>
-                    <th><?php esc_html_e( 'Weekly Overrides', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Weekly Schedule', 'sfs-hr' ); ?></th>
                     <td>
                         <p class="description" style="margin:0 0 10px;">
-                            <?php esc_html_e( 'Override this shift with a different shift on specific days of the week.', 'sfs-hr' ); ?>
+                            <?php esc_html_e( 'Override start/end times per day, or mark days off. Leave blank to use the shift defaults above.', 'sfs-hr' ); ?>
                         </p>
                         <?php
-                        // Parse existing weekly overrides from notes or dedicated field
                         $weekly_overrides = [];
                         if ( isset( $editing->weekly_overrides ) && ! empty( $editing->weekly_overrides ) ) {
                             $decoded = json_decode( $editing->weekly_overrides, true );
@@ -1809,33 +1808,156 @@ public function render_shifts(): void {
                         }
 
                         $days = [
+                            'sunday'    => __( 'Sunday', 'sfs-hr' ),
                             'monday'    => __( 'Monday', 'sfs-hr' ),
                             'tuesday'   => __( 'Tuesday', 'sfs-hr' ),
                             'wednesday' => __( 'Wednesday', 'sfs-hr' ),
                             'thursday'  => __( 'Thursday', 'sfs-hr' ),
                             'friday'    => __( 'Friday', 'sfs-hr' ),
                             'saturday'  => __( 'Saturday', 'sfs-hr' ),
-                            'sunday'    => __( 'Sunday', 'sfs-hr' ),
                         ];
 
                         foreach ( $days as $day_key => $day_label ) :
-                            $selected_shift = $weekly_overrides[ $day_key ] ?? 0;
+                            $ov = $weekly_overrides[ $day_key ] ?? 'default';
+                            $is_day_off   = ( $ov === null );
+                            $is_custom    = ( is_array( $ov ) && isset( $ov['start'], $ov['end'] ) );
+                            $custom_start = $is_custom ? substr( $ov['start'], 0, 5 ) : '';
+                            $custom_end   = $is_custom ? substr( $ov['end'], 0, 5 ) : '';
                             ?>
-                            <div style="margin-bottom:8px;">
-                                <label style="display:inline-block;width:120px;font-weight:500;">
-                                    <?php echo esc_html( $day_label ); ?>:
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+                                <span style="display:inline-block;width:100px;font-weight:500;">
+                                    <?php echo esc_html( $day_label ); ?>
+                                </span>
+                                <label style="display:flex;align-items:center;gap:4px;">
+                                    <input type="checkbox" class="sfs-day-off-toggle"
+                                           name="weekly_schedule[<?php echo esc_attr( $day_key ); ?>][day_off]"
+                                           value="1" <?php checked( $is_day_off ); ?>
+                                           data-day="<?php echo esc_attr( $day_key ); ?>" />
+                                    <?php esc_html_e( 'Day off', 'sfs-hr' ); ?>
                                 </label>
-                                <select name="weekly_override[<?php echo esc_attr( $day_key ); ?>]">
-                                    <option value="0"><?php esc_html_e( '— No override —', 'sfs-hr' ); ?></option>
-                                    <?php foreach ( $rows as $s ) : ?>
-                                        <option value="<?php echo (int) $s->id; ?>"
-                                            <?php selected( $selected_shift, (int) $s->id ); ?>>
-                                            <?php echo esc_html( $s->name . ' (' . $s->start_time . '→' . $s->end_time . ')' ); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
+                                <span class="sfs-day-times-<?php echo esc_attr( $day_key ); ?>"
+                                      style="display:<?php echo $is_day_off ? 'none' : 'inline-flex'; ?>;align-items:center;gap:6px;">
+                                    <input type="time" name="weekly_schedule[<?php echo esc_attr( $day_key ); ?>][start]"
+                                           value="<?php echo esc_attr( $custom_start ); ?>" step="60"
+                                           style="width:110px;" placeholder="<?php echo esc_attr( $start_val ); ?>" />
+                                    <span>→</span>
+                                    <input type="time" name="weekly_schedule[<?php echo esc_attr( $day_key ); ?>][end]"
+                                           value="<?php echo esc_attr( $custom_end ); ?>" step="60"
+                                           style="width:110px;" placeholder="<?php echo esc_attr( $end_val ); ?>" />
+                                </span>
                             </div>
                         <?php endforeach; ?>
+                        <script>
+                        document.querySelectorAll('.sfs-day-off-toggle').forEach(function(cb){
+                            cb.addEventListener('change',function(){
+                                var times = document.querySelector('.sfs-day-times-'+this.dataset.day);
+                                if(times) times.style.display = this.checked ? 'none' : 'inline-flex';
+                            });
+                        });
+                        </script>
+                    </td>
+                </tr>
+
+                <!-- Attendance Policy Overrides -->
+                <tr>
+                    <th colspan="2" style="padding-bottom:0;">
+                        <h3 style="margin:0;padding:10px 0 0;border-top:1px solid #dcdcde;">
+                            <?php esc_html_e( 'Attendance Policy (optional)', 'sfs-hr' ); ?>
+                        </h3>
+                        <p class="description" style="font-weight:normal;margin-top:4px;">
+                            <?php esc_html_e( 'Set these to override role-based policies for employees on this shift. Leave as "Default" to use role-based policies.', 'sfs-hr' ); ?>
+                        </p>
+                    </th>
+                </tr>
+
+                <tr>
+                    <th><?php esc_html_e( 'Calculation Mode', 'sfs-hr' ); ?></th>
+                    <td>
+                        <?php $calc_mode = $editing->calculation_mode ?? ''; ?>
+                        <select name="shift_calculation_mode" id="sfs-shift-calc-mode">
+                            <option value="" <?php selected( $calc_mode, '' ); ?>><?php esc_html_e( '— Default (role policy) —', 'sfs-hr' ); ?></option>
+                            <option value="shift_times" <?php selected( $calc_mode, 'shift_times' ); ?>><?php esc_html_e( 'Shift Times', 'sfs-hr' ); ?></option>
+                            <option value="total_hours" <?php selected( $calc_mode, 'total_hours' ); ?>><?php esc_html_e( 'Total Hours', 'sfs-hr' ); ?></option>
+                        </select>
+                        <span id="sfs-target-hours-wrap" style="margin-left:10px;display:<?php echo $calc_mode === 'total_hours' ? 'inline' : 'none'; ?>;">
+                            <?php esc_html_e( 'Target hours:', 'sfs-hr' ); ?>
+                            <input type="number" name="shift_target_hours" min="1" max="24" step="0.5" style="width:80px;"
+                                   value="<?php echo esc_attr( $editing->target_hours ?? '' ); ?>" />
+                        </span>
+                        <script>
+                        document.getElementById('sfs-shift-calc-mode').addEventListener('change',function(){
+                            document.getElementById('sfs-target-hours-wrap').style.display = this.value==='total_hours' ? 'inline' : 'none';
+                        });
+                        </script>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th><?php esc_html_e( 'Clock-in Methods', 'sfs-hr' ); ?></th>
+                    <td>
+                        <?php
+                        $ci_methods_raw = $editing->clock_in_methods ?? null;
+                        $ci_methods = null;
+                        if ( $ci_methods_raw !== null ) {
+                            $ci_methods = is_string( $ci_methods_raw ) ? json_decode( $ci_methods_raw, true ) : $ci_methods_raw;
+                            if ( ! is_array( $ci_methods ) ) { $ci_methods = null; }
+                        }
+                        ?>
+                        <label style="margin-right:15px;">
+                            <input type="checkbox" name="shift_clock_in_methods[]" value="kiosk"
+                                <?php checked( $ci_methods !== null && in_array( 'kiosk', $ci_methods, true ) ); ?> />
+                            <?php esc_html_e( 'Kiosk', 'sfs-hr' ); ?>
+                        </label>
+                        <label>
+                            <input type="checkbox" name="shift_clock_in_methods[]" value="self_web"
+                                <?php checked( $ci_methods !== null && in_array( 'self_web', $ci_methods, true ) ); ?> />
+                            <?php esc_html_e( 'Self Web', 'sfs-hr' ); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e( 'Leave unchecked to use role policy defaults.', 'sfs-hr' ); ?></p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th><?php esc_html_e( 'Clock-out Methods', 'sfs-hr' ); ?></th>
+                    <td>
+                        <?php
+                        $co_methods_raw = $editing->clock_out_methods ?? null;
+                        $co_methods = null;
+                        if ( $co_methods_raw !== null ) {
+                            $co_methods = is_string( $co_methods_raw ) ? json_decode( $co_methods_raw, true ) : $co_methods_raw;
+                            if ( ! is_array( $co_methods ) ) { $co_methods = null; }
+                        }
+                        ?>
+                        <label style="margin-right:15px;">
+                            <input type="checkbox" name="shift_clock_out_methods[]" value="kiosk"
+                                <?php checked( $co_methods !== null && in_array( 'kiosk', $co_methods, true ) ); ?> />
+                            <?php esc_html_e( 'Kiosk', 'sfs-hr' ); ?>
+                        </label>
+                        <label>
+                            <input type="checkbox" name="shift_clock_out_methods[]" value="self_web"
+                                <?php checked( $co_methods !== null && in_array( 'self_web', $co_methods, true ) ); ?> />
+                            <?php esc_html_e( 'Self Web', 'sfs-hr' ); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e( 'Leave unchecked to use role policy defaults.', 'sfs-hr' ); ?></p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th><?php esc_html_e( 'Geofence', 'sfs-hr' ); ?></th>
+                    <td>
+                        <?php esc_html_e( 'Clock-in:', 'sfs-hr' ); ?>
+                        <select name="shift_geofence_in" style="margin-right:20px;">
+                            <option value="" <?php selected( $editing->geofence_in ?? '', '' ); ?>><?php esc_html_e( '— Default —', 'sfs-hr' ); ?></option>
+                            <option value="enforced" <?php selected( $editing->geofence_in ?? '', 'enforced' ); ?>><?php esc_html_e( 'Enforced', 'sfs-hr' ); ?></option>
+                            <option value="none" <?php selected( $editing->geofence_in ?? '', 'none' ); ?>><?php esc_html_e( 'None (log only)', 'sfs-hr' ); ?></option>
+                        </select>
+                        <?php esc_html_e( 'Clock-out:', 'sfs-hr' ); ?>
+                        <select name="shift_geofence_out">
+                            <option value="" <?php selected( $editing->geofence_out ?? '', '' ); ?>><?php esc_html_e( '— Default —', 'sfs-hr' ); ?></option>
+                            <option value="enforced" <?php selected( $editing->geofence_out ?? '', 'enforced' ); ?>><?php esc_html_e( 'Enforced', 'sfs-hr' ); ?></option>
+                            <option value="none" <?php selected( $editing->geofence_out ?? '', 'none' ); ?>><?php esc_html_e( 'None (log only)', 'sfs-hr' ); ?></option>
+                        </select>
+                        <p class="description"><?php esc_html_e( 'Coordinates are always logged regardless of enforcement setting.', 'sfs-hr' ); ?></p>
                     </td>
                 </tr>
 
@@ -1864,7 +1986,7 @@ public function render_shifts(): void {
                 <th><?php esc_html_e( 'Geo (m)', 'sfs-hr' ); ?></th>
                 <th><?php esc_html_e( 'Break', 'sfs-hr' ); ?></th>
                 <th><?php esc_html_e( 'Grace', 'sfs-hr' ); ?></th>
-                <th><?php esc_html_e( 'Round', 'sfs-hr' ); ?></th>
+                <th><?php esc_html_e( 'Mode', 'sfs-hr' ); ?></th>
                 <th><?php esc_html_e( 'Active', 'sfs-hr' ); ?></th>
                 <th></th>
             </tr>
@@ -1896,7 +2018,15 @@ public function render_shifts(): void {
                     <td><?php echo esc_html($r->location_label . ' (' . (float)$r->location_radius_m . 'm)'); ?></td>
                     <td><?php echo esc_html($r->break_policy . ' / ' . (int)$r->unpaid_break_minutes . 'm' . ($r->break_start_time ? ' @ ' . substr($r->break_start_time, 0, 5) : '')); ?></td>
                     <td><?php echo (int)$r->grace_late_minutes . '/' . (int)$r->grace_early_leave_minutes; ?></td>
-                    <td><?php echo esc_html($r->rounding_rule); ?></td>
+                    <td><?php
+                        if ( ! empty( $r->calculation_mode ) ) {
+                            echo esc_html( $r->calculation_mode === 'total_hours'
+                                ? __( 'Total Hours', 'sfs-hr' ) . ( $r->target_hours ? ' (' . (float) $r->target_hours . 'h)' : '' )
+                                : __( 'Shift Times', 'sfs-hr' ) );
+                        } else {
+                            echo '<em style="color:#999;">' . esc_html__( 'Default', 'sfs-hr' ) . '</em>';
+                        }
+                    ?></td>
                     <td><?php echo $r->active ? esc_html__( 'Yes', 'sfs-hr' ) : esc_html__( 'No', 'sfs-hr' ); ?></td>
                     <td>
                         <a class="button button-small"
@@ -1973,20 +2103,49 @@ $end   = $norm_time($_POST['end_time']   ?? '');
     $active  = !empty($_POST['active']) ? 1 : 0;
     $notes   = wp_kses_post( $_POST['notes'] ?? '' );
 
-    // Weekly overrides: store as JSON
-    $weekly_override_raw = $_POST['weekly_override'] ?? [];
-    $weekly_override = [];
-    if ( is_array( $weekly_override_raw ) ) {
-        foreach ( $weekly_override_raw as $day => $shift_id ) {
-            $shift_id = (int) $shift_id;
-            if ( $shift_id > 0 ) {
-                $weekly_override[ sanitize_key( $day ) ] = $shift_id;
+    // Weekly schedule: store as JSON (new per-day format)
+    $weekly_schedule_raw = $_POST['weekly_schedule'] ?? [];
+    $weekly_schedule = [];
+    $valid_days = [ 'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday' ];
+    if ( is_array( $weekly_schedule_raw ) ) {
+        foreach ( $weekly_schedule_raw as $day => $config ) {
+            $day = sanitize_key( $day );
+            if ( ! in_array( $day, $valid_days, true ) ) { continue; }
+            if ( ! is_array( $config ) ) { continue; }
+            if ( ! empty( $config['day_off'] ) ) {
+                $weekly_schedule[ $day ] = null; // day off
+            } elseif ( ! empty( $config['start'] ) && ! empty( $config['end'] ) ) {
+                $s_time = $norm_time( $config['start'] );
+                $e_time = $norm_time( $config['end'] );
+                if ( $s_time && $e_time ) {
+                    $weekly_schedule[ $day ] = [ 'start' => $s_time, 'end' => $e_time ];
+                }
             }
+            // If neither day_off nor valid times → day is omitted (uses shift defaults)
         }
     }
-    $weekly_override_json = ! empty( $weekly_override ) ? wp_json_encode( $weekly_override ) : '';
+    $weekly_override_json = ! empty( $weekly_schedule ) ? wp_json_encode( $weekly_schedule ) : '';
+
+    // Policy override fields from shift form (NULL = inherit from role policy)
+    $shift_calc_mode = in_array( $_POST['shift_calculation_mode'] ?? '', [ 'shift_times', 'total_hours' ], true )
+        ? $_POST['shift_calculation_mode'] : null;
+    $shift_target_hours = ( $shift_calc_mode === 'total_hours' && isset( $_POST['shift_target_hours'] ) && $_POST['shift_target_hours'] !== '' )
+        ? (float) $_POST['shift_target_hours'] : null;
+
+    $shift_ci_methods = isset( $_POST['shift_clock_in_methods'] ) && is_array( $_POST['shift_clock_in_methods'] )
+        ? array_values( array_intersect( $_POST['shift_clock_in_methods'], [ 'kiosk', 'self_web' ] ) ) : null;
+    $shift_co_methods = isset( $_POST['shift_clock_out_methods'] ) && is_array( $_POST['shift_clock_out_methods'] )
+        ? array_values( array_intersect( $_POST['shift_clock_out_methods'], [ 'kiosk', 'self_web' ] ) ) : null;
+
+    // Empty arrays → null (inherit)
+    if ( is_array( $shift_ci_methods ) && empty( $shift_ci_methods ) ) { $shift_ci_methods = null; }
+    if ( is_array( $shift_co_methods ) && empty( $shift_co_methods ) ) { $shift_co_methods = null; }
+
+    $shift_geo_in  = in_array( $_POST['shift_geofence_in']  ?? '', [ 'enforced', 'none' ], true ) ? $_POST['shift_geofence_in']  : null;
+    $shift_geo_out = in_array( $_POST['shift_geofence_out'] ?? '', [ 'enforced', 'none' ], true ) ? $_POST['shift_geofence_out'] : null;
 
     // Enforce required fields ONLY when saving an ACTIVE shift.
+    // For total_hours mode, location and times are still required (for geo logging).
     if ( $active === 1 ) {
         $missing = [];
         if ($name === '')      $missing[] = 'name';
@@ -2021,6 +2180,12 @@ $end   = $norm_time($_POST['end_time']   ?? '');
         'dept_ids'                 => $dept_ids_json,
         'notes'                    => $notes,
         'weekly_overrides'         => $weekly_override_json,
+        'clock_in_methods'         => $shift_ci_methods !== null ? wp_json_encode( $shift_ci_methods ) : null,
+        'clock_out_methods'        => $shift_co_methods !== null ? wp_json_encode( $shift_co_methods ) : null,
+        'geofence_in'              => $shift_geo_in,
+        'geofence_out'             => $shift_geo_out,
+        'calculation_mode'         => $shift_calc_mode,
+        'target_hours'             => $shift_target_hours,
     ];
 
     if ( $id ) {
