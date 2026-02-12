@@ -900,6 +900,9 @@ window.sfsAttI18n = window.sfsAttI18n || {
         let state          = 'idle';
         let requiresSelfie = false;
         let selfieMode     = 'optional'; // 'never','optional','in_only','in_out','all'
+        let methodBlocked  = {};         // { in: 'msg', out: 'msg', ... } from policy
+        let cooldownType   = null;       // punch_type currently in cooldown
+        let cooldownSec    = 0;          // seconds remaining
         let refreshing     = false;
         let queued         = false;
         let punchInProgress = false; // Prevent duplicate submissions
@@ -1069,6 +1072,9 @@ setInterval(tickClock, 1000);
                 allowed        = j.allow || {};
                 selfieMode     = j.selfie_mode || 'optional';
                 requiresSelfie = !!j.requires_selfie;
+                methodBlocked  = j.method_blocked || {};
+                cooldownType   = j.cooldown_type || null;
+                cooldownSec    = j.cooldown_seconds || 0;
         if (!requiresSelfie) {
             // Make sure selfie UI is hidden if policy changed
             if (selfiePanel) selfiePanel.style.display = 'none';
@@ -1319,6 +1325,32 @@ setInterval(tickClock, 1000);
                 setStat(i18n.error_prefix + ' ' + msg, 'error');
                 punchInProgress = false;
                 // Re-enable allowed buttons
+                if (actionsWrap) {
+                    actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
+                        const t = btn.getAttribute('data-type');
+                        btn.disabled = !allowed[t];
+                    });
+                }
+                return;
+            }
+
+            // ---- Pre-flight: method policy check (before geo/camera) ----
+            if (methodBlocked[type]) {
+                setStat(i18n.error_prefix + ' ' + methodBlocked[type], 'error');
+                punchInProgress = false;
+                if (actionsWrap) {
+                    actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
+                        const t = btn.getAttribute('data-type');
+                        btn.disabled = !allowed[t];
+                    });
+                }
+                return;
+            }
+
+            // ---- Pre-flight: same-type cooldown check (before geo/camera) ----
+            if (cooldownType === type && cooldownSec > 0) {
+                setStat(i18n.error_prefix + ' ' + (i18n.please_wait || 'Please wait') + ' ' + cooldownSec + 's', 'error');
+                punchInProgress = false;
                 if (actionsWrap) {
                     actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
                         const t = btn.getAttribute('data-type');
