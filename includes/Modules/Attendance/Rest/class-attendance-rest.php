@@ -577,8 +577,15 @@ $mode = \SFS\HR\Modules\Attendance\AttendanceModule::selfie_mode_for(
     ]
 );
 
-$require_selfie = in_array($mode, ['in_only','in_out','all'], true)
-    && in_array($punch_type, ['in','out','break_start','break_end'], true);
+// Determine if selfie is required for THIS specific punch type + mode
+$require_selfie = false;
+if ( $mode === 'in_only' ) {
+    $require_selfie = ( $punch_type === 'in' );
+} elseif ( $mode === 'in_out' ) {
+    $require_selfie = in_array( $punch_type, [ 'in', 'out' ], true );
+} elseif ( $mode === 'all' ) {
+    $require_selfie = in_array( $punch_type, [ 'in', 'out', 'break_start', 'break_end' ], true );
+}
 
 // ---- Consolidated selfie handling (accept upload OR existing attachment id)
 $valid_selfie    = $require_selfie ? 0 : 1;
@@ -785,12 +792,14 @@ if ( $selfie_media_id ) {
     $shift = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $emp, $today );
     $dept_id = $shift && ! empty( $shift->dept_id ) ? (int) $shift->dept_id : 0;
 
-    // نحسب المود / إلزامية السيلفي "للنقطة التالية" بنفس منطق /status
+    // Compute selfie mode for next punch (same logic as /status endpoint)
+    $shift_requires_next = $shift && ! empty( $shift->require_selfie );
     $mode_next = \SFS\HR\Modules\Attendance\AttendanceModule::selfie_mode_for(
         (int) $emp,
         $dept_id,
         [
-            'device_id' => $device_id ?: null,
+            'device_id'      => $device_id ?: null,
+            'shift_requires' => $shift_requires_next,
         ]
     );
     $requires_selfie_next = in_array( $mode_next, [ 'in_only', 'in_out', 'all' ], true );

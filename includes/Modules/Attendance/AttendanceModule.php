@@ -899,6 +899,7 @@ window.sfsAttI18n = window.sfsAttI18n || {
         let allowed        = {};
         let state          = 'idle';
         let requiresSelfie = false;
+        let selfieMode     = 'optional'; // 'never','optional','in_only','in_out','all'
         let refreshing     = false;
         let queued         = false;
         let punchInProgress = false; // Prevent duplicate submissions
@@ -1060,6 +1061,7 @@ setInterval(tickClock, 1000);
 
                 state          = j.state || 'idle';
                 allowed        = j.allow || {};
+                selfieMode     = j.selfie_mode || 'optional';
                 requiresSelfie = !!j.requires_selfie;
         if (!requiresSelfie) {
             // Make sure selfie UI is hidden if policy changed
@@ -1151,6 +1153,13 @@ setInterval(tickClock, 1000);
             }
         }
 
+        function needsSelfieForType(punchType) {
+            if (selfieMode === 'in_only')  return punchType === 'in';
+            if (selfieMode === 'in_out')   return punchType === 'in' || punchType === 'out';
+            if (selfieMode === 'all')      return ['in','out','break_start','break_end'].includes(punchType);
+            return false; // 'never', 'optional'
+        }
+
         async function doPunch(type, selfieBlob){
             setStat(i18n.working, 'busy');
 
@@ -1172,7 +1181,8 @@ setInterval(tickClock, 1000);
             try {
                 let resp, text = '', j = null;
 
-                if (requiresSelfie) {
+                const selfieNeeded = needsSelfieForType(type);
+                if (selfieNeeded && selfieBlob) {
                     const fd = new FormData();
                     fd.append('punch_type', type);
                     fd.append('source', 'self_web');
@@ -1183,10 +1193,28 @@ setInterval(tickClock, 1000);
                         if (typeof geo.acc==='number') fd.append('geo_accuracy_m', String(Math.round(geo.acc)));
                     }
 
-                    if (selfieBlob) {
-                        const timestamp = Date.now();
-                        fd.append('selfie', selfieBlob, `selfie-${timestamp}.jpg`);
-                    } else if (selfieInput && selfieInput.files && selfieInput.files[0]) {
+                    const timestamp = Date.now();
+                    fd.append('selfie', selfieBlob, `selfie-${timestamp}.jpg`);
+
+                    resp = await fetch(PUNCH_URL, {
+                        method: 'POST',
+                        headers: { 'X-WP-Nonce': NONCE },
+                        credentials: 'same-origin',
+                        body: fd
+                    });
+                } else if (selfieNeeded) {
+                    // Selfie needed but no blob — try file input, or error
+                    const fd = new FormData();
+                    fd.append('punch_type', type);
+                    fd.append('source', 'self_web');
+
+                    if (geo && typeof geo.lat==='number' && typeof geo.lng==='number') {
+                        fd.append('geo_lat', String(geo.lat));
+                        fd.append('geo_lng', String(geo.lng));
+                        if (typeof geo.acc==='number') fd.append('geo_accuracy_m', String(Math.round(geo.acc)));
+                    }
+
+                    if (selfieInput && selfieInput.files && selfieInput.files[0]) {
                         fd.append('selfie', selfieInput.files[0]);
                     } else {
                         throw new Error('Selfie is required for this shift. Please capture a photo.');
@@ -1294,7 +1322,7 @@ setInterval(tickClock, 1000);
                 return;
             }
 
-            if (requiresSelfie) {
+            if (needsSelfieForType(type)) {
                 // Validate geo BEFORE opening camera to avoid wasting user's time
                 setStat(i18n.validating, 'busy');
                 try {
@@ -3874,18 +3902,16 @@ foreach ($rows as $r) {
 
     // Status rollup
     $status = 'present';
-    if (!$segments || count($segments)===0) {
-        // No shift scheduled for this day - could be day off or no shift assigned
-        // Check if it's an actual company holiday first
-        $is_company_holiday = self::is_company_holiday( $ymd );
-        $status = $is_company_holiday ? 'holiday' : 'day_off';
-    } elseif ( $is_total_hours ) {
+    if ( $is_total_hours ) {
+        // Total-hours mode FIRST: segments may be empty (no fixed start/end times)
+        // so we must check this before the empty-segments → day_off fallback.
         // Total-hours mode: compare worked hours against target, ignore shift times
         $target_hours   = \SFS\HR\Modules\Attendance\Services\Policy_Service::get_target_hours( $employee_id, $shift );
         $target_minutes = (int) ( $target_hours * 60 );
 
         if ( count( $rows ) === 0 ) {
-            $status = 'absent';
+            $is_company_holiday = self::is_company_holiday( $ymd );
+            $status = $is_company_holiday ? 'holiday' : 'absent';
         } elseif ( in_array( 'incomplete', $ev['flags'], true ) ) {
             $status = 'incomplete';
         } elseif ( $net < $target_minutes ) {
@@ -3912,6 +3938,10 @@ foreach ($rows as $r) {
 
         // In total-hours mode, overtime is hours beyond target
         $ot = max( 0, $net - $target_minutes );
+    } elseif (!$segments || count($segments)===0) {
+        // No shift segments (no fixed start/end times and NOT total_hours) → day off or holiday
+        $is_company_holiday = self::is_company_holiday( $ymd );
+        $status = $is_company_holiday ? 'holiday' : 'day_off';
     } elseif (in_array('incomplete', $ev['flags'], true)) {
         $status = 'incomplete';
     } elseif (in_array('missed_segment', $ev['flags'], true) && $net === 0) {
