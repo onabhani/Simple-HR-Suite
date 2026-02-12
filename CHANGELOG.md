@@ -2,6 +2,24 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.5.1] — 2026-02-12
+
+### Fixed
+- **Untranslated status strings**: server-side label "Last: BREAK START at 19:30"
+  now fully translated (punch type names + format string via `__()` and `sprintf()`).
+  Client-side `punchTypeLabel()` now uses proper i18n keys (clock_in, clock_out,
+  start_break, end_break, break_start, break_end, please_wait, seconds_short).
+  Added missing keys to Arabic/English language JSON files.
+
+### Improved
+- **Mobile layout**: card now overlaps the teal header by 32px for a compact modern
+  feel; reduced header height and increased card shadow for depth.
+- **Color-coded success status**: after a successful punch, the status line shows a
+  color-coded banner (green/red/amber/blue) matching the flash overlay.
+- **Faster punch flow**: GPS validation and camera open now run in parallel for
+  selfie punches (previously sequential). GPS preload on page load warms the cache
+  so the first punch is faster.
+
 ## [0.5.0] — 2026-02-12
 
 ### Fixed

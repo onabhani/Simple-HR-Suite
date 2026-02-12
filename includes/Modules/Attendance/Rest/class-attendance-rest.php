@@ -939,13 +939,22 @@ private static function save_selfie_attachment( array $src ): int {
     ) );
 
     $state = 'idle'; // 'idle' | 'in' | 'break'
-    $label = 'Ready';
+    $label = __( 'Ready', 'sfs-hr' );
+
+    $type_labels = [
+        'in'          => __( 'Clock In', 'sfs-hr' ),
+        'out'         => __( 'Clock Out', 'sfs-hr' ),
+        'break_start' => __( 'Break Start', 'sfs-hr' ),
+        'break_end'   => __( 'Break End', 'sfs-hr' ),
+    ];
 
     if (!empty($rows)) {
         $last     = end($rows);
         $lastType = (string)$last->punch_type;
         $when     = wp_date('H:i', strtotime($last->punch_time)); // shown in site TZ
-        $label    = 'Last: ' . strtoupper(str_replace('_',' ', $lastType)) . " at {$when}";
+        $typeLabel = $type_labels[ $lastType ] ?? strtoupper(str_replace('_',' ', $lastType));
+        /* translators: %1$s = punch type label (e.g. Clock In), %2$s = time (e.g. 14:30) */
+        $label    = sprintf( __( 'Last: %1$s at %2$s', 'sfs-hr' ), $typeLabel, $when );
 
         if ($lastType === 'in' || $lastType === 'break_end') {
             $state = 'in';
