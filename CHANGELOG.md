@@ -2,6 +2,21 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.5.3] — 2026-02-12
+
+### Added
+- **Employee language preference**: new "Language" field on employee profile
+  (edit & view mode) with English, Arabic, Filipino, Urdu options.
+  Saving syncs to the linked WordPress user's locale.
+- **Locale-aware email notifications**: all system emails (leave, attendance,
+  loans, resignation, shift swap, payroll, reminders) now switch to the
+  recipient's preferred language before building subject and body text.
+  Uses `switch_to_locale()` + JSON translation reload so `__()` calls
+  resolve in the correct language per recipient.
+- Helper methods: `Helpers::get_available_languages()`,
+  `Helpers::get_locale_for_email()`, `Helpers::send_mail_localized()`,
+  `Helpers::reload_json_translations()`.
+
 ## [0.5.2] — 2026-02-12
 
 ### Fixed

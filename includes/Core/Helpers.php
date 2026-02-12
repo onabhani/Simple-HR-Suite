@@ -593,4 +593,175 @@ public static function asset_status_badge( string $status ): string {
         return $prefix . '-' . $year . '-' . $sequence;
     }
 
+    // =========================================================================
+    // LANGUAGE / LOCALE HELPERS
+    // =========================================================================
+
+    /** Available languages (short code => display label). */
+    public static function get_available_languages(): array {
+        return [
+            'en'  => 'English',
+            'ar'  => 'العربية (Arabic)',
+            'fil' => 'Filipino',
+            'ur'  => 'اردو (Urdu)',
+        ];
+    }
+
+    /**
+     * Map our short language code to a full WP locale string.
+     * Empty string means "site default" (WP stores '' for that).
+     */
+    public static function lang_to_wp_locale( string $lang ): string {
+        $map = [
+            'ar'  => 'ar',
+            'fil' => 'fil',
+            'ur'  => 'ur',
+            'en'  => 'en_US',
+        ];
+        return $map[ $lang ] ?? '';
+    }
+
+    /**
+     * Resolve the WP locale for a given employee (by employee_id or user_id).
+     *
+     * Priority: employee.language → WP user locale → site locale.
+     *
+     * @param int $employee_id  Employee row ID (0 to skip).
+     * @param int $user_id      WP user ID (0 to skip).
+     * @return string WP locale string (e.g. 'ar', 'en_US').
+     */
+    public static function get_employee_locale( int $employee_id = 0, int $user_id = 0 ): string {
+        // Try employee.language first
+        if ( $employee_id ) {
+            $row = self::get_employee_row( $employee_id );
+            if ( $row && ! empty( $row['language'] ) ) {
+                $locale = self::lang_to_wp_locale( $row['language'] );
+                if ( $locale ) {
+                    return $locale;
+                }
+            }
+            if ( $row && ! $user_id ) {
+                $user_id = (int) ( $row['user_id'] ?? 0 );
+            }
+        }
+
+        // Fall back to WP user locale
+        if ( $user_id ) {
+            $user_locale = get_user_meta( $user_id, 'locale', true );
+            if ( $user_locale ) {
+                return $user_locale;
+            }
+        }
+
+        return get_locale();
+    }
+
+    /**
+     * Resolve the WP locale for a recipient identified by email address.
+     *
+     * Looks up WP user by email → employee by user_id → employee.language.
+     */
+    public static function get_locale_for_email( string $email ): string {
+        if ( ! $email ) {
+            return get_locale();
+        }
+
+        $user = get_user_by( 'email', $email );
+        if ( ! $user ) {
+            return get_locale();
+        }
+
+        // Find the employee linked to this WP user
+        global $wpdb;
+        $emp_table   = $wpdb->prefix . 'sfs_hr_employees';
+        $employee_id = (int) $wpdb->get_var(
+            $wpdb->prepare( "SELECT id FROM {$emp_table} WHERE user_id = %d LIMIT 1", $user->ID )
+        );
+
+        return self::get_employee_locale( $employee_id, $user->ID );
+    }
+
+    /**
+     * Send a localized email — switches WP locale to the recipient's
+     * preferred language, invokes the $build callback to generate
+     * subject + body, then sends and restores the locale.
+     *
+     * @param string   $to       Recipient email.
+     * @param callable $build    fn() => ['subject' => …, 'message' => …]
+     *                           Called inside the switched locale so __() works.
+     * @param array    $extra_headers  Optional extra headers.
+     */
+    public static function send_mail_localized( string $to, callable $build, array $extra_headers = [] ): void {
+        $locale = self::get_locale_for_email( $to );
+        $switched = false;
+
+        if ( $locale && $locale !== get_locale() && function_exists( 'switch_to_locale' ) ) {
+            switch_to_locale( $locale );
+            // Re-apply our JSON translation filter for the new locale
+            self::reload_json_translations( $locale );
+            $switched = true;
+        }
+
+        $email_data = $build();
+
+        if ( $switched ) {
+            restore_previous_locale();
+            // Re-apply JSON translations for the restored locale
+            self::reload_json_translations( determine_locale() );
+        }
+
+        if ( ! empty( $email_data['subject'] ) && ! empty( $email_data['message'] ) ) {
+            self::send_mail( $to, $email_data['subject'], $email_data['message'], $extra_headers );
+        }
+    }
+
+    /**
+     * Reload our JSON-based gettext translations for a given locale.
+     * This ensures __('…', 'sfs-hr') returns the correct language
+     * after switch_to_locale().
+     */
+    public static function reload_json_translations( string $locale ): void {
+        // Remove existing filter
+        remove_all_filters( 'gettext_sfs-hr' );
+
+        $locale_map = [ 'ar' => 'ar', 'fil' => 'fil', 'ur' => 'ur' ];
+
+        $lang = $locale_map[ $locale ] ?? null;
+        if ( ! $lang ) {
+            $prefix = substr( $locale, 0, 2 );
+            $lang   = $locale_map[ $prefix ] ?? null;
+        }
+        if ( ! $lang ) {
+            return; // English — no filter needed
+        }
+
+        $en_file   = SFS_HR_DIR . 'languages/en.json';
+        $lang_file = SFS_HR_DIR . "languages/{$lang}.json";
+        if ( ! file_exists( $en_file ) || ! file_exists( $lang_file ) ) {
+            return;
+        }
+
+        $en = json_decode( (string) file_get_contents( $en_file ), true );
+        $tr = json_decode( (string) file_get_contents( $lang_file ), true );
+        if ( ! is_array( $en ) || ! is_array( $tr ) ) {
+            return;
+        }
+
+        $map = [];
+        foreach ( $en as $key => $english ) {
+            if ( strpos( $key, '_comment' ) === 0 ) {
+                continue;
+            }
+            if ( isset( $tr[ $key ] ) && $tr[ $key ] !== $english ) {
+                $map[ $english ] = $tr[ $key ];
+            }
+        }
+
+        if ( ! empty( $map ) ) {
+            add_filter( 'gettext_sfs-hr', function ( $translation, $text ) use ( $map ) {
+                return $map[ $text ] ?? $translation;
+            }, 10, 2 );
+        }
+    }
+
 }

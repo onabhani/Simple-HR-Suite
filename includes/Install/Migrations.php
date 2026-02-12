@@ -279,6 +279,9 @@ class Migrations {
         self::add_column_if_missing($emp, 'probation_end_date', "DATE NULL");
         self::add_column_if_missing($emp, 'probation_status', "VARCHAR(20) NULL DEFAULT NULL");
 
+        /** EMPLOYEES – language preference (synced to WP user locale) */
+        self::add_column_if_missing($emp, 'language', "VARCHAR(10) NULL DEFAULT NULL");
+
         /** LEAVE REQUEST HISTORY (audit trail) */
         $leave_history = $wpdb->prefix.'sfs_hr_leave_request_history';
         $wpdb->query("CREATE TABLE IF NOT EXISTS `$leave_history` (

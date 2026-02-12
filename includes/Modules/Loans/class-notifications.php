@@ -168,25 +168,25 @@ class Notifications {
             return;
         }
 
-        $subject = sprintf(
-            /* translators: %s: Loan number */
-            __( '[Loan Request] Your loan request %s has been approved!', 'sfs-hr' ),
-            $loan->loan_number
-        );
-
-        $message = self::get_email_template( 'approved_to_employee', [
-            'employee_name'   => $loan->employee_name,
-            'loan_number'     => $loan->loan_number,
-            'amount'          => number_format( (float) $loan->principal_amount, 2 ),
-            'currency'        => $loan->currency,
-            'installments'    => $loan->installments_count,
-            'installment_amount' => number_format( (float) $loan->installment_amount, 2 ),
-            'first_due_date'  => $loan->first_due_date ? wp_date( 'F j, Y', strtotime( $loan->first_due_date ) ) : __( 'TBD', 'sfs-hr' ),
-            'last_due_date'   => $loan->last_due_date ? wp_date( 'F j, Y', strtotime( $loan->last_due_date ) ) : __( 'TBD', 'sfs-hr' ),
-            'approved_date'   => wp_date( 'F j, Y', strtotime( $loan->approved_finance_at ) ),
-        ] );
-
-        self::send_notification( $employee_user->ID, $employee_user->user_email, $subject, $message, 'loan_approved' );
+        self::send_notification_localized( $employee_user->ID, $employee_user->user_email, function () use ( $loan ) {
+            return [
+                'subject' => sprintf(
+                    __( '[Loan Request] Your loan request %s has been approved!', 'sfs-hr' ),
+                    $loan->loan_number
+                ),
+                'message' => self::get_email_template( 'approved_to_employee', [
+                    'employee_name'   => $loan->employee_name,
+                    'loan_number'     => $loan->loan_number,
+                    'amount'          => number_format( (float) $loan->principal_amount, 2 ),
+                    'currency'        => $loan->currency,
+                    'installments'    => $loan->installments_count,
+                    'installment_amount' => number_format( (float) $loan->installment_amount, 2 ),
+                    'first_due_date'  => $loan->first_due_date ? wp_date( 'F j, Y', strtotime( $loan->first_due_date ) ) : __( 'TBD', 'sfs-hr' ),
+                    'last_due_date'   => $loan->last_due_date ? wp_date( 'F j, Y', strtotime( $loan->last_due_date ) ) : __( 'TBD', 'sfs-hr' ),
+                    'approved_date'   => wp_date( 'F j, Y', strtotime( $loan->approved_finance_at ) ),
+                ] ),
+            ];
+        }, 'loan_approved' );
 
         // Also notify HR of final approval
         self::notify_hr_loan_event( $loan, 'approved', $loan_id );
@@ -223,23 +223,23 @@ class Notifications {
         $rejected_by_user = get_userdata( $loan->rejected_by );
         $rejected_by_name = $rejected_by_user ? $rejected_by_user->display_name : __( 'Management', 'sfs-hr' );
 
-        $subject = sprintf(
-            /* translators: %s: Loan number */
-            __( '[Loan Request] Your loan request %s has been declined', 'sfs-hr' ),
-            $loan->loan_number
-        );
-
-        $message = self::get_email_template( 'rejected_to_employee', [
-            'employee_name'     => $loan->employee_name,
-            'loan_number'       => $loan->loan_number,
-            'amount'            => number_format( (float) $loan->principal_amount, 2 ),
-            'currency'          => $loan->currency,
-            'rejection_reason'  => $loan->rejection_reason,
-            'rejected_by'       => $rejected_by_name,
-            'rejected_date'     => wp_date( 'F j, Y', strtotime( $loan->rejected_at ) ),
-        ] );
-
-        self::send_notification( $employee_user->ID, $employee_user->user_email, $subject, $message, 'loan_rejected' );
+        self::send_notification_localized( $employee_user->ID, $employee_user->user_email, function () use ( $loan, $rejected_by_name ) {
+            return [
+                'subject' => sprintf(
+                    __( '[Loan Request] Your loan request %s has been declined', 'sfs-hr' ),
+                    $loan->loan_number
+                ),
+                'message' => self::get_email_template( 'rejected_to_employee', [
+                    'employee_name'     => $loan->employee_name,
+                    'loan_number'       => $loan->loan_number,
+                    'amount'            => number_format( (float) $loan->principal_amount, 2 ),
+                    'currency'          => $loan->currency,
+                    'rejection_reason'  => $loan->rejection_reason,
+                    'rejected_by'       => $rejected_by_name,
+                    'rejected_date'     => wp_date( 'F j, Y', strtotime( $loan->rejected_at ) ),
+                ] ),
+            ];
+        }, 'loan_rejected' );
 
         // Also notify HR of rejection
         self::notify_hr_loan_event( $loan, 'rejected', $loan_id );
@@ -272,23 +272,23 @@ class Notifications {
         $cancelled_by_user = $loan->cancelled_by ? get_userdata( $loan->cancelled_by ) : null;
         $cancelled_by_name = $cancelled_by_user ? $cancelled_by_user->display_name : __( 'Management', 'sfs-hr' );
 
-        $subject = sprintf(
-            /* translators: %s: Loan number */
-            __( '[Loan Request] Your loan %s has been cancelled', 'sfs-hr' ),
-            $loan->loan_number
-        );
-
-        $message = self::get_email_template( 'cancelled_to_employee', [
-            'employee_name'       => $loan->employee_name,
-            'loan_number'         => $loan->loan_number,
-            'amount'              => number_format( (float) $loan->principal_amount, 2 ),
-            'currency'            => $loan->currency,
-            'cancellation_reason' => $loan->cancellation_reason ?: __( 'Not specified', 'sfs-hr' ),
-            'cancelled_by'        => $cancelled_by_name,
-            'cancelled_date'      => $loan->cancelled_at ? wp_date( 'F j, Y', strtotime( $loan->cancelled_at ) ) : '',
-        ] );
-
-        self::send_notification( $employee_user->ID, $employee_user->user_email, $subject, $message, 'loan_cancelled' );
+        self::send_notification_localized( $employee_user->ID, $employee_user->user_email, function () use ( $loan, $cancelled_by_name ) {
+            return [
+                'subject' => sprintf(
+                    __( '[Loan Request] Your loan %s has been cancelled', 'sfs-hr' ),
+                    $loan->loan_number
+                ),
+                'message' => self::get_email_template( 'cancelled_to_employee', [
+                    'employee_name'       => $loan->employee_name,
+                    'loan_number'         => $loan->loan_number,
+                    'amount'              => number_format( (float) $loan->principal_amount, 2 ),
+                    'currency'            => $loan->currency,
+                    'cancellation_reason' => $loan->cancellation_reason ?: __( 'Not specified', 'sfs-hr' ),
+                    'cancelled_by'        => $cancelled_by_name,
+                    'cancelled_date'      => $loan->cancelled_at ? wp_date( 'F j, Y', strtotime( $loan->cancelled_at ) ) : '',
+                ] ),
+            ];
+        }, 'loan_cancelled' );
 
         // Also notify HR of cancellation
         self::notify_hr_loan_event( $loan, 'cancelled', $loan_id );
@@ -322,23 +322,23 @@ class Notifications {
             return;
         }
 
-        $subject = sprintf(
-            /* translators: 1: Loan number, 2: Installment number */
-            __( '[Loan Payment] Installment #%2$d of loan %1$s was skipped', 'sfs-hr' ),
-            $loan->loan_number,
-            $sequence
-        );
-
-        $message = self::get_email_template( 'installment_skipped_to_employee', [
-            'employee_name'      => $loan->employee_name,
-            'loan_number'        => $loan->loan_number,
-            'sequence'           => $sequence,
-            'remaining_balance'  => number_format( (float) $loan->remaining_balance, 2 ),
-            'currency'           => $loan->currency,
-            'installment_amount' => number_format( (float) $loan->installment_amount, 2 ),
-        ] );
-
-        self::send_notification( $employee_user->ID, $employee_user->user_email, $subject, $message, 'loan_installment_skipped' );
+        self::send_notification_localized( $employee_user->ID, $employee_user->user_email, function () use ( $loan, $sequence ) {
+            return [
+                'subject' => sprintf(
+                    __( '[Loan Payment] Installment #%2$d of loan %1$s was skipped', 'sfs-hr' ),
+                    $loan->loan_number,
+                    $sequence
+                ),
+                'message' => self::get_email_template( 'installment_skipped_to_employee', [
+                    'employee_name'      => $loan->employee_name,
+                    'loan_number'        => $loan->loan_number,
+                    'sequence'           => $sequence,
+                    'remaining_balance'  => number_format( (float) $loan->remaining_balance, 2 ),
+                    'currency'           => $loan->currency,
+                    'installment_amount' => number_format( (float) $loan->installment_amount, 2 ),
+                ] ),
+            ];
+        }, 'loan_installment_skipped' );
     }
 
     /**
@@ -656,6 +656,27 @@ HR Management System
         } else {
             // Queue for digest
             self::queue_for_digest( $user_id, $email, $subject, $message, $notification_type );
+        }
+    }
+
+    /**
+     * Build email content in the recipient's preferred locale, then send.
+     */
+    private static function send_notification_localized( int $user_id, string $email, callable $build, string $notification_type ): void {
+        $locale   = \SFS\HR\Core\Helpers::get_locale_for_email( $email );
+        $switched = false;
+        if ( $locale && $locale !== get_locale() && function_exists( 'switch_to_locale' ) ) {
+            switch_to_locale( $locale );
+            \SFS\HR\Core\Helpers::reload_json_translations( $locale );
+            $switched = true;
+        }
+        $data = $build();
+        if ( $switched ) {
+            restore_previous_locale();
+            \SFS\HR\Core\Helpers::reload_json_translations( determine_locale() );
+        }
+        if ( ! empty( $data['subject'] ) && ! empty( $data['message'] ) ) {
+            self::send_notification( $user_id, $email, $data['subject'], $data['message'], $notification_type );
         }
     }
 
