@@ -1679,7 +1679,7 @@ public function render_shifts(): void {
                 <tr>
                     <th><?php esc_html_e( 'Location Label', 'sfs-hr' ); ?></th>
                     <td>
-                        <input required type="text" name="location_label"
+                        <input type="text" name="location_label"
                                value="<?php echo esc_attr($editing->location_label ?? ''); ?>" class="regular-text"/>
                     </td>
                 </tr>
@@ -1687,11 +1687,11 @@ public function render_shifts(): void {
                 <tr>
                     <th><?php esc_html_e( 'Location (lat, lng, radius m)', 'sfs-hr' ); ?></th>
                     <td>
-                        <input required type="text" name="location_lat" style="width:120px"
+                        <input type="text" name="location_lat" style="width:120px"
                                value="<?php echo esc_attr($editing->location_lat ?? ''); ?>" placeholder="24.7136"/>
-                        <input required type="text" name="location_lng" style="width:120px"
+                        <input type="text" name="location_lng" style="width:120px"
                                value="<?php echo esc_attr($editing->location_lng ?? ''); ?>" placeholder="46.6753"/>
-                        <input required type="number" name="location_radius_m" min="10" step="1" style="width:120px"
+                        <input type="number" name="location_radius_m" min="10" step="1" style="width:120px"
                                value="<?php echo esc_attr($editing->location_radius_m ?? ''); ?>" placeholder="150"/>
                         <p class="description"><?php esc_html_e( 'Geofence is mandatory for Office/Showrooms/Warehouse/Factory.', 'sfs-hr' ); ?></p>
                     </td>
@@ -1704,9 +1704,9 @@ public function render_shifts(): void {
                         $start_val = isset($editing->start_time) ? substr((string)$editing->start_time, 0, 5) : '';
                         $end_val   = isset($editing->end_time)   ? substr((string)$editing->end_time,   0, 5) : '';
                         ?>
-                        <input required type="time" name="start_time" step="60"
+                        <input type="time" name="start_time" step="60"
                                value="<?php echo esc_attr($start_val); ?>"/> →
-                        <input required type="time" name="end_time" step="60"
+                        <input type="time" name="end_time" step="60"
                                value="<?php echo esc_attr($end_val); ?>"/>
                         <p class="description"><?php esc_html_e( 'Overnight allowed (end earlier than start).', 'sfs-hr' ); ?></p>
                     </td>
@@ -2141,15 +2141,17 @@ $end   = $norm_time($_POST['end_time']   ?? '');
     $shift_geo_out = in_array( $_POST['shift_geofence_out'] ?? '', [ 'enforced', 'none' ], true ) ? $_POST['shift_geofence_out'] : null;
 
     // Enforce required fields ONLY when saving an ACTIVE shift.
-    // For total_hours mode, location and times are still required (for geo logging).
+    // For total_hours mode, location and start/end times are optional.
     if ( $active === 1 ) {
         $missing = [];
-        if ($name === '')      $missing[] = 'name';
-        if ($loc_label === '') $missing[] = 'location_label';
-        if ($lat === null)     $missing[] = 'location_lat';
-        if ($lng === null)     $missing[] = 'location_lng';
-        if ($start === '')     $missing[] = 'start_time';
-        if ($end === '')       $missing[] = 'end_time';
+        if ( $name === '' ) $missing[] = 'name';
+        if ( $shift_calc_mode !== 'total_hours' ) {
+            if ($loc_label === '') $missing[] = 'location_label';
+            if ($lat === null)     $missing[] = 'location_lat';
+            if ($lng === null)     $missing[] = 'location_lng';
+            if ($start === '')     $missing[] = 'start_time';
+            if ($end === '')       $missing[] = 'end_time';
+        }
         if ($missing) {
             wp_die( esc_html( sprintf( __( 'Missing required fields: %s.', 'sfs-hr' ), implode( ', ', $missing ) ) ) );
         }
