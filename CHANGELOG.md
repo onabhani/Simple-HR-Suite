@@ -2,6 +2,16 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.4.8] — 2026-02-12
+
+### Fixed
+- **Break selfies not captured**: when a shift has `require_selfie` enabled and the
+  default selfie policy is `optional` or `never`, the mode now upgrades to `all`
+  (every punch type) instead of `in_out` (which excluded break_start/break_end).
+- **Rapid break cycling**: added a 15-second cross-type cooldown between any two
+  consecutive punches (in addition to the existing 30-second same-type cooldown).
+  Prevents accidental break_start↔break_end loops that created noise in the log.
+
 ## [0.4.7] — 2026-02-12
 
 ### Fixed

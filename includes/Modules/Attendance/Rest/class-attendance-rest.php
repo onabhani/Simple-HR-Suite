@@ -344,7 +344,7 @@ if ( ! empty( $method_blocked ) ) {
     $resp['method_blocked'] = $method_blocked;
 }
 
-// ---- Same-type cooldown info (so client can warn before opening camera)
+// ---- Cooldown info (so client can warn before opening camera)
 $punchT_cd = $wpdb->prefix . 'sfs_hr_attendance_punches';
 $last_punch = $wpdb->get_row( $wpdb->prepare(
     "SELECT punch_type, punch_time FROM {$punchT_cd}
@@ -354,9 +354,14 @@ $last_punch = $wpdb->get_row( $wpdb->prepare(
 if ( $last_punch ) {
     $cd_then    = strtotime( $last_punch->punch_time . ' UTC' );
     $cd_elapsed = time() - $cd_then;
-    if ( $cd_elapsed < 30 ) {
-        $resp['cooldown_type']    = (string) $last_punch->punch_type;
-        $resp['cooldown_seconds'] = 30 - $cd_elapsed;
+    $cd_same    = 30;  // same-type cooldown
+    $cd_cross   = 15;  // cross-type cooldown
+    $resp['cooldown_type'] = (string) $last_punch->punch_type;
+    if ( $cd_elapsed < $cd_same ) {
+        $resp['cooldown_seconds']       = $cd_same - $cd_elapsed;
+    }
+    if ( $cd_elapsed < $cd_cross ) {
+        $resp['cooldown_cross_seconds'] = $cd_cross - $cd_elapsed;
     }
 }
 
@@ -460,23 +465,21 @@ if ( $source === 'kiosk' && $scan_token !== '' ) {
         return new \WP_Error( 'invalid_transition', $msg, [ 'status' => 409 ] );
     }
     
-    // === Duplicate-punch cooldown ================================================
-    // Only block the SAME action type within a short window to prevent accidental
-    // double-taps. Cross-type transitions (in→out, in→break_start, etc.) are always
-    // allowed immediately — the state-machine check above already ensures validity.
+    // === Punch cooldown ==========================================================
     $pT   = $wpdb->prefix . 'sfs_hr_attendance_punches';
     $last = $wpdb->get_row( $wpdb->prepare(
         "SELECT punch_type, punch_time FROM {$pT}
          WHERE employee_id=%d ORDER BY punch_time DESC LIMIT 1", (int) $emp
     ) );
 
-    if ( $last && (string) $last->punch_type === $punch_type ) {
-        $now_utc = current_time( 'timestamp', true );
-        $then    = strtotime( $last->punch_time . ' UTC' );
-        $diff    = $now_utc - $then;
+    if ( $last ) {
+        $now_utc   = current_time( 'timestamp', true );
+        $then      = strtotime( $last->punch_time . ' UTC' );
+        $diff      = $now_utc - $then;
+        $last_type = (string) $last->punch_type;
 
-        // Same action within 30 seconds → almost certainly a duplicate tap
-        if ( $diff < 30 ) {
+        // 1) Same action within 30 seconds → duplicate tap
+        if ( $last_type === $punch_type && $diff < 30 ) {
             $when = wp_date( 'H:i', $then );
             return new \WP_Error(
                 'cooldown',
@@ -485,6 +488,18 @@ if ( $source === 'kiosk' && $scan_token !== '' ) {
                     strtoupper( str_replace( '_', ' ', $punch_type ) ),
                     $when,
                     30 - $diff
+                ),
+                [ 'status' => 429 ]
+            );
+        }
+
+        // 2) Any different action within 15 seconds → too fast (prevents break cycling)
+        if ( $last_type !== $punch_type && $diff < 15 ) {
+            return new \WP_Error(
+                'cooldown',
+                sprintf(
+                    'Please wait %d seconds before your next action.',
+                    15 - $diff
                 ),
                 [ 'status' => 429 ]
             );

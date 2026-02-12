@@ -977,8 +977,9 @@ window.sfsAttI18n = window.sfsAttI18n || {
         let requiresSelfie = false;
         let selfieMode     = 'optional'; // 'never','optional','in_only','in_out','all'
         let methodBlocked  = {};         // { in: 'msg', out: 'msg', ... } from policy
-        let cooldownType   = null;       // punch_type currently in cooldown
-        let cooldownSec    = 0;          // seconds remaining
+        let cooldownType     = null;       // punch_type currently in cooldown
+        let cooldownSec      = 0;          // seconds remaining (same-type)
+        let cooldownCrossSec = 0;          // seconds remaining (cross-type)
         let refreshing     = false;
         let queued         = false;
         let punchInProgress = false; // Prevent duplicate submissions
@@ -1149,8 +1150,9 @@ setInterval(tickClock, 1000);
                 selfieMode     = j.selfie_mode || 'optional';
                 requiresSelfie = !!j.requires_selfie;
                 methodBlocked  = j.method_blocked || {};
-                cooldownType   = j.cooldown_type || null;
-                cooldownSec    = j.cooldown_seconds || 0;
+                cooldownType       = j.cooldown_type || null;
+                cooldownSec        = j.cooldown_seconds || 0;
+                cooldownCrossSec   = j.cooldown_cross_seconds || 0;
         if (!requiresSelfie) {
             // Make sure selfie UI is hidden if policy changed
             if (selfiePanel) { selfiePanel.style.display = 'none'; document.body.style.overflow = ''; }
@@ -1447,9 +1449,11 @@ setInterval(tickClock, 1000);
                 return;
             }
 
-            // ---- Pre-flight: same-type cooldown check (before geo/camera) ----
-            if (cooldownType === type && cooldownSec > 0) {
-                setStat(i18n.error_prefix + ' ' + (i18n.please_wait || 'Please wait') + ' ' + cooldownSec + 's', 'error');
+            // ---- Pre-flight: cooldown check (before geo/camera) ----
+            const isSameType = (cooldownType === type);
+            const cdRemaining = isSameType ? cooldownSec : cooldownCrossSec;
+            if (cdRemaining > 0) {
+                setStat(i18n.error_prefix + ' ' + (i18n.please_wait || 'Please wait') + ' ' + cdRemaining + 's', 'error');
                 punchInProgress = false;
                 if (actionsWrap) {
                     actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
@@ -5081,11 +5085,10 @@ public static function selfie_mode_for( int $employee_id, $dept_id, array $ctx =
     $shift_requires = ! empty( $ctx['shift_requires'] );
 
     if ( $shift_requires ) {
-        // Shift says "selfie required" → we must NOT end up with "never" or "optional"
-        if ( $mode === 'never' ) {
-            $mode = 'in_only';
-        } elseif ( $mode === 'optional' ) {
-            $mode = 'in_out';
+        // Shift says "selfie required" → upgrade weak modes to 'all'
+        // so every punch type (in, out, break_start, break_end) requires a selfie.
+        if ( in_array( $mode, [ 'never', 'optional' ], true ) ) {
+            $mode = 'all';
         }
         // If device/policy already say in_only / in_out / all we don't downgrade it
     }
