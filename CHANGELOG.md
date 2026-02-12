@@ -2,6 +2,17 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.4.2] — 2026-02-12
+
+### Fixed
+- **Method policy check before camera/geo**: when an employee's policy only allows kiosk,
+  the self-web UI now shows "Clock-in via Self Web is not allowed by your attendance policy"
+  immediately — instead of opening the camera or showing a misleading geofence error.
+- **Cooldown check before camera**: same-type cooldown is now checked client-side before
+  opening the selfie camera, avoiding wasted photo captures.
+- Status endpoint now returns `method_blocked` (per punch type) and `cooldown_type`/
+  `cooldown_seconds` so the client can pre-validate before any heavy work.
+
 ## [0.4.1] — 2026-02-12
 
 ### Fixed

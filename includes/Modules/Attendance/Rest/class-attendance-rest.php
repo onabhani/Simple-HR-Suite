@@ -331,6 +331,35 @@ $requires_selfie_now       = in_array( $mode_now, [ 'in_only', 'in_out', 'all' ]
 $resp['selfie_mode']       = $mode_now;
 $resp['requires_selfie']   = (bool) $requires_selfie_now;
 
+// ---- Method validation per punch type (so client can block BEFORE camera/geo)
+// Check which methods the policy allows, and flag blocked punch types with reason
+$method_blocked = [];
+foreach ( [ 'in', 'out', 'break_start', 'break_end' ] as $pt ) {
+    $check = Policy_Service::validate_method( (int) $emp, $pt, 'self_web', $shift );
+    if ( is_wp_error( $check ) ) {
+        $method_blocked[ $pt ] = $check->get_error_message();
+    }
+}
+if ( ! empty( $method_blocked ) ) {
+    $resp['method_blocked'] = $method_blocked;
+}
+
+// ---- Same-type cooldown info (so client can warn before opening camera)
+$punchT_cd = $wpdb->prefix . 'sfs_hr_attendance_punches';
+$last_punch = $wpdb->get_row( $wpdb->prepare(
+    "SELECT punch_type, punch_time FROM {$punchT_cd}
+     WHERE employee_id = %d ORDER BY punch_time DESC LIMIT 1",
+    (int) $emp
+) );
+if ( $last_punch ) {
+    $cd_then    = strtotime( $last_punch->punch_time . ' UTC' );
+    $cd_elapsed = time() - $cd_then;
+    if ( $cd_elapsed < 30 ) {
+        $resp['cooldown_type']    = (string) $last_punch->punch_type;
+        $resp['cooldown_seconds'] = 30 - $cd_elapsed;
+    }
+}
+
 
             }
         }
