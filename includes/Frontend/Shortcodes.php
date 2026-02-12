@@ -116,12 +116,25 @@ class Shortcodes {
     $full_name_ar  = trim( $first_name_ar . ' ' . $last_name_ar );
 
     $code        = (string) ( $emp['employee_code']         ?? '' );
-    $status      = (string) ( $emp['status']                ?? '' );
+    $status_raw  = (string) ( $emp['status']                ?? '' );
     $position    = (string) ( $emp['position']              ?? '' );
     $email       = (string) ( $emp['email']                 ?? '' );
     $phone       = (string) ( $emp['phone']                 ?? '' );
     $hire_date   = (string) ( $emp['hired_at']              ?? '' );
-    $gender      = (string) ( $emp['gender']                ?? '' );
+    $gender_raw  = (string) ( $emp['gender']                ?? '' );
+
+    // Translate DB enum values for display.
+    $status_map = [
+        'active'     => __( 'Active', 'sfs-hr' ),
+        'inactive'   => __( 'Inactive', 'sfs-hr' ),
+        'terminated' => __( 'Terminated', 'sfs-hr' ),
+    ];
+    $gender_map = [
+        'male'   => __( 'Male', 'sfs-hr' ),
+        'female' => __( 'Female', 'sfs-hr' ),
+    ];
+    $status = $status_map[ $status_raw ] ?? ucfirst( $status_raw );
+    $gender = $gender_map[ $gender_raw ] ?? ucfirst( $gender_raw );
     $base_salary = isset( $emp['base_salary'] ) && $emp['base_salary'] !== null
         ? number_format_i18n( (float) $emp['base_salary'], 2 )
         : '';
@@ -527,7 +540,7 @@ class Shortcodes {
 
             <?php if ( $status !== '' ) : ?>
                 <span class="sfs-hr-chip sfs-hr-chip--status">
-                    <?php echo esc_html( ucfirst( $status ) ); ?>
+                    <?php echo esc_html( $status ); ?>
                 </span>
             <?php endif; ?>
         </div>

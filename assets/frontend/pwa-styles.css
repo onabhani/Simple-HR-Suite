@@ -474,7 +474,8 @@
         margin-bottom: 12px;
         border: 1px solid var(--sfs-border);
     }
-    .sfs-hr-pwa-app .sfs-hr-profile-group:last-child {
+    /* Only remove bottom margin from the very last card in the entire grid */
+    .sfs-hr-pwa-app .sfs-hr-profile-col:last-child .sfs-hr-profile-group:last-child {
         margin-bottom: 0;
     }
 
@@ -489,7 +490,6 @@
         border-bottom: none;
         margin: 0;
         padding: 6px 4px calc(6px + var(--sfs-safe-bottom));
-        padding-right: 70px; /* Space for notification bell */
         display: flex;
         justify-content: space-around;
         z-index: 1000;
@@ -578,6 +578,11 @@
 .sfs-hr-quick-link span {
     flex: 1;
     font-weight: 500;
+}
+.sfs-hr-quick-link .sfs-hr-notification-dot {
+    flex: 0 0 8px;
+    width: 8px;
+    height: 8px;
 }
 .sfs-hr-quick-link-arrow {
     stroke: var(--sfs-text-muted);

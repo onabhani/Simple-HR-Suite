@@ -2,6 +2,28 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.4.8] — 2026-02-12
+
+### Fixed
+- **Break selfies not captured**: when a shift has `require_selfie` enabled and the
+  default selfie policy is `optional` or `never`, the mode now upgrades to `all`
+  (every punch type) instead of `in_out` (which excluded break_start/break_end).
+- **Rapid break cycling**: added a 15-second cross-type cooldown between any two
+  consecutive punches (in addition to the existing 30-second same-type cooldown).
+  Prevents accidental break_start↔break_end loops that created noise in the log.
+
+## [0.4.7] — 2026-02-12
+
+### Fixed
+- **Untranslated profile strings**: employee status (`active`/`inactive`/`terminated`) and
+  gender (`male`/`female`) values are now translated instead of showing raw DB values.
+- **Notification dot in My Documents**: red dot was stretched into an ellipse by the parent
+  flex container; now properly constrained to 8×8px circle.
+- **Mobile bottom tab bar**: removed phantom 70px right padding reserved for a non-existent
+  notification bell element.
+- **Card spacing on mobile**: fixed unequal gaps between profile info cards (Contact vs
+  Identification) caused by `:last-child` margin reset within column wrappers.
+
 ## [0.4.6] — 2026-02-12
 
 ### Fixed
