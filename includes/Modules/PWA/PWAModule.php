@@ -43,22 +43,27 @@ class PWAModule {
 
     /**
      * Output PWA meta tags in head
-     * Only output on pages with HR Profile shortcode or HR admin pages
+     * Only output on frontend pages with HR shortcodes or the admin My Profile page
      */
     public function output_pwa_meta(): void {
         if (!is_user_logged_in()) {
             return;
         }
 
-        // Check if this is a frontend page with HR Profile shortcode
-        if (!is_admin()) {
+        if (is_admin()) {
+            // Admin side: only on My Profile page
+            $screen = get_current_screen();
+            if (!$screen || strpos($screen->id, 'sfs-hr-my-profile') === false) {
+                return;
+            }
+        } else {
+            // Frontend: only on pages with HR shortcodes
             global $post;
             if (!$post || !$this->page_has_hr_shortcode($post)) {
                 return;
             }
         }
 
-        // Use admin-ajax.php for manifest (bypasses REST API auth issues)
         $manifest_url = admin_url('admin-ajax.php?action=sfs_hr_pwa_manifest');
         ?>
         <link rel="manifest" href="<?php echo esc_url($manifest_url); ?>">
@@ -106,14 +111,15 @@ class PWAModule {
 
     /**
      * Register PWA scripts (admin)
+     * Only on My Profile page — not every HR admin page
      */
     public function register_admin_pwa_scripts(string $hook): void {
         if (!is_user_logged_in()) {
             return;
         }
 
-        // Only on HR Suite admin pages
-        if (strpos($hook, 'sfs-hr') === false && strpos($hook, 'sfs_hr') === false) {
+        // Only on the My Profile admin page
+        if (strpos($hook, 'sfs-hr-my-profile') === false) {
             return;
         }
 

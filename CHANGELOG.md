@@ -2,6 +2,13 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.4.6] — 2026-02-12
+
+### Fixed
+- **PWA loading on unrelated pages**: manifest meta tags and service worker registration
+  were firing on every admin page for logged-in users. Now restricted to only the
+  My Profile admin page and frontend pages containing HR shortcodes.
+
 ## [0.4.5] — 2026-02-12
 
 ### Added
