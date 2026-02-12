@@ -2142,6 +2142,15 @@ $end   = $norm_time($_POST['end_time']   ?? '');
 
     // Enforce required fields ONLY when saving an ACTIVE shift.
     // For total_hours mode, location and start/end times are optional.
+    // If weekly schedule provides per-day times, start_time/end_time are also optional (used as fallback only).
+    $has_weekly_times = false;
+    foreach ( $weekly_schedule as $cfg ) {
+        if ( is_array( $cfg ) && ! empty( $cfg['start'] ) && ! empty( $cfg['end'] ) ) {
+            $has_weekly_times = true;
+            break;
+        }
+    }
+
     if ( $active === 1 ) {
         $missing = [];
         if ( $name === '' ) $missing[] = 'name';
@@ -2149,8 +2158,10 @@ $end   = $norm_time($_POST['end_time']   ?? '');
             if ($loc_label === '') $missing[] = 'location_label';
             if ($lat === null)     $missing[] = 'location_lat';
             if ($lng === null)     $missing[] = 'location_lng';
-            if ($start === '')     $missing[] = 'start_time';
-            if ($end === '')       $missing[] = 'end_time';
+            if ( ! $has_weekly_times ) {
+                if ($start === '')     $missing[] = 'start_time';
+                if ($end === '')       $missing[] = 'end_time';
+            }
         }
         if ($missing) {
             wp_die( esc_html( sprintf( __( 'Missing required fields: %s.', 'sfs-hr' ), implode( ', ', $missing ) ) ) );

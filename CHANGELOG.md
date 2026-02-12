@@ -2,6 +2,31 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.5.0] — 2026-02-12
+
+### Fixed
+- **Break selfie enforcement**: shift-level `require_selfie` now always upgrades selfie
+  mode to `all`, regardless of the current policy mode (previously only upgraded `never`
+  and `optional`, leaving `in_only`/`in_out` unchanged — which excluded breaks).
+
+### Added
+- **Punch success feedback**: self-service widget now plays a short tone and shows a
+  color-coded fullscreen flash on successful punch (green=in, red=out, amber=break start,
+  blue=break end), matching the kiosk experience.
+
+### Improved
+- **Faster punch flow**: skip pre-punch status refresh if last refresh was within 10s;
+  cache GPS coordinates from geofence pre-flight check (avoids duplicate GPS request);
+  post-punch status refresh is now non-blocking (UI responds immediately).
+
+## [0.4.9] — 2026-02-12
+
+### Fixed
+- **Shift save: start_time/end_time no longer required when weekly schedule provides
+  per-day times.** Creating a shift with per-day overrides but empty main times was
+  rejected with "Missing required fields: start_time, end_time." Fixed in both the
+  admin form handler and the REST API endpoint.
+
 ## [0.4.8] — 2026-02-12
 
 ### Fixed

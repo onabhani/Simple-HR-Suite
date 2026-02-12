@@ -155,7 +155,19 @@ class Admin_REST {
         $active  = (int)!empty($req['active']);
         $notes   = wp_kses_post( (string)($req['notes'] ?? '') );
 
-        if ( ! $name || ! $loc_label || $lat === null || $lng === null || ! $start || ! $end ) {
+        // Weekly schedule may provide per-day times, making start_time/end_time optional
+        $has_weekly_times = false;
+        $weekly_raw = $req['weekly_override'] ?? [];
+        if ( is_array( $weekly_raw ) ) {
+            foreach ( $weekly_raw as $cfg ) {
+                if ( is_array( $cfg ) && ! empty( $cfg['start'] ) && ! empty( $cfg['end'] ) ) {
+                    $has_weekly_times = true;
+                    break;
+                }
+            }
+        }
+
+        if ( ! $name || ! $loc_label || $lat === null || $lng === null || ( ! $has_weekly_times && ( ! $start || ! $end ) ) ) {
             return new \WP_Error( 'invalid', 'Missing required fields.', [ 'status'=>400 ] );
         }
 
