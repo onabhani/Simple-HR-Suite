@@ -2,6 +2,15 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.4.1] — 2026-02-12
+
+### Fixed
+- **Punch cooldown**: replaced aggressive 5-minute blanket cooldown (blocked ALL punch
+  types) with a 30-second same-type cooldown. Cross-type transitions (clock-in → clock-out)
+  are now allowed immediately — the state-machine already validates transition legality.
+- Error messages from failed selfie punches now scroll into view on mobile (prevents
+  invisible errors when camera panel collapses).
+
 ## [0.4.0] — 2026-02-12
 
 ### Fixed

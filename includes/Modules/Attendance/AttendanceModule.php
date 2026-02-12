@@ -920,6 +920,12 @@ window.sfsAttI18n = window.sfsAttI18n || {
     } else {
         statusBox.removeAttribute('data-mode');
     }
+
+    // On error, scroll status into view so user sees the message (important on mobile
+    // where camera panel may have pushed the status off-screen)
+    if (mode === 'error') {
+        try { statusBox.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch(_) {}
+    }
 }
 
 
