@@ -244,21 +244,26 @@ add_action('rest_api_init', function () {
             </div>
 
 
-            <!-- Selfie panel (manual capture like kiosk) -->
-            <div id="sfs-att-selfie-panel" class="sfs-att-selfie-panel">
-              <video id="sfs-att-selfie-video" autoplay playsinline muted></video>
-              <canvas id="sfs-att-selfie-canvas" width="480" height="480" hidden></canvas>
-              <div class="sfs-att-selfie-actions">
-                <button type="button" id="sfs-att-selfie-capture" class="button button-primary" data-i18n-key="capture_submit">
-                  <?php esc_html_e( 'Capture & Submit', 'sfs-hr' ); ?>
-                </button>
-                <button type="button" id="sfs-att-selfie-cancel" class="button" data-i18n-key="cancel">
-                  <?php esc_html_e( 'Cancel', 'sfs-hr' ); ?>
-                </button>
+            <!-- Selfie overlay (fullscreen on mobile for better UX) -->
+            <div id="sfs-att-selfie-panel" class="sfs-att-selfie-overlay">
+              <div class="sfs-att-selfie-overlay__inner">
+                <div class="sfs-att-selfie-overlay__status" id="sfs-att-selfie-status"></div>
+                <div class="sfs-att-selfie-overlay__viewport">
+                  <video id="sfs-att-selfie-video" autoplay playsinline muted></video>
+                </div>
+                <canvas id="sfs-att-selfie-canvas" width="480" height="480" hidden></canvas>
+                <small class="sfs-att-selfie-overlay__hint" data-i18n-key="selfie_instruction">
+                  <?php esc_html_e( 'Center your face, then tap "Capture & Submit".', 'sfs-hr' ); ?>
+                </small>
+                <div class="sfs-att-selfie-overlay__actions">
+                  <button type="button" id="sfs-att-selfie-capture" class="sfs-att-selfie-btn sfs-att-selfie-btn--primary" data-i18n-key="capture_submit">
+                    <?php esc_html_e( 'Capture & Submit', 'sfs-hr' ); ?>
+                  </button>
+                  <button type="button" id="sfs-att-selfie-cancel" class="sfs-att-selfie-btn sfs-att-selfie-btn--cancel" data-i18n-key="cancel">
+                    <?php esc_html_e( 'Cancel', 'sfs-hr' ); ?>
+                  </button>
+                </div>
               </div>
-              <small style="display:block;margin-top:4px;color:#6b7280;font-size:11px;" data-i18n-key="selfie_instruction">
-                <?php esc_html_e( 'Center your face, then tap "Capture & Submit".', 'sfs-hr' ); ?>
-              </small>
             </div>
 
             <!-- Fallback file input (if camera API not available) -->
@@ -522,21 +527,91 @@ add_action('rest_api_init', function () {
         color:#111 !important;
       }
 
-      #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-panel{
-        margin-top:12px;
+      /* ---- Selfie overlay (fullscreen on mobile) ---- */
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-overlay{
         display:none;
+        position:fixed;
+        inset:0;
+        z-index:999999;
+        background:rgba(0,0,0,0.92);
+        padding:0;
       }
-      #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-panel video{
-        width:100%;
-        max-width:360px;
-        border-radius:10px;
-        background:#000;
-      }
-      #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-actions{
-        margin-top:8px;
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-overlay__inner{
         display:flex;
-        flex-wrap:wrap;
-        gap:8px;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        height:100%;
+        width:100%;
+        max-width:480px;
+        margin:0 auto;
+        padding:16px;
+        box-sizing:border-box;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-overlay__status{
+        color:#fff;
+        font-size:15px;
+        font-weight:600;
+        text-align:center;
+        min-height:24px;
+        margin-bottom:12px;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-overlay__viewport{
+        position:relative;
+        width:100%;
+        max-width:340px;
+        aspect-ratio:1/1;
+        border-radius:16px;
+        overflow:hidden;
+        border:3px solid rgba(255,255,255,0.25);
+        background:#111;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-overlay__viewport video{
+        width:100%;
+        height:100%;
+        object-fit:cover;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-overlay__hint{
+        display:block;
+        color:rgba(255,255,255,0.6);
+        font-size:12px;
+        text-align:center;
+        margin-top:10px;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-overlay__actions{
+        display:flex;
+        gap:12px;
+        margin-top:16px;
+        width:100%;
+        max-width:340px;
+      }
+      .sfs-att-selfie-btn{
+        flex:1;
+        padding:14px 12px;
+        font-size:15px;
+        font-weight:600;
+        border:none;
+        border-radius:12px;
+        cursor:pointer;
+        transition:opacity 0.15s;
+      }
+      .sfs-att-selfie-btn:disabled{
+        opacity:0.5;
+        cursor:not-allowed;
+      }
+      .sfs-att-selfie-btn--primary{
+        background:#22c55e;
+        color:#fff;
+      }
+      .sfs-att-selfie-btn--primary:active{
+        background:#16a34a;
+      }
+      .sfs-att-selfie-btn--cancel{
+        background:rgba(255,255,255,0.15);
+        color:#fff;
+      }
+      .sfs-att-selfie-btn--cancel:active{
+        background:rgba(255,255,255,0.25);
       }
       #<?php echo esc_attr( $root_id ); ?> .sfs-att-hint{
         display:block;
@@ -882,12 +957,13 @@ window.sfsAttI18n = window.sfsAttI18n || {
         const actionsWrap = document.getElementById('sfs-att-actions');
         const hint        = document.getElementById('sfs-att-hint');
 
-        // Selfie elements (live camera)
+        // Selfie elements (live camera overlay)
         const selfiePanel   = document.getElementById('sfs-att-selfie-panel');
         const selfieVideo   = document.getElementById('sfs-att-selfie-video');
         const selfieCanvas  = document.getElementById('sfs-att-selfie-canvas');
         const selfieCapture = document.getElementById('sfs-att-selfie-capture');
         const selfieCancel  = document.getElementById('sfs-att-selfie-cancel');
+        const selfieStatus  = document.getElementById('sfs-att-selfie-status');
 
         // Fallback file input
         const selfieWrap  = document.getElementById('sfs-att-selfie-wrap');
@@ -1077,7 +1153,7 @@ setInterval(tickClock, 1000);
                 cooldownSec    = j.cooldown_seconds || 0;
         if (!requiresSelfie) {
             // Make sure selfie UI is hidden if policy changed
-            if (selfiePanel) selfiePanel.style.display = 'none';
+            if (selfiePanel) { selfiePanel.style.display = 'none'; document.body.style.overflow = ''; }
             if (selfieWrap)  selfieWrap.style.display  = 'none';
         }
 
@@ -1117,6 +1193,18 @@ setInterval(tickClock, 1000);
             }
             if (selfieVideo) selfieVideo.srcObject = null;
             if (selfiePanel) selfiePanel.style.display = 'none';
+            if (selfieStatus) selfieStatus.textContent = '';
+            document.body.style.overflow = '';
+        }
+
+        function punchTypeLabel(type){
+            const map = {
+                'in':          i18n.clock_in    || 'Clock In',
+                'out':         i18n.clock_out   || 'Clock Out',
+                'break_start': i18n.start_break || 'Start Break',
+                'break_end':   i18n.end_break   || 'End Break'
+            };
+            return map[type] || type;
         }
 
         async function startSelfie(type){
@@ -1139,8 +1227,13 @@ setInterval(tickClock, 1000);
                 return;
             }
 
+            // Show overlay and lock body scroll
             selfiePanel.style.display = 'block';
-            setStat(i18n.starting_camera, 'busy');
+            document.body.style.overflow = 'hidden';
+
+            // Show action label in overlay status
+            const label = punchTypeLabel(type);
+            if (selfieStatus) selfieStatus.textContent = label + ' — ' + (i18n.starting_camera || 'Starting camera…');
 
             try {
                 selfieStream = await navigator.mediaDevices.getUserMedia({
@@ -1157,7 +1250,7 @@ setInterval(tickClock, 1000);
                         try { selfieVideo.play().then(r).catch(()=>r()); } catch(_) { r(); }
                     };
                 });
-                setStat(i18n.ready_capture_submit, 'idle');
+                if (selfieStatus) selfieStatus.textContent = label + ' — ' + (i18n.ready_capture || 'Ready');
             } catch(e) {
                 setStat(i18n.camera_error + ' ' + (e.message || e), 'error');
                 stopSelfiePreview();
@@ -1174,6 +1267,10 @@ setInterval(tickClock, 1000);
 
         async function doPunch(type, selfieBlob){
             setStat(i18n.working, 'busy');
+            // Mirror status into overlay if it's open
+            if (selfieStatus && selfiePanel && selfiePanel.style.display !== 'none') {
+                selfieStatus.textContent = punchTypeLabel(type) + ' — ' + (i18n.working || 'Working…');
+            }
 
             let geo = null;
             try {
@@ -1287,7 +1384,10 @@ setInterval(tickClock, 1000);
                 punchInProgress = false;
 
             } catch (e) {
-                setStat(i18n.error_prefix + ' ' + e.message, 'error');
+                const errMsg = i18n.error_prefix + ' ' + e.message;
+                setStat(errMsg, 'error');
+                // Close the overlay so user sees the main status message
+                stopSelfiePreview();
                 punchInProgress = false;
                 if (actionsWrap) {
                     actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
@@ -1391,10 +1491,20 @@ setInterval(tickClock, 1000);
             if (!pendingType) return;
             if (!selfieVideo || !selfieCanvas) return;
 
+            // Grab the type and clear pendingType SYNCHRONOUSLY to prevent
+            // double-clicks from firing multiple toBlob → doPunch calls.
+            const capturedType = pendingType;
+            pendingType = null;
+
+            // Disable the capture button immediately
+            if (selfieCapture) selfieCapture.disabled = true;
+
             const vw = selfieVideo.videoWidth;
             const vh = selfieVideo.videoHeight;
             if (!vw || !vh) {
                 setStat(i18n.camera_not_ready, 'error');
+                pendingType = capturedType; // restore so user can retry
+                if (selfieCapture) selfieCapture.disabled = false;
                 return;
             }
 
@@ -1405,9 +1515,15 @@ setInterval(tickClock, 1000);
             const ctx = selfieCanvas.getContext('2d', { willReadFrequently: true });
             ctx.drawImage(selfieVideo, sx, sy, size, size, 0, 0, selfieCanvas.width, selfieCanvas.height);
 
+            // Show working status in the overlay so user sees it immediately
+            if (selfieStatus) selfieStatus.textContent = punchTypeLabel(capturedType) + ' — ' + (i18n.working || 'Working…');
+
             selfieCanvas.toBlob(async function(blob){
                 if (!blob) {
                     setStat(i18n.could_not_capture_selfie, 'error');
+                    if (selfieStatus) selfieStatus.textContent = i18n.could_not_capture_selfie || 'Could not capture selfie';
+                    pendingType = capturedType; // restore so user can retry
+                    if (selfieCapture) selfieCapture.disabled = false;
                     punchInProgress = false;
                     if (actionsWrap) {
                         actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
@@ -1417,9 +1533,9 @@ setInterval(tickClock, 1000);
                     }
                     return;
                 }
-                await doPunch(pendingType, blob);
-                pendingType = null;
+                await doPunch(capturedType, blob);
                 stopSelfiePreview();
+                if (selfieCapture) selfieCapture.disabled = false;
             }, 'image/jpeg', 0.9);
         }
 
@@ -1434,7 +1550,7 @@ setInterval(tickClock, 1000);
         selfieCancel  && selfieCancel.addEventListener('click', ()=>{
             pendingType = null;
             punchInProgress = false;
-            stopSelfiePreview();
+            stopSelfiePreview(); // Also unlocks body scroll and clears overlay status
             setStat(i18n.cancelled, 'idle');
             // Re-enable buttons
             if (actionsWrap) {

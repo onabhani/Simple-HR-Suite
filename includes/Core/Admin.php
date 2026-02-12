@@ -4979,19 +4979,19 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 $start_raw = wp_date( 'Y-m-d' );
             }
 
-            // Avoid exact duplicate for same date+shift.
-            $already = (int) $wpdb->get_var(
+            // Only skip if the LATEST assignment for this date is already the same shift.
+            // This allows re-assigning a shift that was previously overridden.
+            $latest_for_date = $wpdb->get_row(
                 $wpdb->prepare(
-                    "SELECT id FROM {$map_table}
-                     WHERE employee_id=%d AND shift_id=%d AND start_date=%s
-                     LIMIT 1",
+                    "SELECT id, shift_id FROM {$map_table}
+                     WHERE employee_id=%d AND start_date=%s
+                     ORDER BY id DESC LIMIT 1",
                     $id,
-                    $shift_id,
                     $start_raw
                 )
             );
 
-            if ( ! $already ) {
+            if ( ! $latest_for_date || (int) $latest_for_date->shift_id !== $shift_id ) {
                 $wpdb->insert(
                     $map_table,
                     [
@@ -5000,9 +5000,6 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                         'start_date'  => $start_raw,
                     ]
                 );
-
-                // Optional debug:
-                // if ( $wpdb->last_error ) error_log('[SFS HR] emp_shift insert error (edit): ' . $wpdb->last_error);
             }
         }
     }

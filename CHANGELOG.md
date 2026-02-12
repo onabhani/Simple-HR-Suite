@@ -2,6 +2,28 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.4.4] — 2026-02-12
+
+### Improved
+- **Selfie capture UI redesign**: replaced the inline camera panel with a fullscreen dark
+  overlay that centres the viewfinder on screen. Users no longer need to scroll down to
+  reach the camera or scroll back up to see status.
+- The overlay shows the current action label (e.g. "Clock Out — Ready") at the top, and
+  mirrors "Working…" status inside the overlay so progress is always visible.
+- Capture and Cancel buttons now use the app's design language (rounded, properly sized).
+- Body scroll is locked while the overlay is open; restored on close/cancel.
+- On error during punch, the overlay auto-closes so the main status message is visible.
+
+## [0.4.3] — 2026-02-12
+
+### Fixed
+- **Shift re-assignment**: changing an employee's shift back to one previously used on the
+  same date now works. The duplicate check now only skips if the _latest_ assignment for
+  that date is already the same shift (not any historical entry).
+- **Duplicate selfie uploads**: tapping the capture button multiple times on mobile no
+  longer creates multiple selfie uploads per punch. `pendingType` is cleared synchronously
+  and the capture button is disabled immediately on first tap.
+
 ## [0.4.2] — 2026-02-12
 
 ### Fixed
