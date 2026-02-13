@@ -2817,3 +2817,524 @@
     background: #1e293b;
     border-color: #334155;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Overview Dashboard Tab
+   ═══════════════════════════════════════════════════════════════ */
+
+.sfs-overview {
+    padding: 4px 0;
+}
+
+/* ── Greeting ────────────────────────────────────────────────── */
+.sfs-overview-greeting {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+    padding: 0 2px;
+}
+.sfs-overview-greeting-avatar {
+    flex-shrink: 0;
+}
+.sfs-overview-avatar-img {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+}
+.sfs-overview-avatar-placeholder {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--sfs-primary, #0f4c5c);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+.sfs-overview-greeting-text {
+    min-width: 0;
+}
+.sfs-overview-greeting-label {
+    display: block;
+    font-size: 13px;
+    color: var(--sfs-text-muted, #6b7280);
+    font-weight: 400;
+    line-height: 1.3;
+}
+.sfs-overview-greeting-name {
+    margin: 2px 0 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--sfs-text, #111827);
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Quick Attendance Action ─────────────────────────────────── */
+.sfs-overview-attendance-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--sfs-surface, #ffffff);
+    border: 1px solid var(--sfs-border, #e5e7eb);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+}
+.sfs-overview-action-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+.sfs-overview-action-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: #eff6ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.sfs-overview-action-icon svg {
+    width: 20px;
+    height: 20px;
+    stroke: #3b82f6;
+}
+.sfs-overview-action-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.sfs-overview-action-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--sfs-text, #111827);
+}
+.sfs-overview-action-sub {
+    font-size: 12px;
+    color: var(--sfs-text-muted, #6b7280);
+}
+.sfs-overview-action-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 18px;
+    border-radius: 999px;
+    background: var(--sfs-primary, #0f4c5c);
+    color: #ffffff !important;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background .15s ease, box-shadow .15s ease, transform .05s ease;
+}
+.sfs-overview-action-btn:hover,
+.sfs-overview-action-btn:focus {
+    background: var(--sfs-primary-light, #135e96);
+    box-shadow: 0 4px 12px rgba(15, 76, 92, 0.25);
+    color: #ffffff !important;
+    text-decoration: none;
+    transform: translateY(-1px);
+}
+.sfs-overview-action-btn:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+/* ── Section Headers ─────────────────────────────────────────── */
+.sfs-overview-section {
+    margin-bottom: 12px;
+    padding: 0 2px;
+}
+.sfs-overview-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.sfs-overview-section-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--sfs-text, #111827);
+    margin: 0;
+}
+.sfs-overview-section-sub {
+    font-size: 12px;
+    color: var(--sfs-text-muted, #6b7280);
+    font-weight: 400;
+}
+.sfs-overview-view-all {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--sfs-primary, #0f4c5c);
+    text-decoration: none;
+}
+.sfs-overview-view-all:hover {
+    text-decoration: underline;
+}
+
+/* ── Attendance This Month Grid ──────────────────────────────── */
+.sfs-overview-att-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
+}
+.sfs-overview-att-card {
+    background: var(--sfs-surface, #ffffff);
+    border: 1px solid var(--sfs-border, #e5e7eb);
+    border-radius: 12px;
+    padding: 14px 12px;
+    text-align: center;
+    border-top: 3px solid transparent;
+}
+.sfs-overview-att-card--present {
+    border-top-color: #059669;
+}
+.sfs-overview-att-card--absent {
+    border-top-color: #dc2626;
+}
+.sfs-overview-att-card--late {
+    border-top-color: #d97706;
+}
+.sfs-overview-att-card-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--sfs-text, #111827);
+    line-height: 1.1;
+    margin-bottom: 4px;
+}
+.sfs-overview-att-card-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--sfs-text-muted, #6b7280);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+/* ── Recent Activity List ────────────────────────────────────── */
+.sfs-overview-activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background: var(--sfs-surface, #ffffff);
+    border: 1px solid var(--sfs-border, #e5e7eb);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+.sfs-overview-activity-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    text-decoration: none;
+    color: inherit;
+    border-bottom: 1px solid var(--sfs-border, #e5e7eb);
+    transition: background .12s ease;
+}
+.sfs-overview-activity-item:last-child {
+    border-bottom: none;
+}
+.sfs-overview-activity-item:hover {
+    background: rgba(0, 0, 0, 0.02);
+}
+.sfs-overview-activity-icon {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.sfs-overview-activity-icon svg {
+    width: 18px;
+    height: 18px;
+}
+.sfs-overview-activity-icon--leave {
+    background: #eff6ff;
+}
+.sfs-overview-activity-icon--leave svg {
+    stroke: #3b82f6;
+}
+.sfs-overview-activity-icon--loan {
+    background: #fef3c7;
+}
+.sfs-overview-activity-icon--loan svg {
+    stroke: #d97706;
+}
+.sfs-overview-activity-info {
+    flex: 1;
+    min-width: 0;
+}
+.sfs-overview-activity-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sfs-text, #111827);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sfs-overview-activity-ref {
+    font-weight: 400;
+    color: var(--sfs-text-muted, #6b7280);
+    font-size: 12px;
+}
+.sfs-overview-activity-meta {
+    font-size: 12px;
+    color: var(--sfs-text-muted, #6b7280);
+    margin-top: 1px;
+}
+
+/* ── Status Badges ───────────────────────────────────────────── */
+.sfs-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    line-height: 1.3;
+    flex-shrink: 0;
+}
+.sfs-badge--success {
+    background: #ecfdf5;
+    color: #059669;
+}
+.sfs-badge--warning {
+    background: #fffbeb;
+    color: #d97706;
+}
+.sfs-badge--danger {
+    background: #fef2f2;
+    color: #dc2626;
+}
+.sfs-badge--info {
+    background: #eff6ff;
+    color: #2563eb;
+}
+.sfs-badge--muted {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+/* ── Profile Completion Banner ───────────────────────────────── */
+.sfs-overview-profile-banner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border: 1px solid #bae6fd;
+    border-radius: 12px;
+    padding: 14px 16px;
+    text-decoration: none;
+    color: inherit;
+    transition: box-shadow .15s ease;
+    margin-bottom: 8px;
+}
+.sfs-overview-profile-banner:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    text-decoration: none;
+    color: inherit;
+}
+.sfs-overview-profile-banner-text {
+    flex: 1;
+    min-width: 0;
+}
+.sfs-overview-profile-banner-title {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #0369a1;
+}
+.sfs-overview-profile-banner-sub {
+    display: block;
+    font-size: 12px;
+    color: #0284c7;
+    margin-top: 2px;
+}
+.sfs-overview-profile-banner-bar {
+    flex: 0 0 100px;
+    height: 6px;
+    background: #bae6fd;
+    border-radius: 3px;
+    overflow: hidden;
+}
+.sfs-overview-profile-banner-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #0ea5e9 0%, #0284c7 100%);
+    border-radius: 3px;
+    transition: width .5s ease;
+}
+.sfs-overview-profile-banner-arrow {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    color: #0284c7;
+}
+
+/* ── Mobile Responsive ───────────────────────────────────────── */
+@media (max-width: 640px) {
+    .sfs-overview-greeting-name {
+        font-size: 18px;
+    }
+    .sfs-overview-att-grid {
+        gap: 8px;
+    }
+    .sfs-overview-att-card {
+        padding: 10px 8px;
+    }
+    .sfs-overview-att-card-value {
+        font-size: 20px;
+    }
+    .sfs-overview-attendance-action {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        text-align: center;
+    }
+    .sfs-overview-action-content {
+        justify-content: center;
+    }
+    .sfs-overview-action-btn {
+        justify-content: center;
+        padding: 10px 18px;
+    }
+    .sfs-overview-profile-banner {
+        flex-wrap: wrap;
+    }
+    .sfs-overview-profile-banner-bar {
+        flex: 0 0 100%;
+        order: 3;
+        margin-top: 4px;
+    }
+}
+
+/* ── Dark Mode — Overview ────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-att-card,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-attendance-action,
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-activity-list {
+        background: var(--sfs-surface, #1e293b);
+        border-color: #334155;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-activity-item {
+        border-color: #334155;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-activity-item:hover {
+        background: rgba(255, 255, 255, 0.03);
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-avatar-placeholder {
+        background: var(--sfs-primary, #0f4c5c);
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-action-icon {
+        background: #1e293b;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-activity-icon--leave {
+        background: #1e293b;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-activity-icon--loan {
+        background: #1e293b;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-profile-banner {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        border-color: #334155;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-profile-banner-title {
+        color: #7dd3fc;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-profile-banner-sub {
+        color: #38bdf8;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-profile-banner-bar {
+        background: #334155;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--success {
+        background: #064e3b;
+        color: #6ee7b7;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--warning {
+        background: #451a03;
+        color: #fcd34d;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--danger {
+        background: #450a0a;
+        color: #fca5a5;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--info {
+        background: #1e3a5f;
+        color: #93c5fd;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--muted {
+        background: #1e293b;
+        color: #94a3b8;
+    }
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-att-card,
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-attendance-action,
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-activity-list {
+    background: var(--sfs-surface, #1e293b);
+    border-color: #334155;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-activity-item {
+    border-color: #334155;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-activity-item:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-avatar-placeholder {
+    background: var(--sfs-primary, #0f4c5c);
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-action-icon {
+    background: #1e293b;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-activity-icon--leave {
+    background: #1e293b;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-activity-icon--loan {
+    background: #1e293b;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-profile-banner {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    border-color: #334155;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-profile-banner-title {
+    color: #7dd3fc;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-profile-banner-sub {
+    color: #38bdf8;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-profile-banner-bar {
+    background: #334155;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--success {
+    background: #064e3b;
+    color: #6ee7b7;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--warning {
+    background: #451a03;
+    color: #fcd34d;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--danger {
+    background: #450a0a;
+    color: #fca5a5;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--info {
+    background: #1e3a5f;
+    color: #93c5fd;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--muted {
+    background: #1e293b;
+    color: #94a3b8;
+}
