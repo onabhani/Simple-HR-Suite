@@ -2341,3 +2341,479 @@
         font-weight: 600;
     }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   Phase 3/4 — Team / Org Tabs + §10.3 Dashboard Widgets
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Badge Variants ─────────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-badge--neutral {
+    background: #f1f5f9;
+    color: #64748b;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--neutral,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--neutral {
+    background: #334155;
+    color: #94a3b8;
+}
+
+/* ── Button Variants ────────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-btn--success {
+    background: #059669;
+    color: #fff;
+    border: none;
+}
+.sfs-hr-pwa-app .sfs-btn--success:hover {
+    background: #047857;
+}
+.sfs-hr-pwa-app .sfs-btn--danger {
+    background: #dc2626;
+    color: #fff;
+    border: none;
+}
+.sfs-hr-pwa-app .sfs-btn--danger:hover {
+    background: #b91c1c;
+}
+.sfs-hr-pwa-app .sfs-btn--sm {
+    padding: 6px 14px;
+    font-size: 13px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    line-height: 1.4;
+}
+.sfs-hr-pwa-app .sfs-btn--sm svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+/* ── Filter Chips ───────────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-dash-filter-chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.sfs-hr-pwa-app .sfs-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid var(--sfs-border);
+    background: var(--sfs-surface);
+    color: var(--sfs-text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.sfs-hr-pwa-app .sfs-chip:hover {
+    border-color: var(--sfs-primary);
+    color: var(--sfs-primary);
+}
+.sfs-hr-pwa-app .sfs-chip--active,
+.sfs-hr-pwa-app .sfs-chip.sfs-chip--active {
+    background: var(--sfs-primary);
+    color: #fff;
+    border-color: var(--sfs-primary);
+}
+
+/* ── KPI Grid 4-column ──────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-kpi-grid--4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+@media (max-width: 900px) {
+    .sfs-hr-pwa-app .sfs-kpi-grid--4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 480px) {
+    .sfs-hr-pwa-app .sfs-kpi-grid--4 {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+}
+
+/* ── §10.3 Dashboard Widget Titles ──────────────────────────── */
+.sfs-hr-pwa-app .sfs-dash-widget-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--sfs-text);
+    margin: 0 0 14px;
+}
+
+/* ── §10.3 Attendance Gauge ─────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-dash-gauge-card {
+    margin-bottom: 16px;
+}
+.sfs-hr-pwa-app .sfs-dash-gauge-wrap {
+    position: relative;
+    width: 220px;
+    margin: 0 auto 12px;
+}
+.sfs-hr-pwa-app .sfs-dash-gauge {
+    width: 100%;
+    display: block;
+}
+.sfs-hr-pwa-app .sfs-dash-gauge-bg {
+    fill: none;
+    stroke: #e5e7eb;
+    stroke-width: 14;
+    stroke-linecap: round;
+}
+.sfs-hr-pwa-app .sfs-dash-gauge-fill {
+    fill: none;
+    stroke-width: 14;
+    stroke-linecap: round;
+    transition: stroke-dasharray 0.6s ease;
+}
+.sfs-hr-pwa-app .sfs-dash-gauge-fill--ontime {
+    stroke: #059669;
+}
+.sfs-hr-pwa-app .sfs-dash-gauge-fill--late {
+    stroke: #d97706;
+}
+.sfs-hr-pwa-app .sfs-dash-gauge-center {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+}
+.sfs-hr-pwa-app .sfs-dash-gauge-pct {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--sfs-text);
+    line-height: 1;
+}
+.sfs-hr-pwa-app .sfs-dash-gauge-sub {
+    font-size: 12px;
+    color: var(--sfs-text-muted);
+    margin-top: 2px;
+}
+.sfs-hr-pwa-app .sfs-dash-gauge-legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+.sfs-hr-pwa-app .sfs-dash-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--sfs-text-muted);
+}
+.sfs-hr-pwa-app .sfs-dash-legend-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* ── §10.3 Clock-In Method Breakdown ────────────────────────── */
+.sfs-hr-pwa-app .sfs-dash-methods-card {
+    margin-bottom: 16px;
+}
+.sfs-hr-pwa-app .sfs-dash-methods-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+@media (max-width: 600px) {
+    .sfs-hr-pwa-app .sfs-dash-methods-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+.sfs-hr-pwa-app .sfs-dash-method-item {
+    text-align: center;
+    padding: 16px 8px;
+    border-radius: 12px;
+    background: var(--sfs-background);
+    border: 1px solid var(--sfs-border);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.sfs-hr-pwa-app .sfs-dash-method-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.sfs-hr-pwa-app .sfs-dash-method-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+}
+.sfs-hr-pwa-app .sfs-dash-method-icon svg {
+    width: 24px;
+    height: 24px;
+}
+.sfs-hr-pwa-app .sfs-dash-method-count {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--sfs-text);
+    line-height: 1.2;
+}
+.sfs-hr-pwa-app .sfs-dash-method-label {
+    font-size: 12px;
+    color: var(--sfs-text-muted);
+    margin-top: 2px;
+}
+
+/* ── Department Breakdown ───────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-dash-dept-card {
+    margin-bottom: 16px;
+}
+.sfs-hr-pwa-app .sfs-dash-dept-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.sfs-hr-pwa-app .sfs-dash-dept-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 44px 60px;
+    gap: 10px;
+    align-items: center;
+    font-size: 13px;
+}
+@media (max-width: 600px) {
+    .sfs-hr-pwa-app .sfs-dash-dept-row {
+        grid-template-columns: 100px 1fr 36px 48px;
+        gap: 6px;
+        font-size: 12px;
+    }
+}
+.sfs-hr-pwa-app .sfs-dash-dept-name {
+    font-weight: 600;
+    color: var(--sfs-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sfs-hr-pwa-app .sfs-dash-dept-bar-wrap {
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.sfs-hr-pwa-app .sfs-dash-dept-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease;
+}
+.sfs-hr-pwa-app .sfs-dash-dept-pct {
+    text-align: right;
+    font-weight: 700;
+    color: var(--sfs-text);
+}
+.sfs-hr-pwa-app .sfs-dash-dept-count {
+    text-align: right;
+    color: var(--sfs-text-muted);
+    font-size: 12px;
+}
+
+/* ── §10.3 Calendar Heatmap ─────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-dash-heatmap-card {
+    margin-bottom: 16px;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-header {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--sfs-text-muted);
+    padding: 4px 0;
+    text-transform: uppercase;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--sfs-text);
+    cursor: default;
+    transition: transform 0.1s ease;
+    max-width: 48px;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-cell:hover:not(.sfs-dash-heatmap-cell--empty) {
+    transform: scale(1.12);
+    z-index: 1;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-cell--empty {
+    background: transparent;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-cell--high {
+    background: #bbf7d0;
+    color: #166534;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-cell--medium {
+    background: #fef08a;
+    color: #854d0e;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-cell--low {
+    background: #fecaca;
+    color: #991b1b;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-cell--none {
+    background: #f1f5f9;
+    color: #94a3b8;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-cell--future {
+    background: #f8fafc;
+    color: #cbd5e1;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-cell--today {
+    outline: 2px solid var(--sfs-primary);
+    outline-offset: -1px;
+    font-weight: 700;
+}
+
+/* ── Today's Employee Status List ───────────────────────────── */
+.sfs-hr-pwa-app .sfs-dash-list-card {
+    margin-bottom: 16px;
+}
+.sfs-hr-pwa-app .sfs-dash-emp-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.sfs-hr-pwa-app .sfs-dash-emp-item {
+    padding: 12px 16px;
+    background: var(--sfs-surface);
+    border: 1px solid var(--sfs-border);
+    border-radius: 10px;
+}
+.sfs-hr-pwa-app .sfs-dash-emp-item-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+}
+.sfs-hr-pwa-app .sfs-dash-emp-item-meta {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--sfs-text-muted);
+}
+
+/* ── Approval Cards ─────────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-approval-card {
+    margin-bottom: 12px;
+}
+.sfs-hr-pwa-app .sfs-approval-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.sfs-hr-pwa-app .sfs-approval-details {
+    margin-bottom: 14px;
+    padding: 12px;
+    background: var(--sfs-background);
+    border-radius: 8px;
+}
+.sfs-hr-pwa-app .sfs-approval-details .sfs-detail-row {
+    padding: 4px 0;
+}
+.sfs-hr-pwa-app .sfs-approval-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-top: 12px;
+    border-top: 1px solid var(--sfs-border);
+}
+
+/* ── Team Member Cards (mobile) ─────────────────────────────── */
+.sfs-hr-pwa-app .sfs-team-member-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.sfs-hr-pwa-app .sfs-team-member-card {
+    margin-bottom: 0;
+}
+
+/* ── Dark Mode Overrides for Phase 3/4 ──────────────────────── */
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-dash-heatmap-cell--high,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-dash-heatmap-cell--high {
+    background: #166534;
+    color: #bbf7d0;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-dash-heatmap-cell--medium,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-dash-heatmap-cell--medium {
+    background: #854d0e;
+    color: #fef08a;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-dash-heatmap-cell--low,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-dash-heatmap-cell--low {
+    background: #991b1b;
+    color: #fecaca;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-dash-heatmap-cell--none,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-dash-heatmap-cell--none {
+    background: #1e293b;
+    color: #64748b;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-dash-heatmap-cell--future,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-dash-heatmap-cell--future {
+    background: #0f172a;
+    color: #334155;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-dash-method-item,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-dash-method-item {
+    background: #1e293b;
+    border-color: #334155;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-dash-dept-bar-wrap,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-dash-dept-bar-wrap {
+    background: #334155;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-dash-gauge-bg,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-dash-gauge-bg {
+    stroke: #334155;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-chip,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-chip {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-chip--active,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-chip--active {
+    background: var(--sfs-primary);
+    color: #fff;
+    border-color: var(--sfs-primary);
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-approval-details,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-approval-details {
+    background: #0f172a;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-dash-emp-item,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-dash-emp-item {
+    background: #1e293b;
+    border-color: #334155;
+}

@@ -17,6 +17,11 @@ use SFS\HR\Frontend\Tabs\LeaveTab;
 use SFS\HR\Frontend\Tabs\LoansTab;
 use SFS\HR\Frontend\Tabs\ResignationTab;
 use SFS\HR\Frontend\Tabs\SettlementTab;
+use SFS\HR\Frontend\Tabs\TeamTab;
+use SFS\HR\Frontend\Tabs\ApprovalsTab;
+use SFS\HR\Frontend\Tabs\TeamAttendanceTab;
+use SFS\HR\Frontend\Tabs\DashboardTab;
+use SFS\HR\Frontend\Tabs\EmployeesTab;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -34,10 +39,18 @@ class Tab_Dispatcher {
      * @var array<string,class-string<TabInterface>>
      */
     private static array $tab_map = [
-        'leave'       => LeaveTab::class,
-        'loans'       => LoansTab::class,
-        'resignation' => ResignationTab::class,
-        'settlement'  => SettlementTab::class,
+        // Personal tabs (Phase 1).
+        'leave'            => LeaveTab::class,
+        'loans'            => LoansTab::class,
+        'resignation'      => ResignationTab::class,
+        'settlement'       => SettlementTab::class,
+        // Team tabs (Phase 3).
+        'team'             => TeamTab::class,
+        'approvals'        => ApprovalsTab::class,
+        'team-attendance'  => TeamAttendanceTab::class,
+        // Org tabs (Phase 4).
+        'dashboard'        => DashboardTab::class,
+        'employees'        => EmployeesTab::class,
     ];
 
     /**
@@ -87,7 +100,7 @@ class Tab_Dispatcher {
      * Register a tab renderer for a slug.
      *
      * Allows modules to register new tab renderers at runtime,
-     * enabling Phase 3/4 tabs without modifying this file.
+     * enabling additional tabs without modifying this file.
      *
      * @param string $slug  Tab slug.
      * @param string $class Fully-qualified class name implementing TabInterface.

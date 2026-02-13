@@ -160,12 +160,12 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 
 > **Reference designs:** mewurk.com (attendance dashboard), efacility.ae (clock in/out, approvals, leave availability), Jibble (time tracking, team view), Bayzat (leave approvals), various Arabic HR SaaS (dashboard tiles, mobile app). Goal is a modern, app-like experience that's easier to read and navigate.
 
-### 10.0 Frontend Portal for All Roles (P1 — Foundation) — Phase 1 done in v0.6.0
+### 10.0 Frontend Portal for All Roles (P1 — Foundation) — Phase 1 done in v0.6.0, Phase 3/4 in v0.8.0
 - [x] **Extend** the existing `[sfs_hr_my_profile]` shortcode with role-based view detection (Employee, Department Manager, HR, GM, Admin)
-- [ ] **Add** department manager views: team attendance, leave/loan approvals, team employee list
-- [ ] **Add** HR views: all employees, leave management, attendance dashboard, loans, settlements, payroll overview, documents, performance
-- [ ] **Add** GM views: organization-wide dashboards, cross-department reports & analytics, all approvals, headcount/turnover/payroll summaries
-- [ ] **Add** admin views: everything GM + HR has + shifts, policies, system settings, configuration
+- [x] **Add** department manager views: team attendance, leave/loan approvals, team employee list
+- [x] **Add** HR views: all employees, leave management, attendance dashboard, loans, settlements, payroll overview, documents, performance
+- [x] **Add** GM views: organization-wide dashboards, cross-department reports & analytics, all approvals, headcount/turnover/payroll summaries
+- [x] **Add** admin views: everything GM + HR has + shifts, policies, system settings, configuration
 - [ ] **Build** REST API endpoints for all manager/HR/admin actions (currently in wp-admin via `admin-post.php`)
 - [x] **Add** role-based tab/navigation rendering — each role sees only their permitted sections
 - [x] **Keep** wp-admin as a fallback for plugin configuration only (settings, migrations, advanced config)
@@ -191,12 +191,12 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 - [x] **Add** a mini progress bar or ring showing balance usage percentage
 - [x] **Make** cards tappable to go directly to that leave type's request form
 
-### 10.3 Admin Attendance Dashboard Widgets (P1)
-- [ ] **Add** "Today's Attendance" gauge chart widget showing on-time vs late-in counts (like mewurk dashboard)
-- [ ] **Add** clock-in method breakdown (Kiosk / Mobile / Web counts with icons)
-- [ ] **Add** "Clocked In / Not Clocked In" summary counters
-- [ ] **Add** attendance calendar heat-map showing daily status at a glance
-- [ ] **Make** widgets clickable — drill down to filtered employee lists
+### 10.3 Admin Attendance Dashboard Widgets (P1) ✅ Done in v0.8.0
+- [x] **Add** "Today's Attendance" gauge chart widget showing on-time vs late-in counts (like mewurk dashboard)
+- [x] **Add** clock-in method breakdown (Kiosk / Mobile / Web counts with icons)
+- [x] **Add** "Clocked In / Not Clocked In" summary counters
+- [x] **Add** attendance calendar heat-map showing daily status at a glance
+- [x] **Make** widgets clickable — drill down to filtered employee lists
 
 ### 10.4 Clock In/Out Experience Redesign (Maybe Add)
 - [ ] **Add** circular progress timer showing hours worked vs target hours (like efacility's clock screen)

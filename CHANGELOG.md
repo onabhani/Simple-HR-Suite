@@ -2,6 +2,53 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.8.0] — 2026-02-13
+
+### Added
+- **Admin Attendance Dashboard Widgets** (§10.3): organization-wide attendance
+  dashboard accessible to HR, GM, and Admin roles.
+  - **Today's Attendance gauge** — semicircle SVG gauge showing attendance rate
+    with on-time (green) vs late (amber) arc segments.
+  - **Summary counters** — Clocked In, Not Clocked In, On Leave/Holiday, Absent
+    with color-coded KPI cards.
+  - **Clock-in method breakdown** — Kiosk, Mobile, Web, Manual counts with icons
+    in a 4-column grid.
+  - **Department attendance bars** — horizontal bar chart showing attendance rate
+    per department with color-coded thresholds (green ≥80%, amber ≥60%, red <60%).
+  - **Calendar heatmap** — period calendar with color-coded cells (high/medium/low
+    attendance) and today highlight. Hover shows detail tooltip.
+  - **Employee status drill-down** — filterable employee list with status chips,
+    clock-in/out times, and hours worked. Desktop table + mobile cards.
+
+- **Frontend Portal for All Roles** (§10.0 Phase 3 & 4): manager, HR, GM, and
+  Admin views added to the frontend portal.
+  - **My Team tab** (Phase 3): team employee list for department managers (scoped
+    to managed departments) with department and status filters. HR/GM/Admin see
+    all employees. Desktop table + mobile card layouts.
+  - **Approvals tab** (Phase 3): pending leave and loan approval queue. Managers
+    see department-level leave requests; HR sees HR-level approvals; GM/Admin see
+    all pending items. Each approval card shows employee info, request details,
+    and inline Approve/Reject buttons with rejection reason prompt.
+  - **Team Attendance tab** (Phase 3): team attendance summary for managers with
+    today's KPI snapshot (present/late/absent/on-leave), period summary with
+    attendance rate, and per-employee breakdown table showing present/late/absent
+    days, average hours, and attendance rate percentage.
+  - **Dashboard tab** (Phase 4): full organization attendance dashboard (§10.3
+    widgets) for HR/GM/Admin roles.
+  - **Employees tab** (Phase 4): employee directory for HR/GM/Admin with search
+    (name, code, email), department/status filters, pagination, and KPI counters
+    (active, terminated, resigned).
+  - Navigation and Tab_Dispatcher updated to enable all Phase 3 & 4 tabs.
+
+### Changed
+- `Tab_Dispatcher` now imports and registers all 9 tab renderers (4 personal +
+  3 team + 2 org).
+- `Navigation::tab_has_renderer()` updated with all Phase 3/4 tab slugs.
+- New CSS components: `.sfs-badge--neutral`, `.sfs-btn--success`, `.sfs-btn--danger`,
+  `.sfs-btn--sm`, `.sfs-chip` filter chips, `.sfs-kpi-grid--4`, dashboard gauge,
+  method breakdown, department bars, calendar heatmap, approval cards, and full
+  dark mode overrides for all new components.
+
 ## [0.7.0] — 2026-02-13
 
 ### Added

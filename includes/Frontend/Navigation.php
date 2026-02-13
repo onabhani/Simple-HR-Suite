@@ -173,6 +173,13 @@ class Navigation {
             'settlement',
             'attendance',
             'documents',
+            // Phase 3 — Team tabs.
+            'team',
+            'approvals',
+            'team-attendance',
+            // Phase 4 — Org tabs.
+            'dashboard',
+            'employees',
         ];
         return in_array( $slug, $available, true );
     }
