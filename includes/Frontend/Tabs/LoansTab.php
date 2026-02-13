@@ -56,10 +56,18 @@ class LoansTab implements TabInterface {
             }
         }
 
-        // Header
-        echo '<div class="sfs-section">';
-        echo '<h2 class="sfs-section-title" data-i18n-key="my_loans">' . esc_html__( 'My Loans', 'sfs-hr' ) . '</h2>';
-        echo '<p class="sfs-section-subtitle">' . esc_html( ( $emp['first_name'] ?? '' ) . ' ' . ( $emp['last_name'] ?? '' ) ) . '</p>';
+        // Header with action button
+        echo '<div class="sfs-section" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">';
+        echo '<div>';
+        echo '<h2 class="sfs-section-title" data-i18n-key="my_loans" style="margin:0;">' . esc_html__( 'My Loans', 'sfs-hr' ) . '</h2>';
+        echo '<p class="sfs-section-subtitle" style="margin:2px 0 0;">' . esc_html( ( $emp['first_name'] ?? '' ) . ' ' . ( $emp['last_name'] ?? '' ) ) . '</p>';
+        echo '</div>';
+        if ( $settings['allow_employee_requests'] ) {
+            echo '<button type="button" class="sfs-btn sfs-btn--primary" onclick="document.getElementById(\'sfs-loan-modal\').classList.add(\'sfs-modal-active\')" data-i18n-key="new_loan_request" style="white-space:nowrap;">';
+            echo '<svg viewBox="0 0 24 24" style="width:16px;height:16px;margin-inline-end:4px;vertical-align:-2px;" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+            echo esc_html__( 'New Loan Request', 'sfs-hr' );
+            echo '</button>';
+        }
         echo '</div>';
 
         // Flash messages
@@ -67,16 +75,6 @@ class LoansTab implements TabInterface {
 
         // KPIs
         $this->render_kpis( $active_count, $total_borrowed, $total_remaining, $total_paid_count );
-
-        // New Loan Request button
-        if ( $settings['allow_employee_requests'] ) {
-            echo '<div style="margin-bottom:16px;">';
-            echo '<button type="button" class="sfs-btn sfs-btn--primary" onclick="document.getElementById(\'sfs-loan-modal\').classList.add(\'sfs-modal-active\')" data-i18n-key="new_loan_request">';
-            echo '<svg viewBox="0 0 24 24" style="width:16px;height:16px;margin-inline-end:6px;vertical-align:-2px;" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-            echo esc_html__( 'New Loan Request', 'sfs-hr' );
-            echo '</button>';
-            echo '</div>';
-        }
 
         // Loan history (card-based)
         $this->render_history( $loans, $payments_table );

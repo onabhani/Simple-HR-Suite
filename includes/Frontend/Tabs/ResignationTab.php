@@ -52,9 +52,15 @@ class ResignationTab implements TabInterface {
 
         $can_submit = ! $has_pending && ! $has_approved;
 
-        // Header
-        echo '<div class="sfs-section">';
-        echo '<h2 class="sfs-section-title" data-i18n-key="resignation">' . esc_html__( 'Resignation', 'sfs-hr' ) . '</h2>';
+        // Header with action button
+        echo '<div class="sfs-section" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">';
+        echo '<h2 class="sfs-section-title" data-i18n-key="resignation" style="margin:0;">' . esc_html__( 'Resignation', 'sfs-hr' ) . '</h2>';
+        if ( $can_submit ) {
+            echo '<button type="button" class="sfs-btn sfs-btn--primary" onclick="document.getElementById(\'sfs-resign-modal\').classList.add(\'sfs-modal-active\')" data-i18n-key="submit_resignation" style="white-space:nowrap;">';
+            echo '<svg viewBox="0 0 24 24" style="width:16px;height:16px;margin-inline-end:4px;vertical-align:-2px;" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+            echo esc_html__( 'Submit Resignation', 'sfs-hr' );
+            echo '</button>';
+        }
         echo '</div>';
 
         // Status alert
@@ -66,16 +72,6 @@ class ResignationTab implements TabInterface {
             echo '<div class="sfs-alert sfs-alert--success">';
             echo '<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" fill="none" stroke-width="2"/><polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" fill="none" stroke-width="2"/></svg>';
             echo '<span data-i18n-key="approved_resignation_notice">' . esc_html__( 'Your resignation has been approved. Please coordinate with HR for your exit process.', 'sfs-hr' ) . '</span></div>';
-        }
-
-        // Submit Resignation button
-        if ( $can_submit ) {
-            echo '<div style="margin-bottom:16px;">';
-            echo '<button type="button" class="sfs-btn sfs-btn--primary" onclick="document.getElementById(\'sfs-resign-modal\').classList.add(\'sfs-modal-active\')" data-i18n-key="submit_resignation">';
-            echo '<svg viewBox="0 0 24 24" style="width:16px;height:16px;margin-inline-end:6px;vertical-align:-2px;" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-            echo esc_html__( 'Submit Resignation', 'sfs-hr' );
-            echo '</button>';
-            echo '</div>';
         }
 
         // History (card-based)
