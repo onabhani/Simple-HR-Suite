@@ -2,6 +2,60 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.7.0] — 2026-02-13
+
+### Added
+- **Employee Self-Service UI Redesign** (§10.1): full card-based redesign of all
+  employee portal tabs with a shared design system.
+  - Design system CSS: reusable `.sfs-card`, `.sfs-kpi-grid`, `.sfs-badge`,
+    `.sfs-alert`, `.sfs-form-*`, `.sfs-empty-state`, `.sfs-table`,
+    `.sfs-history-card`, `.sfs-desktop-only` / `.sfs-mobile-only` utilities.
+  - **KPI cards** at the top of Leave, Loans, and Documents tabs with
+    colored icons and at-a-glance metrics.
+  - **Status badges** with consistent color coding across all modules
+    (approved=green, pending=amber, rejected=red, active=blue).
+  - **Empty states** with icons and helpful messaging when no data exists.
+  - **Improved forms**: unified form components (`.sfs-input`, `.sfs-select`,
+    `.sfs-textarea`, `.sfs-btn`) with focus rings and responsive two-column
+    layouts.
+  - **Mobile history cards**: collapsible `<details>` cards replace dense
+    tables on mobile for leave, loans, and resignation history.
+  - **Desktop tables**: redesigned `.sfs-table` with uppercase header labels,
+    hover rows, and cleaner spacing.
+  - Typography hierarchy improvements: bigger headings, clearer section
+    separation, better whitespace throughout.
+  - Enhanced mobile bottom navigation with top-bar active indicator.
+
+- **Leave Balance Visual Cards** (§10.2): redesigned leave balances section.
+  - Color-coded cards per leave type (10-color palette: sky, rose, violet,
+    amber, emerald, indigo, pink, orange, teal, slate).
+  - Circular SVG progress ring showing remaining days.
+  - Three metrics per card: Total Available, Consumed, Applied.
+  - Mini progress bar showing balance usage percentage.
+  - Cards are tappable links that scroll to the request form with the leave
+    type pre-selected.
+
+### Changed
+- **Leave Tab** fully rewritten: KPI strip, balance cards, improved request
+  form, desktop table + mobile card history with approver info and rejection
+  reasons.
+- **Loans Tab** fully rewritten: KPI cards (total borrowed, remaining, active,
+  completed), improved request form with live payment calculator, desktop table
+  + mobile card history with payment schedule.
+- **Resignation Tab** fully rewritten: status alerts for pending/approved
+  resignations, improved submission form with radio toggle for regular vs
+  final exit, desktop table + mobile card history with final exit details.
+- **Settlement Tab** fully rewritten: card-based settlement display with
+  info tiles, line-item breakdown, clearance status grid, payment completion
+  alert, and HR notes.
+- **Documents Tab** fully rewritten: KPI strip (total/types/missing), missing
+  documents alert, improved upload form using design system, card-based
+  document library grouped by type with status badges.
+- **Overview Tab** enhanced via CSS: improved typography for profile header,
+  field rows, profile grid, assets section, completion bar, and chips.
+- All dark mode selectors automatically apply to new design system components
+  via CSS variable inheritance.
+
 ## [0.6.0] — 2026-02-13
 
 ### Added

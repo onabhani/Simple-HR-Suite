@@ -714,6 +714,272 @@
     }
 }
 
+/* ── Overview Tab Typography Enhancements (§10.1) ──────────── */
+.sfs-hr-pwa-app .sfs-hr-profile-group-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--sfs-text-muted);
+    padding: 14px 16px 8px;
+}
+.sfs-hr-pwa-app .sfs-hr-field-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--sfs-border);
+    gap: 12px;
+}
+.sfs-hr-pwa-app .sfs-hr-field-row:last-child {
+    border-bottom: none;
+}
+.sfs-hr-pwa-app .sfs-hr-field-label {
+    font-size: 12px;
+    color: var(--sfs-text-muted);
+    flex-shrink: 0;
+}
+.sfs-hr-pwa-app .sfs-hr-field-value {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--sfs-text);
+    text-align: end;
+    word-break: break-word;
+}
+.sfs-hr-pwa-app .sfs-hr-profile-name {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--sfs-text);
+    margin: 0 0 6px;
+    line-height: 1.3;
+}
+.sfs-hr-pwa-app .sfs-hr-profile-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 20px 0;
+}
+.sfs-hr-pwa-app .sfs-hr-profile-header-main {
+    flex: 1;
+    min-width: 0;
+}
+.sfs-hr-pwa-app .sfs-hr-profile-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+.sfs-hr-pwa-app .sfs-hr-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.sfs-hr-pwa-app .sfs-hr-chip--code {
+    background: var(--sfs-background);
+    color: var(--sfs-text-muted);
+}
+.sfs-hr-pwa-app .sfs-hr-chip--status {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+.sfs-hr-pwa-app .sfs-hr-profile-meta-line {
+    font-size: 13px;
+    color: var(--sfs-text-muted);
+}
+.sfs-hr-pwa-app .sfs-hr-profile-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+@media (max-width: 768px) {
+    .sfs-hr-pwa-app .sfs-hr-profile-grid {
+        grid-template-columns: 1fr;
+    }
+}
+.sfs-hr-pwa-app .sfs-hr-profile-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* ── Assets Section Enhancement ────────────────────────────── */
+.sfs-hr-pwa-app .sfs-hr-my-assets-frontend {
+    background: var(--sfs-surface);
+    border: 1px solid var(--sfs-border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-top: 20px;
+}
+.sfs-hr-pwa-app .sfs-hr-my-assets-frontend h4 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--sfs-text);
+    margin: 0 0 14px;
+}
+.sfs-hr-pwa-app .sfs-hr-assets-desktop {
+    display: block;
+}
+.sfs-hr-pwa-app .sfs-hr-assets-mobile {
+    display: none;
+}
+@media (max-width: 768px) {
+    .sfs-hr-pwa-app .sfs-hr-assets-desktop { display: none; }
+    .sfs-hr-pwa-app .sfs-hr-assets-mobile { display: block; }
+}
+.sfs-hr-pwa-app .sfs-hr-assets-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.sfs-hr-pwa-app .sfs-hr-assets-table th {
+    background: var(--sfs-background);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--sfs-text-muted);
+    padding: 8px 12px;
+    text-align: start;
+    border-bottom: 1px solid var(--sfs-border);
+}
+.sfs-hr-pwa-app .sfs-hr-assets-table td {
+    padding: 8px 12px;
+    color: var(--sfs-text);
+    border-bottom: 1px solid var(--sfs-border);
+}
+.sfs-hr-pwa-app .sfs-hr-assets-table tbody tr:last-child td {
+    border-bottom: none;
+}
+.sfs-hr-pwa-app .sfs-hr-asset-card {
+    background: var(--sfs-surface);
+    border: 1px solid var(--sfs-border);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+.sfs-hr-pwa-app .sfs-hr-asset-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    cursor: pointer;
+    list-style: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sfs-text);
+}
+.sfs-hr-pwa-app .sfs-hr-asset-summary::-webkit-details-marker { display: none; }
+.sfs-hr-pwa-app .sfs-hr-asset-body {
+    padding: 0 14px 14px;
+    border-top: 1px solid var(--sfs-border);
+}
+.sfs-hr-pwa-app .sfs-hr-asset-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 10px 0;
+    font-size: 12px;
+}
+.sfs-hr-pwa-app .sfs-hr-asset-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-top: 8px;
+}
+.sfs-hr-pwa-app .sfs-hr-asset-btn {
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+}
+.sfs-hr-pwa-app .sfs-hr-asset-btn--approve {
+    background: var(--sfs-success);
+    color: #fff;
+}
+.sfs-hr-pwa-app .sfs-hr-asset-btn--reject {
+    background: var(--sfs-danger);
+    color: #fff;
+}
+
+/* Profile completion bar enhancement */
+.sfs-hr-pwa-app .sfs-hr-profile-completion {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border: 1px solid #bae6fd;
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+}
+.sfs-hr-pwa-app .sfs-hr-completion-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.sfs-hr-pwa-app .sfs-hr-completion-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0369a1;
+}
+.sfs-hr-pwa-app .sfs-hr-completion-pct {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0369a1;
+}
+.sfs-hr-pwa-app .sfs-hr-completion-bar {
+    height: 6px;
+    background: #e0f2fe;
+    border-radius: 3px;
+    overflow: hidden;
+}
+.sfs-hr-pwa-app .sfs-hr-completion-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #0284c7, #38bdf8);
+    border-radius: 3px;
+    transition: width 0.6s ease;
+}
+.sfs-hr-pwa-app .sfs-hr-completion-hint {
+    font-size: 12px;
+    color: #0284c7;
+    margin-top: 8px;
+}
+/* Notification dot */
+.sfs-hr-pwa-app .sfs-hr-notification-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--sfs-danger);
+    display: inline-block;
+}
+
+/* Attendance button */
+.sfs-hr-pwa-app .sfs-hr-att-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: var(--sfs-primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity 0.15s;
+}
+.sfs-hr-pwa-app .sfs-hr-att-btn:hover {
+    opacity: 0.9;
+}
+.sfs-hr-pwa-app .sfs-hr-profile-actions {
+    margin-top: 10px;
+}
+
 /* Card styles for app feel */
 .sfs-hr-pwa-app .sfs-hr-profile-group {
     background: var(--sfs-surface);
@@ -1494,3 +1760,584 @@
 }
 
 /* Dark mode toggle - moved to header, no floating button */
+
+/* ============================================================
+   DESIGN SYSTEM — Reusable Component Library (§10.1 / §10.2)
+   ============================================================ */
+
+/* ── Section Container ─────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-section {
+    margin-bottom: 20px;
+}
+.sfs-hr-pwa-app .sfs-section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--sfs-text);
+    margin: 0 0 4px;
+    line-height: 1.3;
+}
+.sfs-hr-pwa-app .sfs-section-subtitle {
+    font-size: 13px;
+    color: var(--sfs-text-muted);
+    margin: 0 0 16px;
+}
+
+/* ── Card Component ────────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-card {
+    background: var(--sfs-surface);
+    border: 1px solid var(--sfs-border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+.sfs-hr-pwa-app .sfs-card-header {
+    padding: 16px 18px 0;
+}
+.sfs-hr-pwa-app .sfs-card-body {
+    padding: 16px 18px;
+}
+.sfs-hr-pwa-app .sfs-card-footer {
+    padding: 12px 18px;
+    border-top: 1px solid var(--sfs-border);
+}
+
+/* ── KPI Cards Grid ────────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.sfs-hr-pwa-app .sfs-kpi-card {
+    background: var(--sfs-surface);
+    border: 1px solid var(--sfs-border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.sfs-hr-pwa-app .sfs-kpi-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.sfs-hr-pwa-app .sfs-kpi-icon svg {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2;
+    fill: none;
+}
+.sfs-hr-pwa-app .sfs-kpi-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--sfs-text-muted);
+}
+.sfs-hr-pwa-app .sfs-kpi-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--sfs-text);
+    line-height: 1.1;
+}
+.sfs-hr-pwa-app .sfs-kpi-sub {
+    font-size: 12px;
+    color: var(--sfs-text-muted);
+    font-weight: 400;
+}
+
+/* ── Status Badges ─────────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+.sfs-hr-pwa-app .sfs-badge--approved {
+    background: #dcfce7;
+    color: #166534;
+}
+.sfs-hr-pwa-app .sfs-badge--pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+.sfs-hr-pwa-app .sfs-badge--rejected {
+    background: #fee2e2;
+    color: #991b1b;
+}
+.sfs-hr-pwa-app .sfs-badge--active {
+    background: #dbeafe;
+    color: #1e40af;
+}
+.sfs-hr-pwa-app .sfs-badge--completed {
+    background: #f3f4f6;
+    color: #374151;
+}
+.sfs-hr-pwa-app .sfs-badge--cancelled {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+.sfs-hr-pwa-app .sfs-badge--info {
+    background: #e0f2fe;
+    color: #0c4a6e;
+}
+/* Dark mode badges */
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--approved,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--approved { background: #052e16; color: #4ade80; }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--pending,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--pending { background: #422006; color: #fbbf24; }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--rejected,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--rejected { background: #450a0a; color: #fca5a5; }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--active,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--active { background: #172554; color: #93c5fd; }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--completed,
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--cancelled,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--completed,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--cancelled { background: #1e293b; color: #94a3b8; }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--info,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--info { background: #0c4a6e; color: #7dd3fc; }
+
+/* ── Flash / Alert Messages ────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-alert {
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+.sfs-hr-pwa-app .sfs-alert svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.sfs-hr-pwa-app .sfs-alert--success {
+    background: #f0fdf4;
+    border: 1px solid #86efac;
+    color: #166534;
+}
+.sfs-hr-pwa-app .sfs-alert--error {
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
+    color: #991b1b;
+}
+.sfs-hr-pwa-app .sfs-alert--warning {
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    color: #92400e;
+}
+.sfs-hr-pwa-app .sfs-alert--info {
+    background: #eff6ff;
+    border: 1px solid #93c5fd;
+    color: #1e40af;
+}
+/* Dark mode alerts */
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-alert--success,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-alert--success { background: #052e16; border-color: #166534; color: #4ade80; }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-alert--error,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-alert--error { background: #450a0a; border-color: #991b1b; color: #fca5a5; }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-alert--warning,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-alert--warning { background: #422006; border-color: #a16207; color: #fbbf24; }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-alert--info,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-alert--info { background: #172554; border-color: #1e40af; color: #93c5fd; }
+
+/* ── Form Components ───────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-form-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.sfs-hr-pwa-app .sfs-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.sfs-hr-pwa-app .sfs-form-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sfs-text);
+}
+.sfs-hr-pwa-app .sfs-form-label .sfs-required {
+    color: var(--sfs-danger);
+    margin-left: 2px;
+}
+.sfs-hr-pwa-app .sfs-form-hint {
+    font-size: 11px;
+    color: var(--sfs-text-muted);
+    margin-top: 2px;
+}
+.sfs-hr-pwa-app .sfs-form-row {
+    display: flex;
+    gap: 12px;
+}
+.sfs-hr-pwa-app .sfs-form-row > .sfs-form-group {
+    flex: 1;
+}
+@media (max-width: 500px) {
+    .sfs-hr-pwa-app .sfs-form-row {
+        flex-direction: column;
+    }
+}
+.sfs-hr-pwa-app .sfs-input,
+.sfs-hr-pwa-app .sfs-select,
+.sfs-hr-pwa-app .sfs-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--sfs-border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: var(--sfs-text);
+    background: var(--sfs-surface);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    min-height: 44px;
+}
+.sfs-hr-pwa-app .sfs-input:focus,
+.sfs-hr-pwa-app .sfs-select:focus,
+.sfs-hr-pwa-app .sfs-textarea:focus {
+    outline: none;
+    border-color: var(--sfs-primary);
+    box-shadow: 0 0 0 3px rgba(15, 76, 92, 0.1);
+}
+.sfs-hr-pwa-app .sfs-textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+.sfs-hr-pwa-app .sfs-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    min-height: 44px;
+    transition: all 0.15s ease;
+    text-decoration: none;
+}
+.sfs-hr-pwa-app .sfs-btn--primary {
+    background: var(--sfs-primary);
+    color: #fff;
+}
+.sfs-hr-pwa-app .sfs-btn--primary:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.sfs-hr-pwa-app .sfs-btn--full {
+    width: 100%;
+}
+.sfs-hr-pwa-app .sfs-btn svg {
+    width: 16px;
+    height: 16px;
+    stroke-width: 2;
+    fill: none;
+}
+/* Dark mode button */
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-btn--primary,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-btn--primary { color: #0f172a; }
+
+/* ── Empty States ──────────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-empty-state {
+    text-align: center;
+    padding: 40px 20px;
+}
+.sfs-hr-pwa-app .sfs-empty-state-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    background: var(--sfs-background);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.sfs-hr-pwa-app .sfs-empty-state-icon svg {
+    width: 28px;
+    height: 28px;
+    stroke: var(--sfs-text-muted);
+    fill: none;
+    stroke-width: 1.5;
+}
+.sfs-hr-pwa-app .sfs-empty-state-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--sfs-text);
+    margin: 0 0 6px;
+}
+.sfs-hr-pwa-app .sfs-empty-state-text {
+    font-size: 13px;
+    color: var(--sfs-text-muted);
+    margin: 0;
+    max-width: 300px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* ── History Cards (Mobile + Universal) ────────────────────── */
+.sfs-hr-pwa-app .sfs-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.sfs-hr-pwa-app .sfs-history-card {
+    background: var(--sfs-surface);
+    border: 1px solid var(--sfs-border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+.sfs-hr-pwa-app .sfs-history-card summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    cursor: pointer;
+    list-style: none;
+    gap: 10px;
+}
+.sfs-hr-pwa-app .sfs-history-card summary::-webkit-details-marker {
+    display: none;
+}
+.sfs-hr-pwa-app .sfs-history-card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sfs-text);
+    flex: 1;
+    min-width: 0;
+}
+.sfs-hr-pwa-app .sfs-history-card-title small {
+    font-weight: 400;
+    color: var(--sfs-text-muted);
+}
+.sfs-hr-pwa-app .sfs-history-card-body {
+    padding: 0 14px 14px;
+    border-top: 1px solid var(--sfs-border);
+}
+.sfs-hr-pwa-app .sfs-detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--sfs-border);
+    font-size: 13px;
+}
+.sfs-hr-pwa-app .sfs-detail-row:last-child {
+    border-bottom: none;
+}
+.sfs-hr-pwa-app .sfs-detail-label {
+    color: var(--sfs-text-muted);
+    flex-shrink: 0;
+    margin-right: 12px;
+}
+.sfs-hr-pwa-app .sfs-detail-value {
+    color: var(--sfs-text);
+    font-weight: 500;
+    text-align: right;
+}
+
+/* Desktop table visibility helpers */
+.sfs-hr-pwa-app .sfs-desktop-only { display: block; }
+.sfs-hr-pwa-app .sfs-mobile-only { display: none; }
+@media (max-width: 768px) {
+    .sfs-hr-pwa-app .sfs-desktop-only { display: none; }
+    .sfs-hr-pwa-app .sfs-mobile-only { display: block; }
+}
+
+/* ── Tables (Desktop) ──────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    border: 1px solid var(--sfs-border);
+    border-radius: 10px;
+    overflow: hidden;
+}
+.sfs-hr-pwa-app .sfs-table th {
+    background: var(--sfs-background);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--sfs-text-muted);
+    padding: 10px 14px;
+    text-align: start;
+    border-bottom: 1px solid var(--sfs-border);
+}
+.sfs-hr-pwa-app .sfs-table td {
+    padding: 10px 14px;
+    color: var(--sfs-text);
+    border-bottom: 1px solid var(--sfs-border);
+    vertical-align: top;
+}
+.sfs-hr-pwa-app .sfs-table tbody tr:last-child td {
+    border-bottom: none;
+}
+.sfs-hr-pwa-app .sfs-table tbody tr:hover {
+    background: var(--sfs-background);
+}
+
+/* ── Leave Balance Cards (§10.2) ───────────────────────────── */
+.sfs-hr-pwa-app .sfs-balance-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+}
+.sfs-hr-pwa-app .sfs-balance-card {
+    --card-color: #6366f1;
+    background: var(--sfs-surface);
+    border: 1px solid var(--sfs-border);
+    border-radius: 14px;
+    padding: 18px;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    text-decoration: none;
+    display: block;
+    color: inherit;
+}
+.sfs-hr-pwa-app .sfs-balance-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+}
+.sfs-hr-pwa-app .sfs-balance-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--card-color);
+}
+.sfs-hr-pwa-app .sfs-balance-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+.sfs-hr-pwa-app .sfs-balance-card-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--sfs-text);
+    line-height: 1.3;
+    flex: 1;
+    padding-right: 10px;
+}
+/* Circular balance badge */
+.sfs-hr-pwa-app .sfs-balance-ring {
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
+    position: relative;
+}
+.sfs-hr-pwa-app .sfs-balance-ring svg {
+    width: 52px;
+    height: 52px;
+    transform: rotate(-90deg);
+}
+.sfs-hr-pwa-app .sfs-balance-ring-bg {
+    fill: none;
+    stroke: var(--sfs-border);
+    stroke-width: 4;
+}
+.sfs-hr-pwa-app .sfs-balance-ring-fill {
+    fill: none;
+    stroke: var(--card-color);
+    stroke-width: 4;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.6s ease;
+}
+.sfs-hr-pwa-app .sfs-balance-ring-value {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--card-color);
+}
+/* Three metrics row */
+.sfs-hr-pwa-app .sfs-balance-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    text-align: center;
+}
+.sfs-hr-pwa-app .sfs-balance-metric-val {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--sfs-text);
+    line-height: 1.2;
+}
+.sfs-hr-pwa-app .sfs-balance-metric-label {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--sfs-text-muted);
+    margin-top: 2px;
+}
+/* Mini progress bar fallback */
+.sfs-hr-pwa-app .sfs-balance-bar {
+    height: 4px;
+    background: var(--sfs-border);
+    border-radius: 2px;
+    margin-top: 12px;
+    overflow: hidden;
+}
+.sfs-hr-pwa-app .sfs-balance-bar-fill {
+    height: 100%;
+    background: var(--card-color);
+    border-radius: 2px;
+    transition: width 0.6s ease;
+}
+
+/* Balance card color palette */
+.sfs-hr-pwa-app .sfs-balance-card[data-color="sky"]    { --card-color: #0ea5e9; }
+.sfs-hr-pwa-app .sfs-balance-card[data-color="rose"]   { --card-color: #f43f5e; }
+.sfs-hr-pwa-app .sfs-balance-card[data-color="violet"] { --card-color: #8b5cf6; }
+.sfs-hr-pwa-app .sfs-balance-card[data-color="amber"]  { --card-color: #f59e0b; }
+.sfs-hr-pwa-app .sfs-balance-card[data-color="emerald"]{ --card-color: #10b981; }
+.sfs-hr-pwa-app .sfs-balance-card[data-color="indigo"] { --card-color: #6366f1; }
+.sfs-hr-pwa-app .sfs-balance-card[data-color="pink"]   { --card-color: #ec4899; }
+.sfs-hr-pwa-app .sfs-balance-card[data-color="orange"] { --card-color: #f97316; }
+.sfs-hr-pwa-app .sfs-balance-card[data-color="teal"]   { --card-color: #14b8a6; }
+.sfs-hr-pwa-app .sfs-balance-card[data-color="slate"]  { --card-color: #64748b; }
+
+/* ── Mobile Bottom Nav Enhancements ────────────────────────── */
+@media (max-width: 768px) {
+    .sfs-hr-pwa-app .sfs-hr-tab {
+        position: relative;
+    }
+    .sfs-hr-pwa-app .sfs-hr-tab-active::after {
+        content: '';
+        position: absolute;
+        top: -6px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 20px;
+        height: 3px;
+        border-radius: 0 0 3px 3px;
+        background: var(--sfs-primary);
+    }
+    .sfs-hr-pwa-app .sfs-hr-tab-active {
+        font-weight: 600;
+    }
+}

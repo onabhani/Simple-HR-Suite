@@ -3191,198 +3191,208 @@ echo '</div>'; // .sfs-hr-leaves-mobile
 }
 
 /**
- * Render Documents tab for frontend My HR Profile
+ * Render Documents tab for frontend My HR Profile (§10.1 redesign)
  */
 private function render_frontend_documents_tab( int $emp_id ): void {
-    // Check if Documents module is available
     if ( ! class_exists( '\SFS\HR\Modules\Documents\Services\Documents_Service' ) ) {
-        echo '<div class="sfs-hr-alert" style="margin-top:20px;">';
-        echo esc_html__( 'Documents module is not available.', 'sfs-hr' );
-        echo '</div>';
+        echo '<div class="sfs-alert sfs-alert--warning">';
+        echo '<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="currentColor" fill="none" stroke-width="2"/><line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2"/><line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2"/></svg>';
+        echo '<span>' . esc_html__( 'Documents module is not available.', 'sfs-hr' ) . '</span></div>';
         return;
     }
 
     $documents_service = '\SFS\HR\Modules\Documents\Services\Documents_Service';
-
-    // Get grouped documents
-    $grouped = $documents_service::get_documents_grouped( $emp_id );
-    $document_types = $documents_service::get_document_types();
+    $grouped          = $documents_service::get_documents_grouped( $emp_id );
+    $document_types   = $documents_service::get_document_types();
     $uploadable_types = $documents_service::get_uploadable_document_types_for_employee( $emp_id );
+    $missing_docs     = $documents_service::get_missing_required_documents( $emp_id );
 
-    // Check for missing required documents
-    $missing_docs = $documents_service::get_missing_required_documents( $emp_id );
+    // Count documents
+    $total_docs = 0;
+    foreach ( $grouped as $docs ) {
+        $total_docs += count( $docs );
+    }
+    $missing_count = count( $missing_docs );
+    $types_count   = count( $document_types );
 
-    ?>
-    <div class="sfs-hr-documents-tab" style="margin-top:20px;">
+    echo '<div class="sfs-section">';
+    echo '<h2 class="sfs-section-title" data-i18n-key="my_documents">' . esc_html__( 'My Documents', 'sfs-hr' ) . '</h2>';
+    echo '</div>';
 
-        <?php if ( ! empty( $missing_docs ) ) : ?>
-            <!-- Missing Documents Alert -->
-            <div class="sfs-hr-missing-docs-alert" style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:15px;margin-bottom:20px;">
-                <div style="display:flex;align-items:flex-start;gap:12px;">
-                    <span style="color:#dc2626;font-size:20px;">⚠️</span>
-                    <div style="flex:1;">
-                        <strong style="color:#991b1b;display:block;margin-bottom:8px;"><?php esc_html_e( 'Missing Required Documents', 'sfs-hr' ); ?></strong>
-                        <p style="color:#7f1d1d;margin:0 0 10px;font-size:14px;">
-                            <?php esc_html_e( 'Please upload the following required documents:', 'sfs-hr' ); ?>
-                        </p>
-                        <ul style="margin:0;padding-left:20px;color:#991b1b;">
-                            <?php foreach ( $missing_docs as $type_key => $type_label ) : ?>
-                                <li><?php echo esc_html( $type_label ); ?></li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        <?php endif; ?>
+    // KPI strip
+    echo '<div class="sfs-kpi-grid">';
+    echo '<div class="sfs-kpi-card">';
+    echo '<div class="sfs-kpi-icon" style="background:#dbeafe;"><svg viewBox="0 0 24 24" stroke="#3b82f6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>';
+    echo '<div class="sfs-kpi-label" data-i18n-key="total_documents">' . esc_html__( 'Total', 'sfs-hr' ) . '</div>';
+    echo '<div class="sfs-kpi-value">' . $total_docs . '</div></div>';
 
-        <!-- Upload Form (for uploadable types only) -->
-        <?php if ( ! empty( $uploadable_types ) ) : ?>
-            <div class="sfs-hr-profile-group" style="margin-bottom:20px;">
-                <div class="sfs-hr-profile-group-title"><?php esc_html_e( 'Upload Document', 'sfs-hr' ); ?></div>
-                <div class="sfs-hr-profile-group-body">
-                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data">
-                        <input type="hidden" name="action" value="sfs_hr_upload_document" />
-                        <input type="hidden" name="employee_id" value="<?php echo (int)$emp_id; ?>" />
-                        <input type="hidden" name="redirect_page" value="sfs-hr-my-profile" />
-                        <?php wp_nonce_field( 'sfs_hr_upload_document_' . $emp_id, '_wpnonce' ); ?>
+    echo '<div class="sfs-kpi-card">';
+    echo '<div class="sfs-kpi-icon" style="background:#ecfdf5;"><svg viewBox="0 0 24 24" stroke="#10b981"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>';
+    echo '<div class="sfs-kpi-label" data-i18n-key="document_types">' . esc_html__( 'Types', 'sfs-hr' ) . '</div>';
+    echo '<div class="sfs-kpi-value">' . $types_count . '</div></div>';
 
-                        <div class="sfs-hr-field-row" style="padding:12px 0;">
-                            <div class="sfs-hr-field-label"><?php esc_html_e( 'Document Type', 'sfs-hr' ); ?></div>
-                            <div class="sfs-hr-field-value">
-                                <select name="document_type" required style="width:100%;max-width:300px;padding:8px;border:1px solid var(--sfs-border);border-radius:6px;background:var(--sfs-surface);color:var(--sfs-text);">
-                                    <option value=""><?php esc_html_e( '— Select Type —', 'sfs-hr' ); ?></option>
-                                    <?php foreach ( $uploadable_types as $key => $info ) : ?>
-                                        <?php
-                                        $label = $info['label'];
-                                        $hint = '';
-                                        if ( $info['reason'] === 'expired' ) {
-                                            $hint = ' (' . __( 'expired - update required', 'sfs-hr' ) . ')';
-                                        } elseif ( $info['reason'] === 'update_requested' ) {
-                                            $hint = ' (' . __( 'update requested by HR', 'sfs-hr' ) . ')';
-                                        }
-                                        ?>
-                                        <option value="<?php echo esc_attr( $key ); ?>"><?php echo esc_html( $label . $hint ); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <div style="font-size:12px;color:var(--sfs-text-muted);margin-top:4px;"><?php esc_html_e( 'Only document types that need to be added or updated are shown.', 'sfs-hr' ); ?></div>
-                            </div>
-                        </div>
+    if ( $missing_count > 0 ) {
+        echo '<div class="sfs-kpi-card">';
+        echo '<div class="sfs-kpi-icon" style="background:#fee2e2;"><svg viewBox="0 0 24 24" stroke="#dc2626"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>';
+        echo '<div class="sfs-kpi-label" data-i18n-key="missing_docs">' . esc_html__( 'Missing', 'sfs-hr' ) . '</div>';
+        echo '<div class="sfs-kpi-value" style="color:var(--sfs-danger);">' . $missing_count . '</div></div>';
+    }
+    echo '</div>';
 
-                        <div class="sfs-hr-field-row" style="padding:12px 0;">
-                            <div class="sfs-hr-field-label"><?php esc_html_e( 'Document Name', 'sfs-hr' ); ?></div>
-                            <div class="sfs-hr-field-value">
-                                <input type="text" name="document_name" required style="width:100%;max-width:300px;padding:8px;border:1px solid var(--sfs-border);border-radius:6px;background:var(--sfs-surface);color:var(--sfs-text);" placeholder="<?php esc_attr_e( 'e.g., National ID Copy', 'sfs-hr' ); ?>" />
-                            </div>
-                        </div>
+    // Missing documents alert
+    if ( ! empty( $missing_docs ) ) {
+        echo '<div class="sfs-alert sfs-alert--error">';
+        echo '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/><line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" stroke-width="2"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" stroke-width="2"/></svg>';
+        echo '<div><strong>' . esc_html__( 'Missing Required Documents', 'sfs-hr' ) . '</strong><br>';
+        echo esc_html__( 'Please upload:', 'sfs-hr' ) . ' ';
+        echo esc_html( implode( ', ', $missing_docs ) );
+        echo '</div></div>';
+    }
 
-                        <div class="sfs-hr-field-row" style="padding:12px 0;">
-                            <div class="sfs-hr-field-label"><?php esc_html_e( 'File', 'sfs-hr' ); ?></div>
-                            <div class="sfs-hr-field-value">
-                                <input type="file" name="document_file" required accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx" style="width:100%;max-width:300px;" />
-                                <div style="font-size:12px;color:var(--sfs-text-muted);margin-top:4px;"><?php esc_html_e( 'Accepted: PDF, Images, Word, Excel (max 10MB)', 'sfs-hr' ); ?></div>
-                            </div>
-                        </div>
+    // Upload form
+    if ( ! empty( $uploadable_types ) ) {
+        echo '<div class="sfs-card" style="margin-bottom:24px;">';
+        echo '<div class="sfs-card-body">';
+        echo '<h3 style="font-size:15px;font-weight:700;color:var(--sfs-text);margin:0 0 14px;" data-i18n-key="upload_document">' . esc_html__( 'Upload Document', 'sfs-hr' ) . '</h3>';
 
-                        <div class="sfs-hr-field-row" style="padding:12px 0;">
-                            <div class="sfs-hr-field-label"><?php esc_html_e( 'Expiry Date', 'sfs-hr' ); ?></div>
-                            <div class="sfs-hr-field-value">
-                                <input type="date" name="expiry_date" style="width:100%;max-width:200px;padding:8px;border:1px solid var(--sfs-border);border-radius:6px;background:var(--sfs-surface);color:var(--sfs-text);" />
-                                <div style="font-size:12px;color:var(--sfs-text-muted);margin-top:4px;"><?php esc_html_e( 'Optional - for IDs, passports, licenses, etc.', 'sfs-hr' ); ?></div>
-                            </div>
-                        </div>
+        echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" enctype="multipart/form-data">';
+        echo '<input type="hidden" name="action" value="sfs_hr_upload_document" />';
+        echo '<input type="hidden" name="employee_id" value="' . (int) $emp_id . '" />';
+        echo '<input type="hidden" name="redirect_page" value="sfs-hr-my-profile" />';
+        wp_nonce_field( 'sfs_hr_upload_document_' . $emp_id, '_wpnonce' );
 
-                        <div class="sfs-hr-field-row" style="padding:12px 0;">
-                            <div class="sfs-hr-field-label"><?php esc_html_e( 'Notes', 'sfs-hr' ); ?></div>
-                            <div class="sfs-hr-field-value">
-                                <textarea name="description" rows="2" style="width:100%;max-width:300px;padding:8px;border:1px solid var(--sfs-border);border-radius:6px;background:var(--sfs-surface);color:var(--sfs-text);" placeholder="<?php esc_attr_e( 'Optional notes...', 'sfs-hr' ); ?>"></textarea>
-                            </div>
-                        </div>
+        echo '<div class="sfs-form-fields">';
 
-                        <div style="padding:12px 0;">
-                            <button type="submit" class="sfs-hr-att-btn" style="padding:10px 20px;border-radius:8px;border:none;cursor:pointer;"><?php esc_html_e( 'Upload Document', 'sfs-hr' ); ?></button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        <?php else : ?>
-            <div class="sfs-hr-profile-group" style="margin-bottom:20px;">
-                <div class="sfs-hr-profile-group-body" style="text-align:center;padding:20px;">
-                    <div style="font-size:14px;color:var(--sfs-text-muted);">
-                        <?php esc_html_e( 'All documents are up to date. If you need to update a document, please contact HR.', 'sfs-hr' ); ?>
-                    </div>
-                </div>
-            </div>
-        <?php endif; ?>
+        echo '<div class="sfs-form-group">';
+        echo '<label class="sfs-form-label" data-i18n-key="document_type">' . esc_html__( 'Document Type', 'sfs-hr' ) . ' <span class="sfs-required">*</span></label>';
+        echo '<select name="document_type" required class="sfs-select">';
+        echo '<option value="">' . esc_html__( 'Select type', 'sfs-hr' ) . '</option>';
+        foreach ( $uploadable_types as $key => $info ) {
+            $label = $info['label'];
+            $hint  = '';
+            if ( $info['reason'] === 'expired' ) {
+                $hint = ' (' . __( 'expired', 'sfs-hr' ) . ')';
+            } elseif ( $info['reason'] === 'update_requested' ) {
+                $hint = ' (' . __( 'update requested', 'sfs-hr' ) . ')';
+            }
+            echo '<option value="' . esc_attr( $key ) . '">' . esc_html( $label . $hint ) . '</option>';
+        }
+        echo '</select>';
+        echo '<span class="sfs-form-hint">' . esc_html__( 'Only types that need adding or updating are shown.', 'sfs-hr' ) . '</span>';
+        echo '</div>';
 
-        <!-- Documents List -->
-        <div class="sfs-hr-profile-group">
-            <div class="sfs-hr-profile-group-title"><?php esc_html_e( 'My Documents', 'sfs-hr' ); ?></div>
-            <div class="sfs-hr-profile-group-body">
-                <?php if ( empty( $grouped ) ) : ?>
-                    <div style="padding:20px;text-align:center;color:var(--sfs-text-muted);">
-                        <?php esc_html_e( 'No documents uploaded yet.', 'sfs-hr' ); ?>
-                    </div>
-                <?php else : ?>
-                    <?php foreach ( $document_types as $type_key => $type_label ) : ?>
-                        <?php if ( ! empty( $grouped[ $type_key ] ) ) : ?>
-                            <div style="margin-bottom:16px;">
-                                <div style="font-weight:600;font-size:14px;color:var(--sfs-text);margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--sfs-border);">
-                                    <?php echo esc_html( $type_label ); ?> (<?php echo count( $grouped[ $type_key ] ); ?>)
-                                </div>
+        echo '<div class="sfs-form-group">';
+        echo '<label class="sfs-form-label" data-i18n-key="document_name">' . esc_html__( 'Document Name', 'sfs-hr' ) . ' <span class="sfs-required">*</span></label>';
+        echo '<input type="text" name="document_name" required class="sfs-input" placeholder="' . esc_attr__( 'e.g., National ID Copy', 'sfs-hr' ) . '" />';
+        echo '</div>';
 
-                                <?php foreach ( $grouped[ $type_key ] as $doc ) : ?>
-                                    <?php
-                                    $file_url = wp_get_attachment_url( $doc->attachment_id );
-                                    $file_size = size_format( $doc->file_size, 1 );
-                                    $expiry = $documents_service::get_expiry_status( $doc->expiry_date );
-                                    $has_update_request = ! empty( $doc->update_requested_at );
-                                    ?>
-                                    <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:var(--sfs-background);border-radius:8px;margin-bottom:8px;">
-                                        <div style="flex:1;">
-                                            <div style="font-weight:500;color:var(--sfs-text);margin-bottom:4px;">
-                                                <?php echo esc_html( $doc->document_name ); ?>
-                                                <?php if ( $expiry['label'] ) : ?>
-                                                    <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;background:<?php echo $expiry['class'] === 'expired' ? '#fee2e2' : ( $expiry['class'] === 'expiring-soon' ? '#fef3c7' : '#d1fae5' ); ?>;color:<?php echo $expiry['class'] === 'expired' ? '#dc2626' : ( $expiry['class'] === 'expiring-soon' ? '#d97706' : '#059669' ); ?>;">
-                                                        <?php echo esc_html( $expiry['label'] ); ?>
-                                                    </span>
-                                                <?php endif; ?>
-                                                <?php if ( $has_update_request ) : ?>
-                                                    <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:4px;background:#dbeafe;color:#1d4ed8;" title="<?php echo esc_attr( $doc->update_request_reason ?: __( 'Update requested by HR', 'sfs-hr' ) ); ?>">
-                                                        <?php esc_html_e( 'Update Requested', 'sfs-hr' ); ?>
-                                                    </span>
-                                                <?php endif; ?>
-                                            </div>
-                                            <div style="font-size:12px;color:var(--sfs-text-muted);">
-                                                <?php echo esc_html( $doc->file_name ); ?> · <?php echo esc_html( $file_size ); ?> · <?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $doc->created_at ) ) ); ?>
-                                            </div>
-                                            <?php if ( $doc->description ) : ?>
-                                                <div style="font-size:12px;color:var(--sfs-text-muted);margin-top:4px;font-style:italic;">
-                                                    <?php echo esc_html( wp_trim_words( $doc->description, 15 ) ); ?>
-                                                </div>
-                                            <?php endif; ?>
-                                            <?php if ( $has_update_request && $doc->update_request_reason ) : ?>
-                                                <div style="font-size:12px;color:var(--sfs-text-muted);margin-top:4px;">
-                                                    <strong><?php esc_html_e( 'Reason:', 'sfs-hr' ); ?></strong> <?php echo esc_html( $doc->update_request_reason ); ?>
-                                                </div>
-                                            <?php endif; ?>
-                                        </div>
-                                        <div style="flex-shrink:0;">
-                                            <?php if ( $file_url ) : ?>
-                                                <a href="<?php echo esc_url( $file_url ); ?>" download style="display:inline-block;padding:6px 12px;background:var(--sfs-primary);color:#fff;border-radius:6px;font-size:12px;text-decoration:none;">
-                                                    <?php esc_html_e( 'Download', 'sfs-hr' ); ?>
-                                                </a>
-                                            <?php endif; ?>
-                                        </div>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
-                        <?php endif; ?>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </div>
-        </div>
-    </div>
-    <?php
+        echo '<div class="sfs-form-group">';
+        echo '<label class="sfs-form-label">' . esc_html__( 'File', 'sfs-hr' ) . ' <span class="sfs-required">*</span></label>';
+        echo '<input type="file" name="document_file" required accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx" class="sfs-input" />';
+        echo '<span class="sfs-form-hint">' . esc_html__( 'PDF, Images, Word, Excel — max 10 MB', 'sfs-hr' ) . '</span>';
+        echo '</div>';
+
+        echo '<div class="sfs-form-row">';
+        echo '<div class="sfs-form-group">';
+        echo '<label class="sfs-form-label">' . esc_html__( 'Expiry Date', 'sfs-hr' ) . '</label>';
+        echo '<input type="date" name="expiry_date" class="sfs-input" />';
+        echo '<span class="sfs-form-hint">' . esc_html__( 'For IDs, passports, licenses', 'sfs-hr' ) . '</span>';
+        echo '</div>';
+        echo '<div class="sfs-form-group">';
+        echo '<label class="sfs-form-label">' . esc_html__( 'Notes', 'sfs-hr' ) . '</label>';
+        echo '<textarea name="description" rows="2" class="sfs-textarea" placeholder="' . esc_attr__( 'Optional notes...', 'sfs-hr' ) . '"></textarea>';
+        echo '</div>';
+        echo '</div>';
+
+        echo '<button type="submit" class="sfs-btn sfs-btn--primary sfs-btn--full">';
+        echo '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" fill="none" stroke-width="2"/><polyline points="17 8 12 3 7 8" stroke="currentColor" fill="none" stroke-width="2"/><line x1="12" y1="3" x2="12" y2="15" stroke="currentColor" fill="none" stroke-width="2"/></svg>';
+        esc_html_e( 'Upload Document', 'sfs-hr' );
+        echo '</button>';
+
+        echo '</div>';
+        echo '</form>';
+        echo '</div></div>';
+    } else {
+        echo '<div class="sfs-alert sfs-alert--success">';
+        echo '<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" fill="none" stroke-width="2"/><polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" fill="none" stroke-width="2"/></svg>';
+        echo '<span>' . esc_html__( 'All documents are up to date. Contact HR if you need to update a document.', 'sfs-hr' ) . '</span></div>';
+    }
+
+    // Documents list
+    echo '<div class="sfs-section" style="margin-top:4px;">';
+    echo '<h3 style="font-size:15px;font-weight:700;color:var(--sfs-text);margin:0 0 14px;" data-i18n-key="my_documents_list">' . esc_html__( 'Document Library', 'sfs-hr' ) . '</h3>';
+    echo '</div>';
+
+    if ( empty( $grouped ) ) {
+        echo '<div class="sfs-card"><div class="sfs-empty-state">';
+        echo '<div class="sfs-empty-state-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" fill="none" stroke-width="1.5"/><polyline points="14 2 14 8 20 8" stroke="currentColor" fill="none" stroke-width="1.5"/></svg></div>';
+        echo '<p class="sfs-empty-state-title">' . esc_html__( 'No documents uploaded yet', 'sfs-hr' ) . '</p>';
+        echo '<p class="sfs-empty-state-text">' . esc_html__( 'Upload your first document using the form above.', 'sfs-hr' ) . '</p>';
+        echo '</div></div>';
+    } else {
+        foreach ( $document_types as $type_key => $type_label ) {
+            if ( empty( $grouped[ $type_key ] ) ) {
+                continue;
+            }
+            $type_docs = $grouped[ $type_key ];
+
+            echo '<div class="sfs-card" style="margin-bottom:14px;">';
+            echo '<div class="sfs-card-header" style="padding-bottom:12px;">';
+            echo '<h4 style="font-size:14px;font-weight:600;color:var(--sfs-text);margin:0;">' . esc_html( $type_label );
+            echo ' <span style="font-weight:400;color:var(--sfs-text-muted);">(' . count( $type_docs ) . ')</span></h4>';
+            echo '</div>';
+
+            echo '<div class="sfs-card-body" style="padding-top:0;">';
+            foreach ( $type_docs as $doc ) {
+                $file_url           = wp_get_attachment_url( $doc->attachment_id );
+                $file_size          = size_format( $doc->file_size, 1 );
+                $expiry             = $documents_service::get_expiry_status( $doc->expiry_date );
+                $has_update_request = ! empty( $doc->update_requested_at );
+
+                echo '<div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--sfs-border);">';
+                echo '<div style="flex:1;min-width:0;">';
+
+                // Name + badges
+                echo '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:4px;">';
+                echo '<span style="font-weight:500;font-size:13px;color:var(--sfs-text);">' . esc_html( $doc->document_name ) . '</span>';
+                if ( $expiry['label'] ) {
+                    $badge_map = [ 'expired' => 'rejected', 'expiring-soon' => 'pending', 'valid' => 'approved' ];
+                    $badge_cls = $badge_map[ $expiry['class'] ] ?? 'completed';
+                    echo '<span class="sfs-badge sfs-badge--' . esc_attr( $badge_cls ) . '">' . esc_html( $expiry['label'] ) . '</span>';
+                }
+                if ( $has_update_request ) {
+                    echo '<span class="sfs-badge sfs-badge--info">' . esc_html__( 'Update Requested', 'sfs-hr' ) . '</span>';
+                }
+                echo '</div>';
+
+                // Meta
+                echo '<div style="font-size:11px;color:var(--sfs-text-muted);">';
+                echo esc_html( $doc->file_name ) . ' · ' . esc_html( $file_size );
+                echo ' · ' . esc_html( date_i18n( get_option( 'date_format' ), strtotime( $doc->created_at ) ) );
+                echo '</div>';
+
+                if ( $doc->description ) {
+                    echo '<div style="font-size:11px;color:var(--sfs-text-muted);margin-top:2px;font-style:italic;">' . esc_html( wp_trim_words( $doc->description, 15 ) ) . '</div>';
+                }
+                if ( $has_update_request && $doc->update_request_reason ) {
+                    echo '<div style="font-size:11px;color:var(--sfs-danger);margin-top:2px;">';
+                    echo '<strong>' . esc_html__( 'Reason:', 'sfs-hr' ) . '</strong> ' . esc_html( $doc->update_request_reason );
+                    echo '</div>';
+                }
+                echo '</div>';
+
+                if ( $file_url ) {
+                    echo '<a href="' . esc_url( $file_url ) . '" download class="sfs-btn sfs-btn--primary" style="padding:6px 12px;font-size:12px;min-height:32px;flex-shrink:0;">';
+                    echo '<svg viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" fill="none" stroke-width="2"/><polyline points="7 10 12 15 17 10" stroke="currentColor" fill="none" stroke-width="2"/><line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" fill="none" stroke-width="2"/></svg>';
+                    echo '</a>';
+                }
+                echo '</div>';
+            }
+            // Remove last border
+            echo '</div></div>';
+        }
+    }
+    echo '';
 }
 
 /**
