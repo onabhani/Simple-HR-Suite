@@ -291,7 +291,6 @@ class Admin_Pages {
             $prev_dept_avg[ $pd['dept_name'] ] = $pd['avg_score'];
         }
 
-        <?php
         // Compute company-avg delta
         $company_delta = ( $prev_company_avg > 0 ) ? round( $company_avg - $prev_company_avg, 1 ) : null;
         ?>
