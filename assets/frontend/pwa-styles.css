@@ -182,6 +182,15 @@
 [dir="rtl"] .sfs-hr-lang-option {
     text-align: right;
 }
+/* RTL: sidebar on the right side */
+[dir="rtl"] .sfs-hr-sidebar {
+    border-right: none;
+    border-left: 1px solid var(--sfs-border);
+}
+[dir="rtl"] .sfs-hr-more-menu {
+    right: auto;
+    left: 8px;
+}
 .sfs-hr-lang-option:hover {
     background: var(--sfs-background);
 }
@@ -533,6 +542,167 @@
         stroke-width: 2;
     }
 
+    /* ── "More" overflow menu (mobile bottom bar) ─────────────── */
+    .sfs-hr-pwa-app .sfs-hr-more-menu {
+        position: fixed;
+        bottom: calc(60px + var(--sfs-safe-bottom));
+        right: 8px;
+        background: var(--sfs-surface);
+        border: 1px solid var(--sfs-border);
+        border-radius: 12px;
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.12);
+        padding: 6px;
+        z-index: 1001;
+        min-width: 160px;
+    }
+    .sfs-hr-pwa-app .sfs-hr-more-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        color: var(--sfs-text);
+        text-decoration: none;
+        font-size: 13px;
+    }
+    .sfs-hr-pwa-app .sfs-hr-more-menu-item:hover {
+        background: var(--sfs-background);
+    }
+    .sfs-hr-pwa-app .sfs-hr-more-menu-item--active {
+        color: var(--sfs-primary);
+        background: rgba(15, 76, 92, 0.08);
+        font-weight: 600;
+    }
+    .sfs-hr-pwa-app .sfs-hr-more-menu-item .sfs-hr-tab-icon {
+        width: 18px;
+        height: 18px;
+        stroke-width: 1.5;
+        flex-shrink: 0;
+    }
+
+    /* ── Portal Layout (sidebar hidden on mobile) ─────────────── */
+    .sfs-hr-portal-layout {
+        display: block;
+    }
+    .sfs-hr-pwa-app .sfs-hr-sidebar {
+        display: none; /* Hidden on mobile — bottom bar is used instead */
+    }
+
+    /* ── Desktop: Sidebar + Content Layout ────────────────────── */
+    @media screen and (min-width: 768px) {
+        .sfs-hr-portal-layout {
+            display: flex;
+            min-height: calc(100vh - 56px);
+        }
+
+        /* Show sidebar on desktop */
+        .sfs-hr-pwa-app .sfs-hr-sidebar {
+            display: flex;
+            flex-direction: column;
+            width: 220px;
+            min-width: 220px;
+            background: var(--sfs-surface);
+            border-right: 1px solid var(--sfs-border);
+            padding: 16px 8px;
+            position: sticky;
+            top: 56px; /* Below the header */
+            height: calc(100vh - 56px);
+            overflow-y: auto;
+            z-index: 10;
+            scrollbar-width: thin;
+        }
+        .admin-bar .sfs-hr-pwa-app .sfs-hr-sidebar {
+            top: calc(56px + 32px);
+            height: calc(100vh - 56px - 32px);
+        }
+
+        /* Sidebar section grouping */
+        .sfs-hr-sidebar-section {
+            margin-bottom: 4px;
+        }
+        .sfs-hr-sidebar-section + .sfs-hr-sidebar-section {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--sfs-border);
+        }
+        .sfs-hr-sidebar-section-label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--sfs-text-muted);
+            padding: 4px 12px 6px;
+        }
+
+        /* Sidebar items */
+        .sfs-hr-sidebar-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            border-radius: 8px;
+            color: var(--sfs-text);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 400;
+            transition: background 0.15s ease, color 0.15s ease;
+            cursor: pointer;
+        }
+        .sfs-hr-sidebar-item:hover {
+            background: var(--sfs-background);
+            color: var(--sfs-primary);
+        }
+        .sfs-hr-sidebar-item--active {
+            background: rgba(15, 76, 92, 0.1);
+            color: var(--sfs-primary);
+            font-weight: 600;
+        }
+        .sfs-hr-sidebar-item--active:hover {
+            background: rgba(15, 76, 92, 0.14);
+        }
+        .sfs-hr-sidebar-item .sfs-hr-tab-icon {
+            width: 18px;
+            height: 18px;
+            stroke-width: 1.5;
+            flex-shrink: 0;
+        }
+        .sfs-hr-sidebar-item--active .sfs-hr-tab-icon {
+            stroke-width: 2;
+        }
+        .sfs-hr-sidebar-label {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Content area fills remaining space */
+        .sfs-hr-portal-layout > .sfs-hr-profile {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* Hide bottom bar on desktop */
+        .sfs-hr-pwa-app .sfs-hr-profile-tabs {
+            display: none !important;
+        }
+        .sfs-hr-pwa-app .sfs-hr-more-menu {
+            display: none !important;
+        }
+
+        /* Adjust content padding — no bottom bar needed on desktop */
+        .sfs-hr-pwa-app .sfs-hr-profile {
+            padding-bottom: 24px !important;
+        }
+    }
+
+    /* Admin bar offset for mobile sidebar (782px is WP admin bar breakpoint) */
+    @media screen and (min-width: 768px) and (max-width: 782px) {
+        .admin-bar .sfs-hr-pwa-app .sfs-hr-sidebar {
+            top: calc(56px + 46px);
+            height: calc(100vh - 56px - 46px);
+        }
+    }
+
     /* Hide site header on mobile HR profile (but not our app header) */
     .sfs-hr-pwa-app ~ header,
     .sfs-hr-pwa-app ~ .site-header,
@@ -542,6 +712,272 @@
     body:has(.sfs-hr-pwa-app) #masthead {
         display: none !important;
     }
+}
+
+/* ── Overview Tab Typography Enhancements (§10.1) ──────────── */
+.sfs-hr-pwa-app .sfs-hr-profile-group-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--sfs-text-muted);
+    padding: 14px 16px 8px;
+}
+.sfs-hr-pwa-app .sfs-hr-field-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--sfs-border);
+    gap: 12px;
+}
+.sfs-hr-pwa-app .sfs-hr-field-row:last-child {
+    border-bottom: none;
+}
+.sfs-hr-pwa-app .sfs-hr-field-label {
+    font-size: 12px;
+    color: var(--sfs-text-muted);
+    flex-shrink: 0;
+}
+.sfs-hr-pwa-app .sfs-hr-field-value {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--sfs-text);
+    text-align: end;
+    word-break: break-word;
+}
+.sfs-hr-pwa-app .sfs-hr-profile-name {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--sfs-text);
+    margin: 0 0 6px;
+    line-height: 1.3;
+}
+.sfs-hr-pwa-app .sfs-hr-profile-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 20px 0;
+}
+.sfs-hr-pwa-app .sfs-hr-profile-header-main {
+    flex: 1;
+    min-width: 0;
+}
+.sfs-hr-pwa-app .sfs-hr-profile-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+.sfs-hr-pwa-app .sfs-hr-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.sfs-hr-pwa-app .sfs-hr-chip--code {
+    background: var(--sfs-background);
+    color: var(--sfs-text-muted);
+}
+.sfs-hr-pwa-app .sfs-hr-chip--status {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+.sfs-hr-pwa-app .sfs-hr-profile-meta-line {
+    font-size: 13px;
+    color: var(--sfs-text-muted);
+}
+.sfs-hr-pwa-app .sfs-hr-profile-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+@media (max-width: 768px) {
+    .sfs-hr-pwa-app .sfs-hr-profile-grid {
+        grid-template-columns: 1fr;
+    }
+}
+.sfs-hr-pwa-app .sfs-hr-profile-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* ── Assets Section Enhancement ────────────────────────────── */
+.sfs-hr-pwa-app .sfs-hr-my-assets-frontend {
+    background: var(--sfs-surface);
+    border: 1px solid var(--sfs-border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-top: 20px;
+}
+.sfs-hr-pwa-app .sfs-hr-my-assets-frontend h4 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--sfs-text);
+    margin: 0 0 14px;
+}
+.sfs-hr-pwa-app .sfs-hr-assets-desktop {
+    display: block;
+}
+.sfs-hr-pwa-app .sfs-hr-assets-mobile {
+    display: none;
+}
+@media (max-width: 768px) {
+    .sfs-hr-pwa-app .sfs-hr-assets-desktop { display: none; }
+    .sfs-hr-pwa-app .sfs-hr-assets-mobile { display: block; }
+}
+.sfs-hr-pwa-app .sfs-hr-assets-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.sfs-hr-pwa-app .sfs-hr-assets-table th {
+    background: var(--sfs-background);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--sfs-text-muted);
+    padding: 8px 12px;
+    text-align: start;
+    border-bottom: 1px solid var(--sfs-border);
+}
+.sfs-hr-pwa-app .sfs-hr-assets-table td {
+    padding: 8px 12px;
+    color: var(--sfs-text);
+    border-bottom: 1px solid var(--sfs-border);
+}
+.sfs-hr-pwa-app .sfs-hr-assets-table tbody tr:last-child td {
+    border-bottom: none;
+}
+.sfs-hr-pwa-app .sfs-hr-asset-card {
+    background: var(--sfs-surface);
+    border: 1px solid var(--sfs-border);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+.sfs-hr-pwa-app .sfs-hr-asset-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    cursor: pointer;
+    list-style: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sfs-text);
+}
+.sfs-hr-pwa-app .sfs-hr-asset-summary::-webkit-details-marker { display: none; }
+.sfs-hr-pwa-app .sfs-hr-asset-body {
+    padding: 0 14px 14px;
+    border-top: 1px solid var(--sfs-border);
+}
+.sfs-hr-pwa-app .sfs-hr-asset-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 10px 0;
+    font-size: 12px;
+}
+.sfs-hr-pwa-app .sfs-hr-asset-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-top: 8px;
+}
+.sfs-hr-pwa-app .sfs-hr-asset-btn {
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+}
+.sfs-hr-pwa-app .sfs-hr-asset-btn--approve {
+    background: var(--sfs-success);
+    color: #fff;
+}
+.sfs-hr-pwa-app .sfs-hr-asset-btn--reject {
+    background: var(--sfs-danger);
+    color: #fff;
+}
+
+/* Profile completion bar enhancement */
+.sfs-hr-pwa-app .sfs-hr-profile-completion {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border: 1px solid #bae6fd;
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+}
+.sfs-hr-pwa-app .sfs-hr-completion-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.sfs-hr-pwa-app .sfs-hr-completion-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0369a1;
+}
+.sfs-hr-pwa-app .sfs-hr-completion-pct {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0369a1;
+}
+.sfs-hr-pwa-app .sfs-hr-completion-bar {
+    height: 6px;
+    background: #e0f2fe;
+    border-radius: 3px;
+    overflow: hidden;
+}
+.sfs-hr-pwa-app .sfs-hr-completion-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #0284c7, #38bdf8);
+    border-radius: 3px;
+    transition: width 0.6s ease;
+}
+.sfs-hr-pwa-app .sfs-hr-completion-hint {
+    font-size: 12px;
+    color: #0284c7;
+    margin-top: 8px;
+}
+/* Notification dot */
+.sfs-hr-pwa-app .sfs-hr-notification-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--sfs-danger);
+    display: inline-block;
+}
+
+/* Attendance button */
+.sfs-hr-pwa-app .sfs-hr-att-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: var(--sfs-primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity 0.15s;
+}
+.sfs-hr-pwa-app .sfs-hr-att-btn:hover {
+    opacity: 0.9;
+}
+.sfs-hr-pwa-app .sfs-hr-profile-actions {
+    margin-top: 10px;
 }
 
 /* Card styles for app feel */
@@ -708,6 +1144,17 @@
         background: rgba(56, 189, 248, 0.15);
         color: var(--sfs-primary);
     }
+
+    /* Sidebar & more menu in system dark mode */
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-sidebar { background: var(--sfs-surface); border-right-color: var(--sfs-border); }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-sidebar-item { color: var(--sfs-text); }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-sidebar-item:hover { background: rgba(56, 189, 248, 0.08); color: var(--sfs-primary); }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-sidebar-item--active { background: rgba(56, 189, 248, 0.15); color: var(--sfs-primary); }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-sidebar-section + .sfs-hr-sidebar-section { border-top-color: var(--sfs-border); }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-sidebar-section-label { color: var(--sfs-text-muted); }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-more-menu { background: var(--sfs-surface); border-color: var(--sfs-border); box-shadow: 0 -4px 20px rgba(0,0,0,0.3); }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-more-menu-item { color: var(--sfs-text); }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-more-menu-item--active { color: var(--sfs-primary); background: rgba(56, 189, 248, 0.12); }
 
     /* Profile completion in dark mode */
     .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-profile-completion {
@@ -892,6 +1339,18 @@
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-profile-tabs { background: var(--sfs-surface); border-top-color: var(--sfs-border); }
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-tab { color: var(--sfs-text-muted); }
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-tab-active { background: rgba(56, 189, 248, 0.15); color: var(--sfs-primary); }
+/* Sidebar dark mode */
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-sidebar { background: var(--sfs-surface); border-right-color: var(--sfs-border); }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-sidebar-item { color: var(--sfs-text); }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-sidebar-item:hover { background: rgba(56, 189, 248, 0.08); color: var(--sfs-primary); }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-sidebar-item--active { background: rgba(56, 189, 248, 0.15); color: var(--sfs-primary); }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-sidebar-section + .sfs-hr-sidebar-section { border-top-color: var(--sfs-border); }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-sidebar-section-label { color: var(--sfs-text-muted); }
+/* More menu dark mode */
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-more-menu { background: var(--sfs-surface); border-color: var(--sfs-border); box-shadow: 0 -4px 20px rgba(0,0,0,0.3); }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-more-menu-item { color: var(--sfs-text); }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-more-menu-item:hover { background: var(--sfs-background); }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-more-menu-item--active { color: var(--sfs-primary); background: rgba(56, 189, 248, 0.12); }
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-profile-completion { background: linear-gradient(135deg, #0c4a6e 0%, #075985 100%); border-color: #0369a1; }
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-completion-title,
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-completion-pct,
@@ -934,6 +1393,16 @@
 .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-profile-tabs { background: #ffffff; border-top-color: #e5e7eb; }
 .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-tab { color: #6b7280; }
 .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-tab-active { background: rgba(2, 132, 199, 0.1); color: #0284c7; }
+/* Sidebar light mode */
+.sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-sidebar { background: #ffffff; border-right-color: #e5e7eb; }
+.sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-sidebar-item { color: #374151; }
+.sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-sidebar-item:hover { background: #f3f4f6; color: #0284c7; }
+.sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-sidebar-item--active { background: rgba(2, 132, 199, 0.1); color: #0284c7; }
+.sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-sidebar-section-label { color: #9ca3af; }
+/* More menu light mode */
+.sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-more-menu { background: #ffffff; border-color: #e5e7eb; }
+.sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-more-menu-item { color: #374151; }
+.sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-more-menu-item--active { color: #0284c7; background: rgba(2, 132, 199, 0.08); }
 .sfs-hr-pwa-app.sfs-hr-dark-mode input,
 .sfs-hr-pwa-app.sfs-hr-dark-mode select,
 .sfs-hr-pwa-app.sfs-hr-dark-mode textarea { background: var(--sfs-surface); border-color: var(--sfs-border); color: var(--sfs-text); }
@@ -1291,3 +1760,1060 @@
 }
 
 /* Dark mode toggle - moved to header, no floating button */
+
+/* ============================================================
+   DESIGN SYSTEM — Reusable Component Library (§10.1 / §10.2)
+   ============================================================ */
+
+/* ── Section Container ─────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-section {
+    margin-bottom: 20px;
+}
+.sfs-hr-pwa-app .sfs-section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--sfs-text);
+    margin: 0 0 4px;
+    line-height: 1.3;
+}
+.sfs-hr-pwa-app .sfs-section-subtitle {
+    font-size: 13px;
+    color: var(--sfs-text-muted);
+    margin: 0 0 16px;
+}
+
+/* ── Card Component ────────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-card {
+    background: var(--sfs-surface);
+    border: 1px solid var(--sfs-border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+.sfs-hr-pwa-app .sfs-card-header {
+    padding: 16px 18px 0;
+}
+.sfs-hr-pwa-app .sfs-card-body {
+    padding: 16px 18px;
+}
+.sfs-hr-pwa-app .sfs-card-footer {
+    padding: 12px 18px;
+    border-top: 1px solid var(--sfs-border);
+}
+
+/* ── KPI Cards Grid ────────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.sfs-hr-pwa-app .sfs-kpi-card {
+    background: var(--sfs-surface);
+    border: 1px solid var(--sfs-border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.sfs-hr-pwa-app .sfs-kpi-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.sfs-hr-pwa-app .sfs-kpi-icon svg {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2;
+    fill: none;
+}
+.sfs-hr-pwa-app .sfs-kpi-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--sfs-text-muted);
+}
+.sfs-hr-pwa-app .sfs-kpi-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--sfs-text);
+    line-height: 1.1;
+}
+.sfs-hr-pwa-app .sfs-kpi-sub {
+    font-size: 12px;
+    color: var(--sfs-text-muted);
+    font-weight: 400;
+}
+
+/* ── Status Badges ─────────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+.sfs-hr-pwa-app .sfs-badge--approved {
+    background: #dcfce7;
+    color: #166534;
+}
+.sfs-hr-pwa-app .sfs-badge--pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+.sfs-hr-pwa-app .sfs-badge--rejected {
+    background: #fee2e2;
+    color: #991b1b;
+}
+.sfs-hr-pwa-app .sfs-badge--active {
+    background: #dbeafe;
+    color: #1e40af;
+}
+.sfs-hr-pwa-app .sfs-badge--completed {
+    background: #f3f4f6;
+    color: #374151;
+}
+.sfs-hr-pwa-app .sfs-badge--cancelled {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+.sfs-hr-pwa-app .sfs-badge--info {
+    background: #e0f2fe;
+    color: #0c4a6e;
+}
+/* Dark mode badges */
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--approved,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--approved { background: #052e16; color: #4ade80; }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--pending,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--pending { background: #422006; color: #fbbf24; }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--rejected,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--rejected { background: #450a0a; color: #fca5a5; }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--active,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--active { background: #172554; color: #93c5fd; }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--completed,
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--cancelled,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--completed,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--cancelled { background: #1e293b; color: #94a3b8; }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--info,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--info { background: #0c4a6e; color: #7dd3fc; }
+
+/* ── Flash / Alert Messages ────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-alert {
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+.sfs-hr-pwa-app .sfs-alert svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.sfs-hr-pwa-app .sfs-alert--success {
+    background: #f0fdf4;
+    border: 1px solid #86efac;
+    color: #166534;
+}
+.sfs-hr-pwa-app .sfs-alert--error {
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
+    color: #991b1b;
+}
+.sfs-hr-pwa-app .sfs-alert--warning {
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    color: #92400e;
+}
+.sfs-hr-pwa-app .sfs-alert--info {
+    background: #eff6ff;
+    border: 1px solid #93c5fd;
+    color: #1e40af;
+}
+/* Dark mode alerts */
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-alert--success,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-alert--success { background: #052e16; border-color: #166534; color: #4ade80; }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-alert--error,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-alert--error { background: #450a0a; border-color: #991b1b; color: #fca5a5; }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-alert--warning,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-alert--warning { background: #422006; border-color: #a16207; color: #fbbf24; }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-alert--info,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-alert--info { background: #172554; border-color: #1e40af; color: #93c5fd; }
+
+/* ── Form Components ───────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-form-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.sfs-hr-pwa-app .sfs-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.sfs-hr-pwa-app .sfs-form-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sfs-text);
+}
+.sfs-hr-pwa-app .sfs-form-label .sfs-required {
+    color: var(--sfs-danger);
+    margin-left: 2px;
+}
+.sfs-hr-pwa-app .sfs-form-hint {
+    font-size: 11px;
+    color: var(--sfs-text-muted);
+    margin-top: 2px;
+}
+.sfs-hr-pwa-app .sfs-form-row {
+    display: flex;
+    gap: 12px;
+}
+.sfs-hr-pwa-app .sfs-form-row > .sfs-form-group {
+    flex: 1;
+}
+@media (max-width: 500px) {
+    .sfs-hr-pwa-app .sfs-form-row {
+        flex-direction: column;
+    }
+}
+.sfs-hr-pwa-app .sfs-input,
+.sfs-hr-pwa-app .sfs-select,
+.sfs-hr-pwa-app .sfs-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--sfs-border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: var(--sfs-text);
+    background: var(--sfs-surface);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    min-height: 44px;
+}
+.sfs-hr-pwa-app .sfs-input:focus,
+.sfs-hr-pwa-app .sfs-select:focus,
+.sfs-hr-pwa-app .sfs-textarea:focus {
+    outline: none;
+    border-color: var(--sfs-primary);
+    box-shadow: 0 0 0 3px rgba(15, 76, 92, 0.1);
+}
+.sfs-hr-pwa-app .sfs-textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+.sfs-hr-pwa-app .sfs-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    min-height: 44px;
+    transition: all 0.15s ease;
+    text-decoration: none;
+}
+.sfs-hr-pwa-app .sfs-btn--primary {
+    background: var(--sfs-primary);
+    color: #fff;
+}
+.sfs-hr-pwa-app .sfs-btn--primary:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.sfs-hr-pwa-app .sfs-btn--full {
+    width: 100%;
+}
+.sfs-hr-pwa-app .sfs-btn svg {
+    width: 16px;
+    height: 16px;
+    stroke-width: 2;
+    fill: none;
+}
+/* Dark mode button */
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-btn--primary,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-btn--primary { color: #0f172a; }
+
+/* ── Empty States ──────────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-empty-state {
+    text-align: center;
+    padding: 40px 20px;
+}
+.sfs-hr-pwa-app .sfs-empty-state-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    background: var(--sfs-background);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.sfs-hr-pwa-app .sfs-empty-state-icon svg {
+    width: 28px;
+    height: 28px;
+    stroke: var(--sfs-text-muted);
+    fill: none;
+    stroke-width: 1.5;
+}
+.sfs-hr-pwa-app .sfs-empty-state-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--sfs-text);
+    margin: 0 0 6px;
+}
+.sfs-hr-pwa-app .sfs-empty-state-text {
+    font-size: 13px;
+    color: var(--sfs-text-muted);
+    margin: 0;
+    max-width: 300px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* ── History Cards (Mobile + Universal) ────────────────────── */
+.sfs-hr-pwa-app .sfs-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.sfs-hr-pwa-app .sfs-history-card {
+    background: var(--sfs-surface);
+    border: 1px solid var(--sfs-border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+.sfs-hr-pwa-app .sfs-history-card summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    cursor: pointer;
+    list-style: none;
+    gap: 10px;
+}
+.sfs-hr-pwa-app .sfs-history-card summary::-webkit-details-marker {
+    display: none;
+}
+.sfs-hr-pwa-app .sfs-history-card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sfs-text);
+    flex: 1;
+    min-width: 0;
+}
+.sfs-hr-pwa-app .sfs-history-card-title small {
+    font-weight: 400;
+    color: var(--sfs-text-muted);
+}
+.sfs-hr-pwa-app .sfs-history-card-body {
+    padding: 0 14px 14px;
+    border-top: 1px solid var(--sfs-border);
+}
+.sfs-hr-pwa-app .sfs-detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--sfs-border);
+    font-size: 13px;
+}
+.sfs-hr-pwa-app .sfs-detail-row:last-child {
+    border-bottom: none;
+}
+.sfs-hr-pwa-app .sfs-detail-label {
+    color: var(--sfs-text-muted);
+    flex-shrink: 0;
+    margin-right: 12px;
+}
+.sfs-hr-pwa-app .sfs-detail-value {
+    color: var(--sfs-text);
+    font-weight: 500;
+    text-align: right;
+}
+
+/* Desktop table visibility helpers */
+.sfs-hr-pwa-app .sfs-desktop-only { display: block; }
+.sfs-hr-pwa-app .sfs-mobile-only { display: none; }
+@media (max-width: 768px) {
+    .sfs-hr-pwa-app .sfs-desktop-only { display: none; }
+    .sfs-hr-pwa-app .sfs-mobile-only { display: block; }
+}
+
+/* ── Tables (Desktop) ──────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    border: 1px solid var(--sfs-border);
+    border-radius: 10px;
+    overflow: hidden;
+}
+.sfs-hr-pwa-app .sfs-table th {
+    background: var(--sfs-background);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--sfs-text-muted);
+    padding: 10px 14px;
+    text-align: start;
+    border-bottom: 1px solid var(--sfs-border);
+}
+.sfs-hr-pwa-app .sfs-table td {
+    padding: 10px 14px;
+    color: var(--sfs-text);
+    border-bottom: 1px solid var(--sfs-border);
+    vertical-align: top;
+}
+.sfs-hr-pwa-app .sfs-table tbody tr:last-child td {
+    border-bottom: none;
+}
+.sfs-hr-pwa-app .sfs-table tbody tr:hover {
+    background: var(--sfs-background);
+}
+
+/* ── Leave Balance Cards (§10.2) ───────────────────────────── */
+.sfs-hr-pwa-app .sfs-balance-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+}
+.sfs-hr-pwa-app .sfs-balance-card {
+    --card-color: #6366f1;
+    background: var(--sfs-surface);
+    border: 1px solid var(--sfs-border);
+    border-radius: 14px;
+    padding: 18px;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    text-decoration: none;
+    display: block;
+    color: inherit;
+}
+.sfs-hr-pwa-app .sfs-balance-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+}
+.sfs-hr-pwa-app .sfs-balance-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--card-color);
+}
+.sfs-hr-pwa-app .sfs-balance-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+.sfs-hr-pwa-app .sfs-balance-card-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--sfs-text);
+    line-height: 1.3;
+    flex: 1;
+    padding-right: 10px;
+}
+/* Circular balance badge */
+.sfs-hr-pwa-app .sfs-balance-ring {
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
+    position: relative;
+}
+.sfs-hr-pwa-app .sfs-balance-ring svg {
+    width: 52px;
+    height: 52px;
+    transform: rotate(-90deg);
+}
+.sfs-hr-pwa-app .sfs-balance-ring-bg {
+    fill: none;
+    stroke: var(--sfs-border);
+    stroke-width: 4;
+}
+.sfs-hr-pwa-app .sfs-balance-ring-fill {
+    fill: none;
+    stroke: var(--card-color);
+    stroke-width: 4;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.6s ease;
+}
+.sfs-hr-pwa-app .sfs-balance-ring-value {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--card-color);
+}
+/* Three metrics row */
+.sfs-hr-pwa-app .sfs-balance-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    text-align: center;
+}
+.sfs-hr-pwa-app .sfs-balance-metric-val {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--sfs-text);
+    line-height: 1.2;
+}
+.sfs-hr-pwa-app .sfs-balance-metric-label {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--sfs-text-muted);
+    margin-top: 2px;
+}
+/* Mini progress bar fallback */
+.sfs-hr-pwa-app .sfs-balance-bar {
+    height: 4px;
+    background: var(--sfs-border);
+    border-radius: 2px;
+    margin-top: 12px;
+    overflow: hidden;
+}
+.sfs-hr-pwa-app .sfs-balance-bar-fill {
+    height: 100%;
+    background: var(--card-color);
+    border-radius: 2px;
+    transition: width 0.6s ease;
+}
+
+/* Balance card color palette */
+.sfs-hr-pwa-app .sfs-balance-card[data-color="sky"]    { --card-color: #0ea5e9; }
+.sfs-hr-pwa-app .sfs-balance-card[data-color="rose"]   { --card-color: #f43f5e; }
+.sfs-hr-pwa-app .sfs-balance-card[data-color="violet"] { --card-color: #8b5cf6; }
+.sfs-hr-pwa-app .sfs-balance-card[data-color="amber"]  { --card-color: #f59e0b; }
+.sfs-hr-pwa-app .sfs-balance-card[data-color="emerald"]{ --card-color: #10b981; }
+.sfs-hr-pwa-app .sfs-balance-card[data-color="indigo"] { --card-color: #6366f1; }
+.sfs-hr-pwa-app .sfs-balance-card[data-color="pink"]   { --card-color: #ec4899; }
+.sfs-hr-pwa-app .sfs-balance-card[data-color="orange"] { --card-color: #f97316; }
+.sfs-hr-pwa-app .sfs-balance-card[data-color="teal"]   { --card-color: #14b8a6; }
+.sfs-hr-pwa-app .sfs-balance-card[data-color="slate"]  { --card-color: #64748b; }
+
+/* ── Mobile Bottom Nav Enhancements ────────────────────────── */
+@media (max-width: 768px) {
+    .sfs-hr-pwa-app .sfs-hr-tab {
+        position: relative;
+    }
+    .sfs-hr-pwa-app .sfs-hr-tab-active::after {
+        content: '';
+        position: absolute;
+        top: -6px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 20px;
+        height: 3px;
+        border-radius: 0 0 3px 3px;
+        background: var(--sfs-primary);
+    }
+    .sfs-hr-pwa-app .sfs-hr-tab-active {
+        font-weight: 600;
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Phase 3/4 — Team / Org Tabs + §10.3 Dashboard Widgets
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Badge Variants ─────────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-badge--neutral {
+    background: #f1f5f9;
+    color: #64748b;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--neutral,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--neutral {
+    background: #334155;
+    color: #94a3b8;
+}
+
+/* ── Button Variants ────────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-btn--success {
+    background: #059669;
+    color: #fff;
+    border: none;
+}
+.sfs-hr-pwa-app .sfs-btn--success:hover {
+    background: #047857;
+}
+.sfs-hr-pwa-app .sfs-btn--danger {
+    background: #dc2626;
+    color: #fff;
+    border: none;
+}
+.sfs-hr-pwa-app .sfs-btn--danger:hover {
+    background: #b91c1c;
+}
+.sfs-hr-pwa-app .sfs-btn--sm {
+    padding: 6px 14px;
+    font-size: 13px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    line-height: 1.4;
+}
+.sfs-hr-pwa-app .sfs-btn--sm svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+/* ── Filter Chips ───────────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-dash-filter-chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.sfs-hr-pwa-app .sfs-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid var(--sfs-border);
+    background: var(--sfs-surface);
+    color: var(--sfs-text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.sfs-hr-pwa-app .sfs-chip:hover {
+    border-color: var(--sfs-primary);
+    color: var(--sfs-primary);
+}
+.sfs-hr-pwa-app .sfs-chip--active,
+.sfs-hr-pwa-app .sfs-chip.sfs-chip--active {
+    background: var(--sfs-primary);
+    color: #fff;
+    border-color: var(--sfs-primary);
+}
+
+/* ── KPI Grid 4-column ──────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-kpi-grid--4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+@media (max-width: 900px) {
+    .sfs-hr-pwa-app .sfs-kpi-grid--4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 480px) {
+    .sfs-hr-pwa-app .sfs-kpi-grid--4 {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+}
+
+/* ── §10.3 Dashboard Widget Titles ──────────────────────────── */
+.sfs-hr-pwa-app .sfs-dash-widget-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--sfs-text);
+    margin: 0 0 14px;
+}
+
+/* ── §10.3 Attendance Gauge ─────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-dash-gauge-card {
+    margin-bottom: 16px;
+}
+.sfs-hr-pwa-app .sfs-dash-gauge-wrap {
+    position: relative;
+    width: 220px;
+    margin: 0 auto 12px;
+}
+.sfs-hr-pwa-app .sfs-dash-gauge {
+    width: 100%;
+    display: block;
+}
+.sfs-hr-pwa-app .sfs-dash-gauge-bg {
+    fill: none;
+    stroke: #e5e7eb;
+    stroke-width: 14;
+    stroke-linecap: round;
+}
+.sfs-hr-pwa-app .sfs-dash-gauge-fill {
+    fill: none;
+    stroke-width: 14;
+    stroke-linecap: round;
+    transition: stroke-dasharray 0.6s ease;
+}
+.sfs-hr-pwa-app .sfs-dash-gauge-fill--ontime {
+    stroke: #059669;
+}
+.sfs-hr-pwa-app .sfs-dash-gauge-fill--late {
+    stroke: #d97706;
+}
+.sfs-hr-pwa-app .sfs-dash-gauge-center {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+}
+.sfs-hr-pwa-app .sfs-dash-gauge-pct {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--sfs-text);
+    line-height: 1;
+}
+.sfs-hr-pwa-app .sfs-dash-gauge-sub {
+    font-size: 12px;
+    color: var(--sfs-text-muted);
+    margin-top: 2px;
+}
+.sfs-hr-pwa-app .sfs-dash-gauge-legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+.sfs-hr-pwa-app .sfs-dash-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--sfs-text-muted);
+}
+.sfs-hr-pwa-app .sfs-dash-legend-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* ── §10.3 Clock-In Method Breakdown ────────────────────────── */
+.sfs-hr-pwa-app .sfs-dash-methods-card {
+    margin-bottom: 16px;
+}
+.sfs-hr-pwa-app .sfs-dash-methods-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+@media (max-width: 600px) {
+    .sfs-hr-pwa-app .sfs-dash-methods-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+.sfs-hr-pwa-app .sfs-dash-method-item {
+    text-align: center;
+    padding: 16px 8px;
+    border-radius: 12px;
+    background: var(--sfs-background);
+    border: 1px solid var(--sfs-border);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.sfs-hr-pwa-app .sfs-dash-method-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.sfs-hr-pwa-app .sfs-dash-method-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+}
+.sfs-hr-pwa-app .sfs-dash-method-icon svg {
+    width: 24px;
+    height: 24px;
+}
+.sfs-hr-pwa-app .sfs-dash-method-count {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--sfs-text);
+    line-height: 1.2;
+}
+.sfs-hr-pwa-app .sfs-dash-method-label {
+    font-size: 12px;
+    color: var(--sfs-text-muted);
+    margin-top: 2px;
+}
+
+/* ── Department Breakdown ───────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-dash-dept-card {
+    margin-bottom: 16px;
+}
+.sfs-hr-pwa-app .sfs-dash-dept-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.sfs-hr-pwa-app .sfs-dash-dept-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 44px 60px;
+    gap: 10px;
+    align-items: center;
+    font-size: 13px;
+}
+@media (max-width: 600px) {
+    .sfs-hr-pwa-app .sfs-dash-dept-row {
+        grid-template-columns: 100px 1fr 36px 48px;
+        gap: 6px;
+        font-size: 12px;
+    }
+}
+.sfs-hr-pwa-app .sfs-dash-dept-name {
+    font-weight: 600;
+    color: var(--sfs-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sfs-hr-pwa-app .sfs-dash-dept-bar-wrap {
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.sfs-hr-pwa-app .sfs-dash-dept-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease;
+}
+.sfs-hr-pwa-app .sfs-dash-dept-pct {
+    text-align: right;
+    font-weight: 700;
+    color: var(--sfs-text);
+}
+.sfs-hr-pwa-app .sfs-dash-dept-count {
+    text-align: right;
+    color: var(--sfs-text-muted);
+    font-size: 12px;
+}
+
+/* ── §10.3 Calendar Heatmap ─────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-dash-heatmap-card {
+    margin-bottom: 16px;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-header {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--sfs-text-muted);
+    padding: 4px 0;
+    text-transform: uppercase;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--sfs-text);
+    cursor: default;
+    transition: transform 0.1s ease;
+    max-width: 48px;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-cell:hover:not(.sfs-dash-heatmap-cell--empty) {
+    transform: scale(1.12);
+    z-index: 1;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-cell--empty {
+    background: transparent;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-cell--high {
+    background: #bbf7d0;
+    color: #166534;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-cell--medium {
+    background: #fef08a;
+    color: #854d0e;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-cell--low {
+    background: #fecaca;
+    color: #991b1b;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-cell--none {
+    background: #f1f5f9;
+    color: #94a3b8;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-cell--future {
+    background: #f8fafc;
+    color: #cbd5e1;
+}
+.sfs-hr-pwa-app .sfs-dash-heatmap-cell--today {
+    outline: 2px solid var(--sfs-primary);
+    outline-offset: -1px;
+    font-weight: 700;
+}
+
+/* ── Today's Employee Status List ───────────────────────────── */
+.sfs-hr-pwa-app .sfs-dash-list-card {
+    margin-bottom: 16px;
+}
+.sfs-hr-pwa-app .sfs-dash-emp-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.sfs-hr-pwa-app .sfs-dash-emp-item {
+    padding: 12px 16px;
+    background: var(--sfs-surface);
+    border: 1px solid var(--sfs-border);
+    border-radius: 10px;
+}
+.sfs-hr-pwa-app .sfs-dash-emp-item-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+}
+.sfs-hr-pwa-app .sfs-dash-emp-item-meta {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--sfs-text-muted);
+}
+
+/* ── Approval Cards ─────────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-approval-card {
+    margin-bottom: 12px;
+}
+.sfs-hr-pwa-app .sfs-approval-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.sfs-hr-pwa-app .sfs-approval-details {
+    margin-bottom: 14px;
+    padding: 12px;
+    background: var(--sfs-background);
+    border-radius: 8px;
+}
+.sfs-hr-pwa-app .sfs-approval-details .sfs-detail-row {
+    padding: 4px 0;
+}
+.sfs-hr-pwa-app .sfs-approval-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-top: 12px;
+    border-top: 1px solid var(--sfs-border);
+}
+
+/* ── Team Member Cards (mobile) ─────────────────────────────── */
+.sfs-hr-pwa-app .sfs-team-member-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.sfs-hr-pwa-app .sfs-team-member-card {
+    margin-bottom: 0;
+}
+
+/* ── Dark Mode Overrides for Phase 3/4 ──────────────────────── */
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-dash-heatmap-cell--high,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-dash-heatmap-cell--high {
+    background: #166534;
+    color: #bbf7d0;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-dash-heatmap-cell--medium,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-dash-heatmap-cell--medium {
+    background: #854d0e;
+    color: #fef08a;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-dash-heatmap-cell--low,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-dash-heatmap-cell--low {
+    background: #991b1b;
+    color: #fecaca;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-dash-heatmap-cell--none,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-dash-heatmap-cell--none {
+    background: #1e293b;
+    color: #64748b;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-dash-heatmap-cell--future,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-dash-heatmap-cell--future {
+    background: #0f172a;
+    color: #334155;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-dash-method-item,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-dash-method-item {
+    background: #1e293b;
+    border-color: #334155;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-dash-dept-bar-wrap,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-dash-dept-bar-wrap {
+    background: #334155;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-dash-gauge-bg,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-dash-gauge-bg {
+    stroke: #334155;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-chip,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-chip {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-chip--active,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-chip--active {
+    background: var(--sfs-primary);
+    color: #fff;
+    border-color: var(--sfs-primary);
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-approval-details,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-approval-details {
+    background: #0f172a;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-dash-emp-item,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-dash-emp-item {
+    background: #1e293b;
+    border-color: #334155;
+}

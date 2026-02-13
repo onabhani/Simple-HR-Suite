@@ -34,17 +34,17 @@ class Resignation_Notifications {
         $approver = get_userdata($dept['manager_user_id']);
         if (!$approver) return;
 
-        $subject = __('New Resignation Submitted', 'sfs-hr');
-        $message = sprintf(
-            __('A resignation has been submitted by %s %s and requires your approval.', 'sfs-hr'),
-            $resignation['first_name'],
-            $resignation['last_name']
-        );
-        $message .= "\n\n" . __('Resignation Date:', 'sfs-hr') . ' ' . $resignation['resignation_date'];
-        $message .= "\n" . __('Last Working Day:', 'sfs-hr') . ' ' . $resignation['last_working_day'];
-        $message .= "\n\n" . __('Please log in to review and approve.', 'sfs-hr');
-
-        self::send_notification((int) $dept['manager_user_id'], $approver->user_email, $subject, $message, 'resignation_submitted');
+        self::send_notification_localized((int) $dept['manager_user_id'], $approver->user_email, function () use ($resignation) {
+            $message = sprintf(
+                __('A resignation has been submitted by %s %s and requires your approval.', 'sfs-hr'),
+                $resignation['first_name'],
+                $resignation['last_name']
+            );
+            $message .= "\n\n" . __('Resignation Date:', 'sfs-hr') . ' ' . $resignation['resignation_date'];
+            $message .= "\n" . __('Last Working Day:', 'sfs-hr') . ' ' . $resignation['last_working_day'];
+            $message .= "\n\n" . __('Please log in to review and approve.', 'sfs-hr');
+            return [ 'subject' => __('New Resignation Submitted', 'sfs-hr'), 'message' => $message ];
+        }, 'resignation_submitted');
 
         // Also notify HR
         self::notify_hr_resignation_event($resignation, 'submitted', $resignation_id);
@@ -60,15 +60,12 @@ class Resignation_Notifications {
         $employee = get_userdata($resignation['emp_user_id']);
         if (!$employee) return;
 
-        $subject = __('Your Resignation Has Been Approved', 'sfs-hr');
-        $message = sprintf(
-            __('Dear %s,', 'sfs-hr'),
-            $resignation['first_name']
-        );
-        $message .= "\n\n" . __('Your resignation has been approved.', 'sfs-hr');
-        $message .= "\n" . __('Last Working Day:', 'sfs-hr') . ' ' . $resignation['last_working_day'];
-
-        self::send_notification((int) $resignation['emp_user_id'], $employee->user_email, $subject, $message, 'resignation_approved');
+        self::send_notification_localized((int) $resignation['emp_user_id'], $employee->user_email, function () use ($resignation) {
+            $message = sprintf( __('Dear %s,', 'sfs-hr'), $resignation['first_name'] );
+            $message .= "\n\n" . __('Your resignation has been approved.', 'sfs-hr');
+            $message .= "\n" . __('Last Working Day:', 'sfs-hr') . ' ' . $resignation['last_working_day'];
+            return [ 'subject' => __('Your Resignation Has Been Approved', 'sfs-hr'), 'message' => $message ];
+        }, 'resignation_approved');
 
         // Also notify HR
         self::notify_hr_resignation_event($resignation, 'approved', $resignation_id);
@@ -84,17 +81,14 @@ class Resignation_Notifications {
         $employee = get_userdata($resignation['emp_user_id']);
         if (!$employee) return;
 
-        $subject = __('Your Resignation Has Been Rejected', 'sfs-hr');
-        $message = sprintf(
-            __('Dear %s,', 'sfs-hr'),
-            $resignation['first_name']
-        );
-        $message .= "\n\n" . __('Your resignation has been rejected.', 'sfs-hr');
-        if (!empty($resignation['approver_note'])) {
-            $message .= "\n" . __('Reason:', 'sfs-hr') . ' ' . $resignation['approver_note'];
-        }
-
-        self::send_notification((int) $resignation['emp_user_id'], $employee->user_email, $subject, $message, 'resignation_rejected');
+        self::send_notification_localized((int) $resignation['emp_user_id'], $employee->user_email, function () use ($resignation) {
+            $message = sprintf( __('Dear %s,', 'sfs-hr'), $resignation['first_name'] );
+            $message .= "\n\n" . __('Your resignation has been rejected.', 'sfs-hr');
+            if (!empty($resignation['approver_note'])) {
+                $message .= "\n" . __('Reason:', 'sfs-hr') . ' ' . $resignation['approver_note'];
+            }
+            return [ 'subject' => __('Your Resignation Has Been Rejected', 'sfs-hr'), 'message' => $message ];
+        }, 'resignation_rejected');
 
         // Also notify HR
         self::notify_hr_resignation_event($resignation, 'rejected', $resignation_id);
@@ -110,17 +104,17 @@ class Resignation_Notifications {
         $approver = get_userdata($approver_id);
         if (!$approver) return;
 
-        $subject = __('Resignation Pending Your Approval', 'sfs-hr');
-        $message = sprintf(
-            __('A resignation from %s %s is pending your approval.', 'sfs-hr'),
-            $resignation['first_name'],
-            $resignation['last_name']
-        );
-        $message .= "\n\n" . __('Resignation Date:', 'sfs-hr') . ' ' . $resignation['resignation_date'];
-        $message .= "\n" . __('Last Working Day:', 'sfs-hr') . ' ' . $resignation['last_working_day'];
-        $message .= "\n\n" . __('Please log in to review and approve.', 'sfs-hr');
-
-        self::send_notification($approver_id, $approver->user_email, $subject, $message, 'resignation_pending_approval');
+        self::send_notification_localized($approver_id, $approver->user_email, function () use ($resignation) {
+            $message = sprintf(
+                __('A resignation from %s %s is pending your approval.', 'sfs-hr'),
+                $resignation['first_name'],
+                $resignation['last_name']
+            );
+            $message .= "\n\n" . __('Resignation Date:', 'sfs-hr') . ' ' . $resignation['resignation_date'];
+            $message .= "\n" . __('Last Working Day:', 'sfs-hr') . ' ' . $resignation['last_working_day'];
+            $message .= "\n\n" . __('Please log in to review and approve.', 'sfs-hr');
+            return [ 'subject' => __('Resignation Pending Your Approval', 'sfs-hr'), 'message' => $message ];
+        }, 'resignation_pending_approval');
     }
 
     /**
@@ -139,56 +133,47 @@ class Resignation_Notifications {
             return;
         }
 
-        $employee_name = trim($resignation['first_name'] . ' ' . $resignation['last_name']);
-        $admin_url = admin_url('admin.php?page=sfs-hr-lifecycle&tab=resignations&action=view&id=' . $resignation_id);
-
-        switch ($event) {
-            case 'submitted':
-                $subject = sprintf(__('[HR Notice] New resignation submitted by %s', 'sfs-hr'), $employee_name);
-                $message = sprintf(
-                    __("A new resignation has been submitted.\n\nEmployee: %s\nEmployee Code: %s\nResignation Date: %s\nLast Working Day: %s\nType: %s\n\nReason:\n%s\n\nView details: %s", 'sfs-hr'),
-                    $employee_name,
-                    $resignation['employee_code'] ?? 'N/A',
-                    $resignation['resignation_date'],
-                    $resignation['last_working_day'],
-                    $resignation['resignation_type'] ?? 'regular',
-                    $resignation['reason'] ?? 'Not specified',
-                    $admin_url
-                );
-                break;
-
-            case 'approved':
-                $subject = sprintf(__('[HR Notice] Resignation approved for %s', 'sfs-hr'), $employee_name);
-                $message = sprintf(
-                    __("A resignation has been approved.\n\nEmployee: %s\nEmployee Code: %s\nLast Working Day: %s\n\nView details: %s", 'sfs-hr'),
-                    $employee_name,
-                    $resignation['employee_code'] ?? 'N/A',
-                    $resignation['last_working_day'],
-                    $admin_url
-                );
-                break;
-
-            case 'rejected':
-                $subject = sprintf(__('[HR Notice] Resignation rejected for %s', 'sfs-hr'), $employee_name);
-                $message = sprintf(
-                    __("A resignation has been rejected.\n\nEmployee: %s\nEmployee Code: %s\nRejection Reason: %s\n\nView details: %s", 'sfs-hr'),
-                    $employee_name,
-                    $resignation['employee_code'] ?? 'N/A',
-                    $resignation['approver_note'] ?? 'Not specified',
-                    $admin_url
-                );
-                break;
-
-            default:
-                return;
-        }
-
-        // Send to all HR emails
+        // Send to all HR emails (content built inside callback for locale support)
         foreach ($hr_emails as $hr_email) {
             if (!is_email($hr_email)) {
                 continue;
             }
-            self::send_notification(0, $hr_email, $subject, $message, 'resignation_hr_notification');
+            self::send_notification_localized(0, $hr_email, function () use ($resignation, $event, $resignation_id) {
+                $employee_name = trim($resignation['first_name'] . ' ' . $resignation['last_name']);
+                $admin_url = admin_url('admin.php?page=sfs-hr-lifecycle&tab=resignations&action=view&id=' . $resignation_id);
+
+                switch ($event) {
+                    case 'submitted':
+                        return [
+                            'subject' => sprintf(__('[HR Notice] New resignation submitted by %s', 'sfs-hr'), $employee_name),
+                            'message' => sprintf(
+                                __("A new resignation has been submitted.\n\nEmployee: %s\nEmployee Code: %s\nResignation Date: %s\nLast Working Day: %s\nType: %s\n\nReason:\n%s\n\nView details: %s", 'sfs-hr'),
+                                $employee_name, $resignation['employee_code'] ?? 'N/A', $resignation['resignation_date'],
+                                $resignation['last_working_day'], $resignation['resignation_type'] ?? 'regular',
+                                $resignation['reason'] ?? 'Not specified', $admin_url
+                            ),
+                        ];
+                    case 'approved':
+                        return [
+                            'subject' => sprintf(__('[HR Notice] Resignation approved for %s', 'sfs-hr'), $employee_name),
+                            'message' => sprintf(
+                                __("A resignation has been approved.\n\nEmployee: %s\nEmployee Code: %s\nLast Working Day: %s\n\nView details: %s", 'sfs-hr'),
+                                $employee_name, $resignation['employee_code'] ?? 'N/A', $resignation['last_working_day'], $admin_url
+                            ),
+                        ];
+                    case 'rejected':
+                        return [
+                            'subject' => sprintf(__('[HR Notice] Resignation rejected for %s', 'sfs-hr'), $employee_name),
+                            'message' => sprintf(
+                                __("A resignation has been rejected.\n\nEmployee: %s\nEmployee Code: %s\nRejection Reason: %s\n\nView details: %s", 'sfs-hr'),
+                                $employee_name, $resignation['employee_code'] ?? 'N/A',
+                                $resignation['approver_note'] ?? 'Not specified', $admin_url
+                            ),
+                        ];
+                    default:
+                        return [ 'subject' => '', 'message' => '' ];
+                }
+            }, 'resignation_hr_notification');
         }
     }
 
@@ -214,6 +199,27 @@ class Resignation_Notifications {
         } else {
             // Queue for digest
             self::queue_for_digest($user_id, $email, $subject, $message, $notification_type);
+        }
+    }
+
+    /**
+     * Build email content in the recipient's preferred locale, then send.
+     */
+    private static function send_notification_localized(int $user_id, string $email, callable $build, string $notification_type): void {
+        $locale   = Helpers::get_locale_for_email( $email );
+        $switched = false;
+        if ( $locale && $locale !== get_locale() && function_exists( 'switch_to_locale' ) ) {
+            switch_to_locale( $locale );
+            Helpers::reload_json_translations( $locale );
+            $switched = true;
+        }
+        $data = $build();
+        if ( $switched ) {
+            restore_previous_locale();
+            Helpers::reload_json_translations( determine_locale() );
+        }
+        if ( ! empty( $data['subject'] ) && ! empty( $data['message'] ) ) {
+            self::send_notification( $user_id, $email, $data['subject'], $data['message'], $notification_type );
         }
     }
 

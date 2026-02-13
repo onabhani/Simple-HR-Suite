@@ -4882,7 +4882,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         'work_location','contract_type','contract_start_date','contract_end_date','probation_end_date','entry_date_ksa',
         'residence_profession','sponsor_name','sponsor_id',
         'driving_license_number','driving_license_expiry',
-        'gosi_salary',
+        'gosi_salary','language',
     ];
 
     $allowed_status = ['active','inactive','terminated'];
@@ -4948,7 +4948,22 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         }
     }
 
+    // Validate language against known options
+    if ( isset( $payload['language'] ) && $payload['language'] !== null ) {
+        $valid_langs = array_keys( Helpers::get_available_languages() );
+        if ( ! in_array( $payload['language'], $valid_langs, true ) ) {
+            $payload['language'] = null;
+        }
+    }
+
     $wpdb->update($table, $payload, ['id'=>$id]);
+
+    // Sync language preference to WP user locale
+    $wp_user_id = (int) ( $old_data['user_id'] ?? 0 );
+    if ( $wp_user_id && isset( $payload['language'] ) ) {
+        $wp_locale = Helpers::lang_to_wp_locale( $payload['language'] ?? '' );
+        update_user_meta( $wp_user_id, 'locale', $wp_locale );
+    }
 
     // Audit log: employee updated
     if ( $old_data ) {

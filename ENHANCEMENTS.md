@@ -74,9 +74,9 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 - [x] **Ensure** exported reports (CSV/PDF) also respect the selected date filter
 
 ### 4.2 Attendance Period Integration in Reports
-- [ ] **Link** performance reports to the configurable attendance period (from item 3.1)
-- [ ] **Allow** reports to be generated per-period automatically
-- [ ] **Add** period comparison view (e.g., this month vs. last month)
+- [x] **Link** performance reports to the configurable attendance period (from item 3.1)
+- [x] **Allow** reports to be generated per-period automatically
+- [x] **Add** period comparison view (e.g., this month vs. last month)
 
 ---
 
@@ -95,27 +95,28 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 ## 6. Documentation
 
 ### 6.1 Full Plugin Documentation
-- [ ] **Create** `docs/` directory with structured documentation
-- [ ] **Write** Installation & Setup guide
-- [ ] **Write** Configuration guide (General Settings, each module's settings)
-- [ ] **Write** User guide for admins (managing employees, leave, attendance, payroll, etc.)
-- [ ] **Write** User guide for employees (frontend shortcode usage)
-- [ ] **Write** Developer guide (architecture, hooks/filters, extending modules, REST API)
-- [ ] **Document** all database tables and their relationships
-- [ ] **Document** all WordPress capabilities and roles
-- [ ] **Document** all cron jobs and scheduled tasks
-- [ ] **Add** FAQ / Troubleshooting section
+- [x] **Create** `docs/` directory with structured documentation
+- [x] **Write** System brochure (`docs/Simple-HR-Suite-Brochure.md`) — marketing-style overview of all 17 modules, self-service portal, manager tools, reporting, security, multi-language, mobile/offline, and quick implementation guide
+- [ ] ~~**Write** Installation & Setup guide~~ *(skipped — brochure is non-technical)*
+- [ ] ~~**Write** Configuration guide (General Settings, each module's settings)~~ *(skipped — brochure is non-technical)*
+- [ ] ~~**Write** User guide for admins~~ *(skipped — brochure is non-technical)*
+- [ ] ~~**Write** User guide for employees~~ *(skipped — brochure is non-technical)*
+- [ ] ~~**Write** Developer guide~~ *(skipped — brochure is non-technical)*
+- [ ] ~~**Document** all database tables~~ *(skipped — brochure is non-technical)*
+- [ ] ~~**Document** all WordPress capabilities and roles~~ *(skipped — brochure is non-technical)*
+- [ ] ~~**Document** all cron jobs and scheduled tasks~~ *(skipped — brochure is non-technical)*
+- [ ] ~~**Add** FAQ / Troubleshooting section~~ *(skipped — brochure is non-technical)*
 
 ---
 
 ## 7. Shortcodes Reference Page
 
 ### 7.1 Admin Shortcodes Display Page
-- [ ] **Create** a "Shortcodes" tab or section within the main settings page
-- [ ] **List** every available shortcode with its name, parameters, and description
-- [ ] **Add** copy-to-clipboard button for each shortcode
-- [ ] **Add** live preview or screenshot of each shortcode's output
-- [ ] **Keep** the list auto-updated — pull from registered shortcodes dynamically
+- [x] **Create** a "Shortcodes" tab or section within the main settings page
+- [x] **List** every available shortcode with its name, parameters, and description
+- [x] **Add** copy-to-clipboard button for each shortcode
+- [x] **Add** live preview or screenshot of each shortcode's output
+- [x] **Keep** the list auto-updated — pull from registered shortcodes dynamically
 
 > **Current known shortcodes:** `[sfs_hr_leave_request]`, `[sfs_hr_my_leaves]`, and others registered in `includes/Frontend/Shortcodes.php`
 
@@ -142,24 +143,89 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 ## 9. Low-Speed Internet Optimization
 
 ### 9.1 Performance on Slow Connections
-- [ ] **Audit** total page weight for admin and frontend pages (target < 500KB initial load)
-- [ ] **Minify** and concatenate CSS/JS assets
-- [ ] **Implement** lazy loading for non-critical UI sections (tabs, modals)
-- [ ] **Add** AJAX pagination instead of loading full data tables at once
-- [ ] **Implement** progressive loading indicators so users know data is coming
-- [ ] **Cache** API responses on the client side where appropriate
-- [ ] **Optimize** images and SVG assets
-- [ ] **Consider** offline-capable features via the existing PWA/Service Worker infrastructure
-- [ ] **Test** on throttled connections (3G simulation in DevTools)
-- [ ] **Add** connection-quality detection to adjust data fetch sizes
+- [x] **Audit** total page weight for admin and frontend pages (target < 500KB initial load)
+- [x] **Minify** and concatenate CSS/JS assets
+- [x] **Implement** lazy loading for non-critical UI sections (tabs, modals)
+- [x] **Add** AJAX pagination instead of loading full data tables at once
+- [x] **Implement** progressive loading indicators so users know data is coming
+- [x] **Cache** API responses on the client side where appropriate
+- [x] **Optimize** images and SVG assets
+- [x] **Consider** offline-capable features via the existing PWA/Service Worker infrastructure
+- [x] **Test** on throttled connections (3G simulation in DevTools)
+- [x] **Add** connection-quality detection to adjust data fetch sizes
 
 ---
 
-## 10. Business Strategy (Selling the Plugin)
+## 10. UI/UX Modernization
+
+> **Reference designs:** mewurk.com (attendance dashboard), efacility.ae (clock in/out, approvals, leave availability), Jibble (time tracking, team view), Bayzat (leave approvals), various Arabic HR SaaS (dashboard tiles, mobile app). Goal is a modern, app-like experience that's easier to read and navigate.
+
+### 10.0 Frontend Portal for All Roles (P1 — Foundation) — Phase 1 done in v0.6.0, Phase 3/4 in v0.8.0
+- [x] **Extend** the existing `[sfs_hr_my_profile]` shortcode with role-based view detection (Employee, Department Manager, HR, GM, Admin)
+- [x] **Add** department manager views: team attendance, leave/loan approvals, team employee list
+- [x] **Add** HR views: all employees, leave management, attendance dashboard, loans, settlements, payroll overview, documents, performance
+- [x] **Add** GM views: organization-wide dashboards, cross-department reports & analytics, all approvals, headcount/turnover/payroll summaries
+- [x] **Add** admin views: everything GM + HR has + shifts, policies, system settings, configuration
+- [ ] **Build** REST API endpoints for all manager/HR/admin actions (currently in wp-admin via `admin-post.php`)
+- [x] **Add** role-based tab/navigation rendering — each role sees only their permitted sections
+- [x] **Keep** wp-admin as a fallback for plugin configuration only (settings, migrations, advanced config)
+- [x] **Ensure** the frontend portal is fully PWA-capable (offline, installable) — reuse existing service worker infrastructure
+- [x] **Design** for future app wrapping (Capacitor/TWA) — no wp-admin dependencies in the frontend portal
+
+> **Why:** Moving all roles to the frontend creates a single app-like entry point, eliminates the need for users to access wp-admin, and makes the system ready to be wrapped as a native mobile app. The existing PWA shell + tab system + CSS framework are the foundation.
+
+### 10.1 Employee Self-Service UI Redesign (P1) ✅ Done in v0.7.0
+- [x] **Redesign** the entire self-service portal with modern card-based layouts
+- [x] **Replace** dense table views with scannable card components (leave history, loan history, documents)
+- [x] **Add** visual KPI cards at the top of each tab (leave balance summary, attendance stats, loan overview)
+- [x] **Improve** form design — floating labels, better spacing, grouped inputs, inline validation
+- [x] **Add** status badges with color coding (green=approved, orange=pending, red=rejected) consistently across all modules
+- [x] **Redesign** mobile bottom navigation with cleaner icons and active-state indicators
+- [x] **Improve** typography hierarchy — bigger headings, clearer section separation, better whitespace
+- [x] **Add** empty states with illustrations when no data (no leaves, no loans, etc.)
+
+### 10.2 Leave Balance Visual Cards (P1) ✅ Done in v0.7.0
+- [x] **Redesign** leave balances as color-coded cards (each leave type gets a unique color — like efacility's Leave Availability screen)
+- [x] **Add** circular balance badge on each card showing remaining days
+- [x] **Show** three metrics per leave type: Total Available, Consumed, Applied
+- [x] **Add** a mini progress bar or ring showing balance usage percentage
+- [x] **Make** cards tappable to go directly to that leave type's request form
+
+### 10.3 Admin Attendance Dashboard Widgets (P1) ✅ Done in v0.8.0
+- [x] **Add** "Today's Attendance" gauge chart widget showing on-time vs late-in counts (like mewurk dashboard)
+- [x] **Add** clock-in method breakdown (Kiosk / Mobile / Web counts with icons)
+- [x] **Add** "Clocked In / Not Clocked In" summary counters
+- [x] **Add** attendance calendar heat-map showing daily status at a glance
+- [x] **Make** widgets clickable — drill down to filtered employee lists
+
+### 10.4 Clock In/Out Experience Redesign (Maybe Add)
+- [ ] **Add** circular progress timer showing hours worked vs target hours (like efacility's clock screen)
+- [ ] **Redesign** punch history as color-coded cards — green IN badge, red OUT badge
+- [ ] **Show** location tag and clock-in method on each punch card
+- [ ] **Add** daily total hours display with animated counter
+- [ ] **Add** status indicator (Currently In / Currently Out) with visual cue
+
+### 10.5 Card-Based Approval Interface (Maybe Add)
+- [ ] **Redesign** leave/loan approval screens with card-based layout (like efacility's Approvals screen)
+- [ ] **Add** bulk approve/reject buttons at the top with multi-select checkboxes
+- [ ] **Show** request summary on each card: employee name, date, duration circle badge, leave type tag
+- [ ] **Add** filter/sort options (by status, date, department, leave type)
+- [ ] **Add** swipe-to-approve gesture on mobile
+
+### 10.6 Admin Pages Visual Refresh (Maybe Add)
+- [ ] **Audit** admin pages for visual consistency with the modernized self-service design
+- [ ] **Replace** raw WP admin tables with styled card/table hybrid components
+- [ ] **Add** summary stats/KPIs at the top of each admin module page
+- [ ] **Improve** admin navigation — breadcrumbs, better tab styling
+- [ ] **Add** quick-action buttons (approve, edit, view) with icons on list items
+
+---
+
+## 11. Business Strategy (Selling the Plugin)
 
 > These are strategic planning tasks, not code tasks. Tracked here for completeness.
 
-### 10.1 Go-to-Market Plan
+### 11.1 Go-to-Market Plan
 - [ ] **Research** competing WordPress HR plugins (WP ERP, OrangeHRM WP, Jejewe HR) — pricing, features, market positioning
 - [ ] **Define** a pricing model (freemium with pro add-ons, flat license, per-employee pricing)
 - [ ] **Set up** a product landing page on hdqah.com or a dedicated domain
@@ -169,7 +235,7 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 - [ ] **Set up** license key management and update delivery system (e.g., Easy Digital Downloads, WooCommerce + Software Licensing)
 - [ ] **Plan** support channels (documentation, email, community forum)
 
-### 10.2 WordPress Plugin vs. Standalone SaaS — Evaluation
+### 11.2 WordPress Plugin vs. Standalone SaaS — Evaluation
 - [ ] **Document** current architecture constraints as a WP plugin
 - [ ] **Evaluate** pros/cons of each approach:
 
@@ -200,13 +266,20 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 | P1 — High | Attendance policies mobile responsiveness | 3.2 |
 | P1 — High | Merge admin employee profiles | 5.1 |
 | P1 — High | Early access review | 2.3 |
+| **P1 — High** | **Frontend portal for all roles (foundation)** | **10.0** |
+| **P1 — High** | **Employee self-service UI redesign** | **10.1** |
+| **P1 — High** | **Leave balance visual cards** | **10.2** |
+| **P1 — High** | **Admin attendance dashboard widgets** | **10.3** |
 | P2 — Medium | Attendance period in reports | 4.2 |
 | P2 — Medium | Shortcodes reference page | 7.1 |
 | P2 — Medium | Low-speed internet optimization | 9.1 |
 | P3 — Low | Full plugin documentation | 6.1 |
 | P3 — Low | Missing modules | 8.1 |
-| P4 — Strategic | Go-to-market plan | 10.1 |
-| P4 — Strategic | WP Plugin vs. SaaS evaluation | 10.2 |
+| **P3 — Maybe** | **Clock in/out experience redesign** | **10.4** |
+| **P3 — Maybe** | **Card-based approval interface** | **10.5** |
+| **P3 — Maybe** | **Admin pages visual refresh** | **10.6** |
+| P4 — Strategic | Go-to-market plan | 11.1 |
+| P4 — Strategic | WP Plugin vs. SaaS evaluation | 11.2 |
 
 ---
 

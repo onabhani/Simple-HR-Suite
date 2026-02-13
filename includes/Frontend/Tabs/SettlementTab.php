@@ -3,6 +3,7 @@
  * Frontend Settlement Tab
  *
  * Read-only view of employee's settlement information.
+ * Redesigned with §10.1 design system — card-based layout.
  *
  * @package SFS\HR\Frontend\Tabs
  */
@@ -13,27 +14,13 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-/**
- * Class SettlementTab
- *
- * Handles the settlement tab in the employee frontend profile.
- */
 class SettlementTab implements TabInterface {
 
-    /**
-     * Render the settlement tab content
-     *
-     * @param array $emp Employee data array
-     * @param int   $emp_id Employee ID
-     * @return void
-     */
     public function render( array $emp, int $emp_id ): void {
         if ( ! is_user_logged_in() || (int) ( $emp['user_id'] ?? 0 ) !== get_current_user_id() ) {
             echo '<p>' . esc_html__( 'You can only view your own settlement information.', 'sfs-hr' ) . '</p>';
             return;
         }
-
-        global $wpdb;
 
         $employee_id = isset( $emp['id'] ) ? (int) $emp['id'] : 0;
         if ( $employee_id <= 0 ) {
@@ -41,9 +28,9 @@ class SettlementTab implements TabInterface {
             return;
         }
 
+        global $wpdb;
         $settle_table = $wpdb->prefix . 'sfs_hr_settlements';
 
-        // Fetch settlements for this employee
         $settlements = $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT * FROM {$settle_table} WHERE employee_id = %d ORDER BY id DESC",
@@ -52,211 +39,151 @@ class SettlementTab implements TabInterface {
             ARRAY_A
         );
 
-        echo '<div class="sfs-hr-settlement-tab" style="margin-top:24px;">';
+        // Header
+        echo '<div class="sfs-section">';
+        echo '<h2 class="sfs-section-title" data-i18n-key="my_settlements">' . esc_html__( 'My Settlements', 'sfs-hr' ) . '</h2>';
+        echo '</div>';
 
         if ( empty( $settlements ) ) {
-            echo '<div class="sfs-hr-alert" style="background:#f9f9f9;padding:20px;border-radius:4px;">';
-            echo '<p>' . esc_html__( 'You do not have any settlement records yet.', 'sfs-hr' ) . '</p>';
-            echo '</div>';
-        } else {
-            foreach ( $settlements as $settlement ) {
-                $this->render_settlement_card( $settlement );
-            }
+            echo '<div class="sfs-card"><div class="sfs-empty-state">';
+            echo '<div class="sfs-empty-state-icon"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" fill="none" stroke-width="1.5"/><line x1="2" y1="10" x2="22" y2="10" stroke="currentColor" stroke-width="1.5"/></svg></div>';
+            echo '<p class="sfs-empty-state-title">' . esc_html__( 'No settlement records', 'sfs-hr' ) . '</p>';
+            echo '<p class="sfs-empty-state-text">' . esc_html__( 'Settlement information will appear here when applicable.', 'sfs-hr' ) . '</p>';
+            echo '</div></div>';
+            return;
         }
 
-        echo '</div>'; // .sfs-hr-settlement-tab
+        foreach ( $settlements as $s ) {
+            $this->render_settlement_card( $s );
+        }
     }
 
-    /**
-     * Render a single settlement card
-     *
-     * @param array $settlement Settlement record
-     * @return void
-     */
-    private function render_settlement_card( array $settlement ): void {
-        $status_badge = $this->settlement_status_badge( $settlement['status'] );
-        $request_number = $settlement['request_number'] ?? '';
+    private function render_settlement_card( array $s ): void {
+        $ref    = $s['request_number'] ?? '';
+        $badge  = $this->status_badge( $s['status'] );
+        $total  = (float) $s['total_settlement'];
 
-        echo '<div class="sfs-hr-settlement-card" style="background:#fff;border:1px solid #ddd;border-radius:4px;padding:20px;margin-bottom:20px;">';
+        echo '<div class="sfs-card" style="margin-bottom:20px;">';
 
-        echo '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">';
-        echo '<h3 style="margin:0;">' . esc_html__( 'Settlement', 'sfs-hr' ) . ' ';
-        if ( ! empty( $request_number ) ) {
-            echo esc_html( $request_number );
-        } else {
-            echo '#' . esc_html( $settlement['id'] );
-        }
-        echo '</h3>';
-        echo $status_badge;
-        echo '</div>';
-
-        echo '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:15px;margin-bottom:15px;">';
-
-        echo '<div>';
-        echo '<div style="font-weight:600;margin-bottom:5px;">' . esc_html__( 'Last Working Day:', 'sfs-hr' ) . '</div>';
-        echo '<div>' . esc_html( $settlement['last_working_day'] ) . '</div>';
-        echo '</div>';
-
-        echo '<div>';
-        echo '<div style="font-weight:600;margin-bottom:5px;">' . esc_html__( 'Years of Service:', 'sfs-hr' ) . '</div>';
-        echo '<div>' . esc_html( number_format( $settlement['years_of_service'], 2 ) ) . ' ' . esc_html__( 'years', 'sfs-hr' ) . '</div>';
-        echo '</div>';
-
-        echo '<div>';
-        echo '<div style="font-weight:600;margin-bottom:5px;">' . esc_html__( 'Settlement Date:', 'sfs-hr' ) . '</div>';
-        echo '<div>' . esc_html( $settlement['settlement_date'] ) . '</div>';
-        echo '</div>';
-
-        echo '</div>'; // grid
-
-        // Settlement breakdown
-        $this->render_settlement_breakdown( $settlement );
-
-        // Clearance status
-        if ( $settlement['status'] !== 'pending' ) {
-            $this->render_clearance_status( $settlement );
-        }
-
-        // Payment information
-        if ( $settlement['status'] === 'paid' && ! empty( $settlement['payment_date'] ) ) {
-            $this->render_payment_info( $settlement );
-        }
-
-        // Approver note
-        if ( ! empty( $settlement['approver_note'] ) ) {
-            echo '<div style="margin-top:15px;padding:15px;background:#fff3cd;border-radius:4px;">';
-            echo '<div style="font-weight:600;margin-bottom:5px;">' . esc_html__( 'Note from HR:', 'sfs-hr' ) . '</div>';
-            echo '<div>' . nl2br( esc_html( $settlement['approver_note'] ) ) . '</div>';
-            echo '</div>';
-        }
-
-        echo '</div>'; // settlement-card
-    }
-
-    /**
-     * Render settlement breakdown section
-     *
-     * @param array $settlement Settlement record
-     * @return void
-     */
-    private function render_settlement_breakdown( array $settlement ): void {
-        echo '<div style="background:#f9f9f9;padding:15px;border-radius:4px;margin-top:15px;">';
-        echo '<h4 style="margin-top:0;">' . esc_html__( 'Settlement Breakdown', 'sfs-hr' ) . '</h4>';
-
-        echo '<div style="display:grid;gap:10px;">';
-
-        $this->render_settlement_row( __( 'Basic Salary:', 'sfs-hr' ), number_format( $settlement['basic_salary'], 2 ) );
-        $this->render_settlement_row( __( 'Gratuity Amount:', 'sfs-hr' ), number_format( $settlement['gratuity_amount'], 2 ) );
-        $this->render_settlement_row(
-            __( 'Leave Encashment:', 'sfs-hr' ),
-            number_format( $settlement['leave_encashment'], 2 ) . ' (' . $settlement['unused_leave_days'] . ' ' . __( 'days', 'sfs-hr' ) . ')'
-        );
-        $this->render_settlement_row( __( 'Final Salary:', 'sfs-hr' ), number_format( $settlement['final_salary'], 2 ) );
-        $this->render_settlement_row( __( 'Other Allowances:', 'sfs-hr' ), number_format( $settlement['other_allowances'], 2 ) );
-
-        if ( $settlement['deductions'] > 0 ) {
-            $deduction_text = number_format( $settlement['deductions'], 2 );
-            if ( ! empty( $settlement['deduction_notes'] ) ) {
-                $deduction_text .= '<br><small style="color:#666;">' . esc_html( $settlement['deduction_notes'] ) . '</small>';
-            }
-            $this->render_settlement_row( __( 'Deductions:', 'sfs-hr' ), $deduction_text, true );
-        }
-
-        echo '<div style="border-top:2px solid #ddd;padding-top:10px;margin-top:10px;">';
+        // Card header
+        echo '<div class="sfs-card-body" style="border-bottom:1px solid var(--sfs-border);">';
         echo '<div style="display:flex;justify-content:space-between;align-items:center;">';
-        echo '<strong style="font-size:16px;">' . esc_html__( 'Total Settlement:', 'sfs-hr' ) . '</strong>';
-        echo '<strong style="font-size:18px;color:#0073aa;">' . esc_html( number_format( $settlement['total_settlement'], 2 ) ) . '</strong>';
-        echo '</div>';
-        echo '</div>';
-
-        echo '</div>'; // grid
-        echo '</div>'; // breakdown
-    }
-
-    /**
-     * Render clearance status section
-     *
-     * @param array $settlement Settlement record
-     * @return void
-     */
-    private function render_clearance_status( array $settlement ): void {
-        echo '<div style="margin-top:15px;">';
-        echo '<h4>' . esc_html__( 'Clearance Status', 'sfs-hr' ) . '</h4>';
-        echo '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:10px;">';
-
         echo '<div>';
-        echo '<div style="font-weight:600;margin-bottom:5px;">' . esc_html__( 'Assets:', 'sfs-hr' ) . '</div>';
-        echo $this->settlement_status_badge( $settlement['asset_clearance_status'] );
+        echo '<h3 style="font-size:16px;font-weight:700;color:var(--sfs-text);margin:0;">';
+        echo esc_html__( 'Settlement', 'sfs-hr' ) . ' ';
+        echo esc_html( $ref ?: '#' . $s['id'] );
+        echo '</h3>';
         echo '</div>';
+        echo $badge;
+        echo '</div></div>';
 
-        echo '<div>';
-        echo '<div style="font-weight:600;margin-bottom:5px;">' . esc_html__( 'Documents:', 'sfs-hr' ) . '</div>';
-        echo $this->settlement_status_badge( $settlement['document_clearance_status'] );
-        echo '</div>';
+        // Quick info grid
+        echo '<div class="sfs-card-body" style="border-bottom:1px solid var(--sfs-border);">';
+        echo '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;">';
 
-        echo '<div>';
-        echo '<div style="font-weight:600;margin-bottom:5px;">' . esc_html__( 'Finance:', 'sfs-hr' ) . '</div>';
-        echo $this->settlement_status_badge( $settlement['finance_clearance_status'] );
-        echo '</div>';
+        $this->info_tile( __( 'Last Working Day', 'sfs-hr' ), esc_html( $s['last_working_day'] ) );
+        $this->info_tile( __( 'Years of Service', 'sfs-hr' ), number_format( (float) $s['years_of_service'], 2 ) . ' ' . esc_html__( 'years', 'sfs-hr' ) );
+        $this->info_tile( __( 'Settlement Date', 'sfs-hr' ), esc_html( $s['settlement_date'] ) );
 
-        echo '</div>';
-        echo '</div>';
-    }
+        echo '</div></div>';
 
-    /**
-     * Render payment information section
-     *
-     * @param array $settlement Settlement record
-     * @return void
-     */
-    private function render_payment_info( array $settlement ): void {
-        echo '<div style="background:#d4edda;color:#155724;padding:15px;border-radius:4px;margin-top:15px;">';
-        echo '<div style="font-weight:600;margin-bottom:5px;">' . esc_html__( 'Payment Information', 'sfs-hr' ) . '</div>';
-        echo '<div>' . esc_html__( 'Payment Date:', 'sfs-hr' ) . ' ' . esc_html( $settlement['payment_date'] ) . '</div>';
-        if ( ! empty( $settlement['payment_reference'] ) ) {
-            echo '<div>' . esc_html__( 'Reference:', 'sfs-hr' ) . ' ' . esc_html( $settlement['payment_reference'] ) . '</div>';
-        }
-        echo '</div>';
-    }
+        // Breakdown
+        echo '<div class="sfs-card-body">';
+        echo '<h4 style="font-size:14px;font-weight:700;color:var(--sfs-text);margin:0 0 12px;">' . esc_html__( 'Breakdown', 'sfs-hr' ) . '</h4>';
 
-    /**
-     * Render settlement status badge
-     *
-     * @param string $status Settlement status
-     * @return string HTML for the status badge
-     */
-    private function settlement_status_badge( string $status ): string {
-        $colors = [
-            'pending'  => '#f0ad4e',
-            'approved' => '#5cb85c',
-            'rejected' => '#d9534f',
-            'paid'     => '#0073aa',
-        ];
-
-        $color = $colors[ $status ] ?? '#777';
-        return sprintf(
-            '<span style="background:%s;color:#fff;padding:6px 12px;border-radius:3px;font-size:12px;font-weight:500;">%s</span>',
-            esc_attr( $color ),
-            esc_html( ucfirst( $status ) )
+        $this->amount_row( __( 'Basic Salary', 'sfs-hr' ), $s['basic_salary'] );
+        $this->amount_row( __( 'Gratuity', 'sfs-hr' ), $s['gratuity_amount'] );
+        $this->amount_row(
+            __( 'Leave Encashment', 'sfs-hr' ),
+            $s['leave_encashment'],
+            '(' . (int) $s['unused_leave_days'] . ' ' . __( 'days', 'sfs-hr' ) . ')'
         );
+        $this->amount_row( __( 'Final Salary', 'sfs-hr' ), $s['final_salary'] );
+        $this->amount_row( __( 'Other Allowances', 'sfs-hr' ), $s['other_allowances'] );
+
+        if ( (float) $s['deductions'] > 0 ) {
+            $note = ! empty( $s['deduction_notes'] ) ? $s['deduction_notes'] : '';
+            $this->amount_row( __( 'Deductions', 'sfs-hr' ), $s['deductions'], $note, true );
+        }
+
+        // Total
+        echo '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0 4px;margin-top:8px;border-top:2px solid var(--sfs-border);">';
+        echo '<strong style="font-size:15px;color:var(--sfs-text);">' . esc_html__( 'Total Settlement', 'sfs-hr' ) . '</strong>';
+        echo '<strong style="font-size:18px;color:var(--sfs-primary);">' . esc_html( number_format( $total, 2 ) ) . '</strong>';
+        echo '</div>';
+        echo '</div>';
+
+        // Clearance
+        if ( $s['status'] !== 'pending' ) {
+            echo '<div class="sfs-card-body" style="border-top:1px solid var(--sfs-border);">';
+            echo '<h4 style="font-size:14px;font-weight:700;color:var(--sfs-text);margin:0 0 12px;">' . esc_html__( 'Clearance Status', 'sfs-hr' ) . '</h4>';
+            echo '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;">';
+            $this->clearance_item( __( 'Assets', 'sfs-hr' ), $s['asset_clearance_status'] );
+            $this->clearance_item( __( 'Documents', 'sfs-hr' ), $s['document_clearance_status'] );
+            $this->clearance_item( __( 'Finance', 'sfs-hr' ), $s['finance_clearance_status'] );
+            echo '</div></div>';
+        }
+
+        // Payment info
+        if ( $s['status'] === 'paid' && ! empty( $s['payment_date'] ) ) {
+            echo '<div class="sfs-card-body" style="border-top:1px solid var(--sfs-border);">';
+            echo '<div class="sfs-alert sfs-alert--success" style="margin-bottom:0;">';
+            echo '<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" fill="none" stroke-width="2"/><polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" fill="none" stroke-width="2"/></svg>';
+            echo '<div><strong>' . esc_html__( 'Payment Completed', 'sfs-hr' ) . '</strong><br>';
+            echo esc_html__( 'Date:', 'sfs-hr' ) . ' ' . esc_html( $s['payment_date'] );
+            if ( ! empty( $s['payment_reference'] ) ) {
+                echo ' · ' . esc_html__( 'Ref:', 'sfs-hr' ) . ' ' . esc_html( $s['payment_reference'] );
+            }
+            echo '</div></div></div>';
+        }
+
+        // HR note
+        if ( ! empty( $s['approver_note'] ) ) {
+            echo '<div class="sfs-card-body" style="border-top:1px solid var(--sfs-border);">';
+            echo '<div class="sfs-alert sfs-alert--warning" style="margin-bottom:0;">';
+            echo '<svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" fill="none" stroke-width="2"/></svg>';
+            echo '<div><strong>' . esc_html__( 'Note from HR', 'sfs-hr' ) . '</strong><br>' . nl2br( esc_html( $s['approver_note'] ) ) . '</div>';
+            echo '</div></div>';
+        }
+
+        echo '</div>'; // .sfs-card
     }
 
-    /**
-     * Render a settlement row
-     *
-     * @param string $label      Row label
-     * @param string $value      Row value
-     * @param bool   $allow_html Whether to allow HTML in value
-     * @return void
-     */
-    private function render_settlement_row( string $label, string $value, bool $allow_html = false ): void {
-        echo '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ddd;">';
-        echo '<div style="font-weight:500;">' . esc_html( $label ) . '</div>';
-        if ( $allow_html ) {
-            echo '<div>' . $value . '</div>';
-        } else {
-            echo '<div>' . esc_html( $value ) . '</div>';
-        }
+    private function info_tile( string $label, string $value ): void {
+        echo '<div>';
+        echo '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;color:var(--sfs-text-muted);margin-bottom:4px;">' . esc_html( $label ) . '</div>';
+        echo '<div style="font-size:15px;font-weight:600;color:var(--sfs-text);">' . $value . '</div>';
         echo '</div>';
+    }
+
+    private function amount_row( string $label, $amount, string $note = '', bool $is_deduction = false ): void {
+        $color = $is_deduction ? 'var(--sfs-danger)' : 'var(--sfs-text)';
+        echo '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--sfs-border);font-size:13px;">';
+        echo '<span style="color:var(--sfs-text-muted);">' . esc_html( $label ) . '</span>';
+        echo '<span style="font-weight:600;color:' . $color . ';">';
+        echo ( $is_deduction ? '- ' : '' ) . esc_html( number_format( (float) $amount, 2 ) );
+        if ( $note ) {
+            echo ' <small style="font-weight:400;color:var(--sfs-text-muted);">' . esc_html( $note ) . '</small>';
+        }
+        echo '</span></div>';
+    }
+
+    private function clearance_item( string $label, string $status ): void {
+        echo '<div style="text-align:center;">';
+        echo '<div style="font-size:11px;font-weight:600;color:var(--sfs-text-muted);margin-bottom:6px;">' . esc_html( $label ) . '</div>';
+        echo $this->status_badge( $status );
+        echo '</div>';
+    }
+
+    private function status_badge( string $status ): string {
+        $map = [
+            'pending'  => 'pending',
+            'approved' => 'approved',
+            'rejected' => 'rejected',
+            'paid'     => 'active',
+            'cleared'  => 'approved',
+        ];
+        $class = $map[ $status ] ?? 'pending';
+        return '<span class="sfs-badge sfs-badge--' . esc_attr( $class ) . '">' . esc_html( ucfirst( $status ) ) . '</span>';
     }
 }

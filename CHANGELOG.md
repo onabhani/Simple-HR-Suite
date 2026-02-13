@@ -2,6 +2,196 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.8.0] — 2026-02-13
+
+### Added
+- **Admin Attendance Dashboard Widgets** (§10.3): organization-wide attendance
+  dashboard accessible to HR, GM, and Admin roles.
+  - **Today's Attendance gauge** — semicircle SVG gauge showing attendance rate
+    with on-time (green) vs late (amber) arc segments.
+  - **Summary counters** — Clocked In, Not Clocked In, On Leave/Holiday, Absent
+    with color-coded KPI cards.
+  - **Clock-in method breakdown** — Kiosk, Mobile, Web, Manual counts with icons
+    in a 4-column grid.
+  - **Department attendance bars** — horizontal bar chart showing attendance rate
+    per department with color-coded thresholds (green ≥80%, amber ≥60%, red <60%).
+  - **Calendar heatmap** — period calendar with color-coded cells (high/medium/low
+    attendance) and today highlight. Hover shows detail tooltip.
+  - **Employee status drill-down** — filterable employee list with status chips,
+    clock-in/out times, and hours worked. Desktop table + mobile cards.
+
+- **Frontend Portal for All Roles** (§10.0 Phase 3 & 4): manager, HR, GM, and
+  Admin views added to the frontend portal.
+  - **My Team tab** (Phase 3): team employee list for department managers (scoped
+    to managed departments) with department and status filters. HR/GM/Admin see
+    all employees. Desktop table + mobile card layouts.
+  - **Approvals tab** (Phase 3): pending leave and loan approval queue. Managers
+    see department-level leave requests; HR sees HR-level approvals; GM/Admin see
+    all pending items. Each approval card shows employee info, request details,
+    and inline Approve/Reject buttons with rejection reason prompt.
+  - **Team Attendance tab** (Phase 3): team attendance summary for managers with
+    today's KPI snapshot (present/late/absent/on-leave), period summary with
+    attendance rate, and per-employee breakdown table showing present/late/absent
+    days, average hours, and attendance rate percentage.
+  - **Dashboard tab** (Phase 4): full organization attendance dashboard (§10.3
+    widgets) for HR/GM/Admin roles.
+  - **Employees tab** (Phase 4): employee directory for HR/GM/Admin with search
+    (name, code, email), department/status filters, pagination, and KPI counters
+    (active, terminated, resigned).
+  - Navigation and Tab_Dispatcher updated to enable all Phase 3 & 4 tabs.
+
+### Changed
+- `Tab_Dispatcher` now imports and registers all 9 tab renderers (4 personal +
+  3 team + 2 org).
+- `Navigation::tab_has_renderer()` updated with all Phase 3/4 tab slugs.
+- New CSS components: `.sfs-badge--neutral`, `.sfs-btn--success`, `.sfs-btn--danger`,
+  `.sfs-btn--sm`, `.sfs-chip` filter chips, `.sfs-kpi-grid--4`, dashboard gauge,
+  method breakdown, department bars, calendar heatmap, approval cards, and full
+  dark mode overrides for all new components.
+
+## [0.7.0] — 2026-02-13
+
+### Added
+- **Employee Self-Service UI Redesign** (§10.1): full card-based redesign of all
+  employee portal tabs with a shared design system.
+  - Design system CSS: reusable `.sfs-card`, `.sfs-kpi-grid`, `.sfs-badge`,
+    `.sfs-alert`, `.sfs-form-*`, `.sfs-empty-state`, `.sfs-table`,
+    `.sfs-history-card`, `.sfs-desktop-only` / `.sfs-mobile-only` utilities.
+  - **KPI cards** at the top of Leave, Loans, and Documents tabs with
+    colored icons and at-a-glance metrics.
+  - **Status badges** with consistent color coding across all modules
+    (approved=green, pending=amber, rejected=red, active=blue).
+  - **Empty states** with icons and helpful messaging when no data exists.
+  - **Improved forms**: unified form components (`.sfs-input`, `.sfs-select`,
+    `.sfs-textarea`, `.sfs-btn`) with focus rings and responsive two-column
+    layouts.
+  - **Mobile history cards**: collapsible `<details>` cards replace dense
+    tables on mobile for leave, loans, and resignation history.
+  - **Desktop tables**: redesigned `.sfs-table` with uppercase header labels,
+    hover rows, and cleaner spacing.
+  - Typography hierarchy improvements: bigger headings, clearer section
+    separation, better whitespace throughout.
+  - Enhanced mobile bottom navigation with top-bar active indicator.
+
+- **Leave Balance Visual Cards** (§10.2): redesigned leave balances section.
+  - Color-coded cards per leave type (10-color palette: sky, rose, violet,
+    amber, emerald, indigo, pink, orange, teal, slate).
+  - Circular SVG progress ring showing remaining days.
+  - Three metrics per card: Total Available, Consumed, Applied.
+  - Mini progress bar showing balance usage percentage.
+  - Cards are tappable links that scroll to the request form with the leave
+    type pre-selected.
+
+### Changed
+- **Leave Tab** fully rewritten: KPI strip, balance cards, improved request
+  form, desktop table + mobile card history with approver info and rejection
+  reasons.
+- **Loans Tab** fully rewritten: KPI cards (total borrowed, remaining, active,
+  completed), improved request form with live payment calculator, desktop table
+  + mobile card history with payment schedule.
+- **Resignation Tab** fully rewritten: status alerts for pending/approved
+  resignations, improved submission form with radio toggle for regular vs
+  final exit, desktop table + mobile card history with final exit details.
+- **Settlement Tab** fully rewritten: card-based settlement display with
+  info tiles, line-item breakdown, clearance status grid, payment completion
+  alert, and HR notes.
+- **Documents Tab** fully rewritten: KPI strip (total/types/missing), missing
+  documents alert, improved upload form using design system, card-based
+  document library grouped by type with status badges.
+- **Overview Tab** enhanced via CSS: improved typography for profile header,
+  field rows, profile grid, assets section, completion bar, and chips.
+- All dark mode selectors automatically apply to new design system components
+  via CSS variable inheritance.
+
+## [0.6.0] — 2026-02-13
+
+### Added
+- **Frontend Portal Framework** (§10.0 Phase 1): role-based navigation foundation
+  for the unified frontend portal.
+  - `Role_Resolver` service: detects user's highest portal role (admin, gm, hr,
+    manager, employee, trainee) from capabilities, options, and department
+    manager assignments.
+  - `Navigation` registry: centralized tab definitions with role-based filtering,
+    section grouping (personal/team/org/system), and conditional visibility
+    (limited access, settlements, self-clock). Renders both desktop sidebar and
+    mobile bottom bar from a single source of truth.
+  - `Tab_Dispatcher`: routes tab rendering to dedicated Tab classes, with
+    extensible `register()` method for future Phase 3/4 tabs.
+  - **Desktop sidebar navigation**: icon + label sidebar on screens ≥768px with
+    section dividers, active state highlighting, and sticky positioning.
+  - **Mobile "More" menu**: overflow tabs shown in a popup menu when more than
+    5 tabs are available, with smart active-tab swapping.
+  - Tab validation: active tab is checked against the user's permitted tabs;
+    unauthorized tabs fall back to overview.
+  - `data-role` attribute on the app shell for role-based CSS targeting.
+  - Full dark mode and RTL support for sidebar and more menu.
+
+### Changed
+- Shortcodes entry point (`my_profile`) refactored to use Navigation registry
+  and Tab_Dispatcher instead of hardcoded tab HTML and if/elseif routing.
+  All existing tabs continue to work exactly as before.
+
+## [0.5.5] — 2026-02-12
+
+### Added
+- **System brochure** (`docs/Simple-HR-Suite-Brochure.md`): marketing-style
+  documentation covering all 17 modules — employee management, attendance,
+  leave, payroll, loans, performance, hiring, exit & settlement, assets,
+  documents, shift swap, celebrations, workforce status, reports, self-service
+  portal, audit trail, and mobile/offline capabilities. Designed for customer
+  presentations during implementation (§6.1).
+
+## [0.5.4] — 2026-02-12
+
+### Fixed
+- **Loans dashboard widget**: replaced hardcoded `Y-m-01` with
+  `AttendanceModule::get_current_period()` so "this period" loan count
+  respects custom attendance periods (e.g. 25th-to-25th).
+- **Performance Calculator defaults**: three methods (`calculate_overall_score`,
+  `get_performance_ranking`, `get_departments_summary`) now default to the
+  configured attendance period instead of hardcoded calendar boundaries.
+
+### Added
+- **Period comparison on Performance Dashboard**: summary cards now show a
+  delta indicator (▲/▼) comparing the current period average to the previous
+  period. Department table gains a "Prev Period" column with per-department
+  deltas. A "Previous Period" quick-nav button lets admins jump back one period.
+- `AttendanceModule::get_previous_period()` — computes the period immediately
+  before the current one.
+- `AttendanceModule::format_period_label()` — returns human-readable labels
+  like "February 2026" or "Jan 25 – Feb 24, 2026".
+
+## [0.5.3] — 2026-02-12
+
+### Added
+- **Employee language preference**: new "Language" field on employee profile
+  (edit & view mode) with English, Arabic, Filipino, Urdu options.
+  Saving syncs to the linked WordPress user's locale.
+- **Locale-aware email notifications**: all system emails (leave, attendance,
+  loans, resignation, shift swap, payroll, reminders) now switch to the
+  recipient's preferred language before building subject and body text.
+  Uses `switch_to_locale()` + JSON translation reload so `__()` calls
+  resolve in the correct language per recipient.
+- Helper methods: `Helpers::get_available_languages()`,
+  `Helpers::get_locale_for_email()`, `Helpers::send_mail_localized()`,
+  `Helpers::reload_json_translations()`.
+
+## [0.5.2] — 2026-02-12
+
+### Fixed
+- **Translation race condition**: language now auto-detected from WordPress locale
+  (no longer defaults to English). After async translations load, dynamic elements
+  (status chip, hints, button labels) are re-rendered so they always show the
+  correct language.
+
+### Added
+- **Employee clock-in map**: interactive Leaflet/OpenStreetMap mini-map on the
+  self-service attendance widget showing the geofence circle and the employee's
+  live GPS position (blue dot). Only shown when shift has geofence coordinates.
+- **Admin shift location map**: interactive map picker in the shift edit form.
+  Click to set location, drag marker to adjust, radius circle updates live.
+  Replaces the need to manually enter lat/lng coordinates.
+
 ## [0.5.1] — 2026-02-12
 
 ### Fixed

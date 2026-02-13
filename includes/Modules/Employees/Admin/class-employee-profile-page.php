@@ -209,6 +209,7 @@ class Employee_Profile_Page {
     $dl_has          = ! empty( $emp['driving_license_has'] );
     $dl_number       = $emp['driving_license_number'] ?? '';
     $dl_expiry       = $emp['driving_license_expiry'] ?? '';
+    $language        = $emp['language'] ?? '';
 
     // QR data
     $qr_token   = \SFS\HR\Core\Admin::ensure_qr_token( (int) $emp['id'] );
@@ -473,6 +474,7 @@ class Employee_Profile_Page {
                 <tr><th><?php esc_html_e( 'Marital status', 'sfs-hr' ); ?></th><td><?php $ms = strtolower( (string) $marital_status ); ?><select name="marital_status"><option value=""><?php esc_html_e( '— Select —', 'sfs-hr' ); ?></option><option value="single" <?php selected( $ms, 'single' ); ?>><?php esc_html_e( 'Single', 'sfs-hr' ); ?></option><option value="married" <?php selected( $ms, 'married' ); ?>><?php esc_html_e( 'Married', 'sfs-hr' ); ?></option><option value="divorced" <?php selected( $ms, 'divorced' ); ?>><?php esc_html_e( 'Divorced', 'sfs-hr' ); ?></option><option value="widowed" <?php selected( $ms, 'widowed' ); ?>><?php esc_html_e( 'Widowed', 'sfs-hr' ); ?></option></select></td></tr>
                 <tr><th><?php esc_html_e( 'Date of birth', 'sfs-hr' ); ?></th><td><input type="date" name="birth_date" class="regular-text sfs-hr-date" value="<?php echo esc_attr( $birth_date ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Work location', 'sfs-hr' ); ?></th><td><input type="text" name="work_location" class="regular-text" value="<?php echo esc_attr( $work_location ); ?>" /></td></tr>
+                <tr><th><?php esc_html_e( 'Language', 'sfs-hr' ); ?></th><td><?php $lang_options = Helpers::get_available_languages(); ?><select name="language"><option value=""><?php esc_html_e( '— Site default —', 'sfs-hr' ); ?></option><?php foreach ( $lang_options as $lang_code => $lang_label ) : ?><option value="<?php echo esc_attr( $lang_code ); ?>" <?php selected( $language, $lang_code ); ?>><?php echo esc_html( $lang_label ); ?></option><?php endforeach; ?></select><p class="description"><?php esc_html_e( 'Sets the employee\'s preferred language for emails and their WordPress profile.', 'sfs-hr' ); ?></p></td></tr>
                 <tr><th><?php esc_html_e( 'Emergency contact name', 'sfs-hr' ); ?></th><td><input type="text" name="emergency_contact_name" class="regular-text" value="<?php echo esc_attr( $emg_name ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Emergency contact phone', 'sfs-hr' ); ?></th><td><input type="text" name="emergency_contact_phone" class="regular-text" value="<?php echo esc_attr( $emg_phone ); ?>" /></td></tr>
             </tbody></table></div>
@@ -595,6 +597,7 @@ class Employee_Profile_Page {
                 <tr><th><?php esc_html_e( 'Marital status', 'sfs-hr' ); ?></th><td><?php echo $marital_status ? esc_html( ucfirst( $marital_status ) ) : '—'; ?></td></tr>
                 <tr><th><?php esc_html_e( 'Date of birth', 'sfs-hr' ); ?></th><td><?php echo $fmt_date( $birth_date ); ?></td></tr>
                 <tr><th><?php esc_html_e( 'Work location', 'sfs-hr' ); ?></th><td><?php echo $fmt_val( $work_location ); ?></td></tr>
+                <tr><th><?php esc_html_e( 'Language', 'sfs-hr' ); ?></th><td><?php $lang_options = Helpers::get_available_languages(); echo $language && isset( $lang_options[ $language ] ) ? esc_html( $lang_options[ $language ] ) : esc_html__( 'Site default', 'sfs-hr' ); ?></td></tr>
                 <?php if ( $first_name_ar || $last_name_ar ) : ?><tr><th><?php esc_html_e( 'Arabic name', 'sfs-hr' ); ?></th><td dir="rtl"><?php echo esc_html( trim( $first_name_ar . ' ' . $last_name_ar ) ); ?></td></tr><?php endif; ?>
             </tbody></table></div>
 

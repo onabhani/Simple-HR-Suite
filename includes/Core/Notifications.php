@@ -168,53 +168,51 @@ class Notifications {
 
         // Notify manager
         if ( $settings['manager_notification'] && $leave->manager_email ) {
-            $subject = sprintf(
-                __( '[Leave Request] %s has requested %s leave', 'sfs-hr' ),
-                $leave->employee_name,
-                $leave->leave_type_name
-            );
-
-            $message = self::get_email_template( 'leave_request_to_manager', [
-                'manager_name'   => $leave->manager_name,
-                'employee_name'  => $leave->employee_name,
-                'employee_code'  => $leave->employee_code,
-                'leave_type'     => $leave->leave_type_name,
-                'start_date'     => wp_date( 'F j, Y', strtotime( $leave->start_date ) ),
-                'end_date'       => wp_date( 'F j, Y', strtotime( $leave->end_date ) ),
-                'days'           => $leave->days,
-                'reason'         => $leave->reason ?: __( 'No reason provided', 'sfs-hr' ),
-                'review_url'     => admin_url( 'admin.php?page=sfs-hr-leave&tab=pending' ),
-            ] );
-
-            // Get manager user_id for preference check
-            $manager_user_id = 0;
-            if ( isset( $leave->manager_user_id ) ) {
-                $manager_user_id = (int) $leave->manager_user_id;
-            }
-            self::send_notification( $leave->manager_email, $subject, $message, $leave->manager_phone, $manager_user_id, 'leave_request_created' );
+            $manager_user_id = isset( $leave->manager_user_id ) ? (int) $leave->manager_user_id : 0;
+            self::send_notification_localized( $leave->manager_email, function () use ( $leave ) {
+                return [
+                    'subject' => sprintf(
+                        __( '[Leave Request] %s has requested %s leave', 'sfs-hr' ),
+                        $leave->employee_name,
+                        $leave->leave_type_name
+                    ),
+                    'message' => self::get_email_template( 'leave_request_to_manager', [
+                        'manager_name'   => $leave->manager_name,
+                        'employee_name'  => $leave->employee_name,
+                        'employee_code'  => $leave->employee_code,
+                        'leave_type'     => $leave->leave_type_name,
+                        'start_date'     => wp_date( 'F j, Y', strtotime( $leave->start_date ) ),
+                        'end_date'       => wp_date( 'F j, Y', strtotime( $leave->end_date ) ),
+                        'days'           => $leave->days,
+                        'reason'         => $leave->reason ?: __( 'No reason provided', 'sfs-hr' ),
+                        'review_url'     => admin_url( 'admin.php?page=sfs-hr-leave&tab=pending' ),
+                    ] ),
+                ];
+            }, $leave->manager_phone, $manager_user_id, 'leave_request_created' );
         }
 
         // Notify HR
         if ( $settings['hr_notification'] && ! empty( $settings['hr_emails'] ) ) {
-            $subject = sprintf(
-                __( '[Leave Request] New leave request from %s', 'sfs-hr' ),
-                $leave->employee_name
-            );
-
-            $message = self::get_email_template( 'leave_request_to_hr', [
-                'employee_name'  => $leave->employee_name,
-                'employee_code'  => $leave->employee_code,
-                'department'     => $leave->department_name ?: __( 'N/A', 'sfs-hr' ),
-                'leave_type'     => $leave->leave_type_name,
-                'start_date'     => wp_date( 'F j, Y', strtotime( $leave->start_date ) ),
-                'end_date'       => wp_date( 'F j, Y', strtotime( $leave->end_date ) ),
-                'days'           => $leave->days,
-                'reason'         => $leave->reason ?: __( 'No reason provided', 'sfs-hr' ),
-                'review_url'     => admin_url( 'admin.php?page=sfs-hr-leave&tab=pending' ),
-            ] );
-
             foreach ( $settings['hr_emails'] as $hr_email ) {
-                self::send_notification( $hr_email, $subject, $message, '', 0, 'leave_request_created' );
+                self::send_notification_localized( $hr_email, function () use ( $leave ) {
+                    return [
+                        'subject' => sprintf(
+                            __( '[Leave Request] New leave request from %s', 'sfs-hr' ),
+                            $leave->employee_name
+                        ),
+                        'message' => self::get_email_template( 'leave_request_to_hr', [
+                            'employee_name'  => $leave->employee_name,
+                            'employee_code'  => $leave->employee_code,
+                            'department'     => $leave->department_name ?: __( 'N/A', 'sfs-hr' ),
+                            'leave_type'     => $leave->leave_type_name,
+                            'start_date'     => wp_date( 'F j, Y', strtotime( $leave->start_date ) ),
+                            'end_date'       => wp_date( 'F j, Y', strtotime( $leave->end_date ) ),
+                            'days'           => $leave->days,
+                            'reason'         => $leave->reason ?: __( 'No reason provided', 'sfs-hr' ),
+                            'review_url'     => admin_url( 'admin.php?page=sfs-hr-leave&tab=pending' ),
+                        ] ),
+                    ];
+                }, '', 0, 'leave_request_created' );
             }
         }
     }
@@ -244,61 +242,64 @@ class Notifications {
         }
 
         if ( $new_status === 'approved' && $settings['notify_leave_approved'] ) {
-            $subject = sprintf(
-                __( '[Leave Approved] Your %s leave request has been approved', 'sfs-hr' ),
-                $leave->leave_type_name
-            );
-
-            $message = self::get_email_template( 'leave_approved_to_employee', [
-                'employee_name' => $leave->employee_name,
-                'leave_type'    => $leave->leave_type_name,
-                'start_date'    => wp_date( 'F j, Y', strtotime( $leave->start_date ) ),
-                'end_date'      => wp_date( 'F j, Y', strtotime( $leave->end_date ) ),
-                'days'          => $leave->days,
-                'approved_by'   => wp_get_current_user()->display_name,
-            ] );
-
             $employee_user_id = isset( $leave->employee_user_id ) ? (int) $leave->employee_user_id : 0;
-            self::send_notification( $leave->employee_email, $subject, $message, $leave->employee_phone, $employee_user_id, 'leave_approved' );
+            self::send_notification_localized( $leave->employee_email, function () use ( $leave ) {
+                return [
+                    'subject' => sprintf(
+                        __( '[Leave Approved] Your %s leave request has been approved', 'sfs-hr' ),
+                        $leave->leave_type_name
+                    ),
+                    'message' => self::get_email_template( 'leave_approved_to_employee', [
+                        'employee_name' => $leave->employee_name,
+                        'leave_type'    => $leave->leave_type_name,
+                        'start_date'    => wp_date( 'F j, Y', strtotime( $leave->start_date ) ),
+                        'end_date'      => wp_date( 'F j, Y', strtotime( $leave->end_date ) ),
+                        'days'          => $leave->days,
+                        'approved_by'   => wp_get_current_user()->display_name,
+                    ] ),
+                ];
+            }, $leave->employee_phone, $employee_user_id, 'leave_approved' );
 
         } elseif ( $new_status === 'rejected' && $settings['notify_leave_rejected'] ) {
-            $subject = sprintf(
-                __( '[Leave Declined] Your %s leave request has been declined', 'sfs-hr' ),
-                $leave->leave_type_name
-            );
-
-            $message = self::get_email_template( 'leave_rejected_to_employee', [
-                'employee_name'    => $leave->employee_name,
-                'leave_type'       => $leave->leave_type_name,
-                'start_date'       => wp_date( 'F j, Y', strtotime( $leave->start_date ) ),
-                'end_date'         => wp_date( 'F j, Y', strtotime( $leave->end_date ) ),
-                'days'             => $leave->days,
-                'rejected_by'      => wp_get_current_user()->display_name,
-                'rejection_reason' => $leave->rejection_reason ?: __( 'No reason provided', 'sfs-hr' ),
-            ] );
-
             $employee_user_id = isset( $leave->employee_user_id ) ? (int) $leave->employee_user_id : 0;
-            self::send_notification( $leave->employee_email, $subject, $message, $leave->employee_phone, $employee_user_id, 'leave_rejected' );
+            self::send_notification_localized( $leave->employee_email, function () use ( $leave ) {
+                return [
+                    'subject' => sprintf(
+                        __( '[Leave Declined] Your %s leave request has been declined', 'sfs-hr' ),
+                        $leave->leave_type_name
+                    ),
+                    'message' => self::get_email_template( 'leave_rejected_to_employee', [
+                        'employee_name'    => $leave->employee_name,
+                        'leave_type'       => $leave->leave_type_name,
+                        'start_date'       => wp_date( 'F j, Y', strtotime( $leave->start_date ) ),
+                        'end_date'         => wp_date( 'F j, Y', strtotime( $leave->end_date ) ),
+                        'days'             => $leave->days,
+                        'rejected_by'      => wp_get_current_user()->display_name,
+                        'rejection_reason' => $leave->rejection_reason ?: __( 'No reason provided', 'sfs-hr' ),
+                    ] ),
+                ];
+            }, $leave->employee_phone, $employee_user_id, 'leave_rejected' );
 
         } elseif ( $new_status === 'cancelled' && $settings['notify_leave_cancelled'] ) {
             // Notify manager about cancellation
             if ( $settings['manager_notification'] && $leave->manager_email ) {
-                $subject = sprintf(
-                    __( '[Leave Cancelled] %s has cancelled their leave request', 'sfs-hr' ),
-                    $leave->employee_name
-                );
-
-                $message = self::get_email_template( 'leave_cancelled_to_manager', [
-                    'manager_name'  => $leave->manager_name,
-                    'employee_name' => $leave->employee_name,
-                    'leave_type'    => $leave->leave_type_name,
-                    'start_date'    => wp_date( 'F j, Y', strtotime( $leave->start_date ) ),
-                    'end_date'      => wp_date( 'F j, Y', strtotime( $leave->end_date ) ),
-                    'days'          => $leave->days,
-                ] );
-
                 $manager_user_id = isset( $leave->manager_user_id ) ? (int) $leave->manager_user_id : 0;
-                self::send_notification( $leave->manager_email, $subject, $message, '', $manager_user_id, 'leave_cancelled' );
+                self::send_notification_localized( $leave->manager_email, function () use ( $leave ) {
+                    return [
+                        'subject' => sprintf(
+                            __( '[Leave Cancelled] %s has cancelled their leave request', 'sfs-hr' ),
+                            $leave->employee_name
+                        ),
+                        'message' => self::get_email_template( 'leave_cancelled_to_manager', [
+                            'manager_name'  => $leave->manager_name,
+                            'employee_name' => $leave->employee_name,
+                            'leave_type'    => $leave->leave_type_name,
+                            'start_date'    => wp_date( 'F j, Y', strtotime( $leave->start_date ) ),
+                            'end_date'      => wp_date( 'F j, Y', strtotime( $leave->end_date ) ),
+                            'days'          => $leave->days,
+                        ] ),
+                    ];
+                }, '', $manager_user_id, 'leave_cancelled' );
             }
         }
     }
@@ -340,24 +341,25 @@ class Notifications {
 
         // Notify manager
         if ( $settings['manager_notification'] && $employee->manager_email ) {
-            $subject = sprintf(
-                __( '[Late Arrival] %s arrived %d minutes late', 'sfs-hr' ),
-                $employee->full_name,
-                $minutes_late
-            );
-
-            $message = self::get_email_template( 'late_arrival_to_manager', [
-                'manager_name'  => $employee->manager_name,
-                'employee_name' => $employee->full_name,
-                'employee_code' => $employee->employee_code,
-                'date'          => wp_date( 'F j, Y' ),
-                'expected_time' => $data['expected_time'] ?? 'N/A',
-                'actual_time'   => $data['actual_time'] ?? 'N/A',
-                'minutes_late'  => $minutes_late,
-            ] );
-
             $manager_user_id = isset( $employee->manager_user_id ) ? (int) $employee->manager_user_id : 0;
-            self::send_notification( $employee->manager_email, $subject, $message, '', $manager_user_id, 'late_arrival' );
+            self::send_notification_localized( $employee->manager_email, function () use ( $employee, $data, $minutes_late ) {
+                return [
+                    'subject' => sprintf(
+                        __( '[Late Arrival] %s arrived %d minutes late', 'sfs-hr' ),
+                        $employee->full_name,
+                        $minutes_late
+                    ),
+                    'message' => self::get_email_template( 'late_arrival_to_manager', [
+                        'manager_name'  => $employee->manager_name,
+                        'employee_name' => $employee->full_name,
+                        'employee_code' => $employee->employee_code,
+                        'date'          => wp_date( 'F j, Y' ),
+                        'expected_time' => $data['expected_time'] ?? 'N/A',
+                        'actual_time'   => $data['actual_time'] ?? 'N/A',
+                        'minutes_late'  => $minutes_late,
+                    ] ),
+                ];
+            }, '', $manager_user_id, 'late_arrival' );
         }
     }
 
@@ -381,22 +383,23 @@ class Notifications {
 
         // Notify manager
         if ( $settings['manager_notification'] && $employee->manager_email ) {
-            $subject = sprintf(
-                __( '[Early Leave] %s has requested early leave', 'sfs-hr' ),
-                $employee->full_name
-            );
-
-            $message = self::get_email_template( 'early_leave_to_manager', [
-                'manager_name'  => $employee->manager_name,
-                'employee_name' => $employee->full_name,
-                'employee_code' => $employee->employee_code,
-                'date'          => wp_date( 'F j, Y' ),
-                'reason'        => $data['reason'] ?? __( 'No reason provided', 'sfs-hr' ),
-                'review_url'    => admin_url( 'admin.php?page=sfs_hr_attendance&tab=early-leave' ),
-            ] );
-
             $manager_user_id = isset( $employee->manager_user_id ) ? (int) $employee->manager_user_id : 0;
-            self::send_notification( $employee->manager_email, $subject, $message, '', $manager_user_id, 'early_leave' );
+            self::send_notification_localized( $employee->manager_email, function () use ( $employee, $data ) {
+                return [
+                    'subject' => sprintf(
+                        __( '[Early Leave] %s has requested early leave', 'sfs-hr' ),
+                        $employee->full_name
+                    ),
+                    'message' => self::get_email_template( 'early_leave_to_manager', [
+                        'manager_name'  => $employee->manager_name,
+                        'employee_name' => $employee->full_name,
+                        'employee_code' => $employee->employee_code,
+                        'date'          => wp_date( 'F j, Y' ),
+                        'reason'        => $data['reason'] ?? __( 'No reason provided', 'sfs-hr' ),
+                        'review_url'    => admin_url( 'admin.php?page=sfs_hr_attendance&tab=early-leave' ),
+                    ] ),
+                ];
+            }, '', $manager_user_id, 'early_leave' );
         }
     }
 
@@ -422,41 +425,43 @@ class Notifications {
 
         // Notify employee
         if ( $settings['employee_notification'] && $employee->email ) {
-            $subject = sprintf(
-                __( '[No Break Taken] %s – Break is mandatory', 'sfs-hr' ),
-                $employee->full_name
-            );
-
-            $message = sprintf(
-                __( "Dear %s,\n\nYou did not take your scheduled break on %s.\nYour shift requires a %d-minute break which has been automatically deducted from your duty time.\n\nPlease ensure you take your break and record it properly.\n\n---\n%s\nHR Management System", 'sfs-hr' ),
-                $employee->full_name,
-                wp_date( 'F j, Y', strtotime( $data['work_date'] ?? '' ) ),
-                $configured_break,
-                get_bloginfo( 'name' )
-            );
-
-            self::send_notification( $employee->email, $subject, $message, '', $employee->user_id ?? 0, 'no_break_taken' );
+            self::send_notification_localized( $employee->email, function () use ( $employee, $data, $configured_break ) {
+                return [
+                    'subject' => sprintf(
+                        __( '[No Break Taken] %s – Break is mandatory', 'sfs-hr' ),
+                        $employee->full_name
+                    ),
+                    'message' => sprintf(
+                        __( "Dear %s,\n\nYou did not take your scheduled break on %s.\nYour shift requires a %d-minute break which has been automatically deducted from your duty time.\n\nPlease ensure you take your break and record it properly.\n\n---\n%s\nHR Management System", 'sfs-hr' ),
+                        $employee->full_name,
+                        wp_date( 'F j, Y', strtotime( $data['work_date'] ?? '' ) ),
+                        $configured_break,
+                        get_bloginfo( 'name' )
+                    ),
+                ];
+            }, '', $employee->user_id ?? 0, 'no_break_taken' );
         }
 
         // Notify manager
         if ( $settings['manager_notification'] && $employee->manager_email ) {
-            $subject = sprintf(
-                __( '[No Break Taken] %s did not take break', 'sfs-hr' ),
-                $employee->full_name
-            );
-
-            $message = sprintf(
-                __( "Dear %s,\n\n%s (%s) did not take their scheduled %d-minute break on %s.\nThe break time has been automatically deducted from duty hours.\n\n---\n%s\nHR Management System", 'sfs-hr' ),
-                $employee->manager_name,
-                $employee->full_name,
-                $employee->employee_code,
-                $configured_break,
-                wp_date( 'F j, Y', strtotime( $data['work_date'] ?? '' ) ),
-                get_bloginfo( 'name' )
-            );
-
             $manager_user_id = isset( $employee->manager_user_id ) ? (int) $employee->manager_user_id : 0;
-            self::send_notification( $employee->manager_email, $subject, $message, '', $manager_user_id, 'no_break_taken' );
+            self::send_notification_localized( $employee->manager_email, function () use ( $employee, $data, $configured_break ) {
+                return [
+                    'subject' => sprintf(
+                        __( '[No Break Taken] %s did not take break', 'sfs-hr' ),
+                        $employee->full_name
+                    ),
+                    'message' => sprintf(
+                        __( "Dear %s,\n\n%s (%s) did not take their scheduled %d-minute break on %s.\nThe break time has been automatically deducted from duty hours.\n\n---\n%s\nHR Management System", 'sfs-hr' ),
+                        $employee->manager_name,
+                        $employee->full_name,
+                        $employee->employee_code,
+                        $configured_break,
+                        wp_date( 'F j, Y', strtotime( $data['work_date'] ?? '' ) ),
+                        get_bloginfo( 'name' )
+                    ),
+                ];
+            }, '', $manager_user_id, 'no_break_taken' );
         }
     }
 
@@ -484,26 +489,27 @@ class Notifications {
 
         // Notify manager
         if ( $settings['manager_notification'] && $employee->manager_email ) {
-            $subject = sprintf(
-                __( '[Break Delay] %s returned %d minutes late from break', 'sfs-hr' ),
-                $employee->full_name,
-                $delay_minutes
-            );
-
-            $message = sprintf(
-                __( "Dear %s,\n\n%s (%s) exceeded their break time on %s.\n\nConfigured break: %d minutes\nActual break: %d minutes\nDelay: %d minutes\n\nThe extra time has been deducted from duty hours.\n\n---\n%s\nHR Management System", 'sfs-hr' ),
-                $employee->manager_name,
-                $employee->full_name,
-                $employee->employee_code,
-                wp_date( 'F j, Y', strtotime( $data['work_date'] ?? '' ) ),
-                $configured_break,
-                $actual_break,
-                $delay_minutes,
-                get_bloginfo( 'name' )
-            );
-
             $manager_user_id = isset( $employee->manager_user_id ) ? (int) $employee->manager_user_id : 0;
-            self::send_notification( $employee->manager_email, $subject, $message, '', $manager_user_id, 'break_delay' );
+            self::send_notification_localized( $employee->manager_email, function () use ( $employee, $data, $configured_break, $actual_break, $delay_minutes ) {
+                return [
+                    'subject' => sprintf(
+                        __( '[Break Delay] %s returned %d minutes late from break', 'sfs-hr' ),
+                        $employee->full_name,
+                        $delay_minutes
+                    ),
+                    'message' => sprintf(
+                        __( "Dear %s,\n\n%s (%s) exceeded their break time on %s.\n\nConfigured break: %d minutes\nActual break: %d minutes\nDelay: %d minutes\n\nThe extra time has been deducted from duty hours.\n\n---\n%s\nHR Management System", 'sfs-hr' ),
+                        $employee->manager_name,
+                        $employee->full_name,
+                        $employee->employee_code,
+                        wp_date( 'F j, Y', strtotime( $data['work_date'] ?? '' ) ),
+                        $configured_break,
+                        $actual_break,
+                        $delay_minutes,
+                        get_bloginfo( 'name' )
+                    ),
+                ];
+            }, '', $manager_user_id, 'break_delay' );
         }
     }
 
@@ -527,43 +533,45 @@ class Notifications {
 
         // Notify HR
         if ( $settings['hr_notification'] && ! empty( $settings['hr_emails'] ) ) {
-            $subject = sprintf(
-                __( '[New Employee] %s has been added to the system', 'sfs-hr' ),
-                $employee->full_name
-            );
-
-            $message = self::get_email_template( 'new_employee_to_hr', [
-                'employee_name' => $employee->full_name,
-                'employee_code' => $employee->employee_code,
-                'department'    => $employee->department_name ?: __( 'N/A', 'sfs-hr' ),
-                'job_title'     => $employee->job_title ?: __( 'N/A', 'sfs-hr' ),
-                'hire_date'     => $employee->hire_date ? wp_date( 'F j, Y', strtotime( $employee->hire_date ) ) : __( 'N/A', 'sfs-hr' ),
-                'view_url'      => admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . $employee_id ),
-            ] );
-
             foreach ( $settings['hr_emails'] as $hr_email ) {
-                self::send_notification( $hr_email, $subject, $message, '', 0, 'new_employee' );
+                self::send_notification_localized( $hr_email, function () use ( $employee, $employee_id ) {
+                    return [
+                        'subject' => sprintf(
+                            __( '[New Employee] %s has been added to the system', 'sfs-hr' ),
+                            $employee->full_name
+                        ),
+                        'message' => self::get_email_template( 'new_employee_to_hr', [
+                            'employee_name' => $employee->full_name,
+                            'employee_code' => $employee->employee_code,
+                            'department'    => $employee->department_name ?: __( 'N/A', 'sfs-hr' ),
+                            'job_title'     => $employee->job_title ?: __( 'N/A', 'sfs-hr' ),
+                            'hire_date'     => $employee->hire_date ? wp_date( 'F j, Y', strtotime( $employee->hire_date ) ) : __( 'N/A', 'sfs-hr' ),
+                            'view_url'      => admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . $employee_id ),
+                        ] ),
+                    ];
+                }, '', 0, 'new_employee' );
             }
         }
 
         // Notify manager
         if ( $settings['manager_notification'] && $employee->manager_email ) {
-            $subject = sprintf(
-                __( '[New Team Member] %s has joined your team', 'sfs-hr' ),
-                $employee->full_name
-            );
-
-            $message = self::get_email_template( 'new_employee_to_manager', [
-                'manager_name'  => $employee->manager_name,
-                'employee_name' => $employee->full_name,
-                'employee_code' => $employee->employee_code,
-                'job_title'     => $employee->job_title ?: __( 'N/A', 'sfs-hr' ),
-                'hire_date'     => $employee->hire_date ? wp_date( 'F j, Y', strtotime( $employee->hire_date ) ) : __( 'N/A', 'sfs-hr' ),
-                'view_url'      => admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . $employee_id ),
-            ] );
-
             $manager_user_id = isset( $employee->manager_user_id ) ? (int) $employee->manager_user_id : 0;
-            self::send_notification( $employee->manager_email, $subject, $message, '', $manager_user_id, 'new_employee' );
+            self::send_notification_localized( $employee->manager_email, function () use ( $employee, $employee_id ) {
+                return [
+                    'subject' => sprintf(
+                        __( '[New Team Member] %s has joined your team', 'sfs-hr' ),
+                        $employee->full_name
+                    ),
+                    'message' => self::get_email_template( 'new_employee_to_manager', [
+                        'manager_name'  => $employee->manager_name,
+                        'employee_name' => $employee->full_name,
+                        'employee_code' => $employee->employee_code,
+                        'job_title'     => $employee->job_title ?: __( 'N/A', 'sfs-hr' ),
+                        'hire_date'     => $employee->hire_date ? wp_date( 'F j, Y', strtotime( $employee->hire_date ) ) : __( 'N/A', 'sfs-hr' ),
+                        'view_url'      => admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . $employee_id ),
+                    ] ),
+                ];
+            }, '', $manager_user_id, 'new_employee' );
         }
     }
 
@@ -584,14 +592,15 @@ class Notifications {
             return;
         }
 
-        $subject = __( '🎂 Happy Birthday from the HR Team!', 'sfs-hr' );
-
-        $message = self::get_email_template( 'birthday_to_employee', [
-            'employee_name' => $employee->full_name,
-        ] );
-
         $employee_user_id = isset( $employee->user_id ) ? (int) $employee->user_id : 0;
-        self::send_notification( $employee->email, $subject, $message, $employee->phone, $employee_user_id, 'birthday' );
+        self::send_notification_localized( $employee->email, function () use ( $employee ) {
+            return [
+                'subject' => __( '🎂 Happy Birthday from the HR Team!', 'sfs-hr' ),
+                'message' => self::get_email_template( 'birthday_to_employee', [
+                    'employee_name' => $employee->full_name,
+                ] ),
+            ];
+        }, $employee->phone, $employee_user_id, 'birthday' );
     }
 
     /**
@@ -614,38 +623,40 @@ class Notifications {
 
         // Notify employee
         if ( $employee->email ) {
-            $subject = sprintf(
-                __( '🎉 Congratulations on %d years with us!', 'sfs-hr' ),
-                $years
-            );
-
-            $message = self::get_email_template( 'anniversary_to_employee', [
-                'employee_name' => $employee->full_name,
-                'years'         => $years,
-            ] );
-
             $employee_user_id = isset( $employee->user_id ) ? (int) $employee->user_id : 0;
-            self::send_notification( $employee->email, $subject, $message, $employee->phone, $employee_user_id, 'anniversary' );
+            self::send_notification_localized( $employee->email, function () use ( $employee, $years ) {
+                return [
+                    'subject' => sprintf(
+                        __( '🎉 Congratulations on %d years with us!', 'sfs-hr' ),
+                        $years
+                    ),
+                    'message' => self::get_email_template( 'anniversary_to_employee', [
+                        'employee_name' => $employee->full_name,
+                        'years'         => $years,
+                    ] ),
+                ];
+            }, $employee->phone, $employee_user_id, 'anniversary' );
         }
 
         // Notify HR
         if ( $settings['hr_notification'] && ! empty( $settings['hr_emails'] ) ) {
-            $subject = sprintf(
-                __( '[Work Anniversary] %s completes %d years', 'sfs-hr' ),
-                $employee->full_name,
-                $years
-            );
-
-            $message = self::get_email_template( 'anniversary_to_hr', [
-                'employee_name' => $employee->full_name,
-                'employee_code' => $employee->employee_code,
-                'department'    => $employee->department_name ?: __( 'N/A', 'sfs-hr' ),
-                'years'         => $years,
-                'hire_date'     => $employee->hire_date ? wp_date( 'F j, Y', strtotime( $employee->hire_date ) ) : __( 'N/A', 'sfs-hr' ),
-            ] );
-
             foreach ( $settings['hr_emails'] as $hr_email ) {
-                self::send_notification( $hr_email, $subject, $message, '', 0, 'anniversary' );
+                self::send_notification_localized( $hr_email, function () use ( $employee, $years ) {
+                    return [
+                        'subject' => sprintf(
+                            __( '[Work Anniversary] %s completes %d years', 'sfs-hr' ),
+                            $employee->full_name,
+                            $years
+                        ),
+                        'message' => self::get_email_template( 'anniversary_to_hr', [
+                            'employee_name' => $employee->full_name,
+                            'employee_code' => $employee->employee_code,
+                            'department'    => $employee->department_name ?: __( 'N/A', 'sfs-hr' ),
+                            'years'         => $years,
+                            'hire_date'     => $employee->hire_date ? wp_date( 'F j, Y', strtotime( $employee->hire_date ) ) : __( 'N/A', 'sfs-hr' ),
+                        ] ),
+                    ];
+                }, '', 0, 'anniversary' );
             }
         }
     }
@@ -670,23 +681,24 @@ class Notifications {
 
         // Notify HR
         if ( $settings['hr_notification'] && ! empty( $settings['hr_emails'] ) ) {
-            $subject = sprintf(
-                __( '[Contract Expiry] %s contract expires in %d days', 'sfs-hr' ),
-                $employee->full_name,
-                $days_until
-            );
-
-            $message = self::get_email_template( 'contract_expiry_to_hr', [
-                'employee_name' => $employee->full_name,
-                'employee_code' => $employee->employee_code,
-                'department'    => $employee->department_name ?: __( 'N/A', 'sfs-hr' ),
-                'days_until'    => $days_until,
-                'expiry_date'   => $employee->contract_end ? wp_date( 'F j, Y', strtotime( $employee->contract_end ) ) : __( 'N/A', 'sfs-hr' ),
-                'view_url'      => admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . $employee_id ),
-            ] );
-
             foreach ( $settings['hr_emails'] as $hr_email ) {
-                self::send_notification( $hr_email, $subject, $message, '', 0, 'contract_expiry' );
+                self::send_notification_localized( $hr_email, function () use ( $employee, $employee_id, $days_until ) {
+                    return [
+                        'subject' => sprintf(
+                            __( '[Contract Expiry] %s contract expires in %d days', 'sfs-hr' ),
+                            $employee->full_name,
+                            $days_until
+                        ),
+                        'message' => self::get_email_template( 'contract_expiry_to_hr', [
+                            'employee_name' => $employee->full_name,
+                            'employee_code' => $employee->employee_code,
+                            'department'    => $employee->department_name ?: __( 'N/A', 'sfs-hr' ),
+                            'days_until'    => $days_until,
+                            'expiry_date'   => $employee->contract_end ? wp_date( 'F j, Y', strtotime( $employee->contract_end ) ) : __( 'N/A', 'sfs-hr' ),
+                            'view_url'      => admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . $employee_id ),
+                        ] ),
+                    ];
+                }, '', 0, 'contract_expiry' );
             }
         }
     }
@@ -722,23 +734,24 @@ class Notifications {
             return;
         }
 
-        $subject = sprintf(
-            __( '[Probation Review] %s probation period ends in %d days', 'sfs-hr' ),
-            $employee->full_name,
-            $days_until
-        );
-
-        $message = self::get_email_template( 'probation_end_notice', [
-            'employee_name' => $employee->full_name,
-            'employee_code' => $employee->employee_code,
-            'department'    => $employee->department_name ?: __( 'N/A', 'sfs-hr' ),
-            'days_until'    => $days_until,
-            'hire_date'     => $employee->hire_date ? wp_date( 'F j, Y', strtotime( $employee->hire_date ) ) : __( 'N/A', 'sfs-hr' ),
-            'view_url'      => admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . $employee_id ),
-        ] );
-
         foreach ( array_unique( $recipients ) as $email ) {
-            self::send_notification( $email, $subject, $message, '', 0, 'probation_end' );
+            self::send_notification_localized( $email, function () use ( $employee, $employee_id, $days_until ) {
+                return [
+                    'subject' => sprintf(
+                        __( '[Probation Review] %s probation period ends in %d days', 'sfs-hr' ),
+                        $employee->full_name,
+                        $days_until
+                    ),
+                    'message' => self::get_email_template( 'probation_end_notice', [
+                        'employee_name' => $employee->full_name,
+                        'employee_code' => $employee->employee_code,
+                        'department'    => $employee->department_name ?: __( 'N/A', 'sfs-hr' ),
+                        'days_until'    => $days_until,
+                        'hire_date'     => $employee->hire_date ? wp_date( 'F j, Y', strtotime( $employee->hire_date ) ) : __( 'N/A', 'sfs-hr' ),
+                        'view_url'      => admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . $employee_id ),
+                    ] ),
+                ];
+            }, '', 0, 'probation_end' );
         }
     }
 
@@ -757,21 +770,22 @@ class Notifications {
 
         // Notify HR
         if ( $settings['hr_notification'] && ! empty( $settings['hr_emails'] ) ) {
-            $subject = sprintf(
-                __( '[Payroll] Payroll run #%d has been approved', 'sfs-hr' ),
-                $run_id
-            );
-
-            $message = self::get_email_template( 'payroll_approved_to_hr', [
-                'run_id'         => $run_id,
-                'employee_count' => $data['employee_count'] ?? 0,
-                'total_net'      => number_format( (float) ( $data['total_net'] ?? 0 ), 2 ),
-                'approved_by'    => wp_get_current_user()->display_name,
-                'view_url'       => admin_url( 'admin.php?page=sfs-hr-payroll' ),
-            ] );
-
             foreach ( $settings['hr_emails'] as $hr_email ) {
-                self::send_notification( $hr_email, $subject, $message, '', 0, 'payroll_approved' );
+                self::send_notification_localized( $hr_email, function () use ( $run_id, $data ) {
+                    return [
+                        'subject' => sprintf(
+                            __( '[Payroll] Payroll run #%d has been approved', 'sfs-hr' ),
+                            $run_id
+                        ),
+                        'message' => self::get_email_template( 'payroll_approved_to_hr', [
+                            'run_id'         => $run_id,
+                            'employee_count' => $data['employee_count'] ?? 0,
+                            'total_net'      => number_format( (float) ( $data['total_net'] ?? 0 ), 2 ),
+                            'approved_by'    => wp_get_current_user()->display_name,
+                            'view_url'       => admin_url( 'admin.php?page=sfs-hr-payroll' ),
+                        ] ),
+                    ];
+                }, '', 0, 'payroll_approved' );
             }
         }
     }
@@ -798,20 +812,21 @@ class Notifications {
             return;
         }
 
-        $subject = sprintf(
-            __( '[Payslip] Your payslip for %s is ready', 'sfs-hr' ),
-            $data['period_name'] ?? __( 'this period', 'sfs-hr' )
-        );
-
-        $message = self::get_email_template( 'payslip_ready_to_employee', [
-            'employee_name' => $employee->full_name,
-            'period_name'   => $data['period_name'] ?? __( 'this period', 'sfs-hr' ),
-            'net_salary'    => isset( $data['net_salary'] ) ? number_format( (float) $data['net_salary'], 2 ) : 'N/A',
-            'view_url'      => home_url( '/my-profile/?tab=payslips' ),
-        ] );
-
         $employee_user_id = isset( $employee->user_id ) ? (int) $employee->user_id : 0;
-        self::send_notification( $employee->email, $subject, $message, $employee->phone, $employee_user_id, 'payslip_ready' );
+        self::send_notification_localized( $employee->email, function () use ( $employee, $data ) {
+            return [
+                'subject' => sprintf(
+                    __( '[Payslip] Your payslip for %s is ready', 'sfs-hr' ),
+                    $data['period_name'] ?? __( 'this period', 'sfs-hr' )
+                ),
+                'message' => self::get_email_template( 'payslip_ready_to_employee', [
+                    'employee_name' => $employee->full_name,
+                    'period_name'   => $data['period_name'] ?? __( 'this period', 'sfs-hr' ),
+                    'net_salary'    => isset( $data['net_salary'] ) ? number_format( (float) $data['net_salary'], 2 ) : 'N/A',
+                    'view_url'      => home_url( '/my-profile/?tab=payslips' ),
+                ] ),
+            ];
+        }, $employee->phone, $employee_user_id, 'payslip_ready' );
     }
 
     /**
@@ -1515,6 +1530,39 @@ class Notifications {
             $sms_message = wp_strip_all_tags( $message );
             $sms_message = substr( $sms_message, 0, 160 );
             self::send_sms( $phone, $sms_message );
+        }
+    }
+
+    /**
+     * Build email content in the recipient's preferred locale, then send.
+     *
+     * @param string   $email             Recipient email.
+     * @param callable $build             fn() => ['subject' => …, 'message' => …]
+     * @param string   $phone             Optional phone for SMS.
+     * @param int      $user_id           WP user ID for preference checks.
+     * @param string   $notification_type Notification type slug.
+     */
+    private static function send_notification_localized( string $email, callable $build, string $phone = '', int $user_id = 0, string $notification_type = 'general' ): void {
+        $locale   = Helpers::get_locale_for_email( $email );
+        $switched = false;
+
+        if ( $locale && $locale !== get_locale() && function_exists( 'switch_to_locale' ) ) {
+            switch_to_locale( $locale );
+            Helpers::reload_json_translations( $locale );
+            $switched = true;
+        }
+
+        $data    = $build();
+        $subject = $data['subject'] ?? '';
+        $message = $data['message'] ?? '';
+
+        if ( $switched ) {
+            restore_previous_locale();
+            Helpers::reload_json_translations( determine_locale() );
+        }
+
+        if ( $subject && $message ) {
+            self::send_notification( $email, $subject, $message, $phone, $user_id, $notification_type );
         }
     }
 

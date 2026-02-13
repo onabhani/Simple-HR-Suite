@@ -172,6 +172,14 @@ class Admin_Pages {
             .sfs-perf-alert.info { background: #dbeafe; border: 1px solid #3b82f6; }
             .sfs-perf-chart-container { height: 300px; }
 
+            /* Period label */
+            .sfs-perf-period-label { color: #666; margin: 4px 0 0; font-size: 13px; }
+
+            /* Delta indicators */
+            .sfs-perf-delta { display: inline-block; font-size: 12px; font-weight: 600; margin-right: 4px; }
+            .sfs-perf-delta.up { color: #22c55e; }
+            .sfs-perf-delta.down { color: #ef4444; }
+
             /* Distribution dots */
             .sfs-dist-item { white-space: nowrap; margin-right: 6px; }
             .sfs-dist-label { display: none; font-size: 11px; }
@@ -197,6 +205,9 @@ class Admin_Pages {
                 /* Department table: show distribution labels */
                 .sfs-dist-label { display: inline; }
                 .sfs-dist-item { display: inline-block; margin-right: 4px; font-size: 12px; }
+
+                /* Previous period column: hide on mobile */
+                .sfs-prev-col { display: none; }
 
                 /* Ranking table: hide non-essential columns — keep Employee, Grade, Actions */
                 .sfs-ranking-table th:nth-child(1),
@@ -232,17 +243,27 @@ class Admin_Pages {
         $start_date = isset( $_GET['start_date'] ) ? sanitize_text_field( $_GET['start_date'] ) : $att_period['start'];
         $end_date = isset( $_GET['end_date'] ) ? sanitize_text_field( $_GET['end_date'] ) : $att_period['end'];
 
+        // Period labels
+        $current_label = \SFS\HR\Modules\Attendance\AttendanceModule::format_period_label( [ 'start' => $start_date, 'end' => $end_date ] );
+
+        // Previous period for comparison
+        $prev_period = \SFS\HR\Modules\Attendance\AttendanceModule::get_previous_period( $start_date );
+        $prev_label  = \SFS\HR\Modules\Attendance\AttendanceModule::format_period_label( $prev_period );
+
         // Get summary data
         $dept_summary = Performance_Calculator::get_departments_summary( $start_date, $end_date );
         $alerts_stats = Alerts_Service::get_statistics();
         $active_alerts = Alerts_Service::get_active_alerts();
+
+        // Previous period summary for comparison
+        $prev_dept_summary = Performance_Calculator::get_departments_summary( $prev_period['start'], $prev_period['end'] );
 
         // Get employee count
         $emp_count = (int) $wpdb->get_var(
             "SELECT COUNT(*) FROM {$wpdb->prefix}sfs_hr_employees WHERE status = 'active'"
         );
 
-        // Calculate averages
+        // Calculate averages — current period
         $total_avg = 0;
         $dept_with_scores = 0;
         foreach ( $dept_summary as $dept ) {
@@ -253,10 +274,35 @@ class Admin_Pages {
         }
         $company_avg = $dept_with_scores > 0 ? round( $total_avg / $dept_with_scores, 1 ) : 0;
 
+        // Calculate averages — previous period
+        $prev_total_avg = 0;
+        $prev_dept_with_scores = 0;
+        foreach ( $prev_dept_summary as $dept ) {
+            if ( $dept['avg_score'] !== null ) {
+                $prev_total_avg += $dept['avg_score'];
+                $prev_dept_with_scores++;
+            }
+        }
+        $prev_company_avg = $prev_dept_with_scores > 0 ? round( $prev_total_avg / $prev_dept_with_scores, 1 ) : 0;
+
+        // Build previous-period avg-by-dept lookup for comparison column
+        $prev_dept_avg = [];
+        foreach ( $prev_dept_summary as $pd ) {
+            $prev_dept_avg[ $pd['dept_name'] ] = $pd['avg_score'];
+        }
+
+        <?php
+        // Compute company-avg delta
+        $company_delta = ( $prev_company_avg > 0 ) ? round( $company_avg - $prev_company_avg, 1 ) : null;
         ?>
         <div class="wrap sfs-perf-wrap">
             <div class="sfs-perf-header">
-                <h1><?php esc_html_e( 'Performance Dashboard', 'sfs-hr' ); ?></h1>
+                <div>
+                    <h1><?php esc_html_e( 'Performance Dashboard', 'sfs-hr' ); ?></h1>
+                    <p class="sfs-perf-period-label">
+                        <?php echo esc_html( $current_label ); ?>
+                    </p>
+                </div>
                 <form method="get" class="sfs-perf-filters">
                     <input type="hidden" name="page" value="sfs-hr-performance">
                     <label>
@@ -268,6 +314,13 @@ class Admin_Pages {
                         <input type="date" name="end_date" value="<?php echo esc_attr( $end_date ); ?>">
                     </label>
                     <button type="submit" class="button"><?php esc_html_e( 'Apply', 'sfs-hr' ); ?></button>
+                    <a href="<?php echo esc_url( add_query_arg( [
+                        'page'       => 'sfs-hr-performance',
+                        'start_date' => $prev_period['start'],
+                        'end_date'   => $prev_period['end'],
+                    ], admin_url( 'admin.php' ) ) ); ?>" class="button" title="<?php echo esc_attr( $prev_label ); ?>">
+                        &larr; <?php esc_html_e( 'Previous Period', 'sfs-hr' ); ?>
+                    </a>
                 </form>
             </div>
 
@@ -276,7 +329,17 @@ class Admin_Pages {
                 <div class="sfs-perf-card">
                     <h3><?php esc_html_e( 'Company Average', 'sfs-hr' ); ?></h3>
                     <div class="value"><?php echo esc_html( $company_avg ); ?>%</div>
-                    <div class="sub"><?php esc_html_e( 'Overall Performance', 'sfs-hr' ); ?></div>
+                    <div class="sub">
+                        <?php if ( $company_delta !== null ) : ?>
+                            <span class="sfs-perf-delta <?php echo $company_delta >= 0 ? 'up' : 'down'; ?>">
+                                <?php echo $company_delta >= 0 ? '&#9650;' : '&#9660;'; ?>
+                                <?php echo esc_html( abs( $company_delta ) ); ?>%
+                            </span>
+                            <?php echo esc_html( sprintf( __( 'vs %s', 'sfs-hr' ), $prev_label ) ); ?>
+                        <?php else : ?>
+                            <?php esc_html_e( 'Overall Performance', 'sfs-hr' ); ?>
+                        <?php endif; ?>
+                    </div>
                 </div>
                 <div class="sfs-perf-card">
                     <h3><?php esc_html_e( 'Active Employees', 'sfs-hr' ); ?></h3>
@@ -314,17 +377,34 @@ class Admin_Pages {
                                     <th><?php esc_html_e( 'Department', 'sfs-hr' ); ?></th>
                                     <th><?php esc_html_e( 'Employees', 'sfs-hr' ); ?></th>
                                     <th><?php esc_html_e( 'Avg Score', 'sfs-hr' ); ?></th>
+                                    <th class="sfs-prev-col"><?php esc_html_e( 'Prev Period', 'sfs-hr' ); ?></th>
                                     <th><?php esc_html_e( 'Distribution', 'sfs-hr' ); ?></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ( $dept_summary as $dept ) : ?>
+                                <?php foreach ( $dept_summary as $dept ) :
+                                    $p_avg   = $prev_dept_avg[ $dept['dept_name'] ] ?? null;
+                                    $d_delta = ( $dept['avg_score'] !== null && $p_avg !== null ) ? round( $dept['avg_score'] - $p_avg, 1 ) : null;
+                                ?>
                                 <tr>
                                     <td><strong><?php echo esc_html( $dept['dept_name'] ); ?></strong></td>
                                     <td><?php echo esc_html( $dept['employee_count'] ); ?></td>
                                     <td>
                                         <?php if ( $dept['avg_score'] !== null ) : ?>
                                             <strong><?php echo esc_html( number_format( $dept['avg_score'], 1 ) ); ?>%</strong>
+                                        <?php else : ?>
+                                            <span style="color: #999;">—</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="sfs-prev-col">
+                                        <?php if ( $p_avg !== null ) : ?>
+                                            <?php echo esc_html( number_format( $p_avg, 1 ) ); ?>%
+                                            <?php if ( $d_delta !== null && $d_delta != 0 ) : ?>
+                                                <span class="sfs-perf-delta <?php echo $d_delta >= 0 ? 'up' : 'down'; ?>">
+                                                    <?php echo $d_delta >= 0 ? '&#9650;' : '&#9660;'; ?>
+                                                    <?php echo esc_html( abs( $d_delta ) ); ?>
+                                                </span>
+                                            <?php endif; ?>
                                         <?php else : ?>
                                             <span style="color: #999;">—</span>
                                         <?php endif; ?>

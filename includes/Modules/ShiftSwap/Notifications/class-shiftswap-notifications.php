@@ -28,14 +28,16 @@ class ShiftSwap_Notifications {
         $target = ShiftSwap_Service::get_employee_with_email($target_id);
 
         if ($target && $target->user_email) {
-            $subject = __('Shift Swap Request', 'sfs-hr');
-            $message = sprintf(
-                __('You have received a shift swap request. Please review it in your HR profile: %s', 'sfs-hr'),
-                admin_url('admin.php?page=sfs-hr-my-profile&tab=shift_swap')
-            );
-
             $user_id = isset($target->user_id) ? (int) $target->user_id : 0;
-            self::send_notification($user_id, $target->user_email, $subject, $message, 'shift_swap_requested');
+            self::send_notification_localized($user_id, $target->user_email, function () {
+                return [
+                    'subject' => __('Shift Swap Request', 'sfs-hr'),
+                    'message' => sprintf(
+                        __('You have received a shift swap request. Please review it in your HR profile: %s', 'sfs-hr'),
+                        admin_url('admin.php?page=sfs-hr-my-profile&tab=shift_swap')
+                    ),
+                ];
+            }, 'shift_swap_requested');
         }
 
         // Also notify HR
@@ -59,17 +61,18 @@ class ShiftSwap_Notifications {
         $target = ShiftSwap_Service::get_employee_with_email($swap->target_id);
 
         if ($requester && $requester->user_email) {
-            $subject = ($response === 'accept')
-                ? __('Shift Swap Accepted', 'sfs-hr')
-                : __('Shift Swap Declined', 'sfs-hr');
-
-            $message = ($response === 'accept')
-                ? __('Your shift swap request has been accepted and is now awaiting manager approval.', 'sfs-hr')
-                : __('Your shift swap request has been declined.', 'sfs-hr');
-
             $notification_type = ($response === 'accept') ? 'shift_swap_accepted' : 'shift_swap_declined';
             $user_id = isset($requester->user_id) ? (int) $requester->user_id : 0;
-            self::send_notification($user_id, $requester->user_email, $subject, $message, $notification_type);
+            self::send_notification_localized($user_id, $requester->user_email, function () use ($response) {
+                return [
+                    'subject' => ($response === 'accept')
+                        ? __('Shift Swap Accepted', 'sfs-hr')
+                        : __('Shift Swap Declined', 'sfs-hr'),
+                    'message' => ($response === 'accept')
+                        ? __('Your shift swap request has been accepted and is now awaiting manager approval.', 'sfs-hr')
+                        : __('Your shift swap request has been declined.', 'sfs-hr'),
+                ];
+            }, $notification_type);
         }
 
         // Also notify HR
@@ -167,6 +170,27 @@ class ShiftSwap_Notifications {
         } else {
             // Queue for digest
             self::queue_for_digest($user_id, $email, $subject, $message, $notification_type);
+        }
+    }
+
+    /**
+     * Build email content in the recipient's preferred locale, then send.
+     */
+    private static function send_notification_localized(int $user_id, string $email, callable $build, string $notification_type): void {
+        $locale   = Helpers::get_locale_for_email( $email );
+        $switched = false;
+        if ( $locale && $locale !== get_locale() && function_exists( 'switch_to_locale' ) ) {
+            switch_to_locale( $locale );
+            Helpers::reload_json_translations( $locale );
+            $switched = true;
+        }
+        $data = $build();
+        if ( $switched ) {
+            restore_previous_locale();
+            Helpers::reload_json_translations( determine_locale() );
+        }
+        if ( ! empty( $data['subject'] ) && ! empty( $data['message'] ) ) {
+            self::send_notification( $user_id, $email, $data['subject'], $data['message'], $notification_type );
         }
     }
 
