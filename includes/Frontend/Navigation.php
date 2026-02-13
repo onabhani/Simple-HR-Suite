@@ -336,7 +336,7 @@ class Navigation {
 
             $html .= '<a href="' . esc_url( $url ) . '" class="' . $classes . '">'
                 . self::get_icon_svg( $tab['icon'] )
-                . '<span>' . esc_html( $tab['label'] ) . '</span>'
+                . '<span data-i18n-key="' . esc_attr( $tab['slug'] === 'team' ? 'my_team' : ( $tab['slug'] === 'team-attendance' ? 'team_attendance' : $tab['slug'] ) ) . '">' . esc_html( $tab['label'] ) . '</span>'
                 . '</a>';
         }
 
@@ -353,7 +353,7 @@ class Navigation {
 
             $html .= '<button type="button" class="' . $more_classes . '" aria-expanded="false" aria-haspopup="true">'
                 . self::get_icon_svg( 'more' )
-                . '<span>' . esc_html__( 'More', 'sfs-hr' ) . '</span>'
+                . '<span data-i18n-key="more">' . esc_html__( 'More', 'sfs-hr' ) . '</span>'
                 . '</button>';
 
             $html .= '<div class="sfs-hr-more-menu" hidden>';
@@ -364,7 +364,7 @@ class Navigation {
 
                 $html .= '<a href="' . esc_url( $url ) . '" class="' . $classes . '">'
                     . self::get_icon_svg( $otab['icon'] )
-                    . '<span>' . esc_html( $otab['label'] ) . '</span>'
+                    . '<span data-i18n-key="' . esc_attr( $otab['slug'] === 'team' ? 'my_team' : ( $otab['slug'] === 'team-attendance' ? 'team_attendance' : $otab['slug'] ) ) . '">' . esc_html( $otab['label'] ) . '</span>'
                     . '</a>';
             }
             $html .= '</div>';

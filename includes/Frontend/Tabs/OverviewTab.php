@@ -39,11 +39,14 @@ class OverviewTab implements TabInterface {
         // Greeting based on time of day.
         $hour = (int) wp_date( 'G' );
         if ( $hour < 12 ) {
-            $greeting = __( 'Good Morning', 'sfs-hr' );
+            $greeting     = __( 'Good Morning', 'sfs-hr' );
+            $greeting_key = 'good_morning';
         } elseif ( $hour < 17 ) {
-            $greeting = __( 'Good Afternoon', 'sfs-hr' );
+            $greeting     = __( 'Good Afternoon', 'sfs-hr' );
+            $greeting_key = 'good_afternoon';
         } else {
-            $greeting = __( 'Good Evening', 'sfs-hr' );
+            $greeting     = __( 'Good Evening', 'sfs-hr' );
+            $greeting_key = 'good_evening';
         }
 
         $year  = (int) current_time( 'Y' );
@@ -223,7 +226,7 @@ class OverviewTab implements TabInterface {
         }
         echo '</div>';
         echo '<div class="sfs-overview-greeting-text">';
-        echo '<span class="sfs-overview-greeting-label" data-i18n-key="greeting">' . esc_html( $greeting ) . '</span>';
+        echo '<span class="sfs-overview-greeting-label" data-i18n-key="' . esc_attr( $greeting_key ) . '">' . esc_html( $greeting ) . '</span>';
         echo '<h2 class="sfs-overview-greeting-name" data-name-en="' . esc_attr( $full_name ) . '" data-name-ar="' . esc_attr( trim( $first_name_ar . ' ' . ( $emp['last_name_ar'] ?? '' ) ) ?: $full_name ) . '">' . esc_html( $full_name ) . '</h2>';
         echo '</div>';
         echo '</div>'; // .sfs-overview-greeting
@@ -240,7 +243,7 @@ class OverviewTab implements TabInterface {
             echo '<span class="sfs-overview-action-sub" data-i18n-key="mark_attendance">' . esc_html__( 'Mark your attendance', 'sfs-hr' ) . '</span>';
             echo '</div>';
             echo '</div>';
-            echo '<a href="' . esc_url( $attendance_url ) . '" class="sfs-overview-action-btn" data-sfs-att-btn="overview">';
+            echo '<a href="' . esc_url( $attendance_url ) . '" class="sfs-overview-action-btn" data-sfs-att-btn="overview" data-i18n-key="attendance">';
             echo esc_html__( 'Attendance', 'sfs-hr' );
             echo '</a>';
             echo '</div>'; // .sfs-overview-attendance-action
@@ -260,17 +263,19 @@ class OverviewTab implements TabInterface {
             echo 'break_start:' . wp_json_encode( __( 'Start Break', 'sfs-hr' ) ) . ',';
             echo 'break_end:' . wp_json_encode( __( 'End Break', 'sfs-hr' ) ) . ',';
             echo 'out:' . wp_json_encode( __( 'Clock Out', 'sfs-hr' ) ) . '};';
-            echo 'if(a.in)l=labels.in;else if(a.break_start)l=labels.break_start;else if(a.break_end)l=labels.break_end;else if(a.out)l=labels.out;';
+            echo 'var keys={in:"clock_in",break_start:"start_break",break_end:"end_break",out:"clock_out"};';
+            echo 'if(a.in){l=labels.in;btn.dataset.i18nKey=keys.in;}else if(a.break_start){l=labels.break_start;btn.dataset.i18nKey=keys.break_start;}else if(a.break_end){l=labels.break_end;btn.dataset.i18nKey=keys.break_end;}else if(a.out){l=labels.out;btn.dataset.i18nKey=keys.out;}';
             echo 'if(l)btn.textContent=l;';
             echo '}).catch(function(){});';
             echo '})();</script>';
         }
 
         // ── 3. Monthly Attendance Summary ─────────────────────────
-        $month_label = wp_date( 'F Y' );
+        $month_num = (int) wp_date( 'n' );
+        $year_num  = (int) wp_date( 'Y' );
         echo '<div class="sfs-overview-section">';
         echo '<h3 class="sfs-overview-section-title" data-i18n-key="attendance_this_month">' . esc_html__( 'Attendance This Month', 'sfs-hr' ) . '</h3>';
-        echo '<span class="sfs-overview-section-sub">' . esc_html( $month_label ) . '</span>';
+        echo '<span class="sfs-overview-section-sub" data-month="' . $month_num . '" data-year="' . $year_num . '">' . esc_html( wp_date( 'F Y' ) ) . '</span>';
         echo '</div>';
 
         echo '<div class="sfs-overview-att-grid">';
@@ -295,7 +300,7 @@ class OverviewTab implements TabInterface {
         // ── 4. Leave Summary KPIs ─────────────────────────────────
         echo '<div class="sfs-overview-section">';
         echo '<h3 class="sfs-overview-section-title" data-i18n-key="leave_summary">' . esc_html__( 'Leave Summary', 'sfs-hr' ) . '</h3>';
-        echo '<span class="sfs-overview-section-sub">' . esc_html__( 'Year', 'sfs-hr' ) . ' ' . $year . '</span>';
+        echo '<span class="sfs-overview-section-sub"><span data-i18n-key="year">' . esc_html__( 'Year', 'sfs-hr' ) . '</span> ' . $year . '</span>';
         echo '</div>';
 
         echo '<div class="sfs-kpi-grid">';
@@ -304,7 +309,7 @@ class OverviewTab implements TabInterface {
         echo '<div class="sfs-kpi-card">';
         echo '<div class="sfs-kpi-icon" style="background:#ecfdf5;"><svg viewBox="0 0 24 24" stroke="#10b981" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>';
         echo '<div class="sfs-kpi-label" data-i18n-key="annual_balance">' . esc_html__( 'Annual balance', 'sfs-hr' ) . '</div>';
-        echo '<div class="sfs-kpi-value">' . $annual_balance . ' <span class="sfs-kpi-sub">' . esc_html__( 'days', 'sfs-hr' ) . '</span></div>';
+        echo '<div class="sfs-kpi-value">' . $annual_balance . ' <span class="sfs-kpi-sub" data-i18n-key="days">' . esc_html__( 'days', 'sfs-hr' ) . '</span></div>';
         echo '</div>';
 
         // Requests
@@ -320,7 +325,7 @@ class OverviewTab implements TabInterface {
         echo '<div class="sfs-kpi-label" data-i18n-key="total_used">' . esc_html__( 'Used', 'sfs-hr' ) . '</div>';
         echo '<div class="sfs-kpi-value">' . $total_used;
         if ( $pending_count > 0 ) {
-            echo ' <span class="sfs-kpi-sub">+ ' . $pending_count . ' ' . esc_html__( 'pending', 'sfs-hr' ) . '</span>';
+            echo ' <span class="sfs-kpi-sub">+ ' . $pending_count . ' <span data-i18n-key="pending">' . esc_html__( 'pending', 'sfs-hr' ) . '</span></span>';
         }
         echo '</div></div>';
 
@@ -434,7 +439,7 @@ class OverviewTab implements TabInterface {
                 echo '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
                 echo '</div>';
                 echo '<div class="sfs-overview-activity-info">';
-                echo '<div class="sfs-overview-activity-title">' . esc_html__( 'Loan', 'sfs-hr' ) . '</div>';
+                echo '<div class="sfs-overview-activity-title" data-i18n-key="loan">' . esc_html__( 'Loan', 'sfs-hr' ) . '</div>';
                 echo '<div class="sfs-overview-activity-meta">' . esc_html( $amount ) . '</div>';
                 echo '</div>';
                 echo $this->status_badge( $status );
@@ -449,7 +454,7 @@ class OverviewTab implements TabInterface {
             echo '<a href="' . esc_url( $profile_url ) . '" class="sfs-overview-profile-banner">';
             echo '<div class="sfs-overview-profile-banner-text">';
             echo '<span class="sfs-overview-profile-banner-title" data-i18n-key="complete_your_profile">' . esc_html__( 'Complete Your Profile', 'sfs-hr' ) . '</span>';
-            echo '<span class="sfs-overview-profile-banner-sub">' . esc_html( $profile_completion_pct ) . '% ' . esc_html__( 'complete', 'sfs-hr' ) . '</span>';
+            echo '<span class="sfs-overview-profile-banner-sub">' . esc_html( $profile_completion_pct ) . '%</span>';
             echo '</div>';
             echo '<div class="sfs-overview-profile-banner-bar">';
             echo '<div class="sfs-overview-profile-banner-fill" style="width:' . esc_attr( $profile_completion_pct ) . '%"></div>';

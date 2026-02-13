@@ -2247,15 +2247,24 @@ class Shortcodes {
                     }
                 });
 
-                // Translate tab labels
+                // Translate tab labels (main tabs + more menu + more button)
                 var tabMap = {
                     'Overview': langStrings.overview,
+                    'Profile': langStrings.profile,
                     'Leave': langStrings.leave,
                     'Loans': langStrings.loans,
                     'Resignation': langStrings.resignation,
-                    'Attendance': langStrings.attendance
+                    'Settlement': langStrings.settlement,
+                    'Attendance': langStrings.attendance,
+                    'Documents': langStrings.documents,
+                    'My Team': langStrings.my_team,
+                    'Approvals': langStrings.approvals,
+                    'Team Attendance': langStrings.team_attendance,
+                    'Dashboard': langStrings.dashboard,
+                    'Employees': langStrings.employees,
+                    'More': langStrings.more
                 };
-                pwaApp.querySelectorAll('.sfs-hr-tab span').forEach(function(span) {
+                pwaApp.querySelectorAll('.sfs-hr-tab span, .sfs-hr-more-menu-item span').forEach(function(span) {
                     var original = span.dataset.original || span.textContent.trim();
                     span.dataset.original = original;
                     if (tabMap[original]) {
@@ -2376,6 +2385,27 @@ class Shortcodes {
                         }
                     }
                 });
+
+                // Translate month labels (e.g. "February 2026" → "فبراير 2026")
+                container.querySelectorAll('[data-month]').forEach(function(el) {
+                    var m = el.dataset.month;
+                    var y = el.dataset.year || '';
+                    var monthKey = 'month_' + m;
+                    if (strings[monthKey]) {
+                        el.textContent = strings[monthKey] + ' ' + y;
+                    }
+                });
+
+                // Switch overview greeting name for Arabic
+                var greetingName = container.querySelector('.sfs-overview-greeting-name');
+                if (greetingName && greetingName.dataset.nameAr) {
+                    var currLang = localStorage.getItem('sfs_hr_lang') || 'en';
+                    if (currLang === 'ar' && greetingName.dataset.nameAr !== greetingName.dataset.nameEn) {
+                        greetingName.textContent = greetingName.dataset.nameAr;
+                    } else {
+                        greetingName.textContent = greetingName.dataset.nameEn;
+                    }
+                }
             }
         }
     })();
@@ -3203,7 +3233,7 @@ private function render_frontend_documents_tab( int $emp_id ): void {
     if ( ! class_exists( '\SFS\HR\Modules\Documents\Services\Documents_Service' ) ) {
         echo '<div class="sfs-alert sfs-alert--warning">';
         echo '<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="currentColor" fill="none" stroke-width="2"/><line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2"/><line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2"/></svg>';
-        echo '<span>' . esc_html__( 'Documents module is not available.', 'sfs-hr' ) . '</span></div>';
+        echo '<span data-i18n-key="documents_module_not_available">' . esc_html__( 'Documents module is not available.', 'sfs-hr' ) . '</span></div>';
         return;
     }
 
@@ -3249,8 +3279,8 @@ private function render_frontend_documents_tab( int $emp_id ): void {
     if ( ! empty( $missing_docs ) ) {
         echo '<div class="sfs-alert sfs-alert--error">';
         echo '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/><line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" stroke-width="2"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" stroke-width="2"/></svg>';
-        echo '<div><strong>' . esc_html__( 'Missing Required Documents', 'sfs-hr' ) . '</strong><br>';
-        echo esc_html__( 'Please upload:', 'sfs-hr' ) . ' ';
+        echo '<div><strong data-i18n-key="missing_required_documents">' . esc_html__( 'Missing Required Documents', 'sfs-hr' ) . '</strong><br>';
+        echo '<span data-i18n-key="please_upload_colon">' . esc_html__( 'Please upload:', 'sfs-hr' ) . '</span> ';
         echo esc_html( implode( ', ', $missing_docs ) );
         echo '</div></div>';
     }
@@ -3272,7 +3302,7 @@ private function render_frontend_documents_tab( int $emp_id ): void {
         echo '<div class="sfs-form-group">';
         echo '<label class="sfs-form-label" data-i18n-key="document_type">' . esc_html__( 'Document Type', 'sfs-hr' ) . ' <span class="sfs-required">*</span></label>';
         echo '<select name="document_type" required class="sfs-select">';
-        echo '<option value="">' . esc_html__( 'Select type', 'sfs-hr' ) . '</option>';
+        echo '<option value="" data-i18n-key="select_type">' . esc_html__( 'Select type', 'sfs-hr' ) . '</option>';
         foreach ( $uploadable_types as $key => $info ) {
             $label = $info['label'];
             $hint  = '';
@@ -3284,7 +3314,7 @@ private function render_frontend_documents_tab( int $emp_id ): void {
             echo '<option value="' . esc_attr( $key ) . '">' . esc_html( $label . $hint ) . '</option>';
         }
         echo '</select>';
-        echo '<span class="sfs-form-hint">' . esc_html__( 'Only types that need adding or updating are shown.', 'sfs-hr' ) . '</span>';
+        echo '<span class="sfs-form-hint" data-i18n-key="only_types_needing_update">' . esc_html__( 'Only types that need adding or updating are shown.', 'sfs-hr' ) . '</span>';
         echo '</div>';
 
         echo '<div class="sfs-form-group">';
@@ -3293,19 +3323,19 @@ private function render_frontend_documents_tab( int $emp_id ): void {
         echo '</div>';
 
         echo '<div class="sfs-form-group">';
-        echo '<label class="sfs-form-label">' . esc_html__( 'File', 'sfs-hr' ) . ' <span class="sfs-required">*</span></label>';
+        echo '<label class="sfs-form-label" data-i18n-key="file">' . esc_html__( 'File', 'sfs-hr' ) . ' <span class="sfs-required">*</span></label>';
         echo '<input type="file" name="document_file" required accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx" class="sfs-input" />';
-        echo '<span class="sfs-form-hint">' . esc_html__( 'PDF, Images, Word, Excel — max 10 MB', 'sfs-hr' ) . '</span>';
+        echo '<span class="sfs-form-hint" data-i18n-key="pdf_images_max_10mb">' . esc_html__( 'PDF, Images, Word, Excel — max 10 MB', 'sfs-hr' ) . '</span>';
         echo '</div>';
 
         echo '<div class="sfs-form-row">';
         echo '<div class="sfs-form-group">';
-        echo '<label class="sfs-form-label">' . esc_html__( 'Expiry Date', 'sfs-hr' ) . '</label>';
+        echo '<label class="sfs-form-label" data-i18n-key="expiry_date">' . esc_html__( 'Expiry Date', 'sfs-hr' ) . '</label>';
         echo '<input type="date" name="expiry_date" class="sfs-input" />';
-        echo '<span class="sfs-form-hint">' . esc_html__( 'For IDs, passports, licenses', 'sfs-hr' ) . '</span>';
+        echo '<span class="sfs-form-hint" data-i18n-key="for_ids_passports">' . esc_html__( 'For IDs, passports, licenses', 'sfs-hr' ) . '</span>';
         echo '</div>';
         echo '<div class="sfs-form-group">';
-        echo '<label class="sfs-form-label">' . esc_html__( 'Notes', 'sfs-hr' ) . '</label>';
+        echo '<label class="sfs-form-label" data-i18n-key="notes">' . esc_html__( 'Notes', 'sfs-hr' ) . '</label>';
         echo '<textarea name="description" rows="2" class="sfs-textarea" placeholder="' . esc_attr__( 'Optional notes...', 'sfs-hr' ) . '"></textarea>';
         echo '</div>';
         echo '</div>';
@@ -3321,7 +3351,7 @@ private function render_frontend_documents_tab( int $emp_id ): void {
     } else {
         echo '<div class="sfs-alert sfs-alert--success">';
         echo '<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" fill="none" stroke-width="2"/><polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" fill="none" stroke-width="2"/></svg>';
-        echo '<span>' . esc_html__( 'All documents are up to date. Contact HR if you need to update a document.', 'sfs-hr' ) . '</span></div>';
+        echo '<span data-i18n-key="all_docs_up_to_date">' . esc_html__( 'All documents are up to date. Contact HR if you need to update a document.', 'sfs-hr' ) . '</span></div>';
     }
 
     // Documents list
@@ -3332,8 +3362,8 @@ private function render_frontend_documents_tab( int $emp_id ): void {
     if ( empty( $grouped ) ) {
         echo '<div class="sfs-card"><div class="sfs-empty-state">';
         echo '<div class="sfs-empty-state-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" fill="none" stroke-width="1.5"/><polyline points="14 2 14 8 20 8" stroke="currentColor" fill="none" stroke-width="1.5"/></svg></div>';
-        echo '<p class="sfs-empty-state-title">' . esc_html__( 'No documents uploaded yet', 'sfs-hr' ) . '</p>';
-        echo '<p class="sfs-empty-state-text">' . esc_html__( 'Upload your first document using the form above.', 'sfs-hr' ) . '</p>';
+        echo '<p class="sfs-empty-state-title" data-i18n-key="no_documents_yet">' . esc_html__( 'No documents uploaded yet', 'sfs-hr' ) . '</p>';
+        echo '<p class="sfs-empty-state-text" data-i18n-key="upload_first_document">' . esc_html__( 'Upload your first document using the form above.', 'sfs-hr' ) . '</p>';
         echo '</div></div>';
     } else {
         foreach ( $document_types as $type_key => $type_label ) {
@@ -3367,7 +3397,7 @@ private function render_frontend_documents_tab( int $emp_id ): void {
                     echo '<span class="sfs-badge sfs-badge--' . esc_attr( $badge_cls ) . '">' . esc_html( $expiry['label'] ) . '</span>';
                 }
                 if ( $has_update_request ) {
-                    echo '<span class="sfs-badge sfs-badge--info">' . esc_html__( 'Update Requested', 'sfs-hr' ) . '</span>';
+                    echo '<span class="sfs-badge sfs-badge--info" data-i18n-key="update_requested">' . esc_html__( 'Update Requested', 'sfs-hr' ) . '</span>';
                 }
                 echo '</div>';
 
@@ -3528,13 +3558,13 @@ private function render_trainee_profile( array $trainee ): string {
                 <a href="<?php echo esc_url( $overview_url ); ?>"
                    class="sfs-hr-tab <?php echo ( $active_tab === 'overview' ) ? 'sfs-hr-tab-active' : ''; ?>">
                     <svg class="sfs-hr-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                    <span><?php esc_html_e( 'Overview', 'sfs-hr' ); ?></span>
+                    <span data-i18n-key="overview"><?php esc_html_e( 'Overview', 'sfs-hr' ); ?></span>
                 </a>
                 <?php if ( $can_self_clock ) : ?>
                     <a href="<?php echo esc_url( $attendance_url ); ?>"
                        class="sfs-hr-tab <?php echo ( $active_tab === 'attendance' ) ? 'sfs-hr-tab-active' : ''; ?>">
                         <svg class="sfs-hr-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        <span><?php esc_html_e( 'Attendance', 'sfs-hr' ); ?></span>
+                        <span data-i18n-key="attendance"><?php esc_html_e( 'Attendance', 'sfs-hr' ); ?></span>
                     </a>
                 <?php endif; ?>
             </div>

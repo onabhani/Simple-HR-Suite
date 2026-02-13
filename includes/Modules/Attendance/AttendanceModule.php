@@ -1019,7 +1019,9 @@ function tickDate(){
     if (!dateEl) return;
     try {
         const d = new Date();
-        dateEl.textContent = d.toLocaleDateString(undefined, {
+        const dateLang = localStorage.getItem('sfs_hr_lang') || 'en';
+        const dateLocale = dateLang === 'ar' ? 'ar-SA' : (dateLang === 'ur' ? 'ur-PK' : (dateLang === 'fil' ? 'fil-PH' : 'en-US'));
+        dateEl.textContent = d.toLocaleDateString(dateLocale, {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
@@ -1650,6 +1652,8 @@ setInterval(tickClock, 1000);
                     if (key && i18n[key]) btn.textContent = i18n[key];
                 });
             }
+            // Re-render date in new locale
+            if (typeof tickDate === 'function') tickDate();
         });
 
         // Initial load
@@ -3401,8 +3405,9 @@ function parseEmployeeQR(payload){
 function tickDate(){
   if (!dateEl) return;
   const d = new Date();
-  // Localized long date (Sun–Sat, 01 Month 2025)
-  dateEl.textContent = d.toLocaleDateString(undefined, {
+  const dateLang = localStorage.getItem('sfs_hr_lang') || 'en';
+  const dateLocale = dateLang === 'ar' ? 'ar-SA' : (dateLang === 'ur' ? 'ur-PK' : (dateLang === 'fil' ? 'fil-PH' : 'en-US'));
+  dateEl.textContent = d.toLocaleDateString(dateLocale, {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
 }
