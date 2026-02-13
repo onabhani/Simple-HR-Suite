@@ -14,10 +14,10 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 ## 1. UX & Policy Simplification
 
 ### 1.1 Simplify Shift & Policy Configuration
-- [ ] **Audit** all current ways to create/edit shifts and attendance policies
-- [ ] **Consolidate** shift creation into a single, guided workflow (wizard or stepped form)
-- [ ] **Reduce** redundant policy fields — merge overlapping options
-- [ ] **Add** sensible defaults so admins can set up a shift in fewer clicks
+- [x] **Audit** all current ways to create/edit shifts and attendance policies
+- [x] **Consolidate** shift creation into a single, guided workflow (wizard or stepped form)
+- [x] **Reduce** redundant policy fields — merge overlapping options
+- [x] **Add** sensible defaults so admins can set up a shift in fewer clicks
 - [ ] **Add** bulk-assign shifts to departments or employee groups
 - [ ] **Improve** inline help text / tooltips for policy fields
 
