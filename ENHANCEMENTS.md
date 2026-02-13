@@ -156,11 +156,62 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 
 ---
 
-## 10. Business Strategy (Selling the Plugin)
+## 10. UI/UX Modernization
+
+> **Reference designs:** mewurk.com (attendance dashboard), efacility.ae (clock in/out, approvals, leave availability). Goal is a modern, app-like experience that's easier to read and navigate.
+
+### 10.1 Employee Self-Service UI Redesign (P1)
+- [ ] **Redesign** the entire self-service portal with modern card-based layouts
+- [ ] **Replace** dense table views with scannable card components (leave history, loan history, documents)
+- [ ] **Add** visual KPI cards at the top of each tab (leave balance summary, attendance stats, loan overview)
+- [ ] **Improve** form design — floating labels, better spacing, grouped inputs, inline validation
+- [ ] **Add** status badges with color coding (green=approved, orange=pending, red=rejected) consistently across all modules
+- [ ] **Redesign** mobile bottom navigation with cleaner icons and active-state indicators
+- [ ] **Improve** typography hierarchy — bigger headings, clearer section separation, better whitespace
+- [ ] **Add** empty states with illustrations when no data (no leaves, no loans, etc.)
+
+### 10.2 Leave Balance Visual Cards (P1)
+- [ ] **Redesign** leave balances as color-coded cards (each leave type gets a unique color — like efacility's Leave Availability screen)
+- [ ] **Add** circular balance badge on each card showing remaining days
+- [ ] **Show** three metrics per leave type: Total Available, Consumed, Applied
+- [ ] **Add** a mini progress bar or ring showing balance usage percentage
+- [ ] **Make** cards tappable to go directly to that leave type's request form
+
+### 10.3 Admin Attendance Dashboard Widgets (P1)
+- [ ] **Add** "Today's Attendance" gauge chart widget showing on-time vs late-in counts (like mewurk dashboard)
+- [ ] **Add** clock-in method breakdown (Kiosk / Mobile / Web counts with icons)
+- [ ] **Add** "Clocked In / Not Clocked In" summary counters
+- [ ] **Add** attendance calendar heat-map showing daily status at a glance
+- [ ] **Make** widgets clickable — drill down to filtered employee lists
+
+### 10.4 Clock In/Out Experience Redesign (Maybe Add)
+- [ ] **Add** circular progress timer showing hours worked vs target hours (like efacility's clock screen)
+- [ ] **Redesign** punch history as color-coded cards — green IN badge, red OUT badge
+- [ ] **Show** location tag and clock-in method on each punch card
+- [ ] **Add** daily total hours display with animated counter
+- [ ] **Add** status indicator (Currently In / Currently Out) with visual cue
+
+### 10.5 Card-Based Approval Interface (Maybe Add)
+- [ ] **Redesign** leave/loan approval screens with card-based layout (like efacility's Approvals screen)
+- [ ] **Add** bulk approve/reject buttons at the top with multi-select checkboxes
+- [ ] **Show** request summary on each card: employee name, date, duration circle badge, leave type tag
+- [ ] **Add** filter/sort options (by status, date, department, leave type)
+- [ ] **Add** swipe-to-approve gesture on mobile
+
+### 10.6 Admin Pages Visual Refresh (Maybe Add)
+- [ ] **Audit** admin pages for visual consistency with the modernized self-service design
+- [ ] **Replace** raw WP admin tables with styled card/table hybrid components
+- [ ] **Add** summary stats/KPIs at the top of each admin module page
+- [ ] **Improve** admin navigation — breadcrumbs, better tab styling
+- [ ] **Add** quick-action buttons (approve, edit, view) with icons on list items
+
+---
+
+## 11. Business Strategy (Selling the Plugin)
 
 > These are strategic planning tasks, not code tasks. Tracked here for completeness.
 
-### 10.1 Go-to-Market Plan
+### 11.1 Go-to-Market Plan
 - [ ] **Research** competing WordPress HR plugins (WP ERP, OrangeHRM WP, Jejewe HR) — pricing, features, market positioning
 - [ ] **Define** a pricing model (freemium with pro add-ons, flat license, per-employee pricing)
 - [ ] **Set up** a product landing page on hdqah.com or a dedicated domain
@@ -170,7 +221,7 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 - [ ] **Set up** license key management and update delivery system (e.g., Easy Digital Downloads, WooCommerce + Software Licensing)
 - [ ] **Plan** support channels (documentation, email, community forum)
 
-### 10.2 WordPress Plugin vs. Standalone SaaS — Evaluation
+### 11.2 WordPress Plugin vs. Standalone SaaS — Evaluation
 - [ ] **Document** current architecture constraints as a WP plugin
 - [ ] **Evaluate** pros/cons of each approach:
 
@@ -201,13 +252,19 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 | P1 — High | Attendance policies mobile responsiveness | 3.2 |
 | P1 — High | Merge admin employee profiles | 5.1 |
 | P1 — High | Early access review | 2.3 |
+| **P1 — High** | **Employee self-service UI redesign** | **10.1** |
+| **P1 — High** | **Leave balance visual cards** | **10.2** |
+| **P1 — High** | **Admin attendance dashboard widgets** | **10.3** |
 | P2 — Medium | Attendance period in reports | 4.2 |
 | P2 — Medium | Shortcodes reference page | 7.1 |
 | P2 — Medium | Low-speed internet optimization | 9.1 |
 | P3 — Low | Full plugin documentation | 6.1 |
 | P3 — Low | Missing modules | 8.1 |
-| P4 — Strategic | Go-to-market plan | 10.1 |
-| P4 — Strategic | WP Plugin vs. SaaS evaluation | 10.2 |
+| **P3 — Maybe** | **Clock in/out experience redesign** | **10.4** |
+| **P3 — Maybe** | **Card-based approval interface** | **10.5** |
+| **P3 — Maybe** | **Admin pages visual refresh** | **10.6** |
+| P4 — Strategic | Go-to-market plan | 11.1 |
+| P4 — Strategic | WP Plugin vs. SaaS evaluation | 11.2 |
 
 ---
 
