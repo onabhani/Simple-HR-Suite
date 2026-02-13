@@ -157,7 +157,8 @@ class Policy_Service {
 
         $roles = $user->roles; // e.g. ['installing_team']
 
-        // 3. Find a matching active policy
+        // 3. Find a matching active policy (suppress errors — tables may not exist
+        //    when the policy module has been removed and only shifts are used).
         $placeholders = implode( ',', array_fill( 0, count( $roles ), '%s' ) );
         $sql = $wpdb->prepare(
             "SELECT p.*
@@ -171,7 +172,9 @@ class Policy_Service {
             ...$roles
         );
 
+        $wpdb->suppress_errors( true );
         $row = $wpdb->get_row( $sql );
+        $wpdb->suppress_errors( false );
 
         if ( $row ) {
             $row->clock_in_methods  = json_decode( $row->clock_in_methods, true ) ?: [];
