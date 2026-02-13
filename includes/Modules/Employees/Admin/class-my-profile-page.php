@@ -896,12 +896,22 @@ private function render_early_leave_section( \stdClass $employee ): void {
     ];
 
     echo '<div class="sfs-hr-early-leave-section" style="margin-top:24px; padding-top:16px; border-top:1px solid #e2e4e7;">';
-    echo '<h3 style="margin:0 0 12px;">' . esc_html__( 'Early Leave Requests', 'sfs-hr' ) . '</h3>';
+
+    // Header with "Add Request" button at the top
+    echo '<div style="display:flex; align-items:center; justify-content:space-between; margin:0 0 12px;">';
+    echo '<h3 style="margin:0;">' . esc_html__( 'Early Leave Requests', 'sfs-hr' ) . '</h3>';
 
     // Show request form if no pending/approved request for today
     if ( ! $existing_today ) {
+        echo '<button type="button" class="button button-primary" id="sfs-early-leave-toggle-btn" style="font-size:13px; padding:4px 14px; border-radius:6px;">';
+        echo '+ ' . esc_html__( 'Add Request', 'sfs-hr' );
+        echo '</button>';
+    }
+    echo '</div>';
+
+    if ( ! $existing_today ) {
         ?>
-        <div class="sfs-hr-early-leave-form-wrap" style="background:#f9f9f9; padding:15px; border:1px solid #e5e5e5; margin-bottom:16px; border-radius:4px;">
+        <div id="sfs-early-leave-form-panel" class="sfs-hr-early-leave-form-wrap" style="display:none; background:#f9f9f9; padding:15px; border:1px solid #e5e5e5; margin-bottom:16px; border-radius:4px;">
             <p class="description" style="margin-top:0;">
                 <?php esc_html_e( 'Need to leave early today? Submit a request for manager approval.', 'sfs-hr' ); ?>
             </p>
@@ -939,10 +949,26 @@ private function render_early_leave_section( \stdClass $employee ): void {
                     <button type="submit" class="button button-primary" id="early-leave-submit-btn">
                         <?php esc_html_e( 'Submit Request', 'sfs-hr' ); ?>
                     </button>
+                    <button type="button" class="button" id="sfs-early-leave-cancel-form" style="margin-left:8px;">
+                        <?php esc_html_e( 'Cancel', 'sfs-hr' ); ?>
+                    </button>
                     <span id="early-leave-message" style="margin-left:10px;"></span>
                 </p>
             </form>
         </div>
+        <script>
+        jQuery(function($){
+            $('#sfs-early-leave-toggle-btn').on('click', function(){
+                $(this).hide();
+                $('#sfs-early-leave-form-panel').slideDown(200);
+            });
+            $('#sfs-early-leave-cancel-form').on('click', function(){
+                $('#sfs-early-leave-form-panel').slideUp(200, function(){
+                    $('#sfs-early-leave-toggle-btn').show();
+                });
+            });
+        });
+        </script>
 
         <script>
         jQuery(function($) {
