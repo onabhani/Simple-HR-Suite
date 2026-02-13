@@ -331,6 +331,7 @@ $print_row(
         echo '</table>';
 
 $this->render_quick_punch_block( $employee );
+$this->render_early_leave_section( $employee );
 $this->render_assets_block( $employee );
 $this->render_attendance_block( $employee );
 
@@ -831,9 +832,6 @@ private function render_attendance_block( \stdClass $employee ): void {
 
         echo '</tbody></table>';
     }
-
-    // Early Leave Requests Section
-    $this->render_early_leave_section( $employee );
 
     echo '</div>';
 }
