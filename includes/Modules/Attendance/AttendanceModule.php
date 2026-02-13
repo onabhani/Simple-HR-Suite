@@ -1036,6 +1036,30 @@ setInterval(tickClock, 1000);
             chipEl.className   = cls;
         }
 
+        // Check if an action is truly available (state + policy)
+        function isActionAvailable(t) {
+            return !!allowed[t] && !methodBlocked[t];
+        }
+
+        // Sync all action buttons to current state + policy
+        function syncButtons() {
+            if (!actionsWrap) return;
+            actionsWrap.querySelectorAll('button[data-type]').forEach(btn => {
+                const t = btn.getAttribute('data-type');
+                const avail = isActionAvailable(t);
+                btn.style.display = allowed[t] ? '' : 'none';
+                btn.disabled = !avail;
+                // Visually dim policy-blocked buttons
+                if (allowed[t] && methodBlocked[t]) {
+                    btn.style.display = '';
+                    btn.disabled = true;
+                    btn.title = methodBlocked[t];
+                } else {
+                    btn.title = '';
+                }
+            });
+        }
+
                 async function getGeo(punchType, useCache = false){
             // Return cached geo if available and fresh (within 30s)
             if (useCache && cachedGeo && (Date.now() - cachedGeo.ts < 30000)) {
@@ -1148,16 +1172,22 @@ setInterval(tickClock, 1000);
 
                 lastRefreshAt = Date.now();
                 updateChip();
-                setStat(j.label || i18n.ready, 'idle');
 
-                // Show/hide buttons based on allowed transitions
-                if (actionsWrap) {
-                    actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
-                        const t = btn.getAttribute('data-type');
-                        const ok = !!allowed[t];
-                        btn.style.display = ok ? '' : 'none';
-                        btn.disabled = !ok;
-                    });
+                // Show/hide buttons based on allowed transitions + method policy
+                syncButtons();
+
+                // If ALL state-allowed actions are method-blocked, show why
+                var blockedMsg = null;
+                for (var pt in allowed) {
+                    if (allowed[pt] && methodBlocked[pt]) {
+                        blockedMsg = methodBlocked[pt];
+                        break;
+                    }
+                }
+                if (blockedMsg) {
+                    setStat(blockedMsg, 'error');
+                } else {
+                    setStat(j.label || i18n.ready, 'idle');
                 }
 
                 // Selfie hint
@@ -1271,7 +1301,7 @@ setInterval(tickClock, 1000);
                 if (actionsWrap) {
                     actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
                         const t = btn.getAttribute('data-type');
-                        btn.disabled = !allowed[t];
+                        btn.disabled = !isActionAvailable(t);
                     });
                 }
                 return;
@@ -1391,7 +1421,7 @@ setInterval(tickClock, 1000);
                 if (actionsWrap) {
                     actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
                         const t = btn.getAttribute('data-type');
-                        btn.disabled = !allowed[t];
+                        btn.disabled = !isActionAvailable(t);
                     });
                 }
             }
@@ -1429,7 +1459,7 @@ setInterval(tickClock, 1000);
                 if (actionsWrap) {
                     actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
                         const t = btn.getAttribute('data-type');
-                        btn.disabled = !allowed[t];
+                        btn.disabled = !isActionAvailable(t);
                     });
                 }
                 return;
@@ -1442,7 +1472,7 @@ setInterval(tickClock, 1000);
                 if (actionsWrap) {
                     actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
                         const t = btn.getAttribute('data-type');
-                        btn.disabled = !allowed[t];
+                        btn.disabled = !isActionAvailable(t);
                     });
                 }
                 return;
@@ -1457,7 +1487,7 @@ setInterval(tickClock, 1000);
                 if (actionsWrap) {
                     actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
                         const t = btn.getAttribute('data-type');
-                        btn.disabled = !allowed[t];
+                        btn.disabled = !isActionAvailable(t);
                     });
                 }
                 return;
@@ -1479,7 +1509,7 @@ setInterval(tickClock, 1000);
                     if (actionsWrap) {
                         actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
                             const t = btn.getAttribute('data-type');
-                            btn.disabled = !allowed[t];
+                            btn.disabled = !isActionAvailable(t);
                         });
                     }
                     return;
@@ -1534,7 +1564,7 @@ setInterval(tickClock, 1000);
                     if (actionsWrap) {
                         actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
                             const t = btn.getAttribute('data-type');
-                            btn.disabled = !allowed[t];
+                            btn.disabled = !isActionAvailable(t);
                         });
                     }
                     return;
@@ -1562,7 +1592,7 @@ setInterval(tickClock, 1000);
             if (actionsWrap) {
                 actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
                     const t = btn.getAttribute('data-type');
-                    btn.disabled = !allowed[t];
+                    btn.disabled = !isActionAvailable(t);
                 });
             }
         });
