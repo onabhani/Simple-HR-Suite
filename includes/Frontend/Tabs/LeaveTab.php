@@ -122,21 +122,19 @@ class LeaveTab implements TabInterface {
         // ─── Render ────────────────────────────────────────────
         $this->render_flash_messages();
 
-        echo '<div class="sfs-section">';
-        echo '<h2 class="sfs-section-title" data-i18n-key="my_leave_dashboard">' . esc_html__( 'My Leave Dashboard', 'sfs-hr' ) . '</h2>';
-        echo '<p class="sfs-section-subtitle">' . esc_html( ( $emp['first_name'] ?? '' ) . ' ' . ( $emp['last_name'] ?? '' ) ) . ' · ' . esc_html__( 'Year', 'sfs-hr' ) . ' ' . $year . '</p>';
+        echo '<div class="sfs-section" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">';
+        echo '<div>';
+        echo '<h2 class="sfs-section-title" data-i18n-key="my_leave_dashboard" style="margin:0;">' . esc_html__( 'My Leave Dashboard', 'sfs-hr' ) . '</h2>';
+        echo '<p class="sfs-section-subtitle" style="margin:2px 0 0;">' . esc_html( ( $emp['first_name'] ?? '' ) . ' ' . ( $emp['last_name'] ?? '' ) ) . ' · ' . esc_html__( 'Year', 'sfs-hr' ) . ' ' . $year . '</p>';
+        echo '</div>';
+        echo '<button type="button" class="sfs-btn sfs-btn--primary" onclick="document.getElementById(\'sfs-leave-modal\').classList.add(\'sfs-modal-active\')" data-i18n-key="new_leave_request" style="white-space:nowrap;">';
+        echo '<svg viewBox="0 0 24 24" style="width:16px;height:16px;margin-inline-end:4px;vertical-align:-2px;" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+        echo esc_html__( 'New Leave Request', 'sfs-hr' );
+        echo '</button>';
         echo '</div>';
 
         // KPI strip
         $this->render_kpis( $requests_count, $annual_available, $total_used, $pending_count, $next_leave_text );
-
-        // New Leave Request button
-        echo '<div style="margin-bottom:16px;">';
-        echo '<button type="button" class="sfs-btn sfs-btn--primary" onclick="document.getElementById(\'sfs-leave-modal\').classList.add(\'sfs-modal-active\')" data-i18n-key="new_leave_request">';
-        echo '<svg viewBox="0 0 24 24" style="width:16px;height:16px;margin-inline-end:6px;vertical-align:-2px;" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-        echo esc_html__( 'New Leave Request', 'sfs-hr' );
-        echo '</button>';
-        echo '</div>';
 
         // Leave history (card-based, before balances)
         $this->render_history( $rows );

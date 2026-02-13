@@ -86,11 +86,21 @@ class MyProfileLoans {
         ) );
 
         echo '<div class="sfs-hr-my-profile-loans">';
-        echo '<h2 style="margin:0 0 16px;">' . esc_html__( 'My Loans', 'sfs-hr' ) . '</h2>';
 
-        // Request new loan button (if enabled)
+        // Header with action button at top
+        echo '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:0 0 16px;">';
+        echo '<h2 style="margin:0;">' . esc_html__( 'My Loans', 'sfs-hr' ) . '</h2>';
         if ( $settings['allow_employee_requests'] ) {
-            // Show error/success messages OUTSIDE the form
+            echo '<button type="button" class="button button-primary" onclick="document.getElementById(\'sfs-loan-request-form\').style.display=\'block\';this.style.display=\'none\';" style="white-space:nowrap;">';
+            echo '+ ';
+            esc_html_e( 'Request New Loan', 'sfs-hr' );
+            echo '</button>';
+        }
+        echo '</div>';
+
+        // Request new loan form (if enabled)
+        if ( $settings['allow_employee_requests'] ) {
+            // Show error/success messages
             if ( isset( $_GET['loan_request'] ) ) {
                 if ( $_GET['loan_request'] === 'success' ) {
                     echo '<div class="notice notice-success" style="margin:10px 0 16px;padding:12px;"><p><strong>' .
@@ -103,12 +113,6 @@ class MyProfileLoans {
                          '</strong></p></div>';
                 }
             }
-
-            echo '<div style="margin-bottom:16px;">';
-            echo '<button type="button" class="button button-primary" onclick="document.getElementById(\'sfs-loan-request-form\').style.display=\'block\';this.style.display=\'none\';">';
-            esc_html_e( 'Request New Loan', 'sfs-hr' );
-            echo '</button>';
-            echo '</div>';
 
             $this->render_loan_request_form( $employee );
         }

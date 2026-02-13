@@ -238,6 +238,28 @@ add_action('rest_api_init', function () {
       <!-- ===== Hero map ===== -->
       <div class="sfs-att-map-hero">
         <div class="sfs-att-map-brand"><?php echo esc_html( get_bloginfo( 'name' ) ); ?></div>
+        <?php
+        // Back arrow button (overlaid on map)
+        $profile_url = '';
+        $profile_pages = get_posts( array(
+            'post_type'      => 'page',
+            'posts_per_page' => 1,
+            's'              => '[sfs_hr_my_profile',
+            'post_status'    => 'publish',
+        ) );
+        if ( ! empty( $profile_pages ) ) {
+            $profile_url = get_permalink( $profile_pages[0]->ID );
+        }
+        if ( empty( $profile_url ) ) {
+            $page = get_page_by_path( 'my-profile' );
+            if ( ! $page ) { $page = get_page_by_path( 'hr-profile' ); }
+            if ( $page ) { $profile_url = get_permalink( $page->ID ); }
+        }
+        if ( ! empty( $profile_url ) ) : ?>
+        <a href="<?php echo esc_url( $profile_url ); ?>" class="sfs-att-back-arrow" aria-label="<?php esc_attr_e( 'Back', 'sfs-hr' ); ?>">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M12.5 15L7.5 10l5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <?php endif; ?>
         <div id="sfs-att-map-<?php echo esc_attr( $inst ); ?>" class="sfs-att-map-canvas"></div>
       </div>
 
@@ -268,30 +290,6 @@ add_action('rest_api_init', function () {
           <button type="button" data-type="break_end"
                   class="sfs-att-btn sfs-att-btn--breakend" style="display:none" data-i18n-key="end_break"><?php esc_html_e( 'End Break', 'sfs-hr' ); ?></button>
         </div>
-
-        <?php
-        // Find the HR profile page URL
-        $profile_url = '';
-        $profile_pages = get_posts( array(
-            'post_type'      => 'page',
-            'posts_per_page' => 1,
-            's'              => '[sfs_hr_my_profile',
-            'post_status'    => 'publish',
-        ) );
-        if ( ! empty( $profile_pages ) ) {
-            $profile_url = get_permalink( $profile_pages[0]->ID );
-        }
-        if ( empty( $profile_url ) ) {
-            $page = get_page_by_path( 'my-profile' );
-            if ( ! $page ) { $page = get_page_by_path( 'hr-profile' ); }
-            if ( $page ) { $profile_url = get_permalink( $page->ID ); }
-        }
-        if ( ! empty( $profile_url ) ) : ?>
-        <a href="<?php echo esc_url( $profile_url ); ?>" class="sfs-att-back-link" data-i18n-key="back_to_profile">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <?php esc_html_e( 'Back to My HR Profile', 'sfs-hr' ); ?>
-        </a>
-        <?php endif; ?>
 
       </div><!-- .sfs-att-panel -->
 
@@ -362,6 +360,8 @@ add_action('rest_api_init', function () {
         background:#e5e7eb;
       }
       #<?php echo esc_attr( $root_id ); ?> .sfs-att-map-canvas{
+        position:absolute;
+        inset:0;
         width:100%;
         height:100%;
       }
@@ -383,6 +383,36 @@ add_action('rest_api_init', function () {
       [dir="rtl"] #<?php echo esc_attr( $root_id ); ?> .sfs-att-map-brand{
         left:auto;
         right:16px;
+      }
+      /* Back arrow button on map */
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-back-arrow{
+        position:absolute;
+        top:16px;
+        right:16px;
+        z-index:500;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        width:40px;
+        height:40px;
+        border-radius:12px;
+        background:rgba(255,255,255,0.92);
+        color:#111827;
+        text-decoration:none;
+        box-shadow:0 2px 8px rgba(0,0,0,0.15);
+        backdrop-filter:blur(4px);
+        -webkit-backdrop-filter:blur(4px);
+        transition:background .15s;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-back-arrow:hover{
+        background:#fff;
+      }
+      [dir="rtl"] #<?php echo esc_attr( $root_id ); ?> .sfs-att-back-arrow{
+        right:auto;
+        left:16px;
+      }
+      [dir="rtl"] #<?php echo esc_attr( $root_id ); ?> .sfs-att-back-arrow svg{
+        transform:scaleX(-1);
       }
 
       /* ===== Bottom panel ===== */
@@ -520,19 +550,6 @@ add_action('rest_api_init', function () {
         box-shadow:0 2px 8px rgba(59,130,246,0.3);
       }
 
-      /* Back link */
-      #<?php echo esc_attr( $root_id ); ?> .sfs-att-back-link{
-        display:inline-flex;
-        align-items:center;
-        gap:4px;
-        font-size:13px;
-        color:var(--sfs-teal);
-        text-decoration:none;
-        padding:6px 0;
-      }
-      #<?php echo esc_attr( $root_id ); ?> .sfs-att-back-link:hover{
-        text-decoration:underline;
-      }
 
       /* ===== Selfie overlay ===== */
       #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-overlay{
@@ -1036,6 +1053,30 @@ setInterval(tickClock, 1000);
             chipEl.className   = cls;
         }
 
+        // Check if an action is truly available (state + policy)
+        function isActionAvailable(t) {
+            return !!allowed[t] && !methodBlocked[t];
+        }
+
+        // Sync all action buttons to current state + policy
+        function syncButtons() {
+            if (!actionsWrap) return;
+            actionsWrap.querySelectorAll('button[data-type]').forEach(btn => {
+                const t = btn.getAttribute('data-type');
+                const avail = isActionAvailable(t);
+                btn.style.display = allowed[t] ? '' : 'none';
+                btn.disabled = !avail;
+                // Visually dim policy-blocked buttons
+                if (allowed[t] && methodBlocked[t]) {
+                    btn.style.display = '';
+                    btn.disabled = true;
+                    btn.title = methodBlocked[t];
+                } else {
+                    btn.title = '';
+                }
+            });
+        }
+
                 async function getGeo(punchType, useCache = false){
             // Return cached geo if available and fresh (within 30s)
             if (useCache && cachedGeo && (Date.now() - cachedGeo.ts < 30000)) {
@@ -1148,16 +1189,22 @@ setInterval(tickClock, 1000);
 
                 lastRefreshAt = Date.now();
                 updateChip();
-                setStat(j.label || i18n.ready, 'idle');
 
-                // Show/hide buttons based on allowed transitions
-                if (actionsWrap) {
-                    actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
-                        const t = btn.getAttribute('data-type');
-                        const ok = !!allowed[t];
-                        btn.style.display = ok ? '' : 'none';
-                        btn.disabled = !ok;
-                    });
+                // Show/hide buttons based on allowed transitions + method policy
+                syncButtons();
+
+                // If ALL state-allowed actions are method-blocked, show why
+                var blockedMsg = null;
+                for (var pt in allowed) {
+                    if (allowed[pt] && methodBlocked[pt]) {
+                        blockedMsg = methodBlocked[pt];
+                        break;
+                    }
+                }
+                if (blockedMsg) {
+                    setStat(blockedMsg, 'error');
+                } else {
+                    setStat(j.label || i18n.ready, 'idle');
                 }
 
                 // Selfie hint
@@ -1271,7 +1318,7 @@ setInterval(tickClock, 1000);
                 if (actionsWrap) {
                     actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
                         const t = btn.getAttribute('data-type');
-                        btn.disabled = !allowed[t];
+                        btn.disabled = !isActionAvailable(t);
                     });
                 }
                 return;
@@ -1391,7 +1438,7 @@ setInterval(tickClock, 1000);
                 if (actionsWrap) {
                     actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
                         const t = btn.getAttribute('data-type');
-                        btn.disabled = !allowed[t];
+                        btn.disabled = !isActionAvailable(t);
                     });
                 }
             }
@@ -1429,7 +1476,7 @@ setInterval(tickClock, 1000);
                 if (actionsWrap) {
                     actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
                         const t = btn.getAttribute('data-type');
-                        btn.disabled = !allowed[t];
+                        btn.disabled = !isActionAvailable(t);
                     });
                 }
                 return;
@@ -1442,7 +1489,7 @@ setInterval(tickClock, 1000);
                 if (actionsWrap) {
                     actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
                         const t = btn.getAttribute('data-type');
-                        btn.disabled = !allowed[t];
+                        btn.disabled = !isActionAvailable(t);
                     });
                 }
                 return;
@@ -1457,35 +1504,25 @@ setInterval(tickClock, 1000);
                 if (actionsWrap) {
                     actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
                         const t = btn.getAttribute('data-type');
-                        btn.disabled = !allowed[t];
+                        btn.disabled = !isActionAvailable(t);
                     });
                 }
                 return;
             }
 
+            // ---- Pre-flight: geofence check (before camera/selfie) ----
+            setStat(i18n.validating, 'busy');
+            try {
+                await getGeo(type);
+            } catch(e) {
+                // Geo blocked (outside area / permission denied) — do NOT open camera
+                punchInProgress = false;
+                syncButtons();
+                return;
+            }
+
             if (needsSelfieForType(type)) {
-                // Start geo validation and camera open in PARALLEL for speed.
-                // If cached geo is available, validation is instant; otherwise GPS
-                // runs while the camera warms up (user still sees the viewfinder).
-                setStat(i18n.validating, 'busy');
-                const geoPromise = getGeo(type).catch(e => e);
-                const cameraPromise = startSelfie(type);
-                const geoResult = await geoPromise;
-
-                if (geoResult instanceof Error) {
-                    // geo blocked → close camera and abort
-                    stopSelfiePreview();
-                    punchInProgress = false;
-                    if (actionsWrap) {
-                        actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
-                            const t = btn.getAttribute('data-type');
-                            btn.disabled = !allowed[t];
-                        });
-                    }
-                    return;
-                }
-
-                await cameraPromise;
+                await startSelfie(type);
                 return;
             } else {
                 await doPunch(type, null);
@@ -1534,7 +1571,7 @@ setInterval(tickClock, 1000);
                     if (actionsWrap) {
                         actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
                             const t = btn.getAttribute('data-type');
-                            btn.disabled = !allowed[t];
+                            btn.disabled = !isActionAvailable(t);
                         });
                     }
                     return;
@@ -1562,7 +1599,7 @@ setInterval(tickClock, 1000);
             if (actionsWrap) {
                 actionsWrap.querySelectorAll('button[data-type]').forEach(btn=>{
                     const t = btn.getAttribute('data-type');
-                    btn.disabled = !allowed[t];
+                    btn.disabled = !isActionAvailable(t);
                 });
             }
         });
