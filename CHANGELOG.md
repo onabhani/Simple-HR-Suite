@@ -2,6 +2,18 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.8.1] — 2026-02-13
+
+### Fixed
+- Fix PHP parse error in Performance dashboard — removed stray `<?php` tag.
+- Fix `get_current_period()` calls to use static method syntax directly.
+
+### Added
+- Arabic translations for Phase 3/4 portal tab strings.
+
+### Changed
+- Updated §1.1 checkboxes in ENHANCEMENTS.md — marked completed shift/policy tasks.
+
 ## [0.8.0] — 2026-02-13
 
 ### Added
