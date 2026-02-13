@@ -158,7 +158,20 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 
 ## 10. UI/UX Modernization
 
-> **Reference designs:** mewurk.com (attendance dashboard), efacility.ae (clock in/out, approvals, leave availability). Goal is a modern, app-like experience that's easier to read and navigate.
+> **Reference designs:** mewurk.com (attendance dashboard), efacility.ae (clock in/out, approvals, leave availability), Jibble (time tracking, team view), Bayzat (leave approvals), various Arabic HR SaaS (dashboard tiles, mobile app). Goal is a modern, app-like experience that's easier to read and navigate.
+
+### 10.0 Frontend Portal for All Roles (P1 — Foundation)
+- [ ] **Extend** the existing `[sfs_hr_my_profile]` shortcode with role-based view detection (Employee, Manager, HR, Admin)
+- [ ] **Add** manager views: team attendance, leave/loan approvals, team employee list
+- [ ] **Add** HR views: all employees, leave management, attendance dashboard, loans, settlements, payroll overview, documents, performance
+- [ ] **Add** admin views: everything HR has + shifts, policies, reports & analytics, settings
+- [ ] **Build** REST API endpoints for all manager/HR/admin actions (currently in wp-admin via `admin-post.php`)
+- [ ] **Add** role-based tab/navigation rendering — each role sees only their permitted sections
+- [ ] **Keep** wp-admin as a fallback for plugin configuration only (settings, migrations, advanced config)
+- [ ] **Ensure** the frontend portal is fully PWA-capable (offline, installable) — reuse existing service worker infrastructure
+- [ ] **Design** for future app wrapping (Capacitor/TWA) — no wp-admin dependencies in the frontend portal
+
+> **Why:** Moving all roles to the frontend creates a single app-like entry point, eliminates the need for users to access wp-admin, and makes the system ready to be wrapped as a native mobile app. The existing PWA shell + tab system + CSS framework are the foundation.
 
 ### 10.1 Employee Self-Service UI Redesign (P1)
 - [ ] **Redesign** the entire self-service portal with modern card-based layouts
@@ -252,6 +265,7 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 | P1 — High | Attendance policies mobile responsiveness | 3.2 |
 | P1 — High | Merge admin employee profiles | 5.1 |
 | P1 — High | Early access review | 2.3 |
+| **P1 — High** | **Frontend portal for all roles (foundation)** | **10.0** |
 | **P1 — High** | **Employee self-service UI redesign** | **10.1** |
 | **P1 — High** | **Leave balance visual cards** | **10.2** |
 | **P1 — High** | **Admin attendance dashboard widgets** | **10.3** |
