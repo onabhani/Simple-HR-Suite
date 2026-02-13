@@ -160,36 +160,36 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 
 > **Reference designs:** mewurk.com (attendance dashboard), efacility.ae (clock in/out, approvals, leave availability), Jibble (time tracking, team view), Bayzat (leave approvals), various Arabic HR SaaS (dashboard tiles, mobile app). Goal is a modern, app-like experience that's easier to read and navigate.
 
-### 10.0 Frontend Portal for All Roles (P1 — Foundation)
-- [ ] **Extend** the existing `[sfs_hr_my_profile]` shortcode with role-based view detection (Employee, Department Manager, HR, GM, Admin)
+### 10.0 Frontend Portal for All Roles (P1 — Foundation) — Phase 1 done in v0.6.0
+- [x] **Extend** the existing `[sfs_hr_my_profile]` shortcode with role-based view detection (Employee, Department Manager, HR, GM, Admin)
 - [ ] **Add** department manager views: team attendance, leave/loan approvals, team employee list
 - [ ] **Add** HR views: all employees, leave management, attendance dashboard, loans, settlements, payroll overview, documents, performance
 - [ ] **Add** GM views: organization-wide dashboards, cross-department reports & analytics, all approvals, headcount/turnover/payroll summaries
 - [ ] **Add** admin views: everything GM + HR has + shifts, policies, system settings, configuration
 - [ ] **Build** REST API endpoints for all manager/HR/admin actions (currently in wp-admin via `admin-post.php`)
-- [ ] **Add** role-based tab/navigation rendering — each role sees only their permitted sections
-- [ ] **Keep** wp-admin as a fallback for plugin configuration only (settings, migrations, advanced config)
-- [ ] **Ensure** the frontend portal is fully PWA-capable (offline, installable) — reuse existing service worker infrastructure
-- [ ] **Design** for future app wrapping (Capacitor/TWA) — no wp-admin dependencies in the frontend portal
+- [x] **Add** role-based tab/navigation rendering — each role sees only their permitted sections
+- [x] **Keep** wp-admin as a fallback for plugin configuration only (settings, migrations, advanced config)
+- [x] **Ensure** the frontend portal is fully PWA-capable (offline, installable) — reuse existing service worker infrastructure
+- [x] **Design** for future app wrapping (Capacitor/TWA) — no wp-admin dependencies in the frontend portal
 
 > **Why:** Moving all roles to the frontend creates a single app-like entry point, eliminates the need for users to access wp-admin, and makes the system ready to be wrapped as a native mobile app. The existing PWA shell + tab system + CSS framework are the foundation.
 
-### 10.1 Employee Self-Service UI Redesign (P1)
-- [ ] **Redesign** the entire self-service portal with modern card-based layouts
-- [ ] **Replace** dense table views with scannable card components (leave history, loan history, documents)
-- [ ] **Add** visual KPI cards at the top of each tab (leave balance summary, attendance stats, loan overview)
-- [ ] **Improve** form design — floating labels, better spacing, grouped inputs, inline validation
-- [ ] **Add** status badges with color coding (green=approved, orange=pending, red=rejected) consistently across all modules
-- [ ] **Redesign** mobile bottom navigation with cleaner icons and active-state indicators
-- [ ] **Improve** typography hierarchy — bigger headings, clearer section separation, better whitespace
-- [ ] **Add** empty states with illustrations when no data (no leaves, no loans, etc.)
+### 10.1 Employee Self-Service UI Redesign (P1) ✅ Done in v0.7.0
+- [x] **Redesign** the entire self-service portal with modern card-based layouts
+- [x] **Replace** dense table views with scannable card components (leave history, loan history, documents)
+- [x] **Add** visual KPI cards at the top of each tab (leave balance summary, attendance stats, loan overview)
+- [x] **Improve** form design — floating labels, better spacing, grouped inputs, inline validation
+- [x] **Add** status badges with color coding (green=approved, orange=pending, red=rejected) consistently across all modules
+- [x] **Redesign** mobile bottom navigation with cleaner icons and active-state indicators
+- [x] **Improve** typography hierarchy — bigger headings, clearer section separation, better whitespace
+- [x] **Add** empty states with illustrations when no data (no leaves, no loans, etc.)
 
-### 10.2 Leave Balance Visual Cards (P1)
-- [ ] **Redesign** leave balances as color-coded cards (each leave type gets a unique color — like efacility's Leave Availability screen)
-- [ ] **Add** circular balance badge on each card showing remaining days
-- [ ] **Show** three metrics per leave type: Total Available, Consumed, Applied
-- [ ] **Add** a mini progress bar or ring showing balance usage percentage
-- [ ] **Make** cards tappable to go directly to that leave type's request form
+### 10.2 Leave Balance Visual Cards (P1) ✅ Done in v0.7.0
+- [x] **Redesign** leave balances as color-coded cards (each leave type gets a unique color — like efacility's Leave Availability screen)
+- [x] **Add** circular balance badge on each card showing remaining days
+- [x] **Show** three metrics per leave type: Total Available, Consumed, Applied
+- [x] **Add** a mini progress bar or ring showing balance usage percentage
+- [x] **Make** cards tappable to go directly to that leave type's request form
 
 ### 10.3 Admin Attendance Dashboard Widgets (P1)
 - [ ] **Add** "Today's Attendance" gauge chart widget showing on-time vs late-in counts (like mewurk dashboard)
