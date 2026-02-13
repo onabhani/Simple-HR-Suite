@@ -2634,14 +2634,13 @@ public function render_exceptions(): void {
 
     // Optional on-demand rebuild
     if ( !empty($_GET['recalc']) ) {
-        $pT = $wpdb->prefix . 'sfs_hr_attendance_punches';
-        $days = $wpdb->get_col( $wpdb->prepare("
-            SELECT DATE(punch_time) AS d
-            FROM {$pT}
-            WHERE DATE(punch_time) BETWEEN %s AND %s
-            GROUP BY d ORDER BY d ASC
-        ", $from, $to) );
-        if ($days) foreach ($days as $d) { $this->rebuild_sessions_for_date($d); }
+        // Iterate each local date in range and rebuild its session
+        $day = new \DateTimeImmutable($from);
+        $end = new \DateTimeImmutable($to);
+        while ($day <= $end) {
+            $this->rebuild_sessions_for_date($day->format('Y-m-d'));
+            $day = $day->modify('+1 day');
+        }
     }
 
     $sT = $wpdb->prefix . 'sfs_hr_attendance_sessions';
@@ -3269,20 +3268,16 @@ $debug = !empty($_GET['debug']);
     ORDER BY name ASC
   ");
 
-// 3) Build WHERE after we know mode/month/date — for **LOCAL-stored** punch_time
+// 3) Build WHERE — punch_time is stored UTC, convert local bounds to UTC
+$tz = wp_timezone();
 if ($mode === 'day') {
-    // [local day start, next local day)
-    $st = $date . ' 00:00:00';
-    $en = (new \DateTimeImmutable($date . ' 00:00:00'))
-            ->modify('+1 day')
-            ->format('Y-m-d H:i:s');
+    list($st, $en) = AttendanceModule::local_day_window_to_utc($date);
 } else {
-    // [first day of local month, first day of next local month)
-    // $month is YYYY-MM
-    $st = $month . '-01 00:00:00';
-    $en = (new \DateTimeImmutable($st))
-            ->modify('first day of next month')
-            ->format('Y-m-d H:i:s');
+    // [first day of local month, first day of next local month) in UTC
+    $stL = new \DateTimeImmutable($month . '-01 00:00:00', $tz);
+    $enL = $stL->modify('first day of next month');
+    $st  = $stL->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+    $en  = $enL->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
 }
 
 $where = $wpdb->prepare(
@@ -3961,17 +3956,12 @@ public function handle_rebuild_sessions_period(): void {
         wp_die( esc_html__( 'Invalid date range', 'sfs-hr' ) );
     }
 
-    // Get all unique dates with punches in this range
-    $dates = $wpdb->get_col( $wpdb->prepare(
-        "SELECT DISTINCT DATE(punch_time) AS d FROM {$pT}
-         WHERE DATE(punch_time) BETWEEN %s AND %s
-         ORDER BY d ASC",
-        $from, $to
-    ) );
-
-    // Rebuild sessions for each date
-    foreach ( (array) $dates as $date ) {
-        $this->rebuild_sessions_for_date( $date );
+    // Rebuild sessions for each local date in the range
+    $day = new \DateTimeImmutable($from);
+    $end = new \DateTimeImmutable($to);
+    while ($day <= $end) {
+        $this->rebuild_sessions_for_date( $day->format('Y-m-d') );
+        $day = $day->modify('+1 day');
     }
 
     // Redirect back with month/year preserved
@@ -3998,10 +3988,11 @@ private function rebuild_all_sessions_for_date( string $date ): void {
     $pT  = $wpdb->prefix . 'sfs_hr_attendance_punches';
     $eT  = $wpdb->prefix . 'sfs_hr_employees';
 
-    // 1. Employees with punches on this date (always process these)
+    // 1. Employees with punches on this local date (convert to UTC range)
+    list($utc_start, $utc_end) = AttendanceModule::local_day_window_to_utc($date);
     $punched = $wpdb->get_col( $wpdb->prepare(
-        "SELECT DISTINCT employee_id FROM {$pT} WHERE DATE(punch_time)=%s",
-        $date
+        "SELECT DISTINCT employee_id FROM {$pT} WHERE punch_time >= %s AND punch_time < %s",
+        $utc_start, $utc_end
     ) );
     $punched = array_map( 'intval', (array) $punched );
 
