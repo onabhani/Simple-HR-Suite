@@ -182,6 +182,15 @@
 [dir="rtl"] .sfs-hr-lang-option {
     text-align: right;
 }
+/* RTL: sidebar on the right side */
+[dir="rtl"] .sfs-hr-sidebar {
+    border-right: none;
+    border-left: 1px solid var(--sfs-border);
+}
+[dir="rtl"] .sfs-hr-more-menu {
+    right: auto;
+    left: 8px;
+}
 .sfs-hr-lang-option:hover {
     background: var(--sfs-background);
 }
@@ -533,6 +542,167 @@
         stroke-width: 2;
     }
 
+    /* ── "More" overflow menu (mobile bottom bar) ─────────────── */
+    .sfs-hr-pwa-app .sfs-hr-more-menu {
+        position: fixed;
+        bottom: calc(60px + var(--sfs-safe-bottom));
+        right: 8px;
+        background: var(--sfs-surface);
+        border: 1px solid var(--sfs-border);
+        border-radius: 12px;
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.12);
+        padding: 6px;
+        z-index: 1001;
+        min-width: 160px;
+    }
+    .sfs-hr-pwa-app .sfs-hr-more-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        color: var(--sfs-text);
+        text-decoration: none;
+        font-size: 13px;
+    }
+    .sfs-hr-pwa-app .sfs-hr-more-menu-item:hover {
+        background: var(--sfs-background);
+    }
+    .sfs-hr-pwa-app .sfs-hr-more-menu-item--active {
+        color: var(--sfs-primary);
+        background: rgba(15, 76, 92, 0.08);
+        font-weight: 600;
+    }
+    .sfs-hr-pwa-app .sfs-hr-more-menu-item .sfs-hr-tab-icon {
+        width: 18px;
+        height: 18px;
+        stroke-width: 1.5;
+        flex-shrink: 0;
+    }
+
+    /* ── Portal Layout (sidebar hidden on mobile) ─────────────── */
+    .sfs-hr-portal-layout {
+        display: block;
+    }
+    .sfs-hr-pwa-app .sfs-hr-sidebar {
+        display: none; /* Hidden on mobile — bottom bar is used instead */
+    }
+
+    /* ── Desktop: Sidebar + Content Layout ────────────────────── */
+    @media screen and (min-width: 768px) {
+        .sfs-hr-portal-layout {
+            display: flex;
+            min-height: calc(100vh - 56px);
+        }
+
+        /* Show sidebar on desktop */
+        .sfs-hr-pwa-app .sfs-hr-sidebar {
+            display: flex;
+            flex-direction: column;
+            width: 220px;
+            min-width: 220px;
+            background: var(--sfs-surface);
+            border-right: 1px solid var(--sfs-border);
+            padding: 16px 8px;
+            position: sticky;
+            top: 56px; /* Below the header */
+            height: calc(100vh - 56px);
+            overflow-y: auto;
+            z-index: 10;
+            scrollbar-width: thin;
+        }
+        .admin-bar .sfs-hr-pwa-app .sfs-hr-sidebar {
+            top: calc(56px + 32px);
+            height: calc(100vh - 56px - 32px);
+        }
+
+        /* Sidebar section grouping */
+        .sfs-hr-sidebar-section {
+            margin-bottom: 4px;
+        }
+        .sfs-hr-sidebar-section + .sfs-hr-sidebar-section {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--sfs-border);
+        }
+        .sfs-hr-sidebar-section-label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--sfs-text-muted);
+            padding: 4px 12px 6px;
+        }
+
+        /* Sidebar items */
+        .sfs-hr-sidebar-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            border-radius: 8px;
+            color: var(--sfs-text);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 400;
+            transition: background 0.15s ease, color 0.15s ease;
+            cursor: pointer;
+        }
+        .sfs-hr-sidebar-item:hover {
+            background: var(--sfs-background);
+            color: var(--sfs-primary);
+        }
+        .sfs-hr-sidebar-item--active {
+            background: rgba(15, 76, 92, 0.1);
+            color: var(--sfs-primary);
+            font-weight: 600;
+        }
+        .sfs-hr-sidebar-item--active:hover {
+            background: rgba(15, 76, 92, 0.14);
+        }
+        .sfs-hr-sidebar-item .sfs-hr-tab-icon {
+            width: 18px;
+            height: 18px;
+            stroke-width: 1.5;
+            flex-shrink: 0;
+        }
+        .sfs-hr-sidebar-item--active .sfs-hr-tab-icon {
+            stroke-width: 2;
+        }
+        .sfs-hr-sidebar-label {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Content area fills remaining space */
+        .sfs-hr-portal-layout > .sfs-hr-profile {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* Hide bottom bar on desktop */
+        .sfs-hr-pwa-app .sfs-hr-profile-tabs {
+            display: none !important;
+        }
+        .sfs-hr-pwa-app .sfs-hr-more-menu {
+            display: none !important;
+        }
+
+        /* Adjust content padding — no bottom bar needed on desktop */
+        .sfs-hr-pwa-app .sfs-hr-profile {
+            padding-bottom: 24px !important;
+        }
+    }
+
+    /* Admin bar offset for mobile sidebar (782px is WP admin bar breakpoint) */
+    @media screen and (min-width: 768px) and (max-width: 782px) {
+        .admin-bar .sfs-hr-pwa-app .sfs-hr-sidebar {
+            top: calc(56px + 46px);
+            height: calc(100vh - 56px - 46px);
+        }
+    }
+
     /* Hide site header on mobile HR profile (but not our app header) */
     .sfs-hr-pwa-app ~ header,
     .sfs-hr-pwa-app ~ .site-header,
@@ -708,6 +878,17 @@
         background: rgba(56, 189, 248, 0.15);
         color: var(--sfs-primary);
     }
+
+    /* Sidebar & more menu in system dark mode */
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-sidebar { background: var(--sfs-surface); border-right-color: var(--sfs-border); }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-sidebar-item { color: var(--sfs-text); }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-sidebar-item:hover { background: rgba(56, 189, 248, 0.08); color: var(--sfs-primary); }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-sidebar-item--active { background: rgba(56, 189, 248, 0.15); color: var(--sfs-primary); }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-sidebar-section + .sfs-hr-sidebar-section { border-top-color: var(--sfs-border); }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-sidebar-section-label { color: var(--sfs-text-muted); }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-more-menu { background: var(--sfs-surface); border-color: var(--sfs-border); box-shadow: 0 -4px 20px rgba(0,0,0,0.3); }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-more-menu-item { color: var(--sfs-text); }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-more-menu-item--active { color: var(--sfs-primary); background: rgba(56, 189, 248, 0.12); }
 
     /* Profile completion in dark mode */
     .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-hr-profile-completion {
@@ -892,6 +1073,18 @@
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-profile-tabs { background: var(--sfs-surface); border-top-color: var(--sfs-border); }
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-tab { color: var(--sfs-text-muted); }
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-tab-active { background: rgba(56, 189, 248, 0.15); color: var(--sfs-primary); }
+/* Sidebar dark mode */
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-sidebar { background: var(--sfs-surface); border-right-color: var(--sfs-border); }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-sidebar-item { color: var(--sfs-text); }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-sidebar-item:hover { background: rgba(56, 189, 248, 0.08); color: var(--sfs-primary); }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-sidebar-item--active { background: rgba(56, 189, 248, 0.15); color: var(--sfs-primary); }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-sidebar-section + .sfs-hr-sidebar-section { border-top-color: var(--sfs-border); }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-sidebar-section-label { color: var(--sfs-text-muted); }
+/* More menu dark mode */
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-more-menu { background: var(--sfs-surface); border-color: var(--sfs-border); box-shadow: 0 -4px 20px rgba(0,0,0,0.3); }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-more-menu-item { color: var(--sfs-text); }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-more-menu-item:hover { background: var(--sfs-background); }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-more-menu-item--active { color: var(--sfs-primary); background: rgba(56, 189, 248, 0.12); }
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-profile-completion { background: linear-gradient(135deg, #0c4a6e 0%, #075985 100%); border-color: #0369a1; }
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-completion-title,
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-hr-completion-pct,
@@ -934,6 +1127,16 @@
 .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-profile-tabs { background: #ffffff; border-top-color: #e5e7eb; }
 .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-tab { color: #6b7280; }
 .sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-tab-active { background: rgba(2, 132, 199, 0.1); color: #0284c7; }
+/* Sidebar light mode */
+.sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-sidebar { background: #ffffff; border-right-color: #e5e7eb; }
+.sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-sidebar-item { color: #374151; }
+.sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-sidebar-item:hover { background: #f3f4f6; color: #0284c7; }
+.sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-sidebar-item--active { background: rgba(2, 132, 199, 0.1); color: #0284c7; }
+.sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-sidebar-section-label { color: #9ca3af; }
+/* More menu light mode */
+.sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-more-menu { background: #ffffff; border-color: #e5e7eb; }
+.sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-more-menu-item { color: #374151; }
+.sfs-hr-pwa-app.sfs-hr-light-mode .sfs-hr-more-menu-item--active { color: #0284c7; background: rgba(2, 132, 199, 0.08); }
 .sfs-hr-pwa-app.sfs-hr-dark-mode input,
 .sfs-hr-pwa-app.sfs-hr-dark-mode select,
 .sfs-hr-pwa-app.sfs-hr-dark-mode textarea { background: var(--sfs-surface); border-color: var(--sfs-border); color: var(--sfs-text); }

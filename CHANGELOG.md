@@ -2,6 +2,34 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [0.6.0] — 2026-02-13
+
+### Added
+- **Frontend Portal Framework** (§10.0 Phase 1): role-based navigation foundation
+  for the unified frontend portal.
+  - `Role_Resolver` service: detects user's highest portal role (admin, gm, hr,
+    manager, employee, trainee) from capabilities, options, and department
+    manager assignments.
+  - `Navigation` registry: centralized tab definitions with role-based filtering,
+    section grouping (personal/team/org/system), and conditional visibility
+    (limited access, settlements, self-clock). Renders both desktop sidebar and
+    mobile bottom bar from a single source of truth.
+  - `Tab_Dispatcher`: routes tab rendering to dedicated Tab classes, with
+    extensible `register()` method for future Phase 3/4 tabs.
+  - **Desktop sidebar navigation**: icon + label sidebar on screens ≥768px with
+    section dividers, active state highlighting, and sticky positioning.
+  - **Mobile "More" menu**: overflow tabs shown in a popup menu when more than
+    5 tabs are available, with smart active-tab swapping.
+  - Tab validation: active tab is checked against the user's permitted tabs;
+    unauthorized tabs fall back to overview.
+  - `data-role` attribute on the app shell for role-based CSS targeting.
+  - Full dark mode and RTL support for sidebar and more menu.
+
+### Changed
+- Shortcodes entry point (`my_profile`) refactored to use Navigation registry
+  and Tab_Dispatcher instead of hardcoded tab HTML and if/elseif routing.
+  All existing tabs continue to work exactly as before.
+
 ## [0.5.5] — 2026-02-12
 
 ### Added

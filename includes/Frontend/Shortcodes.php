@@ -7,6 +7,9 @@ use SFS\HR\Frontend\Tabs\LeaveTab;
 use SFS\HR\Frontend\Tabs\LoansTab;
 use SFS\HR\Frontend\Tabs\ResignationTab;
 use SFS\HR\Frontend\Tabs\SettlementTab;
+use SFS\HR\Frontend\Role_Resolver;
+use SFS\HR\Frontend\Navigation;
+use SFS\HR\Frontend\Tab_Dispatcher;
 
 if ( ! defined('ABSPATH') ) { exit; }
 
@@ -170,22 +173,21 @@ class Shortcodes {
     $can_self_clock = class_exists( Attendance_Public_REST::class )
         && Attendance_Public_REST::can_punch_self();
 
+    // ── Role detection & navigation framework ────────────────────
+    $portal_role = Role_Resolver::resolve( $current_user_id );
+    $nav_conditions = [
+        'not_limited'    => ! $is_limited_access,
+        'has_settlements' => false, // set below after DB check
+        'can_self_clock' => (bool) $can_self_clock,
+    ];
+
     // Active tab from query (?sfs_hr_tab=leave / attendance).
     $active_tab = isset( $_GET['sfs_hr_tab'] )
         ? sanitize_key( (string) $_GET['sfs_hr_tab'] )
         : 'overview';
 
-    // Tab URLs (keep current query string but override sfs_hr_tab).
-    $base_url        = remove_query_arg( 'sfs_hr_tab' );
-    // Tab URLs (keep current query string but override sfs_hr_tab).
-    $base_url        = remove_query_arg( 'sfs_hr_tab' );
-    $overview_url    = add_query_arg( 'sfs_hr_tab', 'overview',    $base_url );
-    $leave_url       = add_query_arg( 'sfs_hr_tab', 'leave',       $base_url );
-    $loans_url       = add_query_arg( 'sfs_hr_tab', 'loans',       $base_url );
-    $resignation_url = add_query_arg( 'sfs_hr_tab', 'resignation', $base_url );
-    $settlement_url  = add_query_arg( 'sfs_hr_tab', 'settlement',  $base_url );
-    $attendance_url  = add_query_arg( 'sfs_hr_tab', 'attendance',  $base_url );
-    $documents_url   = add_query_arg( 'sfs_hr_tab', 'documents',   $base_url );
+    // Base URL for tab links.
+    $base_url = remove_query_arg( 'sfs_hr_tab' );
 
     // Check if employee has settlements (to show Settlement tab)
     $settle_table = $wpdb->prefix . 'sfs_hr_settlements';
@@ -193,6 +195,18 @@ class Shortcodes {
         "SELECT COUNT(*) FROM {$settle_table} WHERE employee_id = %d",
         $emp_id
     ) ) > 0;
+
+    // Update navigation conditions with settlement check.
+    $nav_conditions['has_settlements'] = $has_settlements;
+
+    // Build role-based tab list.
+    $portal_tabs = Navigation::get_tabs_for_role( $portal_role, $nav_conditions );
+
+    // Validate active tab is permitted — fallback to overview.
+    $allowed_slugs = array_column( $portal_tabs, 'slug' );
+    if ( ! in_array( $active_tab, $allowed_slugs, true ) ) {
+        $active_tab = 'overview';
+    }
 
     // Check for missing required documents
     $missing_docs = [];
@@ -327,7 +341,7 @@ class Shortcodes {
     $pwa_instance = 'pwa-' . substr(wp_hash((string)get_current_user_id() . microtime(true)), 0, 6);
     ?>
     <!-- PWA App Wrapper -->
-    <div class="sfs-hr-pwa-app" id="<?php echo esc_attr($pwa_instance); ?>">
+    <div class="sfs-hr-pwa-app" id="<?php echo esc_attr($pwa_instance); ?>" data-role="<?php echo esc_attr( $portal_role ); ?>">
 
     <!-- Offline Indicator -->
     <div class="sfs-hr-offline-banner" id="sfs-hr-offline-<?php echo esc_attr($pwa_instance); ?>">
@@ -418,6 +432,12 @@ class Shortcodes {
         </div>
     </header>
 
+    <!-- Portal Layout: Sidebar (desktop) + Content -->
+    <div class="sfs-hr-portal-layout">
+
+    <!-- Desktop Sidebar Navigation -->
+    <?php echo Navigation::render_sidebar( $portal_tabs, $active_tab, $base_url ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- HTML escaped inside render_sidebar ?>
+
     <div class="sfs-hr sfs-hr-profile sfs-hr-profile--frontend">
 
         <?php if ( $is_terminated ) : ?>
@@ -432,70 +452,26 @@ class Shortcodes {
             </div>
         <?php endif; ?>
 
-        <div class="sfs-hr-profile-tabs">
-            <a href="<?php echo esc_url( $overview_url ); ?>"
-               class="sfs-hr-tab <?php echo ( $active_tab === 'overview' ) ? 'sfs-hr-tab-active' : ''; ?>">
-                <svg class="sfs-hr-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                <span><?php esc_html_e( 'Overview', 'sfs-hr' ); ?></span>
-            </a>
-            <?php if ( ! $is_limited_access ) : ?>
-                <a href="<?php echo esc_url( $leave_url ); ?>"
-                   class="sfs-hr-tab <?php echo ( $active_tab === 'leave' ) ? 'sfs-hr-tab-active' : ''; ?>">
-                    <svg class="sfs-hr-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                    <span><?php esc_html_e( 'Leave', 'sfs-hr' ); ?></span>
-                </a>
-                <a href="<?php echo esc_url( $loans_url ); ?>"
-                   class="sfs-hr-tab <?php echo ( $active_tab === 'loans' ) ? 'sfs-hr-tab-active' : ''; ?>">
-                    <svg class="sfs-hr-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-                    <span><?php esc_html_e( 'Loans', 'sfs-hr' ); ?></span>
-                </a>
-            <?php endif; ?>
-            <a href="<?php echo esc_url( $resignation_url ); ?>"
-               class="sfs-hr-tab <?php echo ( $active_tab === 'resignation' ) ? 'sfs-hr-tab-active' : ''; ?>">
-                <svg class="sfs-hr-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-                <span><?php esc_html_e( 'Resignation', 'sfs-hr' ); ?></span>
-            </a>
+        <!-- Mobile Bottom Tab Bar -->
+        <?php echo Navigation::render_bottom_bar( $portal_tabs, $active_tab, $base_url ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- HTML escaped inside render_bottom_bar ?>
 
-            <?php if ( $has_settlements ) : ?>
-                <a href="<?php echo esc_url( $settlement_url ); ?>"
-                   class="sfs-hr-tab <?php echo ( $active_tab === 'settlement' ) ? 'sfs-hr-tab-active' : ''; ?>">
-                    <svg class="sfs-hr-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-                    <span><?php esc_html_e( 'Settlement', 'sfs-hr' ); ?></span>
-                </a>
-            <?php endif; ?>
+        <?php
+        // ── Tab Content Routing via Dispatcher ──────────────────
+        $dispatch_context = [
+            'is_limited_access' => $is_limited_access,
+            'has_settlements'   => $has_settlements,
+            'can_self_clock'    => $can_self_clock,
+        ];
+        $tab_handled = Tab_Dispatcher::render( $active_tab, $portal_role, $emp, $emp_id, $dispatch_context );
+        ?>
 
-            <?php if ( $can_self_clock && ! $is_limited_access ) : ?>
-                <a href="<?php echo esc_url( $attendance_url ); ?>"
-                   class="sfs-hr-tab <?php echo ( $active_tab === 'attendance' ) ? 'sfs-hr-tab-active' : ''; ?>">
-                    <svg class="sfs-hr-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                    <span><?php esc_html_e( 'Attendance', 'sfs-hr' ); ?></span>
-                </a>
-            <?php endif; ?>
-        </div>
-
-        <?php if ( $active_tab === 'leave' && ! $is_limited_access ) : ?>
-
-            <?php ( new LeaveTab() )->render( $emp, $emp_id ); ?>
-
-        <?php elseif ( $active_tab === 'loans' && ! $is_limited_access ) : ?>
-
-        <?php ( new LoansTab() )->render( $emp, $emp_id ); ?>
-
-    <?php elseif ( $active_tab === 'resignation' ) : ?>
-
-        <?php ( new ResignationTab() )->render( $emp, $emp_id ); ?>
-
-    <?php elseif ( $active_tab === 'settlement' && $has_settlements ) : ?>
-
-        <?php ( new SettlementTab() )->render( $emp, $emp_id ); ?>
+    <?php if ( $tab_handled ) : ?>
+        <!-- Tab rendered by dispatcher -->
 
     <?php elseif ( $active_tab === 'attendance' && $can_self_clock ) : ?>
 
         <div class="sfs-hr-profile-attendance-tab" style="margin-top:24px;">
-            <?php
-            // Full self-web widget, non-immersive so it stays inline.
-            echo do_shortcode( '[sfs_hr_attendance_widget immersive="0"]' );
-            ?>
+            <?php echo do_shortcode( '[sfs_hr_attendance_widget immersive="0"]' ); ?>
         </div>
 
     <?php elseif ( $active_tab === 'documents' && ! $is_limited_access ) : ?>
@@ -1308,7 +1284,8 @@ class Shortcodes {
 
         <?php endif; // overview/leave ?>
 
-    </div>
+    </div><!-- /.sfs-hr-profile -->
+    </div><!-- /.sfs-hr-portal-layout -->
 
     <style>
     .sfs-hr-profile-header {
@@ -1983,6 +1960,26 @@ class Shortcodes {
         window.addEventListener('online', updateOfflineStatus);
         window.addEventListener('offline', updateOfflineStatus);
         updateOfflineStatus();
+
+        // "More" menu toggle (mobile bottom bar overflow)
+        var pwaEl = document.getElementById(inst);
+        if (pwaEl) {
+            var moreBtn = pwaEl.querySelector('.sfs-hr-tab-more');
+            var moreMenu = pwaEl.querySelector('.sfs-hr-more-menu');
+            if (moreBtn && moreMenu) {
+                moreBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var open = moreMenu.hidden;
+                    moreMenu.hidden = !open;
+                    moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                });
+                document.addEventListener('click', function() {
+                    moreMenu.hidden = true;
+                    moreBtn.setAttribute('aria-expanded', 'false');
+                });
+                moreMenu.addEventListener('click', function(e) { e.stopPropagation(); });
+            }
+        }
 
         // Detect iOS Safari
         var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
