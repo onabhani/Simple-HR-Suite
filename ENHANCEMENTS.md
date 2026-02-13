@@ -161,10 +161,11 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 > **Reference designs:** mewurk.com (attendance dashboard), efacility.ae (clock in/out, approvals, leave availability), Jibble (time tracking, team view), Bayzat (leave approvals), various Arabic HR SaaS (dashboard tiles, mobile app). Goal is a modern, app-like experience that's easier to read and navigate.
 
 ### 10.0 Frontend Portal for All Roles (P1 — Foundation)
-- [ ] **Extend** the existing `[sfs_hr_my_profile]` shortcode with role-based view detection (Employee, Manager, HR, Admin)
-- [ ] **Add** manager views: team attendance, leave/loan approvals, team employee list
+- [ ] **Extend** the existing `[sfs_hr_my_profile]` shortcode with role-based view detection (Employee, Department Manager, HR, GM, Admin)
+- [ ] **Add** department manager views: team attendance, leave/loan approvals, team employee list
 - [ ] **Add** HR views: all employees, leave management, attendance dashboard, loans, settlements, payroll overview, documents, performance
-- [ ] **Add** admin views: everything HR has + shifts, policies, reports & analytics, settings
+- [ ] **Add** GM views: organization-wide dashboards, cross-department reports & analytics, all approvals, headcount/turnover/payroll summaries
+- [ ] **Add** admin views: everything GM + HR has + shifts, policies, system settings, configuration
 - [ ] **Build** REST API endpoints for all manager/HR/admin actions (currently in wp-admin via `admin-post.php`)
 - [ ] **Add** role-based tab/navigation rendering — each role sees only their permitted sections
 - [ ] **Keep** wp-admin as a fallback for plugin configuration only (settings, migrations, advanced config)
