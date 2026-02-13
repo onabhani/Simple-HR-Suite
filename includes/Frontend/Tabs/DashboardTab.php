@@ -545,12 +545,9 @@ class DashboardTab implements TabInterface {
     private function get_current_period(): array {
         if ( class_exists( '\SFS\HR\Modules\Attendance\AttendanceModule' ) &&
              method_exists( '\SFS\HR\Modules\Attendance\AttendanceModule', 'get_current_period' ) ) {
-            $instance = \SFS\HR\Modules\Attendance\AttendanceModule::get_instance();
-            if ( $instance ) {
-                $period = $instance->get_current_period();
-                if ( is_array( $period ) && ! empty( $period['start'] ) ) {
-                    return $period;
-                }
+            $period = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period();
+            if ( is_array( $period ) && ! empty( $period['start'] ) ) {
+                return $period;
             }
         }
         // Fallback: calendar month.
