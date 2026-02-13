@@ -2826,44 +2826,52 @@
     padding: 4px 0;
 }
 
-/* ── Greeting ────────────────────────────────────────────────── */
-.sfs-overview-greeting {
+/* ── Hero Card ───────────────────────────────────────────────── */
+.sfs-overview-hero {
+    background: linear-gradient(135deg, var(--sfs-primary, #0f4c5c) 0%, #1a6d7d 50%, #237a8a 100%);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+    color: #ffffff;
+}
+.sfs-overview-hero-top {
     display: flex;
     align-items: center;
     gap: 14px;
-    margin-bottom: 20px;
-    padding: 0 2px;
 }
-.sfs-overview-greeting-avatar {
+.sfs-overview-hero-avatar {
     flex-shrink: 0;
 }
 .sfs-overview-avatar-img {
-    width: 48px;
-    height: 48px;
+    width: 64px;
+    height: 64px;
     border-radius: 50%;
     object-fit: cover;
     display: block;
+    border: 3px solid rgba(255, 255, 255, 0.35);
 }
 .sfs-overview-avatar-placeholder {
-    width: 48px;
-    height: 48px;
+    width: 64px;
+    height: 64px;
     border-radius: 50%;
-    background: var(--sfs-primary, #0f4c5c);
+    background: rgba(255, 255, 255, 0.2);
     color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 16px;
+    font-size: 20px;
     font-weight: 700;
     letter-spacing: 0.03em;
+    border: 3px solid rgba(255, 255, 255, 0.35);
 }
-.sfs-overview-greeting-text {
+.sfs-overview-hero-text {
+    flex: 1;
     min-width: 0;
 }
 .sfs-overview-greeting-label {
     display: block;
     font-size: 13px;
-    color: var(--sfs-text-muted, #6b7280);
+    color: rgba(255, 255, 255, 0.75);
     font-weight: 400;
     line-height: 1.3;
 }
@@ -2871,77 +2879,40 @@
     margin: 2px 0 0;
     font-size: 20px;
     font-weight: 700;
-    color: var(--sfs-text, #111827);
+    color: #ffffff;
     line-height: 1.25;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-
-/* ── Quick Attendance Action ─────────────────────────────────── */
-.sfs-overview-attendance-action {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    background: var(--sfs-surface, #ffffff);
-    border: 1px solid var(--sfs-border, #e5e7eb);
-    border-radius: 14px;
-    padding: 14px 16px;
-    margin-bottom: 20px;
-}
-.sfs-overview-action-content {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: 0;
-}
-.sfs-overview-action-icon {
-    flex-shrink: 0;
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    background: #eff6ff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.sfs-overview-action-icon svg {
-    width: 20px;
-    height: 20px;
-    stroke: #3b82f6;
-}
-.sfs-overview-action-text {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-}
-.sfs-overview-action-label {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--sfs-text, #111827);
-}
-.sfs-overview-action-sub {
+.sfs-overview-hero-date {
+    display: block;
     font-size: 12px;
-    color: var(--sfs-text-muted, #6b7280);
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 2px;
 }
 .sfs-overview-action-btn {
+    flex-shrink: 0;
     display: inline-flex;
     align-items: center;
+    align-self: flex-start;
     padding: 8px 18px;
     border-radius: 999px;
-    background: var(--sfs-primary, #0f4c5c);
+    background: rgba(255, 255, 255, 0.2);
     color: #ffffff !important;
     font-size: 13px;
     font-weight: 600;
     text-decoration: none;
     white-space: nowrap;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
     transition: background .15s ease, box-shadow .15s ease, transform .05s ease;
 }
 .sfs-overview-action-btn:hover,
 .sfs-overview-action-btn:focus {
-    background: var(--sfs-primary-light, #135e96);
-    box-shadow: 0 4px 12px rgba(15, 76, 92, 0.25);
+    background: rgba(255, 255, 255, 0.32);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     color: #ffffff !important;
     text-decoration: none;
     transform: translateY(-1px);
@@ -2949,6 +2920,43 @@
 .sfs-overview-action-btn:active {
     transform: translateY(0);
     box-shadow: none;
+}
+
+/* ── Hero Timing Row (conditional) ──────────────────────────── */
+.sfs-overview-hero-timing {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+.sfs-overview-hero-timing-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.sfs-overview-hero-timing-item svg {
+    width: 16px;
+    height: 16px;
+    stroke: rgba(255, 255, 255, 0.6);
+    flex-shrink: 0;
+}
+.sfs-overview-hero-timing-label {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    font-weight: 400;
+}
+.sfs-overview-hero-timing-value {
+    font-size: 14px;
+    color: #ffffff;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.sfs-overview-hero-timing-sep {
+    width: 1px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.2);
 }
 
 /* ── Section Headers ─────────────────────────────────────────── */
@@ -3186,8 +3194,34 @@
 
 /* ── Mobile Responsive ───────────────────────────────────────── */
 @media (max-width: 640px) {
+    .sfs-overview-hero {
+        padding: 16px;
+    }
+    .sfs-overview-hero-top {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .sfs-overview-avatar-img,
+    .sfs-overview-avatar-placeholder {
+        width: 52px;
+        height: 52px;
+        font-size: 17px;
+    }
     .sfs-overview-greeting-name {
         font-size: 18px;
+    }
+    .sfs-overview-action-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 10px 18px;
+        order: 3;
+    }
+    .sfs-overview-hero-timing {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .sfs-overview-hero-timing-sep {
+        display: none;
     }
     .sfs-overview-att-grid {
         gap: 8px;
@@ -3197,19 +3231,6 @@
     }
     .sfs-overview-att-card-value {
         font-size: 20px;
-    }
-    .sfs-overview-attendance-action {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 10px;
-        text-align: center;
-    }
-    .sfs-overview-action-content {
-        justify-content: center;
-    }
-    .sfs-overview-action-btn {
-        justify-content: center;
-        padding: 10px 18px;
     }
     .sfs-overview-profile-banner {
         flex-wrap: wrap;
@@ -3223,8 +3244,10 @@
 
 /* ── Dark Mode — Overview ────────────────────────────────────── */
 @media (prefers-color-scheme: dark) {
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-hero {
+        background: linear-gradient(135deg, #0c3640 0%, #0f4c5c 50%, #155e6e 100%);
+    }
     .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-att-card,
-    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-attendance-action,
     .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-activity-list {
         background: var(--sfs-surface, #1e293b);
         border-color: #334155;
@@ -3234,12 +3257,6 @@
     }
     .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-activity-item:hover {
         background: rgba(255, 255, 255, 0.03);
-    }
-    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-avatar-placeholder {
-        background: var(--sfs-primary, #0f4c5c);
-    }
-    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-action-icon {
-        background: #1e293b;
     }
     .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-activity-icon--leave {
         background: #1e293b;
@@ -3281,8 +3298,10 @@
         color: #94a3b8;
     }
 }
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-hero {
+    background: linear-gradient(135deg, #0c3640 0%, #0f4c5c 50%, #155e6e 100%);
+}
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-att-card,
-.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-attendance-action,
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-activity-list {
     background: var(--sfs-surface, #1e293b);
     border-color: #334155;
@@ -3292,12 +3311,6 @@
 }
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-activity-item:hover {
     background: rgba(255, 255, 255, 0.03);
-}
-.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-avatar-placeholder {
-    background: var(--sfs-primary, #0f4c5c);
-}
-.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-action-icon {
-    background: #1e293b;
 }
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-activity-icon--leave {
     background: #1e293b;

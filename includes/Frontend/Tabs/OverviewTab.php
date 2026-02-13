@@ -207,17 +207,23 @@ class OverviewTab implements TabInterface {
         // ─── Render ───────────────────────────────────────────────
         echo '<div class="sfs-overview">';
 
-        // ── 1. Greeting Header ────────────────────────────────────
-        echo '<div class="sfs-overview-greeting">';
-        echo '<div class="sfs-overview-greeting-avatar">';
+        // ── 1. Unified Hero Card ─────────────────────────────────
+        $today_display = wp_date( 'l, j M Y' );
+        $name_ar       = trim( $first_name_ar . ' ' . ( $emp['last_name_ar'] ?? '' ) ) ?: $full_name;
+
+        echo '<div class="sfs-overview-hero">';
+        echo '<div class="sfs-overview-hero-top">';
+
+        // Avatar (64px)
+        echo '<div class="sfs-overview-hero-avatar">';
         if ( $photo_id ) {
             echo wp_get_attachment_image(
                 $photo_id,
-                [ 48, 48 ],
+                [ 64, 64 ],
                 false,
                 [
                     'class' => 'sfs-overview-avatar-img',
-                    'style' => 'border-radius:50%;display:block;object-fit:cover;width:48px;height:48px;',
+                    'style' => 'border-radius:50%;display:block;object-fit:cover;width:64px;height:64px;',
                 ]
             );
         } else {
@@ -225,30 +231,44 @@ class OverviewTab implements TabInterface {
             echo '<div class="sfs-overview-avatar-placeholder">' . esc_html( $initials ) . '</div>';
         }
         echo '</div>';
-        echo '<div class="sfs-overview-greeting-text">';
-        echo '<span class="sfs-overview-greeting-label" data-i18n-key="' . esc_attr( $greeting_key ) . '">' . esc_html( $greeting ) . '</span>';
-        echo '<h2 class="sfs-overview-greeting-name" data-name-en="' . esc_attr( $full_name ) . '" data-name-ar="' . esc_attr( trim( $first_name_ar . ' ' . ( $emp['last_name_ar'] ?? '' ) ) ?: $full_name ) . '">' . esc_html( $full_name ) . '</h2>';
-        echo '</div>';
-        echo '</div>'; // .sfs-overview-greeting
 
-        // ── 2. Quick Attendance Action ────────────────────────────
+        // Greeting text + date
+        echo '<div class="sfs-overview-hero-text">';
+        echo '<span class="sfs-overview-greeting-label" data-i18n-key="' . esc_attr( $greeting_key ) . '">' . esc_html( $greeting ) . '</span>';
+        echo '<h2 class="sfs-overview-greeting-name" data-name-en="' . esc_attr( $full_name ) . '" data-name-ar="' . esc_attr( $name_ar ) . '">' . esc_html( $full_name ) . '</h2>';
+        echo '<span class="sfs-overview-hero-date">' . esc_html( $today_display ) . '</span>';
+        echo '</div>';
+
+        // Attendance button (only if allowed)
         if ( $can_self_clock ) {
-            echo '<div class="sfs-overview-attendance-action">';
-            echo '<div class="sfs-overview-action-content">';
-            echo '<div class="sfs-overview-action-icon">';
-            echo '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
-            echo '</div>';
-            echo '<div class="sfs-overview-action-text">';
-            echo '<span class="sfs-overview-action-label" data-i18n-key="attendance">' . esc_html__( 'Attendance', 'sfs-hr' ) . '</span>';
-            echo '<span class="sfs-overview-action-sub" data-i18n-key="mark_attendance">' . esc_html__( 'Mark your attendance', 'sfs-hr' ) . '</span>';
-            echo '</div>';
-            echo '</div>';
             echo '<a href="' . esc_url( $attendance_url ) . '" class="sfs-overview-action-btn" data-sfs-att-btn="overview" data-i18n-key="attendance">';
             echo esc_html__( 'Attendance', 'sfs-hr' );
             echo '</a>';
-            echo '</div>'; // .sfs-overview-attendance-action
+        }
 
-            // Script to fetch current attendance status and update the button label.
+        echo '</div>'; // .sfs-overview-hero-top
+
+        // Conditional timing row — hidden by default, shown via JS when clocked in
+        if ( $can_self_clock ) {
+            echo '<div class="sfs-overview-hero-timing" id="sfs-hero-timing" style="display:none;">';
+            echo '<div class="sfs-overview-hero-timing-item">';
+            echo '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+            echo '<span class="sfs-overview-hero-timing-label" data-i18n-key="clock_in">' . esc_html__( 'Clock In', 'sfs-hr' ) . '</span>';
+            echo '<span class="sfs-overview-hero-timing-value" id="sfs-hero-clock-in">--:--</span>';
+            echo '</div>';
+            echo '<div class="sfs-overview-hero-timing-sep"></div>';
+            echo '<div class="sfs-overview-hero-timing-item">';
+            echo '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>';
+            echo '<span class="sfs-overview-hero-timing-label" data-i18n-key="working">' . esc_html__( 'Working', 'sfs-hr' ) . '</span>';
+            echo '<span class="sfs-overview-hero-timing-value" id="sfs-hero-working">0h 0m</span>';
+            echo '</div>';
+            echo '</div>'; // .sfs-overview-hero-timing
+        }
+
+        echo '</div>'; // .sfs-overview-hero
+
+        // Script to fetch current attendance status — updates button label + timing row
+        if ( $can_self_clock ) {
             echo '<script>';
             echo '(function(){';
             echo 'var btn=document.querySelector(".sfs-overview-action-btn[data-sfs-att-btn=\'overview\']");';
@@ -266,6 +286,19 @@ class OverviewTab implements TabInterface {
             echo 'var keys={in:"clock_in",break_start:"start_break",break_end:"end_break",out:"clock_out"};';
             echo 'if(a.in){l=labels.in;btn.dataset.i18nKey=keys.in;}else if(a.break_start){l=labels.break_start;btn.dataset.i18nKey=keys.break_start;}else if(a.break_end){l=labels.break_end;btn.dataset.i18nKey=keys.break_end;}else if(a.out){l=labels.out;btn.dataset.i18nKey=keys.out;}';
             echo 'if(l)btn.textContent=l;';
+            // Show timing row when clocked in (state !== idle)
+            echo 'var st=d.state||"idle";';
+            echo 'var timingRow=document.getElementById("sfs-hero-timing");';
+            echo 'if(timingRow&&st!=="idle"){';
+            echo 'timingRow.style.display="";';
+            echo 'var ciEl=document.getElementById("sfs-hero-clock-in");';
+            echo 'if(ciEl&&d.clock_in_time)ciEl.textContent=d.clock_in_time;';
+            echo 'var wEl=document.getElementById("sfs-hero-working");';
+            echo 'if(wEl&&typeof d.working_seconds==="number"){';
+            echo 'var s=d.working_seconds,h=Math.floor(s/3600),m=Math.floor((s%3600)/60);';
+            echo 'wEl.textContent=h+"h "+m+"m";';
+            echo '}';
+            echo '}';
             echo '}).catch(function(){});';
             echo '})();</script>';
         }
