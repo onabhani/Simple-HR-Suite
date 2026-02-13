@@ -480,9 +480,13 @@ class Shortcodes {
 
     <?php else : ?>
 
-        <div class="sfs-hr-profile-header">
+        <!-- Fallback: unknown tab — the dispatcher should have handled overview/profile -->
+        <div style="padding:24px;">
+            <p><?php esc_html_e( 'This section is not available.', 'sfs-hr' ); ?></p>
+        </div>
 
-    <div class="sfs-hr-profile-photo">
+    <?php /* ── Legacy inline overview removed — now rendered by OverviewTab / ProfileTab via dispatcher ── */ ?>
+    <?php if ( false ) : /* Dead code guard — will be cleaned up in a future release */ ?>
         <?php
         if ( $photo_id ) {
             echo wp_get_attachment_image(
@@ -1281,6 +1285,8 @@ class Shortcodes {
 
 
 
+
+    <?php endif; /* Dead code guard end */ ?>
 
         <?php endif; // overview/leave ?>
 

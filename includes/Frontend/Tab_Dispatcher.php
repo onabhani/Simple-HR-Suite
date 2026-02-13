@@ -13,6 +13,8 @@
 namespace SFS\HR\Frontend;
 
 use SFS\HR\Frontend\Tabs\TabInterface;
+use SFS\HR\Frontend\Tabs\OverviewTab;
+use SFS\HR\Frontend\Tabs\ProfileTab;
 use SFS\HR\Frontend\Tabs\LeaveTab;
 use SFS\HR\Frontend\Tabs\LoansTab;
 use SFS\HR\Frontend\Tabs\ResignationTab;
@@ -40,6 +42,8 @@ class Tab_Dispatcher {
      */
     private static array $tab_map = [
         // Personal tabs (Phase 1).
+        'overview'         => OverviewTab::class,
+        'profile'          => ProfileTab::class,
         'leave'            => LeaveTab::class,
         'loans'            => LoansTab::class,
         'resignation'      => ResignationTab::class,
@@ -64,8 +68,8 @@ class Tab_Dispatcher {
      * @return bool True if the tab was rendered, false if the caller should handle it.
      */
     public static function render( string $tab, string $role, array $emp, int $emp_id, array $context = [] ): bool {
-        // Tabs handled inline by the shortcode (overview, attendance, documents).
-        if ( in_array( $tab, [ 'overview', 'attendance', 'documents' ], true ) ) {
+        // Tabs handled inline by the shortcode (attendance, documents).
+        if ( in_array( $tab, [ 'attendance', 'documents' ], true ) ) {
             return false;
         }
 
