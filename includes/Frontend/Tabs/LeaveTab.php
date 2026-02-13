@@ -3,6 +3,7 @@
  * Leave Tab - Frontend leave dashboard, balance cards and request form
  *
  * Redesigned with §10.1 design system + §10.2 leave balance visual cards.
+ * Card-based history (no tables), request form in modal, history before balances.
  *
  * @package SFS\HR\Frontend\Tabs
  */
@@ -129,14 +130,22 @@ class LeaveTab implements TabInterface {
         // KPI strip
         $this->render_kpis( $requests_count, $annual_available, $total_used, $pending_count, $next_leave_text );
 
+        // New Leave Request button
+        echo '<div style="margin-bottom:16px;">';
+        echo '<button type="button" class="sfs-btn sfs-btn--primary" onclick="document.getElementById(\'sfs-leave-modal\').classList.add(\'sfs-modal-active\')" data-i18n-key="new_leave_request">';
+        echo '<svg viewBox="0 0 24 24" style="width:16px;height:16px;margin-inline-end:6px;vertical-align:-2px;" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+        echo esc_html__( 'New Leave Request', 'sfs-hr' );
+        echo '</button>';
+        echo '</div>';
+
+        // Leave history (card-based, before balances)
+        $this->render_history( $rows );
+
         // §10.2 Leave Balance Cards
         $this->render_balance_cards( $balances, $leave_url );
 
-        // Request form
-        $this->render_request_form( $emp_id, $types );
-
-        // Leave history
-        $this->render_history( $rows );
+        // Request form modal
+        $this->render_request_modal( $emp_id, $types );
     }
 
     /* ──────────────────────────────────────────────────────────
@@ -238,7 +247,7 @@ class LeaveTab implements TabInterface {
             $type_id = (int) ( $b['type_id'] ?? 0 );
             $card_url = $type_id > 0 ? add_query_arg( 'leave_type', $type_id, $leave_url ) : $leave_url;
 
-            echo '<a href="' . esc_url( $card_url ) . '#sfs-leave-form" class="sfs-balance-card" data-color="' . esc_attr( $color ) . '">';
+            echo '<a href="' . esc_url( $card_url ) . '" class="sfs-balance-card" data-color="' . esc_attr( $color ) . '">';
 
             // Head: name + ring
             echo '<div class="sfs-balance-card-head">';
@@ -266,16 +275,25 @@ class LeaveTab implements TabInterface {
     }
 
     /* ──────────────────────────────────────────────────────────
-       Request Form
+       Request Form Modal
     ────────────────────────────────────────────────────────── */
-    private function render_request_form( int $emp_id, array $types ): void {
-        echo '<div class="sfs-card" style="margin-bottom:24px;" id="sfs-leave-form">';
-        echo '<div class="sfs-card-body">';
-        echo '<h3 style="font-size:15px;font-weight:700;color:var(--sfs-text);margin:0 0 14px;" data-i18n-key="request_new_leave">' . esc_html__( 'Request New Leave', 'sfs-hr' ) . '</h3>';
+    private function render_request_modal( int $emp_id, array $types ): void {
+        echo '<div id="sfs-leave-modal" class="sfs-form-modal-overlay">';
+        echo '<div class="sfs-form-modal-backdrop" onclick="document.getElementById(\'sfs-leave-modal\').classList.remove(\'sfs-modal-active\')"></div>';
+        echo '<div class="sfs-form-modal">';
+
+        // Header
+        echo '<div class="sfs-form-modal-header">';
+        echo '<h3 class="sfs-form-modal-title" data-i18n-key="request_new_leave">' . esc_html__( 'Request New Leave', 'sfs-hr' ) . '</h3>';
+        echo '<button type="button" class="sfs-form-modal-close" onclick="document.getElementById(\'sfs-leave-modal\').classList.remove(\'sfs-modal-active\')" aria-label="' . esc_attr__( 'Close', 'sfs-hr' ) . '">&times;</button>';
+        echo '</div>';
+
+        // Body
+        echo '<div class="sfs-form-modal-body">';
 
         if ( empty( $types ) ) {
             echo '<p class="sfs-form-hint" data-i18n-key="leave_types_not_configured">' . esc_html__( 'Leave types are not configured yet. Please contact HR.', 'sfs-hr' ) . '</p>';
-            echo '</div></div>';
+            echo '</div></div></div>';
             return;
         }
 
@@ -333,18 +351,22 @@ class LeaveTab implements TabInterface {
 
         echo '</div>'; // .sfs-form-fields
         echo '</form>';
-        echo '</div></div>'; // .sfs-card-body, .sfs-card
+        echo '</div>'; // .sfs-form-modal-body
+        echo '</div>'; // .sfs-form-modal
+        echo '</div>'; // .sfs-form-modal-overlay
 
-        // JS: pre-select leave type from balance card link
+        // JS: pre-select leave type from balance card link + Escape key close
         echo '<script>';
-        echo 'document.addEventListener("DOMContentLoaded",function(){';
+        echo '(function(){';
+        echo 'var m=document.getElementById("sfs-leave-modal");if(!m)return;';
+        echo 'document.addEventListener("keydown",function(e){if(e.key==="Escape")m.classList.remove("sfs-modal-active");});';
         echo 'var u=new URLSearchParams(window.location.search),t=u.get("leave_type"),s=document.getElementById("sfs-leave-type-select");';
-        echo 'if(t&&s){s.value=t;}';
-        echo '});</script>';
+        echo 'if(t&&s){s.value=t;m.classList.add("sfs-modal-active");}';
+        echo '})();</script>';
     }
 
     /* ──────────────────────────────────────────────────────────
-       Leave History
+       Leave History (Card-based)
     ────────────────────────────────────────────────────────── */
     private function render_history( array $rows ): void {
         echo '<div class="sfs-section" style="margin-top:4px;">';
@@ -362,56 +384,22 @@ class LeaveTab implements TabInterface {
 
         $display = $this->prepare_display_rows( $rows );
 
-        // Desktop table
-        echo '<div class="sfs-desktop-only"><table class="sfs-table">';
-        echo '<thead><tr>';
-        echo '<th data-i18n-key="ref">' . esc_html__( 'Ref #', 'sfs-hr' ) . '</th>';
-        echo '<th data-i18n-key="type">' . esc_html__( 'Type', 'sfs-hr' ) . '</th>';
-        echo '<th data-i18n-key="period">' . esc_html__( 'Period', 'sfs-hr' ) . '</th>';
-        echo '<th data-i18n-key="days">' . esc_html__( 'Days', 'sfs-hr' ) . '</th>';
-        echo '<th data-i18n-key="status">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
-        echo '<th data-i18n-key="document">' . esc_html__( 'Doc', 'sfs-hr' ) . '</th>';
-        echo '<th data-i18n-key="requested_at">' . esc_html__( 'Requested', 'sfs-hr' ) . '</th>';
-        echo '</tr></thead><tbody>';
-
-        foreach ( $display as $r ) {
-            echo '<tr>';
-            echo '<td><strong>' . esc_html( $r['request_number'] ?: '-' ) . '</strong></td>';
-            echo '<td>' . esc_html( $r['type_name'] ) . '</td>';
-            echo '<td>' . esc_html( $r['period'] ) . '</td>';
-            echo '<td>' . (int) $r['days'] . '</td>';
-            echo '<td>' . $r['status_html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-            if ( ! empty( $r['approver_name'] ) ) {
-                $lbl = $r['raw_status'] === 'rejected' ? __( 'Rejected by', 'sfs-hr' ) : __( 'Approved by', 'sfs-hr' );
-                echo '<br><small style="color:var(--sfs-text-muted);">' . esc_html( $lbl ) . ': ' . esc_html( $r['approver_name'] ) . '</small>';
-            }
-            if ( $r['raw_status'] === 'rejected' && ! empty( $r['approver_note'] ) ) {
-                echo '<br><small style="color:var(--sfs-danger);"><strong>' . esc_html__( 'Reason:', 'sfs-hr' ) . '</strong> ' . esc_html( $r['approver_note'] ) . '</small>';
-            }
-            echo '</td>';
-            echo '<td>' . ( ! empty( $r['doc_html'] ) ? $r['doc_html'] : '—' ) . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-            echo '<td>' . esc_html( $r['created_at'] ) . '</td>';
-            echo '</tr>';
-        }
-
-        echo '</tbody></table></div>';
-
-        // Mobile cards
-        echo '<div class="sfs-mobile-only sfs-history-list">';
+        echo '<div class="sfs-history-list">';
         foreach ( $display as $r ) {
             echo '<details class="sfs-history-card">';
             echo '<summary>';
+            echo '<div class="sfs-history-card-info">';
             echo '<span class="sfs-history-card-title">';
             if ( ! empty( $r['request_number'] ) ) {
                 echo '<strong>' . esc_html( $r['request_number'] ) . '</strong> — ';
             }
             echo esc_html( $r['type_name'] ) . '</span>';
+            echo '<span class="sfs-history-card-meta">' . esc_html( $r['period'] ) . ' · ' . (int) $r['days'] . ' ' . esc_html__( 'days', 'sfs-hr' ) . '</span>';
+            echo '</div>';
             echo $r['status_html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
             echo '</summary>';
 
             echo '<div class="sfs-history-card-body">';
-            $this->detail_row( __( 'Period', 'sfs-hr' ), esc_html( $r['period'] ), 'period' );
-            $this->detail_row( __( 'Days', 'sfs-hr' ), (string) $r['days'], 'days' );
             if ( ! empty( $r['doc_html'] ) ) {
                 $this->detail_row( __( 'Document', 'sfs-hr' ), $r['doc_html'], 'document', true );
             }

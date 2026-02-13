@@ -2,7 +2,8 @@
 /**
  * Loans Tab - Frontend loans dashboard and request form
  *
- * Redesigned with §10.1 design system — KPI cards, card-based history, improved form.
+ * Redesigned with §10.1 design system — KPI cards, card-based history,
+ * request form in modal, history before form.
  *
  * @package SFS\HR\Frontend\Tabs
  */
@@ -67,13 +68,23 @@ class LoansTab implements TabInterface {
         // KPIs
         $this->render_kpis( $active_count, $total_borrowed, $total_remaining, $total_paid_count );
 
-        // Request form
+        // New Loan Request button
         if ( $settings['allow_employee_requests'] ) {
-            $this->render_request_form( $emp_id, $settings );
+            echo '<div style="margin-bottom:16px;">';
+            echo '<button type="button" class="sfs-btn sfs-btn--primary" onclick="document.getElementById(\'sfs-loan-modal\').classList.add(\'sfs-modal-active\')" data-i18n-key="new_loan_request">';
+            echo '<svg viewBox="0 0 24 24" style="width:16px;height:16px;margin-inline-end:6px;vertical-align:-2px;" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+            echo esc_html__( 'New Loan Request', 'sfs-hr' );
+            echo '</button>';
+            echo '</div>';
         }
 
-        // Loan history
+        // Loan history (card-based)
         $this->render_history( $loans, $payments_table );
+
+        // Request form modal
+        if ( $settings['allow_employee_requests'] ) {
+            $this->render_request_modal( $emp_id, $settings );
+        }
     }
 
     private function render_flash_messages(): void {
@@ -122,10 +133,20 @@ class LoansTab implements TabInterface {
         echo '</div>';
     }
 
-    private function render_request_form( int $emp_id, array $settings ): void {
-        echo '<div class="sfs-card" style="margin-bottom:24px;">';
-        echo '<div class="sfs-card-body">';
-        echo '<h3 style="font-size:15px;font-weight:700;color:var(--sfs-text);margin:0 0 14px;" data-i18n-key="request_new_loan">' . esc_html__( 'Request New Loan', 'sfs-hr' ) . '</h3>';
+    /* ──────────────────────────────────────────────────────────
+       Request Form Modal
+    ────────────────────────────────────────────────────────── */
+    private function render_request_modal( int $emp_id, array $settings ): void {
+        echo '<div id="sfs-loan-modal" class="sfs-form-modal-overlay">';
+        echo '<div class="sfs-form-modal-backdrop" onclick="document.getElementById(\'sfs-loan-modal\').classList.remove(\'sfs-modal-active\')"></div>';
+        echo '<div class="sfs-form-modal">';
+
+        echo '<div class="sfs-form-modal-header">';
+        echo '<h3 class="sfs-form-modal-title" data-i18n-key="request_new_loan">' . esc_html__( 'Request New Loan', 'sfs-hr' ) . '</h3>';
+        echo '<button type="button" class="sfs-form-modal-close" onclick="document.getElementById(\'sfs-loan-modal\').classList.remove(\'sfs-modal-active\')" aria-label="' . esc_attr__( 'Close', 'sfs-hr' ) . '">&times;</button>';
+        echo '</div>';
+
+        echo '<div class="sfs-form-modal-body">';
 
         echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
         wp_nonce_field( 'sfs_hr_submit_loan_request_' . $emp_id );
@@ -167,7 +188,16 @@ class LoansTab implements TabInterface {
 
         echo '</div>'; // .sfs-form-fields
         echo '</form>';
-        echo '</div></div>';
+        echo '</div>'; // .sfs-form-modal-body
+        echo '</div>'; // .sfs-form-modal
+        echo '</div>'; // .sfs-form-modal-overlay
+
+        // Escape key close
+        echo '<script>';
+        echo '(function(){';
+        echo 'var m=document.getElementById("sfs-loan-modal");if(!m)return;';
+        echo 'document.addEventListener("keydown",function(e){if(e.key==="Escape")m.classList.remove("sfs-modal-active");});';
+        echo '})();</script>';
     }
 
     private function render_calculator_script(): void {
@@ -187,6 +217,9 @@ class LoansTab implements TabInterface {
            . 'document.addEventListener("DOMContentLoaded",function(){var i=document.querySelector(\'input[name="principal_amount"]\');if(i)i.addEventListener("input",sfsCalcLoan);});</script>';
     }
 
+    /* ──────────────────────────────────────────────────────────
+       Loan History (Card-based)
+    ────────────────────────────────────────────────────────── */
     private function render_history( array $loans, string $payments_table ): void {
         echo '<div class="sfs-section" style="margin-top:4px;">';
         echo '<h3 style="font-size:15px;font-weight:700;color:var(--sfs-text);margin:0 0 14px;" data-i18n-key="loan_history">' . esc_html__( 'Loan History', 'sfs-hr' ) . '</h3>';
@@ -202,7 +235,8 @@ class LoansTab implements TabInterface {
         }
 
         global $wpdb;
-        $loan_data = [];
+
+        echo '<div class="sfs-history-list">';
         foreach ( $loans as $loan ) {
             $paid_count = (int) $wpdb->get_var( $wpdb->prepare(
                 "SELECT COUNT(*) FROM {$payments_table} WHERE loan_id = %d AND status = 'paid'",
@@ -223,99 +257,61 @@ class LoansTab implements TabInterface {
                 $u = get_user_by( 'id', (int) $loan->approved_finance_by );
                 $approver_info = $u ? $u->display_name : '';
             }
-            $loan_data[] = compact( 'loan', 'paid_count', 'payments', 'approver_info' );
-        }
 
-        // Desktop table
-        echo '<div class="sfs-desktop-only"><table class="sfs-table">';
-        echo '<thead><tr>';
-        echo '<th data-i18n-key="loan_number">' . esc_html__( 'Loan #', 'sfs-hr' ) . '</th>';
-        echo '<th data-i18n-key="amount">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
-        echo '<th data-i18n-key="remaining">' . esc_html__( 'Remaining', 'sfs-hr' ) . '</th>';
-        echo '<th data-i18n-key="installments">' . esc_html__( 'Installments', 'sfs-hr' ) . '</th>';
-        echo '<th data-i18n-key="status">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
-        echo '<th data-i18n-key="requested">' . esc_html__( 'Requested', 'sfs-hr' ) . '</th>';
-        echo '</tr></thead><tbody>';
+            $amount_str = number_format( (float) $loan->principal_amount, 2 ) . ' ' . esc_html( $loan->currency );
+            $remaining_str = number_format( (float) $loan->remaining_balance, 2 ) . ' ' . esc_html( $loan->currency );
 
-        foreach ( $loan_data as $d ) {
-            $loan = $d['loan'];
-            echo '<tr>';
-            echo '<td><strong>' . esc_html( $loan->loan_number ) . '</strong></td>';
-            echo '<td>' . number_format( (float) $loan->principal_amount, 2 ) . ' ' . esc_html( $loan->currency ) . '</td>';
-            echo '<td>' . number_format( (float) $loan->remaining_balance, 2 ) . ' ' . esc_html( $loan->currency ) . '</td>';
-            echo '<td>' . (int) $d['paid_count'] . ' / ' . (int) $loan->installments_count . '</td>';
-            echo '<td>' . $this->status_badge( $loan->status ) . '</td>';
-            echo '<td>' . esc_html( wp_date( 'M j, Y', strtotime( $loan->created_at ) ) ) . '</td>';
-            echo '</tr>';
-
-            // Expandable detail row
-            echo '<tr><td colspan="6" style="background:var(--sfs-background);font-size:12px;">';
-            echo '<p style="margin:0 0 6px;"><strong>' . esc_html__( 'Reason:', 'sfs-hr' ) . '</strong> ' . esc_html( $loan->reason ) . '</p>';
-            if ( $loan->status === 'rejected' ) {
-                if ( ! empty( $d['approver_info'] ) ) {
-                    echo '<p style="margin:0 0 4px;color:var(--sfs-danger);"><strong>' . esc_html__( 'Rejected by:', 'sfs-hr' ) . '</strong> ' . esc_html( $d['approver_info'] ) . '</p>';
-                }
-                if ( ! empty( $loan->rejection_reason ) ) {
-                    echo '<p style="margin:0;color:var(--sfs-danger);"><strong>' . esc_html__( 'Reason:', 'sfs-hr' ) . '</strong> ' . esc_html( $loan->rejection_reason ) . '</p>';
-                }
-            } elseif ( ! empty( $d['approver_info'] ) ) {
-                echo '<p style="margin:0 0 4px;color:var(--sfs-success);"><strong>' . esc_html__( 'Approved by:', 'sfs-hr' ) . '</strong> ' . esc_html( $d['approver_info'] ) . '</p>';
-            }
-            if ( ! empty( $d['payments'] ) ) {
-                $this->render_payment_table( $d['payments'] );
-            }
-            echo '</td></tr>';
-        }
-
-        echo '</tbody></table></div>';
-
-        // Mobile cards
-        echo '<div class="sfs-mobile-only sfs-history-list">';
-        foreach ( $loan_data as $d ) {
-            $loan = $d['loan'];
             echo '<details class="sfs-history-card">';
             echo '<summary>';
+            echo '<div class="sfs-history-card-info">';
             echo '<span class="sfs-history-card-title">' . esc_html( $loan->loan_number ) . '</span>';
+            echo '<span class="sfs-history-card-meta">' . esc_html( $amount_str ) . ' · ' . (int) $paid_count . '/' . (int) $loan->installments_count . ' ' . esc_html__( 'installments', 'sfs-hr' ) . '</span>';
+            echo '</div>';
             echo $this->status_badge( $loan->status );
             echo '</summary>';
+
             echo '<div class="sfs-history-card-body">';
-            $this->detail_row( __( 'Amount', 'sfs-hr' ), number_format( (float) $loan->principal_amount, 2 ) . ' ' . $loan->currency );
-            $this->detail_row( __( 'Remaining', 'sfs-hr' ), number_format( (float) $loan->remaining_balance, 2 ) . ' ' . $loan->currency );
-            $this->detail_row( __( 'Installments', 'sfs-hr' ), (int) $d['paid_count'] . ' / ' . (int) $loan->installments_count );
+            $this->detail_row( __( 'Amount', 'sfs-hr' ), $amount_str );
+            $this->detail_row( __( 'Remaining', 'sfs-hr' ), $remaining_str );
+            $this->detail_row( __( 'Installments', 'sfs-hr' ), (int) $paid_count . ' / ' . (int) $loan->installments_count );
             $this->detail_row( __( 'Requested', 'sfs-hr' ), wp_date( 'M j, Y', strtotime( $loan->created_at ) ) );
             $this->detail_row( __( 'Reason', 'sfs-hr' ), $loan->reason );
-            if ( $loan->status === 'rejected' && ! empty( $d['approver_info'] ) ) {
-                echo '<div class="sfs-detail-row" style="color:var(--sfs-danger);"><span class="sfs-detail-label">' . esc_html__( 'Rejected by', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $d['approver_info'] ) . '</span></div>';
-            } elseif ( ! empty( $d['approver_info'] ) ) {
-                echo '<div class="sfs-detail-row" style="color:var(--sfs-success);"><span class="sfs-detail-label">' . esc_html__( 'Approved by', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $d['approver_info'] ) . '</span></div>';
+
+            if ( $loan->status === 'rejected' && ! empty( $approver_info ) ) {
+                echo '<div class="sfs-detail-row" style="color:var(--sfs-danger);"><span class="sfs-detail-label">' . esc_html__( 'Rejected by', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $approver_info ) . '</span></div>';
+                if ( ! empty( $loan->rejection_reason ) ) {
+                    echo '<div class="sfs-detail-row" style="color:var(--sfs-danger);"><span class="sfs-detail-label">' . esc_html__( 'Reason', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $loan->rejection_reason ) . '</span></div>';
+                }
+            } elseif ( ! empty( $approver_info ) ) {
+                echo '<div class="sfs-detail-row" style="color:var(--sfs-success);"><span class="sfs-detail-label">' . esc_html__( 'Approved by', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $approver_info ) . '</span></div>';
             }
-            if ( ! empty( $d['payments'] ) ) {
-                $this->render_payment_table( $d['payments'] );
+
+            // Payment schedule (card-based, no table)
+            if ( ! empty( $payments ) ) {
+                $this->render_payment_cards( $payments );
             }
+
             echo '</div></details>';
         }
         echo '</div>';
     }
 
-    private function render_payment_table( array $payments ): void {
+    /* ──────────────────────────────────────────────────────────
+       Payment Schedule (Card-based)
+    ────────────────────────────────────────────────────────── */
+    private function render_payment_cards( array $payments ): void {
         echo '<div style="margin-top:10px;">';
         echo '<strong style="font-size:12px;" data-i18n-key="payment_schedule">' . esc_html__( 'Payment Schedule', 'sfs-hr' ) . '</strong>';
-        echo '<table class="sfs-table" style="margin-top:6px;font-size:12px;">';
-        echo '<thead><tr>';
-        echo '<th style="padding:6px 10px;">#</th>';
-        echo '<th style="padding:6px 10px;" data-i18n-key="due_date">' . esc_html__( 'Due', 'sfs-hr' ) . '</th>';
-        echo '<th style="padding:6px 10px;" data-i18n-key="amount">' . esc_html__( 'Amount', 'sfs-hr' ) . '</th>';
-        echo '<th style="padding:6px 10px;" data-i18n-key="status">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
-        echo '</tr></thead><tbody>';
+        echo '<div class="sfs-payment-list">';
         foreach ( $payments as $p ) {
-            echo '<tr>';
-            echo '<td style="padding:4px 10px;">' . (int) $p->sequence . '</td>';
-            echo '<td style="padding:4px 10px;">' . esc_html( wp_date( 'M Y', strtotime( $p->due_date ) ) ) . '</td>';
-            echo '<td style="padding:4px 10px;">' . number_format( (float) $p->amount_planned, 2 ) . '</td>';
-            echo '<td style="padding:4px 10px;">' . $this->payment_badge( $p->status ) . '</td>';
-            echo '</tr>';
+            echo '<div class="sfs-payment-item">';
+            echo '<span class="sfs-payment-item-seq">#' . (int) $p->sequence . '</span>';
+            echo '<span class="sfs-payment-item-info">' . esc_html( wp_date( 'M Y', strtotime( $p->due_date ) ) ) . '</span>';
+            echo '<span class="sfs-payment-item-amount">' . number_format( (float) $p->amount_planned, 2 ) . '</span>';
+            echo $this->payment_badge( $p->status );
+            echo '</div>';
         }
-        echo '</tbody></table></div>';
+        echo '</div></div>';
     }
 
     private function detail_row( string $label, string $value ): void {
@@ -337,12 +333,12 @@ class LoansTab implements TabInterface {
 
     private function payment_badge( string $status ): string {
         $map = [
-            'planned' => 'pending',
-            'paid'    => 'approved',
-            'skipped' => 'cancelled',
-            'partial' => 'info',
+            'planned' => [ 'pending', __( 'Planned', 'sfs-hr' ) ],
+            'paid'    => [ 'approved', __( 'Paid', 'sfs-hr' ) ],
+            'skipped' => [ 'cancelled', __( 'Skipped', 'sfs-hr' ) ],
+            'partial' => [ 'info', __( 'Partial', 'sfs-hr' ) ],
         ];
-        $class = $map[ $status ] ?? 'pending';
-        return '<span class="sfs-badge sfs-badge--' . esc_attr( $class ) . '">' . esc_html( ucfirst( $status ) ) . '</span>';
+        $info = $map[ $status ] ?? [ 'pending', ucfirst( $status ) ];
+        return '<span class="sfs-badge sfs-badge--' . esc_attr( $info[0] ) . '">' . esc_html( $info[1] ) . '</span>';
     }
 }

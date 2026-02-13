@@ -3338,3 +3338,151 @@
     background: #1e293b;
     color: #94a3b8;
 }
+
+/* ── Form Modal Overlay ────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-form-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+}
+.sfs-hr-pwa-app .sfs-form-modal-overlay.sfs-modal-active {
+    display: flex;
+}
+.sfs-hr-pwa-app .sfs-form-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+.sfs-hr-pwa-app .sfs-form-modal {
+    position: relative;
+    background: var(--sfs-surface);
+    border-radius: 16px;
+    width: 92%;
+    max-width: 500px;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    z-index: 1;
+    animation: sfsModalIn 0.2s ease;
+}
+@keyframes sfsModalIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.sfs-hr-pwa-app .sfs-form-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--sfs-border);
+    position: sticky;
+    top: 0;
+    background: var(--sfs-surface);
+    border-radius: 16px 16px 0 0;
+    z-index: 1;
+}
+.sfs-hr-pwa-app .sfs-form-modal-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--sfs-text);
+    margin: 0;
+}
+.sfs-hr-pwa-app .sfs-form-modal-close {
+    background: none;
+    border: none;
+    font-size: 22px;
+    color: var(--sfs-text-muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    line-height: 1;
+    border-radius: 8px;
+    transition: background 0.15s;
+}
+.sfs-hr-pwa-app .sfs-form-modal-close:hover {
+    background: var(--sfs-background);
+}
+.sfs-hr-pwa-app .sfs-form-modal-body {
+    padding: 20px;
+}
+
+/* History card info wrapper (for meta line under title) */
+.sfs-hr-pwa-app .sfs-history-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+.sfs-hr-pwa-app .sfs-history-card-meta {
+    font-size: 12px;
+    color: var(--sfs-text-muted);
+    font-weight: 400;
+}
+
+/* Payment schedule cards inside loan history */
+.sfs-hr-pwa-app .sfs-payment-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+}
+.sfs-hr-pwa-app .sfs-payment-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    background: var(--sfs-background);
+    border-radius: 8px;
+    font-size: 12px;
+    gap: 8px;
+}
+.sfs-hr-pwa-app .sfs-payment-item-seq {
+    font-weight: 700;
+    color: var(--sfs-text-muted);
+    min-width: 24px;
+}
+.sfs-hr-pwa-app .sfs-payment-item-info {
+    flex: 1;
+    min-width: 0;
+    color: var(--sfs-text);
+}
+.sfs-hr-pwa-app .sfs-payment-item-amount {
+    font-weight: 600;
+    color: var(--sfs-text);
+    white-space: nowrap;
+}
+
+/* ── Modal Dark Mode ──────────────────────────────────────── */
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-form-modal {
+    background: #1e293b;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-form-modal-header {
+    background: #1e293b;
+    border-color: #334155;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-form-modal-backdrop {
+    background: rgba(0, 0, 0, 0.7);
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-payment-item {
+    background: #0f172a;
+}
+@media (prefers-color-scheme: dark) {
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-form-modal {
+        background: #1e293b;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-form-modal-header {
+        background: #1e293b;
+        border-color: #334155;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-form-modal-backdrop {
+        background: rgba(0, 0, 0, 0.7);
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-payment-item {
+        background: #0f172a;
+    }
+}
