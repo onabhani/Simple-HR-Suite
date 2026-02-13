@@ -178,26 +178,9 @@ add_action('rest_api_init', function () {
  // NEW: instance id for date/time
     $inst    = 'w'.substr( wp_hash((string)get_current_user_id().':'.microtime(true)), 0, 6 );
     $root_id = 'sfs-att-app-'.$inst;
-    
-    
-    
-    
-    
-    ob_start(); ?>
-    <?php if ( $geo_lat && $geo_lng ) : ?>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="" defer></script>
-    <?php endif; ?>
-    <?php if ( $immersive ): ?>
-      <script>
-        document.documentElement.classList.add('sfs-att-immersive');
-        document.body.classList.add('sfs-att-immersive');
-      </script>
-      <div class="sfs-att-veil" role="application" aria-label="<?php esc_attr_e( 'Self Attendance', 'sfs-hr' ); ?>">
-    <?php endif; ?>
 
-    <?php
     // --- Geo for self attendance: always collect location, respect policy for enforcement ---
+    // IMPORTANT: Must be initialized BEFORE ob_start() so Leaflet assets can be conditionally loaded.
     $geo_lat     = '';
     $geo_lng     = '';
     $geo_radius  = '';
@@ -229,8 +212,19 @@ add_action('rest_api_init', function () {
         }
     }
 
+    ob_start(); ?>
+    <!-- Always load Leaflet so the map can show the user's current location -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="" defer></script>
+    <?php if ( $immersive ): ?>
+      <script>
+        document.documentElement.classList.add('sfs-att-immersive');
+        document.body.classList.add('sfs-att-immersive');
+      </script>
+      <div class="sfs-att-veil" role="application" aria-label="<?php esc_attr_e( 'Self Attendance', 'sfs-hr' ); ?>">
+    <?php endif; ?>
 
-?>
+    <?php // Geo variables already initialized above. ?>
 
 <div
   id="<?php echo esc_attr( $root_id ); ?>"
@@ -288,10 +282,8 @@ add_action('rest_api_init', function () {
             </div>
 
 
-            <?php if ( $geo_lat && $geo_lng ) : ?>
-            <!-- Mini-map: geofence + live position -->
-            <div id="sfs-att-map-<?php echo $inst; ?>" style="height:180px;border-radius:10px;margin-top:10px;z-index:1;"></div>
-            <?php endif; ?>
+            <!-- Mini-map: shows geofence + live user position (always visible for self-web) -->
+            <div id="sfs-att-map-<?php echo esc_attr( $inst ); ?>" style="height:180px;border-radius:10px;margin-top:10px;z-index:1;"></div>
 
             <!-- Success flash overlay -->
             <div class="sfs-flash" id="sfs-att-flash-<?php echo $inst; ?>"></div>
@@ -1769,23 +1761,31 @@ setInterval(tickClock, 1000);
         refresh();
     })();
     </script>
-    <?php if ( $geo_lat && $geo_lng ) : ?>
     <script>
     (function(){
         var mapEl = document.getElementById('sfs-att-map-<?php echo esc_js( $inst ); ?>');
         if (!mapEl) return;
-        var geoLat = <?php echo (float) $geo_lat; ?>;
-        var geoLng = <?php echo (float) $geo_lng; ?>;
+        var geoLat = <?php echo (float) $geo_lat; ?> || 0;
+        var geoLng = <?php echo (float) $geo_lng; ?> || 0;
         var geoRad = <?php echo (int) ( $geo_radius ?: 150 ); ?>;
+        var hasGeofence = (geoLat !== 0 && geoLng !== 0);
         var map, circle, userMarker;
 
         function initMap() {
             if (typeof L === 'undefined') { setTimeout(initMap, 200); return; }
-            map = L.map(mapEl, { zoomControl: false, attributionControl: false }).setView([geoLat, geoLng], 16);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-            circle = L.circle([geoLat, geoLng], { radius: geoRad, color: '#0f4c5c', fillColor: '#0f4c5c', fillOpacity: 0.12, weight: 2 }).addTo(map);
-            L.marker([geoLat, geoLng]).addTo(map).bindPopup('<?php echo esc_js( __( 'Workplace', 'sfs-hr' ) ); ?>');
-            map.fitBounds(circle.getBounds().pad(0.15));
+
+            if (hasGeofence) {
+                // Show workplace geofence + user position
+                map = L.map(mapEl, { zoomControl: false, attributionControl: false }).setView([geoLat, geoLng], 16);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+                circle = L.circle([geoLat, geoLng], { radius: geoRad, color: '#0f4c5c', fillColor: '#0f4c5c', fillOpacity: 0.12, weight: 2 }).addTo(map);
+                L.marker([geoLat, geoLng]).addTo(map).bindPopup('<?php echo esc_js( __( 'Workplace', 'sfs-hr' ) ); ?>');
+                map.fitBounds(circle.getBounds().pad(0.15));
+            } else {
+                // No geofence configured — show user's current location only
+                map = L.map(mapEl, { zoomControl: false, attributionControl: false }).setView([24.7136, 46.6753], 10);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+            }
             updateUserPos();
         }
 
@@ -1795,6 +1795,9 @@ setInterval(tickClock, 1000);
                 var ll = [pos.coords.latitude, pos.coords.longitude];
                 if (!userMarker) {
                     userMarker = L.circleMarker(ll, { radius: 7, color: '#fff', fillColor: '#2563eb', fillOpacity: 1, weight: 2 }).addTo(map);
+                    if (!hasGeofence) {
+                        map.setView(ll, 15);
+                    }
                 } else {
                     userMarker.setLatLng(ll);
                 }
@@ -1804,7 +1807,6 @@ setInterval(tickClock, 1000);
         initMap();
     })();
     </script>
-    <?php endif; ?>
     <?php
     return ob_get_clean();
 }

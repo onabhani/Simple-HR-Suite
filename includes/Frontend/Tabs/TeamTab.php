@@ -33,20 +33,16 @@ class TeamTab implements TabInterface {
         $emp_table  = $wpdb->prefix . 'sfs_hr_employees';
         $dept_table = $wpdb->prefix . 'sfs_hr_departments';
 
-        // Determine scope.
-        $is_manager_only = ( $role === 'manager' );
-        $dept_ids = [];
-
-        if ( $is_manager_only ) {
-            $dept_ids = Role_Resolver::get_manager_dept_ids( $user_id );
-            if ( empty( $dept_ids ) ) {
-                echo '<div class="sfs-empty-state">';
-                echo '<p class="sfs-empty-state-title">' . esc_html__( 'No departments assigned.', 'sfs-hr' ) . '</p>';
-                echo '<p class="sfs-empty-state-text">' . esc_html__( 'You are not currently managing any departments.', 'sfs-hr' ) . '</p>';
-                echo '</div>';
-                return;
-            }
+        // Determine scope — always filter by managed departments (direct reports only).
+        $dept_ids = Role_Resolver::get_manager_dept_ids( $user_id );
+        if ( empty( $dept_ids ) ) {
+            echo '<div class="sfs-empty-state">';
+            echo '<p class="sfs-empty-state-title">' . esc_html__( 'No departments assigned.', 'sfs-hr' ) . '</p>';
+            echo '<p class="sfs-empty-state-text">' . esc_html__( 'You are not currently managing any departments.', 'sfs-hr' ) . '</p>';
+            echo '</div>';
+            return;
         }
+        $is_manager_only = true; // Always scope to direct reports
 
         // Get all departments for filter (HR+).
         $departments = [];
@@ -182,6 +178,19 @@ class TeamTab implements TabInterface {
         echo '</div></div>';
     }
 
+    /**
+     * Translate a status value.
+     */
+    private function translate_status( string $status ): string {
+        $map = [
+            'active'     => __( 'Active', 'sfs-hr' ),
+            'terminated' => __( 'Terminated', 'sfs-hr' ),
+            'resigned'   => __( 'Resigned', 'sfs-hr' ),
+            'on_leave'   => __( 'On Leave', 'sfs-hr' ),
+        ];
+        return $map[ $status ] ?? ucfirst( $status );
+    }
+
     private function render_team_list( array $employees ): void {
         if ( empty( $employees ) ) {
             echo '<div class="sfs-card"><div class="sfs-empty-state">';
@@ -192,18 +201,8 @@ class TeamTab implements TabInterface {
             return;
         }
 
-        // Desktop table.
-        echo '<div class="sfs-desktop-only"><table class="sfs-table">';
-        echo '<thead><tr>';
-        echo '<th>' . esc_html__( 'Employee', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Code', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Department', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Position', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Contact', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Hire Date', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
-        echo '</tr></thead><tbody>';
-
+        // Card-based team list (unified for desktop + mobile).
+        echo '<div class="sfs-history-list">';
         foreach ( $employees as $e ) {
             $name   = esc_html( trim( ( $e['first_name'] ?? '' ) . ' ' . ( $e['last_name'] ?? '' ) ) );
             $code   = esc_html( $e['employee_code'] ?? '' );
@@ -214,47 +213,32 @@ class TeamTab implements TabInterface {
             $hire   = $e['hire_date'] ? esc_html( wp_date( 'M j, Y', strtotime( $e['hire_date'] ) ) ) : '—';
             $status = $e['status'] ?? 'active';
             $badge_class = $status === 'active' ? 'approved' : ( $status === 'terminated' ? 'rejected' : 'pending' );
+            $status_label = $this->translate_status( $status );
 
-            echo '<tr>';
-            echo '<td><strong>' . $name . '</strong></td>';
-            echo '<td>' . $code . '</td>';
-            echo '<td>' . $dept . '</td>';
-            echo '<td>' . $pos . '</td>';
-            echo '<td>';
-            if ( $phone ) echo '<span style="font-size:13px;">' . $phone . '</span>';
-            if ( $phone && $email ) echo '<br>';
-            if ( $email ) echo '<span style="font-size:12px;color:var(--sfs-text-muted);">' . $email . '</span>';
-            if ( ! $phone && ! $email ) echo '—';
-            echo '</td>';
-            echo '<td>' . $hire . '</td>';
-            echo '<td><span class="sfs-badge sfs-badge--' . esc_attr( $badge_class ) . '">' . esc_html( ucfirst( $status ) ) . '</span></td>';
-            echo '</tr>';
-        }
-
-        echo '</tbody></table></div>';
-
-        // Mobile cards.
-        echo '<div class="sfs-mobile-only sfs-team-member-list">';
-        foreach ( $employees as $e ) {
-            $name   = esc_html( trim( ( $e['first_name'] ?? '' ) . ' ' . ( $e['last_name'] ?? '' ) ) );
-            $code   = esc_html( $e['employee_code'] ?? '' );
-            $dept   = esc_html( $e['dept_name'] ?? '—' );
-            $pos    = esc_html( $e['position'] ?? '—' );
-            $status = $e['status'] ?? 'active';
-            $badge_class = $status === 'active' ? 'approved' : ( $status === 'terminated' ? 'rejected' : 'pending' );
-
-            echo '<div class="sfs-card sfs-team-member-card">';
-            echo '<div class="sfs-card-body" style="padding:14px 16px;">';
-            echo '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
-            echo '<div><strong style="font-size:15px;">' . $name . '</strong>';
-            echo '<div style="font-size:13px;color:var(--sfs-text-muted);margin-top:2px;">' . $code . ' &middot; ' . $dept . '</div>';
+            echo '<details class="sfs-history-card">';
+            echo '<summary>';
+            echo '<div class="sfs-history-card-info">';
+            echo '<span class="sfs-history-card-title">' . $name . '</span>';
+            echo '<span class="sfs-history-card-meta">' . $code . ' · ' . $dept;
             if ( $pos !== '—' ) {
-                echo '<div style="font-size:13px;color:var(--sfs-text-muted);">' . $pos . '</div>';
+                echo ' · ' . $pos;
             }
+            echo '</span>';
             echo '</div>';
-            echo '<span class="sfs-badge sfs-badge--' . esc_attr( $badge_class ) . '">' . esc_html( ucfirst( $status ) ) . '</span>';
-            echo '</div>';
-            echo '</div></div>';
+            echo '<span class="sfs-badge sfs-badge--' . esc_attr( $badge_class ) . '">' . esc_html( $status_label ) . '</span>';
+            echo '</summary>';
+
+            echo '<div class="sfs-history-card-body">';
+            echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Department', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $dept . '</span></div>';
+            echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Position', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $pos . '</span></div>';
+            echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Hire Date', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $hire . '</span></div>';
+            if ( $phone ) {
+                echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Phone', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $phone . '</span></div>';
+            }
+            if ( $email ) {
+                echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Email', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $email . '</span></div>';
+            }
+            echo '</div></details>';
         }
         echo '</div>';
     }

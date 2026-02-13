@@ -2,8 +2,8 @@
 /**
  * Frontend Resignation Tab
  *
- * Self-service resignation submission form and read-only history.
- * Redesigned with §10.1 design system.
+ * Self-service resignation submission form (modal) and card-based history.
+ * Redesigned with §10.1 design system — no tables, consistent card layout.
  *
  * @package SFS\HR\Frontend\Tabs
  */
@@ -50,12 +50,14 @@ class ResignationTab implements TabInterface {
             }
         }
 
+        $can_submit = ! $has_pending && ! $has_approved;
+
         // Header
         echo '<div class="sfs-section">';
         echo '<h2 class="sfs-section-title" data-i18n-key="resignation">' . esc_html__( 'Resignation', 'sfs-hr' ) . '</h2>';
         echo '</div>';
 
-        // Status alert or form
+        // Status alert
         if ( $has_pending ) {
             echo '<div class="sfs-alert sfs-alert--warning">';
             echo '<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="currentColor" fill="none" stroke-width="2"/><line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2"/><line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2"/></svg>';
@@ -64,22 +66,45 @@ class ResignationTab implements TabInterface {
             echo '<div class="sfs-alert sfs-alert--success">';
             echo '<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" fill="none" stroke-width="2"/><polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" fill="none" stroke-width="2"/></svg>';
             echo '<span data-i18n-key="approved_resignation_notice">' . esc_html__( 'Your resignation has been approved. Please coordinate with HR for your exit process.', 'sfs-hr' ) . '</span></div>';
-        } else {
-            $this->render_form();
         }
 
-        // History
+        // Submit Resignation button
+        if ( $can_submit ) {
+            echo '<div style="margin-bottom:16px;">';
+            echo '<button type="button" class="sfs-btn sfs-btn--primary" onclick="document.getElementById(\'sfs-resign-modal\').classList.add(\'sfs-modal-active\')" data-i18n-key="submit_resignation">';
+            echo '<svg viewBox="0 0 24 24" style="width:16px;height:16px;margin-inline-end:6px;vertical-align:-2px;" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+            echo esc_html__( 'Submit Resignation', 'sfs-hr' );
+            echo '</button>';
+            echo '</div>';
+        }
+
+        // History (card-based)
         if ( ! empty( $resignations ) ) {
             $this->render_history( $resignations );
         }
+
+        // Resignation form modal
+        if ( $can_submit ) {
+            $this->render_form_modal();
+        }
     }
 
-    private function render_form(): void {
+    /* ──────────────────────────────────────────────────────────
+       Resignation Form Modal
+    ────────────────────────────────────────────────────────── */
+    private function render_form_modal(): void {
         $notice_period = get_option( 'sfs_hr_resignation_notice_period', '30' );
 
-        echo '<div class="sfs-card" style="margin-bottom:24px;">';
-        echo '<div class="sfs-card-body">';
-        echo '<h3 style="font-size:15px;font-weight:700;color:var(--sfs-text);margin:0 0 14px;" data-i18n-key="submit_resignation">' . esc_html__( 'Submit Resignation', 'sfs-hr' ) . '</h3>';
+        echo '<div id="sfs-resign-modal" class="sfs-form-modal-overlay">';
+        echo '<div class="sfs-form-modal-backdrop" onclick="document.getElementById(\'sfs-resign-modal\').classList.remove(\'sfs-modal-active\')"></div>';
+        echo '<div class="sfs-form-modal">';
+
+        echo '<div class="sfs-form-modal-header">';
+        echo '<h3 class="sfs-form-modal-title" data-i18n-key="submit_resignation">' . esc_html__( 'Submit Resignation', 'sfs-hr' ) . '</h3>';
+        echo '<button type="button" class="sfs-form-modal-close" onclick="document.getElementById(\'sfs-resign-modal\').classList.remove(\'sfs-modal-active\')" aria-label="' . esc_attr__( 'Close', 'sfs-hr' ) . '">&times;</button>';
+        echo '</div>';
+
+        echo '<div class="sfs-form-modal-body">';
 
         echo '<form method="POST" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
         wp_nonce_field( 'sfs_hr_resignation_submit' );
@@ -133,73 +158,66 @@ class ResignationTab implements TabInterface {
 
         echo '</div>'; // .sfs-form-fields
         echo '</form>';
-        echo '</div></div>';
+        echo '</div>'; // .sfs-form-modal-body
+        echo '</div>'; // .sfs-form-modal
+        echo '</div>'; // .sfs-form-modal-overlay
 
-        // Toggle JS
-        echo '<script>function sfsToggleResignFields(){var fe=document.querySelector(\'input[name="resignation_type"][value="final_exit"]\'),df=document.getElementById("sfs-resign-date-field"),di=document.getElementById("sfs_resignation_date"),ff=document.getElementById("sfs-final-exit-fields"),fi=document.getElementById("sfs_expected_exit_date");if(fe&&fe.checked){df.style.display="none";di.removeAttribute("required");ff.style.display="flex";if(fi)fi.setAttribute("required","required");}else{df.style.display="flex";di.setAttribute("required","required");ff.style.display="none";if(fi)fi.removeAttribute("required");}}</script>';
+        // Toggle JS + Escape key close
+        echo '<script>';
+        echo 'function sfsToggleResignFields(){var fe=document.querySelector(\'input[name="resignation_type"][value="final_exit"]\'),df=document.getElementById("sfs-resign-date-field"),di=document.getElementById("sfs_resignation_date"),ff=document.getElementById("sfs-final-exit-fields"),fi=document.getElementById("sfs_expected_exit_date");if(fe&&fe.checked){df.style.display="none";di.removeAttribute("required");ff.style.display="flex";if(fi)fi.setAttribute("required","required");}else{df.style.display="flex";di.setAttribute("required","required");ff.style.display="none";if(fi)fi.removeAttribute("required");}}';
+        echo '(function(){var m=document.getElementById("sfs-resign-modal");if(!m)return;';
+        echo 'document.addEventListener("keydown",function(e){if(e.key==="Escape")m.classList.remove("sfs-modal-active");});';
+        echo '})();';
+        echo '</script>';
     }
 
+    /* ──────────────────────────────────────────────────────────
+       Resignation History (Card-based)
+    ────────────────────────────────────────────────────────── */
     private function render_history( array $resignations ): void {
         echo '<div class="sfs-section" style="margin-top:4px;">';
         echo '<h3 style="font-size:15px;font-weight:700;color:var(--sfs-text);margin:0 0 14px;" data-i18n-key="resignation_history">' . esc_html__( 'Resignation History', 'sfs-hr' ) . '</h3>';
         echo '</div>';
 
-        // Desktop table
-        echo '<div class="sfs-desktop-only"><table class="sfs-table">';
-        echo '<thead><tr>';
-        echo '<th data-i18n-key="ref">' . esc_html__( 'Ref #', 'sfs-hr' ) . '</th>';
-        echo '<th data-i18n-key="type">' . esc_html__( 'Type', 'sfs-hr' ) . '</th>';
-        echo '<th data-i18n-key="date">' . esc_html__( 'Date', 'sfs-hr' ) . '</th>';
-        echo '<th data-i18n-key="last_working_day">' . esc_html__( 'Last Day', 'sfs-hr' ) . '</th>';
-        echo '<th data-i18n-key="status">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
-        echo '</tr></thead><tbody>';
-
-        foreach ( $resignations as $r ) {
-            $type    = $r['resignation_type'] ?? 'regular';
-            $ref     = $r['request_number'] ?? '';
-            $badge   = $this->status_badge( $r['status'], (int) ( $r['approval_level'] ?? 1 ) );
-            $t_badge = $type === 'final_exit'
-                ? '<span class="sfs-badge sfs-badge--info">' . esc_html__( 'Final Exit', 'sfs-hr' ) . '</span>'
-                : '<span class="sfs-badge sfs-badge--completed">' . esc_html__( 'Regular', 'sfs-hr' ) . '</span>';
-
-            echo '<tr>';
-            echo '<td><strong>' . esc_html( $ref ?: '-' ) . '</strong></td>';
-            echo '<td>' . $t_badge . '</td>';
-            echo '<td>' . esc_html( $r['resignation_date'] ) . '</td>';
-            echo '<td>' . esc_html( $r['last_working_day'] ?: '-' ) . '</td>';
-            echo '<td>' . $badge . '</td>';
-            echo '</tr>';
-
-            // Details
-            $this->render_detail_row_desktop( $r, $type );
-        }
-
-        echo '</tbody></table></div>';
-
-        // Mobile cards
-        echo '<div class="sfs-mobile-only sfs-history-list">';
+        echo '<div class="sfs-history-list">';
         foreach ( $resignations as $r ) {
             $type  = $r['resignation_type'] ?? 'regular';
             $ref   = $r['request_number'] ?? '';
             $badge = $this->status_badge( $r['status'], (int) ( $r['approval_level'] ?? 1 ) );
 
+            $type_label = $type === 'final_exit'
+                ? __( 'Final Exit', 'sfs-hr' )
+                : __( 'Regular', 'sfs-hr' );
+
             echo '<details class="sfs-history-card">';
             echo '<summary>';
+            echo '<div class="sfs-history-card-info">';
             echo '<span class="sfs-history-card-title">' . esc_html( $ref ?: __( 'Resignation', 'sfs-hr' ) ) . '</span>';
+            echo '<span class="sfs-history-card-meta">' . esc_html( $type_label ) . ' · ' . esc_html( $r['resignation_date'] ) . '</span>';
+            echo '</div>';
             echo $badge;
             echo '</summary>';
+
             echo '<div class="sfs-history-card-body">';
 
+            // Type badge
             if ( $type === 'final_exit' ) {
                 echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Type', 'sfs-hr' ) . '</span><span class="sfs-detail-value"><span class="sfs-badge sfs-badge--info">' . esc_html__( 'Final Exit', 'sfs-hr' ) . '</span></span></div>';
+            } else {
+                echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Type', 'sfs-hr' ) . '</span><span class="sfs-detail-value"><span class="sfs-badge sfs-badge--completed">' . esc_html__( 'Regular', 'sfs-hr' ) . '</span></span></div>';
             }
+
             echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Date', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $r['resignation_date'] ) . '</span></div>';
             echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Last Day', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $r['last_working_day'] ?: '-' ) . '</span></div>';
 
             if ( ! empty( $r['reason'] ) ) {
                 echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Reason', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $r['reason'] ) . '</span></div>';
             }
+
+            // Approver info
             $this->render_approver_info( $r );
+
+            // Final exit info
             if ( $type === 'final_exit' ) {
                 $this->render_final_exit_info( $r );
             }
@@ -207,41 +225,6 @@ class ResignationTab implements TabInterface {
             echo '</div></details>';
         }
         echo '</div>';
-    }
-
-    private function render_detail_row_desktop( array $r, string $type ): void {
-        $has_content = ! empty( $r['reason'] ) || ! empty( $r['approver_note'] )
-                     || ( in_array( $r['status'], [ 'approved', 'rejected' ], true ) && ! empty( $r['approver_id'] ) )
-                     || $type === 'final_exit';
-
-        if ( ! $has_content ) {
-            return;
-        }
-
-        echo '<tr><td colspan="5" style="background:var(--sfs-background);font-size:12px;">';
-
-        if ( ! empty( $r['reason'] ) ) {
-            echo '<p style="margin:0 0 6px;"><strong>' . esc_html__( 'Reason:', 'sfs-hr' ) . '</strong> ' . nl2br( esc_html( $r['reason'] ) ) . '</p>';
-        }
-
-        if ( in_array( $r['status'], [ 'approved', 'rejected' ], true ) && ! empty( $r['approver_id'] ) ) {
-            $u = get_user_by( 'id', (int) $r['approver_id'] );
-            if ( $u ) {
-                $lbl   = $r['status'] === 'rejected' ? __( 'Rejected by:', 'sfs-hr' ) : __( 'Approved by:', 'sfs-hr' );
-                $color = $r['status'] === 'rejected' ? 'var(--sfs-danger)' : 'var(--sfs-success)';
-                echo '<p style="margin:0 0 4px;color:' . $color . ';"><strong>' . esc_html( $lbl ) . '</strong> ' . esc_html( $u->display_name ) . '</p>';
-            }
-        }
-
-        if ( ! empty( $r['approver_note'] ) ) {
-            echo '<p style="margin:0 0 4px;"><strong>' . esc_html__( 'Note:', 'sfs-hr' ) . '</strong> ' . nl2br( esc_html( $r['approver_note'] ) ) . '</p>';
-        }
-
-        if ( $type === 'final_exit' ) {
-            $this->render_final_exit_block( $r );
-        }
-
-        echo '</td></tr>';
     }
 
     private function render_approver_info( array $r ): void {
@@ -280,33 +263,6 @@ class ResignationTab implements TabInterface {
             }
             echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html( $label ) . '</span><span class="sfs-detail-value">' . esc_html( $val ) . '</span></div>';
         }
-    }
-
-    private function render_final_exit_block( array $r ): void {
-        echo '<div style="margin-top:8px;padding:10px 12px;background:var(--sfs-surface);border:1px solid var(--sfs-border);border-radius:8px;">';
-        echo '<strong style="font-size:12px;">' . esc_html__( 'Final Exit Information', 'sfs-hr' ) . '</strong>';
-        echo '<div style="margin-top:6px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px;font-size:12px;">';
-
-        $fields = [
-            'final_exit_status'         => __( 'Status', 'sfs-hr' ),
-            'final_exit_number'         => __( 'Exit #', 'sfs-hr' ),
-            'government_reference'      => __( 'Gov. Ref', 'sfs-hr' ),
-            'expected_country_exit_date' => __( 'Expected Exit', 'sfs-hr' ),
-            'actual_exit_date'          => __( 'Actual Exit', 'sfs-hr' ),
-            'final_exit_date'           => __( 'Issue Date', 'sfs-hr' ),
-        ];
-        foreach ( $fields as $key => $label ) {
-            $val = $r[ $key ] ?? '';
-            if ( ! $val || $val === 'not_required' ) {
-                continue;
-            }
-            if ( $key === 'final_exit_status' ) {
-                $val = ucwords( str_replace( '_', ' ', $val ) );
-            }
-            echo '<div><strong>' . esc_html( $label ) . ':</strong> ' . esc_html( $val ) . '</div>';
-        }
-
-        echo '</div></div>';
     }
 
     private function status_badge( string $status, int $level = 1 ): string {

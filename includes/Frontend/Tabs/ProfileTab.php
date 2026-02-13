@@ -437,26 +437,8 @@ class ProfileTab implements TabInterface {
         echo '<div class="sfs-hr-my-assets-frontend">';
         echo '<h4 data-i18n-key="my_assets">' . esc_html__( 'My Assets', 'sfs-hr' ) . '</h4>';
 
-        // ── Desktop table ─────────────────────────────────────────
-        echo '<div class="sfs-hr-assets-desktop">';
-        echo '<table class="sfs-hr-table sfs-hr-assets-table"><thead><tr>';
-        echo '<th>' . esc_html__( 'Asset', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Code', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Category', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Start', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'End', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Actions', 'sfs-hr' ) . '</th>';
-        echo '</tr></thead><tbody>';
-
-        foreach ( $asset_rows as $row ) {
-            $this->render_asset_table_row( $row, $status_badge_fn );
-        }
-
-        echo '</tbody></table></div>';
-
-        // ── Mobile cards ──────────────────────────────────────────
-        echo '<div class="sfs-hr-assets-mobile">';
+        // ── Asset cards (unified for desktop + mobile) ────────────
+        echo '<div class="sfs-history-list">';
         foreach ( $asset_rows as $row ) {
             $this->render_asset_card( $row, $status_badge_fn, $field_fn );
         }
@@ -535,21 +517,29 @@ class ProfileTab implements TabInterface {
             $title_html = '<a href="' . esc_url( $edit_url ) . '">' . esc_html( $title ) . '</a>';
         }
 
-        echo '<details class="sfs-hr-asset-card">';
-        echo '<summary class="sfs-hr-asset-summary">';
-        echo '<span class="sfs-hr-asset-summary-title">' . $title_html . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-        echo '<span class="sfs-hr-asset-summary-status">' . $status_badge_fn( $row_status ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+        echo '<details class="sfs-history-card">';
+        echo '<summary>';
+        echo '<div class="sfs-history-card-info">';
+        echo '<span class="sfs-history-card-title">' . $title_html . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+        echo '<span class="sfs-history-card-meta">';
+        if ( $asset_code ) {
+            echo esc_html( $asset_code );
+        }
+        if ( $category ) {
+            echo ( $asset_code ? ' · ' : '' ) . esc_html( $category );
+        }
+        echo '</span>';
+        echo '</div>';
+        echo $status_badge_fn( $row_status ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
         echo '</summary>';
 
-        echo '<div class="sfs-hr-asset-body">';
-        echo '<div class="sfs-hr-asset-fields">';
-        $field_fn( __( 'Code', 'sfs-hr' ), $asset_code );
-        $field_fn( __( 'Category', 'sfs-hr' ), $category );
-        $field_fn( __( 'Start', 'sfs-hr' ), $start_date );
-        $field_fn( __( 'End', 'sfs-hr' ), $end_date !== '' ? $end_date : '—' );
-        echo '</div>';
+        echo '<div class="sfs-history-card-body">';
+        echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Code', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $asset_code ?: '—' ) . '</span></div>';
+        echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Category', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $category ?: '—' ) . '</span></div>';
+        echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Start', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $start_date ?: '—' ) . '</span></div>';
+        echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'End', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $end_date !== '' ? $end_date : '—' ) . '</span></div>';
 
-        echo '<div class="sfs-hr-asset-actions">';
+        echo '<div style="margin-top:8px;display:flex;gap:8px;">';
         $this->render_asset_actions( $assignment_id, $row_status );
         echo '</div>';
 
