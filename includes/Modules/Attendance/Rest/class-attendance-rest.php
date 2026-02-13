@@ -590,7 +590,7 @@ $mode = \SFS\HR\Modules\Attendance\AttendanceModule::selfie_mode_for(
     $dept_id,
     [
         'device_id'      => $device_id ?: null,
-        'shift_requires' => ((int) $assign->require_selfie === 1),
+        'shift_requires' => ((int) ($assign->require_selfie ?? 0) === 1),
         'punch_type'     => $punch_type,
     ]
 );
@@ -682,13 +682,6 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
     return new \WP_Error( 'sfs_att_selfie_required', 'Selfie is required for this punch.', [ 'status' => 400 ] );
 }
 
-    // ---- Set cooldown transient RIGHT BEFORE insert (after all validations pass)
-    // This prevents failed validations from locking the employee
-    set_transient( $last_attempt_key, [
-        'timestamp' => $now_ts,
-        'action'    => $punch_type,
-    ], 15 );
-
     // ---- Define variables needed for duplicate check and insert
     $nowUtc = current_time( 'mysql', true );
     $punchT = $wpdb->prefix . 'sfs_hr_attendance_punches';
@@ -765,9 +758,6 @@ if ( $punch_id === 0 ) {
         [ 'status' => 500 ]
     );
 }
-
-// Transient already set before insert to prevent race conditions
-// No need to set it again here
 
 if ( $selfie_media_id ) {
     update_post_meta( $selfie_media_id, '_sfs_att_punch_id', $punch_id );
