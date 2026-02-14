@@ -3153,5 +3153,13 @@
     "leave_balances": "Leave Balances",
     "total_lbl": "Total",
     "consumed_lbl": "Consumed",
-    "applied_lbl": "Applied"
+    "applied_lbl": "Applied",
+
+    "_comment_settings_i18n": "Settings tab hints and missing keys",
+    "notifications": "Notifications",
+    "org": "Organization",
+    "leave_email_hint": "Send email notifications for leave requests.",
+    "holiday_add_hint": "Email employees when a new holiday is added.",
+    "holiday_reminder_hint": "Send reminder before upcoming holidays.",
+    "ot_threshold_hint": "Default: 2400 min (40 hours)"
 }

@@ -691,9 +691,19 @@
             display: none !important;
         }
 
-        /* Adjust content padding — no bottom bar needed on desktop */
-        .sfs-hr-pwa-app .sfs-hr-profile {
-            padding-bottom: 24px !important;
+        /* White background + padding for content area on all non-overview tabs */
+        .sfs-hr-pwa-app .sfs-hr-profile:not(.sfs-hr-tab--overview) {
+            background: var(--sfs-surface);
+            border-radius: 12px;
+            padding: 24px !important;
+            border: 1px solid var(--sfs-border);
+            margin: 16px 16px 16px 0;
+            align-self: flex-start;
+        }
+
+        /* Overview tab: contained within body, proper padding */
+        .sfs-hr-pwa-app .sfs-hr-profile.sfs-hr-tab--overview {
+            padding: 0 16px 24px 0 !important;
         }
 }
 
@@ -3292,6 +3302,17 @@ body:has(.sfs-hr-pwa-app) #masthead {
         flex: 0 0 100%;
         order: 3;
         margin-top: 4px;
+    }
+}
+
+/* ── Desktop — Overview contained within body ───────────────── */
+@media screen and (min-width: 768px) {
+    .sfs-overview {
+        padding: 16px;
+    }
+    .sfs-overview-hero {
+        margin: 0 0 20px;
+        border-radius: 16px;
     }
 }
 
