@@ -1,0 +1,351 @@
+/**
+ * Simple HR Suite — Admin Pages Visual Refresh
+ *
+ * Enhances wp-admin pages with modern styling:
+ * - Better card/table hybrid layouts
+ * - Summary KPI stats at top of pages
+ * - Improved tab styling
+ * - Quick-action button icons
+ * - Breadcrumbs
+ *
+ * @package SFS\HR
+ * @since 1.0.0
+ */
+
+/* ── Global Admin Enhancements ────────────────────────────────── */
+
+/* Card wrapper for admin content areas */
+.sfs-hr-admin-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.sfs-hr-admin-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.sfs-hr-admin-card-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0;
+}
+
+/* ── KPI Summary Row ──────────────────────────────────────────── */
+.sfs-hr-admin-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.sfs-hr-admin-kpi {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: box-shadow 0.2s ease;
+}
+
+.sfs-hr-admin-kpi:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.sfs-hr-admin-kpi-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.sfs-hr-admin-kpi-icon svg {
+    width: 22px;
+    height: 22px;
+}
+
+.sfs-hr-admin-kpi-label {
+    font-size: 12px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 2px;
+}
+
+.sfs-hr-admin-kpi-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: #1f2937;
+    line-height: 1.2;
+}
+
+/* ── Enhanced Table Styling ───────────────────────────────────── */
+.sfs-hr-wrap table.wp-list-table,
+.sfs-hr-wrap table.widefat {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.sfs-hr-wrap table.wp-list-table thead th,
+.sfs-hr-wrap table.widefat thead th {
+    background: #f9fafb;
+    color: #374151;
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    padding: 12px 16px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.sfs-hr-wrap table.wp-list-table tbody td,
+.sfs-hr-wrap table.widefat tbody td {
+    padding: 12px 16px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f3f4f6;
+    color: #374151;
+}
+
+.sfs-hr-wrap table.wp-list-table tbody tr:last-child td,
+.sfs-hr-wrap table.widefat tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.sfs-hr-wrap table.wp-list-table tbody tr:hover td,
+.sfs-hr-wrap table.widefat tbody tr:hover td {
+    background: #f0f9ff;
+}
+
+/* ── Tab Navigation Enhancement ───────────────────────────────── */
+.sfs-hr-wrap .nav-tab-wrapper {
+    border-bottom: 2px solid #e5e7eb;
+    padding: 0;
+    margin-bottom: 20px;
+}
+
+.sfs-hr-wrap .nav-tab {
+    border: none;
+    background: transparent;
+    color: #6b7280;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 10px 20px;
+    margin: 0;
+    border-bottom: 3px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.sfs-hr-wrap .nav-tab:hover {
+    color: #0284c7;
+    background: transparent;
+}
+
+.sfs-hr-wrap .nav-tab-active,
+.sfs-hr-wrap .nav-tab-active:hover {
+    color: #0284c7;
+    border-bottom-color: #0284c7;
+    background: transparent;
+}
+
+/* ── Status Badges ────────────────────────────────────────────── */
+.sfs-hr-admin-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.sfs-hr-admin-badge--active,
+.sfs-hr-admin-badge--approved,
+.sfs-hr-admin-badge--present {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+.sfs-hr-admin-badge--pending {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.sfs-hr-admin-badge--rejected,
+.sfs-hr-admin-badge--terminated,
+.sfs-hr-admin-badge--absent {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.sfs-hr-admin-badge--inactive,
+.sfs-hr-admin-badge--cancelled {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.sfs-hr-admin-badge--info,
+.sfs-hr-admin-badge--late {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+/* ── Quick Action Buttons ─────────────────────────────────────── */
+.sfs-hr-admin-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.sfs-hr-admin-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #374151;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.sfs-hr-admin-btn:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    color: #1f2937;
+}
+
+.sfs-hr-admin-btn svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+}
+
+.sfs-hr-admin-btn--primary {
+    background: #0284c7;
+    border-color: #0284c7;
+    color: #fff;
+}
+
+.sfs-hr-admin-btn--primary:hover {
+    background: #0369a1;
+    border-color: #0369a1;
+    color: #fff;
+}
+
+.sfs-hr-admin-btn--danger {
+    color: #dc2626;
+    border-color: #fecaca;
+}
+
+.sfs-hr-admin-btn--danger:hover {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+/* ── Breadcrumbs ──────────────────────────────────────────────── */
+.sfs-hr-admin-breadcrumbs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #6b7280;
+    margin-bottom: 16px;
+}
+
+.sfs-hr-admin-breadcrumbs a {
+    color: #0284c7;
+    text-decoration: none;
+}
+
+.sfs-hr-admin-breadcrumbs a:hover {
+    text-decoration: underline;
+}
+
+.sfs-hr-admin-breadcrumbs .sep {
+    color: #d1d5db;
+}
+
+.sfs-hr-admin-breadcrumbs .current {
+    color: #1f2937;
+    font-weight: 600;
+}
+
+/* ── Form Enhancements ────────────────────────────────────────── */
+.sfs-hr-wrap input[type="text"],
+.sfs-hr-wrap input[type="number"],
+.sfs-hr-wrap input[type="email"],
+.sfs-hr-wrap input[type="date"],
+.sfs-hr-wrap select,
+.sfs-hr-wrap textarea {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 14px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.sfs-hr-wrap input[type="text"]:focus,
+.sfs-hr-wrap input[type="number"]:focus,
+.sfs-hr-wrap input[type="email"]:focus,
+.sfs-hr-wrap input[type="date"]:focus,
+.sfs-hr-wrap select:focus,
+.sfs-hr-wrap textarea:focus {
+    border-color: #0284c7;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+    outline: none;
+}
+
+/* ── Page Header Enhancement ──────────────────────────────────── */
+.sfs-hr-wrap .wp-heading-inline,
+.sfs-hr-wrap h1,
+.sfs-hr-wrap h2 {
+    font-weight: 700;
+    color: #1f2937;
+}
+
+/* ── Responsive Adjustments ───────────────────────────────────── */
+@media screen and (max-width: 782px) {
+    .sfs-hr-admin-kpi-row {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .sfs-hr-admin-kpi {
+        padding: 12px;
+    }
+
+    .sfs-hr-admin-kpi-value {
+        font-size: 18px;
+    }
+
+    .sfs-hr-wrap table.wp-list-table thead th,
+    .sfs-hr-wrap table.widefat thead th,
+    .sfs-hr-wrap table.wp-list-table tbody td,
+    .sfs-hr-wrap table.widefat tbody td {
+        padding: 10px 12px;
+    }
+}

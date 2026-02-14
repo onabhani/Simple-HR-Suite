@@ -3551,3 +3551,200 @@ body:has(.sfs-hr-pwa-app) #masthead {
         background: #0f172a;
     }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Phase 5.3 — Final Polish: Skeletons, Transitions, Print
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Loading Skeletons ────────────────────────────────────────── */
+@keyframes sfs-shimmer {
+    0% { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+}
+
+.sfs-hr-pwa-app .sfs-skeleton {
+    background: linear-gradient(90deg, var(--sfs-background, #f1f5f9) 25%, #e2e8f0 50%, var(--sfs-background, #f1f5f9) 75%);
+    background-size: 800px 100%;
+    animation: sfs-shimmer 1.5s infinite ease-in-out;
+    border-radius: 8px;
+}
+.sfs-hr-pwa-app .sfs-skeleton-card {
+    height: 120px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+}
+.sfs-hr-pwa-app .sfs-skeleton-kpi {
+    height: 80px;
+    border-radius: 12px;
+}
+.sfs-hr-pwa-app .sfs-skeleton-line {
+    height: 14px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+}
+.sfs-hr-pwa-app .sfs-skeleton-line--short {
+    width: 60%;
+}
+.sfs-hr-pwa-app .sfs-skeleton-line--medium {
+    width: 80%;
+}
+.sfs-hr-pwa-app .sfs-skeleton-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+}
+.sfs-hr-pwa-app .sfs-skeleton-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+/* Dark mode skeletons */
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-skeleton,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-skeleton {
+    background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+    background-size: 800px 100%;
+}
+
+/* ── Tab Content Transitions ──────────────────────────────────── */
+@keyframes sfs-fade-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.sfs-hr-pwa-app .sfs-hr-tab-content {
+    animation: sfs-fade-in 0.25s ease-out;
+}
+
+.sfs-hr-pwa-app .sfs-card {
+    transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+.sfs-hr-pwa-app .sfs-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.sfs-hr-pwa-app .sfs-kpi-card {
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.sfs-hr-pwa-app .sfs-kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Sidebar item hover animation */
+.sfs-hr-pwa-app .sfs-hr-sidebar-item {
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+/* Badge pulse for pending counts */
+@keyframes sfs-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+.sfs-hr-pwa-app .sfs-badge--pulse {
+    animation: sfs-pulse 2s ease-in-out infinite;
+}
+
+/* Payslip expand/collapse arrow */
+.sfs-payslip-arrow {
+    transition: transform 0.25s ease;
+}
+
+/* ── Enhanced Empty States ────────────────────────────────────── */
+.sfs-hr-pwa-app .sfs-empty-state-icon {
+    width: 72px;
+    height: 72px;
+    background: linear-gradient(135deg, var(--sfs-primary-light, #e0f2fe), #f0f9ff);
+}
+.sfs-hr-pwa-app .sfs-empty-state-icon svg {
+    width: 32px;
+    height: 32px;
+    stroke: var(--sfs-primary, #0284c7);
+    opacity: 0.7;
+}
+.sfs-hr-pwa-app .sfs-empty-state-action {
+    margin-top: 16px;
+}
+
+/* Dark mode empty states */
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-empty-state-icon,
+.sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-empty-state-icon {
+    background: linear-gradient(135deg, #1e3a5f, #0f172a);
+}
+
+/* ── Print Styles ─────────────────────────────────────────────── */
+@media print {
+    /* Hide navigation, toolbars, and non-essential UI */
+    .sfs-hr-sidebar,
+    .sfs-hr-profile-tabs,
+    .sfs-hr-pwa-header,
+    .sfs-hr-pwa-install-prompt,
+    .sfs-hr-more-menu,
+    .sfs-btn:not(.no-print-hide),
+    .sfs-payslip-arrow,
+    #wpadminbar,
+    .admin-bar-offset {
+        display: none !important;
+    }
+
+    /* Full-width content */
+    .sfs-hr-pwa-app {
+        padding: 0 !important;
+    }
+    .sfs-hr-pwa-app .sfs-hr-content-area {
+        margin: 0 !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+    }
+
+    /* Cards print cleanly */
+    .sfs-card {
+        box-shadow: none !important;
+        border: 1px solid #d1d5db !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /* KPI cards in a row */
+    .sfs-kpi-grid {
+        display: flex !important;
+        gap: 12px !important;
+    }
+    .sfs-kpi-card {
+        box-shadow: none !important;
+        border: 1px solid #d1d5db !important;
+    }
+
+    /* Payslip detail visible */
+    .sfs-payslip-detail {
+        display: block !important;
+    }
+
+    /* Clean typography */
+    body, .sfs-hr-pwa-app {
+        font-size: 12pt !important;
+        color: #000 !important;
+        background: #fff !important;
+    }
+
+    /* Page breaks */
+    .sfs-payslip-card {
+        page-break-after: always;
+    }
+    .sfs-payslip-card:last-child {
+        page-break-after: auto;
+    }
+
+    /* Remove hover effects */
+    .sfs-card:hover,
+    .sfs-kpi-card:hover {
+        transform: none !important;
+        box-shadow: none !important;
+    }
+
+    /* Links readable */
+    a[href]:after {
+        content: none !important;
+    }
+}

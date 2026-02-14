@@ -279,6 +279,19 @@ add_action('rest_api_init', function () {
                 class="sfs-att-chip sfs-att-chip--idle" data-i18n-key="checking"><?php esc_html_e( 'Checking...', 'sfs-hr' ); ?></span>
         </div>
 
+        <!-- Circular progress timer -->
+        <div class="sfs-att-progress-wrap" id="sfs-att-progress-<?php echo esc_attr( $inst ); ?>">
+          <svg class="sfs-att-progress-ring" viewBox="0 0 120 120">
+            <circle class="sfs-att-progress-bg" cx="60" cy="60" r="52" />
+            <circle class="sfs-att-progress-bar" id="sfs-att-progress-bar-<?php echo esc_attr( $inst ); ?>" cx="60" cy="60" r="52" />
+          </svg>
+          <div class="sfs-att-progress-inner">
+            <div class="sfs-att-progress-hours" id="sfs-att-worked-<?php echo esc_attr( $inst ); ?>">0:00</div>
+            <div class="sfs-att-progress-label" data-i18n-key="hours_worked"><?php esc_html_e( 'hours worked', 'sfs-hr' ); ?></div>
+            <div class="sfs-att-progress-target" id="sfs-att-target-<?php echo esc_attr( $inst ); ?>"></div>
+          </div>
+        </div>
+
         <!-- Status line -->
         <div id="sfs-att-status" class="sfs-att-statusline" data-i18n-key="loading"><?php esc_html_e( 'Loading...', 'sfs-hr' ); ?></div>
 
@@ -292,6 +305,14 @@ add_action('rest_api_init', function () {
                   class="sfs-att-btn sfs-att-btn--break" style="display:none" data-i18n-key="start_break"><?php esc_html_e( 'Start Break', 'sfs-hr' ); ?></button>
           <button type="button" data-type="break_end"
                   class="sfs-att-btn sfs-att-btn--breakend" style="display:none" data-i18n-key="end_break"><?php esc_html_e( 'End Break', 'sfs-hr' ); ?></button>
+        </div>
+
+        <!-- Today's Punch History -->
+        <div class="sfs-att-punch-history" id="sfs-att-punches-<?php echo esc_attr( $inst ); ?>">
+          <h4 class="sfs-att-punch-history-title" data-i18n-key="todays_activity"><?php esc_html_e( "Today's Activity", 'sfs-hr' ); ?></h4>
+          <div class="sfs-att-punch-list" id="sfs-att-punch-list-<?php echo esc_attr( $inst ); ?>">
+            <!-- Populated by JS -->
+          </div>
         </div>
 
       </div><!-- .sfs-att-panel -->
@@ -598,6 +619,77 @@ add_action('rest_api_init', function () {
       }
 
 
+      /* ===== Circular Progress Timer ===== */
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-progress-wrap{
+        display:flex; align-items:center; justify-content:center;
+        position:relative; width:140px; height:140px; margin:8px auto 12px;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-progress-ring{
+        width:140px; height:140px; transform:rotate(-90deg);
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-progress-bg{
+        fill:none; stroke:#e5e7eb; stroke-width:8;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-progress-bar{
+        fill:none; stroke:#22c55e; stroke-width:8;
+        stroke-linecap:round;
+        stroke-dasharray:326.7; /* 2*PI*52 */
+        stroke-dashoffset:326.7;
+        transition:stroke-dashoffset 0.8s ease, stroke 0.3s;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-progress-inner{
+        position:absolute; text-align:center;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-progress-hours{
+        font-size:24px; font-weight:800; color:var(--sfs-teal,#0f4c5c);
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-progress-label{
+        font-size:11px; color:#6b7280; margin-top:2px;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-progress-target{
+        font-size:11px; color:#9ca3af; margin-top:2px;
+      }
+
+      /* ===== Punch History ===== */
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-punch-history{
+        margin-top:16px; padding-top:16px;
+        border-top:1px solid #e5e7eb;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-punch-history-title{
+        font-size:14px; font-weight:700; color:#374151;
+        margin:0 0 10px; padding:0;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-punch-list{
+        display:flex; flex-direction:column; gap:6px;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-punch-item{
+        display:flex; align-items:center; gap:10px;
+        padding:8px 12px; border-radius:10px; background:#f9fafb;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-punch-badge{
+        display:inline-flex; align-items:center; justify-content:center;
+        width:32px; height:32px; border-radius:50%; flex-shrink:0;
+        font-size:12px;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-punch-badge--in{
+        background:#dcfce7; color:#16a34a;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-punch-badge--out{
+        background:#fee2e2; color:#dc2626;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-punch-badge--break_start{
+        background:#fef3c7; color:#d97706;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-punch-badge--break_end{
+        background:#dbeafe; color:#2563eb;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-punch-label{
+        flex:1; font-size:14px; font-weight:600; color:#374151;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-punch-time{
+        font-size:13px; color:#6b7280; font-weight:500;
+      }
+
       /* ===== Selfie overlay ===== */
       #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-overlay{
         display:none;
@@ -740,7 +832,11 @@ window.sfsAttI18n = window.sfsAttI18n || {
     // Error
     error_prefix: '<?php echo esc_js( __( 'Error:', 'sfs-hr' ) ); ?>',
     request_timed_out: '<?php echo esc_js( __( 'Request timed out', 'sfs-hr' ) ); ?>',
-    locate_me: '<?php echo esc_js( __( 'Locate me', 'sfs-hr' ) ); ?>'
+    locate_me: '<?php echo esc_js( __( 'Locate me', 'sfs-hr' ) ); ?>',
+    // Progress & History
+    no_activity_yet: '<?php echo esc_js( __( 'No activity yet', 'sfs-hr' ) ); ?>',
+    hours_worked: '<?php echo esc_js( __( 'hours worked', 'sfs-hr' ) ); ?>',
+    todays_activity: '<?php echo esc_js( __( "Today\'s Activity", 'sfs-hr' ) ); ?>'
 };
 
 // Language switching support for attendance widget
@@ -1103,6 +1199,89 @@ setInterval(tickClock, 1000);
             chipEl.className   = cls;
         }
 
+        // ===== Progress Timer =====
+        var progressWorkingSec = 0;
+        var progressTargetSec = 0;
+        var progressTimerInterval = null;
+        var progressBar = document.getElementById('sfs-att-progress-bar-<?php echo $inst; ?>');
+        var workedEl    = document.getElementById('sfs-att-worked-<?php echo $inst; ?>');
+        var targetEl    = document.getElementById('sfs-att-target-<?php echo $inst; ?>');
+        var CIRCUMFERENCE = 2 * Math.PI * 52; // ~326.7
+
+        function formatHM(seconds) {
+            var h = Math.floor(seconds / 3600);
+            var m = Math.floor((seconds % 3600) / 60);
+            return h + ':' + (m < 10 ? '0' : '') + m;
+        }
+
+        function renderProgress() {
+            if (!progressBar || !workedEl) return;
+            workedEl.textContent = formatHM(progressWorkingSec);
+            var pct = progressTargetSec > 0 ? Math.min(progressWorkingSec / progressTargetSec, 1.5) : 0;
+            var offset = CIRCUMFERENCE - (Math.min(pct, 1) * CIRCUMFERENCE);
+            progressBar.style.strokeDashoffset = offset;
+            // Color based on progress.
+            if (pct >= 1) {
+                progressBar.style.stroke = '#22c55e'; // green — target met
+            } else if (pct >= 0.75) {
+                progressBar.style.stroke = '#3b82f6'; // blue — almost there
+            } else if (pct >= 0.5) {
+                progressBar.style.stroke = '#f59e0b'; // amber — half way
+            } else {
+                progressBar.style.stroke = '#ef4444'; // red — early
+            }
+            if (targetEl) {
+                targetEl.textContent = progressTargetSec > 0
+                    ? ('/ ' + formatHM(progressTargetSec) + ' target')
+                    : '';
+            }
+        }
+
+        function updateProgressTimer(workedSec, targetSec) {
+            progressWorkingSec = workedSec;
+            progressTargetSec = targetSec;
+            renderProgress();
+            // Live tick while clocked in.
+            if (progressTimerInterval) clearInterval(progressTimerInterval);
+            if (state === 'in') {
+                progressTimerInterval = setInterval(function() {
+                    progressWorkingSec++;
+                    renderProgress();
+                }, 1000);
+            }
+        }
+
+        // ===== Punch History =====
+        var punchListEl = document.getElementById('sfs-att-punch-list-<?php echo $inst; ?>');
+        var punchIcons = {
+            'in':          '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
+            'out':         '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 21 3 21 3 15"/><line x1="14" y1="10" x2="3" y2="21"/></svg>',
+            'break_start': '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>',
+            'break_end':   '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
+        };
+
+        function updatePunchHistory(punches) {
+            if (!punchListEl) return;
+            if (!punches || punches.length === 0) {
+                punchListEl.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:12px 0;">'
+                    + (i18n.no_activity_yet || 'No activity yet') + '</div>';
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < punches.length; i++) {
+                var p = punches[i];
+                var label = punchTypeLabel(p.type);
+                html += '<div class="sfs-att-punch-item">'
+                    + '<div class="sfs-att-punch-badge sfs-att-punch-badge--' + p.type + '">'
+                    + (punchIcons[p.type] || '')
+                    + '</div>'
+                    + '<span class="sfs-att-punch-label">' + label + '</span>'
+                    + '<span class="sfs-att-punch-time">' + p.time + '</span>'
+                    + '</div>';
+            }
+            punchListEl.innerHTML = html;
+        }
+
         // Check if an action is truly available (state + policy)
         function isActionAvailable(t) {
             return !!allowed[t] && !methodBlocked[t];
@@ -1259,6 +1438,12 @@ setInterval(tickClock, 1000);
                 } else {
                     setStat(j.label || i18n.ready, 'idle');
                 }
+
+                // Update progress timer.
+                updateProgressTimer(j.working_seconds || 0, j.target_seconds || 0);
+
+                // Update punch history.
+                updatePunchHistory(j.punch_history || []);
 
                 // Selfie hint
                 if (requiresSelfie) {

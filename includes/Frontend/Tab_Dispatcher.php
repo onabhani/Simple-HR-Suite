@@ -24,6 +24,8 @@ use SFS\HR\Frontend\Tabs\ApprovalsTab;
 use SFS\HR\Frontend\Tabs\TeamAttendanceTab;
 use SFS\HR\Frontend\Tabs\DashboardTab;
 use SFS\HR\Frontend\Tabs\EmployeesTab;
+use SFS\HR\Frontend\Tabs\PayslipsTab;
+use SFS\HR\Frontend\Tabs\SettingsTab;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -55,6 +57,9 @@ class Tab_Dispatcher {
         // Org tabs (Phase 4).
         'dashboard'        => DashboardTab::class,
         'employees'        => EmployeesTab::class,
+        // Phase 5 — Payslips + Settings.
+        'payslips'         => PayslipsTab::class,
+        'settings'         => SettingsTab::class,
     ];
 
     /**

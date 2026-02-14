@@ -14,6 +14,7 @@ class Admin {
     add_action( 'admin_init',  [ $this, 'maybe_install_qr_cols' ] );
     add_action( 'admin_init',  [ $this, 'maybe_install_employee_extra_cols' ] );
     add_action( 'admin_head',  [ $this, 'remove_menu_separator_css' ] );
+    add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_styles' ] );
 
     add_action( 'admin_post_sfs_hr_add_employee',       [ $this, 'handle_add_employee' ] );
     add_action( 'admin_post_sfs_hr_link_user',          [ $this, 'handle_link_user' ] );
@@ -28,11 +29,28 @@ class Admin {
     add_action( 'admin_post_sfs_hr_download_qr_card',   [ $this, 'handle_download_qr_card' ] );
     add_action( 'admin_post_sfs_hr_save_notification_settings', [ $this, 'handle_save_notification_settings' ] );
     add_action( 'admin_post_sfs_hr_document_settings_save', [ $this, 'handle_document_settings_save' ] );
+    add_action( 'admin_post_sfs_hr_frontend_settings', [ $this, 'handle_frontend_settings' ] );
 
     // Role→Department sync
     add_action( 'admin_post_sfs_hr_sync_dept_members',  [ $this, 'handle_sync_dept_members' ] );
 }
 
+
+    /**
+     * Enqueue admin styles on HR Suite pages.
+     */
+    public function enqueue_admin_styles( string $hook ): void {
+        // Only load on our plugin's admin pages.
+        $screen = get_current_screen();
+        if ( $screen && ( strpos( $screen->id, 'sfs-hr' ) !== false || strpos( $hook, 'sfs-hr' ) !== false ) ) {
+            wp_enqueue_style(
+                'sfs-hr-admin',
+                SFS_HR_URL . 'assets/admin/admin-styles.css',
+                [],
+                SFS_HR_VER
+            );
+        }
+    }
 
     public function maybe_add_employee_photo_column(): void {
         global $wpdb;
@@ -6776,5 +6794,88 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             'success',
             __( 'Document settings saved successfully.', 'sfs-hr' )
         );
+    }
+
+    /**
+     * Handle frontend settings form (Settings Tab in frontend portal).
+     */
+    public function handle_frontend_settings(): void {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'Unauthorized', 'sfs-hr' ) );
+        }
+        check_admin_referer( 'sfs_hr_frontend_settings', '_sfs_settings_nonce' );
+
+        // ── Attendance settings ───────────────────────────────────
+        $att_input = isset( $_POST['att'] ) && is_array( $_POST['att'] ) ? $_POST['att'] : [];
+        if ( ! empty( $att_input ) ) {
+            $att_saved = get_option( 'sfs_hr_attendance_settings', [] );
+            $att_saved['period_type']           = sanitize_key( $att_input['period_type'] ?? 'full_month' );
+            $att_saved['period_start_day']      = max( 1, min( 28, (int) ( $att_input['period_start_day'] ?? 1 ) ) );
+            $att_saved['default_grace_late']    = max( 0, min( 120, (int) ( $att_input['default_grace_late'] ?? 5 ) ) );
+            $att_saved['default_grace_early']   = max( 0, min( 120, (int) ( $att_input['default_grace_early'] ?? 5 ) ) );
+            $att_saved['default_rounding_rule'] = sanitize_key( $att_input['default_rounding_rule'] ?? '5' );
+            $att_saved['selfie_retention_days'] = max( 1, min( 365, (int) ( $att_input['selfie_retention_days'] ?? 30 ) ) );
+            $att_saved['monthly_ot_threshold']  = max( 0, (int) ( $att_input['monthly_ot_threshold'] ?? 2400 ) );
+            update_option( 'sfs_hr_attendance_settings', $att_saved );
+        }
+
+        // ── Leave settings ────────────────────────────────────────
+        $lv = isset( $_POST['leave'] ) && is_array( $_POST['leave'] ) ? $_POST['leave'] : [];
+        if ( ! empty( $lv ) ) {
+            update_option( 'sfs_hr_leave_email', ! empty( $lv['email'] ) ? '1' : '0' );
+            update_option( 'sfs_hr_annual_lt5', max( 0, (int) ( $lv['annual_lt5'] ?? 21 ) ) );
+            update_option( 'sfs_hr_annual_ge5', max( 0, (int) ( $lv['annual_ge5'] ?? 30 ) ) );
+            update_option( 'sfs_hr_leave_gm_approver', (int) ( $lv['gm_approver'] ?? 0 ) );
+            update_option( 'sfs_hr_leave_finance_approver', (int) ( $lv['finance_approver'] ?? 0 ) );
+            update_option( 'sfs_hr_holiday_notify_on_add', ! empty( $lv['holiday_notify'] ) ? '1' : '0' );
+            update_option( 'sfs_hr_holiday_reminder_enabled', ! empty( $lv['holiday_remind'] ) ? '1' : '0' );
+            update_option( 'sfs_hr_holiday_reminder_days', max( 1, min( 30, (int) ( $lv['holiday_reminder_days'] ?? 1 ) ) ) );
+        }
+
+        // ── Notification settings ─────────────────────────────────
+        $nf = isset( $_POST['notif'] ) && is_array( $_POST['notif'] ) ? $_POST['notif'] : [];
+        if ( ! empty( $nf ) ) {
+            $ns = class_exists( Notifications::class ) ? Notifications::get_settings() : [];
+            $bool_keys = [
+                'enabled', 'email_enabled', 'manager_notification', 'employee_notification',
+                'hr_notification', 'notify_leave_created', 'notify_leave_approved',
+                'notify_leave_rejected', 'notify_leave_cancelled', 'notify_late_arrival',
+                'notify_early_leave', 'notify_missed_punch', 'notify_new_employee',
+                'notify_birthday', 'notify_anniversary', 'notify_contract_expiry',
+                'notify_probation_end', 'notify_payslip_ready', 'notify_payroll_processed',
+            ];
+            foreach ( $bool_keys as $k ) {
+                $ns[ $k ] = ! empty( $nf[ $k ] );
+            }
+            $ns['late_arrival_threshold'] = max( 1, min( 120, (int) ( $nf['late_arrival_threshold'] ?? 15 ) ) );
+            Notifications::save_settings( $ns );
+        }
+
+        // Redirect back to the frontend settings tab.
+        $page_url = get_option( 'sfs_hr_portal_page_url', '' );
+        if ( ! $page_url ) {
+            // Try to find the portal page.
+            $portal_page_id = $this->find_portal_page_id();
+            if ( $portal_page_id ) {
+                $page_url = get_permalink( $portal_page_id );
+            }
+        }
+        if ( $page_url ) {
+            wp_safe_redirect( add_query_arg( [ 'sfs_hr_tab' => 'settings', 'settings_saved' => '1' ], $page_url ) );
+        } else {
+            wp_safe_redirect( wp_get_referer() ?: admin_url() );
+        }
+        exit;
+    }
+
+    /**
+     * Find the WordPress page containing the HR portal shortcode.
+     */
+    private function find_portal_page_id(): int {
+        global $wpdb;
+        $page_id = (int) $wpdb->get_var(
+            "SELECT ID FROM {$wpdb->posts} WHERE post_type='page' AND post_status='publish' AND post_content LIKE '%[sfs_hr_my_profile%' LIMIT 1"
+        );
+        return $page_id;
     }
 }

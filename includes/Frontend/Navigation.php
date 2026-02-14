@@ -85,8 +85,15 @@ class Navigation {
                 'section'   => 'personal',
                 'condition' => 'not_limited',
             ],
+            [
+                'slug'    => 'payslips',
+                'label'   => __( 'Payslips', 'sfs-hr' ),
+                'icon'    => 'receipt',
+                'roles'   => [ 'employee', 'manager', 'hr', 'gm', 'admin' ],
+                'section' => 'personal',
+            ],
 
-            // ── Team section (Phase 3 — renderers not yet available) ──
+            // ── Team section ──
             [
                 'slug'    => 'team',
                 'label'   => __( 'My Team', 'sfs-hr' ),
@@ -123,6 +130,15 @@ class Navigation {
                 'icon'    => 'briefcase',
                 'roles'   => [ 'hr', 'gm', 'admin' ],
                 'section' => 'org',
+            ],
+
+            // ── System section (Phase 5) ──
+            [
+                'slug'    => 'settings',
+                'label'   => __( 'Settings', 'sfs-hr' ),
+                'icon'    => 'settings',
+                'roles'   => [ 'admin' ],
+                'section' => 'system',
             ],
         ];
     }
@@ -188,6 +204,9 @@ class Navigation {
             // Phase 4 — Org tabs.
             'dashboard',
             'employees',
+            // Phase 5 — Payslips + Settings.
+            'payslips',
+            'settings',
         ];
         return in_array( $slug, $available, true );
     }
@@ -214,6 +233,8 @@ class Navigation {
             'grid'         => '<rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>',
             'briefcase'    => '<rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>',
             'more'         => '<circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle>',
+            'receipt'      => '<path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 3 2V2l-3 2-3-2-3 2-3-2-3 2-3-2z"></path><line x1="8" y1="8" x2="16" y2="8"></line><line x1="8" y1="12" x2="16" y2="12"></line><line x1="8" y1="16" x2="12" y2="16"></line>',
+            'settings'     => '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>',
         ];
 
         $path = $icons[ $icon ] ?? $icons['user'];
