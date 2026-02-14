@@ -1119,8 +1119,11 @@ setInterval(tickClock, 1000);
         }
 
                 async function getGeo(punchType, useCache = false){
-            // Return cached geo if available and fresh (within 30s)
-            if (useCache && cachedGeo && (Date.now() - cachedGeo.ts < 30000)) {
+            // Return cached geo if available and fresh (within 45s).
+            // Only used by doPunch() which always runs right after a FRESH pre-flight
+            // geofence check, so the cache here is just seconds old from that check.
+            // 45s window covers the time a user takes to position face + capture selfie.
+            if (useCache && cachedGeo && (Date.now() - cachedGeo.ts < 45000)) {
                 return { lat: cachedGeo.lat, lng: cachedGeo.lng, acc: cachedGeo.acc };
             }
 
@@ -1498,11 +1501,9 @@ setInterval(tickClock, 1000);
                 actionsWrap.querySelectorAll('button[data-type]').forEach(btn => btn.disabled = true);
             }
 
-            // Refresh status only if stale (>10s) to avoid unnecessary round-trip
-            if (Date.now() - lastRefreshAt > 10000) {
-                setStat(i18n.checking_status, 'busy');
-                await refresh();
-            }
+            // Skip pre-punch status refresh — the server validates all transitions,
+            // cooldowns, and policies on its own. Removing this round-trip saves 1-3s.
+            // The UI state from the last refresh is recent enough for button visibility.
 
             if (!allowed[type]) {
                 let msg = 'Invalid action.';
@@ -1552,6 +1553,9 @@ setInterval(tickClock, 1000);
             }
 
             // ---- Pre-flight: geofence check (before camera/selfie) ----
+            // MUST use fresh GPS here (not cache) because the server only records
+            // valid_geo as a flag — it does not reject the punch. This client-side
+            // check is the actual geofence enforcement.
             setStat(i18n.validating, 'busy');
             try {
                 await getGeo(type);
@@ -1620,7 +1624,7 @@ setInterval(tickClock, 1000);
                 await doPunch(capturedType, blob);
                 stopSelfiePreview();
                 if (selfieCapture) selfieCapture.disabled = false;
-            }, 'image/jpeg', 0.9);
+            }, 'image/jpeg', 0.75);
         }
 
         // Wire buttons
