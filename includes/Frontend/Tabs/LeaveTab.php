@@ -189,7 +189,7 @@ class LeaveTab implements TabInterface {
         echo '<div class="sfs-kpi-card">';
         echo '<div class="sfs-kpi-icon" style="background:#ecfdf5;"><svg viewBox="0 0 24 24" stroke="#10b981"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>';
         echo '<div class="sfs-kpi-label" data-i18n-key="annual_leave_available">' . esc_html__( 'Annual balance', 'sfs-hr' ) . '</div>';
-        echo '<div class="sfs-kpi-value">' . $annual . ' <span class="sfs-kpi-sub">' . esc_html__( 'days', 'sfs-hr' ) . '</span></div>';
+        echo '<div class="sfs-kpi-value">' . $annual . ' <span class="sfs-kpi-sub" data-i18n-key="days">' . esc_html__( 'days', 'sfs-hr' ) . '</span></div>';
         echo '</div>';
 
         // Used
@@ -198,7 +198,7 @@ class LeaveTab implements TabInterface {
         echo '<div class="sfs-kpi-label" data-i18n-key="total_used_this_year">' . esc_html__( 'Used', 'sfs-hr' ) . '</div>';
         echo '<div class="sfs-kpi-value">' . $used;
         if ( $pending > 0 ) {
-            echo ' <span class="sfs-kpi-sub">+ ' . $pending . ' ' . esc_html__( 'pending', 'sfs-hr' ) . '</span>';
+            echo ' <span class="sfs-kpi-sub">+ ' . $pending . ' <span data-i18n-key="pending">' . esc_html__( 'pending', 'sfs-hr' ) . '</span></span>';
         }
         echo '</div></div>';
 
@@ -339,8 +339,8 @@ class LeaveTab implements TabInterface {
         echo '<label class="sfs-form-label" data-i18n-key="supporting_document">' . esc_html__( 'Supporting document', 'sfs-hr' ) . '</label>';
         echo '<label class="sfs-file-upload">';
         echo '<input type="file" name="supporting_doc" accept=".pdf,image/*" onchange="this.closest(\'.sfs-file-upload\').querySelector(\'.sfs-file-upload-text\').textContent=this.files[0]?this.files[0].name:this.getAttribute(\'data-empty\')" data-empty="' . esc_attr__( 'No file selected', 'sfs-hr' ) . '" />';
-        echo '<span class="sfs-file-upload-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' . esc_html__( 'Choose file', 'sfs-hr' ) . '</span>';
-        echo '<span class="sfs-file-upload-text">' . esc_html__( 'No file selected', 'sfs-hr' ) . '</span>';
+        echo '<span class="sfs-file-upload-btn" data-i18n-key="choose_file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' . esc_html__( 'Choose file', 'sfs-hr' ) . '</span>';
+        echo '<span class="sfs-file-upload-text" data-i18n-key="no_file_selected">' . esc_html__( 'No file selected', 'sfs-hr' ) . '</span>';
         echo '</label>';
         echo '<span class="sfs-form-hint" data-i18n-key="required_for_sick_leave">' . esc_html__( 'Required for Sick Leave.', 'sfs-hr' ) . '</span>';
         echo '</div>';
@@ -379,7 +379,7 @@ class LeaveTab implements TabInterface {
             echo '<div class="sfs-card"><div class="sfs-empty-state">';
             echo '<div class="sfs-empty-state-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" fill="none" stroke-width="1.5"/><line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="1.5"/></svg></div>';
             echo '<p class="sfs-empty-state-title" data-i18n-key="no_leave_requests">' . esc_html__( 'No leave requests yet', 'sfs-hr' ) . '</p>';
-            echo '<p class="sfs-empty-state-text">' . esc_html__( 'Your leave requests will appear here once you submit one.', 'sfs-hr' ) . '</p>';
+            echo '<p class="sfs-empty-state-text" data-i18n-key="your_leave_requests_will_appear_here_once_you_submit_one">' . esc_html__( 'Your leave requests will appear here once you submit one.', 'sfs-hr' ) . '</p>';
             echo '</div></div>';
             return;
         }
@@ -396,7 +396,7 @@ class LeaveTab implements TabInterface {
                 echo '<strong>' . esc_html( $r['request_number'] ) . '</strong> — ';
             }
             echo esc_html( $r['type_name'] ) . '</span>';
-            echo '<span class="sfs-history-card-meta">' . esc_html( $r['period'] ) . ' · ' . (int) $r['days'] . ' ' . esc_html__( 'days', 'sfs-hr' ) . '</span>';
+            echo '<span class="sfs-history-card-meta">' . esc_html( $r['period'] ) . ' · ' . (int) $r['days'] . ' <span data-i18n-key="days">' . esc_html__( 'days', 'sfs-hr' ) . '</span></span>';
             echo '</div>';
             echo $r['status_html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
             echo '</summary>';

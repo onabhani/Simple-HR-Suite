@@ -3170,5 +3170,8 @@
     "_comment_approvals_enhanced": "Approvals Tab Enhanced",
     "all_filter": "الكل",
     "bulk_approve": "موافقة جماعية",
-    "select_all": "تحديد الكل"
+    "select_all": "تحديد الكل",
+
+    "_comment_missing_i18n_keys": "Missing i18n keys for frontend tabs",
+    "completed_loans": "مكتمل"
 }

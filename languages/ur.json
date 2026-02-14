@@ -3145,5 +3145,13 @@
     "_comment_approvals_enhanced": "Approvals Tab Enhanced",
     "all_filter": "سب",
     "bulk_approve": "اجتماعی منظوری",
-    "select_all": "سب منتخب کریں"
+    "select_all": "سب منتخب کریں",
+
+    "_comment_missing_i18n_keys": "Missing i18n keys for frontend tabs",
+    "completed_loans": "مکمل",
+    "new_leave_request": "نئی چھٹی کی درخواست",
+    "leave_balances": "چھٹیوں کا بیلنس",
+    "total_lbl": "کل",
+    "consumed_lbl": "استعمال شدہ",
+    "applied_lbl": "درخواست شدہ"
 }

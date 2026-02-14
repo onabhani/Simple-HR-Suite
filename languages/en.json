@@ -3145,5 +3145,13 @@
     "_comment_approvals_enhanced": "Approvals Tab Enhanced",
     "all_filter": "All",
     "bulk_approve": "Bulk Approve",
-    "select_all": "Select All"
+    "select_all": "Select All",
+
+    "_comment_missing_i18n_keys": "Missing i18n keys for frontend tabs",
+    "completed_loans": "Completed",
+    "new_leave_request": "New Leave Request",
+    "leave_balances": "Leave Balances",
+    "total_lbl": "Total",
+    "consumed_lbl": "Consumed",
+    "applied_lbl": "Applied"
 }

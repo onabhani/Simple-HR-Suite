@@ -226,8 +226,8 @@ class LoansTab implements TabInterface {
         if ( empty( $loans ) ) {
             echo '<div class="sfs-card"><div class="sfs-empty-state">';
             echo '<div class="sfs-empty-state-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23" stroke="currentColor" stroke-width="1.5"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" fill="none" stroke-width="1.5"/></svg></div>';
-            echo '<p class="sfs-empty-state-title" data-i18n-key="you_have_no_loan_records">' . esc_html__( 'No loan records yet', 'sfs-hr' ) . '</p>';
-            echo '<p class="sfs-empty-state-text">' . esc_html__( 'Your loan requests will appear here.', 'sfs-hr' ) . '</p>';
+            echo '<p class="sfs-empty-state-title" data-i18n-key="no_loan_records_yet">' . esc_html__( 'No loan records yet', 'sfs-hr' ) . '</p>';
+            echo '<p class="sfs-empty-state-text" data-i18n-key="your_loan_requests_will_appear_here">' . esc_html__( 'Your loan requests will appear here.', 'sfs-hr' ) . '</p>';
             echo '</div></div>';
             return;
         }
@@ -263,7 +263,7 @@ class LoansTab implements TabInterface {
             echo '<summary>';
             echo '<div class="sfs-history-card-info">';
             echo '<span class="sfs-history-card-title">' . esc_html( $loan->loan_number ) . '</span>';
-            echo '<span class="sfs-history-card-meta">' . esc_html( $amount_str ) . ' · ' . (int) $paid_count . '/' . (int) $loan->installments_count . ' ' . esc_html__( 'installments', 'sfs-hr' ) . '</span>';
+            echo '<span class="sfs-history-card-meta">' . esc_html( $amount_str ) . ' · ' . (int) $paid_count . '/' . (int) $loan->installments_count . ' <span data-i18n-key="installments">' . esc_html__( 'installments', 'sfs-hr' ) . '</span></span>';
             echo '</div>';
             echo $this->status_badge( $loan->status );
             echo '</summary>';

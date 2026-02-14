@@ -3145,5 +3145,13 @@
     "_comment_approvals_enhanced": "Approvals Tab Enhanced",
     "all_filter": "Lahat",
     "bulk_approve": "Bulk Approve",
-    "select_all": "Piliin Lahat"
+    "select_all": "Piliin Lahat",
+
+    "_comment_missing_i18n_keys": "Missing i18n keys for frontend tabs",
+    "completed_loans": "Tapos na",
+    "new_leave_request": "Bagong Leave Request",
+    "leave_balances": "Leave Balances",
+    "total_lbl": "Kabuuan",
+    "consumed_lbl": "Nagamit",
+    "applied_lbl": "Inilapat"
 }
