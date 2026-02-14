@@ -1119,8 +1119,10 @@ setInterval(tickClock, 1000);
         }
 
                 async function getGeo(punchType, useCache = false){
-            // Return cached geo if available and fresh (within 30s)
-            if (useCache && cachedGeo && (Date.now() - cachedGeo.ts < 30000)) {
+            // Return cached geo if available and fresh (within 60s).
+            // Extended from 30s to 60s — the user won't move far while taking a selfie,
+            // and this avoids a redundant GPS acquisition after camera capture.
+            if (useCache && cachedGeo && (Date.now() - cachedGeo.ts < 60000)) {
                 return { lat: cachedGeo.lat, lng: cachedGeo.lng, acc: cachedGeo.acc };
             }
 
@@ -1498,11 +1500,9 @@ setInterval(tickClock, 1000);
                 actionsWrap.querySelectorAll('button[data-type]').forEach(btn => btn.disabled = true);
             }
 
-            // Refresh status only if stale (>10s) to avoid unnecessary round-trip
-            if (Date.now() - lastRefreshAt > 10000) {
-                setStat(i18n.checking_status, 'busy');
-                await refresh();
-            }
+            // Skip pre-punch status refresh — the server validates all transitions,
+            // cooldowns, and policies on its own. Removing this round-trip saves 1-3s.
+            // The UI state from the last refresh is recent enough for button visibility.
 
             if (!allowed[type]) {
                 let msg = 'Invalid action.';
@@ -1552,9 +1552,11 @@ setInterval(tickClock, 1000);
             }
 
             // ---- Pre-flight: geofence check (before camera/selfie) ----
+            // Use cached geo from page-load preload when available (avoids 5-10s GPS wait).
+            // The server still enforces geofence on its own, so this is a fast UX guard.
             setStat(i18n.validating, 'busy');
             try {
-                await getGeo(type);
+                await getGeo(type, true);
             } catch(e) {
                 // Geo blocked (outside area / permission denied) — do NOT open camera
                 punchInProgress = false;
@@ -1620,7 +1622,7 @@ setInterval(tickClock, 1000);
                 await doPunch(capturedType, blob);
                 stopSelfiePreview();
                 if (selfieCapture) selfieCapture.disabled = false;
-            }, 'image/jpeg', 0.9);
+            }, 'image/jpeg', 0.75);
         }
 
         // Wire buttons

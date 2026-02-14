@@ -647,8 +647,17 @@ if ( ! empty( $_FILES['selfie']['tmp_name'] ) ) {
     ];
     $attach_id = wp_insert_attachment( $attachment, $up['file'] );
     if ( ! is_wp_error( $attach_id ) && $attach_id ) {
-        $meta = wp_generate_attachment_metadata( $attach_id, $up['file'] );
-        if ( $meta ) { wp_update_attachment_metadata( $attach_id, $meta ); }
+        // Skip wp_generate_attachment_metadata() for attendance selfies.
+        // Thumbnail generation (GD/Imagick) takes 2-5s and selfies are only
+        // stored as evidence — they are never displayed as thumbnails.
+        // Store minimal metadata so wp_get_attachment_url() still works.
+        $img_size = @getimagesize( $up['file'] );
+        $meta = [
+            'width'  => $img_size ? (int) $img_size[0] : 480,
+            'height' => $img_size ? (int) $img_size[1] : 480,
+            'file'   => _wp_relative_upload_path( $up['file'] ),
+        ];
+        wp_update_attachment_metadata( $attach_id, $meta );
         $selfie_media_id = (int) $attach_id;
         $valid_selfie    = 1;
 
@@ -867,8 +876,13 @@ private static function save_selfie_attachment( array $src ): int {
                 'post_status'    => 'private',
             ], $up['file'] );
             if ( $att_id ) {
-                $meta = wp_generate_attachment_metadata( $att_id, $up['file'] );
-                if ( $meta ) wp_update_attachment_metadata( $att_id, $meta );
+                // Skip thumbnail generation — selfies are evidence, not displayed
+                $img_size = @getimagesize( $up['file'] );
+                wp_update_attachment_metadata( $att_id, [
+                    'width'  => $img_size ? (int) $img_size[0] : 480,
+                    'height' => $img_size ? (int) $img_size[1] : 480,
+                    'file'   => _wp_relative_upload_path( $up['file'] ),
+                ] );
                 return (int) $att_id;
             }
         }
@@ -891,8 +905,13 @@ private static function save_selfie_attachment( array $src ): int {
                         'post_status'    => 'private',
                     ], $path );
                     if ( $att_id ) {
-                        $meta = wp_generate_attachment_metadata( $att_id, $path );
-                        if ( $meta ) wp_update_attachment_metadata( $att_id, $meta );
+                        // Skip thumbnail generation — selfies are evidence, not displayed
+                        $img_size = @getimagesize( $path );
+                        wp_update_attachment_metadata( $att_id, [
+                            'width'  => $img_size ? (int) $img_size[0] : 480,
+                            'height' => $img_size ? (int) $img_size[1] : 480,
+                            'file'   => _wp_relative_upload_path( $path ),
+                        ] );
                         return (int) $att_id;
                     }
                 }
