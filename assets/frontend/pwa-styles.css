@@ -2875,13 +2875,13 @@
    ═══════════════════════════════════════════════════════════════ */
 
 .sfs-overview {
-    padding: 4px 0;
+    padding: 0;
 }
 
 /* ── Hero Card ───────────────────────────────────────────────── */
 .sfs-overview-hero {
     background: linear-gradient(135deg, var(--sfs-primary, #0f4c5c) 0%, #1a6d7d 50%, #237a8a 100%);
-    border-radius: 0;
+    border-radius: 0 0 16px 16px;
     padding: 24px 16px;
     margin: 0 -16px 20px;
     color: #ffffff;
