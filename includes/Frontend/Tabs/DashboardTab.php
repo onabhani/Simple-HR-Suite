@@ -270,9 +270,9 @@ class DashboardTab implements TabInterface {
         // Legend.
         echo '<div class="sfs-dash-gauge-legend">';
         echo '<span class="sfs-dash-legend-item"><span class="sfs-dash-legend-dot" style="background:#059669;"></span> '
-            . esc_html__( 'On Time', 'sfs-hr' ) . ' <strong>' . $on_time . '</strong></span>';
+            . '<span data-i18n-key="on_time">' . esc_html__( 'On Time', 'sfs-hr' ) . '</span> <strong>' . $on_time . '</strong></span>';
         echo '<span class="sfs-dash-legend-item"><span class="sfs-dash-legend-dot" style="background:#d97706;"></span> '
-            . esc_html__( 'Late', 'sfs-hr' ) . ' <strong>' . $late . '</strong></span>';
+            . '<span data-i18n-key="late">' . esc_html__( 'Late', 'sfs-hr' ) . '</span> <strong>' . $late . '</strong></span>';
         echo '</div>';
 
         echo '</div></div>'; // .sfs-card-body, .sfs-card
@@ -300,7 +300,7 @@ class DashboardTab implements TabInterface {
             echo '<div class="sfs-dash-method-item">';
             echo '<div class="sfs-dash-method-icon" style="background:' . esc_attr( $color ) . '20;"><svg viewBox="0 0 24 24" stroke="' . esc_attr( $color ) . '" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' . $svg . '</svg></div>';
             echo '<div class="sfs-dash-method-count">' . $count . '</div>';
-            echo '<div class="sfs-dash-method-label">' . esc_html( $label ) . '</div>';
+            echo '<div class="sfs-dash-method-label" data-i18n-key="' . esc_attr( $key ) . '">' . esc_html( $label ) . '</div>';
             echo '</div>';
         }
 
@@ -351,18 +351,26 @@ class DashboardTab implements TabInterface {
 
         // Legend.
         echo '<div class="sfs-dash-heatmap-legend">';
-        echo '<span class="sfs-dash-legend-item"><span class="sfs-dash-legend-dot" style="background:#059669;"></span> ' . esc_html__( 'High', 'sfs-hr' ) . '</span>';
-        echo '<span class="sfs-dash-legend-item"><span class="sfs-dash-legend-dot" style="background:#fbbf24;"></span> ' . esc_html__( 'Medium', 'sfs-hr' ) . '</span>';
-        echo '<span class="sfs-dash-legend-item"><span class="sfs-dash-legend-dot" style="background:#f87171;"></span> ' . esc_html__( 'Low', 'sfs-hr' ) . '</span>';
-        echo '<span class="sfs-dash-legend-item"><span class="sfs-dash-legend-dot" style="background:#e5e7eb;"></span> ' . esc_html__( 'No Data', 'sfs-hr' ) . '</span>';
+        echo '<span class="sfs-dash-legend-item"><span class="sfs-dash-legend-dot" style="background:#059669;"></span> <span data-i18n-key="high">' . esc_html__( 'High', 'sfs-hr' ) . '</span></span>';
+        echo '<span class="sfs-dash-legend-item"><span class="sfs-dash-legend-dot" style="background:#fbbf24;"></span> <span data-i18n-key="medium">' . esc_html__( 'Medium', 'sfs-hr' ) . '</span></span>';
+        echo '<span class="sfs-dash-legend-item"><span class="sfs-dash-legend-dot" style="background:#f87171;"></span> <span data-i18n-key="low">' . esc_html__( 'Low', 'sfs-hr' ) . '</span></span>';
+        echo '<span class="sfs-dash-legend-item"><span class="sfs-dash-legend-dot" style="background:#e5e7eb;"></span> <span data-i18n-key="no_data">' . esc_html__( 'No Data', 'sfs-hr' ) . '</span></span>';
         echo '</div>';
 
         echo '<div class="sfs-dash-heatmap-grid">';
 
         // Day-of-week headers.
-        $day_names = [ 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat' ];
-        foreach ( $day_names as $dn ) {
-            echo '<div class="sfs-dash-heatmap-header">' . esc_html( $dn ) . '</div>';
+        $day_names = [
+            'sun' => __( 'Sun', 'sfs-hr' ),
+            'mon' => __( 'Mon', 'sfs-hr' ),
+            'tue' => __( 'Tue', 'sfs-hr' ),
+            'wed' => __( 'Wed', 'sfs-hr' ),
+            'thu' => __( 'Thu', 'sfs-hr' ),
+            'fri' => __( 'Fri', 'sfs-hr' ),
+            'sat' => __( 'Sat', 'sfs-hr' ),
+        ];
+        foreach ( $day_names as $key => $dn ) {
+            echo '<div class="sfs-dash-heatmap-header" data-i18n-key="' . esc_attr( $key ) . '">' . esc_html( $dn ) . '</div>';
         }
 
         // Calculate start padding (empty cells before period starts).
@@ -434,7 +442,7 @@ class DashboardTab implements TabInterface {
 
         if ( empty( $list ) ) {
             echo '<div class="sfs-empty-state">';
-            echo '<p class="sfs-empty-state-title">' . esc_html__( 'No attendance records for today yet.', 'sfs-hr' ) . '</p>';
+            echo '<p class="sfs-empty-state-title" data-i18n-key="no_attendance_today">' . esc_html__( 'No attendance records for today yet.', 'sfs-hr' ) . '</p>';
             echo '</div>';
             echo '</div></div>';
             return;
@@ -442,23 +450,23 @@ class DashboardTab implements TabInterface {
 
         // Status filter chips.
         echo '<div class="sfs-dash-filter-chips" id="sfs-dash-status-filters">';
-        echo '<button type="button" class="sfs-chip sfs-chip--active" data-status="all">' . esc_html__( 'All', 'sfs-hr' ) . '</button>';
-        echo '<button type="button" class="sfs-chip" data-status="present">' . esc_html__( 'Present', 'sfs-hr' ) . '</button>';
-        echo '<button type="button" class="sfs-chip" data-status="late">' . esc_html__( 'Late', 'sfs-hr' ) . '</button>';
-        echo '<button type="button" class="sfs-chip" data-status="absent">' . esc_html__( 'Absent', 'sfs-hr' ) . '</button>';
-        echo '<button type="button" class="sfs-chip" data-status="incomplete">' . esc_html__( 'Incomplete', 'sfs-hr' ) . '</button>';
-        echo '<button type="button" class="sfs-chip" data-status="on_leave">' . esc_html__( 'On Leave', 'sfs-hr' ) . '</button>';
+        echo '<button type="button" class="sfs-chip sfs-chip--active" data-status="all" data-i18n-key="all">' . esc_html__( 'All', 'sfs-hr' ) . '</button>';
+        echo '<button type="button" class="sfs-chip" data-status="present" data-i18n-key="present">' . esc_html__( 'Present', 'sfs-hr' ) . '</button>';
+        echo '<button type="button" class="sfs-chip" data-status="late" data-i18n-key="late">' . esc_html__( 'Late', 'sfs-hr' ) . '</button>';
+        echo '<button type="button" class="sfs-chip" data-status="absent" data-i18n-key="absent">' . esc_html__( 'Absent', 'sfs-hr' ) . '</button>';
+        echo '<button type="button" class="sfs-chip" data-status="incomplete" data-i18n-key="incomplete">' . esc_html__( 'Incomplete', 'sfs-hr' ) . '</button>';
+        echo '<button type="button" class="sfs-chip" data-status="on_leave" data-i18n-key="on_leave">' . esc_html__( 'On Leave', 'sfs-hr' ) . '</button>';
         echo '</div>';
 
         // Desktop table.
         echo '<div class="sfs-desktop-only"><table class="sfs-table" id="sfs-dash-emp-table">';
         echo '<thead><tr>';
-        echo '<th>' . esc_html__( 'Employee', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Department', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Clock In', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Clock Out', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Hours', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="employee">' . esc_html__( 'Employee', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="department">' . esc_html__( 'Department', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="status">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="clock_in">' . esc_html__( 'Clock In', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="clock_out">' . esc_html__( 'Clock Out', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="hours">' . esc_html__( 'Hours', 'sfs-hr' ) . '</th>';
         echo '</tr></thead><tbody>';
 
         foreach ( $list as $row ) {
@@ -499,8 +507,8 @@ class DashboardTab implements TabInterface {
             echo $badge;
             echo '</div>';
             echo '<div class="sfs-dash-emp-item-meta">';
-            echo '<span>' . esc_html__( 'In', 'sfs-hr' ) . ': ' . $in . '</span>';
-            echo '<span>' . esc_html__( 'Out', 'sfs-hr' ) . ': ' . $out . '</span>';
+            echo '<span><span data-i18n-key="in_label">' . esc_html__( 'In', 'sfs-hr' ) . '</span>: ' . $in . '</span>';
+            echo '<span><span data-i18n-key="out_label">' . esc_html__( 'Out', 'sfs-hr' ) . '</span>: ' . $out . '</span>';
             echo '<span>' . $hours . '</span>';
             echo '</div>';
             echo '</div>';
@@ -528,18 +536,19 @@ class DashboardTab implements TabInterface {
     ────────────────────────────────────────────────────────── */
     private function status_badge( string $status ): string {
         $map = [
-            'present'    => [ 'approved', __( 'Present', 'sfs-hr' ) ],
-            'late'       => [ 'pending',  __( 'Late', 'sfs-hr' ) ],
-            'left_early' => [ 'pending',  __( 'Left Early', 'sfs-hr' ) ],
-            'absent'     => [ 'rejected', __( 'Absent', 'sfs-hr' ) ],
-            'incomplete' => [ 'rejected', __( 'Incomplete', 'sfs-hr' ) ],
-            'on_leave'   => [ 'info',     __( 'On Leave', 'sfs-hr' ) ],
-            'holiday'    => [ 'info',     __( 'Holiday', 'sfs-hr' ) ],
-            'day_off'    => [ 'neutral',  __( 'Day Off', 'sfs-hr' ) ],
+            'present'    => [ 'approved', __( 'Present', 'sfs-hr' ), 'present' ],
+            'late'       => [ 'pending',  __( 'Late', 'sfs-hr' ), 'late' ],
+            'left_early' => [ 'pending',  __( 'Left Early', 'sfs-hr' ), 'left_early' ],
+            'absent'     => [ 'rejected', __( 'Absent', 'sfs-hr' ), 'absent' ],
+            'incomplete' => [ 'rejected', __( 'Incomplete', 'sfs-hr' ), 'incomplete' ],
+            'on_leave'   => [ 'info',     __( 'On Leave', 'sfs-hr' ), 'on_leave' ],
+            'holiday'    => [ 'info',     __( 'Holiday', 'sfs-hr' ), 'holiday' ],
+            'day_off'    => [ 'neutral',  __( 'Day Off', 'sfs-hr' ), 'day_off' ],
         ];
 
-        $badge = $map[ $status ] ?? [ 'neutral', ucfirst( str_replace( '_', ' ', $status ) ) ];
-        return '<span class="sfs-badge sfs-badge--' . esc_attr( $badge[0] ) . '">' . esc_html( $badge[1] ) . '</span>';
+        $badge = $map[ $status ] ?? [ 'neutral', ucfirst( str_replace( '_', ' ', $status ) ), '' ];
+        $i18n = ! empty( $badge[2] ) ? ' data-i18n-key="' . esc_attr( $badge[2] ) . '"' : '';
+        return '<span class="sfs-badge sfs-badge--' . esc_attr( $badge[0] ) . '"' . $i18n . '>' . esc_html( $badge[1] ) . '</span>';
     }
 
     private function get_current_period(): array {

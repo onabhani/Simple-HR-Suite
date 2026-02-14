@@ -121,17 +121,17 @@ class EmployeesTab implements TabInterface {
 
         echo '<div class="sfs-kpi-card">';
         echo '<div class="sfs-kpi-icon" style="background:#ecfdf5;"><svg viewBox="0 0 24 24" stroke="#059669" fill="none" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>';
-        echo '<div class="sfs-kpi-label">' . esc_html__( 'Active', 'sfs-hr' ) . '</div>';
+        echo '<div class="sfs-kpi-label" data-i18n-key="active">' . esc_html__( 'Active', 'sfs-hr' ) . '</div>';
         echo '<div class="sfs-kpi-value">' . $active . '</div></div>';
 
         echo '<div class="sfs-kpi-card">';
         echo '<div class="sfs-kpi-icon" style="background:#fef2f2;"><svg viewBox="0 0 24 24" stroke="#dc2626" fill="none" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>';
-        echo '<div class="sfs-kpi-label">' . esc_html__( 'Terminated', 'sfs-hr' ) . '</div>';
+        echo '<div class="sfs-kpi-label" data-i18n-key="terminated">' . esc_html__( 'Terminated', 'sfs-hr' ) . '</div>';
         echo '<div class="sfs-kpi-value">' . $terminated . '</div></div>';
 
         echo '<div class="sfs-kpi-card">';
         echo '<div class="sfs-kpi-icon" style="background:#fef3c7;"><svg viewBox="0 0 24 24" stroke="#d97706" fill="none" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></div>';
-        echo '<div class="sfs-kpi-label">' . esc_html__( 'Resigned', 'sfs-hr' ) . '</div>';
+        echo '<div class="sfs-kpi-label" data-i18n-key="resigned">' . esc_html__( 'Resigned', 'sfs-hr' ) . '</div>';
         echo '<div class="sfs-kpi-value">' . $resigned . '</div></div>';
 
         echo '</div>';
@@ -148,15 +148,15 @@ class EmployeesTab implements TabInterface {
 
         // Search.
         echo '<div class="sfs-form-group" style="flex:2;min-width:180px;margin:0;">';
-        echo '<label class="sfs-form-label" style="font-size:12px;margin-bottom:4px;">' . esc_html__( 'Search', 'sfs-hr' ) . '</label>';
+        echo '<label class="sfs-form-label" style="font-size:12px;margin-bottom:4px;" data-i18n-key="search">' . esc_html__( 'Search', 'sfs-hr' ) . '</label>';
         echo '<input type="text" name="emp_search" class="sfs-input" style="padding:8px 10px;font-size:13px;" placeholder="' . esc_attr__( 'Name, code, or email...', 'sfs-hr' ) . '" value="' . esc_attr( $search ) . '" />';
         echo '</div>';
 
         // Department.
         echo '<div class="sfs-form-group" style="flex:1;min-width:140px;margin:0;">';
-        echo '<label class="sfs-form-label" style="font-size:12px;margin-bottom:4px;">' . esc_html__( 'Department', 'sfs-hr' ) . '</label>';
+        echo '<label class="sfs-form-label" style="font-size:12px;margin-bottom:4px;" data-i18n-key="department">' . esc_html__( 'Department', 'sfs-hr' ) . '</label>';
         echo '<select name="emp_dept" class="sfs-select" style="padding:8px 10px;font-size:13px;">';
-        echo '<option value="0">' . esc_html__( 'All', 'sfs-hr' ) . '</option>';
+        echo '<option value="0" data-i18n-key="all">' . esc_html__( 'All', 'sfs-hr' ) . '</option>';
         foreach ( $departments as $d ) {
             $sel = ( (int) $d['id'] === $dept ) ? ' selected' : '';
             echo '<option value="' . (int) $d['id'] . '"' . $sel . '>' . esc_html( $d['name'] ) . '</option>';
@@ -166,7 +166,7 @@ class EmployeesTab implements TabInterface {
 
         // Status.
         echo '<div class="sfs-form-group" style="flex:1;min-width:120px;margin:0;">';
-        echo '<label class="sfs-form-label" style="font-size:12px;margin-bottom:4px;">' . esc_html__( 'Status', 'sfs-hr' ) . '</label>';
+        echo '<label class="sfs-form-label" style="font-size:12px;margin-bottom:4px;" data-i18n-key="status">' . esc_html__( 'Status', 'sfs-hr' ) . '</label>';
         echo '<select name="emp_status" class="sfs-select" style="padding:8px 10px;font-size:13px;">';
         $statuses = [
             'active'     => __( 'Active', 'sfs-hr' ),
@@ -182,7 +182,7 @@ class EmployeesTab implements TabInterface {
         echo '</div>';
 
         echo '<div class="sfs-form-group" style="margin:0;">';
-        echo '<button type="submit" class="sfs-btn sfs-btn--primary" style="padding:8px 16px;font-size:13px;">' . esc_html__( 'Search', 'sfs-hr' ) . '</button>';
+        echo '<button type="submit" class="sfs-btn sfs-btn--primary" style="padding:8px 16px;font-size:13px;" data-i18n-key="search">' . esc_html__( 'Search', 'sfs-hr' ) . '</button>';
         echo '</div>';
 
         echo '</form>';
@@ -193,8 +193,8 @@ class EmployeesTab implements TabInterface {
         if ( empty( $employees ) ) {
             echo '<div class="sfs-card"><div class="sfs-empty-state">';
             echo '<div class="sfs-empty-state-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" fill="none" stroke-width="1.5"/><circle cx="9" cy="7" r="4" stroke="currentColor" fill="none" stroke-width="1.5"/></svg></div>';
-            echo '<p class="sfs-empty-state-title">' . esc_html__( 'No employees found', 'sfs-hr' ) . '</p>';
-            echo '<p class="sfs-empty-state-text">' . esc_html__( 'Try adjusting your search criteria.', 'sfs-hr' ) . '</p>';
+            echo '<p class="sfs-empty-state-title" data-i18n-key="no_employees_found">' . esc_html__( 'No employees found', 'sfs-hr' ) . '</p>';
+            echo '<p class="sfs-empty-state-text" data-i18n-key="try_adjusting_search">' . esc_html__( 'Try adjusting your search criteria.', 'sfs-hr' ) . '</p>';
             echo '</div></div>';
             return;
         }
@@ -202,14 +202,14 @@ class EmployeesTab implements TabInterface {
         // Desktop table.
         echo '<div class="sfs-desktop-only"><table class="sfs-table">';
         echo '<thead><tr>';
-        echo '<th>' . esc_html__( 'Code', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Name', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Department', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Position', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Contact', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Nationality', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Hire Date', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="code">' . esc_html__( 'Code', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="name">' . esc_html__( 'Name', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="department">' . esc_html__( 'Department', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="position">' . esc_html__( 'Position', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="contact">' . esc_html__( 'Contact', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="nationality">' . esc_html__( 'Nationality', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="hire_date">' . esc_html__( 'Hire Date', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="status">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
         echo '</tr></thead><tbody>';
 
         foreach ( $employees as $e ) {
@@ -237,7 +237,9 @@ class EmployeesTab implements TabInterface {
             echo '</td>';
             echo '<td>' . $nat . '</td>';
             echo '<td>' . $hire . '</td>';
-            echo '<td><span class="sfs-badge sfs-badge--' . esc_attr( $badge_class ) . '">' . esc_html( ucfirst( $status ) ) . '</span></td>';
+            $status_key = $status;
+            $status_label = $this->translate_status( $status );
+            echo '<td><span class="sfs-badge sfs-badge--' . esc_attr( $badge_class ) . '" data-i18n-key="' . esc_attr( $status_key ) . '">' . esc_html( $status_label ) . '</span></td>';
             echo '</tr>';
         }
 
@@ -252,6 +254,7 @@ class EmployeesTab implements TabInterface {
             $pos    = esc_html( $e['position'] ?? '—' );
             $status = $e['status'] ?? 'active';
             $badge_class = $status === 'active' ? 'approved' : ( $status === 'terminated' ? 'rejected' : 'pending' );
+            $status_label = $this->translate_status( $status );
 
             echo '<div class="sfs-card" style="margin-bottom:8px;">';
             echo '<div class="sfs-card-body" style="padding:12px 16px;">';
@@ -263,11 +266,21 @@ class EmployeesTab implements TabInterface {
             if ( $pos !== '—' ) echo ' &middot; ' . $pos;
             echo '</div>';
             echo '</div>';
-            echo '<span class="sfs-badge sfs-badge--' . esc_attr( $badge_class ) . '">' . esc_html( ucfirst( $status ) ) . '</span>';
+            echo '<span class="sfs-badge sfs-badge--' . esc_attr( $badge_class ) . '" data-i18n-key="' . esc_attr( $status ) . '">' . esc_html( $status_label ) . '</span>';
             echo '</div>';
             echo '</div></div>';
         }
         echo '</div>';
+    }
+
+    private function translate_status( string $status ): string {
+        $map = [
+            'active'     => __( 'Active', 'sfs-hr' ),
+            'terminated' => __( 'Terminated', 'sfs-hr' ),
+            'resigned'   => __( 'Resigned', 'sfs-hr' ),
+            'on_leave'   => __( 'On Leave', 'sfs-hr' ),
+        ];
+        return $map[ $status ] ?? ucfirst( $status );
     }
 
     private function render_pagination( int $current, int $total ): void {
@@ -279,7 +292,7 @@ class EmployeesTab implements TabInterface {
 
         if ( $current > 1 ) {
             $prev_url = add_query_arg( 'emp_page', $current - 1, $base );
-            echo '<a href="' . esc_url( $prev_url ) . '" class="sfs-btn sfs-btn--sm" style="padding:6px 12px;font-size:13px;">&laquo; ' . esc_html__( 'Prev', 'sfs-hr' ) . '</a>';
+            echo '<a href="' . esc_url( $prev_url ) . '" class="sfs-btn sfs-btn--sm" style="padding:6px 12px;font-size:13px;">&laquo; <span data-i18n-key="prev">' . esc_html__( 'Prev', 'sfs-hr' ) . '</span></a>';
         }
 
         echo '<span style="padding:6px 12px;font-size:13px;color:var(--sfs-text-muted);">'
@@ -288,7 +301,7 @@ class EmployeesTab implements TabInterface {
 
         if ( $current < $total ) {
             $next_url = add_query_arg( 'emp_page', $current + 1, $base );
-            echo '<a href="' . esc_url( $next_url ) . '" class="sfs-btn sfs-btn--sm" style="padding:6px 12px;font-size:13px;">' . esc_html__( 'Next', 'sfs-hr' ) . ' &raquo;</a>';
+            echo '<a href="' . esc_url( $next_url ) . '" class="sfs-btn sfs-btn--sm" style="padding:6px 12px;font-size:13px;"><span data-i18n-key="next">' . esc_html__( 'Next', 'sfs-hr' ) . '</span> &raquo;</a>';
         }
 
         echo '</div>';

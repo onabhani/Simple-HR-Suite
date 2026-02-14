@@ -697,7 +697,7 @@
             border-radius: 12px;
             padding: 24px !important;
             border: 1px solid var(--sfs-border);
-            margin: 16px 16px 16px 0;
+            margin: 16px;
             align-self: flex-start;
         }
 
