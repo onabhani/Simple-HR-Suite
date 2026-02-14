@@ -3362,7 +3362,11 @@ private function render_frontend_documents_tab( int $emp_id ): void {
 
         echo '<div class="sfs-form-group">';
         echo '<label class="sfs-form-label" data-i18n-key="file">' . esc_html__( 'File', 'sfs-hr' ) . ' <span class="sfs-required">*</span></label>';
-        echo '<input type="file" name="document_file" required accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx" class="sfs-input" />';
+        echo '<label class="sfs-file-upload">';
+        echo '<input type="file" name="document_file" required accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx" onchange="this.closest(\'.sfs-file-upload\').querySelector(\'.sfs-file-upload-text\').textContent=this.files[0]?this.files[0].name:this.getAttribute(\'data-empty\')" data-empty="' . esc_attr__( 'No file selected', 'sfs-hr' ) . '" />';
+        echo '<span class="sfs-file-upload-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' . esc_html__( 'Choose file', 'sfs-hr' ) . '</span>';
+        echo '<span class="sfs-file-upload-text">' . esc_html__( 'No file selected', 'sfs-hr' ) . '</span>';
+        echo '</label>';
         echo '<span class="sfs-form-hint" data-i18n-key="pdf_images_max_10mb">' . esc_html__( 'PDF, Images, Word, Excel — max 10 MB', 'sfs-hr' ) . '</span>';
         echo '</div>';
 

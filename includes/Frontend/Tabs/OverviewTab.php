@@ -379,56 +379,7 @@ class OverviewTab implements TabInterface {
 
         echo '</div>'; // .sfs-kpi-grid
 
-        // ── 5. Leave Balances (compact) ───────────────────────────
-        if ( ! empty( $balances ) ) {
-            echo '<div class="sfs-overview-section">';
-            echo '<div class="sfs-overview-section-header">';
-            echo '<h3 class="sfs-overview-section-title" data-i18n-key="leave_balances">' . esc_html__( 'Leave Balances', 'sfs-hr' ) . '</h3>';
-            echo '<a href="' . esc_url( $leave_url ) . '" class="sfs-overview-view-all" data-i18n-key="view_all">' . esc_html__( 'View all', 'sfs-hr' ) . '</a>';
-            echo '</div>';
-            echo '</div>';
-
-            echo '<div class="sfs-balance-grid">';
-            $colors = self::CARD_COLORS;
-            $i = 0;
-            foreach ( $balances as $b ) {
-                $name      = esc_html( $b['name'] ?? __( 'Leave', 'sfs-hr' ) );
-                $total     = (int) ( $b['closing'] ?? 0 );
-                $consumed  = (int) ( $b['used'] ?? 0 );
-                $applied   = (int) ( $b['pending'] ?? 0 );
-                $remaining = max( 0, $total - $consumed );
-                $pct       = $total > 0 ? min( 100, (int) round( ( $consumed / $total ) * 100 ) ) : 0;
-                $color     = $colors[ $i % count( $colors ) ];
-                $i++;
-
-                $circ   = 138.23;
-                $offset = $circ - ( $circ * $pct / 100 );
-
-                $type_id  = (int) ( $b['type_id'] ?? 0 );
-                $card_url = $type_id > 0 ? add_query_arg( 'leave_type', $type_id, $leave_url ) : $leave_url;
-
-                echo '<a href="' . esc_url( $card_url ) . '#sfs-leave-form" class="sfs-balance-card" data-color="' . esc_attr( $color ) . '">';
-                echo '<div class="sfs-balance-card-head">';
-                echo '<div class="sfs-balance-card-name">' . $name . '</div>';
-                echo '<div class="sfs-balance-ring">';
-                echo '<svg viewBox="0 0 52 52"><circle class="sfs-balance-ring-bg" cx="26" cy="26" r="22"/>';
-                echo '<circle class="sfs-balance-ring-fill" cx="26" cy="26" r="22" stroke-dasharray="' . $circ . '" stroke-dashoffset="' . $offset . '"/></svg>';
-                echo '<div class="sfs-balance-ring-value">' . $remaining . '</div>';
-                echo '</div></div>';
-
-                echo '<div class="sfs-balance-metrics">';
-                echo '<div><div class="sfs-balance-metric-val">' . $total . '</div><div class="sfs-balance-metric-label" data-i18n-key="total_lbl">' . esc_html__( 'Total', 'sfs-hr' ) . '</div></div>';
-                echo '<div><div class="sfs-balance-metric-val">' . $consumed . '</div><div class="sfs-balance-metric-label" data-i18n-key="consumed_lbl">' . esc_html__( 'Consumed', 'sfs-hr' ) . '</div></div>';
-                echo '<div><div class="sfs-balance-metric-val">' . $applied . '</div><div class="sfs-balance-metric-label" data-i18n-key="applied_lbl">' . esc_html__( 'Applied', 'sfs-hr' ) . '</div></div>';
-                echo '</div>';
-
-                echo '<div class="sfs-balance-bar"><div class="sfs-balance-bar-fill" style="width:' . $pct . '%;"></div></div>';
-                echo '</a>';
-            }
-            echo '</div>'; // .sfs-balance-grid
-        }
-
-        // ── 6. Recent Activity ────────────────────────────────────
+        // ── 5. Recent Activity ─────────────────────────────────────
         $has_activity = ! empty( $recent_leaves ) || ! empty( $recent_loans );
         if ( $has_activity ) {
             echo '<div class="sfs-overview-section">';

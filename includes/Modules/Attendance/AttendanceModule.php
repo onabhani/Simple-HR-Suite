@@ -448,6 +448,15 @@ add_action('rest_api_init', function () {
       #<?php echo esc_attr( $root_id ); ?> .sfs-att-locate-btn.locating{
         color:#2563eb;
       }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-locate-btn svg{
+        display:block;
+        width:20px;
+        height:20px;
+        stroke:currentColor;
+        fill:none;
+        pointer-events:none;
+        flex-shrink:0;
+      }
       [dir="rtl"] #<?php echo esc_attr( $root_id ); ?> .sfs-att-locate-btn{
         right:auto;
         left:16px;

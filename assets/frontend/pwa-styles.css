@@ -2015,6 +2015,58 @@
     min-height: 80px;
     resize: vertical;
 }
+/* Custom file input — hides native "Choose File / No file selected" for i18n */
+.sfs-hr-pwa-app .sfs-file-upload {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px dashed var(--sfs-border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    min-height: 44px;
+    background: var(--sfs-surface);
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+}
+.sfs-hr-pwa-app .sfs-file-upload:hover {
+    border-color: var(--sfs-primary);
+}
+.sfs-hr-pwa-app .sfs-file-upload input[type="file"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+.sfs-hr-pwa-app .sfs-file-upload-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sfs-primary);
+    background: transparent;
+    border: 1px solid var(--sfs-primary);
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.sfs-hr-pwa-app .sfs-file-upload-btn svg {
+    width: 14px;
+    height: 14px;
+}
+.sfs-hr-pwa-app .sfs-file-upload-text {
+    font-size: 13px;
+    color: var(--sfs-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .sfs-hr-pwa-app .sfs-btn {
     display: inline-flex;
     align-items: center;
@@ -2829,9 +2881,9 @@
 /* ── Hero Card ───────────────────────────────────────────────── */
 .sfs-overview-hero {
     background: linear-gradient(135deg, var(--sfs-primary, #0f4c5c) 0%, #1a6d7d 50%, #237a8a 100%);
-    border-radius: 16px;
-    padding: 20px;
-    margin-bottom: 20px;
+    border-radius: 0;
+    padding: 24px 16px;
+    margin: 0 -16px 20px;
     color: #ffffff;
 }
 .sfs-overview-hero-top {
