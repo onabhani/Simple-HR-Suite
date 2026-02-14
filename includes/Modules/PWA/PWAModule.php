@@ -265,6 +265,11 @@ class PWAModule {
                 e.preventDefault();
                 deferredPrompt = e;
 
+                // Only show on mobile/tablet devices (not desktop)
+                if (window.innerWidth > 1024 && !/Mobi|Android|iPad|iPhone|iPod/i.test(navigator.userAgent)) {
+                    return;
+                }
+
                 // Check if already dismissed
                 if (localStorage.getItem('sfs_hr_pwa_dismissed')) {
                     return;
@@ -356,6 +361,11 @@ class PWAModule {
             window.addEventListener('beforeinstallprompt', (e) => {
                 e.preventDefault();
                 deferredPrompt = e;
+
+                // Only show on mobile/tablet devices (not desktop)
+                if (window.innerWidth > 1024 && !/Mobi|Android|iPad|iPhone|iPod/i.test(navigator.userAgent)) {
+                    return;
+                }
 
                 // Check if already dismissed
                 if (localStorage.getItem('sfs_hr_pwa_dismissed')) {

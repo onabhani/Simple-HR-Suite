@@ -20,6 +20,7 @@ class LeaveModule {
         add_action('admin_post_sfs_hr_leave_reject',         [$this, 'handle_reject']);
         add_action('admin_post_sfs_hr_leave_cancel',         [$this, 'handle_cancel']);
         add_action('admin_post_sfs_hr_leave_addtype',        [$this, 'handle_add_type']);
+        add_action('admin_post_sfs_hr_leave_edittype',       [$this, 'handle_edit_type']);
         add_action('admin_post_sfs_hr_leave_deltype',        [$this, 'handle_delete_type']);
         add_action('admin_post_sfs_hr_leave_markannual',     [$this, 'handle_mark_annual']);
         add_action('admin_post_sfs_hr_leave_settings',       [$this, 'handle_settings']);
@@ -2711,6 +2712,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
                   <td><?php echo esc_html($r['special_code'] ?: '—'); ?></td>
                   <td>
                     <div style="display:flex;gap:6px;">
+                      <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-leave-requests&tab=types&edit_id=' . (int)$r['id'])); ?>" class="button button-small"><?php esc_html_e('Edit','sfs-hr'); ?></a>
                       <?php if(!$r['is_annual'] && $looks_annual): ?>
                         <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                           <input type="hidden" name="action" value="sfs_hr_leave_markannual"/>
@@ -2736,51 +2738,77 @@ private function render_cancellation_detail( int $cancel_id ): void {
           </table>
           </div><!-- overflow wrapper -->
 
-          <h2 style="margin-top:18px;"><?php esc_html_e('Add Type','sfs-hr'); ?></h2>
+          <?php
+          // Check if we're editing an existing type
+          $edit_id = isset($_GET['edit_id']) ? (int)$_GET['edit_id'] : 0;
+          $editing_type = null;
+          if ($edit_id > 0) {
+              $editing_type = $wpdb->get_row($wpdb->prepare("SELECT * FROM $types_t WHERE id = %d AND active = 1", $edit_id), ARRAY_A);
+          }
+          $is_editing = !empty($editing_type);
+          $nonce_edit = wp_create_nonce('sfs_hr_leave_edittype');
+          $e = $editing_type ?: []; // shorthand
+          ?>
+
+          <h2 style="margin-top:18px;">
+            <?php if($is_editing): ?>
+              <?php printf(esc_html__('Edit Type: %s','sfs-hr'), esc_html($e['name'] ?? '')); ?>
+              <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-leave-requests&tab=types')); ?>" class="button button-small" style="margin-left:10px;"><?php esc_html_e('Cancel','sfs-hr'); ?></a>
+            <?php else: ?>
+              <?php esc_html_e('Add Type','sfs-hr'); ?>
+            <?php endif; ?>
+          </h2>
           <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-            <input type="hidden" name="action" value="sfs_hr_leave_addtype"/>
-            <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce_add); ?>"/>
+            <?php if($is_editing): ?>
+              <input type="hidden" name="action" value="sfs_hr_leave_edittype"/>
+              <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce_edit); ?>"/>
+              <input type="hidden" name="id" value="<?php echo (int)$edit_id; ?>"/>
+            <?php else: ?>
+              <input type="hidden" name="action" value="sfs_hr_leave_addtype"/>
+              <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce_add); ?>"/>
+            <?php endif; ?>
             <table class="form-table">
-              <tr><th><?php esc_html_e('Name','sfs-hr'); ?></th><td><input name="name" class="regular-text" required/></td></tr>
-              <tr><th><?php esc_html_e('Color','sfs-hr'); ?></th><td><input type="color" name="color" value="#2271b1" style="width:60px;height:30px;padding:0;border:1px solid #8c8f94;"/></td></tr>
-              <tr><th><?php esc_html_e('Paid','sfs-hr'); ?></th><td><label><input type="checkbox" name="is_paid" value="1" checked/> <?php esc_html_e('Paid leave','sfs-hr'); ?></label></td></tr>
-              <tr><th><?php esc_html_e('Requires Approval','sfs-hr'); ?></th><td><label><input type="checkbox" name="requires_approval" value="1" checked/> <?php esc_html_e('Yes','sfs-hr'); ?></label></td></tr>
-              <tr><th><?php esc_html_e('Annual Quota (fallback)','sfs-hr'); ?></th><td><input type="number" name="annual_quota" min="0" value="30" style="width:120px"/><br><small><?php esc_html_e('Used for non-annual types or when hire date is missing.','sfs-hr'); ?></small></td></tr>
-              <tr><th><?php esc_html_e('Allow Negative','sfs-hr'); ?></th><td><label><input type="checkbox" name="allow_negative" value="1"/> <?php esc_html_e('Allow going below 0','sfs-hr'); ?></label></td></tr>
-              <tr><th><?php esc_html_e('Annual (Tenure-based)','sfs-hr'); ?></th><td><label><input type="checkbox" name="is_annual" value="1"/> <?php esc_html_e('Apply <5y/≥5y policy','sfs-hr'); ?></label></td></tr>
+              <tr><th><?php esc_html_e('Name','sfs-hr'); ?></th><td><input name="name" class="regular-text" required value="<?php echo esc_attr($e['name'] ?? ''); ?>"/></td></tr>
+              <tr><th><?php esc_html_e('Color','sfs-hr'); ?></th><td><input type="color" name="color" value="<?php echo esc_attr($e['color'] ?? '#2271b1'); ?>" style="width:60px;height:30px;padding:0;border:1px solid #8c8f94;"/></td></tr>
+              <tr><th><?php esc_html_e('Paid','sfs-hr'); ?></th><td><label><input type="checkbox" name="is_paid" value="1" <?php checked(!empty($e['is_paid']) || !$is_editing); ?>/> <?php esc_html_e('Paid leave','sfs-hr'); ?></label></td></tr>
+              <tr><th><?php esc_html_e('Requires Approval','sfs-hr'); ?></th><td><label><input type="checkbox" name="requires_approval" value="1" <?php checked(!empty($e['requires_approval']) || !$is_editing); ?>/> <?php esc_html_e('Yes','sfs-hr'); ?></label></td></tr>
+              <tr><th><?php esc_html_e('Annual Quota (fallback)','sfs-hr'); ?></th><td><input type="number" name="annual_quota" min="0" value="<?php echo (int)($e['annual_quota'] ?? 30); ?>" style="width:120px"/><br><small><?php esc_html_e('Used for non-annual types or when hire date is missing.','sfs-hr'); ?></small></td></tr>
+              <tr><th><?php esc_html_e('Allow Negative','sfs-hr'); ?></th><td><label><input type="checkbox" name="allow_negative" value="1" <?php checked(!empty($e['allow_negative'])); ?>/> <?php esc_html_e('Allow going below 0','sfs-hr'); ?></label></td></tr>
+              <tr><th><?php esc_html_e('Annual (Tenure-based)','sfs-hr'); ?></th><td><label><input type="checkbox" name="is_annual" value="1" <?php checked(!empty($e['is_annual'])); ?>/> <?php esc_html_e('Apply <5y/≥5y policy','sfs-hr'); ?></label></td></tr>
               <tr>
                 <th><?php esc_html_e('Gender Required','sfs-hr'); ?></th>
                 <td>
                   <select name="gender_required">
-                    <option value="any"><?php esc_html_e('Any (All Employees)','sfs-hr'); ?></option>
-                    <option value="male"><?php esc_html_e('Male Only','sfs-hr'); ?></option>
-                    <option value="female"><?php esc_html_e('Female Only','sfs-hr'); ?></option>
+                    <option value="any" <?php selected(($e['gender_required'] ?? 'any'), 'any'); ?>><?php esc_html_e('Any (All Employees)','sfs-hr'); ?></option>
+                    <option value="male" <?php selected(($e['gender_required'] ?? ''), 'male'); ?>><?php esc_html_e('Male Only','sfs-hr'); ?></option>
+                    <option value="female" <?php selected(($e['gender_required'] ?? ''), 'female'); ?>><?php esc_html_e('Female Only','sfs-hr'); ?></option>
                   </select>
                   <br><small><?php esc_html_e('Maternity leave for female, Paternity for male employees.','sfs-hr'); ?></small>
                 </td>
               </tr>
               <tr>
                 <th><?php esc_html_e('Requires Attachment','sfs-hr'); ?></th>
-                <td><label><input type="checkbox" name="requires_attachment" value="1"/> <?php esc_html_e('Employee must upload supporting document','sfs-hr'); ?></label></td>
+                <td><label><input type="checkbox" name="requires_attachment" value="1" <?php checked(!empty($e['requires_attachment'])); ?>/> <?php esc_html_e('Employee must upload supporting document','sfs-hr'); ?></label></td>
               </tr>
               <tr>
   <th><?php esc_html_e('Special Policy','sfs-hr'); ?></th>
   <td>
+    <?php $current_special = $e['special_code'] ?? ''; ?>
     <select name="special_code">
       <option value=""><?php esc_html_e('— None —','sfs-hr'); ?></option>
-      <option value="SICK_SHORT"><?php esc_html_e('Sick (Short) – ≤ 29 days','sfs-hr'); ?></option>
-      <option value="SICK_LONG"><?php esc_html_e('Sick (Long) – 30–120 days (tiered pay)','sfs-hr'); ?></option>
-      <option value="HAJJ"><?php esc_html_e('Hajj – one time, 10 days','sfs-hr'); ?></option>
-      <option value="MATERNITY"><?php esc_html_e('Maternity – 10 weeks','sfs-hr'); ?></option>
-      <option value="MARRIAGE"><?php esc_html_e('Marriage – 5 days','sfs-hr'); ?></option>
-      <option value="BEREAVEMENT"><?php esc_html_e('Bereavement – 5 days','sfs-hr'); ?></option>
-      <option value="PATERNITY"><?php esc_html_e('Paternity – 3 days','sfs-hr'); ?></option>
+      <option value="SICK_SHORT" <?php selected($current_special, 'SICK_SHORT'); ?>><?php esc_html_e('Sick (Short) – ≤ 29 days','sfs-hr'); ?></option>
+      <option value="SICK_LONG" <?php selected($current_special, 'SICK_LONG'); ?>><?php esc_html_e('Sick (Long) – 30–120 days (tiered pay)','sfs-hr'); ?></option>
+      <option value="HAJJ" <?php selected($current_special, 'HAJJ'); ?>><?php esc_html_e('Hajj – one time, 10 days','sfs-hr'); ?></option>
+      <option value="MATERNITY" <?php selected($current_special, 'MATERNITY'); ?>><?php esc_html_e('Maternity – 10 weeks','sfs-hr'); ?></option>
+      <option value="MARRIAGE" <?php selected($current_special, 'MARRIAGE'); ?>><?php esc_html_e('Marriage – 5 days','sfs-hr'); ?></option>
+      <option value="BEREAVEMENT" <?php selected($current_special, 'BEREAVEMENT'); ?>><?php esc_html_e('Bereavement – 5 days','sfs-hr'); ?></option>
+      <option value="PATERNITY" <?php selected($current_special, 'PATERNITY'); ?>><?php esc_html_e('Paternity – 3 days','sfs-hr'); ?></option>
     </select>
   </td>
 </tr>
 
             </table>
-            <?php submit_button(__('Save','sfs-hr')); ?>
+            <?php submit_button($is_editing ? __('Update','sfs-hr') : __('Save','sfs-hr')); ?>
           </form>
         </div>
         <?php
@@ -2969,6 +2997,56 @@ private function render_cancellation_detail( int $cancel_id ): void {
     exit;
 }
 
+
+    public function handle_edit_type(): void {
+        Helpers::require_cap('sfs_hr.leave.manage');
+        check_admin_referer('sfs_hr_leave_edittype');
+        $id = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+        if ($id <= 0) {
+            wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=types'));
+            exit;
+        }
+
+        global $wpdb;
+        $t = $wpdb->prefix . 'sfs_hr_leave_types';
+
+        $name     = isset($_POST['name']) ? sanitize_text_field(wp_unslash($_POST['name'])) : '';
+        $color    = isset($_POST['color']) ? sanitize_hex_color(wp_unslash($_POST['color'])) : '#2271b1';
+        $is_paid  = !empty($_POST['is_paid']) ? 1 : 0;
+        $req      = !empty($_POST['requires_approval']) ? 1 : 0;
+        $quota    = isset($_POST['annual_quota']) ? max(0, (int)$_POST['annual_quota']) : 30;
+        $allow_n  = !empty($_POST['allow_negative']) ? 1 : 0;
+        $is_ann   = !empty($_POST['is_annual']) ? 1 : 0;
+        $special  = isset($_POST['special_code']) ? sanitize_text_field(wp_unslash($_POST['special_code'])) : '';
+        $gender_required = isset($_POST['gender_required']) ? sanitize_text_field(wp_unslash($_POST['gender_required'])) : 'any';
+        $requires_attachment = !empty($_POST['requires_attachment']) ? 1 : 0;
+
+        if (empty($name)) {
+            wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=types&edit_id=' . $id . '&err=' . rawurlencode(__('Name is required', 'sfs-hr'))));
+            exit;
+        }
+
+        $wpdb->update(
+            $t,
+            [
+                'name'               => $name,
+                'is_paid'            => $is_paid,
+                'requires_approval'  => $req,
+                'annual_quota'       => $quota,
+                'allow_negative'     => $allow_n,
+                'is_annual'          => $is_ann,
+                'special_code'       => ($special ?: null),
+                'gender_required'    => $gender_required,
+                'requires_attachment'=> $requires_attachment,
+                'color'              => $color,
+                'updated_at'         => current_time('mysql'),
+            ],
+            ['id' => $id]
+        );
+
+        wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=types&ok=1'));
+        exit;
+    }
 
     public function handle_delete_type(): void {
         Helpers::require_cap('sfs_hr.leave.manage');
