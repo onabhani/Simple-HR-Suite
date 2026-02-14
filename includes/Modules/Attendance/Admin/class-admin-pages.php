@@ -1693,7 +1693,11 @@ public function render_shifts(): void {
                                value="<?php echo esc_attr($editing->location_lng ?? ''); ?>" placeholder="46.6753"/>
                         <input type="number" name="location_radius_m" id="sfs-shift-radius" min="10" step="1" style="width:120px"
                                value="<?php echo esc_attr($editing->location_radius_m ?? ''); ?>" placeholder="150"/>
-                        <p class="description"><?php esc_html_e( 'Click on the map to set location. Drag marker to adjust.', 'sfs-hr' ); ?></p>
+                        <button type="button" id="sfs-shift-detect-location" class="button button-secondary" style="margin-left:8px;vertical-align:middle;">
+                            <span class="dashicons dashicons-location" style="vertical-align:middle;margin-right:2px;"></span>
+                            <?php esc_html_e( 'Detect My Location', 'sfs-hr' ); ?>
+                        </button>
+                        <p class="description"><?php esc_html_e( 'Click on the map to set location. Drag marker to adjust. Or use "Detect My Location" to auto-fill from GPS.', 'sfs-hr' ); ?></p>
                         <div id="sfs-shift-map" style="height:300px;margin-top:8px;border:1px solid #c3c4c7;border-radius:4px;"></div>
                         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
                         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
@@ -1760,6 +1764,33 @@ public function render_shifts(): void {
                                 }
                                 latIn.addEventListener('change', syncFromInputs);
                                 lngIn.addEventListener('change', syncFromInputs);
+
+                                // Detect My Location button
+                                var detectBtn = document.getElementById('sfs-shift-detect-location');
+                                if (detectBtn) {
+                                    detectBtn.addEventListener('click', function() {
+                                        if (!navigator.geolocation) {
+                                            alert('<?php echo esc_js( __( 'Geolocation is not supported by your browser.', 'sfs-hr' ) ); ?>');
+                                            return;
+                                        }
+                                        detectBtn.disabled = true;
+                                        detectBtn.textContent = '<?php echo esc_js( __( 'Detecting...', 'sfs-hr' ) ); ?>';
+                                        navigator.geolocation.getCurrentPosition(function(pos) {
+                                            latIn.value = pos.coords.latitude.toFixed(7);
+                                            lngIn.value = pos.coords.longitude.toFixed(7);
+                                            if (!radIn.value) radIn.value = 150;
+                                            var r = parseInt(radIn.value) || 150;
+                                            placeMarker([pos.coords.latitude, pos.coords.longitude], r);
+                                            map.setView([pos.coords.latitude, pos.coords.longitude], 16);
+                                            detectBtn.disabled = false;
+                                            detectBtn.innerHTML = '<span class="dashicons dashicons-location" style="vertical-align:middle;margin-right:2px;"></span> <?php echo esc_js( __( 'Detect My Location', 'sfs-hr' ) ); ?>';
+                                        }, function(err) {
+                                            alert('<?php echo esc_js( __( 'Could not detect location: ', 'sfs-hr' ) ); ?>' + err.message);
+                                            detectBtn.disabled = false;
+                                            detectBtn.innerHTML = '<span class="dashicons dashicons-location" style="vertical-align:middle;margin-right:2px;"></span> <?php echo esc_js( __( 'Detect My Location', 'sfs-hr' ) ); ?>';
+                                        }, { enableHighAccuracy: true, timeout: 10000 });
+                                    });
+                                }
                             }
                             initMap();
                         })();

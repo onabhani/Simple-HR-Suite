@@ -1993,10 +1993,18 @@ class Shortcodes {
         var isIOSSafari = isIOS && isSafari;
         var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
+        // Only show install prompts on mobile/tablet devices (not desktop)
+        var isMobileDevice = window.innerWidth <= 1024 || /Mobi|Android|iPad|iPhone|iPod/i.test(navigator.userAgent);
+
         // PWA Install prompt for Chrome/Android
         window.addEventListener('beforeinstallprompt', function(e) {
             e.preventDefault();
             deferredPrompt = e;
+
+            // Skip on desktop devices
+            if (!isMobileDevice) {
+                return;
+            }
 
             // Check if already dismissed or in standalone mode
             if (localStorage.getItem('sfs_hr_pwa_dismissed') || isStandalone) {
@@ -2012,7 +2020,7 @@ class Shortcodes {
         });
 
         // For iOS Safari - show banner since beforeinstallprompt doesn't fire
-        if (isIOS && !isStandalone && !localStorage.getItem('sfs_hr_pwa_dismissed')) {
+        if (isIOS && isMobileDevice && !isStandalone && !localStorage.getItem('sfs_hr_pwa_dismissed')) {
             setTimeout(function() {
                 if (pwaBanner) {
                     pwaBanner.classList.add('visible');

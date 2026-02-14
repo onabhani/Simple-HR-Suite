@@ -4873,12 +4873,13 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
     $payload = [];
 
     $fields = [
-        'employee_code','first_name','last_name','email','phone','position','status',
+        'employee_code','first_name','last_name','first_name_ar','last_name_ar',
+        'email','phone','position','status',
         'hired_at','base_salary','national_id','national_id_expiry','passport_no','passport_expiry',
         'emergency_contact_name','emergency_contact_phone',
 
         'visa_number','visa_expiry',
-        'nationality','marital_status','date_of_birth',
+        'nationality','marital_status','birth_date',
         'work_location','contract_type','contract_start_date','contract_end_date','probation_end_date','entry_date_ksa',
         'residence_profession','sponsor_name','sponsor_id',
         'driving_license_number','driving_license_expiry',

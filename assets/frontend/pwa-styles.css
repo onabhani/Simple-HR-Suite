@@ -587,9 +587,10 @@
     .sfs-hr-pwa-app .sfs-hr-sidebar {
         display: none; /* Hidden on mobile — bottom bar is used instead */
     }
+} /* ── End of @media (max-width: 768px) ──────────────────────── */
 
-    /* ── Desktop: Sidebar + Content Layout ────────────────────── */
-    @media screen and (min-width: 768px) {
+/* ── Desktop: Sidebar + Content Layout ────────────────────── */
+@media screen and (min-width: 768px) {
         .sfs-hr-portal-layout {
             display: flex;
             min-height: calc(100vh - 56px);
@@ -693,25 +694,24 @@
         .sfs-hr-pwa-app .sfs-hr-profile {
             padding-bottom: 24px !important;
         }
-    }
+}
 
-    /* Admin bar offset for mobile sidebar (782px is WP admin bar breakpoint) */
-    @media screen and (min-width: 768px) and (max-width: 782px) {
-        .admin-bar .sfs-hr-pwa-app .sfs-hr-sidebar {
-            top: calc(56px + 46px);
-            height: calc(100vh - 56px - 46px);
-        }
+/* Admin bar offset for sidebar (782px is WP admin bar breakpoint) */
+@media screen and (min-width: 768px) and (max-width: 782px) {
+    .admin-bar .sfs-hr-pwa-app .sfs-hr-sidebar {
+        top: calc(56px + 46px);
+        height: calc(100vh - 56px - 46px);
     }
+}
 
-    /* Hide site header on mobile HR profile (but not our app header) */
-    .sfs-hr-pwa-app ~ header,
-    .sfs-hr-pwa-app ~ .site-header,
-    .sfs-hr-pwa-app ~ #masthead,
-    body:has(.sfs-hr-pwa-app) header:not(.sfs-hr-app-header),
-    body:has(.sfs-hr-pwa-app) .site-header,
-    body:has(.sfs-hr-pwa-app) #masthead {
-        display: none !important;
-    }
+/* Hide site header when HR profile app is present */
+.sfs-hr-pwa-app ~ header,
+.sfs-hr-pwa-app ~ .site-header,
+.sfs-hr-pwa-app ~ #masthead,
+body:has(.sfs-hr-pwa-app) header:not(.sfs-hr-app-header),
+body:has(.sfs-hr-pwa-app) .site-header,
+body:has(.sfs-hr-pwa-app) #masthead {
+    display: none !important;
 }
 
 /* ── Overview Tab Typography Enhancements (§10.1) ──────────── */
