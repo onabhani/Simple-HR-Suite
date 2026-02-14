@@ -347,13 +347,15 @@ $this->render_attendance_block( $employee );
         $punches_table = $wpdb->prefix . 'sfs_hr_attendance_punches';
         $today = wp_date('Y-m-d');
 
-        // Get last punch to determine current state
+        // Get last punch to determine current state (punch_time is UTC)
+        list($utc_start, $utc_end) = \SFS\HR\Modules\Attendance\AttendanceModule::local_day_window_to_utc($today);
         $last_punch = $wpdb->get_row($wpdb->prepare(
             "SELECT * FROM {$punches_table}
-             WHERE employee_id = %d AND DATE(punch_time) = %s
+             WHERE employee_id = %d AND punch_time >= %s AND punch_time < %s
              ORDER BY punch_time DESC LIMIT 1",
             (int)$employee->id,
-            $today
+            $utc_start,
+            $utc_end
         ));
 
         $current_status = 'not_clocked_in';

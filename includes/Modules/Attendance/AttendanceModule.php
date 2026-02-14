@@ -261,6 +261,9 @@ add_action('rest_api_init', function () {
         </a>
         <?php endif; ?>
         <div id="sfs-att-map-<?php echo esc_attr( $inst ); ?>" class="sfs-att-map-canvas"></div>
+        <button type="button" id="sfs-att-locate-<?php echo esc_attr( $inst ); ?>" class="sfs-att-locate-btn" aria-label="<?php esc_attr_e( 'Locate me', 'sfs-hr' ); ?>" title="<?php esc_attr_e( 'Locate me', 'sfs-hr' ); ?>">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>
+        </button>
       </div>
 
       <!-- ===== Bottom panel ===== -->
@@ -413,6 +416,41 @@ add_action('rest_api_init', function () {
       }
       [dir="rtl"] #<?php echo esc_attr( $root_id ); ?> .sfs-att-back-arrow svg{
         transform:scaleX(-1);
+      }
+
+      /* Locate-me button on map */
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-locate-btn{
+        position:absolute;
+        bottom:calc(var(--sfs-radius) + 16px);
+        right:16px;
+        z-index:500;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        width:40px;
+        height:40px;
+        border-radius:12px;
+        background:rgba(255,255,255,0.92);
+        color:#111827;
+        border:none;
+        cursor:pointer;
+        box-shadow:0 2px 8px rgba(0,0,0,0.15);
+        backdrop-filter:blur(4px);
+        -webkit-backdrop-filter:blur(4px);
+        transition:background .15s;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-locate-btn:hover{
+        background:#fff;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-locate-btn:active{
+        transform:scale(0.95);
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-locate-btn.locating{
+        color:#2563eb;
+      }
+      [dir="rtl"] #<?php echo esc_attr( $root_id ); ?> .sfs-att-locate-btn{
+        right:auto;
+        left:16px;
       }
 
       /* ===== Bottom panel ===== */
@@ -692,7 +730,8 @@ window.sfsAttI18n = window.sfsAttI18n || {
     seconds_short: '<?php echo esc_js( __( 's', 'sfs-hr' ) ); ?>',
     // Error
     error_prefix: '<?php echo esc_js( __( 'Error:', 'sfs-hr' ) ); ?>',
-    request_timed_out: '<?php echo esc_js( __( 'Request timed out', 'sfs-hr' ) ); ?>'
+    request_timed_out: '<?php echo esc_js( __( 'Request timed out', 'sfs-hr' ) ); ?>',
+    locate_me: '<?php echo esc_js( __( 'Locate me', 'sfs-hr' ) ); ?>'
 };
 
 // Language switching support for attendance widget
@@ -1710,6 +1749,33 @@ setInterval(tickClock, 1000);
 
         // Handle container resize
         window.addEventListener('resize', function(){ if (map) map.invalidateSize(); });
+
+        // Locate-me button
+        var locateBtn = document.getElementById('sfs-att-locate-<?php echo esc_js( $inst ); ?>');
+        if (locateBtn) {
+            locateBtn.addEventListener('click', function(){
+                if (!navigator.geolocation || !map) return;
+                locateBtn.classList.add('locating');
+                navigator.geolocation.getCurrentPosition(function(pos){
+                    var ll = [pos.coords.latitude, pos.coords.longitude];
+                    map.setView(ll, 17, { animate: true });
+                    if (!userMarker) {
+                        var pulseIcon = L.divIcon({
+                            className: 'sfs-att-user-dot',
+                            iconSize: [18, 18],
+                            iconAnchor: [9, 9],
+                            html: '<span></span>'
+                        });
+                        userMarker = L.marker(ll, { icon: pulseIcon }).addTo(map);
+                    } else {
+                        userMarker.setLatLng(ll);
+                    }
+                    locateBtn.classList.remove('locating');
+                }, function(){
+                    locateBtn.classList.remove('locating');
+                }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 });
+            });
+        }
 
         initMap();
     })();

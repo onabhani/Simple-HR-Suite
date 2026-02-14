@@ -938,6 +938,46 @@ private static function save_selfie_attachment( array $src ): int {
         'break_end'   => __( 'Break End', 'sfs-hr' ),
     ];
 
+    // Track clock-in time and compute working duration (excluding breaks).
+    $clock_in_time   = '';
+    $working_seconds = 0;
+    $work_start      = null; // timestamp when current work segment started
+    $break_start_ts  = null; // timestamp when current break started
+
+    foreach ( $rows as $r ) {
+        $ts = strtotime( $r->punch_time );
+        switch ( $r->punch_type ) {
+            case 'in':
+                if ( ! $clock_in_time ) {
+                    $clock_in_time = wp_date( 'H:i', $ts );
+                }
+                $work_start = $ts;
+                break;
+            case 'break_start':
+                if ( $work_start ) {
+                    $working_seconds += $ts - $work_start;
+                    $work_start = null;
+                }
+                $break_start_ts = $ts;
+                break;
+            case 'break_end':
+                $work_start     = $ts;
+                $break_start_ts = null;
+                break;
+            case 'out':
+                if ( $work_start ) {
+                    $working_seconds += $ts - $work_start;
+                    $work_start = null;
+                }
+                break;
+        }
+    }
+
+    // If still clocked in, add elapsed time up to now.
+    if ( $work_start ) {
+        $working_seconds += current_time( 'timestamp', true ) - $work_start;
+    }
+
     if (!empty($rows)) {
         $last     = end($rows);
         $lastType = (string)$last->punch_type;
@@ -964,9 +1004,11 @@ private static function save_selfie_attachment( array $src ): int {
     ];
 
     return [
-        'label' => $label,
-        'state' => $state,
-        'allow' => $allow,
+        'label'           => $label,
+        'state'           => $state,
+        'allow'           => $allow,
+        'clock_in_time'   => $clock_in_time,
+        'working_seconds' => max( 0, (int) $working_seconds ),
     ];
 }
 
