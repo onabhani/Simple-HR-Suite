@@ -438,7 +438,7 @@ class Shortcodes {
     <!-- Desktop Sidebar Navigation -->
     <?php echo Navigation::render_sidebar( $portal_tabs, $active_tab, $base_url ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- HTML escaped inside render_sidebar ?>
 
-    <div class="sfs-hr sfs-hr-profile sfs-hr-profile--frontend">
+    <div class="sfs-hr sfs-hr-profile sfs-hr-profile--frontend sfs-hr-tab--<?php echo esc_attr( $active_tab ); ?>">
 
         <?php if ( $is_terminated ) : ?>
             <div class="sfs-hr-alert" style="background:#fff3cd;color:#856404;padding:15px;border-radius:4px;margin-bottom:20px;">
@@ -470,7 +470,7 @@ class Shortcodes {
 
     <?php elseif ( $active_tab === 'attendance' && $can_self_clock ) : ?>
 
-        <div class="sfs-hr-profile-attendance-tab" style="margin-top:24px;">
+        <div class="sfs-hr-profile-attendance-tab">
             <?php echo do_shortcode( '[sfs_hr_attendance_widget immersive="0"]' ); ?>
         </div>
 
