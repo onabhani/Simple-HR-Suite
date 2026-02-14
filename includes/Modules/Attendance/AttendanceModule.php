@@ -1119,10 +1119,11 @@ setInterval(tickClock, 1000);
         }
 
                 async function getGeo(punchType, useCache = false){
-            // Return cached geo if available and fresh (within 60s).
-            // Extended from 30s to 60s — the user won't move far while taking a selfie,
-            // and this avoids a redundant GPS acquisition after camera capture.
-            if (useCache && cachedGeo && (Date.now() - cachedGeo.ts < 60000)) {
+            // Return cached geo if available and fresh (within 45s).
+            // Only used by doPunch() which always runs right after a FRESH pre-flight
+            // geofence check, so the cache here is just seconds old from that check.
+            // 45s window covers the time a user takes to position face + capture selfie.
+            if (useCache && cachedGeo && (Date.now() - cachedGeo.ts < 45000)) {
                 return { lat: cachedGeo.lat, lng: cachedGeo.lng, acc: cachedGeo.acc };
             }
 
@@ -1552,11 +1553,12 @@ setInterval(tickClock, 1000);
             }
 
             // ---- Pre-flight: geofence check (before camera/selfie) ----
-            // Use cached geo from page-load preload when available (avoids 5-10s GPS wait).
-            // The server still enforces geofence on its own, so this is a fast UX guard.
+            // MUST use fresh GPS here (not cache) because the server only records
+            // valid_geo as a flag — it does not reject the punch. This client-side
+            // check is the actual geofence enforcement.
             setStat(i18n.validating, 'busy');
             try {
-                await getGeo(type, true);
+                await getGeo(type);
             } catch(e) {
                 // Geo blocked (outside area / permission denied) — do NOT open camera
                 punchInProgress = false;
