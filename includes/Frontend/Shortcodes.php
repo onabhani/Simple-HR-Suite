@@ -2270,6 +2270,8 @@ class Shortcodes {
                     'Team Attendance': langStrings.team_attendance,
                     'Dashboard': langStrings.dashboard,
                     'Employees': langStrings.employees,
+                    'Payslips': langStrings.payslips,
+                    'Settings': langStrings.settings,
                     'More': langStrings.more
                 };
                 pwaApp.querySelectorAll('.sfs-hr-tab span, .sfs-hr-more-menu-item span').forEach(function(span) {

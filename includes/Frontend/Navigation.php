@@ -284,7 +284,7 @@ class Navigation {
                 }
                 $html .= '<div class="sfs-hr-sidebar-section" data-section="' . esc_attr( $section ) . '">';
                 if ( $section !== 'personal' ) {
-                    $html .= '<div class="sfs-hr-sidebar-section-label">'
+                    $html .= '<div class="sfs-hr-sidebar-section-label" data-i18n-key="' . esc_attr( $section ) . '">'
                         . esc_html( $sections[ $section ] ?? ucfirst( $section ) )
                         . '</div>';
                 }
@@ -297,7 +297,7 @@ class Navigation {
 
             $html .= '<a href="' . esc_url( $url ) . '" class="' . $classes . '" data-tab="' . esc_attr( $tab['slug'] ) . '">'
                 . self::get_icon_svg( $tab['icon'] )
-                . '<span class="sfs-hr-sidebar-label">' . esc_html( $tab['label'] ) . '</span>'
+                . '<span class="sfs-hr-sidebar-label" data-i18n-key="' . esc_attr( $tab['slug'] === 'team' ? 'my_team' : ( $tab['slug'] === 'team-attendance' ? 'team_attendance' : $tab['slug'] ) ) . '">' . esc_html( $tab['label'] ) . '</span>'
                 . '</a>';
         }
 
