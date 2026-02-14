@@ -2270,6 +2270,8 @@ class Shortcodes {
                     'Team Attendance': langStrings.team_attendance,
                     'Dashboard': langStrings.dashboard,
                     'Employees': langStrings.employees,
+                    'Payslips': langStrings.payslips,
+                    'Settings': langStrings.settings,
                     'More': langStrings.more
                 };
                 pwaApp.querySelectorAll('.sfs-hr-tab span, .sfs-hr-more-menu-item span').forEach(function(span) {
@@ -3308,7 +3310,26 @@ private function render_frontend_documents_tab( int $emp_id ): void {
         echo '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/><line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" stroke-width="2"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" stroke-width="2"/></svg>';
         echo '<div><strong data-i18n-key="missing_required_documents">' . esc_html__( 'Missing Required Documents', 'sfs-hr' ) . '</strong><br>';
         echo '<span data-i18n-key="please_upload_colon">' . esc_html__( 'Please upload:', 'sfs-hr' ) . '</span> ';
-        echo esc_html( implode( ', ', $missing_docs ) );
+        $doc_key_map = [
+            'national_id'    => 'doc_national_id',
+            'passport'       => 'doc_passport',
+            'driving_license'=> 'doc_driving_license',
+            'visa'           => 'doc_visa_work_permit',
+            'contract'       => 'doc_employment_contract',
+            'certificate'    => 'doc_certificate_degree',
+            'training'       => 'doc_training_cert',
+            'license'        => 'doc_professional_license',
+            'medical'        => 'doc_medical_report',
+            'bank_details'   => 'doc_bank_details',
+            'photo'          => 'doc_photo_headshot',
+            'other'          => 'doc_other',
+        ];
+        $parts = [];
+        foreach ( $missing_docs as $type_key => $label ) {
+            $i18n = isset( $doc_key_map[ $type_key ] ) ? ' data-i18n-key="' . esc_attr( $doc_key_map[ $type_key ] ) . '"' : '';
+            $parts[] = '<span' . $i18n . '>' . esc_html( $label ) . '</span>';
+        }
+        echo implode( ', ', $parts );
         echo '</div></div>';
     }
 
@@ -3372,8 +3393,8 @@ private function render_frontend_documents_tab( int $emp_id ): void {
         echo '<label class="sfs-form-label" data-i18n-key="file">' . esc_html__( 'File', 'sfs-hr' ) . ' <span class="sfs-required">*</span></label>';
         echo '<label class="sfs-file-upload">';
         echo '<input type="file" name="document_file" required accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx" onchange="this.closest(\'.sfs-file-upload\').querySelector(\'.sfs-file-upload-text\').textContent=this.files[0]?this.files[0].name:this.getAttribute(\'data-empty\')" data-empty="' . esc_attr__( 'No file selected', 'sfs-hr' ) . '" />';
-        echo '<span class="sfs-file-upload-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' . esc_html__( 'Choose file', 'sfs-hr' ) . '</span>';
-        echo '<span class="sfs-file-upload-text">' . esc_html__( 'No file selected', 'sfs-hr' ) . '</span>';
+        echo '<span class="sfs-file-upload-btn" data-i18n-key="choose_file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' . esc_html__( 'Choose file', 'sfs-hr' ) . '</span>';
+        echo '<span class="sfs-file-upload-text" data-i18n-key="no_file_selected">' . esc_html__( 'No file selected', 'sfs-hr' ) . '</span>';
         echo '</label>';
         echo '<span class="sfs-form-hint" data-i18n-key="pdf_images_max_10mb">' . esc_html__( 'PDF, Images, Word, Excel — max 10 MB', 'sfs-hr' ) . '</span>';
         echo '</div>';

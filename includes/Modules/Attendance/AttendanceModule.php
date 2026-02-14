@@ -834,7 +834,7 @@ window.sfsAttI18n = window.sfsAttI18n || {
     request_timed_out: '<?php echo esc_js( __( 'Request timed out', 'sfs-hr' ) ); ?>',
     locate_me: '<?php echo esc_js( __( 'Locate me', 'sfs-hr' ) ); ?>',
     // Progress & History
-    no_activity_yet: '<?php echo esc_js( __( 'No activity yet', 'sfs-hr' ) ); ?>',
+    no_activity_yet: '<?php echo esc_js( __( 'No activity recorded yet.', 'sfs-hr' ) ); ?>',
     hours_worked: '<?php echo esc_js( __( 'hours worked', 'sfs-hr' ) ); ?>',
     todays_activity: '<?php echo esc_js( __( "Today\'s Activity", 'sfs-hr' ) ); ?>'
 };
@@ -877,7 +877,8 @@ window.sfsAttI18n = window.sfsAttI18n || {
                 'location_permission_denied', 'location_unavailable', 'location_timeout', 'location_error_generic',
                 'selfie_required_hint', 'location_hint', 'selfie_required_capture', 'error_prefix', 'request_timed_out',
                 'clock_in', 'clock_out', 'start_break', 'end_break', 'break_start', 'break_end',
-                'please_wait', 'seconds_short'];
+                'please_wait', 'seconds_short',
+                'no_activity_yet', 'hours_worked', 'todays_activity', 'locate_me'];
 
             keys.forEach(function(key) {
                 if (strings[key]) {
