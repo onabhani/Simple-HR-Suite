@@ -2379,10 +2379,29 @@ class Shortcodes {
                 container.querySelectorAll('[data-i18n-key]').forEach(function(el) {
                     var key = el.dataset.i18nKey;
                     if (key && strings[key]) {
+                        // Handle <option> elements inside <select> (document type dropdown, etc.)
+                        if (el.tagName === 'OPTION') {
+                            var reason = el.dataset.reason || '';
+                            var hint = '';
+                            if (reason === 'expired' && strings['expired_update_required']) {
+                                hint = ' (' + strings['expired_update_required'] + ')';
+                            } else if (reason === 'update_requested' && strings['update_requested_by_hr']) {
+                                hint = ' (' + strings['update_requested_by_hr'] + ')';
+                            }
+                            el.textContent = strings[key] + hint;
+                        }
                         // Handle elements with child nodes carefully
-                        if (!el.querySelector('*') || el.classList.contains('sfs-hr-missing-field')) {
+                        else if (!el.querySelector('*') || el.classList.contains('sfs-hr-missing-field')) {
                             el.textContent = strings[key];
                         }
+                    }
+                });
+
+                // Translate placeholder attributes (data-i18n-placeholder)
+                container.querySelectorAll('[data-i18n-placeholder]').forEach(function(el) {
+                    var key = el.dataset.i18nPlaceholder;
+                    if (key && strings[key]) {
+                        el.placeholder = strings[key];
                     }
                 });
 
@@ -3301,17 +3320,36 @@ private function render_frontend_documents_tab( int $emp_id ): void {
 
         echo '<div class="sfs-form-group">';
         echo '<label class="sfs-form-label" data-i18n-key="document_type">' . esc_html__( 'Document Type', 'sfs-hr' ) . ' <span class="sfs-required">*</span></label>';
+        // Map document type keys to translation keys
+        $doc_i18n_map = [
+            'national_id'    => 'doc_national_id',
+            'passport'       => 'doc_passport',
+            'driving_license'=> 'doc_driving_license',
+            'visa'           => 'doc_visa_work_permit',
+            'contract'       => 'doc_employment_contract',
+            'certificate'    => 'doc_certificate_degree',
+            'training'       => 'doc_training_cert',
+            'license'        => 'doc_professional_license',
+            'medical'        => 'doc_medical_report',
+            'bank_details'   => 'doc_bank_details',
+            'photo'          => 'doc_photo_headshot',
+            'other'          => 'doc_other',
+        ];
+
         echo '<select name="document_type" required class="sfs-select">';
         echo '<option value="" data-i18n-key="select_type">' . esc_html__( 'Select type', 'sfs-hr' ) . '</option>';
         foreach ( $uploadable_types as $key => $info ) {
-            $label = $info['label'];
-            $hint  = '';
+            $label    = $info['label'];
+            $hint     = '';
+            $i18n_key = $doc_i18n_map[ $key ] ?? '';
             if ( $info['reason'] === 'expired' ) {
                 $hint = ' (' . __( 'expired', 'sfs-hr' ) . ')';
             } elseif ( $info['reason'] === 'update_requested' ) {
                 $hint = ' (' . __( 'update requested', 'sfs-hr' ) . ')';
             }
-            echo '<option value="' . esc_attr( $key ) . '">' . esc_html( $label . $hint ) . '</option>';
+            $i18n_attr = $i18n_key ? ' data-i18n-key="' . esc_attr( $i18n_key ) . '"' : '';
+            $reason_attr = $info['reason'] ? ' data-reason="' . esc_attr( $info['reason'] ) . '"' : '';
+            echo '<option value="' . esc_attr( $key ) . '"' . $i18n_attr . $reason_attr . '>' . esc_html( $label . $hint ) . '</option>';
         }
         echo '</select>';
         echo '<span class="sfs-form-hint" data-i18n-key="only_types_needing_update">' . esc_html__( 'Only types that need adding or updating are shown.', 'sfs-hr' ) . '</span>';
@@ -3319,7 +3357,7 @@ private function render_frontend_documents_tab( int $emp_id ): void {
 
         echo '<div class="sfs-form-group">';
         echo '<label class="sfs-form-label" data-i18n-key="document_name">' . esc_html__( 'Document Name', 'sfs-hr' ) . ' <span class="sfs-required">*</span></label>';
-        echo '<input type="text" name="document_name" required class="sfs-input" placeholder="' . esc_attr__( 'e.g., National ID Copy', 'sfs-hr' ) . '" />';
+        echo '<input type="text" name="document_name" required class="sfs-input" placeholder="' . esc_attr__( 'e.g., National ID Copy', 'sfs-hr' ) . '" data-i18n-placeholder="eg_national_id" />';
         echo '</div>';
 
         echo '<div class="sfs-form-group">';
@@ -3336,13 +3374,13 @@ private function render_frontend_documents_tab( int $emp_id ): void {
         echo '</div>';
         echo '<div class="sfs-form-group">';
         echo '<label class="sfs-form-label" data-i18n-key="notes">' . esc_html__( 'Notes', 'sfs-hr' ) . '</label>';
-        echo '<textarea name="description" rows="2" class="sfs-textarea" placeholder="' . esc_attr__( 'Optional notes...', 'sfs-hr' ) . '"></textarea>';
+        echo '<textarea name="description" rows="2" class="sfs-textarea" placeholder="' . esc_attr__( 'Optional notes...', 'sfs-hr' ) . '" data-i18n-placeholder="optional_notes_placeholder"></textarea>';
         echo '</div>';
         echo '</div>';
 
         echo '<button type="submit" class="sfs-btn sfs-btn--primary sfs-btn--full">';
         echo '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" fill="none" stroke-width="2"/><polyline points="17 8 12 3 7 8" stroke="currentColor" fill="none" stroke-width="2"/><line x1="12" y1="3" x2="12" y2="15" stroke="currentColor" fill="none" stroke-width="2"/></svg>';
-        esc_html_e( 'Upload Document', 'sfs-hr' );
+        echo '<span data-i18n-key="upload_document">' . esc_html__( 'Upload Document', 'sfs-hr' ) . '</span>';
         echo '</button>';
 
         echo '</div>';
