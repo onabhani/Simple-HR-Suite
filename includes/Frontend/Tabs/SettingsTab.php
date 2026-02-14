@@ -36,13 +36,13 @@ class SettingsTab implements TabInterface {
         // Success message.
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended
         if ( isset( $_GET['settings_saved'] ) && $_GET['settings_saved'] === '1' ) {
-            echo '<div class="sfs-alert sfs-alert--success" style="margin-bottom:20px;">' . esc_html__( 'Settings saved successfully.', 'sfs-hr' ) . '</div>';
+            echo '<div class="sfs-alert sfs-alert--success" style="margin-bottom:20px;"><span data-i18n-key="settings_saved">' . esc_html__( 'Settings saved successfully.', 'sfs-hr' ) . '</span></div>';
         }
 
         // Header.
         echo '<div class="sfs-section">';
         echo '<h2 class="sfs-section-title" data-i18n-key="settings">' . esc_html__( 'Settings', 'sfs-hr' ) . '</h2>';
-        echo '<p class="sfs-section-subtitle" style="color:var(--sfs-text-muted,#6b7280);margin-top:4px;">' . esc_html__( 'Manage attendance, leave, and notification settings.', 'sfs-hr' ) . '</p>';
+        echo '<p class="sfs-section-subtitle" style="color:var(--sfs-text-muted,#6b7280);margin-top:4px;" data-i18n-key="manage_settings_desc">' . esc_html__( 'Manage attendance, leave, and notification settings.', 'sfs-hr' ) . '</p>';
         echo '</div>';
 
         // Tab navigation for settings sections.
@@ -60,7 +60,7 @@ class SettingsTab implements TabInterface {
 
         // Save button.
         echo '<div style="margin-top:24px;text-align:right;">';
-        echo '<button type="submit" class="sfs-btn sfs-btn--primary" style="padding:10px 32px;font-size:15px;">';
+        echo '<button type="submit" class="sfs-btn sfs-btn--primary" style="padding:10px 32px;font-size:15px;" data-i18n-key="save_settings">';
         echo esc_html__( 'Save Settings', 'sfs-hr' );
         echo '</button>';
         echo '</div>';
@@ -73,15 +73,15 @@ class SettingsTab implements TabInterface {
     private function render_section_tabs(): void {
         echo '<div style="display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap;">';
         $tabs = [
-            'attendance'   => __( 'Attendance', 'sfs-hr' ),
-            'leave'        => __( 'Leave', 'sfs-hr' ),
-            'notification' => __( 'Notifications', 'sfs-hr' ),
+            'attendance'   => [ __( 'Attendance', 'sfs-hr' ), 'attendance' ],
+            'leave'        => [ __( 'Leave', 'sfs-hr' ), 'leave' ],
+            'notification' => [ __( 'Notifications', 'sfs-hr' ), 'notifications' ],
         ];
         $first = true;
-        foreach ( $tabs as $id => $label ) {
+        foreach ( $tabs as $id => $info ) {
             $active = $first ? ' sfs-btn--primary' : '';
-            echo '<button type="button" class="sfs-btn sfs-settings-tab-btn' . $active . '" data-settings-tab="' . esc_attr( $id ) . '" onclick="sfsShowSettingsSection(\'' . esc_js( $id ) . '\')">';
-            echo esc_html( $label );
+            echo '<button type="button" class="sfs-btn sfs-settings-tab-btn' . $active . '" data-settings-tab="' . esc_attr( $id ) . '" data-i18n-key="' . esc_attr( $info[1] ) . '" onclick="sfsShowSettingsSection(\'' . esc_js( $id ) . '\')">';
+            echo esc_html( $info[0] );
             echo '</button>';
             $first = false;
         }
@@ -101,19 +101,19 @@ class SettingsTab implements TabInterface {
         // Period type.
         $period_type = $att['period_type'] ?? 'full_month';
         echo '<div class="sfs-form-group">';
-        echo '<label class="sfs-form-label">' . esc_html__( 'Attendance Period', 'sfs-hr' ) . '</label>';
+        echo '<label class="sfs-form-label" data-i18n-key="attendance_period">' . esc_html__( 'Attendance Period', 'sfs-hr' ) . '</label>';
         echo '<select name="att[period_type]" class="sfs-select">';
-        echo '<option value="full_month"' . selected( $period_type, 'full_month', false ) . '>' . esc_html__( 'Full Calendar Month', 'sfs-hr' ) . '</option>';
-        echo '<option value="custom"' . selected( $period_type, 'custom', false ) . '>' . esc_html__( 'Custom Start Day', 'sfs-hr' ) . '</option>';
+        echo '<option value="full_month"' . selected( $period_type, 'full_month', false ) . ' data-i18n-key="full_calendar_month">' . esc_html__( 'Full Calendar Month', 'sfs-hr' ) . '</option>';
+        echo '<option value="custom"' . selected( $period_type, 'custom', false ) . ' data-i18n-key="custom_start_day">' . esc_html__( 'Custom Start Day', 'sfs-hr' ) . '</option>';
         echo '</select>';
         echo '</div>';
 
         // Period start day.
         $start_day = (int) ( $att['period_start_day'] ?? 1 );
         echo '<div class="sfs-form-group">';
-        echo '<label class="sfs-form-label">' . esc_html__( 'Period Start Day', 'sfs-hr' ) . '</label>';
+        echo '<label class="sfs-form-label" data-i18n-key="period_start_day">' . esc_html__( 'Period Start Day', 'sfs-hr' ) . '</label>';
         echo '<input type="number" name="att[period_start_day]" class="sfs-input" value="' . esc_attr( (string) $start_day ) . '" min="1" max="28">';
-        echo '<span class="sfs-form-hint">' . esc_html__( 'Day of the month the attendance period starts (1-28).', 'sfs-hr' ) . '</span>';
+        echo '<span class="sfs-form-hint" data-i18n-key="period_start_day_hint">' . esc_html__( 'Day of the month the attendance period starts (1-28).', 'sfs-hr' ) . '</span>';
         echo '</div>';
 
         // Grace minutes.
@@ -122,12 +122,12 @@ class SettingsTab implements TabInterface {
         echo '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
 
         echo '<div class="sfs-form-group">';
-        echo '<label class="sfs-form-label">' . esc_html__( 'Late Grace (min)', 'sfs-hr' ) . '</label>';
+        echo '<label class="sfs-form-label" data-i18n-key="late_grace_min">' . esc_html__( 'Late Grace (min)', 'sfs-hr' ) . '</label>';
         echo '<input type="number" name="att[default_grace_late]" class="sfs-input" value="' . esc_attr( (string) $grace_late ) . '" min="0" max="120">';
         echo '</div>';
 
         echo '<div class="sfs-form-group">';
-        echo '<label class="sfs-form-label">' . esc_html__( 'Early Leave Grace (min)', 'sfs-hr' ) . '</label>';
+        echo '<label class="sfs-form-label" data-i18n-key="early_leave_grace_min">' . esc_html__( 'Early Leave Grace (min)', 'sfs-hr' ) . '</label>';
         echo '<input type="number" name="att[default_grace_early]" class="sfs-input" value="' . esc_attr( (string) $grace_early ) . '" min="0" max="120">';
         echo '</div>';
 
@@ -136,10 +136,10 @@ class SettingsTab implements TabInterface {
         // Rounding rule.
         $rounding = $att['default_rounding_rule'] ?? '5';
         echo '<div class="sfs-form-group">';
-        echo '<label class="sfs-form-label">' . esc_html__( 'Rounding Rule (minutes)', 'sfs-hr' ) . '</label>';
+        echo '<label class="sfs-form-label" data-i18n-key="rounding_rule_minutes">' . esc_html__( 'Rounding Rule (minutes)', 'sfs-hr' ) . '</label>';
         echo '<select name="att[default_rounding_rule]" class="sfs-select">';
         foreach ( [ '1', '5', '10', '15', '30' ] as $v ) {
-            echo '<option value="' . esc_attr( $v ) . '"' . selected( $rounding, $v, false ) . '>' . esc_html( $v ) . ' ' . esc_html__( 'min', 'sfs-hr' ) . '</option>';
+            echo '<option value="' . esc_attr( $v ) . '"' . selected( $rounding, $v, false ) . '>' . esc_html( $v ) . ' <span data-i18n-key="min">' . esc_html__( 'min', 'sfs-hr' ) . '</span></option>';
         }
         echo '</select>';
         echo '</div>';
@@ -147,16 +147,16 @@ class SettingsTab implements TabInterface {
         // Selfie retention.
         $retention = (int) ( $att['selfie_retention_days'] ?? 30 );
         echo '<div class="sfs-form-group">';
-        echo '<label class="sfs-form-label">' . esc_html__( 'Selfie Retention (days)', 'sfs-hr' ) . '</label>';
+        echo '<label class="sfs-form-label" data-i18n-key="selfie_retention_days">' . esc_html__( 'Selfie Retention (days)', 'sfs-hr' ) . '</label>';
         echo '<input type="number" name="att[selfie_retention_days]" class="sfs-input" value="' . esc_attr( (string) $retention ) . '" min="1" max="365">';
         echo '</div>';
 
         // OT threshold.
         $ot_threshold = (int) ( $att['monthly_ot_threshold'] ?? 2400 );
         echo '<div class="sfs-form-group">';
-        echo '<label class="sfs-form-label">' . esc_html__( 'Monthly OT Threshold (minutes)', 'sfs-hr' ) . '</label>';
+        echo '<label class="sfs-form-label" data-i18n-key="monthly_ot_threshold_min">' . esc_html__( 'Monthly OT Threshold (minutes)', 'sfs-hr' ) . '</label>';
         echo '<input type="number" name="att[monthly_ot_threshold]" class="sfs-input" value="' . esc_attr( (string) $ot_threshold ) . '" min="0">';
-        echo '<span class="sfs-form-hint">' . esc_html( sprintf( __( 'Default: 2400 min (%d hours)', 'sfs-hr' ), 40 ) ) . '</span>';
+        echo '<span class="sfs-form-hint" data-i18n-key="ot_threshold_hint">' . esc_html( sprintf( __( 'Default: 2400 min (%d hours)', 'sfs-hr' ), 40 ) ) . '</span>';
         echo '</div>';
 
         echo '</div></div>'; // card-body + card
@@ -181,18 +181,18 @@ class SettingsTab implements TabInterface {
         echo '<h3 style="font-size:16px;font-weight:700;color:var(--sfs-text);margin:0 0 16px;" data-i18n-key="leave_settings">' . esc_html__( 'Leave Settings', 'sfs-hr' ) . '</h3>';
 
         // Email notifications.
-        $this->toggle_field( 'leave[email]', __( 'Email Notifications', 'sfs-hr' ), $email, __( 'Send email notifications for leave requests.', 'sfs-hr' ) );
+        $this->toggle_field( 'leave[email]', __( 'Email Notifications', 'sfs-hr' ), $email, 'email_notifications', __( 'Send email notifications for leave requests.', 'sfs-hr' ), 'leave_email_hint' );
 
         // Annual leave quotas.
         echo '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
 
         echo '<div class="sfs-form-group">';
-        echo '<label class="sfs-form-label">' . esc_html__( 'Annual Leave (< 5 yrs)', 'sfs-hr' ) . '</label>';
+        echo '<label class="sfs-form-label" data-i18n-key="annual_leave_lt5">' . esc_html__( 'Annual Leave (< 5 yrs)', 'sfs-hr' ) . '</label>';
         echo '<input type="number" name="leave[annual_lt5]" class="sfs-input" value="' . esc_attr( (string) $lt5 ) . '" min="0" max="365">';
         echo '</div>';
 
         echo '<div class="sfs-form-group">';
-        echo '<label class="sfs-form-label">' . esc_html__( 'Annual Leave (≥ 5 yrs)', 'sfs-hr' ) . '</label>';
+        echo '<label class="sfs-form-label" data-i18n-key="annual_leave_ge5">' . esc_html__( 'Annual Leave (≥ 5 yrs)', 'sfs-hr' ) . '</label>';
         echo '<input type="number" name="leave[annual_ge5]" class="sfs-input" value="' . esc_attr( (string) $ge5 ) . '" min="0" max="365">';
         echo '</div>';
 
@@ -200,23 +200,23 @@ class SettingsTab implements TabInterface {
 
         // GM approver.
         echo '<div class="sfs-form-group">';
-        echo '<label class="sfs-form-label">' . esc_html__( 'General Manager (Approver)', 'sfs-hr' ) . '</label>';
+        echo '<label class="sfs-form-label" data-i18n-key="general_manager_approver">' . esc_html__( 'General Manager (Approver)', 'sfs-hr' ) . '</label>';
         $this->render_user_select( 'leave[gm_approver]', $gm_id );
         echo '</div>';
 
         // Finance approver.
         echo '<div class="sfs-form-group">';
-        echo '<label class="sfs-form-label">' . esc_html__( 'Finance Approver', 'sfs-hr' ) . '</label>';
+        echo '<label class="sfs-form-label" data-i18n-key="finance_approver">' . esc_html__( 'Finance Approver', 'sfs-hr' ) . '</label>';
         $this->render_user_select( 'leave[finance_approver]', $finance );
         echo '</div>';
 
         // Holiday settings.
-        echo '<h4 style="font-size:14px;font-weight:700;color:var(--sfs-text);margin:20px 0 12px;">' . esc_html__( 'Holiday Notifications', 'sfs-hr' ) . '</h4>';
-        $this->toggle_field( 'leave[holiday_notify]', __( 'Notify on Holiday Add', 'sfs-hr' ), $hol_notify, __( 'Email employees when a new holiday is added.', 'sfs-hr' ) );
-        $this->toggle_field( 'leave[holiday_remind]', __( 'Holiday Reminders', 'sfs-hr' ), $hol_remind, __( 'Send reminder before upcoming holidays.', 'sfs-hr' ) );
+        echo '<h4 style="font-size:14px;font-weight:700;color:var(--sfs-text);margin:20px 0 12px;" data-i18n-key="holiday_notifications">' . esc_html__( 'Holiday Notifications', 'sfs-hr' ) . '</h4>';
+        $this->toggle_field( 'leave[holiday_notify]', __( 'Notify on Holiday Add', 'sfs-hr' ), $hol_notify, 'notify_on_holiday_add', __( 'Email employees when a new holiday is added.', 'sfs-hr' ), 'holiday_add_hint' );
+        $this->toggle_field( 'leave[holiday_remind]', __( 'Holiday Reminders', 'sfs-hr' ), $hol_remind, 'holiday_reminders', __( 'Send reminder before upcoming holidays.', 'sfs-hr' ), 'holiday_reminder_hint' );
 
         echo '<div class="sfs-form-group">';
-        echo '<label class="sfs-form-label">' . esc_html__( 'Reminder Days Before', 'sfs-hr' ) . '</label>';
+        echo '<label class="sfs-form-label" data-i18n-key="reminder_days_before">' . esc_html__( 'Reminder Days Before', 'sfs-hr' ) . '</label>';
         echo '<input type="number" name="leave[holiday_reminder_days]" class="sfs-input" value="' . esc_attr( (string) $hol_days ) . '" min="1" max="30">';
         echo '</div>';
 
@@ -235,45 +235,45 @@ class SettingsTab implements TabInterface {
         echo '<h3 style="font-size:16px;font-weight:700;color:var(--sfs-text);margin:0 0 16px;" data-i18n-key="notification_settings">' . esc_html__( 'Notification Settings', 'sfs-hr' ) . '</h3>';
 
         // Global toggles.
-        $this->toggle_field( 'notif[enabled]', __( 'Notifications Enabled', 'sfs-hr' ), $ns['enabled'] ?? true );
-        $this->toggle_field( 'notif[email_enabled]', __( 'Email Notifications', 'sfs-hr' ), $ns['email_enabled'] ?? true );
+        $this->toggle_field( 'notif[enabled]', __( 'Notifications Enabled', 'sfs-hr' ), $ns['enabled'] ?? true, 'notifications_enabled' );
+        $this->toggle_field( 'notif[email_enabled]', __( 'Email Notifications', 'sfs-hr' ), $ns['email_enabled'] ?? true, 'email_notifications' );
 
         // Recipients.
-        echo '<h4 style="font-size:14px;font-weight:700;color:var(--sfs-text);margin:20px 0 12px;">' . esc_html__( 'Recipients', 'sfs-hr' ) . '</h4>';
-        $this->toggle_field( 'notif[manager_notification]', __( 'Notify Manager', 'sfs-hr' ), $ns['manager_notification'] ?? true );
-        $this->toggle_field( 'notif[employee_notification]', __( 'Notify Employee', 'sfs-hr' ), $ns['employee_notification'] ?? true );
-        $this->toggle_field( 'notif[hr_notification]', __( 'Notify HR', 'sfs-hr' ), $ns['hr_notification'] ?? true );
+        echo '<h4 style="font-size:14px;font-weight:700;color:var(--sfs-text);margin:20px 0 12px;" data-i18n-key="recipients">' . esc_html__( 'Recipients', 'sfs-hr' ) . '</h4>';
+        $this->toggle_field( 'notif[manager_notification]', __( 'Notify Manager', 'sfs-hr' ), $ns['manager_notification'] ?? true, 'notify_manager' );
+        $this->toggle_field( 'notif[employee_notification]', __( 'Notify Employee', 'sfs-hr' ), $ns['employee_notification'] ?? true, 'notify_employee' );
+        $this->toggle_field( 'notif[hr_notification]', __( 'Notify HR', 'sfs-hr' ), $ns['hr_notification'] ?? true, 'notify_hr' );
 
         // Leave notifications.
-        echo '<h4 style="font-size:14px;font-weight:700;color:var(--sfs-text);margin:20px 0 12px;">' . esc_html__( 'Leave Notifications', 'sfs-hr' ) . '</h4>';
-        $this->toggle_field( 'notif[notify_leave_created]', __( 'Leave Created', 'sfs-hr' ), $ns['notify_leave_created'] ?? true );
-        $this->toggle_field( 'notif[notify_leave_approved]', __( 'Leave Approved', 'sfs-hr' ), $ns['notify_leave_approved'] ?? true );
-        $this->toggle_field( 'notif[notify_leave_rejected]', __( 'Leave Rejected', 'sfs-hr' ), $ns['notify_leave_rejected'] ?? true );
-        $this->toggle_field( 'notif[notify_leave_cancelled]', __( 'Leave Cancelled', 'sfs-hr' ), $ns['notify_leave_cancelled'] ?? true );
+        echo '<h4 style="font-size:14px;font-weight:700;color:var(--sfs-text);margin:20px 0 12px;" data-i18n-key="leave_notifications">' . esc_html__( 'Leave Notifications', 'sfs-hr' ) . '</h4>';
+        $this->toggle_field( 'notif[notify_leave_created]', __( 'Leave Created', 'sfs-hr' ), $ns['notify_leave_created'] ?? true, 'leave_created' );
+        $this->toggle_field( 'notif[notify_leave_approved]', __( 'Leave Approved', 'sfs-hr' ), $ns['notify_leave_approved'] ?? true, 'leave_approved' );
+        $this->toggle_field( 'notif[notify_leave_rejected]', __( 'Leave Rejected', 'sfs-hr' ), $ns['notify_leave_rejected'] ?? true, 'leave_rejected' );
+        $this->toggle_field( 'notif[notify_leave_cancelled]', __( 'Leave Cancelled', 'sfs-hr' ), $ns['notify_leave_cancelled'] ?? true, 'leave_cancelled' );
 
         // Attendance notifications.
-        echo '<h4 style="font-size:14px;font-weight:700;color:var(--sfs-text);margin:20px 0 12px;">' . esc_html__( 'Attendance Notifications', 'sfs-hr' ) . '</h4>';
-        $this->toggle_field( 'notif[notify_late_arrival]', __( 'Late Arrival', 'sfs-hr' ), $ns['notify_late_arrival'] ?? true );
-        $this->toggle_field( 'notif[notify_early_leave]', __( 'Early Leave', 'sfs-hr' ), $ns['notify_early_leave'] ?? true );
-        $this->toggle_field( 'notif[notify_missed_punch]', __( 'Missed Punch', 'sfs-hr' ), $ns['notify_missed_punch'] ?? true );
+        echo '<h4 style="font-size:14px;font-weight:700;color:var(--sfs-text);margin:20px 0 12px;" data-i18n-key="attendance_notifications">' . esc_html__( 'Attendance Notifications', 'sfs-hr' ) . '</h4>';
+        $this->toggle_field( 'notif[notify_late_arrival]', __( 'Late Arrival', 'sfs-hr' ), $ns['notify_late_arrival'] ?? true, 'late_arrival' );
+        $this->toggle_field( 'notif[notify_early_leave]', __( 'Early Leave', 'sfs-hr' ), $ns['notify_early_leave'] ?? true, 'early_leave' );
+        $this->toggle_field( 'notif[notify_missed_punch]', __( 'Missed Punch', 'sfs-hr' ), $ns['notify_missed_punch'] ?? true, 'missed_punch' );
 
         echo '<div class="sfs-form-group">';
-        echo '<label class="sfs-form-label">' . esc_html__( 'Late Arrival Threshold (min)', 'sfs-hr' ) . '</label>';
+        echo '<label class="sfs-form-label" data-i18n-key="late_arrival_threshold_min">' . esc_html__( 'Late Arrival Threshold (min)', 'sfs-hr' ) . '</label>';
         echo '<input type="number" name="notif[late_arrival_threshold]" class="sfs-input" value="' . esc_attr( (string) ( $ns['late_arrival_threshold'] ?? 15 ) ) . '" min="1" max="120">';
         echo '</div>';
 
         // Employee events.
-        echo '<h4 style="font-size:14px;font-weight:700;color:var(--sfs-text);margin:20px 0 12px;">' . esc_html__( 'Employee Events', 'sfs-hr' ) . '</h4>';
-        $this->toggle_field( 'notif[notify_new_employee]', __( 'New Employee', 'sfs-hr' ), $ns['notify_new_employee'] ?? true );
-        $this->toggle_field( 'notif[notify_birthday]', __( 'Birthday', 'sfs-hr' ), $ns['notify_birthday'] ?? true );
-        $this->toggle_field( 'notif[notify_anniversary]', __( 'Work Anniversary', 'sfs-hr' ), $ns['notify_anniversary'] ?? true );
-        $this->toggle_field( 'notif[notify_contract_expiry]', __( 'Contract Expiry', 'sfs-hr' ), $ns['notify_contract_expiry'] ?? true );
-        $this->toggle_field( 'notif[notify_probation_end]', __( 'Probation End', 'sfs-hr' ), $ns['notify_probation_end'] ?? true );
+        echo '<h4 style="font-size:14px;font-weight:700;color:var(--sfs-text);margin:20px 0 12px;" data-i18n-key="employee_events">' . esc_html__( 'Employee Events', 'sfs-hr' ) . '</h4>';
+        $this->toggle_field( 'notif[notify_new_employee]', __( 'New Employee', 'sfs-hr' ), $ns['notify_new_employee'] ?? true, 'new_employee' );
+        $this->toggle_field( 'notif[notify_birthday]', __( 'Birthday', 'sfs-hr' ), $ns['notify_birthday'] ?? true, 'birthday' );
+        $this->toggle_field( 'notif[notify_anniversary]', __( 'Work Anniversary', 'sfs-hr' ), $ns['notify_anniversary'] ?? true, 'work_anniversary' );
+        $this->toggle_field( 'notif[notify_contract_expiry]', __( 'Contract Expiry', 'sfs-hr' ), $ns['notify_contract_expiry'] ?? true, 'contract_expiry' );
+        $this->toggle_field( 'notif[notify_probation_end]', __( 'Probation End', 'sfs-hr' ), $ns['notify_probation_end'] ?? true, 'probation_end' );
 
         // Payroll.
-        echo '<h4 style="font-size:14px;font-weight:700;color:var(--sfs-text);margin:20px 0 12px;">' . esc_html__( 'Payroll Notifications', 'sfs-hr' ) . '</h4>';
-        $this->toggle_field( 'notif[notify_payslip_ready]', __( 'Payslip Ready', 'sfs-hr' ), $ns['notify_payslip_ready'] ?? true );
-        $this->toggle_field( 'notif[notify_payroll_processed]', __( 'Payroll Processed', 'sfs-hr' ), $ns['notify_payroll_processed'] ?? true );
+        echo '<h4 style="font-size:14px;font-weight:700;color:var(--sfs-text);margin:20px 0 12px;" data-i18n-key="payroll_notifications">' . esc_html__( 'Payroll Notifications', 'sfs-hr' ) . '</h4>';
+        $this->toggle_field( 'notif[notify_payslip_ready]', __( 'Payslip Ready', 'sfs-hr' ), $ns['notify_payslip_ready'] ?? true, 'payslip_ready' );
+        $this->toggle_field( 'notif[notify_payroll_processed]', __( 'Payroll Processed', 'sfs-hr' ), $ns['notify_payroll_processed'] ?? true, 'payroll_processed' );
 
         echo '</div></div>';
         echo '</div>';
@@ -281,13 +281,15 @@ class SettingsTab implements TabInterface {
 
     /* ── Helper Renderers ──────────────────────────────────────── */
 
-    private function toggle_field( string $name, string $label, $value, string $hint = '' ): void {
+    private function toggle_field( string $name, string $label, $value, string $label_key = '', string $hint = '', string $hint_key = '' ): void {
         $checked = filter_var( $value, FILTER_VALIDATE_BOOLEAN ) ? 'checked' : '';
+        $label_attr = $label_key ? ' data-i18n-key="' . esc_attr( $label_key ) . '"' : '';
+        $hint_attr  = $hint_key ? ' data-i18n-key="' . esc_attr( $hint_key ) . '"' : '';
         echo '<div class="sfs-form-group" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--sfs-border);">';
         echo '<div>';
-        echo '<label class="sfs-form-label" style="margin-bottom:0;">' . esc_html( $label ) . '</label>';
+        echo '<label class="sfs-form-label" style="margin-bottom:0;"' . $label_attr . '>' . esc_html( $label ) . '</label>';
         if ( $hint ) {
-            echo '<span class="sfs-form-hint" style="display:block;margin-top:2px;">' . esc_html( $hint ) . '</span>';
+            echo '<span class="sfs-form-hint" style="display:block;margin-top:2px;"' . $hint_attr . '>' . esc_html( $hint ) . '</span>';
         }
         echo '</div>';
         echo '<label style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0;">';
@@ -307,7 +309,7 @@ class SettingsTab implements TabInterface {
         ] );
 
         echo '<select name="' . esc_attr( $name ) . '" class="sfs-select">';
-        echo '<option value="0">' . esc_html__( '— None —', 'sfs-hr' ) . '</option>';
+        echo '<option value="0" data-i18n-key="none_option">' . esc_html__( '— None —', 'sfs-hr' ) . '</option>';
         foreach ( $users as $u ) {
             echo '<option value="' . esc_attr( (string) $u->ID ) . '"' . selected( (int) $u->ID, $selected_id, false ) . '>';
             echo esc_html( $u->display_name );

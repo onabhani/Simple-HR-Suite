@@ -3153,5 +3153,13 @@
     "leave_balances": "چھٹیوں کا بیلنس",
     "total_lbl": "کل",
     "consumed_lbl": "استعمال شدہ",
-    "applied_lbl": "درخواست شدہ"
+    "applied_lbl": "درخواست شدہ",
+
+    "_comment_settings_i18n": "Settings tab hints and missing keys",
+    "notifications": "اطلاعات",
+    "org": "تنظیم",
+    "leave_email_hint": "چھٹی کی درخواستوں کے لیے ای میل اطلاعات بھیجیں۔",
+    "holiday_add_hint": "نئی تعطیل شامل ہونے پر ملازمین کو ای میل کریں۔",
+    "holiday_reminder_hint": "آنے والی تعطیلات سے پہلے یاد دہانی بھیجیں۔",
+    "ot_threshold_hint": "پہلے سے طے شدہ: 2400 منٹ (40 گھنٹے)"
 }

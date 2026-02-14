@@ -3173,5 +3173,13 @@
     "select_all": "تحديد الكل",
 
     "_comment_missing_i18n_keys": "Missing i18n keys for frontend tabs",
-    "completed_loans": "مكتمل"
+    "completed_loans": "مكتمل",
+
+    "_comment_settings_i18n": "Settings tab hints and missing keys",
+    "notifications": "الإشعارات",
+    "org": "المنظمة",
+    "leave_email_hint": "إرسال إشعارات البريد الإلكتروني لطلبات الإجازات.",
+    "holiday_add_hint": "إرسال بريد إلكتروني للموظفين عند إضافة إجازة رسمية جديدة.",
+    "holiday_reminder_hint": "إرسال تذكير قبل الإجازات الرسمية القادمة.",
+    "ot_threshold_hint": "الافتراضي: 2400 دقيقة (40 ساعة)"
 }

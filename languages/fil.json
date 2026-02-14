@@ -3153,5 +3153,13 @@
     "leave_balances": "Leave Balances",
     "total_lbl": "Kabuuan",
     "consumed_lbl": "Nagamit",
-    "applied_lbl": "Inilapat"
+    "applied_lbl": "Inilapat",
+
+    "_comment_settings_i18n": "Settings tab hints and missing keys",
+    "notifications": "Mga Abiso",
+    "org": "Organisasyon",
+    "leave_email_hint": "Magpadala ng email na abiso para sa mga kahilingan ng leave.",
+    "holiday_add_hint": "I-email ang mga empleyado kapag may bagong holiday na idinagdag.",
+    "holiday_reminder_hint": "Magpadala ng paalala bago ang mga paparating na holiday.",
+    "ot_threshold_hint": "Default: 2400 min (40 oras)"
 }
