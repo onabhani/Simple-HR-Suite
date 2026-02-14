@@ -2881,9 +2881,9 @@
 /* ── Hero Card ───────────────────────────────────────────────── */
 .sfs-overview-hero {
     background: linear-gradient(135deg, var(--sfs-primary, #0f4c5c) 0%, #1a6d7d 50%, #237a8a 100%);
-    border-radius: 16px;
-    padding: 20px;
-    margin-bottom: 20px;
+    border-radius: 0;
+    padding: 24px 16px;
+    margin: 0 -16px 20px;
     color: #ffffff;
 }
 .sfs-overview-hero-top {
