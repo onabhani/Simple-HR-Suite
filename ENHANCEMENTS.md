@@ -198,26 +198,26 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 - [x] **Add** attendance calendar heat-map showing daily status at a glance
 - [x] **Make** widgets clickable — drill down to filtered employee lists
 
-### 10.4 Clock In/Out Experience Redesign (Maybe Add)
-- [ ] **Add** circular progress timer showing hours worked vs target hours (like efacility's clock screen)
-- [ ] **Redesign** punch history as color-coded cards — green IN badge, red OUT badge
+### 10.4 Clock In/Out Experience Redesign ✅ Done in v1.0.0
+- [x] **Add** circular progress timer showing hours worked vs target hours (like efacility's clock screen)
+- [x] **Redesign** punch history as color-coded cards — green IN badge, red OUT badge
 - [ ] **Show** location tag and clock-in method on each punch card
-- [ ] **Add** daily total hours display with animated counter
-- [ ] **Add** status indicator (Currently In / Currently Out) with visual cue
+- [x] **Add** daily total hours display with animated counter
+- [x] **Add** status indicator (Currently In / Currently Out) with visual cue
 
-### 10.5 Card-Based Approval Interface (Maybe Add)
-- [ ] **Redesign** leave/loan approval screens with card-based layout (like efacility's Approvals screen)
-- [ ] **Add** bulk approve/reject buttons at the top with multi-select checkboxes
-- [ ] **Show** request summary on each card: employee name, date, duration circle badge, leave type tag
-- [ ] **Add** filter/sort options (by status, date, department, leave type)
+### 10.5 Card-Based Approval Interface ✅ Done in v1.0.0
+- [x] **Redesign** leave/loan approval screens with card-based layout (like efacility's Approvals screen)
+- [x] **Add** bulk approve/reject buttons at the top with multi-select checkboxes
+- [x] **Show** request summary on each card: employee name, date, duration circle badge, leave type tag
+- [x] **Add** filter/sort options (by status, date, department, leave type)
 - [ ] **Add** swipe-to-approve gesture on mobile
 
-### 10.6 Admin Pages Visual Refresh (Maybe Add)
-- [ ] **Audit** admin pages for visual consistency with the modernized self-service design
-- [ ] **Replace** raw WP admin tables with styled card/table hybrid components
-- [ ] **Add** summary stats/KPIs at the top of each admin module page
-- [ ] **Improve** admin navigation — breadcrumbs, better tab styling
-- [ ] **Add** quick-action buttons (approve, edit, view) with icons on list items
+### 10.6 Admin Pages Visual Refresh ✅ Done in v1.0.0
+- [x] **Audit** admin pages for visual consistency with the modernized self-service design
+- [x] **Replace** raw WP admin tables with styled card/table hybrid components
+- [x] **Add** summary stats/KPIs at the top of each admin module page
+- [x] **Improve** admin navigation — breadcrumbs, better tab styling
+- [x] **Add** quick-action buttons (approve, edit, view) with icons on list items
 
 ---
 
@@ -275,9 +275,9 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 | P2 — Medium | Low-speed internet optimization | 9.1 |
 | P3 — Low | Full plugin documentation | 6.1 |
 | P3 — Low | Missing modules | 8.1 |
-| **P3 — Maybe** | **Clock in/out experience redesign** | **10.4** |
-| **P3 — Maybe** | **Card-based approval interface** | **10.5** |
-| **P3 — Maybe** | **Admin pages visual refresh** | **10.6** |
+| ~~**P3 — Done**~~ | ~~**Clock in/out experience redesign**~~ | ~~**10.4**~~ |
+| ~~**P3 — Done**~~ | ~~**Card-based approval interface**~~ | ~~**10.5**~~ |
+| ~~**P3 — Done**~~ | ~~**Admin pages visual refresh**~~ | ~~**10.6**~~ |
 | P4 — Strategic | Go-to-market plan | 11.1 |
 | P4 — Strategic | WP Plugin vs. SaaS evaluation | 11.2 |
 

@@ -1022,12 +1022,32 @@ private static function save_selfie_attachment( array $src ): int {
         'break_end'   => ($state === 'break'),
     ];
 
+    // Build punch history for UI display.
+    $punch_history = [];
+    foreach ( $rows as $r ) {
+        $punch_history[] = [
+            'type' => $r->punch_type,
+            'time' => wp_date( 'H:i', strtotime( $r->punch_time ) ),
+        ];
+    }
+
+    // Get target hours for progress display.
+    $target_seconds = 0;
+    if ( $employee_id ) {
+        $today_ymd = wp_date( 'Y-m-d' );
+        $shift = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( $employee_id, $today_ymd );
+        $target_hours = \SFS\HR\Modules\Attendance\Services\Policy_Service::get_target_hours( $employee_id, $shift );
+        $target_seconds = (int) ( $target_hours * 3600 );
+    }
+
     return [
         'label'           => $label,
         'state'           => $state,
         'allow'           => $allow,
         'clock_in_time'   => $clock_in_time,
         'working_seconds' => max( 0, (int) $working_seconds ),
+        'target_seconds'  => $target_seconds,
+        'punch_history'   => $punch_history,
     ];
 }
 

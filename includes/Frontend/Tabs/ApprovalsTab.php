@@ -119,6 +119,14 @@ class ApprovalsTab implements TabInterface {
         $this->render_header( $total_pending );
         $this->render_kpis( count( $pending_leaves ), count( $pending_loans ) );
 
+        // Category filter tabs.
+        $this->render_filter_tabs( count( $pending_leaves ), count( $pending_loans ) );
+
+        // Bulk approve button.
+        if ( $total_pending > 0 ) {
+            $this->render_bulk_actions();
+        }
+
         if ( ! empty( $pending_leaves ) ) {
             $this->render_leave_approvals( $pending_leaves, $role );
         }
@@ -129,6 +137,10 @@ class ApprovalsTab implements TabInterface {
 
         if ( $total_pending === 0 ) {
             $this->render_empty_state();
+        }
+
+        if ( $total_pending > 0 ) {
+            $this->render_filter_sort_js();
         }
     }
 
@@ -187,25 +199,38 @@ class ApprovalsTab implements TabInterface {
                 ? __( 'Manager Approval', 'sfs-hr' )
                 : __( 'HR Approval', 'sfs-hr' );
 
-            echo '<div class="sfs-card sfs-approval-card">';
+            echo '<div class="sfs-card sfs-approval-card" data-category="leave" data-dept="' . esc_attr( $r['dept_name'] ?? '' ) . '" style="margin-bottom:12px;">';
             echo '<div class="sfs-card-body">';
 
-            // Header row.
+            // Header row with checkbox.
             echo '<div class="sfs-approval-header">';
+            echo '<label style="display:flex;align-items:center;gap:8px;flex:1;cursor:pointer;">';
+            echo '<input type="checkbox" class="sfs-bulk-check" data-type="leave" data-id="' . $req_id . '" style="width:18px;height:18px;accent-color:var(--sfs-primary,#0284c7);">';
             echo '<div>';
             echo '<strong style="font-size:15px;">' . $name . '</strong>';
             echo '<div style="font-size:13px;color:var(--sfs-text-muted);margin-top:2px;">' . $code . ' &middot; ' . $dept . '</div>';
             echo '</div>';
+            echo '</label>';
+            echo '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">';
             echo '<span class="sfs-badge sfs-badge--pending">' . esc_html( $level_text ) . '</span>';
+            echo '<span class="sfs-badge sfs-badge--info" style="font-size:11px;">' . $type . '</span>';
+            echo '</div>';
             echo '</div>';
 
-            // Details.
+            // Duration circle badge + details.
             echo '<div class="sfs-approval-details">';
+            echo '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">';
+            echo '<div style="width:48px;height:48px;border-radius:50%;background:var(--sfs-primary-light,#e0f2fe);display:flex;align-items:center;justify-content:center;flex-shrink:0;">';
+            echo '<span style="font-size:18px;font-weight:800;color:var(--sfs-primary,#0284c7);">' . $days . '</span>';
+            echo '</div>';
+            echo '<div>';
+            echo '<div style="font-size:14px;font-weight:600;color:var(--sfs-text);">' . $period . '</div>';
+            echo '<div style="font-size:12px;color:var(--sfs-text-muted);">' . $days . ' ' . esc_html( _n( 'day', 'days', $days, 'sfs-hr' ) ) . '</div>';
+            echo '</div>';
+            echo '</div>';
             if ( $req_num ) {
                 echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Ref #', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $req_num . '</span></div>';
             }
-            echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Type', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $type . '</span></div>';
-            echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Period', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $period . ' (' . $days . ' ' . esc_html( _n( 'day', 'days', $days, 'sfs-hr' ) ) . ')</span></div>';
             if ( $reason ) {
                 echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Reason', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $reason . '</span></div>';
             }
@@ -269,26 +294,36 @@ class ApprovalsTab implements TabInterface {
                 ? __( 'GM Approval', 'sfs-hr' )
                 : __( 'Finance Approval', 'sfs-hr' );
 
-            echo '<div class="sfs-card sfs-approval-card">';
+            echo '<div class="sfs-card sfs-approval-card" data-category="loan" data-dept="' . esc_attr( $l['dept_name'] ?? '' ) . '" style="margin-bottom:12px;">';
             echo '<div class="sfs-card-body">';
 
-            // Header.
+            // Header with checkbox.
             echo '<div class="sfs-approval-header">';
+            echo '<label style="display:flex;align-items:center;gap:8px;flex:1;cursor:pointer;">';
+            echo '<input type="checkbox" class="sfs-bulk-check" data-type="loan" data-id="' . $loan_id . '" style="width:18px;height:18px;accent-color:var(--sfs-primary,#0284c7);">';
             echo '<div>';
             echo '<strong style="font-size:15px;">' . $name . '</strong>';
             echo '<div style="font-size:13px;color:var(--sfs-text-muted);margin-top:2px;">' . $code . ' &middot; ' . $dept . '</div>';
             echo '</div>';
+            echo '</label>';
             echo '<span class="sfs-badge sfs-badge--pending">' . esc_html( $stage_text ) . '</span>';
             echo '</div>';
 
-            // Details.
+            // Amount circle badge + details.
             echo '<div class="sfs-approval-details">';
+            echo '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">';
+            echo '<div style="width:48px;height:48px;border-radius:50%;background:#eff6ff;display:flex;align-items:center;justify-content:center;flex-shrink:0;">';
+            echo '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#3b82f6" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
+            echo '</div>';
+            echo '<div>';
+            echo '<div style="font-size:18px;font-weight:800;color:var(--sfs-text);">' . esc_html( $amount ) . '</div>';
+            if ( $installments > 0 ) {
+                echo '<div style="font-size:12px;color:var(--sfs-text-muted);">' . $installments . ' ' . esc_html__( 'months', 'sfs-hr' ) . '</div>';
+            }
+            echo '</div>';
+            echo '</div>';
             if ( $loan_num ) {
                 echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Ref #', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $loan_num . '</span></div>';
-            }
-            echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Amount', 'sfs-hr' ) . '</span><span class="sfs-detail-value" style="font-weight:700;font-size:16px;">' . esc_html( $amount ) . '</span></div>';
-            if ( $installments > 0 ) {
-                echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Installments', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $installments . ' ' . esc_html__( 'months', 'sfs-hr' ) . '</span></div>';
             }
             if ( $reason ) {
                 echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Reason', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $reason . '</span></div>';
@@ -345,6 +380,116 @@ class ApprovalsTab implements TabInterface {
 
         // Rejection prompt JS.
         $this->render_reject_js();
+    }
+
+    private function render_filter_tabs( int $leave_count, int $loan_count ): void {
+        $all_count = $leave_count + $loan_count;
+        echo '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">';
+        echo '<button type="button" class="sfs-btn sfs-btn--primary sfs-approval-filter-btn" data-filter="all">'
+            . esc_html__( 'All', 'sfs-hr' ) . ' (' . $all_count . ')</button>';
+        echo '<button type="button" class="sfs-btn sfs-approval-filter-btn" data-filter="leave" style="background:var(--sfs-surface,#f9fafb);color:var(--sfs-text);border:1px solid var(--sfs-border,#e5e7eb);">'
+            . esc_html__( 'Leave', 'sfs-hr' ) . ' (' . $leave_count . ')</button>';
+        echo '<button type="button" class="sfs-btn sfs-approval-filter-btn" data-filter="loan" style="background:var(--sfs-surface,#f9fafb);color:var(--sfs-text);border:1px solid var(--sfs-border,#e5e7eb);">'
+            . esc_html__( 'Loans', 'sfs-hr' ) . ' (' . $loan_count . ')</button>';
+        echo '</div>';
+    }
+
+    private function render_bulk_actions(): void {
+        echo '<div class="sfs-bulk-actions" id="sfs-bulk-actions" style="display:none;margin-bottom:16px;padding:12px 16px;background:var(--sfs-primary-light,#f0f9ff);border-radius:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">';
+        echo '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;font-weight:600;color:var(--sfs-text);">';
+        echo '<input type="checkbox" id="sfs-bulk-select-all" style="width:18px;height:18px;accent-color:var(--sfs-primary,#0284c7);">';
+        echo esc_html__( 'Select All', 'sfs-hr' );
+        echo '</label>';
+        echo '<span id="sfs-bulk-count" style="font-size:13px;color:var(--sfs-text-muted);">0 ' . esc_html__( 'selected', 'sfs-hr' ) . '</span>';
+        echo '<div style="margin-left:auto;display:flex;gap:8px;">';
+        echo '<button type="button" id="sfs-bulk-approve" class="sfs-btn sfs-btn--success sfs-btn--sm" disabled>';
+        echo esc_html__( 'Approve Selected', 'sfs-hr' ) . '</button>';
+        echo '</div>';
+        echo '</div>';
+    }
+
+    private function render_filter_sort_js(): void {
+        ?>
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Category filter.
+            var filterBtns = document.querySelectorAll('.sfs-approval-filter-btn');
+            var cards = document.querySelectorAll('.sfs-approval-card');
+            filterBtns.forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var filter = this.getAttribute('data-filter');
+                    filterBtns.forEach(function(b) {
+                        b.classList.remove('sfs-btn--primary');
+                        b.style.background = 'var(--sfs-surface,#f9fafb)';
+                        b.style.color = 'var(--sfs-text)';
+                        b.style.border = '1px solid var(--sfs-border,#e5e7eb)';
+                    });
+                    this.classList.add('sfs-btn--primary');
+                    this.style.background = '';
+                    this.style.color = '';
+                    this.style.border = '';
+                    cards.forEach(function(card) {
+                        if (filter === 'all' || card.getAttribute('data-category') === filter) {
+                            card.style.display = '';
+                        } else {
+                            card.style.display = 'none';
+                        }
+                    });
+                });
+            });
+
+            // Bulk select.
+            var bulkBar = document.getElementById('sfs-bulk-actions');
+            var selectAll = document.getElementById('sfs-bulk-select-all');
+            var bulkCount = document.getElementById('sfs-bulk-count');
+            var bulkApprove = document.getElementById('sfs-bulk-approve');
+            var checks = document.querySelectorAll('.sfs-bulk-check');
+
+            if (bulkBar && checks.length > 0) {
+                bulkBar.style.display = 'flex';
+            }
+
+            function updateBulkCount() {
+                var checked = document.querySelectorAll('.sfs-bulk-check:checked');
+                if (bulkCount) bulkCount.textContent = checked.length + ' <?php echo esc_js( __( 'selected', 'sfs-hr' ) ); ?>';
+                if (bulkApprove) bulkApprove.disabled = (checked.length === 0);
+            }
+
+            if (selectAll) {
+                selectAll.addEventListener('change', function() {
+                    var isChecked = this.checked;
+                    checks.forEach(function(c) {
+                        if (c.closest('.sfs-approval-card').style.display !== 'none') {
+                            c.checked = isChecked;
+                        }
+                    });
+                    updateBulkCount();
+                });
+            }
+
+            checks.forEach(function(c) {
+                c.addEventListener('change', updateBulkCount);
+            });
+
+            if (bulkApprove) {
+                bulkApprove.addEventListener('click', function() {
+                    var checked = document.querySelectorAll('.sfs-bulk-check:checked');
+                    if (checked.length === 0) return;
+                    if (!confirm('<?php echo esc_js( __( 'Approve all selected items?', 'sfs-hr' ) ); ?>')) return;
+
+                    // Submit each approve form sequentially.
+                    checked.forEach(function(c) {
+                        var card = c.closest('.sfs-approval-card');
+                        if (card) {
+                            var approveBtn = card.querySelector('.sfs-btn--success[type="submit"]');
+                            if (approveBtn) approveBtn.click();
+                        }
+                    });
+                });
+            }
+        });
+        </script>
+        <?php
     }
 
     private function render_empty_state(): void {
