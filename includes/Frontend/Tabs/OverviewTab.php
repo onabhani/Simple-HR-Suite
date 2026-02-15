@@ -182,6 +182,18 @@ class OverviewTab implements TabInterface {
         $emg_phone   = (string) ( $emp['emergency_contact_phone'] ?? '' );
         $dept_id     = (int) ( $emp['dept_id'] ?? 0 );
 
+        // Documents check — match ProfileTab logic.
+        $missing_docs_count = 0;
+        $doc_total_count    = 0;
+        $doc_status         = null;
+        if ( class_exists( '\SFS\HR\Modules\Documents\Services\Documents_Service' ) ) {
+            $doc_svc            = '\SFS\HR\Modules\Documents\Services\Documents_Service';
+            $missing_docs       = $doc_svc::get_missing_required_documents( $emp_id );
+            $missing_docs_count = count( $missing_docs );
+            $doc_total_count    = $doc_svc::get_document_count( $emp_id );
+            $doc_status         = $doc_svc::get_employee_document_status( $emp_id );
+        }
+
         $profile_fields = [
             'photo'       => $photo_id > 0,
             'name'        => $first_name !== '' && $last_name !== '',
@@ -193,6 +205,7 @@ class OverviewTab implements TabInterface {
             'hire_date'   => $hire_date !== '',
             'national_id' => $national_id !== '',
             'emergency'   => $emg_name !== '' && $emg_phone !== '',
+            'documents'   => $missing_docs_count === 0,
         ];
         $profile_completed      = array_filter( $profile_fields );
         $profile_completion_pct = (int) round( ( count( $profile_completed ) / count( $profile_fields ) ) * 100 );
@@ -431,6 +444,53 @@ class OverviewTab implements TabInterface {
             }
 
             echo '</div>'; // .sfs-overview-activity-list
+        }
+
+        // ── 6. My Documents ─────────────────────────────────────
+        if ( class_exists( '\SFS\HR\Modules\Documents\Services\Documents_Service' ) ) {
+            $documents_url = add_query_arg( 'sfs_hr_tab', 'documents', $base_url );
+            $expired_count = $doc_status ? (int) ( $doc_status['expired_count'] ?? 0 ) : 0;
+            $has_issues    = ( $missing_docs_count > 0 || $expired_count > 0 );
+
+            echo '<div class="sfs-overview-section">';
+            echo '<h3 class="sfs-overview-section-title" data-i18n-key="my_documents">' . esc_html__( 'My Documents', 'sfs-hr' ) . '</h3>';
+            echo '</div>';
+
+            echo '<div class="sfs-overview-att-grid">';
+
+            echo '<div class="sfs-overview-att-card sfs-overview-att-card--present">';
+            echo '<div class="sfs-overview-att-card-value">' . (int) $doc_total_count . '</div>';
+            echo '<div class="sfs-overview-att-card-label" data-i18n-key="uploaded">' . esc_html__( 'Uploaded', 'sfs-hr' ) . '</div>';
+            echo '</div>';
+
+            echo '<div class="sfs-overview-att-card sfs-overview-att-card--' . ( $missing_docs_count > 0 ? 'absent' : 'present' ) . '">';
+            echo '<div class="sfs-overview-att-card-value">' . $missing_docs_count . '</div>';
+            echo '<div class="sfs-overview-att-card-label" data-i18n-key="missing">' . esc_html__( 'Missing', 'sfs-hr' ) . '</div>';
+            echo '</div>';
+
+            echo '<div class="sfs-overview-att-card sfs-overview-att-card--' . ( $expired_count > 0 ? 'late' : 'present' ) . '">';
+            echo '<div class="sfs-overview-att-card-value">' . $expired_count . '</div>';
+            echo '<div class="sfs-overview-att-card-label" data-i18n-key="expired">' . esc_html__( 'Expired', 'sfs-hr' ) . '</div>';
+            echo '</div>';
+
+            echo '</div>'; // .sfs-overview-att-grid
+
+            if ( $has_issues ) {
+                echo '<a href="' . esc_url( $documents_url ) . '" class="sfs-overview-profile-banner" style="margin-top:8px;">';
+                echo '<div class="sfs-overview-profile-banner-text">';
+                echo '<span class="sfs-overview-profile-banner-title" data-i18n-key="documents_need_attention">' . esc_html__( 'Documents need attention', 'sfs-hr' ) . '</span>';
+                $parts = [];
+                if ( $missing_docs_count > 0 ) {
+                    $parts[] = sprintf( _n( '%d missing', '%d missing', $missing_docs_count, 'sfs-hr' ), $missing_docs_count );
+                }
+                if ( $expired_count > 0 ) {
+                    $parts[] = sprintf( _n( '%d expired', '%d expired', $expired_count, 'sfs-hr' ), $expired_count );
+                }
+                echo '<span class="sfs-overview-profile-banner-sub">' . esc_html( implode( ', ', $parts ) ) . '</span>';
+                echo '</div>';
+                echo '<svg class="sfs-overview-profile-banner-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+                echo '</a>';
+            }
         }
 
         // ── 7. Profile Completion Banner ──────────────────────────

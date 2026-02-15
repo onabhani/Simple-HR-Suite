@@ -4387,12 +4387,17 @@ foreach ($rows as $r) {
 }
 
 
-    // Grace & rounding from settings
+    // Grace & rounding — per-shift values first, global settings as fallback
     $settings = get_option(self::OPT_SETTINGS) ?: [];
-    $grLate   = (int)($settings['default_grace_late']  ?? 5);
-    $grEarly  = (int)($settings['default_grace_early'] ?? 5);
-    $round    = (string)($settings['default_rounding_rule'] ?? '5');
-    $roundN   = ($round === 'none') ? 0 : (int)$round;
+    $globalGrLate  = (int)($settings['default_grace_late']  ?? 5);
+    $globalGrEarly = (int)($settings['default_grace_early'] ?? 5);
+    $globalRound   = (string)($settings['default_rounding_rule'] ?? '5');
+
+    // Use shift-level grace/rounding if the shift defines them (non-null)
+    $grLate  = ( $shift && isset($shift->grace_late_minutes) )        ? (int)$shift->grace_late_minutes        : $globalGrLate;
+    $grEarly = ( $shift && isset($shift->grace_early_leave_minutes) ) ? (int)$shift->grace_early_leave_minutes : $globalGrEarly;
+    $round   = ( $shift && isset($shift->rounding_rule) )             ? (string)$shift->rounding_rule           : $globalRound;
+    $roundN  = ($round === 'none') ? 0 : (int)$round;
 
     // Evaluate
     $ev = self::evaluate_segments($segments, $rows, $grLate, $grEarly);
