@@ -705,7 +705,61 @@ class Employee_Profile_Page {
                 <div class="sfs-hr-emp-month-kpi"><span class="sfs-hr-emp-month-kpi-label"><?php esc_html_e( 'Left early', 'sfs-hr' ); ?></span><span class="sfs-hr-emp-month-kpi-value"><?php echo (int) $kpi['left_early_days']; ?></span></div>
             </div>
             <?php endif; ?>
-            <div class="sfs-hr-emp-card"><?php if ( empty( $month_data['rows'] ) ) : ?><p class="description"><?php esc_html_e( 'No attendance sessions for this month.', 'sfs-hr' ); ?></p><?php else : ?><table class="widefat striped sfs-hr-emp-month-table"><thead><tr><th style="width:120px;"><?php esc_html_e( 'Date', 'sfs-hr' ); ?></th><th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th></tr></thead><tbody><?php foreach ( $month_data['rows'] as $row ) : ?><tr><td><?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $row['work_date'] ) ) ); ?></td><td><?php echo esc_html( $row['status'] ); ?></td></tr><?php endforeach; ?></tbody></table><?php endif; ?></div>
+            <div class="sfs-hr-emp-card"><?php if ( empty( $month_data['rows'] ) ) : ?><p class="description"><?php esc_html_e( 'No attendance sessions for this month.', 'sfs-hr' ); ?></p><?php else : ?>
+            <table class="widefat striped sfs-hr-emp-month-table">
+            <thead><tr>
+                <th style="width:110px;"><?php esc_html_e( 'Date', 'sfs-hr' ); ?></th>
+                <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
+                <th><?php esc_html_e( 'In', 'sfs-hr' ); ?></th>
+                <th><?php esc_html_e( 'Out', 'sfs-hr' ); ?></th>
+                <th><?php esc_html_e( 'Worked', 'sfs-hr' ); ?></th>
+                <th><?php esc_html_e( 'OT', 'sfs-hr' ); ?></th>
+            </tr></thead>
+            <tbody>
+            <?php foreach ( $month_data['rows'] as $row ) :
+                $in_display = '—';
+                $out_display = '—';
+                if ( ! empty( $row['in_time'] ) ) {
+                    try {
+                        $in_utc = new \DateTimeImmutable( $row['in_time'], new \DateTimeZone( 'UTC' ) );
+                        $in_display = wp_date( 'H:i', $in_utc->getTimestamp(), new \DateTimeZone( 'Asia/Riyadh' ) );
+                    } catch ( \Throwable $e ) { /* keep dash */ }
+                }
+                if ( ! empty( $row['out_time'] ) ) {
+                    try {
+                        $out_utc = new \DateTimeImmutable( $row['out_time'], new \DateTimeZone( 'UTC' ) );
+                        $out_display = wp_date( 'H:i', $out_utc->getTimestamp(), new \DateTimeZone( 'Asia/Riyadh' ) );
+                    } catch ( \Throwable $e ) { /* keep dash */ }
+                }
+                $net_mins = (int) ( $row['net_minutes'] ?? 0 );
+                $ot_mins  = (int) ( $row['overtime_minutes'] ?? 0 );
+                $worked_display = $net_mins > 0 ? sprintf( '%dh %02dm', intdiv( $net_mins, 60 ), $net_mins % 60 ) : '—';
+                $ot_display     = $ot_mins > 0 ? sprintf( '%dh %02dm', intdiv( $ot_mins, 60 ), $ot_mins % 60 ) : '—';
+
+                // Status badge
+                $status_raw = $row['status'] ?? '';
+                $status_class = 'sfs-ep-att-status';
+                switch ( $status_raw ) {
+                    case 'present': $status_class .= ' sfs-ep-att--present'; break;
+                    case 'late': $status_class .= ' sfs-ep-att--late'; break;
+                    case 'absent': $status_class .= ' sfs-ep-att--absent'; break;
+                    case 'on_leave': $status_class .= ' sfs-ep-att--leave'; break;
+                    case 'left_early': $status_class .= ' sfs-ep-att--early'; break;
+                    case 'incomplete': $status_class .= ' sfs-ep-att--incomplete'; break;
+                    case 'holiday': case 'day_off': $status_class .= ' sfs-ep-att--dayoff'; break;
+                }
+            ?>
+            <tr>
+                <td><?php echo esc_html( date_i18n( 'D, M j', strtotime( $row['work_date'] ) ) ); ?></td>
+                <td><span class="<?php echo esc_attr( $status_class ); ?>"><?php echo esc_html( ucwords( str_replace( '_', ' ', $status_raw ) ) ); ?></span></td>
+                <td><?php echo esc_html( $in_display ); ?></td>
+                <td><?php echo esc_html( $out_display ); ?></td>
+                <td><?php echo esc_html( $worked_display ); ?></td>
+                <td><?php echo esc_html( $ot_display ); ?></td>
+            </tr>
+            <?php endforeach; ?>
+            </tbody></table>
+            <?php endif; ?></div>
         </div>
 
         <?php endif; // view vs edit ?>
@@ -773,10 +827,17 @@ class Employee_Profile_Page {
             .sfs-ep-info-columns .sfs-ep-info-table{flex:1 1 250px;}
 
             /* ═══ Form Table (edit mode) ═══ */
-            .sfs-ep-form-table{width:100%;border-collapse:collapse;}
-            .sfs-ep-form-table th{text-align:start;width:38%;padding:5px 8px 5px 0;font-weight:500;font-size:13px;vertical-align:top;}
-            .sfs-ep-form-table td{padding:5px 0;}
+            .sfs-ep-form-table{width:100%;border-collapse:collapse;table-layout:fixed;}
+            .sfs-ep-form-table th{text-align:start;width:38%;padding:5px 8px 5px 0;font-weight:500;font-size:13px;vertical-align:top;word-wrap:break-word;}
+            .sfs-ep-form-table td{padding:5px 0;overflow:hidden;}
+            .sfs-ep-form-table td input.regular-text,
+            .sfs-ep-form-table td select,
+            .sfs-ep-form-table td textarea{max-width:100%;width:100%;box-sizing:border-box;}
+            .sfs-ep-form-table td input[type="date"]{max-width:100%;width:auto;}
+            .sfs-ep-form-table td input[type="file"]{max-width:100%;}
+            .sfs-ep-form-table td .description{word-wrap:break-word;overflow-wrap:break-word;}
             .sfs-ep-edit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px;margin-bottom:16px;}
+            .sfs-ep-card{overflow:hidden;}
 
             /* ═══ Manager / Reports To ═══ */
             .sfs-ep-manager-link{display:flex;align-items:center;gap:12px;padding:12px 14px;background:#f8f9fa;border:1px solid #e2e4e7;border-radius:8px;text-decoration:none;color:inherit;transition:border-color .15s,box-shadow .15s;}
@@ -798,6 +859,16 @@ class Employee_Profile_Page {
             #sfs-hr-employee-profile-wrap .sfs-hr-pill--status-notin{background:#f1f1f1;color:#777;border-color:#e2e4e7;}
             #sfs-hr-employee-profile-wrap .sfs-hr-pill--leave-duty{background:#46b4500f;color:#008a20;border-color:#46b45040;}
             #sfs-hr-employee-profile-wrap .sfs-hr-pill--leave-on{background:#0073aa14;color:#005177;border-color:#0073aa40;}
+
+            /* ═══ Attendance Status Badges ═══ */
+            .sfs-ep-att-status{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:500;line-height:1.6;}
+            .sfs-ep-att--present{background:#dcfce7;color:#166534;}
+            .sfs-ep-att--late{background:#fef3c7;color:#92400e;}
+            .sfs-ep-att--absent{background:#fee2e2;color:#991b1b;}
+            .sfs-ep-att--leave{background:#dbeafe;color:#1e40af;}
+            .sfs-ep-att--early{background:#fce7f3;color:#9d174d;}
+            .sfs-ep-att--incomplete{background:#fff7ed;color:#9a3412;}
+            .sfs-ep-att--dayoff{background:#f0f0f1;color:#50575e;}
 
             /* ═══ Month Summary (kept) ═══ */
             #sfs-hr-employee-profile-wrap .sfs-hr-emp-month-wrap{
@@ -1284,7 +1355,7 @@ class Employee_Profile_Page {
         global $wpdb;
         $sT = $wpdb->prefix . 'sfs_hr_attendance_sessions';
 
-        $sql = "SELECT work_date, status
+        $sql = "SELECT work_date, status, in_time, out_time, net_minutes, overtime_minutes, flags_json
                 FROM {$sT}
                 WHERE employee_id = %d
                   AND work_date BETWEEN %s AND %s

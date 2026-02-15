@@ -3863,20 +3863,54 @@ if ( $mode === 'day' ) {
   <th>' . esc_html__('Employee', 'sfs-hr') . '</th><th>' . esc_html__('Employee Code', 'sfs-hr') . '</th>
   <th>' . esc_html__('In', 'sfs-hr') . '</th><th>' . esc_html__('Out', 'sfs-hr') . '</th><th>' . esc_html__('Break', 'sfs-hr') . '</th>
   <th>' . esc_html__('Worked (net)', 'sfs-hr') . '</th><th>' . esc_html__('OT', 'sfs-hr') . '</th>
-  <th>' . esc_html__('Status', 'sfs-hr') . '</th><th>' . esc_html__('Geo', 'sfs-hr') . '</th><th>' . esc_html__('Selfie', 'sfs-hr') . '</th><th>' . esc_html__('Flags', 'sfs-hr') . '</th>
+  <th>' . esc_html__('Status', 'sfs-hr') . '</th><th>' . esc_html__('Flags', 'sfs-hr') . '</th>
 </tr></thead><tbody>';
 
 if ( $rows ) {
     foreach ( $rows as $r ) {
-        $geoTxt    = (isset($r->outside_geo_count) && (int)$r->outside_geo_count > 0) ? (int)$r->outside_geo_count : '✓';
-        $selfieTxt = (isset($r->no_selfie_count) && (int)$r->no_selfie_count > 0) ? (int)$r->no_selfie_count : '✓';
-
-        $flagsTxt = '—';
+        // Build flags as colored badges
+        $flags_html = '';
+        $flag_list = [];
         if ( ! empty($r->flags_json) ) {
             $fj = json_decode((string) $r->flags_json, true);
-            if ( is_array($fj) && $fj ) {
-                $flagsTxt = implode(', ', array_map('sanitize_text_field', $fj));
+            if ( is_array($fj) ) {
+                $flag_list = $fj;
             }
+        }
+
+        // Add geo/selfie info into flag list if not already present
+        if ( isset($r->outside_geo_count) && (int)$r->outside_geo_count > 0 && ! in_array('outside_geofence', $flag_list, true) ) {
+            $flag_list[] = 'outside_geofence';
+        }
+        if ( isset($r->no_selfie_count) && (int)$r->no_selfie_count > 0 && ! in_array('no_selfie', $flag_list, true) ) {
+            $flag_list[] = 'no_selfie';
+        }
+
+        if ( $flag_list ) {
+            $badge_map = [
+                'late'              => ['color' => '#92400e', 'bg' => '#fef3c7', 'label' => __('Late', 'sfs-hr')],
+                'left_early'        => ['color' => '#9d174d', 'bg' => '#fce7f3', 'label' => __('Left Early', 'sfs-hr')],
+                'outside_geofence'  => ['color' => '#9a3412', 'bg' => '#fff7ed', 'label' => __('Outside Geo', 'sfs-hr')],
+                'no_selfie'         => ['color' => '#5e35b1', 'bg' => '#ede9fe', 'label' => __('No Selfie', 'sfs-hr')],
+                'missed_punch'      => ['color' => '#991b1b', 'bg' => '#fee2e2', 'label' => __('Missed Punch', 'sfs-hr')],
+                'overtime'          => ['color' => '#166534', 'bg' => '#dcfce7', 'label' => __('Overtime', 'sfs-hr')],
+                'break_delay'       => ['color' => '#92400e', 'bg' => '#fef3c7', 'label' => __('Break Delay', 'sfs-hr')],
+                'no_break_taken'    => ['color' => '#9a3412', 'bg' => '#fff7ed', 'label' => __('No Break', 'sfs-hr')],
+                'manual_edit'       => ['color' => '#1e40af', 'bg' => '#dbeafe', 'label' => __('Manual Edit', 'sfs-hr')],
+            ];
+            $badges = [];
+            foreach ( $flag_list as $flag ) {
+                $flag = sanitize_text_field($flag);
+                if ( isset($badge_map[$flag]) ) {
+                    $b = $badge_map[$flag];
+                    $badges[] = '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:500;line-height:1.6;background:' . esc_attr($b['bg']) . ';color:' . esc_attr($b['color']) . ';white-space:nowrap;">' . esc_html($b['label']) . '</span>';
+                } else {
+                    $badges[] = '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:500;line-height:1.6;background:#f0f0f1;color:#50575e;white-space:nowrap;">' . esc_html(ucwords(str_replace('_', ' ', $flag))) . '</span>';
+                }
+            }
+            $flags_html = implode(' ', $badges);
+        } else {
+            $flags_html = '<span style="color:#c3c4c7;">—</span>';
         }
 
         $in_local  = $r->in_time  ? \SFS\HR\Modules\Attendance\AttendanceModule::fmt_local($r->in_time)  : '-';
@@ -3897,8 +3931,6 @@ if ( $rows ) {
                 <td>%dm</td>
                 <td>%s</td>
                 <td>%s</td>
-                <td>%s</td>
-                <td>%s</td>
             </tr>',
             $emp_link_sess,
             esc_html( ($r->employee_code !== null && $r->employee_code !== '') ? (string)$r->employee_code : '' ),
@@ -3908,13 +3940,11 @@ if ( $rows ) {
             (int) $r->net_minutes,
             (int) $r->overtime_minutes,
             esc_html( $r->status ? $this->get_status_label( $r->status ) : '-' ),
-            esc_html( (string) $geoTxt ),
-            esc_html( (string) $selfieTxt ),
-            esc_html( $flagsTxt )
+            $flags_html
         );
     }
 } else {
-    echo '<tr><td colspan="11" class="empty-state"><p>' . esc_html__('No sessions found for this selection.', 'sfs-hr') . '</p></td></tr>';
+    echo '<tr><td colspan="9" class="empty-state"><p>' . esc_html__('No sessions found for this selection.', 'sfs-hr') . '</p></td></tr>';
 }
 
 echo '</tbody></table></div></div>';
