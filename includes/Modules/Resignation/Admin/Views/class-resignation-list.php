@@ -45,6 +45,9 @@ class Resignation_List {
                     <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-lifecycle&tab=resignations&tab=resignations&status=' . $current_status)); ?>" class="button"><?php esc_html_e('Clear', 'sfs-hr'); ?></a>
                 <?php endif; ?>
             </form>
+            <?php if (current_user_can('sfs_hr.manage')): ?>
+                <button type="button" class="button" style="background:#dc3545;border-color:#dc3545;color:#fff;margin-left:auto;" onclick="document.getElementById('sfs-hr-terminate-modal').classList.add('active');"><?php esc_html_e('Terminate Employee', 'sfs-hr'); ?></button>
+            <?php endif; ?>
         </div>
 
         <!-- Status Tabs -->
@@ -125,6 +128,8 @@ class Resignation_List {
                                     $type = $row['resignation_type'] ?? 'regular';
                                     if ($type === 'final_exit') {
                                         echo '<span class="sfs-hr-pill sfs-hr-pill--final-exit">' . esc_html__('Final Exit', 'sfs-hr') . '</span>';
+                                    } elseif ($type === 'company_termination') {
+                                        echo '<span class="sfs-hr-pill sfs-hr-pill--termination">' . esc_html__('Termination', 'sfs-hr') . '</span>';
                                     } else {
                                         echo '<span class="sfs-hr-pill sfs-hr-pill--regular">' . esc_html__('Regular', 'sfs-hr') . '</span>';
                                     }
@@ -237,6 +242,7 @@ class Resignation_List {
             .sfs-hr-pill { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; line-height: 1.4; }
             .sfs-hr-pill--final-exit { background: #e8def8; color: #5e35b1; }
             .sfs-hr-pill--regular { background: #eceff1; color: #546e7a; }
+            .sfs-hr-pill--termination { background: #fee2e2; color: #991b1b; }
             .sfs-hr-pill--pending { background: #fff3e0; color: #e65100; }
             .sfs-hr-pill--approved { background: #e8f5e9; color: #2e7d32; }
             .sfs-hr-pill--rejected { background: #ffebee; color: #c62828; }
@@ -430,6 +436,54 @@ class Resignation_List {
                 </div>
             </div>
         </div>
+
+        <?php if (current_user_can('sfs_hr.manage')): ?>
+        <!-- Company Termination Modal -->
+        <div id="sfs-hr-terminate-modal" class="sfs-hr-resignation-modal">
+            <div class="sfs-hr-resignation-modal-overlay" onclick="document.getElementById('sfs-hr-terminate-modal').classList.remove('active');"></div>
+            <div class="sfs-hr-resignation-modal-content">
+                <div class="sfs-hr-resignation-modal-header">
+                    <h3><?php esc_html_e('Company-Initiated Termination', 'sfs-hr'); ?></h3>
+                    <button type="button" class="sfs-hr-resignation-modal-close" onclick="document.getElementById('sfs-hr-terminate-modal').classList.remove('active');">×</button>
+                </div>
+                <form method="POST" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <?php wp_nonce_field('sfs_hr_company_termination'); ?>
+                    <input type="hidden" name="action" value="sfs_hr_company_termination">
+                    <p>
+                        <label><strong><?php esc_html_e('Employee', 'sfs-hr'); ?></strong> <span style="color:#dc3545;">*</span></label><br>
+                        <select name="employee_id" required style="width:100%;height:36px;border:1px solid #dcdcde;border-radius:4px;padding:0 8px;">
+                            <option value=""><?php esc_html_e('— Select Employee —', 'sfs-hr'); ?></option>
+                            <?php
+                            global $wpdb;
+                            $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+                            $active_emps = $wpdb->get_results("SELECT id, employee_code, first_name, last_name FROM {$emp_table} WHERE status = 'active' ORDER BY first_name, last_name");
+                            foreach ($active_emps as $ae) {
+                                printf(
+                                    '<option value="%d">%s (%s)</option>',
+                                    (int) $ae->id,
+                                    esc_html(trim($ae->first_name . ' ' . $ae->last_name)),
+                                    esc_html($ae->employee_code)
+                                );
+                            }
+                            ?>
+                        </select>
+                    </p>
+                    <p>
+                        <label><strong><?php esc_html_e('Termination Date', 'sfs-hr'); ?></strong> <span style="color:#dc3545;">*</span></label><br>
+                        <input type="date" name="termination_date" required value="<?php echo esc_attr(wp_date('Y-m-d')); ?>" style="width:100%;height:36px;border:1px solid #dcdcde;border-radius:4px;padding:0 8px;">
+                    </p>
+                    <p>
+                        <label><strong><?php esc_html_e('Reason for Termination', 'sfs-hr'); ?></strong> <span style="color:#dc3545;">*</span></label><br>
+                        <textarea name="reason" rows="4" required style="width:100%;border:1px solid #dcdcde;border-radius:4px;padding:8px;"></textarea>
+                    </p>
+                    <p style="display:flex;gap:8px;">
+                        <button type="submit" class="button" style="background:#dc3545;border-color:#dc3545;color:#fff;"><?php esc_html_e('Terminate Employee', 'sfs-hr'); ?></button>
+                        <button type="button" onclick="document.getElementById('sfs-hr-terminate-modal').classList.remove('active');" class="button"><?php esc_html_e('Cancel', 'sfs-hr'); ?></button>
+                    </p>
+                </form>
+            </div>
+        </div>
+        <?php endif; ?>
         <?php
     }
 
@@ -453,7 +507,7 @@ class Resignation_List {
             body.innerHTML = '<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Reference #', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value"><strong>'+sfsEsc(tr.dataset.ref||'-')+'</strong></span></div>'
                 +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Employee', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+sfsEsc(tr.dataset.employee)+'</span></div>'
                 +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Code', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+sfsEsc(tr.dataset.code)+'</span></div>'
-                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Type', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+(tr.dataset.type==='final_exit'?'<?php esc_html_e('Final Exit', 'sfs-hr'); ?>':'<?php esc_html_e('Regular', 'sfs-hr'); ?>')+'</span></div>'
+                +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Type', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+(tr.dataset.type==='final_exit'?'<?php esc_html_e('Final Exit', 'sfs-hr'); ?>':(tr.dataset.type==='company_termination'?'<?php esc_html_e('Company Termination', 'sfs-hr'); ?>':'<?php esc_html_e('Regular', 'sfs-hr'); ?>'))+'</span></div>'
                 +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Date', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+sfsEsc(tr.dataset.date)+'</span></div>'
                 +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Last Working Day', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+sfsEsc(tr.dataset.lwd)+'</span></div>'
                 +'<div class="sfs-hr-resignation-modal-row"><span class="sfs-hr-resignation-modal-label"><?php esc_html_e('Status', 'sfs-hr'); ?></span><span class="sfs-hr-resignation-modal-value">'+sfsEsc(tr.dataset.status)+'</span></div>'

@@ -23,6 +23,7 @@ class Resignation_Handlers {
         add_action('admin_post_sfs_hr_resignation_reject', [$this, 'handle_reject']);
         add_action('admin_post_sfs_hr_resignation_cancel', [$this, 'handle_cancel']);
         add_action('admin_post_sfs_hr_final_exit_update', [$this, 'handle_final_exit_update']);
+        add_action('admin_post_sfs_hr_company_termination', [$this, 'handle_company_termination']);
         add_action('admin_post_sfs_hr_resignation_settings', [$this, 'handle_settings']);
 
         // AJAX handlers
@@ -391,6 +392,65 @@ class Resignation_Handlers {
             admin_url('admin.php?page=sfs-hr-lifecycle&tab=resignations&status=final_exit'),
             'success',
             __('Final Exit data updated successfully.', 'sfs-hr')
+        );
+    }
+
+    /**
+     * Handle company-initiated termination (HR/admin only)
+     */
+    public function handle_company_termination(): void {
+        check_admin_referer('sfs_hr_company_termination');
+
+        if (!current_user_can('sfs_hr.manage')) {
+            wp_die(__('Access denied', 'sfs-hr'));
+        }
+
+        $employee_id = intval($_POST['employee_id'] ?? 0);
+        $termination_date = sanitize_text_field($_POST['termination_date'] ?? '');
+        $reason = sanitize_textarea_field($_POST['reason'] ?? '');
+
+        if (!$employee_id || empty($termination_date) || empty($reason)) {
+            wp_die(__('Please fill all required fields.', 'sfs-hr'));
+        }
+
+        // Create a resignation record of type company_termination
+        $resignation_id = Resignation_Service::create_resignation([
+            'employee_id'        => $employee_id,
+            'resignation_date'   => $termination_date,
+            'resignation_type'   => 'company_termination',
+            'notice_period_days' => 0,
+            'last_working_day'   => $termination_date,
+            'reason'             => $reason,
+        ]);
+
+        if ($resignation_id) {
+            // Auto-approve since it's company-initiated
+            Resignation_Service::update_status($resignation_id, 'approved', [
+                'approver_id'    => get_current_user_id(),
+                'decided_at'     => current_time('mysql'),
+                'approval_level' => 2,
+            ]);
+
+            // Log the event
+            EmployeeExitModule::log_resignation_event($resignation_id, 'company_termination', [
+                'termination_date' => $termination_date,
+                'initiated_by'     => get_current_user_id(),
+                'reason'           => $reason,
+            ]);
+
+            // Update employee status to terminated
+            global $wpdb;
+            $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+            $wpdb->update($emp_table, [
+                'status'     => 'terminated',
+                'updated_at' => current_time('mysql'),
+            ], ['id' => $employee_id]);
+        }
+
+        Helpers::redirect_with_notice(
+            admin_url('admin.php?page=sfs-hr-lifecycle&tab=resignations&status=approved'),
+            'success',
+            __('Employee terminated successfully.', 'sfs-hr')
         );
     }
 
