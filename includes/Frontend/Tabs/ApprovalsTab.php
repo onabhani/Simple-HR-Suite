@@ -195,9 +195,11 @@ class ApprovalsTab implements TabInterface {
                 $days = $diff > 0 ? (int) floor( $diff / DAY_IN_SECONDS ) + 1 : 1;
             }
             $req_id = (int) ( $r['id'] ?? 0 );
-            $level_text = (int) ( $r['approval_level'] ?? 1 ) <= 1
+            $is_mgr_level = (int) ( $r['approval_level'] ?? 1 ) <= 1;
+            $level_text = $is_mgr_level
                 ? __( 'Manager Approval', 'sfs-hr' )
                 : __( 'HR Approval', 'sfs-hr' );
+            $level_key = $is_mgr_level ? 'manager_approval' : 'hr_approval';
 
             echo '<div class="sfs-card sfs-approval-card" data-category="leave" data-dept="' . esc_attr( $r['dept_name'] ?? '' ) . '" style="margin-bottom:12px;">';
             echo '<div class="sfs-card-body">';
@@ -212,7 +214,7 @@ class ApprovalsTab implements TabInterface {
             echo '</div>';
             echo '</label>';
             echo '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">';
-            echo '<span class="sfs-badge sfs-badge--pending">' . esc_html( $level_text ) . '</span>';
+            echo '<span class="sfs-badge sfs-badge--pending" data-i18n-key="' . esc_attr( $level_key ) . '">' . esc_html( $level_text ) . '</span>';
             echo '<span class="sfs-badge sfs-badge--info" style="font-size:11px;">' . $type . '</span>';
             echo '</div>';
             echo '</div>';
@@ -229,10 +231,10 @@ class ApprovalsTab implements TabInterface {
             echo '</div>';
             echo '</div>';
             if ( $req_num ) {
-                echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Ref #', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $req_num . '</span></div>';
+                echo '<div class="sfs-detail-row"><span class="sfs-detail-label" data-i18n-key="ref_num">' . esc_html__( 'Ref #', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $req_num . '</span></div>';
             }
             if ( $reason ) {
-                echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Reason', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $reason . '</span></div>';
+                echo '<div class="sfs-detail-row"><span class="sfs-detail-label" data-i18n-key="reason">' . esc_html__( 'Reason', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $reason . '</span></div>';
             }
             echo '</div>';
 
@@ -247,7 +249,7 @@ class ApprovalsTab implements TabInterface {
             echo '<input type="hidden" name="_wp_http_referer" value="' . esc_attr( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) . '" />';
             echo '<button type="submit" class="sfs-btn sfs-btn--success sfs-btn--sm">';
             echo '<svg viewBox="0 0 24 24" style="width:14px;height:14px;margin-right:4px;"><polyline points="20 6 9 17 4 12" stroke="currentColor" fill="none" stroke-width="2.5"/></svg>';
-            echo esc_html__( 'Approve', 'sfs-hr' );
+            echo '<span data-i18n-key="approve">' . esc_html__( 'Approve', 'sfs-hr' ) . '</span>';
             echo '</button>';
             echo '</form>';
 
@@ -260,7 +262,7 @@ class ApprovalsTab implements TabInterface {
             echo '<input type="hidden" name="rejection_reason" value="" class="sfs-reject-reason-input" />';
             echo '<button type="button" class="sfs-btn sfs-btn--danger sfs-btn--sm sfs-reject-btn">';
             echo '<svg viewBox="0 0 24 24" style="width:14px;height:14px;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2.5"/><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2.5"/></svg>';
-            echo esc_html__( 'Reject', 'sfs-hr' );
+            echo '<span data-i18n-key="reject">' . esc_html__( 'Reject', 'sfs-hr' ) . '</span>';
             echo '</button>';
             echo '</form>';
 
@@ -293,6 +295,7 @@ class ApprovalsTab implements TabInterface {
             $stage_text = $is_gm_stage
                 ? __( 'GM Approval', 'sfs-hr' )
                 : __( 'Finance Approval', 'sfs-hr' );
+            $stage_key = $is_gm_stage ? 'gm_approval' : 'finance_approval';
 
             echo '<div class="sfs-card sfs-approval-card" data-category="loan" data-dept="' . esc_attr( $l['dept_name'] ?? '' ) . '" style="margin-bottom:12px;">';
             echo '<div class="sfs-card-body">';
@@ -306,7 +309,7 @@ class ApprovalsTab implements TabInterface {
             echo '<div style="font-size:13px;color:var(--sfs-text-muted);margin-top:2px;">' . $code . ' &middot; ' . $dept . '</div>';
             echo '</div>';
             echo '</label>';
-            echo '<span class="sfs-badge sfs-badge--pending">' . esc_html( $stage_text ) . '</span>';
+            echo '<span class="sfs-badge sfs-badge--pending" data-i18n-key="' . esc_attr( $stage_key ) . '">' . esc_html( $stage_text ) . '</span>';
             echo '</div>';
 
             // Amount circle badge + details.
@@ -318,15 +321,15 @@ class ApprovalsTab implements TabInterface {
             echo '<div>';
             echo '<div style="font-size:18px;font-weight:800;color:var(--sfs-text);">' . esc_html( $amount ) . '</div>';
             if ( $installments > 0 ) {
-                echo '<div style="font-size:12px;color:var(--sfs-text-muted);">' . $installments . ' ' . esc_html__( 'months', 'sfs-hr' ) . '</div>';
+                echo '<div style="font-size:12px;color:var(--sfs-text-muted);">' . $installments . ' <span data-i18n-key="months">' . esc_html__( 'months', 'sfs-hr' ) . '</span></div>';
             }
             echo '</div>';
             echo '</div>';
             if ( $loan_num ) {
-                echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Ref #', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $loan_num . '</span></div>';
+                echo '<div class="sfs-detail-row"><span class="sfs-detail-label" data-i18n-key="ref_num">' . esc_html__( 'Ref #', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $loan_num . '</span></div>';
             }
             if ( $reason ) {
-                echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Reason', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $reason . '</span></div>';
+                echo '<div class="sfs-detail-row"><span class="sfs-detail-label" data-i18n-key="reason">' . esc_html__( 'Reason', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $reason . '</span></div>';
             }
             echo '</div>';
 
@@ -354,7 +357,7 @@ class ApprovalsTab implements TabInterface {
                 echo '<input type="hidden" name="_wp_http_referer" value="' . esc_attr( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) . '" />';
                 echo '<button type="submit" class="sfs-btn sfs-btn--success sfs-btn--sm">';
                 echo '<svg viewBox="0 0 24 24" style="width:14px;height:14px;margin-right:4px;"><polyline points="20 6 9 17 4 12" stroke="currentColor" fill="none" stroke-width="2.5"/></svg>';
-                echo esc_html__( 'Approve', 'sfs-hr' );
+                echo '<span data-i18n-key="approve">' . esc_html__( 'Approve', 'sfs-hr' ) . '</span>';
                 echo '</button>';
                 echo '</form>';
 
@@ -368,7 +371,7 @@ class ApprovalsTab implements TabInterface {
                 echo '<input type="hidden" name="_wp_http_referer" value="' . esc_attr( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) . '" />';
                 echo '<button type="button" class="sfs-btn sfs-btn--danger sfs-btn--sm sfs-reject-btn">';
                 echo '<svg viewBox="0 0 24 24" style="width:14px;height:14px;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2.5"/><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2.5"/></svg>';
-                echo esc_html__( 'Reject', 'sfs-hr' );
+                echo '<span data-i18n-key="reject">' . esc_html__( 'Reject', 'sfs-hr' ) . '</span>';
                 echo '</button>';
                 echo '</form>';
 
@@ -386,11 +389,11 @@ class ApprovalsTab implements TabInterface {
         $all_count = $leave_count + $loan_count;
         echo '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">';
         echo '<button type="button" class="sfs-btn sfs-btn--primary sfs-approval-filter-btn" data-filter="all">'
-            . esc_html__( 'All', 'sfs-hr' ) . ' (' . $all_count . ')</button>';
+            . '<span data-i18n-key="all">' . esc_html__( 'All', 'sfs-hr' ) . '</span> (' . $all_count . ')</button>';
         echo '<button type="button" class="sfs-btn sfs-approval-filter-btn" data-filter="leave" style="background:var(--sfs-surface,#f9fafb);color:var(--sfs-text);border:1px solid var(--sfs-border,#e5e7eb);">'
-            . esc_html__( 'Leave', 'sfs-hr' ) . ' (' . $leave_count . ')</button>';
+            . '<span data-i18n-key="leave">' . esc_html__( 'Leave', 'sfs-hr' ) . '</span> (' . $leave_count . ')</button>';
         echo '<button type="button" class="sfs-btn sfs-approval-filter-btn" data-filter="loan" style="background:var(--sfs-surface,#f9fafb);color:var(--sfs-text);border:1px solid var(--sfs-border,#e5e7eb);">'
-            . esc_html__( 'Loans', 'sfs-hr' ) . ' (' . $loan_count . ')</button>';
+            . '<span data-i18n-key="loans">' . esc_html__( 'Loans', 'sfs-hr' ) . '</span> (' . $loan_count . ')</button>';
         echo '</div>';
     }
 
@@ -398,12 +401,12 @@ class ApprovalsTab implements TabInterface {
         echo '<div class="sfs-bulk-actions" id="sfs-bulk-actions" style="display:none;margin-bottom:16px;padding:12px 16px;background:var(--sfs-primary-light,#f0f9ff);border-radius:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">';
         echo '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;font-weight:600;color:var(--sfs-text);">';
         echo '<input type="checkbox" id="sfs-bulk-select-all" style="width:18px;height:18px;accent-color:var(--sfs-primary,#0284c7);">';
-        echo esc_html__( 'Select All', 'sfs-hr' );
+        echo '<span data-i18n-key="select_all">' . esc_html__( 'Select All', 'sfs-hr' ) . '</span>';
         echo '</label>';
-        echo '<span id="sfs-bulk-count" style="font-size:13px;color:var(--sfs-text-muted);">0 ' . esc_html__( 'selected', 'sfs-hr' ) . '</span>';
+        echo '<span id="sfs-bulk-count" style="font-size:13px;color:var(--sfs-text-muted);">0 <span data-i18n-key="selected">' . esc_html__( 'selected', 'sfs-hr' ) . '</span></span>';
         echo '<div style="margin-left:auto;display:flex;gap:8px;">';
         echo '<button type="button" id="sfs-bulk-approve" class="sfs-btn sfs-btn--success sfs-btn--sm" disabled>';
-        echo esc_html__( 'Approve Selected', 'sfs-hr' ) . '</button>';
+        echo '<span data-i18n-key="approve_selected">' . esc_html__( 'Approve Selected', 'sfs-hr' ) . '</span></button>';
         echo '</div>';
         echo '</div>';
     }
@@ -495,8 +498,8 @@ class ApprovalsTab implements TabInterface {
     private function render_empty_state(): void {
         echo '<div class="sfs-card"><div class="sfs-empty-state">';
         echo '<div class="sfs-empty-state-icon"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" fill="none" stroke-width="1.5"/><polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" fill="none" stroke-width="1.5"/></svg></div>';
-        echo '<p class="sfs-empty-state-title">' . esc_html__( 'All caught up!', 'sfs-hr' ) . '</p>';
-        echo '<p class="sfs-empty-state-text">' . esc_html__( 'There are no pending approvals at this time.', 'sfs-hr' ) . '</p>';
+        echo '<p class="sfs-empty-state-title" data-i18n-key="all_caught_up">' . esc_html__( 'All caught up!', 'sfs-hr' ) . '</p>';
+        echo '<p class="sfs-empty-state-text" data-i18n-key="no_pending_approvals">' . esc_html__( 'There are no pending approvals at this time.', 'sfs-hr' ) . '</p>';
         echo '</div></div>';
     }
 

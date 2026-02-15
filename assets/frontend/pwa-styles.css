@@ -455,6 +455,20 @@
         }
     }
 
+    /* Overview tab: reduce top gap so hero starts right after header */
+    .sfs-hr-pwa-app .sfs-hr-profile.sfs-hr-tab--overview {
+        padding-top: 56px;
+        padding-bottom: 80px;
+    }
+    .admin-bar .sfs-hr-pwa-app .sfs-hr-profile.sfs-hr-tab--overview {
+        padding-top: 88px;
+    }
+    @media screen and (max-width: 782px) {
+        .admin-bar .sfs-hr-pwa-app .sfs-hr-profile.sfs-hr-tab--overview {
+            padding-top: 102px;
+        }
+    }
+
     /* Profile header card on mobile - unified card style */
     .sfs-hr-pwa-app .sfs-hr-profile-header {
         background: var(--sfs-surface);
@@ -697,7 +711,7 @@
             border-radius: 12px;
             padding: 24px !important;
             border: 1px solid var(--sfs-border);
-            margin: 16px 16px 16px 0;
+            margin: 16px;
             align-self: flex-start;
         }
 

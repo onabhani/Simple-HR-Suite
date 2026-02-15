@@ -141,9 +141,9 @@ class TeamTab implements TabInterface {
         // Department filter.
         if ( count( $departments ) > 1 ) {
             echo '<div class="sfs-form-group" style="flex:1;min-width:140px;margin:0;">';
-            echo '<label class="sfs-form-label" style="font-size:12px;margin-bottom:4px;">' . esc_html__( 'Department', 'sfs-hr' ) . '</label>';
+            echo '<label class="sfs-form-label" style="font-size:12px;margin-bottom:4px;" data-i18n-key="department">' . esc_html__( 'Department', 'sfs-hr' ) . '</label>';
             echo '<select name="dept_filter" class="sfs-select" style="padding:8px 10px;font-size:13px;">';
-            echo '<option value="0">' . esc_html__( 'All Departments', 'sfs-hr' ) . '</option>';
+            echo '<option value="0" data-i18n-key="all_departments">' . esc_html__( 'All Departments', 'sfs-hr' ) . '</option>';
             foreach ( $departments as $d ) {
                 $sel = ( (int) $d['id'] === $selected_dept ) ? ' selected' : '';
                 echo '<option value="' . (int) $d['id'] . '"' . $sel . '>' . esc_html( $d['name'] ) . '</option>';
@@ -154,7 +154,7 @@ class TeamTab implements TabInterface {
 
         // Status filter.
         echo '<div class="sfs-form-group" style="flex:1;min-width:120px;margin:0;">';
-        echo '<label class="sfs-form-label" style="font-size:12px;margin-bottom:4px;">' . esc_html__( 'Status', 'sfs-hr' ) . '</label>';
+        echo '<label class="sfs-form-label" style="font-size:12px;margin-bottom:4px;" data-i18n-key="status">' . esc_html__( 'Status', 'sfs-hr' ) . '</label>';
         echo '<select name="status_filter" class="sfs-select" style="padding:8px 10px;font-size:13px;">';
         $statuses = [
             'active'     => __( 'Active', 'sfs-hr' ),
@@ -170,7 +170,7 @@ class TeamTab implements TabInterface {
         echo '</div>';
 
         echo '<div class="sfs-form-group" style="margin:0;">';
-        echo '<button type="submit" class="sfs-btn sfs-btn--primary" style="padding:8px 16px;font-size:13px;">' . esc_html__( 'Filter', 'sfs-hr' ) . '</button>';
+        echo '<button type="submit" class="sfs-btn sfs-btn--primary" style="padding:8px 16px;font-size:13px;" data-i18n-key="filter">' . esc_html__( 'Filter', 'sfs-hr' ) . '</button>';
         echo '</div>';
 
         echo '</div>'; // .sfs-form-row
@@ -195,8 +195,8 @@ class TeamTab implements TabInterface {
         if ( empty( $employees ) ) {
             echo '<div class="sfs-card"><div class="sfs-empty-state">';
             echo '<div class="sfs-empty-state-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" fill="none" stroke-width="1.5"/><circle cx="9" cy="7" r="4" stroke="currentColor" fill="none" stroke-width="1.5"/><path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke="currentColor" fill="none" stroke-width="1.5"/><path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" fill="none" stroke-width="1.5"/></svg></div>';
-            echo '<p class="sfs-empty-state-title">' . esc_html__( 'No team members found', 'sfs-hr' ) . '</p>';
-            echo '<p class="sfs-empty-state-text">' . esc_html__( 'Try adjusting your filters.', 'sfs-hr' ) . '</p>';
+            echo '<p class="sfs-empty-state-title" data-i18n-key="no_team_members">' . esc_html__( 'No team members found', 'sfs-hr' ) . '</p>';
+            echo '<p class="sfs-empty-state-text" data-i18n-key="try_adjusting_filters">' . esc_html__( 'Try adjusting your filters.', 'sfs-hr' ) . '</p>';
             echo '</div></div>';
             return;
         }
@@ -225,18 +225,18 @@ class TeamTab implements TabInterface {
             }
             echo '</span>';
             echo '</div>';
-            echo '<span class="sfs-badge sfs-badge--' . esc_attr( $badge_class ) . '">' . esc_html( $status_label ) . '</span>';
+            echo '<span class="sfs-badge sfs-badge--' . esc_attr( $badge_class ) . '" data-i18n-key="' . esc_attr( $status ) . '">' . esc_html( $status_label ) . '</span>';
             echo '</summary>';
 
             echo '<div class="sfs-history-card-body">';
-            echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Department', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $dept . '</span></div>';
-            echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Position', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $pos . '</span></div>';
-            echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Hire Date', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $hire . '</span></div>';
+            echo '<div class="sfs-detail-row"><span class="sfs-detail-label" data-i18n-key="department">' . esc_html__( 'Department', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $dept . '</span></div>';
+            echo '<div class="sfs-detail-row"><span class="sfs-detail-label" data-i18n-key="position">' . esc_html__( 'Position', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $pos . '</span></div>';
+            echo '<div class="sfs-detail-row"><span class="sfs-detail-label" data-i18n-key="hire_date">' . esc_html__( 'Hire Date', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $hire . '</span></div>';
             if ( $phone ) {
-                echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Phone', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $phone . '</span></div>';
+                echo '<div class="sfs-detail-row"><span class="sfs-detail-label" data-i18n-key="phone">' . esc_html__( 'Phone', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $phone . '</span></div>';
             }
             if ( $email ) {
-                echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Email', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $email . '</span></div>';
+                echo '<div class="sfs-detail-row"><span class="sfs-detail-label" data-i18n-key="email">' . esc_html__( 'Email', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . $email . '</span></div>';
             }
             echo '</div></details>';
         }

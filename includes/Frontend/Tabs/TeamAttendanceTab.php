@@ -155,9 +155,9 @@ class TeamAttendanceTab implements TabInterface {
         }
 
         echo '<div class="sfs-form-group" style="flex:1;min-width:140px;margin:0;">';
-        echo '<label class="sfs-form-label" style="font-size:12px;margin-bottom:4px;">' . esc_html__( 'Department', 'sfs-hr' ) . '</label>';
+        echo '<label class="sfs-form-label" style="font-size:12px;margin-bottom:4px;" data-i18n-key="department">' . esc_html__( 'Department', 'sfs-hr' ) . '</label>';
         echo '<select name="att_dept" class="sfs-select" style="padding:8px 10px;font-size:13px;">';
-        echo '<option value="0">' . esc_html__( 'All Departments', 'sfs-hr' ) . '</option>';
+        echo '<option value="0" data-i18n-key="all_departments">' . esc_html__( 'All Departments', 'sfs-hr' ) . '</option>';
         foreach ( $departments as $d ) {
             $sel = ( (int) $d['id'] === $selected ) ? ' selected' : '';
             echo '<option value="' . (int) $d['id'] . '"' . $sel . '>' . esc_html( $d['name'] ) . '</option>';
@@ -166,7 +166,7 @@ class TeamAttendanceTab implements TabInterface {
         echo '</div>';
 
         echo '<div class="sfs-form-group" style="margin:0;">';
-        echo '<button type="submit" class="sfs-btn sfs-btn--primary" style="padding:8px 16px;font-size:13px;">' . esc_html__( 'Filter', 'sfs-hr' ) . '</button>';
+        echo '<button type="submit" class="sfs-btn sfs-btn--primary" style="padding:8px 16px;font-size:13px;" data-i18n-key="filter">' . esc_html__( 'Filter', 'sfs-hr' ) . '</button>';
         echo '</div>';
 
         echo '</form>';
@@ -187,16 +187,16 @@ class TeamAttendanceTab implements TabInterface {
         echo '<div class="sfs-kpi-grid sfs-kpi-grid--4">';
 
         echo '<div class="sfs-kpi-card"><div class="sfs-kpi-icon" style="background:#ecfdf5;"><svg viewBox="0 0 24 24" stroke="#059669" fill="none" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>';
-        echo '<div class="sfs-kpi-label">' . esc_html__( 'Present', 'sfs-hr' ) . '</div><div class="sfs-kpi-value">' . $present . '</div></div>';
+        echo '<div class="sfs-kpi-label" data-i18n-key="present">' . esc_html__( 'Present', 'sfs-hr' ) . '</div><div class="sfs-kpi-value">' . $present . '</div></div>';
 
         echo '<div class="sfs-kpi-card"><div class="sfs-kpi-icon" style="background:#fef3c7;"><svg viewBox="0 0 24 24" stroke="#d97706" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>';
-        echo '<div class="sfs-kpi-label">' . esc_html__( 'Late', 'sfs-hr' ) . '</div><div class="sfs-kpi-value">' . $late . '</div></div>';
+        echo '<div class="sfs-kpi-label" data-i18n-key="late">' . esc_html__( 'Late', 'sfs-hr' ) . '</div><div class="sfs-kpi-value">' . $late . '</div></div>';
 
         echo '<div class="sfs-kpi-card"><div class="sfs-kpi-icon" style="background:#fef2f2;"><svg viewBox="0 0 24 24" stroke="#dc2626" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div>';
-        echo '<div class="sfs-kpi-label">' . esc_html__( 'Absent', 'sfs-hr' ) . '</div><div class="sfs-kpi-value">' . $absent . '</div></div>';
+        echo '<div class="sfs-kpi-label" data-i18n-key="absent">' . esc_html__( 'Absent', 'sfs-hr' ) . '</div><div class="sfs-kpi-value">' . $absent . '</div></div>';
 
         echo '<div class="sfs-kpi-card"><div class="sfs-kpi-icon" style="background:#eff6ff;"><svg viewBox="0 0 24 24" stroke="#3b82f6" fill="none" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>';
-        echo '<div class="sfs-kpi-label">' . esc_html__( 'On Leave', 'sfs-hr' ) . '</div><div class="sfs-kpi-value">' . $on_leave . '</div></div>';
+        echo '<div class="sfs-kpi-label" data-i18n-key="on_leave">' . esc_html__( 'On Leave', 'sfs-hr' ) . '</div><div class="sfs-kpi-value">' . $on_leave . '</div></div>';
 
         echo '</div>';
     }
@@ -217,22 +217,22 @@ class TeamAttendanceTab implements TabInterface {
 
         echo '<div style="flex:1;min-width:120px;text-align:center;">';
         echo '<div style="font-size:28px;font-weight:800;color:var(--sfs-primary);">' . $att_rate . '%</div>';
-        echo '<div style="font-size:12px;color:var(--sfs-text-muted);margin-top:2px;">' . esc_html__( 'Attendance Rate', 'sfs-hr' ) . '</div>';
+        echo '<div style="font-size:12px;color:var(--sfs-text-muted);margin-top:2px;" data-i18n-key="attendance_rate">' . esc_html__( 'Attendance Rate', 'sfs-hr' ) . '</div>';
         echo '</div>';
 
         echo '<div style="flex:1;min-width:120px;text-align:center;">';
         echo '<div style="font-size:28px;font-weight:800;color:#059669;">' . $present . '</div>';
-        echo '<div style="font-size:12px;color:var(--sfs-text-muted);margin-top:2px;">' . esc_html__( 'Present Days', 'sfs-hr' ) . '</div>';
+        echo '<div style="font-size:12px;color:var(--sfs-text-muted);margin-top:2px;" data-i18n-key="present_days">' . esc_html__( 'Present Days', 'sfs-hr' ) . '</div>';
         echo '</div>';
 
         echo '<div style="flex:1;min-width:120px;text-align:center;">';
         echo '<div style="font-size:28px;font-weight:800;color:#dc2626;">' . $absent . '</div>';
-        echo '<div style="font-size:12px;color:var(--sfs-text-muted);margin-top:2px;">' . esc_html__( 'Absent Days', 'sfs-hr' ) . '</div>';
+        echo '<div style="font-size:12px;color:var(--sfs-text-muted);margin-top:2px;" data-i18n-key="absent_days">' . esc_html__( 'Absent Days', 'sfs-hr' ) . '</div>';
         echo '</div>';
 
         echo '<div style="flex:1;min-width:120px;text-align:center;">';
         echo '<div style="font-size:28px;font-weight:800;color:#3b82f6;">' . $on_leave . '</div>';
-        echo '<div style="font-size:12px;color:var(--sfs-text-muted);margin-top:2px;">' . esc_html__( 'Leave Days', 'sfs-hr' ) . '</div>';
+        echo '<div style="font-size:12px;color:var(--sfs-text-muted);margin-top:2px;" data-i18n-key="leave_days">' . esc_html__( 'Leave Days', 'sfs-hr' ) . '</div>';
         echo '</div>';
 
         echo '</div>';
@@ -242,7 +242,7 @@ class TeamAttendanceTab implements TabInterface {
     private function render_employee_table( array $employees ): void {
         if ( empty( $employees ) ) {
             echo '<div class="sfs-card"><div class="sfs-empty-state">';
-            echo '<p class="sfs-empty-state-title">' . esc_html__( 'No attendance data for this period.', 'sfs-hr' ) . '</p>';
+            echo '<p class="sfs-empty-state-title" data-i18n-key="no_attendance_data">' . esc_html__( 'No attendance data for this period.', 'sfs-hr' ) . '</p>';
             echo '</div></div>';
             return;
         }
@@ -254,14 +254,14 @@ class TeamAttendanceTab implements TabInterface {
         // Desktop table.
         echo '<div class="sfs-desktop-only"><table class="sfs-table">';
         echo '<thead><tr>';
-        echo '<th>' . esc_html__( 'Employee', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Department', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Present', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Late', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Absent', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Off', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Avg Hours', 'sfs-hr' ) . '</th>';
-        echo '<th>' . esc_html__( 'Rate', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="employee">' . esc_html__( 'Employee', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="department">' . esc_html__( 'Department', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="present">' . esc_html__( 'Present', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="late">' . esc_html__( 'Late', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="absent">' . esc_html__( 'Absent', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="off">' . esc_html__( 'Off', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="avg_hours">' . esc_html__( 'Avg Hours', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="rate">' . esc_html__( 'Rate', 'sfs-hr' ) . '</th>';
         echo '</tr></thead><tbody>';
 
         foreach ( $employees as $e ) {
