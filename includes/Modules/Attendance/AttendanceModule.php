@@ -5516,8 +5516,15 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
             }
         }
     }
-    // Close unmatched IN? leave it open → incomplete
+    // Close unmatched IN? leave it open → incomplete, but still count the
+    // partial interval so overlap calculations don't falsely flag missed_segment.
     $has_unmatched = ($open !== null);
+    if ( $has_unmatched ) {
+        $close_at = time(); // cap at "now" so future time isn't counted
+        if ( $close_at > $open ) {
+            $intervals[] = [ $open, $close_at ];
+        }
+    }
 
     // Calculate break time from break_start..break_end pairs
     $break_total = 0;
