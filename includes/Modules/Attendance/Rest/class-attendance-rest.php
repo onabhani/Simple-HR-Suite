@@ -555,32 +555,38 @@ if ( $source === 'kiosk' && $scan_token !== '' ) {
     $acc = isset( $params['geo_accuracy_m'] ) ? (int) $params['geo_accuracy_m'] : null;
 
     $valid_geo = 1;
-    if ( $enforce_geo && $assign->location_lat !== null && $assign->location_lng !== null && $assign->location_radius_m !== null ) {
-        if ( $lat === null || $lng === null ) {
-            $valid_geo = 0;
-        } else {
-            $dist_m    = self::haversine_m( (float) $assign->location_lat, (float) $assign->location_lng, $lat, $lng );
-            $valid_geo = ( $dist_m <= (int) $assign->location_radius_m ) ? 1 : 0;
-        }
-    }
-    // Device-level geofence (if device is provided and active)
-if ( $enforce_geo && $device_id > 0 ) {
-    $dT = $wpdb->prefix . 'sfs_hr_attendance_devices';
-    $dev = $wpdb->get_row( $wpdb->prepare(
-        "SELECT geo_lock_lat, geo_lock_lng, geo_lock_radius_m FROM {$dT} WHERE id=%d AND active=1",
-        $device_id
-    ) );
-    if ( $dev && $dev->geo_lock_lat !== null && $dev->geo_lock_lng !== null && $dev->geo_lock_radius_m !== null ) {
-        if ( $lat === null || $lng === null ) {
-            $valid_geo = 0;
-        } else {
-            $dist_m = self::haversine_m( (float)$dev->geo_lock_lat, (float)$dev->geo_lock_lng, $lat, $lng );
-            if ( $dist_m > (int)$dev->geo_lock_radius_m ) {
+
+    // Kiosk punches: the employee's physical presence at the kiosk IS the geo
+    // validation — kiosk devices don't send GPS coordinates, so skip the
+    // assignment-level and device-level geofence checks entirely.
+    if ( $source !== 'kiosk' ) {
+        if ( $enforce_geo && $assign->location_lat !== null && $assign->location_lng !== null && $assign->location_radius_m !== null ) {
+            if ( $lat === null || $lng === null ) {
                 $valid_geo = 0;
+            } else {
+                $dist_m    = self::haversine_m( (float) $assign->location_lat, (float) $assign->location_lng, $lat, $lng );
+                $valid_geo = ( $dist_m <= (int) $assign->location_radius_m ) ? 1 : 0;
+            }
+        }
+        // Device-level geofence (if device is provided and active)
+        if ( $enforce_geo && $device_id > 0 ) {
+            $dT = $wpdb->prefix . 'sfs_hr_attendance_devices';
+            $dev = $wpdb->get_row( $wpdb->prepare(
+                "SELECT geo_lock_lat, geo_lock_lng, geo_lock_radius_m FROM {$dT} WHERE id=%d AND active=1",
+                $device_id
+            ) );
+            if ( $dev && $dev->geo_lock_lat !== null && $dev->geo_lock_lng !== null && $dev->geo_lock_radius_m !== null ) {
+                if ( $lat === null || $lng === null ) {
+                    $valid_geo = 0;
+                } else {
+                    $dist_m = self::haversine_m( (float)$dev->geo_lock_lat, (float)$dev->geo_lock_lng, $lat, $lng );
+                    if ( $dist_m > (int)$dev->geo_lock_radius_m ) {
+                        $valid_geo = 0;
+                    }
+                }
             }
         }
     }
-}
 
 $dept_id = (int) ( $assign->dept_id ?? 0 );
 
