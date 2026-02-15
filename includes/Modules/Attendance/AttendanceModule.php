@@ -4535,10 +4535,10 @@ foreach ($rows as $r) {
         if (in_array('late',$ev['flags'],true))       $status = ($status==='present' ? 'late'       : $status);
     }
 
-    // Geo/selfie counters (for completeness)
+    // Geo/selfie counters — kiosk presence IS geo validation, never flag kiosk punches
     $outside_geo = 0; $no_selfie = 0;
     foreach ($rows as $r) {
-        if ((int)$r->valid_geo === 0)    $outside_geo++;
+        if ((int)$r->valid_geo === 0 && ($r->source ?? '') !== 'kiosk') $outside_geo++;
         if ((int)$r->valid_selfie === 0) $no_selfie++;
     }
 
