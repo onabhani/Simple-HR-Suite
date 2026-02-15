@@ -3897,6 +3897,8 @@ if ( $rows ) {
                 'break_delay'       => ['color' => '#92400e', 'bg' => '#fef3c7', 'label' => __('Break Delay', 'sfs-hr')],
                 'no_break_taken'    => ['color' => '#9a3412', 'bg' => '#fff7ed', 'label' => __('No Break', 'sfs-hr')],
                 'manual_edit'       => ['color' => '#1e40af', 'bg' => '#dbeafe', 'label' => __('Manual Edit', 'sfs-hr')],
+                'missed_segment'    => ['color' => '#7c2d12', 'bg' => '#ffedd5', 'label' => __('Missed Segment', 'sfs-hr')],
+                'incomplete'        => ['color' => '#9a3412', 'bg' => '#fff7ed', 'label' => __('Incomplete', 'sfs-hr')],
             ];
             $badges = [];
             foreach ( $flag_list as $flag ) {
