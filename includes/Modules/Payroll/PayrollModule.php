@@ -6,7 +6,7 @@
  * deductions, payslip generation, and bank exports.
  *
  * @package SFS\HR\Modules\Payroll
- * @version 1.0.0
+ * @version 1.1.0
  */
 
 namespace SFS\HR\Modules\Payroll;
@@ -60,7 +60,7 @@ class PayrollModule {
         global $wpdb;
 
         $installed_version = get_option( 'sfs_hr_payroll_db_version', '0' );
-        $current_version   = '1.0.0';
+        $current_version   = '1.1.0';
 
         if ( version_compare( $installed_version, $current_version, '>=' ) ) {
             return;
@@ -322,6 +322,11 @@ class PayrollModule {
             return [ 'error' => 'Employee not found' ];
         }
 
+        // Skip terminated employees unless explicitly included
+        if ( ( $employee->status ?? '' ) === 'terminated' && empty( $options['include_terminated'] ) ) {
+            return [ 'error' => 'Employee is terminated' ];
+        }
+
         // Get period
         $period = $wpdb->get_row( $wpdb->prepare(
             "SELECT * FROM {$period_table} WHERE id = %d",
@@ -333,11 +338,33 @@ class PayrollModule {
         }
 
         $base_salary = (float) ( $employee->base_salary ?? 0 );
+
+        // Validate base salary
+        if ( $base_salary <= 0 ) {
+            return [ 'error' => 'Employee has no base salary configured' ];
+        }
+
         $start_date = $period->start_date;
         $end_date = $period->end_date;
 
-        // Calculate working days in period (exclude Fridays - Saudi work week)
-        $working_days = self::count_working_days( $start_date, $end_date );
+        // Pro-rata: adjust start date for mid-period hires
+        $hire_date = $employee->hire_date ?? $employee->hired_at ?? null;
+        $effective_start = $start_date;
+        if ( $hire_date && $hire_date > $start_date && $hire_date <= $end_date ) {
+            $effective_start = $hire_date;
+        }
+
+        // Calculate working days in full period and employee's effective period
+        $working_days_full = self::count_working_days( $start_date, $end_date );
+        $working_days = self::count_working_days( $effective_start, $end_date );
+
+        // Guard against zero working days
+        if ( $working_days_full <= 0 ) {
+            return [ 'error' => 'Period has zero working days' ];
+        }
+
+        // Pro-rata ratio (1.0 for full-period employees)
+        $pro_rata = $working_days / $working_days_full;
 
         // Get attendance data
         $attendance = $wpdb->get_row( $wpdb->prepare(
@@ -352,21 +379,63 @@ class PayrollModule {
              WHERE employee_id = %d
                AND work_date BETWEEN %s AND %s",
             $employee_id,
-            $start_date,
+            $effective_start,
             $end_date
         ) );
 
         $days_worked = (int) ( $attendance->days_worked ?? 0 );
-        $days_absent = (int) ( $attendance->days_absent ?? 0 );
+        $raw_days_absent = (int) ( $attendance->days_absent ?? 0 );
         $days_late = (int) ( $attendance->days_late ?? 0 );
         $days_leave = (int) ( $attendance->days_leave ?? 0 );
         $overtime_minutes = (int) ( $attendance->total_overtime_minutes ?? 0 );
         $overtime_hours = round( $overtime_minutes / 60, 2 );
 
+        // Cross-check absences against approved leave requests to avoid
+        // deducting for days that have approved (paid) leave
+        $approved_leave_days = 0;
+        $unpaid_leave_days = 0;
+        $leave_exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $leave_table ) );
+        if ( $leave_exists ) {
+            $leave_types_table = $wpdb->prefix . 'sfs_hr_leave_types';
+
+            // Count approved paid leave days overlapping this period
+            $approved_leave_days = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COALESCE(SUM(lr.paid_days), SUM(lr.days), 0)
+                 FROM {$leave_table} lr
+                 LEFT JOIN {$leave_types_table} lt ON lt.id = lr.type_id
+                 WHERE lr.employee_id = %d
+                   AND lr.status = 'approved'
+                   AND lr.start_date <= %s
+                   AND lr.end_date >= %s
+                   AND (lt.is_paid = 1 OR lt.is_paid IS NULL)",
+                $employee_id,
+                $end_date,
+                $effective_start
+            ) );
+
+            // Count approved unpaid leave days
+            $unpaid_leave_days = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COALESCE(SUM(lr.unpaid_days), 0)
+                 FROM {$leave_table} lr
+                 LEFT JOIN {$leave_types_table} lt ON lt.id = lr.type_id
+                 WHERE lr.employee_id = %d
+                   AND lr.status = 'approved'
+                   AND lr.start_date <= %s
+                   AND lr.end_date >= %s
+                   AND lt.is_paid = 0",
+                $employee_id,
+                $end_date,
+                $effective_start
+            ) );
+        }
+
+        // Only deduct for genuinely unexcused absences (not covered by approved leave)
+        $days_absent = max( 0, $raw_days_absent - $approved_leave_days );
+
         // Get salary components
         $components = self::get_employee_components( $employee_id, $end_date );
 
-        // Calculate earnings
+        // Calculate earnings (accumulate unrounded, round only at the end)
         $total_earnings = 0;
         $component_details = [];
 
@@ -381,6 +450,10 @@ class PayrollModule {
             switch ( $comp['calculation_type'] ) {
                 case 'fixed':
                     $amount = (float) $use_amount;
+                    // Apply pro-rata to fixed earnings for mid-period hires
+                    if ( $pro_rata < 1.0 ) {
+                        $amount *= $pro_rata;
+                    }
                     break;
 
                 case 'percentage':
@@ -389,14 +462,17 @@ class PayrollModule {
                         $base = $base_salary;
                     }
                     $amount = $base * ( (float) $use_amount / 100 );
+                    if ( $pro_rata < 1.0 ) {
+                        $amount *= $pro_rata;
+                    }
                     break;
 
                 case 'formula':
-                    // Handle special formulas
-                    if ( $comp['code'] === 'OVERTIME' ) {
-                        // Overtime: 1.5x hourly rate
-                        $hourly_rate = $base_salary / ( $working_days * 8 );
-                        $amount = $overtime_hours * $hourly_rate * 1.5;
+                    if ( $comp['code'] === 'OVERTIME' && $overtime_hours > 0 && $working_days > 0 ) {
+                        // OT multiplier: filterable, default 1.5x per Saudi Labor Law
+                        $ot_multiplier = (float) apply_filters( 'sfs_hr_overtime_multiplier', 1.5, $employee_id, $period_id );
+                        $hourly_rate = $base_salary / ( $working_days_full * 8 );
+                        $amount = $overtime_hours * $hourly_rate * $ot_multiplier;
                     }
                     break;
             }
@@ -406,7 +482,7 @@ class PayrollModule {
                     'code'   => $comp['code'],
                     'name'   => $comp['name'],
                     'type'   => $comp['type'],
-                    'amount' => round( $amount, 2 ),
+                    'amount' => $amount,
                 ];
                 $total_earnings += $amount;
             }
@@ -421,18 +497,19 @@ class PayrollModule {
             }
         }
         if ( ! $has_base ) {
+            $base_amount = $base_salary * $pro_rata;
             array_unshift( $component_details, [
                 'code'   => 'BASE',
                 'name'   => 'Basic Salary',
                 'type'   => 'earning',
-                'amount' => $base_salary,
+                'amount' => $base_amount,
             ] );
-            $total_earnings += $base_salary;
+            $total_earnings += $base_amount;
         }
 
         $gross_salary = $total_earnings;
 
-        // Calculate deductions
+        // Calculate deductions (accumulate unrounded)
         $total_deductions = 0;
 
         foreach ( $components as $comp ) {
@@ -453,20 +530,17 @@ class PayrollModule {
                     if ( $comp['percentage_of'] === 'gross_salary' ) {
                         $base = $gross_salary;
                     } elseif ( $comp['percentage_of'] === 'base_salary' ) {
-                        $base = $base_salary;
+                        $base = $base_salary * $pro_rata;
                     }
                     $amount = $base * ( (float) $use_amount / 100 );
                     break;
 
                 case 'formula':
-                    // Handle special deduction formulas
-                    if ( $comp['code'] === 'ABSENCE' && $days_absent > 0 ) {
-                        // Deduct daily rate for each absence
-                        $daily_rate = $base_salary / $working_days;
+                    if ( $comp['code'] === 'ABSENCE' && $days_absent > 0 && $working_days_full > 0 ) {
+                        $daily_rate = $base_salary / $working_days_full;
                         $amount = $days_absent * $daily_rate;
-                    } elseif ( $comp['code'] === 'LATE' && $days_late > 0 ) {
-                        // Deduct portion for late arrivals (configurable)
-                        $late_deduction_per_day = ( $base_salary / $working_days ) * 0.25; // 25% of daily rate
+                    } elseif ( $comp['code'] === 'LATE' && $days_late > 0 && $working_days_full > 0 ) {
+                        $late_deduction_per_day = ( $base_salary / $working_days_full ) * 0.25;
                         $amount = $days_late * $late_deduction_per_day;
                     }
                     break;
@@ -477,22 +551,22 @@ class PayrollModule {
                     'code'   => $comp['code'],
                     'name'   => $comp['name'],
                     'type'   => $comp['type'],
-                    'amount' => round( $amount, 2 ),
+                    'amount' => $amount,
                 ];
                 $total_deductions += $amount;
             }
         }
 
-        // Check for loan deductions
+        // Loan deductions with row-level locking to prevent concurrent over-deduction
         $loan_deduction = 0;
         if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $loans_table ) ) ) {
-            // Get active loans with pending installments
             $loans = $wpdb->get_results( $wpdb->prepare(
                 "SELECT l.id, l.monthly_installment, l.remaining_balance
                  FROM {$loans_table} l
                  WHERE l.employee_id = %d
                    AND l.status = 'active'
-                   AND l.remaining_balance > 0",
+                   AND l.remaining_balance > 0
+                 FOR UPDATE",
                 $employee_id
             ) );
 
@@ -506,13 +580,13 @@ class PayrollModule {
                     'code'   => 'LOAN',
                     'name'   => 'Loan Deduction',
                     'type'   => 'deduction',
-                    'amount' => round( $loan_deduction, 2 ),
+                    'amount' => $loan_deduction,
                 ];
                 $total_deductions += $loan_deduction;
             }
         }
 
-        // Calculate attendance deduction (absence + late)
+        // Attendance deduction total (absence + late)
         $attendance_deduction = 0;
         foreach ( $component_details as $cd ) {
             if ( in_array( $cd['code'], [ 'ABSENCE', 'LATE' ], true ) ) {
@@ -520,7 +594,29 @@ class PayrollModule {
             }
         }
 
-        $net_salary = $gross_salary - $total_deductions;
+        // Net salary (never negative)
+        $net_salary = max( 0, $gross_salary - $total_deductions );
+
+        // Round all component amounts for the final output
+        foreach ( $component_details as &$cd ) {
+            $cd['amount'] = round( $cd['amount'], 2 );
+        }
+        unset( $cd );
+
+        // Round totals once at the end to prevent rounding accumulation
+        $total_earnings       = round( $total_earnings, 2 );
+        $gross_salary         = round( $gross_salary, 2 );
+        $total_deductions     = round( $total_deductions, 2 );
+        $net_salary           = round( $net_salary, 2 );
+        $attendance_deduction = round( $attendance_deduction, 2 );
+        $loan_deduction       = round( $loan_deduction, 2 );
+
+        // Overtime amount from components
+        $overtime_amount = 0;
+        $ot_idx = array_search( 'OVERTIME', array_column( $component_details, 'code' ) );
+        if ( $ot_idx !== false && isset( $component_details[ $ot_idx ] ) ) {
+            $overtime_amount = $component_details[ $ot_idx ]['amount'];
+        }
 
         // Get bank details
         $bank_name = $employee->bank_name ?? '';
@@ -532,19 +628,20 @@ class PayrollModule {
             'employee_name'       => trim( ( $employee->first_name ?? '' ) . ' ' . ( $employee->last_name ?? '' ) ),
             'emp_number'          => $employee->emp_number ?? $employee->employee_code ?? '',
             'base_salary'         => round( $base_salary, 2 ),
-            'gross_salary'        => round( $gross_salary, 2 ),
-            'total_earnings'      => round( $total_earnings, 2 ),
-            'total_deductions'    => round( $total_deductions, 2 ),
-            'net_salary'          => round( $net_salary, 2 ),
+            'gross_salary'        => $gross_salary,
+            'total_earnings'      => $total_earnings,
+            'total_deductions'    => $total_deductions,
+            'net_salary'          => $net_salary,
             'working_days'        => $working_days,
             'days_worked'         => $days_worked,
             'days_absent'         => $days_absent,
             'days_late'           => $days_late,
             'days_leave'          => $days_leave,
             'overtime_hours'      => $overtime_hours,
-            'overtime_amount'     => round( $overtime_hours > 0 ? $component_details[ array_search( 'OVERTIME', array_column( $component_details, 'code' ) ) ]['amount'] ?? 0 : 0, 2 ),
-            'attendance_deduction'=> round( $attendance_deduction, 2 ),
-            'loan_deduction'      => round( $loan_deduction, 2 ),
+            'overtime_amount'     => $overtime_amount,
+            'attendance_deduction'=> $attendance_deduction,
+            'loan_deduction'      => $loan_deduction,
+            'pro_rata'            => round( $pro_rata, 4 ),
             'components'          => $component_details,
             'bank_name'           => $bank_name,
             'bank_account'        => $bank_account,

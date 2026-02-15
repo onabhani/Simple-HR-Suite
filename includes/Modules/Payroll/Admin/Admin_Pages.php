@@ -864,109 +864,145 @@ class Admin_Pages {
         $items_table = $wpdb->prefix . 'sfs_hr_payroll_items';
         $emp_table = $wpdb->prefix . 'sfs_hr_employees';
 
+        // Prevent concurrent payroll runs using a transient lock
+        $lock_key = 'sfs_hr_payroll_lock_' . $period_id;
+        if ( get_transient( $lock_key ) ) {
+            wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&error=payroll_in_progress' ) );
+            exit;
+        }
+        set_transient( $lock_key, get_current_user_id(), 600 ); // 10 minute lock
+
         $period = $wpdb->get_row( $wpdb->prepare(
             "SELECT * FROM {$periods_table} WHERE id = %d",
             $period_id
         ) );
 
         if ( ! $period || ! in_array( $period->status, [ 'open', 'processing' ], true ) ) {
+            delete_transient( $lock_key );
             wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&error=invalid_period' ) );
             exit;
         }
 
-        // Get run number
-        $run_number = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COALESCE(MAX(run_number), 0) + 1 FROM {$runs_table} WHERE period_id = %d",
-            $period_id
-        ) );
+        // Wrap entire payroll run in a transaction
+        $wpdb->query( 'START TRANSACTION' );
 
-        $now = current_time( 'mysql' );
-        $user_id = get_current_user_id();
+        try {
+            // Get run number
+            $run_number = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COALESCE(MAX(run_number), 0) + 1 FROM {$runs_table} WHERE period_id = %d",
+                $period_id
+            ) );
 
-        // Create payroll run
-        $wpdb->insert( $runs_table, [
-            'period_id'     => $period_id,
-            'run_number'    => $run_number,
-            'status'        => 'calculating',
-            'created_at'    => $now,
-            'updated_at'    => $now,
-        ] );
+            $now = current_time( 'mysql' );
+            $user_id = get_current_user_id();
 
-        $run_id = (int) $wpdb->insert_id;
-
-        // Get all active employees
-        $employees = $wpdb->get_col(
-            "SELECT id FROM {$emp_table} WHERE status = 'active'"
-        );
-
-        $total_gross = 0;
-        $total_deductions = 0;
-        $total_net = 0;
-        $employee_count = 0;
-
-        foreach ( $employees as $emp_id ) {
-            $calc = PayrollModule::calculate_employee_payroll( (int) $emp_id, $period_id );
-
-            if ( isset( $calc['error'] ) ) {
-                continue;
-            }
-
-            $wpdb->insert( $items_table, [
-                'run_id'              => $run_id,
-                'employee_id'         => $emp_id,
-                'base_salary'         => $calc['base_salary'],
-                'gross_salary'        => $calc['gross_salary'],
-                'total_earnings'      => $calc['total_earnings'],
-                'total_deductions'    => $calc['total_deductions'],
-                'net_salary'          => $calc['net_salary'],
-                'working_days'        => $calc['working_days'],
-                'days_worked'         => $calc['days_worked'],
-                'days_absent'         => $calc['days_absent'],
-                'days_late'           => $calc['days_late'],
-                'days_leave'          => $calc['days_leave'],
-                'overtime_hours'      => $calc['overtime_hours'],
-                'overtime_amount'     => $calc['overtime_amount'],
-                'attendance_deduction'=> $calc['attendance_deduction'],
-                'loan_deduction'      => $calc['loan_deduction'],
-                'components_json'     => wp_json_encode( $calc['components'] ),
-                'bank_name'           => $calc['bank_name'],
-                'bank_account'        => $calc['bank_account'],
-                'iban'                => $calc['iban'],
-                'payment_status'      => 'pending',
-                'created_at'          => $now,
-                'updated_at'          => $now,
+            // Create payroll run
+            $wpdb->insert( $runs_table, [
+                'period_id'     => $period_id,
+                'run_number'    => $run_number,
+                'status'        => 'calculating',
+                'created_at'    => $now,
+                'updated_at'    => $now,
             ] );
 
-            $total_gross += $calc['gross_salary'];
-            $total_deductions += $calc['total_deductions'];
-            $total_net += $calc['net_salary'];
-            $employee_count++;
+            $run_id = (int) $wpdb->insert_id;
+
+            if ( ! $run_id ) {
+                throw new \RuntimeException( 'Failed to create payroll run record' );
+            }
+
+            // Get all active employees (excludes terminated/inactive)
+            $employees = $wpdb->get_col(
+                "SELECT id FROM {$emp_table} WHERE status = 'active'"
+            );
+
+            $total_gross = 0;
+            $total_deductions = 0;
+            $total_net = 0;
+            $employee_count = 0;
+            $errors = [];
+
+            foreach ( $employees as $emp_id ) {
+                $calc = PayrollModule::calculate_employee_payroll( (int) $emp_id, $period_id );
+
+                if ( isset( $calc['error'] ) ) {
+                    $errors[] = sprintf( 'Employee #%d: %s', $emp_id, $calc['error'] );
+                    continue;
+                }
+
+                $inserted = $wpdb->insert( $items_table, [
+                    'run_id'              => $run_id,
+                    'employee_id'         => $emp_id,
+                    'base_salary'         => $calc['base_salary'],
+                    'gross_salary'        => $calc['gross_salary'],
+                    'total_earnings'      => $calc['total_earnings'],
+                    'total_deductions'    => $calc['total_deductions'],
+                    'net_salary'          => $calc['net_salary'],
+                    'working_days'        => $calc['working_days'],
+                    'days_worked'         => $calc['days_worked'],
+                    'days_absent'         => $calc['days_absent'],
+                    'days_late'           => $calc['days_late'],
+                    'days_leave'          => $calc['days_leave'],
+                    'overtime_hours'      => $calc['overtime_hours'],
+                    'overtime_amount'     => $calc['overtime_amount'],
+                    'attendance_deduction'=> $calc['attendance_deduction'],
+                    'loan_deduction'      => $calc['loan_deduction'],
+                    'components_json'     => wp_json_encode( $calc['components'] ),
+                    'bank_name'           => $calc['bank_name'],
+                    'bank_account'        => $calc['bank_account'],
+                    'iban'                => $calc['iban'],
+                    'payment_status'      => 'pending',
+                    'created_at'          => $now,
+                    'updated_at'          => $now,
+                ] );
+
+                if ( false === $inserted ) {
+                    $errors[] = sprintf( 'Employee #%d: failed to insert payroll item', $emp_id );
+                    continue;
+                }
+
+                $total_gross += $calc['gross_salary'];
+                $total_deductions += $calc['total_deductions'];
+                $total_net += $calc['net_salary'];
+                $employee_count++;
+            }
+
+            // Update run totals
+            $wpdb->update( $runs_table, [
+                'status'          => 'review',
+                'total_gross'     => round( $total_gross, 2 ),
+                'total_deductions'=> round( $total_deductions, 2 ),
+                'total_net'       => round( $total_net, 2 ),
+                'employee_count'  => $employee_count,
+                'calculated_at'   => $now,
+                'calculated_by'   => $user_id,
+                'notes'           => $errors ? implode( "\n", $errors ) : null,
+                'updated_at'      => $now,
+            ], [ 'id' => $run_id ] );
+
+            // Update period status
+            $wpdb->update( $periods_table, [
+                'status'     => 'processing',
+                'updated_at' => $now,
+            ], [ 'id' => $period_id ] );
+
+            $wpdb->query( 'COMMIT' );
+
+            // Audit Trail: payroll run created
+            do_action( 'sfs_hr_payroll_run_created', $run_id, [
+                'period_id'      => $period_id,
+                'employee_count' => $employee_count,
+                'total_net'      => round( $total_net, 2 ),
+            ] );
+
+        } catch ( \Throwable $e ) {
+            $wpdb->query( 'ROLLBACK' );
+            delete_transient( $lock_key );
+            wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&error=run_failed' ) );
+            exit;
         }
 
-        // Update run totals
-        $wpdb->update( $runs_table, [
-            'status'          => 'review',
-            'total_gross'     => $total_gross,
-            'total_deductions'=> $total_deductions,
-            'total_net'       => $total_net,
-            'employee_count'  => $employee_count,
-            'calculated_at'   => $now,
-            'calculated_by'   => $user_id,
-            'updated_at'      => $now,
-        ], [ 'id' => $run_id ] );
-
-        // Audit Trail: payroll run created
-        do_action( 'sfs_hr_payroll_run_created', $run_id, [
-            'period_id'      => $period_id,
-            'employee_count' => $employee_count,
-            'total_net'      => $total_net,
-        ] );
-
-        // Update period status
-        $wpdb->update( $periods_table, [
-            'status'     => 'processing',
-            'updated_at' => $now,
-        ], [ 'id' => $period_id ] );
+        delete_transient( $lock_key );
 
         wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=runs&view=detail&run_id=' . $run_id ) );
         exit;
@@ -1416,7 +1452,8 @@ class Admin_Pages {
         }
 
         $items = $wpdb->get_results( $wpdb->prepare(
-            "SELECT i.*, e.first_name, e.last_name, e.emp_number, e.employee_code,
+            "SELECT i.*, i.components_json,
+                    e.first_name, e.last_name, e.emp_number, e.employee_code,
                     e.national_id, e.iqama_number, e.passport_number,
                     e.iban, e.bank_name, e.bank_account
              FROM {$items_table} i
@@ -1439,9 +1476,11 @@ class Admin_Pages {
      * Export WPS SIF (Salary Information File) format
      */
     private function export_wps_sif( string $filename, object $run, array $items ): void {
-        $site_name = get_bloginfo( 'name' );
         $employer_code = get_option( 'sfs_hr_employer_code', '0000000000' ); // MOL registration
         $bank_code = get_option( 'sfs_hr_bank_code', '00' );
+
+        // Calculate actual days in the period
+        $period_days = ( strtotime( $run->end_date ) - strtotime( $run->start_date ) ) / 86400 + 1;
 
         // SIF file header
         $year_month = date( 'Ym', strtotime( $run->start_date ) );
@@ -1468,19 +1507,32 @@ class Admin_Pages {
 
         // Employee Records (EDR)
         foreach ( $items as $item ) {
-            $emp_name = trim( ( $item->first_name ?? '' ) . ' ' . ( $item->last_name ?? '' ) );
             $emp_id = $item->iqama_number ?: $item->national_id ?: $item->emp_number;
+
+            // Extract housing and other allowances from components_json
+            $housing_allowance = 0;
+            $other_allowances = 0;
+            $components = ! empty( $item->components_json ) ? json_decode( $item->components_json, true ) : [];
+            if ( is_array( $components ) ) {
+                foreach ( $components as $comp ) {
+                    if ( ( $comp['code'] ?? '' ) === 'HOUSING' ) {
+                        $housing_allowance += (float) ( $comp['amount'] ?? 0 );
+                    } elseif ( ( $comp['type'] ?? '' ) === 'earning' && ! in_array( $comp['code'] ?? '', [ 'BASE', 'HOUSING', 'OVERTIME' ], true ) ) {
+                        $other_allowances += (float) ( $comp['amount'] ?? 0 );
+                    }
+                }
+            }
 
             echo 'EDR';
             echo str_pad( $emp_id ?? '', 15 );
             echo str_pad( $item->iban ?? '', 24 );
             echo str_pad( date( 'Ymd', strtotime( $run->start_date ) ), 8 );
             echo str_pad( date( 'Ymd', strtotime( $run->end_date ) ), 8 );
-            echo str_pad( '30', 4 ); // Days in period
+            echo str_pad( (string) (int) $period_days, 4 );
             echo str_pad( number_format( (float) $item->net_salary, 2, '', '' ), 15, '0', STR_PAD_LEFT );
             echo str_pad( number_format( (float) $item->base_salary, 2, '', '' ), 15, '0', STR_PAD_LEFT );
-            echo str_pad( number_format( (float) ( $item->housing_allowance ?? 0 ), 2, '', '' ), 15, '0', STR_PAD_LEFT );
-            echo str_pad( number_format( (float) ( $item->other_allowances ?? 0 ), 2, '', '' ), 15, '0', STR_PAD_LEFT );
+            echo str_pad( number_format( $housing_allowance, 2, '', '' ), 15, '0', STR_PAD_LEFT );
+            echo str_pad( number_format( $other_allowances, 2, '', '' ), 15, '0', STR_PAD_LEFT );
             echo str_pad( number_format( (float) ( $item->total_deductions ?? 0 ), 2, '', '' ), 15, '0', STR_PAD_LEFT );
             echo "\n";
         }
@@ -1492,6 +1544,8 @@ class Admin_Pages {
      * Format WPS data for CSV export
      */
     private function format_wps_csv_data( object $run, array $items ): array {
+        $period_days = ( strtotime( $run->end_date ) - strtotime( $run->start_date ) ) / 86400 + 1;
+
         $headers = [
             'Employee ID',
             'Employee Name',
@@ -1513,16 +1567,30 @@ class Admin_Pages {
             $emp_name = trim( ( $item->first_name ?? '' ) . ' ' . ( $item->last_name ?? '' ) );
             $emp_id = $item->iqama_number ?: $item->national_id ?: $item->emp_number;
 
+            // Extract housing and other allowances from components_json
+            $housing_allowance = 0;
+            $other_allowances = 0;
+            $components = ! empty( $item->components_json ) ? json_decode( $item->components_json, true ) : [];
+            if ( is_array( $components ) ) {
+                foreach ( $components as $comp ) {
+                    if ( ( $comp['code'] ?? '' ) === 'HOUSING' ) {
+                        $housing_allowance += (float) ( $comp['amount'] ?? 0 );
+                    } elseif ( ( $comp['type'] ?? '' ) === 'earning' && ! in_array( $comp['code'] ?? '', [ 'BASE', 'HOUSING', 'OVERTIME' ], true ) ) {
+                        $other_allowances += (float) ( $comp['amount'] ?? 0 );
+                    }
+                }
+            }
+
             $rows[] = [
                 $item->employee_code ?: $item->employee_id,
                 $emp_name,
                 $emp_id,
                 $item->iban ?? '',
                 $item->bank_name ?? '',
-                30,
+                (int) $period_days,
                 number_format( (float) $item->base_salary, 2, '.', '' ),
-                number_format( (float) ( $item->housing_allowance ?? 0 ), 2, '.', '' ),
-                number_format( (float) ( $item->other_allowances ?? 0 ), 2, '.', '' ),
+                number_format( $housing_allowance, 2, '.', '' ),
+                number_format( $other_allowances, 2, '.', '' ),
                 number_format( (float) ( $item->total_deductions ?? 0 ), 2, '.', '' ),
                 number_format( (float) $item->net_salary, 2, '.', '' ),
                 'SAR',
@@ -1628,15 +1696,33 @@ class Admin_Pages {
         foreach ( $items as $item ) {
             $emp_name = trim( ( $item->first_name ?? '' ) . ' ' . ( $item->last_name ?? '' ) );
 
+            // Extract allowances from components_json
+            $housing_allowance = 0;
+            $transport_allowance = 0;
+            $other_allowances = 0;
+            $components = ! empty( $item->components_json ) ? json_decode( $item->components_json, true ) : [];
+            if ( is_array( $components ) ) {
+                foreach ( $components as $comp ) {
+                    $code = $comp['code'] ?? '';
+                    if ( $code === 'HOUSING' ) {
+                        $housing_allowance += (float) ( $comp['amount'] ?? 0 );
+                    } elseif ( $code === 'TRANSPORT' ) {
+                        $transport_allowance += (float) ( $comp['amount'] ?? 0 );
+                    } elseif ( ( $comp['type'] ?? '' ) === 'earning' && ! in_array( $code, [ 'BASE', 'HOUSING', 'TRANSPORT', 'OVERTIME' ], true ) ) {
+                        $other_allowances += (float) ( $comp['amount'] ?? 0 );
+                    }
+                }
+            }
+
             $row = [
                 $item->employee_code ?: $item->employee_id,
                 $emp_name,
                 $item->department ?: '-',
                 $item->job_title ?: '-',
                 number_format( (float) $item->base_salary, 2, '.', '' ),
-                number_format( (float) ( $item->housing_allowance ?? 0 ), 2, '.', '' ),
-                number_format( (float) ( $item->transport_allowance ?? 0 ), 2, '.', '' ),
-                number_format( (float) ( $item->other_allowances ?? 0 ), 2, '.', '' ),
+                number_format( $housing_allowance, 2, '.', '' ),
+                number_format( $transport_allowance, 2, '.', '' ),
+                number_format( $other_allowances, 2, '.', '' ),
                 number_format( (float) $item->gross_salary, 2, '.', '' ),
             ];
 
@@ -1666,11 +1752,30 @@ class Admin_Pages {
             }
 
             if ( $include_deductions ) {
+                // Extract deduction breakdown from components_json
+                $gosi_deduction = 0;
+                $absence_deduction_amt = (float) ( $item->attendance_deduction ?? 0 );
+                $late_deduction_amt = 0;
+                $other_deductions_amt = 0;
+                if ( is_array( $components ) ) {
+                    foreach ( $components as $comp ) {
+                        $code = $comp['code'] ?? '';
+                        if ( $code === 'GOSI_EMP' ) {
+                            $gosi_deduction += (float) ( $comp['amount'] ?? 0 );
+                        } elseif ( $code === 'ABSENCE' ) {
+                            $absence_deduction_amt = (float) ( $comp['amount'] ?? 0 );
+                        } elseif ( $code === 'LATE' ) {
+                            $late_deduction_amt = (float) ( $comp['amount'] ?? 0 );
+                        } elseif ( ( $comp['type'] ?? '' ) === 'deduction' && ! in_array( $code, [ 'GOSI_EMP', 'ABSENCE', 'LATE', 'LOAN' ], true ) ) {
+                            $other_deductions_amt += (float) ( $comp['amount'] ?? 0 );
+                        }
+                    }
+                }
                 $row = array_merge( $row, [
-                    number_format( (float) ( $item->gosi_deduction ?? 0 ), 2, '.', '' ),
-                    number_format( (float) ( $item->absence_deduction ?? 0 ), 2, '.', '' ),
-                    number_format( (float) ( $item->late_deduction ?? 0 ), 2, '.', '' ),
-                    number_format( (float) ( $item->other_deductions ?? 0 ), 2, '.', '' ),
+                    number_format( $gosi_deduction, 2, '.', '' ),
+                    number_format( $absence_deduction_amt, 2, '.', '' ),
+                    number_format( $late_deduction_amt, 2, '.', '' ),
+                    number_format( $other_deductions_amt, 2, '.', '' ),
                 ] );
             }
 
