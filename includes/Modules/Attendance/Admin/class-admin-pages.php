@@ -1971,6 +1971,92 @@ public function render_shifts(): void {
                     </td>
                 </tr>
 
+                <!-- Period Overrides (Ramadan, Summer, etc.) -->
+                <tr>
+                    <th colspan="2" style="padding-bottom:0;">
+                        <h3 style="margin:0;padding:10px 0 0;border-top:1px solid #dcdcde;">
+                            <?php esc_html_e( 'Period Overrides', 'sfs-hr' ); ?>
+                            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Temporarily change this shift\'s working hours for a date range (e.g., Ramadan, summer). All employees on this shift get the adjusted times automatically.', 'sfs-hr' ); ?></span></span>
+                        </h3>
+                    </th>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e( 'Date-range overrides', 'sfs-hr' ); ?></th>
+                    <td>
+                        <?php
+                        $period_overrides = [];
+                        if ( ! empty( $editing->period_overrides ) ) {
+                            $decoded = json_decode( $editing->period_overrides, true );
+                            if ( is_array( $decoded ) ) {
+                                $period_overrides = $decoded;
+                            }
+                        }
+                        ?>
+                        <div id="sfs-period-overrides-list">
+                            <?php if ( ! empty( $period_overrides ) ) : ?>
+                                <?php foreach ( $period_overrides as $idx => $pov ) : ?>
+                                    <div class="sfs-period-override-row" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+                                        <input type="text" name="period_overrides[<?php echo (int) $idx; ?>][label]"
+                                               value="<?php echo esc_attr( $pov['label'] ?? '' ); ?>"
+                                               placeholder="<?php esc_attr_e( 'Label (e.g., Ramadan)', 'sfs-hr' ); ?>"
+                                               style="width:150px;"/>
+                                        <input type="date" name="period_overrides[<?php echo (int) $idx; ?>][start_date]"
+                                               value="<?php echo esc_attr( $pov['start_date'] ?? '' ); ?>"
+                                               required style="width:150px;"/>
+                                        <span>→</span>
+                                        <input type="date" name="period_overrides[<?php echo (int) $idx; ?>][end_date]"
+                                               value="<?php echo esc_attr( $pov['end_date'] ?? '' ); ?>"
+                                               required style="width:150px;"/>
+                                        <input type="time" name="period_overrides[<?php echo (int) $idx; ?>][start_time]"
+                                               value="<?php echo esc_attr( isset( $pov['start_time'] ) ? substr( $pov['start_time'], 0, 5 ) : '' ); ?>"
+                                               required step="60" style="width:110px;"/>
+                                        <span>→</span>
+                                        <input type="time" name="period_overrides[<?php echo (int) $idx; ?>][end_time]"
+                                               value="<?php echo esc_attr( isset( $pov['end_time'] ) ? substr( $pov['end_time'], 0, 5 ) : '' ); ?>"
+                                               required step="60" style="width:110px;"/>
+                                        <button type="button" class="button sfs-remove-period-override" title="<?php esc_attr_e( 'Remove', 'sfs-hr' ); ?>">&times;</button>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+                        <button type="button" class="button" id="sfs-add-period-override">
+                            + <?php esc_html_e( 'Add Period Override', 'sfs-hr' ); ?>
+                        </button>
+                        <p class="description"><?php esc_html_e( 'Override working hours for specific date ranges. Employees assigned to this shift will use these times during the specified periods.', 'sfs-hr' ); ?></p>
+
+                        <script>
+                        (function(){
+                            var list = document.getElementById('sfs-period-overrides-list');
+                            var btn  = document.getElementById('sfs-add-period-override');
+                            var idx  = list.querySelectorAll('.sfs-period-override-row').length;
+
+                            btn.addEventListener('click', function(){
+                                var row = document.createElement('div');
+                                row.className = 'sfs-period-override-row';
+                                row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;';
+                                row.innerHTML =
+                                    '<input type="text" name="period_overrides['+idx+'][label]" placeholder="<?php echo esc_js( __( 'Label (e.g., Ramadan)', 'sfs-hr' ) ); ?>" style="width:150px;"/>' +
+                                    '<input type="date" name="period_overrides['+idx+'][start_date]" required style="width:150px;"/>' +
+                                    '<span>\u2192</span>' +
+                                    '<input type="date" name="period_overrides['+idx+'][end_date]" required style="width:150px;"/>' +
+                                    '<input type="time" name="period_overrides['+idx+'][start_time]" required step="60" style="width:110px;"/>' +
+                                    '<span>\u2192</span>' +
+                                    '<input type="time" name="period_overrides['+idx+'][end_time]" required step="60" style="width:110px;"/>' +
+                                    '<button type="button" class="button sfs-remove-period-override" title="<?php echo esc_js( __( 'Remove', 'sfs-hr' ) ); ?>">&times;</button>';
+                                list.appendChild(row);
+                                idx++;
+                            });
+
+                            list.addEventListener('click', function(e){
+                                if (e.target.classList.contains('sfs-remove-period-override')) {
+                                    e.target.closest('.sfs-period-override-row').remove();
+                                }
+                            });
+                        })();
+                        </script>
+                    </td>
+                </tr>
+
                 <!-- Attendance Policy Overrides -->
                 <tr>
                     <th colspan="2" style="padding-bottom:0;">
@@ -2419,6 +2505,34 @@ $end   = $norm_time($_POST['end_time']   ?? '');
     }
     $weekly_override_json = ! empty( $weekly_schedule ) ? wp_json_encode( $weekly_schedule ) : '';
 
+    // Period overrides (Ramadan, summer hours, etc.)
+    $period_overrides_raw = $_POST['period_overrides'] ?? [];
+    $period_overrides = [];
+    if ( is_array( $period_overrides_raw ) ) {
+        foreach ( $period_overrides_raw as $pov ) {
+            if ( ! is_array( $pov ) ) { continue; }
+            $p_label = sanitize_text_field( $pov['label'] ?? '' );
+            $p_start_date = sanitize_text_field( $pov['start_date'] ?? '' );
+            $p_end_date   = sanitize_text_field( $pov['end_date'] ?? '' );
+            $p_start_time = $norm_time( $pov['start_time'] ?? '' );
+            $p_end_time   = $norm_time( $pov['end_time'] ?? '' );
+
+            // Skip incomplete rows
+            if ( ! $p_start_date || ! $p_end_date || ! $p_start_time || ! $p_end_time ) { continue; }
+            if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $p_start_date ) ) { continue; }
+            if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $p_end_date ) )   { continue; }
+
+            $period_overrides[] = [
+                'label'      => $p_label,
+                'start_date' => $p_start_date,
+                'end_date'   => $p_end_date,
+                'start_time' => $p_start_time,
+                'end_time'   => $p_end_time,
+            ];
+        }
+    }
+    $period_overrides_json = ! empty( $period_overrides ) ? wp_json_encode( $period_overrides ) : null;
+
     // Policy override fields from shift form (NULL = inherit from role policy)
     $shift_calc_mode = in_array( $_POST['shift_calculation_mode'] ?? '', [ 'shift_times', 'total_hours' ], true )
         ? $_POST['shift_calculation_mode'] : null;
@@ -2486,6 +2600,7 @@ $end   = $norm_time($_POST['end_time']   ?? '');
         'dept_ids'                 => $dept_ids_json,
         'notes'                    => $notes,
         'weekly_overrides'         => $weekly_override_json,
+        'period_overrides'         => $period_overrides_json,
         'clock_in_methods'         => $shift_ci_methods !== null ? wp_json_encode( $shift_ci_methods ) : null,
         'clock_out_methods'        => $shift_co_methods !== null ? wp_json_encode( $shift_co_methods ) : null,
         'geofence_in'              => $shift_geo_in,

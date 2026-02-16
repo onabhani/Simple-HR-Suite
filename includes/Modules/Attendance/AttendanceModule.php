@@ -3920,6 +3920,7 @@ private static function backfill_early_leave_request_numbers( \wpdb $wpdb ): voi
             dept_id BIGINT UNSIGNED NULL COMMENT 'References sfs_hr_departments.id',
             notes TEXT NULL,
             weekly_overrides TEXT NULL,
+            period_overrides TEXT NULL COMMENT 'JSON array of date-range time overrides (Ramadan, etc.)',
             dept_ids TEXT NULL COMMENT 'JSON array of department IDs for multi-department shifts',
             PRIMARY KEY (id),
             KEY active_dept_id (active, dept_id),
@@ -3946,6 +3947,15 @@ private static function backfill_early_leave_request_numbers( \wpdb $wpdb ): voi
             $wpdb->query( "ALTER TABLE {$shifts_table} ADD COLUMN dept_ids TEXT NULL COMMENT 'JSON array of department IDs'" );
             // Migrate existing single dept_id to dept_ids JSON
             $wpdb->query( "UPDATE {$shifts_table} SET dept_ids = CONCAT('[', dept_id, ']') WHERE dept_id IS NOT NULL AND dept_ids IS NULL" );
+        }
+
+        // Migration: Add period_overrides column for date-range time overrides (Ramadan, etc.)
+        $period_ov_exists = $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'period_overrides'",
+            $shifts_table
+        ) );
+        if ( ! $period_ov_exists ) {
+            $wpdb->query( "ALTER TABLE {$shifts_table} ADD COLUMN period_overrides TEXT NULL COMMENT 'JSON array of date-range time overrides' AFTER weekly_overrides" );
         }
 
                 // 4) daily assignments (rota)
@@ -5144,7 +5154,8 @@ public static function resolve_shift_for_date(
             $emp = $wpdb->get_row($wpdb->prepare("SELECT dept_id FROM {$empT} WHERE id=%d", $employee_id));
             $row->dept_id = $emp && ! empty( $emp->dept_id ) ? (int) $emp->dept_id : null;
         }
-        return self::apply_weekly_override( $row, $ymd, $wpdb );
+        $row = self::apply_weekly_override( $row, $ymd, $wpdb );
+        return self::apply_period_override( $row, $ymd );
     }
 
     // --- 1.5) Employee-specific shift (from emp_shifts mapping)
@@ -5158,7 +5169,8 @@ public static function resolve_shift_for_date(
         $emp_shift->__virtual  = 0;
         $emp_shift->is_holiday = 0;
 
-        return self::apply_weekly_override( $emp_shift, $ymd, $wpdb );
+        $emp_shift = self::apply_weekly_override( $emp_shift, $ymd, $wpdb );
+        return self::apply_period_override( $emp_shift, $ymd );
     }
 
     // --- 2) Dept identity (id, slug, name) for automation
@@ -5260,7 +5272,8 @@ public static function resolve_shift_for_date(
                 $sh->__virtual  = 1;
                 $sh->is_holiday = 0;
                 $sh->dept_id    = $dept_id;
-                return self::apply_weekly_override( $sh, $ymd, $wpdb );
+                $sh = self::apply_weekly_override( $sh, $ymd, $wpdb );
+                return self::apply_period_override( $sh, $ymd );
             }
         }
     }
@@ -5292,7 +5305,8 @@ public static function resolve_shift_for_date(
         if ($fb) {
             $fb->__virtual  = 1;
             $fb->is_holiday = 0;
-            return self::apply_weekly_override( $fb, $ymd, $wpdb );
+            $fb = self::apply_weekly_override( $fb, $ymd, $wpdb );
+            return self::apply_period_override( $fb, $ymd );
         }
     }
 
@@ -5371,6 +5385,53 @@ private static function apply_weekly_override( ?\stdClass $shift, string $ymd, \
     $override_shift->dept_id    = $shift->dept_id ?? null;
 
     return $override_shift;
+}
+
+/**
+ * Apply period overrides to a shift for a given date.
+ *
+ * Period overrides allow temporary time changes on a shift (e.g., Ramadan hours)
+ * without creating a separate shift definition. The override only changes
+ * start_time and end_time for dates within the specified range.
+ *
+ * JSON format in period_overrides column:
+ *   [
+ *     {"label":"Ramadan","start_date":"2026-03-01","end_date":"2026-03-29","start_time":"09:00:00","end_time":"15:00:00"},
+ *     {"label":"Summer","start_date":"2026-07-01","end_date":"2026-08-31","start_time":"07:00:00","end_time":"14:00:00"}
+ *   ]
+ */
+private static function apply_period_override( ?\stdClass $shift, string $ymd ): ?\stdClass {
+    if ( ! $shift ) {
+        return $shift;
+    }
+
+    if ( empty( $shift->period_overrides ) ) {
+        return $shift;
+    }
+
+    $overrides = json_decode( $shift->period_overrides, true );
+    if ( ! is_array( $overrides ) || empty( $overrides ) ) {
+        return $shift;
+    }
+
+    foreach ( $overrides as $ov ) {
+        if ( ! is_array( $ov ) ) {
+            continue;
+        }
+        $s = $ov['start_date'] ?? '';
+        $e = $ov['end_date']   ?? '';
+        $st = $ov['start_time'] ?? '';
+        $et = $ov['end_time']   ?? '';
+
+        if ( $s && $e && $st && $et && $ymd >= $s && $ymd <= $e ) {
+            $cloned = clone $shift;
+            $cloned->start_time = $st;
+            $cloned->end_time   = $et;
+            return $cloned;
+        }
+    }
+
+    return $shift;
 }
 
 
