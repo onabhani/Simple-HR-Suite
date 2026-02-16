@@ -178,11 +178,11 @@ class PayslipsTab implements TabInterface {
 
         // Summary row.
         echo '<div style="display:flex;gap:24px;margin-top:12px;flex-wrap:wrap;">';
-        $this->mini_metric( __( 'Base', 'sfs-hr' ), number_format( $base, 2 ) );
-        $this->mini_metric( __( 'Gross', 'sfs-hr' ), number_format( $gross, 2 ), 'color:#16a34a;' );
-        $this->mini_metric( __( 'Deductions', 'sfs-hr' ), number_format( $deduct, 2 ), 'color:#dc2626;' );
+        $this->mini_metric( __( 'Base', 'sfs-hr' ), number_format( $base, 2 ), '', 'base' );
+        $this->mini_metric( __( 'Gross', 'sfs-hr' ), number_format( $gross, 2 ), 'color:#16a34a;', 'gross' );
+        $this->mini_metric( __( 'Deductions', 'sfs-hr' ), number_format( $deduct, 2 ), 'color:#dc2626;', 'deductions' );
         if ( $pay_date ) {
-            $this->mini_metric( __( 'Pay Date', 'sfs-hr' ), $pay_date );
+            $this->mini_metric( __( 'Pay Date', 'sfs-hr' ), $pay_date, '', 'pay_date' );
         }
         echo '</div>';
 
@@ -208,7 +208,7 @@ class PayslipsTab implements TabInterface {
                     $this->component_row( $c['name'] ?? __( 'Item', 'sfs-hr' ), (float) ( $c['amount'] ?? 0 ), '#16a34a' );
                 }
                 echo '<div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--sfs-border);font-weight:700;color:var(--sfs-text);">';
-                echo '<span>' . esc_html__( 'Total Earnings', 'sfs-hr' ) . '</span>';
+                echo '<span data-i18n-key="total_earnings">' . esc_html__( 'Total Earnings', 'sfs-hr' ) . '</span>';
                 echo '<span style="color:#16a34a;">' . esc_html( number_format( $gross, 2 ) ) . '</span>';
                 echo '</div>';
                 echo '</div>';
@@ -221,7 +221,7 @@ class PayslipsTab implements TabInterface {
                     $this->component_row( $c['name'] ?? __( 'Item', 'sfs-hr' ), (float) ( $c['amount'] ?? 0 ), '#dc2626' );
                 }
                 echo '<div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--sfs-border);font-weight:700;color:var(--sfs-text);">';
-                echo '<span>' . esc_html__( 'Total Deductions', 'sfs-hr' ) . '</span>';
+                echo '<span data-i18n-key="total_deductions">' . esc_html__( 'Total Deductions', 'sfs-hr' ) . '</span>';
                 echo '<span style="color:#dc2626;">-' . esc_html( number_format( $deduct, 2 ) ) . '</span>';
                 echo '</div>';
                 echo '</div>';
@@ -247,9 +247,10 @@ class PayslipsTab implements TabInterface {
         echo '</div>'; // .sfs-card
     }
 
-    private function mini_metric( string $label, string $value, string $style = '' ): void {
+    private function mini_metric( string $label, string $value, string $style = '', string $i18n_key = '' ): void {
         echo '<div style="min-width:80px;">';
-        echo '<div style="font-size:12px;color:var(--sfs-text-muted,#6b7280);">' . esc_html( $label ) . '</div>';
+        $i18n_attr = $i18n_key ? ' data-i18n-key="' . esc_attr( $i18n_key ) . '"' : '';
+        echo '<div style="font-size:12px;color:var(--sfs-text-muted,#6b7280);"' . $i18n_attr . '>' . esc_html( $label ) . '</div>';
         echo '<div style="font-size:14px;font-weight:600;color:var(--sfs-text);' . esc_attr( $style ) . '">' . esc_html( $value ) . '</div>';
         echo '</div>';
     }
@@ -269,8 +270,8 @@ class PayslipsTab implements TabInterface {
         echo '<div class="sfs-empty-state-icon">';
         echo '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" fill="none" stroke-width="1.5"/><polyline points="14 2 14 8 20 8" stroke="currentColor" fill="none" stroke-width="1.5"/><line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" stroke-width="1.5"/><line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" stroke-width="1.5"/></svg>';
         echo '</div>';
-        echo '<p class="sfs-empty-state-title">' . esc_html__( 'No payslips yet', 'sfs-hr' ) . '</p>';
-        echo '<p class="sfs-empty-state-text">' . esc_html__( 'Your payslips will appear here once payroll is processed.', 'sfs-hr' ) . '</p>';
+        echo '<p class="sfs-empty-state-title" data-i18n-key="no_payslips_yet">' . esc_html__( 'No payslips yet', 'sfs-hr' ) . '</p>';
+        echo '<p class="sfs-empty-state-text" data-i18n-key="payslips_will_appear">' . esc_html__( 'Your payslips will appear here once payroll is processed.', 'sfs-hr' ) . '</p>';
         echo '</div></div>';
     }
 

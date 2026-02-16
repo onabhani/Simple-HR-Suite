@@ -833,6 +833,7 @@ window.sfsAttI18n = window.sfsAttI18n || {
     error_prefix: '<?php echo esc_js( __( 'Error:', 'sfs-hr' ) ); ?>',
     request_timed_out: '<?php echo esc_js( __( 'Request timed out', 'sfs-hr' ) ); ?>',
     locate_me: '<?php echo esc_js( __( 'Locate me', 'sfs-hr' ) ); ?>',
+    target_word: '<?php echo esc_js( __( 'target', 'sfs-hr' ) ); ?>',
     // Progress & History
     no_activity_yet: '<?php echo esc_js( __( 'No activity recorded yet.', 'sfs-hr' ) ); ?>',
     hours_worked: '<?php echo esc_js( __( 'hours worked', 'sfs-hr' ) ); ?>',
@@ -1233,7 +1234,7 @@ setInterval(tickClock, 1000);
             }
             if (targetEl) {
                 targetEl.textContent = progressTargetSec > 0
-                    ? ('/ ' + formatHM(progressTargetSec) + ' target')
+                    ? ('/ ' + formatHM(progressTargetSec) + ' ' + (i18n.target_word || 'target'))
                     : '';
             }
         }
@@ -1437,7 +1438,7 @@ setInterval(tickClock, 1000);
                 if (blockedMsg) {
                     setStat(blockedMsg, 'error');
                 } else {
-                    setStat(j.label || i18n.ready, 'idle');
+                    setStat(i18n.ready, 'idle');
                 }
 
                 // Update progress timer.

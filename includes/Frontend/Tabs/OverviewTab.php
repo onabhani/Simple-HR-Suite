@@ -227,8 +227,8 @@ class OverviewTab implements TabInterface {
         echo '<div class="sfs-overview-hero">';
         echo '<div class="sfs-overview-hero-top">';
 
-        // Avatar (64px)
-        echo '<div class="sfs-overview-hero-avatar">';
+        // Avatar (64px) — clickable to profile tab
+        echo '<a href="' . esc_url( $profile_url ) . '" class="sfs-overview-hero-avatar" style="text-decoration:none;">';
         if ( $photo_id ) {
             echo wp_get_attachment_image(
                 $photo_id,
@@ -236,14 +236,14 @@ class OverviewTab implements TabInterface {
                 false,
                 [
                     'class' => 'sfs-overview-avatar-img',
-                    'style' => 'border-radius:50%;display:block;object-fit:cover;width:64px;height:64px;',
+                    'style' => 'border-radius:50%;display:block;object-fit:cover;width:64px;height:64px;cursor:pointer;',
                 ]
             );
         } else {
             $initials = strtoupper( mb_substr( $first_name, 0, 1 ) . mb_substr( $last_name, 0, 1 ) );
-            echo '<div class="sfs-overview-avatar-placeholder">' . esc_html( $initials ) . '</div>';
+            echo '<div class="sfs-overview-avatar-placeholder" style="cursor:pointer;">' . esc_html( $initials ) . '</div>';
         }
-        echo '</div>';
+        echo '</a>';
 
         // Greeting text + date
         echo '<div class="sfs-overview-hero-text">';
@@ -319,6 +319,7 @@ class OverviewTab implements TabInterface {
         // ── 3. Monthly Attendance Summary ─────────────────────────
         $month_num = (int) wp_date( 'n' );
         $year_num  = (int) wp_date( 'Y' );
+        echo '<div class="sfs-overview-block">';
         echo '<div class="sfs-overview-section">';
         echo '<h3 class="sfs-overview-section-title" data-i18n-key="attendance_this_month">' . esc_html__( 'Attendance This Month', 'sfs-hr' ) . '</h3>';
         echo '<span class="sfs-overview-section-sub" data-month="' . $month_num . '" data-year="' . $year_num . '">' . esc_html( wp_date( 'F Y' ) ) . '</span>';
@@ -342,8 +343,10 @@ class OverviewTab implements TabInterface {
         echo '</div>';
 
         echo '</div>'; // .sfs-overview-att-grid
+        echo '</div>'; // .sfs-overview-block
 
         // ── 4. Leave Summary KPIs ─────────────────────────────────
+        echo '<div class="sfs-overview-block">';
         echo '<div class="sfs-overview-section">';
         echo '<h3 class="sfs-overview-section-title" data-i18n-key="leave_summary">' . esc_html__( 'Leave Summary', 'sfs-hr' ) . '</h3>';
         echo '<span class="sfs-overview-section-sub"><span data-i18n-key="year">' . esc_html__( 'Year', 'sfs-hr' ) . '</span> ' . $year . '</span>';
@@ -391,10 +394,12 @@ class OverviewTab implements TabInterface {
         echo '</div></div>';
 
         echo '</div>'; // .sfs-kpi-grid
+        echo '</div>'; // .sfs-overview-block
 
         // ── 5. Recent Activity ─────────────────────────────────────
         $has_activity = ! empty( $recent_leaves ) || ! empty( $recent_loans );
         if ( $has_activity ) {
+            echo '<div class="sfs-overview-block">';
             echo '<div class="sfs-overview-section">';
             echo '<h3 class="sfs-overview-section-title" data-i18n-key="recent_activity">' . esc_html__( 'Recent Activity', 'sfs-hr' ) . '</h3>';
             echo '</div>';
@@ -444,6 +449,7 @@ class OverviewTab implements TabInterface {
             }
 
             echo '</div>'; // .sfs-overview-activity-list
+            echo '</div>'; // .sfs-overview-block
         }
 
         // ── 6. My Documents ─────────────────────────────────────
@@ -452,6 +458,7 @@ class OverviewTab implements TabInterface {
             $expired_count = $doc_status ? (int) ( $doc_status['expired_count'] ?? 0 ) : 0;
             $has_issues    = ( $missing_docs_count > 0 || $expired_count > 0 );
 
+            echo '<div class="sfs-overview-block">';
             echo '<div class="sfs-overview-section">';
             echo '<h3 class="sfs-overview-section-title" data-i18n-key="my_documents">' . esc_html__( 'My Documents', 'sfs-hr' ) . '</h3>';
             echo '</div>';
@@ -476,7 +483,7 @@ class OverviewTab implements TabInterface {
             echo '</div>'; // .sfs-overview-att-grid
 
             if ( $has_issues ) {
-                echo '<a href="' . esc_url( $documents_url ) . '" class="sfs-overview-profile-banner" style="margin-top:8px;">';
+                echo '<a href="' . esc_url( $documents_url ) . '" class="sfs-overview-profile-banner sfs-overview-profile-banner--danger" style="margin-top:8px;">';
                 echo '<div class="sfs-overview-profile-banner-text">';
                 echo '<span class="sfs-overview-profile-banner-title" data-i18n-key="documents_need_attention">' . esc_html__( 'Documents need attention', 'sfs-hr' ) . '</span>';
                 $parts = [];
@@ -491,6 +498,7 @@ class OverviewTab implements TabInterface {
                 echo '<svg class="sfs-overview-profile-banner-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
                 echo '</a>';
             }
+            echo '</div>'; // .sfs-overview-block (documents)
         }
 
         // ── 7. Profile Completion Banner ──────────────────────────

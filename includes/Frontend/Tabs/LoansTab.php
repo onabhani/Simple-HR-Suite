@@ -269,11 +269,11 @@ class LoansTab implements TabInterface {
             echo '</summary>';
 
             echo '<div class="sfs-history-card-body">';
-            $this->detail_row( __( 'Amount', 'sfs-hr' ), $amount_str );
-            $this->detail_row( __( 'Remaining', 'sfs-hr' ), $remaining_str );
-            $this->detail_row( __( 'Installments', 'sfs-hr' ), (int) $paid_count . ' / ' . (int) $loan->installments_count );
-            $this->detail_row( __( 'Requested', 'sfs-hr' ), wp_date( 'M j, Y', strtotime( $loan->created_at ) ) );
-            $this->detail_row( __( 'Reason', 'sfs-hr' ), $loan->reason );
+            $this->detail_row( __( 'Amount', 'sfs-hr' ), $amount_str, 'amount' );
+            $this->detail_row( __( 'Remaining', 'sfs-hr' ), $remaining_str, 'remaining' );
+            $this->detail_row( __( 'Installments', 'sfs-hr' ), (int) $paid_count . ' / ' . (int) $loan->installments_count, 'installments' );
+            $this->detail_row( __( 'Requested', 'sfs-hr' ), wp_date( 'M j, Y', strtotime( $loan->created_at ) ), 'requested' );
+            $this->detail_row( __( 'Reason', 'sfs-hr' ), $loan->reason, 'reason' );
 
             if ( $loan->status === 'rejected' && ! empty( $approver_info ) ) {
                 echo '<div class="sfs-detail-row" style="color:var(--sfs-danger);"><span class="sfs-detail-label">' . esc_html__( 'Rejected by', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $approver_info ) . '</span></div>';
@@ -312,8 +312,9 @@ class LoansTab implements TabInterface {
         echo '</div></div>';
     }
 
-    private function detail_row( string $label, string $value ): void {
-        echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html( $label ) . '</span><span class="sfs-detail-value">' . esc_html( $value ) . '</span></div>';
+    private function detail_row( string $label, string $value, string $i18n_key = '' ): void {
+        $i18n_attr = $i18n_key ? ' data-i18n-key="' . esc_attr( $i18n_key ) . '"' : '';
+        echo '<div class="sfs-detail-row"><span class="sfs-detail-label"' . $i18n_attr . '>' . esc_html( $label ) . '</span><span class="sfs-detail-value">' . esc_html( $value ) . '</span></div>';
     }
 
     private function status_badge( string $status ): string {
