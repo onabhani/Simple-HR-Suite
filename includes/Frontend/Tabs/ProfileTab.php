@@ -1,10 +1,9 @@
 <?php
 /**
- * Profile Tab - Employee profile information.
+ * Profile Tab - Modern employee profile card.
  *
- * Displays employee photo, personal details, employment info,
- * contact, identification, payroll, quick links, and assigned assets.
- * Content moved from inline rendering in Shortcodes.php.
+ * Redesigned layout: cover header with avatar overlay, status/code chips,
+ * grouped info sections in cards, profile completion ring, assets accordion.
  *
  * @package SFS\HR\Frontend\Tabs
  */
@@ -70,6 +69,14 @@ class ProfileTab implements TabInterface {
         $status = $status_map[ $status_raw ] ?? ucfirst( $status_raw );
         $gender = $gender_map[ $gender_raw ] ?? ucfirst( $gender_raw );
 
+        // Status color class.
+        $status_class = 'sfs-p-chip--active';
+        if ( $status_raw === 'inactive' ) {
+            $status_class = 'sfs-p-chip--inactive';
+        } elseif ( $status_raw === 'terminated' ) {
+            $status_class = 'sfs-p-chip--terminated';
+        }
+
         // Department name.
         $dept_name = '';
         if ( ! empty( $emp['dept_id'] ) ) {
@@ -112,7 +119,7 @@ class ProfileTab implements TabInterface {
         $profile_completion_pct = (int) round( ( count( $profile_completed ) / count( $profile_fields ) ) * 100 );
         $profile_missing        = array_keys( array_filter( $profile_fields, fn( $v ) => ! $v ) );
 
-        // ── Tab URLs ──────────────────────────────────────────────
+        // Tab URLs.
         $base_url       = remove_query_arg( 'sfs_hr_tab' );
         $documents_url  = add_query_arg( 'sfs_hr_tab', 'documents', $base_url );
         $attendance_url = add_query_arg( 'sfs_hr_tab', 'attendance', $base_url );
@@ -134,234 +141,158 @@ class ProfileTab implements TabInterface {
             $is_limited_access = ( $approved > 0 );
         }
 
-        // ── Helper: print a field row ─────────────────────────────
-        $label_to_key = static function ( string $label ): string {
-            $map = [
-                'Status' => 'status', 'Gender' => 'gender', 'Department' => 'department',
-                'Position' => 'position', 'Hire Date' => 'hire_date', 'Hire date' => 'hire_date',
-                'Employee ID' => 'employee_id', 'WP Username' => 'wp_username',
-                'Email' => 'email', 'Phone' => 'phone',
-                'Emergency contact' => 'emergency_contact', 'Emergency Contact' => 'emergency_contact',
-                'National ID' => 'national_id', 'National ID Expiry' => 'national_id_expiry',
-                'Passport No.' => 'passport_no', 'Passport Expiry' => 'passport_expiry',
-                'Base salary' => 'base_salary', 'Base Salary' => 'base_salary',
-                // Arabic labels
-                'الحالة' => 'status', 'الجنس' => 'gender', 'القسم' => 'department',
-                'المنصب' => 'position', 'تاريخ التعيين' => 'hire_date',
-                'رقم الموظف' => 'employee_id', 'اسم المستخدم' => 'wp_username',
-                'البريد الإلكتروني' => 'email', 'الهاتف' => 'phone',
-                'جهة اتصال الطوارئ' => 'emergency_contact',
-                'رقم الهوية' => 'national_id', 'انتهاء الهوية' => 'national_id_expiry',
-                'رقم الجواز' => 'passport_no', 'انتهاء الجواز' => 'passport_expiry',
-                'الراتب الأساسي' => 'base_salary',
-            ];
-            return $map[ $label ] ?? '';
-        };
-
-        $print_field = static function ( string $label, string $value ) use ( $label_to_key ): void {
-            if ( $value === '' ) {
-                return;
-            }
-            $key      = $label_to_key( $label );
-            $key_attr = $key ? ' data-i18n-key="' . esc_attr( $key ) . '"' : '';
-            echo '<div class="sfs-hr-field-row">';
-            echo '<div class="sfs-hr-field-label"' . $key_attr . '>' . esc_html( $label ) . '</div>';
-            echo '<div class="sfs-hr-field-value">' . esc_html( $value ) . '</div>';
-            echo '</div>';
-        };
+        // Initials for avatar fallback.
+        $initials = strtoupper( mb_substr( $first_name, 0, 1 ) . mb_substr( $last_name, 0, 1 ) );
 
         // ─── Render ───────────────────────────────────────────────
+        echo '<div class="sfs-p">';
 
-        // Profile header
-        echo '<div class="sfs-hr-profile-header">';
-        echo '<div class="sfs-hr-profile-photo">';
+        // ── Cover + Avatar Header ─────────────────────────────────
+        echo '<div class="sfs-p-cover">';
+        echo '<div class="sfs-p-cover-inner">';
+
+        // Avatar
+        echo '<div class="sfs-p-avatar">';
         if ( $photo_id ) {
             echo wp_get_attachment_image(
                 $photo_id,
                 [ 96, 96 ],
                 false,
                 [
-                    'class' => 'sfs-hr-emp-photo',
-                    'style' => 'border-radius:50%;display:block;object-fit:cover;width:96px;height:96px;',
+                    'class' => 'sfs-p-avatar-img',
+                    'alt'   => esc_attr( $full_name ),
                 ]
             );
         } else {
-            echo '<div class="sfs-hr-emp-photo sfs-hr-emp-photo--empty">'
-                . esc_html__( 'No photo', 'sfs-hr' )
-                . '</div>';
+            echo '<div class="sfs-p-avatar-initials">' . esc_html( $initials ?: '?' ) . '</div>';
         }
         echo '</div>';
 
-        echo '<div class="sfs-hr-profile-header-main">';
-        echo '<h4 class="sfs-hr-profile-name" data-name-en="' . esc_attr( $full_name ) . '" data-name-ar="' . esc_attr( $full_name_ar ?: $full_name ) . '">';
+        // Name + meta
+        echo '<div class="sfs-p-identity">';
+        echo '<h2 class="sfs-p-name" data-name-en="' . esc_attr( $full_name ) . '" data-name-ar="' . esc_attr( $full_name_ar ?: $full_name ) . '">';
         echo esc_html( $full_name );
-        echo '</h4>';
+        echo '</h2>';
 
-        echo '<div class="sfs-hr-profile-chips">';
-        if ( $code !== '' ) {
-            echo '<span class="sfs-hr-chip sfs-hr-chip--code">'
-                . esc_html__( 'Code', 'sfs-hr' ) . ': ' . esc_html( $code )
-                . '</span>';
+        if ( $position !== '' || $dept_name !== '' ) {
+            $meta = array_filter( [ $position, $dept_name ] );
+            echo '<div class="sfs-p-subtitle">' . esc_html( implode( ' · ', $meta ) ) . '</div>';
         }
+
+        // Chips row
+        echo '<div class="sfs-p-chips">';
         if ( $status !== '' ) {
-            echo '<span class="sfs-hr-chip sfs-hr-chip--status">' . esc_html( $status ) . '</span>';
+            echo '<span class="sfs-p-chip ' . esc_attr( $status_class ) . '">' . esc_html( $status ) . '</span>';
+        }
+        if ( $code !== '' ) {
+            echo '<span class="sfs-p-chip sfs-p-chip--code">' . esc_html( $code ) . '</span>';
         }
         echo '</div>';
 
-        echo '<div class="sfs-hr-profile-meta-line">';
-        $meta_parts = [];
-        if ( $position !== '' ) {
-            $meta_parts[] = $position;
-        }
-        if ( $dept_name !== '' ) {
-            $meta_parts[] = $dept_name;
-        }
-        echo esc_html( implode( ' · ', $meta_parts ) );
-        echo '</div>';
+        echo '</div>'; // .sfs-p-identity
 
-        if ( $can_self_clock ) {
-            echo '<div class="sfs-hr-profile-actions">';
-            echo '<a href="' . esc_url( $attendance_url ) . '" class="sfs-hr-att-btn" data-sfs-att-btn="1">';
-            echo esc_html__( 'Attendance', 'sfs-hr' );
-            echo '</a>';
-            echo '</div>';
-        }
-        echo '</div>'; // .sfs-hr-profile-header-main
-        echo '</div>'; // .sfs-hr-profile-header
-
-        // Profile completion.
-        if ( $profile_completion_pct < 100 ) {
-            echo '<div class="sfs-hr-profile-completion">';
-            echo '<div class="sfs-hr-completion-header">';
-            echo '<span class="sfs-hr-completion-title" data-i18n-key="profile_completion">' . esc_html__( 'Profile Completion', 'sfs-hr' ) . '</span>';
-            echo '<span class="sfs-hr-completion-pct">' . esc_html( $profile_completion_pct ) . '%</span>';
-            echo '</div>';
-            echo '<div class="sfs-hr-completion-bar">';
-            echo '<div class="sfs-hr-completion-fill" style="width:' . esc_attr( $profile_completion_pct ) . '%"></div>';
-            echo '</div>';
-
-            if ( ! empty( $profile_missing ) ) {
-                $missing_labels = [
-                    'photo'       => __( 'Photo', 'sfs-hr' ),
-                    'name'        => __( 'Full name', 'sfs-hr' ),
-                    'email'       => __( 'Email', 'sfs-hr' ),
-                    'phone'       => __( 'Phone', 'sfs-hr' ),
-                    'gender'      => __( 'Gender', 'sfs-hr' ),
-                    'position'    => __( 'Position', 'sfs-hr' ),
-                    'department'  => __( 'Department', 'sfs-hr' ),
-                    'hire_date'   => __( 'Hire date', 'sfs-hr' ),
-                    'national_id' => __( 'National ID', 'sfs-hr' ),
-                    'emergency'   => __( 'Emergency contact', 'sfs-hr' ),
-                    'documents'   => __( 'Documents', 'sfs-hr' ),
-                ];
-                $missing_key_map = [
-                    'photo' => 'photo', 'name' => 'full_name', 'email' => 'email',
-                    'phone' => 'phone', 'gender' => 'gender', 'position' => 'position',
-                    'department' => 'department', 'hire_date' => 'hire_date',
-                    'national_id' => 'national_id', 'emergency' => 'emergency_contact',
-                    'documents' => 'documents',
-                ];
-
-                echo '<div class="sfs-hr-completion-hint">';
-                echo '<span data-i18n-key="missing">' . esc_html__( 'Missing', 'sfs-hr' ) . ':</span> ';
-                foreach ( $profile_missing as $idx => $field ) {
-                    $key   = $missing_key_map[ $field ] ?? $field;
-                    $label = $missing_labels[ $field ] ?? $field;
-                    echo '<span class="sfs-hr-missing-field" data-i18n-key="' . esc_attr( $key ) . '">' . esc_html( $label ) . '</span>';
-                    if ( $idx < count( $profile_missing ) - 1 ) {
-                        echo ', ';
-                    }
-                }
-                echo '</div>';
+        // Action buttons
+        if ( $can_self_clock || ! $is_limited_access ) {
+            echo '<div class="sfs-p-header-actions">';
+            if ( $can_self_clock ) {
+                echo '<a href="' . esc_url( $attendance_url ) . '" class="sfs-p-action-btn sfs-p-action-btn--primary" data-sfs-att-btn="1">';
+                echo '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+                echo '<span>' . esc_html__( 'Attendance', 'sfs-hr' ) . '</span>';
+                echo '</a>';
             }
-            echo '</div>'; // .sfs-hr-profile-completion
+            if ( ! $is_limited_access ) {
+                echo '<a href="' . esc_url( $documents_url ) . '" class="sfs-p-action-btn">';
+                echo '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+                echo '<span data-i18n-key="my_documents">' . esc_html__( 'Documents', 'sfs-hr' ) . '</span>';
+                if ( $missing_docs_count > 0 ) {
+                    echo '<span class="sfs-p-action-badge">' . (int) $missing_docs_count . '</span>';
+                }
+                echo '</a>';
+            }
+            echo '</div>';
         }
 
-        // ── Profile detail groups ─────────────────────────────────
-        echo '<div class="sfs-hr-profile-grid">';
-        echo '<div class="sfs-hr-profile-col">';
+        echo '</div>'; // .sfs-p-cover-inner
+        echo '</div>'; // .sfs-p-cover
 
-        // Employment group.
-        echo '<div class="sfs-hr-profile-group">';
-        echo '<div class="sfs-hr-profile-group-title" data-i18n-key="employment">' . esc_html__( 'Employment', 'sfs-hr' ) . '</div>';
-        echo '<div class="sfs-hr-profile-group-body">';
-        $print_field( __( 'Status', 'sfs-hr' ), $status );
-        $print_field( __( 'Gender', 'sfs-hr' ), $gender );
-        $print_field( __( 'Department', 'sfs-hr' ), $dept_name );
-        $print_field( __( 'Position', 'sfs-hr' ), $position );
-        $print_field( __( 'Hire Date', 'sfs-hr' ), $hire_date );
-        $print_field( __( 'Employee ID', 'sfs-hr' ), (string) $emp_id );
+        // ── Profile completion (only if < 100%) ────────────────
+        if ( $profile_completion_pct < 100 ) {
+            $this->render_completion_ring( $profile_completion_pct, $profile_missing );
+        }
+
+        // ── Info Cards Grid ───────────────────────────────────────
+        echo '<div class="sfs-p-cards">';
+
+        // Employment
+        echo '<div class="sfs-p-card">';
+        echo '<div class="sfs-p-card-header">';
+        echo '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>';
+        echo '<h3 data-i18n-key="employment">' . esc_html__( 'Employment', 'sfs-hr' ) . '</h3>';
+        echo '</div>';
+        echo '<div class="sfs-p-card-body">';
+        $this->field( __( 'Status', 'sfs-hr' ), $status, 'status' );
+        $this->field( __( 'Gender', 'sfs-hr' ), $gender, 'gender' );
+        $this->field( __( 'Department', 'sfs-hr' ), $dept_name, 'department' );
+        $this->field( __( 'Position', 'sfs-hr' ), $position, 'position' );
+        $this->field( __( 'Hire Date', 'sfs-hr' ), $hire_date, 'hire_date' );
+        $this->field( __( 'Employee ID', 'sfs-hr' ), (string) $emp_id, 'employee_id' );
         if ( $wp_username !== '' ) {
-            $print_field( __( 'WP Username', 'sfs-hr' ), $wp_username );
+            $this->field( __( 'WP Username', 'sfs-hr' ), $wp_username, 'wp_username' );
         }
         echo '</div></div>';
 
-        // Contact group.
-        echo '<div class="sfs-hr-profile-group">';
-        echo '<div class="sfs-hr-profile-group-title" data-i18n-key="contact">' . esc_html__( 'Contact', 'sfs-hr' ) . '</div>';
-        echo '<div class="sfs-hr-profile-group-body">';
-        $print_field( __( 'Email', 'sfs-hr' ), $email );
-        $print_field( __( 'Phone', 'sfs-hr' ), $phone );
-        $print_field(
-            __( 'Emergency contact', 'sfs-hr' ),
-            trim( $emg_name . ( $emg_phone ? ' / ' . $emg_phone : '' ) )
+        // Contact
+        echo '<div class="sfs-p-card">';
+        echo '<div class="sfs-p-card-header">';
+        echo '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
+        echo '<h3 data-i18n-key="contact">' . esc_html__( 'Contact', 'sfs-hr' ) . '</h3>';
+        echo '</div>';
+        echo '<div class="sfs-p-card-body">';
+        $this->field( __( 'Email', 'sfs-hr' ), $email, 'email' );
+        $this->field( __( 'Phone', 'sfs-hr' ), $phone, 'phone' );
+        $this->field(
+            __( 'Emergency Contact', 'sfs-hr' ),
+            trim( $emg_name . ( $emg_phone ? ' / ' . $emg_phone : '' ) ),
+            'emergency_contact'
         );
         echo '</div></div>';
 
-        echo '</div>'; // .sfs-hr-profile-col
-
-        echo '<div class="sfs-hr-profile-col">';
-
-        // Identification group.
-        echo '<div class="sfs-hr-profile-group">';
-        echo '<div class="sfs-hr-profile-group-title" data-i18n-key="identification">' . esc_html__( 'Identification', 'sfs-hr' ) . '</div>';
-        echo '<div class="sfs-hr-profile-group-body">';
-        $print_field( __( 'National ID', 'sfs-hr' ), $national_id );
-        $print_field( __( 'National ID Expiry', 'sfs-hr' ), $nid_exp );
-        $print_field( __( 'Passport No.', 'sfs-hr' ), $passport_no );
-        $print_field( __( 'Passport Expiry', 'sfs-hr' ), $pass_exp );
+        // Identification
+        echo '<div class="sfs-p-card">';
+        echo '<div class="sfs-p-card-header">';
+        echo '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 8h2"/><path d="M15 12h2"/><path d="M7 16h10"/></svg>';
+        echo '<h3 data-i18n-key="identification">' . esc_html__( 'Identification', 'sfs-hr' ) . '</h3>';
+        echo '</div>';
+        echo '<div class="sfs-p-card-body">';
+        $this->field( __( 'National ID', 'sfs-hr' ), $national_id, 'national_id' );
+        $this->field( __( 'National ID Expiry', 'sfs-hr' ), $nid_exp, 'national_id_expiry' );
+        $this->field( __( 'Passport No.', 'sfs-hr' ), $passport_no, 'passport_no' );
+        $this->field( __( 'Passport Expiry', 'sfs-hr' ), $pass_exp, 'passport_expiry' );
         echo '</div></div>';
 
-        // Payroll group.
-        echo '<div class="sfs-hr-profile-group">';
-        echo '<div class="sfs-hr-profile-group-title" data-i18n-key="payroll">' . esc_html__( 'Payroll', 'sfs-hr' ) . '</div>';
-        echo '<div class="sfs-hr-profile-group-body">';
-        $print_field( __( 'Base salary', 'sfs-hr' ), $base_salary );
+        // Payroll
+        echo '<div class="sfs-p-card">';
+        echo '<div class="sfs-p-card-header">';
+        echo '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
+        echo '<h3 data-i18n-key="payroll">' . esc_html__( 'Payroll', 'sfs-hr' ) . '</h3>';
+        echo '</div>';
+        echo '<div class="sfs-p-card-body">';
+        $this->field( __( 'Base Salary', 'sfs-hr' ), $base_salary, 'base_salary' );
         echo '</div></div>';
 
-        // Quick links.
-        if ( ! $is_limited_access ) {
-            echo '<div class="sfs-hr-profile-group sfs-hr-quick-links">';
-            echo '<div class="sfs-hr-profile-group-title" data-i18n-key="quick_links">' . esc_html__( 'Quick Links', 'sfs-hr' ) . '</div>';
-            echo '<div class="sfs-hr-profile-group-body">';
-            echo '<a href="' . esc_url( $documents_url ) . '" class="sfs-hr-quick-link">';
-            echo '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>';
-            echo '<span data-i18n-key="my_documents">' . esc_html__( 'My Documents', 'sfs-hr' ) . '</span>';
-            if ( $missing_docs_count > 0 ) {
-                echo '<span class="sfs-hr-notification-dot" title="' . esc_attr(
-                    sprintf(
-                        _n( '%d missing document', '%d missing documents', $missing_docs_count, 'sfs-hr' ),
-                        $missing_docs_count
-                    )
-                ) . '"></span>';
-            }
-            echo '<svg class="sfs-hr-quick-link-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>';
-            echo '</a>';
-            echo '</div></div>';
-        }
-
-        echo '</div>'; // .sfs-hr-profile-col
-        echo '</div>'; // .sfs-hr-profile-grid
+        echo '</div>'; // .sfs-p-cards
 
         // ── Assets section ────────────────────────────────────────
         $this->render_assets( $emp_id );
+
+        echo '</div>'; // .sfs-p
 
         // ── Attendance button status script ───────────────────────
         if ( $can_self_clock ) {
             echo '<script>';
             echo '(function(){';
             echo '"use strict";';
-            echo 'var btn=document.querySelector(\'.sfs-hr-att-btn[data-sfs-att-btn="1"]\');';
+            echo 'var btn=document.querySelector(\'.sfs-p-action-btn[data-sfs-att-btn="1"] span\');';
             echo 'if(!btn)return;';
             echo 'var url=' . wp_json_encode( esc_url_raw( rest_url( 'sfs-hr/v1/attendance/status' ) ) ) . ';';
             echo 'var nonce=' . wp_json_encode( wp_create_nonce( 'wp_rest' ) ) . ';';
@@ -382,7 +313,74 @@ class ProfileTab implements TabInterface {
     }
 
     /**
-     * Render assets section (desktop table + mobile cards + photo modal).
+     * Render a single field row.
+     */
+    private function field( string $label, string $value, string $key = '' ): void {
+        if ( $value === '' ) {
+            return;
+        }
+        $key_attr = $key ? ' data-i18n-key="' . esc_attr( $key ) . '"' : '';
+        echo '<div class="sfs-p-field">';
+        echo '<span class="sfs-p-field-label"' . $key_attr . '>' . esc_html( $label ) . '</span>';
+        echo '<span class="sfs-p-field-value">' . esc_html( $value ) . '</span>';
+        echo '</div>';
+    }
+
+    /**
+     * Render profile completion ring + missing fields.
+     */
+    private function render_completion_ring( int $pct, array $missing ): void {
+        $missing_labels = [
+            'photo'       => __( 'Photo', 'sfs-hr' ),
+            'name'        => __( 'Full name', 'sfs-hr' ),
+            'email'       => __( 'Email', 'sfs-hr' ),
+            'phone'       => __( 'Phone', 'sfs-hr' ),
+            'gender'      => __( 'Gender', 'sfs-hr' ),
+            'position'    => __( 'Position', 'sfs-hr' ),
+            'department'  => __( 'Department', 'sfs-hr' ),
+            'hire_date'   => __( 'Hire date', 'sfs-hr' ),
+            'national_id' => __( 'National ID', 'sfs-hr' ),
+            'emergency'   => __( 'Emergency contact', 'sfs-hr' ),
+            'documents'   => __( 'Documents', 'sfs-hr' ),
+        ];
+
+        // SVG ring: circumference = 2 * PI * 40 = 251.3
+        $circumference = 251.3;
+        $offset        = $circumference - ( $circumference * $pct / 100 );
+
+        echo '<div class="sfs-p-completion">';
+
+        echo '<div class="sfs-p-completion-ring">';
+        echo '<svg viewBox="0 0 100 100">';
+        echo '<circle cx="50" cy="50" r="40" fill="none" stroke="var(--sfs-border, #e5e7eb)" stroke-width="6"/>';
+        echo '<circle cx="50" cy="50" r="40" fill="none" stroke="var(--sfs-primary, #0f4c5c)" stroke-width="6" '
+           . 'stroke-linecap="round" stroke-dasharray="' . esc_attr( $circumference ) . '" '
+           . 'stroke-dashoffset="' . esc_attr( $offset ) . '" '
+           . 'transform="rotate(-90 50 50)" class="sfs-p-ring-progress"/>';
+        echo '</svg>';
+        echo '<span class="sfs-p-ring-pct">' . esc_html( $pct ) . '%</span>';
+        echo '</div>';
+
+        echo '<div class="sfs-p-completion-info">';
+        echo '<span class="sfs-p-completion-title" data-i18n-key="profile_completion">' . esc_html__( 'Profile Completion', 'sfs-hr' ) . '</span>';
+        if ( ! empty( $missing ) ) {
+            echo '<div class="sfs-p-completion-missing">';
+            echo '<span data-i18n-key="missing">' . esc_html__( 'Missing', 'sfs-hr' ) . ':</span> ';
+            $parts = [];
+            foreach ( $missing as $field ) {
+                $label   = $missing_labels[ $field ] ?? $field;
+                $parts[] = '<span class="sfs-p-missing-tag">' . esc_html( $label ) . '</span>';
+            }
+            echo implode( ' ', $parts );
+            echo '</div>';
+        }
+        echo '</div>';
+
+        echo '</div>'; // .sfs-p-completion
+    }
+
+    /**
+     * Render assets section.
      */
     private function render_assets( int $emp_id ): void {
         global $wpdb;
@@ -390,7 +388,6 @@ class ProfileTab implements TabInterface {
         $assign_table = $wpdb->prefix . 'sfs_hr_asset_assignments';
         $asset_table  = $wpdb->prefix . 'sfs_hr_assets';
 
-        // Check table exists.
         if ( $wpdb->get_var( "SHOW TABLES LIKE '{$assign_table}'" ) !== $assign_table ) {
             return;
         }
@@ -423,77 +420,27 @@ class ProfileTab implements TabInterface {
             return '<span class="sfs-hr-asset-status-pill">' . esc_html( $label ) . '</span>';
         };
 
-        $field_fn = static function ( string $label, ?string $value ): void {
-            $value = trim( (string) $value );
-            if ( $value === '' ) {
-                return;
-            }
-            echo '<div class="sfs-hr-asset-field-row">';
-            echo '<div class="sfs-hr-asset-field-label">' . esc_html( $label ) . '</div>';
-            echo '<div class="sfs-hr-asset-field-value">' . esc_html( $value ) . '</div>';
-            echo '</div>';
-        };
-
-        echo '<div class="sfs-hr-my-assets-frontend">';
-        echo '<h4 data-i18n-key="my_assets">' . esc_html__( 'My Assets', 'sfs-hr' ) . '</h4>';
-
-        // ── Asset cards (unified for desktop + mobile) ────────────
-        echo '<div class="sfs-history-list">';
-        foreach ( $asset_rows as $row ) {
-            $this->render_asset_card( $row, $status_badge_fn, $field_fn );
-        }
+        echo '<div class="sfs-p-card" style="grid-column:1/-1;">';
+        echo '<div class="sfs-p-card-header">';
+        echo '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
+        echo '<h3 data-i18n-key="my_assets">' . esc_html__( 'My Assets', 'sfs-hr' ) . '</h3>';
         echo '</div>';
 
-        echo '</div>'; // .sfs-hr-my-assets-frontend
+        echo '<div class="sfs-p-card-body" style="padding:0;">';
+        echo '<div class="sfs-history-list">';
+        foreach ( $asset_rows as $row ) {
+            $this->render_asset_card( $row, $status_badge_fn );
+        }
+        echo '</div>';
+        echo '</div></div>';
 
-        // ── Asset photo modal ─────────────────────────────────────
         $this->render_asset_photo_modal();
     }
 
     /**
-     * Render a single asset table row (desktop).
+     * Render a single asset card.
      */
-    private function render_asset_table_row( array $row, callable $status_badge_fn ): void {
-        $assignment_id = (int) ( $row['id'] ?? 0 );
-        $row_status    = (string) ( $row['status'] ?? '' );
-        $asset_id      = (int) ( $row['asset_id'] ?? 0 );
-        $asset_name    = (string) ( $row['asset_name'] ?? '' );
-        $asset_code    = (string) ( $row['asset_code'] ?? '' );
-        $category      = (string) ( $row['category'] ?? '' );
-        $start_date    = (string) ( $row['start_date'] ?? '' );
-        $end_date      = (string) ( $row['end_date'] ?? '' );
-
-        $title = $asset_name !== '' ? $asset_name : $asset_code;
-        if ( $title === '' ) {
-            $title = sprintf( __( 'Asset #%d', 'sfs-hr' ), $assignment_id );
-        }
-
-        $title_html = esc_html( $title );
-        if ( $asset_id && ( current_user_can( 'sfs_hr.manage' ) || current_user_can( 'sfs_hr_assets_admin' ) ) ) {
-            $edit_url   = add_query_arg(
-                [ 'page' => 'sfs-hr-assets', 'tab' => 'assets', 'view' => 'edit', 'id' => $asset_id ],
-                admin_url( 'admin.php' )
-            );
-            $title_html = '<a href="' . esc_url( $edit_url ) . '">' . esc_html( $title ) . '</a>';
-        }
-
-        echo '<tr data-assignment-id="' . $assignment_id . '">';
-        echo '<td>' . $title_html . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-        echo '<td>' . esc_html( $asset_code ) . '</td>';
-        echo '<td>' . esc_html( $category ) . '</td>';
-        echo '<td>' . esc_html( $start_date ) . '</td>';
-        echo '<td>' . esc_html( $end_date !== '' ? $end_date : '—' ) . '</td>';
-        echo '<td>' . $status_badge_fn( $row_status ) . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-        echo '<td class="sfs-hr-asset-actions">';
-        $this->render_asset_actions( $assignment_id, $row_status );
-        echo '</td>';
-        echo '</tr>';
-    }
-
-    /**
-     * Render a single asset mobile card.
-     */
-    private function render_asset_card( array $row, callable $status_badge_fn, callable $field_fn ): void {
+    private function render_asset_card( array $row, callable $status_badge_fn ): void {
         $assignment_id = (int) ( $row['id'] ?? 0 );
         $row_status    = (string) ( $row['status'] ?? '' );
         $asset_id      = (int) ( $row['asset_id'] ?? 0 );
@@ -555,7 +502,6 @@ class ProfileTab implements TabInterface {
         }
 
         if ( $status === 'pending_employee_approval' ) {
-            // Approve
             echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="sfs-hr-asset-action-form" data-requires-photos="1">';
             wp_nonce_field( 'sfs_hr_assets_assign_decision_' . $assignment_id );
             echo '<input type="hidden" name="action" value="sfs_hr_assets_assign_decision"/>';
@@ -564,7 +510,6 @@ class ProfileTab implements TabInterface {
             echo '<button type="button" class="sfs-hr-asset-btn sfs-hr-asset-btn--approve">' . esc_html__( 'Approve', 'sfs-hr' ) . '</button>';
             echo '</form>';
 
-            // Reject
             echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="sfs-hr-asset-action-form">';
             wp_nonce_field( 'sfs_hr_assets_assign_decision_' . $assignment_id );
             echo '<input type="hidden" name="action" value="sfs_hr_assets_assign_decision"/>';
@@ -628,9 +573,6 @@ class ProfileTab implements TabInterface {
             document.addEventListener('DOMContentLoaded',function(){
                 var modal=document.getElementById('sfs-hr-asset-photo-modal');
                 if(!modal)return;
-                if(window.matchMedia&&window.matchMedia('(min-width:768px)').matches){
-                    document.querySelectorAll('.sfs-hr-asset-card').forEach(function(d){d.setAttribute('open','open');});
-                }
                 var backdrop=modal.querySelector('.sfs-hr-modal-backdrop'),
                     closeBtn=modal.querySelector('.sfs-hr-modal-close'),
                     cancelBtn=modal.querySelector('.sfs-hr-modal-cancel-btn'),
@@ -713,7 +655,7 @@ class ProfileTab implements TabInterface {
                 if(cancelBtn)cancelBtn.addEventListener('click',function(e){e.preventDefault();closeModal();});
                 if(closeBtn)closeBtn.addEventListener('click',function(e){e.preventDefault();closeModal();});
                 if(backdrop)backdrop.addEventListener('click',function(e){e.preventDefault();closeModal();});
-                var container=document.querySelector('.sfs-hr-my-assets-frontend');
+                var container=document.querySelector('.sfs-p');
                 if(!container)return;
                 container.addEventListener('click',function(e){
                     var t=e.target;

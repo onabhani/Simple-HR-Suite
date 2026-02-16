@@ -2,8 +2,9 @@
 /**
  * Overview Tab - Dashboard-style overview for the employee portal.
  *
- * Shows greeting, quick attendance action, summary KPIs, leave balances,
- * recent requests, and profile completion.
+ * Shows greeting, quick attendance action, attendance summary, leave KPIs,
+ * today's shift, pending/upcoming requests, action-required items,
+ * upcoming timeline, documents, and profile completion.
  *
  * @package SFS\HR\Frontend\Tabs
  */
@@ -17,9 +18,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class OverviewTab implements TabInterface {
-
-    /** Color palette for balance mini-cards. */
-    private const CARD_COLORS = [ 'sky', 'rose', 'violet', 'amber', 'emerald', 'indigo', 'pink', 'orange', 'teal', 'slate' ];
 
     public function render( array $emp, int $emp_id ): void {
         if ( ! is_user_logged_in() ) {
@@ -107,26 +105,47 @@ class OverviewTab implements TabInterface {
             )
         );
 
-        // Recent leave requests (last 3).
-        $recent_leaves = $wpdb->get_results(
+        // Pending leave requests (waiting for approval).
+        $pending_leaves = $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT r.*, t.name AS type_name
                  FROM {$req_table} r
                  LEFT JOIN {$type_table} t ON t.id = r.type_id
-                 WHERE r.employee_id = %d
+                 WHERE r.employee_id = %d AND r.status = 'pending'
                  ORDER BY r.created_at DESC
-                 LIMIT 3",
+                 LIMIT 5",
                 $emp_id
             )
         );
 
+        // Upcoming approved leaves (future).
+        $upcoming_leaves = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT r.*, t.name AS type_name
+                 FROM {$req_table} r
+                 LEFT JOIN {$type_table} t ON t.id = r.type_id
+                 WHERE r.employee_id = %d AND r.status = 'approved' AND r.start_date >= %s
+                 ORDER BY r.start_date ASC
+                 LIMIT 5",
+                $emp_id,
+                $today
+            )
+        );
+
         // ── Loan data ─────────────────────────────────────────────
-        $loans_table = $wpdb->prefix . 'sfs_hr_loans';
-        $recent_loans = [];
+        $loans_table   = $wpdb->prefix . 'sfs_hr_loans';
+        $pending_loans = [];
+        $active_loans  = [];
         if ( $wpdb->get_var( "SHOW TABLES LIKE '{$loans_table}'" ) === $loans_table ) {
-            $recent_loans = $wpdb->get_results(
+            $pending_loans = $wpdb->get_results(
                 $wpdb->prepare(
-                    "SELECT * FROM {$loans_table} WHERE employee_id = %d ORDER BY created_at DESC LIMIT 3",
+                    "SELECT * FROM {$loans_table} WHERE employee_id = %d AND status = 'pending' ORDER BY created_at DESC LIMIT 5",
+                    $emp_id
+                )
+            );
+            $active_loans = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT * FROM {$loans_table} WHERE employee_id = %d AND status = 'active' ORDER BY created_at DESC LIMIT 3",
                     $emp_id
                 )
             );
@@ -171,6 +190,131 @@ class OverviewTab implements TabInterface {
             );
         }
 
+        // ── Today's shift ─────────────────────────────────────────
+        $today_shift = null;
+        if ( class_exists( '\SFS\HR\Modules\Attendance\AttendanceModule' ) ) {
+            $today_shift = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( $emp_id, $today );
+        }
+
+        // ── Action required items ─────────────────────────────────
+        $action_items = [];
+
+        // Assets pending employee approval.
+        $assign_table = $wpdb->prefix . 'sfs_hr_asset_assignments';
+        if ( $wpdb->get_var( "SHOW TABLES LIKE '{$assign_table}'" ) === $assign_table ) {
+            $pending_assets = (int) $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$assign_table} WHERE employee_id = %d AND status = 'pending_employee_approval'",
+                    $emp_id
+                )
+            );
+            if ( $pending_assets > 0 ) {
+                $action_items[] = [
+                    'icon'    => 'package',
+                    'color'   => '#8b5cf6',
+                    'bg'      => '#ede9fe',
+                    'text'    => sprintf( _n( '%d asset awaiting your approval', '%d assets awaiting your approval', $pending_assets, 'sfs-hr' ), $pending_assets ),
+                    'tab'     => 'profile',
+                    'i18n'    => 'asset_approval',
+                ];
+            }
+        }
+
+        // Missing documents.
+        $missing_docs_count = 0;
+        $expired_docs_count = 0;
+        $doc_total_count    = 0;
+        if ( class_exists( '\SFS\HR\Modules\Documents\Services\Documents_Service' ) ) {
+            $doc_svc            = '\SFS\HR\Modules\Documents\Services\Documents_Service';
+            $missing_docs       = $doc_svc::get_missing_required_documents( $emp_id );
+            $missing_docs_count = count( $missing_docs );
+            $doc_total_count    = $doc_svc::get_document_count( $emp_id );
+            $doc_status         = $doc_svc::get_employee_document_status( $emp_id );
+            $expired_docs_count = $doc_status ? (int) ( $doc_status['expired_count'] ?? 0 ) : 0;
+        }
+        if ( $missing_docs_count > 0 ) {
+            $action_items[] = [
+                'icon'    => 'file-warning',
+                'color'   => '#dc2626',
+                'bg'      => '#fef2f2',
+                'text'    => sprintf( _n( '%d required document missing', '%d required documents missing', $missing_docs_count, 'sfs-hr' ), $missing_docs_count ),
+                'tab'     => 'documents',
+                'i18n'    => 'docs_missing',
+            ];
+        }
+        if ( $expired_docs_count > 0 ) {
+            $action_items[] = [
+                'icon'    => 'alert-triangle',
+                'color'   => '#d97706',
+                'bg'      => '#fffbeb',
+                'text'    => sprintf( _n( '%d document expired', '%d documents expired', $expired_docs_count, 'sfs-hr' ), $expired_docs_count ),
+                'tab'     => 'documents',
+                'i18n'    => 'docs_expired',
+            ];
+        }
+
+        // ── Upcoming timeline events ──────────────────────────────
+        $timeline = [];
+
+        // Next approved leave.
+        if ( $next_leave ) {
+            $timeline[] = [
+                'date'  => $next_leave->start_date,
+                'label' => $next_leave->type_name ?: __( 'Leave', 'sfs-hr' ),
+                'icon'  => 'calendar',
+                'color' => '#3b82f6',
+                'bg'    => '#eff6ff',
+            ];
+        }
+
+        // Expiring documents (within 60 days).
+        if ( class_exists( '\SFS\HR\Modules\Documents\Services\Documents_Service' ) ) {
+            $doc_svc_class = '\SFS\HR\Modules\Documents\Services\Documents_Service';
+            if ( method_exists( $doc_svc_class, 'get_expiring_documents' ) ) {
+                $expiring = $doc_svc_class::get_expiring_documents( $emp_id, 60 );
+                foreach ( $expiring as $edoc ) {
+                    $exp_date  = $edoc->expiry_date ?? ( $edoc->expiration_date ?? '' );
+                    $doc_label = $edoc->name ?? ( $edoc->document_name ?? __( 'Document', 'sfs-hr' ) );
+                    if ( $exp_date ) {
+                        $timeline[] = [
+                            'date'  => $exp_date,
+                            /* translators: %s: document name */
+                            'label' => sprintf( __( '%s expires', 'sfs-hr' ), $doc_label ),
+                            'icon'  => 'file-text',
+                            'color' => '#d97706',
+                            'bg'    => '#fffbeb',
+                        ];
+                    }
+                }
+            }
+        }
+
+        // National ID / Passport expiry if within 90 days.
+        $nid_exp  = (string) ( $emp['national_id_expiry'] ?? '' );
+        $pass_exp = (string) ( $emp['passport_expiry'] ?? '' );
+        if ( $nid_exp && $nid_exp >= $today && $nid_exp <= wp_date( 'Y-m-d', strtotime( '+90 days' ) ) ) {
+            $timeline[] = [
+                'date'  => $nid_exp,
+                'label' => __( 'National ID expires', 'sfs-hr' ),
+                'icon'  => 'credit-card',
+                'color' => '#dc2626',
+                'bg'    => '#fef2f2',
+            ];
+        }
+        if ( $pass_exp && $pass_exp >= $today && $pass_exp <= wp_date( 'Y-m-d', strtotime( '+90 days' ) ) ) {
+            $timeline[] = [
+                'date'  => $pass_exp,
+                'label' => __( 'Passport expires', 'sfs-hr' ),
+                'icon'  => 'book-open',
+                'color' => '#dc2626',
+                'bg'    => '#fef2f2',
+            ];
+        }
+
+        // Sort timeline by date.
+        usort( $timeline, fn( $a, $b ) => strcmp( $a['date'], $b['date'] ) );
+        $timeline = array_slice( $timeline, 0, 5 );
+
         // ── Profile completion ────────────────────────────────────
         $email       = (string) ( $emp['email'] ?? '' );
         $phone       = (string) ( $emp['phone'] ?? '' );
@@ -181,18 +325,6 @@ class OverviewTab implements TabInterface {
         $emg_name    = (string) ( $emp['emergency_contact_name'] ?? '' );
         $emg_phone   = (string) ( $emp['emergency_contact_phone'] ?? '' );
         $dept_id     = (int) ( $emp['dept_id'] ?? 0 );
-
-        // Documents check — match ProfileTab logic.
-        $missing_docs_count = 0;
-        $doc_total_count    = 0;
-        $doc_status         = null;
-        if ( class_exists( '\SFS\HR\Modules\Documents\Services\Documents_Service' ) ) {
-            $doc_svc            = '\SFS\HR\Modules\Documents\Services\Documents_Service';
-            $missing_docs       = $doc_svc::get_missing_required_documents( $emp_id );
-            $missing_docs_count = count( $missing_docs );
-            $doc_total_count    = $doc_svc::get_document_count( $emp_id );
-            $doc_status         = $doc_svc::get_employee_document_status( $emp_id );
-        }
 
         $profile_fields = [
             'photo'       => $photo_id > 0,
@@ -216,6 +348,7 @@ class OverviewTab implements TabInterface {
         $loans_url      = add_query_arg( 'sfs_hr_tab', 'loans', $base_url );
         $attendance_url = add_query_arg( 'sfs_hr_tab', 'attendance', $base_url );
         $profile_url    = add_query_arg( 'sfs_hr_tab', 'profile', $base_url );
+        $documents_url  = add_query_arg( 'sfs_hr_tab', 'documents', $base_url );
 
         // ─── Render ───────────────────────────────────────────────
         echo '<div class="sfs-overview">';
@@ -280,7 +413,7 @@ class OverviewTab implements TabInterface {
 
         echo '</div>'; // .sfs-overview-hero
 
-        // Script to fetch current attendance status — updates button label + timing row
+        // Script to fetch current attendance status
         if ( $can_self_clock ) {
             echo '<script>';
             echo '(function(){';
@@ -299,7 +432,6 @@ class OverviewTab implements TabInterface {
             echo 'var keys={in:"clock_in",break_start:"start_break",break_end:"end_break",out:"clock_out"};';
             echo 'if(a.in){l=labels.in;btn.dataset.i18nKey=keys.in;}else if(a.break_start){l=labels.break_start;btn.dataset.i18nKey=keys.break_start;}else if(a.break_end){l=labels.break_end;btn.dataset.i18nKey=keys.break_end;}else if(a.out){l=labels.out;btn.dataset.i18nKey=keys.out;}';
             echo 'if(l)btn.textContent=l;';
-            // Show timing row when clocked in (state !== idle)
             echo 'var st=d.state||"idle";';
             echo 'var timingRow=document.getElementById("sfs-hero-timing");';
             echo 'if(timingRow&&st!=="idle"){';
@@ -316,7 +448,51 @@ class OverviewTab implements TabInterface {
             echo '})();</script>';
         }
 
-        // ── 3. Monthly Attendance Summary ─────────────────────────
+        // ── 2. Action Required ──────────────────────────────────
+        if ( ! empty( $action_items ) ) {
+            echo '<div class="sfs-overview-block">';
+            echo '<div class="sfs-overview-section">';
+            echo '<h3 class="sfs-overview-section-title" data-i18n-key="action_required">' . esc_html__( 'Action Required', 'sfs-hr' ) . '</h3>';
+            echo '</div>';
+            echo '<div class="sfs-overview-activity-list">';
+            foreach ( $action_items as $item ) {
+                $tab_url = add_query_arg( 'sfs_hr_tab', $item['tab'], $base_url );
+                echo '<a href="' . esc_url( $tab_url ) . '" class="sfs-overview-activity-item">';
+                echo '<div class="sfs-overview-activity-icon" style="background:' . esc_attr( $item['bg'] ) . ';">';
+                echo $this->icon_svg( $item['icon'], $item['color'] );
+                echo '</div>';
+                echo '<div class="sfs-overview-activity-info">';
+                echo '<div class="sfs-overview-activity-title" data-i18n-key="' . esc_attr( $item['i18n'] ) . '">' . esc_html( $item['text'] ) . '</div>';
+                echo '</div>';
+                echo '<svg class="sfs-overview-activity-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+                echo '</a>';
+            }
+            echo '</div></div>';
+        }
+
+        // ── 3. Today's Shift ────────────────────────────────────
+        if ( $today_shift ) {
+            $shift_name  = esc_html( $today_shift->name ?? __( 'Shift', 'sfs-hr' ) );
+            $shift_start = esc_html( $today_shift->start_time ?? '--:--' );
+            $shift_end   = esc_html( $today_shift->end_time ?? '--:--' );
+
+            echo '<div class="sfs-overview-block">';
+            echo '<div class="sfs-overview-section">';
+            echo '<h3 class="sfs-overview-section-title" data-i18n-key="todays_shift">' . esc_html__( "Today's Shift", 'sfs-hr' ) . '</h3>';
+            echo '</div>';
+            echo '<div class="sfs-overview-shift-card">';
+            echo '<div class="sfs-overview-shift-icon">';
+            echo '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+            echo '</div>';
+            echo '<div class="sfs-overview-shift-info">';
+            echo '<div class="sfs-overview-shift-name">' . $shift_name . '</div>';
+            echo '<div class="sfs-overview-shift-time">' . $shift_start . ' — ' . $shift_end . '</div>';
+            echo '</div>';
+            echo '</div>';
+            echo '</div>';
+        }
+
+        // ── 4. Monthly Attendance Summary ─────────────────────────
         $month_num = (int) wp_date( 'n' );
         $year_num  = (int) wp_date( 'Y' );
         echo '<div class="sfs-overview-block">';
@@ -345,7 +521,7 @@ class OverviewTab implements TabInterface {
         echo '</div>'; // .sfs-overview-att-grid
         echo '</div>'; // .sfs-overview-block
 
-        // ── 4. Leave Summary KPIs ─────────────────────────────────
+        // ── 5. Leave Summary KPIs ─────────────────────────────────
         echo '<div class="sfs-overview-block">';
         echo '<div class="sfs-overview-section">';
         echo '<h3 class="sfs-overview-section-title" data-i18n-key="leave_summary">' . esc_html__( 'Leave Summary', 'sfs-hr' ) . '</h3>';
@@ -396,20 +572,21 @@ class OverviewTab implements TabInterface {
         echo '</div>'; // .sfs-kpi-grid
         echo '</div>'; // .sfs-overview-block
 
-        // ── 5. Recent Activity ─────────────────────────────────────
-        $has_activity = ! empty( $recent_leaves ) || ! empty( $recent_loans );
-        if ( $has_activity ) {
+        // ── 6. Pending & Upcoming Requests ───────────────────────
+        $has_pending  = ! empty( $pending_leaves ) || ! empty( $pending_loans );
+        $has_upcoming = ! empty( $upcoming_leaves ) || ! empty( $active_loans );
+
+        if ( $has_pending || $has_upcoming ) {
             echo '<div class="sfs-overview-block">';
             echo '<div class="sfs-overview-section">';
-            echo '<h3 class="sfs-overview-section-title" data-i18n-key="recent_activity">' . esc_html__( 'Recent Activity', 'sfs-hr' ) . '</h3>';
+            echo '<h3 class="sfs-overview-section-title" data-i18n-key="pending_upcoming">' . esc_html__( 'Pending & Upcoming', 'sfs-hr' ) . '</h3>';
             echo '</div>';
 
             echo '<div class="sfs-overview-activity-list">';
 
-            // Recent leave requests.
-            foreach ( $recent_leaves as $req ) {
+            // Pending leave requests.
+            foreach ( $pending_leaves as $req ) {
                 $type_name = $req->type_name ?: __( 'Leave', 'sfs-hr' );
-                $status    = $req->status ?? 'pending';
                 $start     = $req->start_date ?: '';
                 $end       = $req->end_date ?: '';
                 $period    = ( $start && $end && $end !== $start ) ? ( $start . ' → ' . $end ) : $start;
@@ -427,15 +604,37 @@ class OverviewTab implements TabInterface {
                 echo '</div>';
                 echo '<div class="sfs-overview-activity-meta">' . esc_html( $period ) . '</div>';
                 echo '</div>';
-                echo $this->status_badge( $status );
+                echo $this->status_badge( 'pending' );
                 echo '</a>';
             }
 
-            // Recent loan requests.
-            foreach ( $recent_loans as $loan ) {
-                $status = $loan->status ?? 'pending';
-                $amount = isset( $loan->principal_amount ) ? number_format_i18n( (float) $loan->principal_amount, 2 ) : '0';
+            // Upcoming approved leaves.
+            foreach ( $upcoming_leaves as $req ) {
+                $type_name = $req->type_name ?: __( 'Leave', 'sfs-hr' );
+                $start     = $req->start_date ?: '';
+                $end       = $req->end_date ?: '';
+                $period    = ( $start && $end && $end !== $start ) ? ( $start . ' → ' . $end ) : $start;
+                $ref       = $req->request_number ?? '';
 
+                echo '<a href="' . esc_url( $leave_url ) . '" class="sfs-overview-activity-item">';
+                echo '<div class="sfs-overview-activity-icon sfs-overview-activity-icon--leave">';
+                echo '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+                echo '</div>';
+                echo '<div class="sfs-overview-activity-info">';
+                echo '<div class="sfs-overview-activity-title">' . esc_html( $type_name );
+                if ( $ref ) {
+                    echo ' <span class="sfs-overview-activity-ref">#' . esc_html( $ref ) . '</span>';
+                }
+                echo '</div>';
+                echo '<div class="sfs-overview-activity-meta">' . esc_html( $period ) . '</div>';
+                echo '</div>';
+                echo $this->status_badge( 'approved' );
+                echo '</a>';
+            }
+
+            // Pending loan requests.
+            foreach ( $pending_loans as $loan ) {
+                $amount = isset( $loan->principal_amount ) ? number_format_i18n( (float) $loan->principal_amount, 2 ) : '0';
                 echo '<a href="' . esc_url( $loans_url ) . '" class="sfs-overview-activity-item">';
                 echo '<div class="sfs-overview-activity-icon sfs-overview-activity-icon--loan">';
                 echo '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
@@ -444,7 +643,22 @@ class OverviewTab implements TabInterface {
                 echo '<div class="sfs-overview-activity-title" data-i18n-key="loan">' . esc_html__( 'Loan', 'sfs-hr' ) . '</div>';
                 echo '<div class="sfs-overview-activity-meta">' . esc_html( $amount ) . '</div>';
                 echo '</div>';
-                echo $this->status_badge( $status );
+                echo $this->status_badge( 'pending' );
+                echo '</a>';
+            }
+
+            // Active loans (in repayment).
+            foreach ( $active_loans as $loan ) {
+                $amount = isset( $loan->principal_amount ) ? number_format_i18n( (float) $loan->principal_amount, 2 ) : '0';
+                echo '<a href="' . esc_url( $loans_url ) . '" class="sfs-overview-activity-item">';
+                echo '<div class="sfs-overview-activity-icon sfs-overview-activity-icon--loan">';
+                echo '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
+                echo '</div>';
+                echo '<div class="sfs-overview-activity-info">';
+                echo '<div class="sfs-overview-activity-title" data-i18n-key="loan">' . esc_html__( 'Loan', 'sfs-hr' ) . '</div>';
+                echo '<div class="sfs-overview-activity-meta">' . esc_html( $amount ) . '</div>';
+                echo '</div>';
+                echo $this->status_badge( 'active' );
                 echo '</a>';
             }
 
@@ -452,11 +666,9 @@ class OverviewTab implements TabInterface {
             echo '</div>'; // .sfs-overview-block
         }
 
-        // ── 6. My Documents ─────────────────────────────────────
+        // ── 7. My Documents ───────────────────────────────────────
         if ( class_exists( '\SFS\HR\Modules\Documents\Services\Documents_Service' ) ) {
-            $documents_url = add_query_arg( 'sfs_hr_tab', 'documents', $base_url );
-            $expired_count = $doc_status ? (int) ( $doc_status['expired_count'] ?? 0 ) : 0;
-            $has_issues    = ( $missing_docs_count > 0 || $expired_count > 0 );
+            $has_doc_issues = ( $missing_docs_count > 0 || $expired_docs_count > 0 );
 
             echo '<div class="sfs-overview-block">';
             echo '<div class="sfs-overview-section">';
@@ -475,14 +687,14 @@ class OverviewTab implements TabInterface {
             echo '<div class="sfs-overview-att-card-label" data-i18n-key="missing">' . esc_html__( 'Missing', 'sfs-hr' ) . '</div>';
             echo '</div>';
 
-            echo '<div class="sfs-overview-att-card sfs-overview-att-card--' . ( $expired_count > 0 ? 'late' : 'present' ) . '">';
-            echo '<div class="sfs-overview-att-card-value">' . $expired_count . '</div>';
+            echo '<div class="sfs-overview-att-card sfs-overview-att-card--' . ( $expired_docs_count > 0 ? 'late' : 'present' ) . '">';
+            echo '<div class="sfs-overview-att-card-value">' . $expired_docs_count . '</div>';
             echo '<div class="sfs-overview-att-card-label" data-i18n-key="expired">' . esc_html__( 'Expired', 'sfs-hr' ) . '</div>';
             echo '</div>';
 
             echo '</div>'; // .sfs-overview-att-grid
 
-            if ( $has_issues ) {
+            if ( $has_doc_issues ) {
                 echo '<a href="' . esc_url( $documents_url ) . '" class="sfs-overview-profile-banner sfs-overview-profile-banner--danger" style="margin-top:8px;">';
                 echo '<div class="sfs-overview-profile-banner-text">';
                 echo '<span class="sfs-overview-profile-banner-title" data-i18n-key="documents_need_attention">' . esc_html__( 'Documents need attention', 'sfs-hr' ) . '</span>';
@@ -490,8 +702,8 @@ class OverviewTab implements TabInterface {
                 if ( $missing_docs_count > 0 ) {
                     $parts[] = sprintf( _n( '%d missing', '%d missing', $missing_docs_count, 'sfs-hr' ), $missing_docs_count );
                 }
-                if ( $expired_count > 0 ) {
-                    $parts[] = sprintf( _n( '%d expired', '%d expired', $expired_count, 'sfs-hr' ), $expired_count );
+                if ( $expired_docs_count > 0 ) {
+                    $parts[] = sprintf( _n( '%d expired', '%d expired', $expired_docs_count, 'sfs-hr' ), $expired_docs_count );
                 }
                 echo '<span class="sfs-overview-profile-banner-sub">' . esc_html( implode( ', ', $parts ) ) . '</span>';
                 echo '</div>';
@@ -501,7 +713,29 @@ class OverviewTab implements TabInterface {
             echo '</div>'; // .sfs-overview-block (documents)
         }
 
-        // ── 7. Profile Completion Banner ──────────────────────────
+        // ── 8. Upcoming Timeline ─────────────────────────────────
+        if ( ! empty( $timeline ) ) {
+            echo '<div class="sfs-overview-block">';
+            echo '<div class="sfs-overview-section">';
+            echo '<h3 class="sfs-overview-section-title" data-i18n-key="upcoming">' . esc_html__( 'Upcoming', 'sfs-hr' ) . '</h3>';
+            echo '</div>';
+            echo '<div class="sfs-overview-timeline">';
+            foreach ( $timeline as $i => $event ) {
+                $is_last = ( $i === count( $timeline ) - 1 );
+                echo '<div class="sfs-overview-timeline-item' . ( $is_last ? ' sfs-overview-timeline-item--last' : '' ) . '">';
+                echo '<div class="sfs-overview-timeline-dot" style="background:' . esc_attr( $event['bg'] ) . ';border-color:' . esc_attr( $event['color'] ) . ';">';
+                echo '<div class="sfs-overview-timeline-dot-inner" style="background:' . esc_attr( $event['color'] ) . ';"></div>';
+                echo '</div>';
+                echo '<div class="sfs-overview-timeline-content">';
+                echo '<span class="sfs-overview-timeline-label">' . esc_html( $event['label'] ) . '</span>';
+                echo '<span class="sfs-overview-timeline-date">' . esc_html( $event['date'] ) . '</span>';
+                echo '</div>';
+                echo '</div>';
+            }
+            echo '</div></div>';
+        }
+
+        // ── 9. Profile Completion Banner ──────────────────────────
         if ( $profile_completion_pct < 100 ) {
             echo '<a href="' . esc_url( $profile_url ) . '" class="sfs-overview-profile-banner">';
             echo '<div class="sfs-overview-profile-banner-text">';
@@ -520,9 +754,6 @@ class OverviewTab implements TabInterface {
 
     /**
      * Render a status badge.
-     *
-     * @param string $status Status key.
-     * @return string HTML.
      */
     private function status_badge( string $status ): string {
         $map = [
@@ -533,8 +764,23 @@ class OverviewTab implements TabInterface {
             'completed' => [ 'label' => __( 'Completed', 'sfs-hr' ), 'class' => 'sfs-badge--success' ],
             'cancelled' => [ 'label' => __( 'Cancelled', 'sfs-hr' ), 'class' => 'sfs-badge--muted' ],
         ];
-
-        $info  = $map[ $status ] ?? [ 'label' => ucfirst( $status ), 'class' => 'sfs-badge--muted' ];
+        $info = $map[ $status ] ?? [ 'label' => ucfirst( $status ), 'class' => 'sfs-badge--muted' ];
         return '<span class="sfs-badge ' . esc_attr( $info['class'] ) . '" data-i18n-key="' . esc_attr( $status ) . '">' . esc_html( $info['label'] ) . '</span>';
+    }
+
+    /**
+     * Get a small inline SVG icon by name.
+     */
+    private function icon_svg( string $name, string $color = 'currentColor' ): string {
+        $icons = [
+            'package'        => '<svg viewBox="0 0 24 24" fill="none" stroke="' . esc_attr( $color ) . '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
+            'file-warning'   => '<svg viewBox="0 0 24 24" fill="none" stroke="' . esc_attr( $color ) . '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="16"/><circle cx="12" cy="19" r="0.5"/></svg>',
+            'alert-triangle' => '<svg viewBox="0 0 24 24" fill="none" stroke="' . esc_attr( $color ) . '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+            'calendar'       => '<svg viewBox="0 0 24 24" fill="none" stroke="' . esc_attr( $color ) . '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+            'file-text'      => '<svg viewBox="0 0 24 24" fill="none" stroke="' . esc_attr( $color ) . '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+            'credit-card'    => '<svg viewBox="0 0 24 24" fill="none" stroke="' . esc_attr( $color ) . '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>',
+            'book-open'      => '<svg viewBox="0 0 24 24" fill="none" stroke="' . esc_attr( $color ) . '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
+        ];
+        return $icons[ $name ] ?? '';
     }
 }
