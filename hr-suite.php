@@ -105,6 +105,9 @@ register_activation_hook(__FILE__, function(){
     update_option('sfs_hr_db_ver', SFS_HR_VER);
     update_option('sfs_hr_assets_db_version', SFS_HR_VER);
 
+    // Create default frontend pages (HR Portal, Attendance Kiosk)
+    \SFS\HR\Install\Pages::create();
+
     flush_rewrite_rules();
 });
 
