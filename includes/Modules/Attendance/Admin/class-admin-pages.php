@@ -168,7 +168,7 @@ private function get_table_columns( $table ): array {
                 <input type="hidden" name="action" value="sfs_hr_att_save_settings"/>
 
                 <?php if ( ! empty( $departments ) ) : ?>
-                <h2><?php esc_html_e( 'Web/Mobile Punch Allowed by Department', 'sfs-hr' ); ?></h2>
+                <h2><?php esc_html_e( 'Web/Mobile Punch Allowed by Department', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Allow employees in each department to clock in/out via web portal or mobile app, instead of only the physical kiosk.', 'sfs-hr' ); ?></span></span></h2>
                 <table class="form-table">
                     <?php foreach ( $departments as $dept ) : ?>
                     <tr>
@@ -183,7 +183,7 @@ private function get_table_columns( $table ): array {
                     <?php endforeach; ?>
                 </table>
 
-                <h2><?php esc_html_e( 'Selfie Required by Department', 'sfs-hr' ); ?></h2>
+                <h2><?php esc_html_e( 'Selfie Required by Department', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Require employees to take a photo when clocking in/out. Helps prevent buddy-punching and verifies identity.', 'sfs-hr' ); ?></span></span></h2>
                 <table class="form-table">
                     <?php foreach ( $departments as $dept ) : ?>
                     <tr>
@@ -207,7 +207,10 @@ private function get_table_columns( $table ): array {
                 <table class="form-table">
                     <tr>
                         <th><?php esc_html_e( 'Selfie retention (days)', 'sfs-hr' ); ?></th>
-                        <td><input type="number" name="selfie_retention_days" min="1" step="1" value="<?php echo esc_attr($ret_days); ?>"/></td>
+                        <td>
+                            <input type="number" name="selfie_retention_days" min="1" step="1" value="<?php echo esc_attr($ret_days); ?>"/>
+                            <p class="description"><?php esc_html_e( 'Number of days to keep selfie images before automatic deletion. Helps manage storage usage.', 'sfs-hr' ); ?></p>
+                        </td>
                     </tr>
                     <tr>
                         <th><?php esc_html_e( 'Default rounding (nearest minutes)', 'sfs-hr' ); ?></th>
@@ -687,6 +690,7 @@ private function render_shift_templates( array $all_shifts, array $departments )
                             </option>
                         <?php endforeach; ?>
                     </select>
+                    <p class="description"><?php esc_html_e( 'The shift pattern employees will follow during this template period.', 'sfs-hr' ); ?></p>
                 </div>
             </div>
 
@@ -694,10 +698,12 @@ private function render_shift_templates( array $all_shifts, array $departments )
                 <div class="sfs-hr-template-form-field">
                     <label><?php esc_html_e( 'Start Date', 'sfs-hr' ); ?></label>
                     <input type="date" name="template_start_date" required>
+                    <p class="description"><?php esc_html_e( 'When this template schedule becomes active.', 'sfs-hr' ); ?></p>
                 </div>
                 <div class="sfs-hr-template-form-field">
                     <label><?php esc_html_e( 'End Date', 'sfs-hr' ); ?></label>
                     <input type="date" name="template_end_date" required>
+                    <p class="description"><?php esc_html_e( 'When this template schedule ends.', 'sfs-hr' ); ?></p>
                 </div>
                 <div class="sfs-hr-template-form-field">
                     <label><?php esc_html_e( 'Color Label', 'sfs-hr' ); ?></label>
@@ -708,6 +714,7 @@ private function render_shift_templates( array $all_shifts, array $departments )
                         <option value="purple"><?php esc_html_e( 'Purple', 'sfs-hr' ); ?></option>
                         <option value="red"><?php esc_html_e( 'Red', 'sfs-hr' ); ?></option>
                     </select>
+                    <p class="description"><?php esc_html_e( 'Color used to distinguish this template on calendars and schedule views.', 'sfs-hr' ); ?></p>
                 </div>
             </div>
 
@@ -827,6 +834,7 @@ private function render_shift_templates( array $all_shifts, array $departments )
                     <label>
                         <input type="checkbox" name="overwrite_existing" value="1">
                         <?php esc_html_e( 'Overwrite existing period overrides', 'sfs-hr' ); ?>
+                        <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'If checked, replaces any existing date-range overrides. If unchecked, only fills in periods that have no override yet.', 'sfs-hr' ); ?></span></span>
                     </label>
                 </p>
 
@@ -929,7 +937,7 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                     <input type="text" name="rule_name" placeholder="<?php esc_attr_e( 'e.g., Office Staff Morning Shift', 'sfs-hr' ); ?>" required>
                 </div>
                 <div class="sfs-hr-rule-form-field" style="flex: 0 0 100px;">
-                    <label><?php esc_html_e( 'Priority', 'sfs-hr' ); ?></label>
+                    <label><?php esc_html_e( 'Priority', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Lower numbers are evaluated first. The first matching rule wins. Use this to set precedence between overlapping rules.', 'sfs-hr' ); ?></span></span></label>
                     <input type="number" name="rule_priority" value="10" min="1" max="100" style="width: 80px;">
                 </div>
                 <div class="sfs-hr-rule-form-field">
@@ -947,7 +955,7 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
 
             <div class="sfs-hr-rule-form-row">
                 <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Department (optional)', 'sfs-hr' ); ?></label>
+                    <label><?php esc_html_e( 'Department (optional)', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Leave blank to match employees in any department.', 'sfs-hr' ); ?></span></span></label>
                     <select name="rule_department">
                         <option value=""><?php esc_html_e( '— Any Department —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $departments as $d ) : ?>
@@ -958,7 +966,7 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                     </select>
                 </div>
                 <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Job Title (optional)', 'sfs-hr' ); ?></label>
+                    <label><?php esc_html_e( 'Job Title (optional)', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Leave blank to match employees with any job title.', 'sfs-hr' ); ?></span></span></label>
                     <select name="rule_job_title">
                         <option value=""><?php esc_html_e( '— Any Job Title —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $job_titles as $jt ) : ?>
@@ -969,7 +977,7 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                     </select>
                 </div>
                 <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Work Location (optional)', 'sfs-hr' ); ?></label>
+                    <label><?php esc_html_e( 'Work Location (optional)', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Leave blank to match employees at any work location.', 'sfs-hr' ); ?></span></span></label>
                     <select name="rule_work_location">
                         <option value=""><?php esc_html_e( '— Any Location —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $work_locations as $loc ) : ?>
@@ -983,7 +991,7 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
 
             <div class="sfs-hr-rule-form-row">
                 <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Contract Type (optional)', 'sfs-hr' ); ?></label>
+                    <label><?php esc_html_e( 'Contract Type (optional)', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Leave blank to match employees with any contract type.', 'sfs-hr' ); ?></span></span></label>
                     <select name="rule_contract_type">
                         <option value=""><?php esc_html_e( '— Any Contract —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $contract_types as $ct ) : ?>
@@ -994,11 +1002,11 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                     </select>
                 </div>
                 <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Hired After (optional)', 'sfs-hr' ); ?></label>
+                    <label><?php esc_html_e( 'Hired After (optional)', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Only match employees hired on or after this date.', 'sfs-hr' ); ?></span></span></label>
                     <input type="date" name="rule_hired_after">
                 </div>
                 <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Hired Before (optional)', 'sfs-hr' ); ?></label>
+                    <label><?php esc_html_e( 'Hired Before (optional)', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Only match employees hired on or before this date.', 'sfs-hr' ); ?></span></span></label>
                     <input type="date" name="rule_hired_before">
                 </div>
             </div>
@@ -1637,6 +1645,7 @@ public function render_shifts(): void {
                     <td>
                         <input required type="text" name="name"
                                value="<?php echo esc_attr($editing->name ?? ''); ?>" class="regular-text"/>
+                        <p class="description"><?php esc_html_e( 'Internal name for this shift, e.g. "Morning Shift", "Night Shift", "Ramadan Hours".', 'sfs-hr' ); ?></p>
                     </td>
                 </tr>
 
@@ -1681,6 +1690,7 @@ public function render_shifts(): void {
                     <td>
                         <input type="text" name="location_label"
                                value="<?php echo esc_attr($editing->location_label ?? ''); ?>" class="regular-text"/>
+                        <p class="description"><?php esc_html_e( 'Friendly name for the work location, e.g. "Main Office", "Warehouse B", "Site 3".', 'sfs-hr' ); ?></p>
                     </td>
                 </tr>
 
@@ -1824,6 +1834,7 @@ public function render_shifts(): void {
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                        <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Auto: break is deducted automatically. Punch: employee clocks in/out for break. None: no break deducted.', 'sfs-hr' ); ?></span></span>
                         &nbsp;<?php esc_html_e( 'Unpaid break minutes:', 'sfs-hr' ); ?>
                         <input type="number" name="unpaid_break_minutes" min="0" step="1" style="width:120px"
                                value="<?php echo esc_attr($editing->unpaid_break_minutes ?? 0); ?>"/>
@@ -1841,6 +1852,7 @@ public function render_shifts(): void {
                                value="<?php echo esc_attr($editing->grace_late_minutes ?? 5); ?>"/> /
                         <input type="number" name="grace_early_leave_minutes" min="0" step="1" style="width:120px"
                                value="<?php echo esc_attr($editing->grace_early_leave_minutes ?? 5); ?>"/>
+                        <p class="description"><?php esc_html_e( 'Minutes of tolerance before flagging an employee as late (left) or leaving early (right). Set 0 for strict enforcement.', 'sfs-hr' ); ?></p>
                     </td>
                 </tr>
 
@@ -1855,6 +1867,7 @@ public function render_shifts(): void {
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                        <p class="description"><?php esc_html_e( 'Snap worked minutes to the nearest N for payroll. "none" uses exact minutes.', 'sfs-hr' ); ?></p>
                     </td>
                 </tr>
 
@@ -1875,6 +1888,7 @@ public function render_shifts(): void {
                                 <?php checked(!empty($editing->require_selfie)); ?>/>
                             <?php esc_html_e( 'Require selfie', 'sfs-hr' ); ?>
                         </label>
+                        <p class="description"><?php esc_html_e( 'Require photo verification for every clock-in and clock-out on this shift.', 'sfs-hr' ); ?></p>
                     </td>
                 </tr>
 
@@ -1886,6 +1900,7 @@ public function render_shifts(): void {
                                 <?php checked(!isset($editing->active) || (int)$editing->active===1); ?>/>
                             <?php esc_html_e( 'Active', 'sfs-hr' ); ?>
                         </label>
+                        <p class="description"><?php esc_html_e( 'Inactive shifts are hidden from selection but preserved for historical records.', 'sfs-hr' ); ?></p>
                     </td>
                 </tr>
 
@@ -1976,6 +1991,7 @@ public function render_shifts(): void {
                             <option value="shift_times" <?php selected( $calc_mode, 'shift_times' ); ?>><?php esc_html_e( 'Shift Times', 'sfs-hr' ); ?></option>
                             <option value="total_hours" <?php selected( $calc_mode, 'total_hours' ); ?>><?php esc_html_e( 'Total Hours', 'sfs-hr' ); ?></option>
                         </select>
+                        <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Shift Times: attendance measured against fixed start/end. Total Hours: flexible schedule, only total daily hours matter.', 'sfs-hr' ); ?></span></span>
                         <span id="sfs-target-hours-wrap" style="margin-left:10px;display:<?php echo $calc_mode === 'total_hours' ? 'inline' : 'none'; ?>;">
                             <?php esc_html_e( 'Target hours:', 'sfs-hr' ); ?>
                             <input type="number" name="shift_target_hours" min="1" max="24" step="0.5" style="width:80px;"
@@ -2004,11 +2020,13 @@ public function render_shifts(): void {
                             <input type="checkbox" name="shift_clock_in_methods[]" value="kiosk"
                                 <?php checked( $ci_methods !== null && in_array( 'kiosk', $ci_methods, true ) ); ?> />
                             <?php esc_html_e( 'Kiosk', 'sfs-hr' ); ?>
+                            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Allow clock-in via the physical kiosk terminal.', 'sfs-hr' ); ?></span></span>
                         </label>
                         <label>
                             <input type="checkbox" name="shift_clock_in_methods[]" value="self_web"
                                 <?php checked( $ci_methods !== null && in_array( 'self_web', $ci_methods, true ) ); ?> />
                             <?php esc_html_e( 'Self Web', 'sfs-hr' ); ?>
+                            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Allow clock-in via web browser or mobile app.', 'sfs-hr' ); ?></span></span>
                         </label>
                         <p class="description"><?php esc_html_e( 'Leave unchecked to use role policy defaults.', 'sfs-hr' ); ?></p>
                     </td>
@@ -2029,11 +2047,13 @@ public function render_shifts(): void {
                             <input type="checkbox" name="shift_clock_out_methods[]" value="kiosk"
                                 <?php checked( $co_methods !== null && in_array( 'kiosk', $co_methods, true ) ); ?> />
                             <?php esc_html_e( 'Kiosk', 'sfs-hr' ); ?>
+                            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Allow clock-out via the physical kiosk terminal.', 'sfs-hr' ); ?></span></span>
                         </label>
                         <label>
                             <input type="checkbox" name="shift_clock_out_methods[]" value="self_web"
                                 <?php checked( $co_methods !== null && in_array( 'self_web', $co_methods, true ) ); ?> />
                             <?php esc_html_e( 'Self Web', 'sfs-hr' ); ?>
+                            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Allow clock-out via web browser or mobile app.', 'sfs-hr' ); ?></span></span>
                         </label>
                         <p class="description"><?php esc_html_e( 'Leave unchecked to use role policy defaults.', 'sfs-hr' ); ?></p>
                     </td>
@@ -2054,6 +2074,7 @@ public function render_shifts(): void {
                             <option value="enforced" <?php selected( $editing->geofence_out ?? '', 'enforced' ); ?>><?php esc_html_e( 'Enforced', 'sfs-hr' ); ?></option>
                             <option value="none" <?php selected( $editing->geofence_out ?? '', 'none' ); ?>><?php esc_html_e( 'None (log only)', 'sfs-hr' ); ?></option>
                         </select>
+                        <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Enforced: employee must be within the location radius. None: coordinates are recorded but punches are allowed from anywhere.', 'sfs-hr' ); ?></span></span>
                         <p class="description"><?php esc_html_e( 'Coordinates are always logged regardless of enforcement setting.', 'sfs-hr' ); ?></p>
                     </td>
                 </tr>
@@ -2064,6 +2085,7 @@ public function render_shifts(): void {
                         <textarea name="notes" rows="3" class="large-text"><?php
                             echo esc_textarea($editing->notes ?? '');
                         ?></textarea>
+                        <p class="description"><?php esc_html_e( 'Internal notes about this shift (visible to admins only, not shown to employees).', 'sfs-hr' ); ?></p>
                     </td>
                 </tr>
             </table>

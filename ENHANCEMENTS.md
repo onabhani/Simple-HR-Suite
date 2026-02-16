@@ -19,7 +19,7 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 - [x] **Reduce** redundant policy fields — merge overlapping options
 - [x] **Add** sensible defaults so admins can set up a shift in fewer clicks
 - [ ] **Add** bulk-assign shifts to departments or employee groups
-- [ ] **Improve** inline help text / tooltips for policy fields
+- [x] **Improve** inline help text / tooltips for policy fields
 
 > **Context:** Currently there are too many paths and options for setting shifts and attendance policies. The goal is a simpler, more intuitive experience without losing flexibility.
 
