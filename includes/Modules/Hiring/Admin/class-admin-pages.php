@@ -29,8 +29,8 @@ class AdminPages {
      * Render main page
      */
     public function render_page(): void {
-        $tab = $_GET['tab'] ?? 'candidates';
-        $action = $_GET['action'] ?? 'list';
+        $tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'candidates';
+        $action = isset( $_GET['action'] ) ? sanitize_key( $_GET['action'] ) : 'list';
 
         ?>
         <div class="wrap sfs-hr-wrap">
@@ -104,10 +104,10 @@ class AdminPages {
                 $this->render_candidate_form();
                 break;
             case 'edit':
-                $this->render_candidate_form((int) ($_GET['id'] ?? 0));
+                $this->render_candidate_form( isset( $_GET['id'] ) ? (int) $_GET['id'] : 0 );
                 break;
             case 'view':
-                $this->render_candidate_view((int) ($_GET['id'] ?? 0));
+                $this->render_candidate_view( isset( $_GET['id'] ) ? (int) $_GET['id'] : 0 );
                 break;
             default:
                 $this->render_candidates_list();
@@ -120,8 +120,8 @@ class AdminPages {
     private function render_candidates_list(): void {
         global $wpdb;
 
-        $status_filter = $_GET['status'] ?? '';
-        $search = $_GET['s'] ?? '';
+        $status_filter = isset( $_GET['status'] ) ? sanitize_key( $_GET['status'] ) : '';
+        $search = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
 
         $where = "WHERE 1=1";
         $params = [];
@@ -741,10 +741,10 @@ class AdminPages {
                 $this->render_trainee_form();
                 break;
             case 'edit':
-                $this->render_trainee_form((int) ($_GET['id'] ?? 0));
+                $this->render_trainee_form( isset( $_GET['id'] ) ? (int) $_GET['id'] : 0 );
                 break;
             case 'view':
-                $this->render_trainee_view((int) ($_GET['id'] ?? 0));
+                $this->render_trainee_view( isset( $_GET['id'] ) ? (int) $_GET['id'] : 0 );
                 break;
             default:
                 $this->render_trainees_list();
@@ -757,7 +757,7 @@ class AdminPages {
     private function render_trainees_list(): void {
         global $wpdb;
 
-        $status_filter = $_GET['status'] ?? '';
+        $status_filter = isset( $_GET['status'] ) ? sanitize_key( $_GET['status'] ) : '';
 
         $where = "WHERE 1=1";
         $params = [];

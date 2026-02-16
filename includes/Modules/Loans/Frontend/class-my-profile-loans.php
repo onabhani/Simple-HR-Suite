@@ -101,17 +101,16 @@ class MyProfileLoans {
         // Request new loan form (if enabled)
         if ( $settings['allow_employee_requests'] ) {
             // Show error/success messages
-            if ( isset( $_GET['loan_request'] ) ) {
-                if ( $_GET['loan_request'] === 'success' ) {
-                    echo '<div class="notice notice-success" style="margin:10px 0 16px;padding:12px;"><p><strong>' .
-                         esc_html__( '✓ Loan request submitted successfully!', 'sfs-hr' ) .
-                         '</strong></p></div>';
-                } elseif ( $_GET['loan_request'] === 'error' ) {
-                    $error_msg = isset( $_GET['error'] ) ? urldecode( $_GET['error'] ) : __( 'Failed to submit loan request.', 'sfs-hr' );
-                    echo '<div class="notice notice-error" style="margin:10px 0 16px;padding:12px;background:#f8d7da;border-left:4px solid #dc3545;"><p><strong>✗ ' .
-                         esc_html( $error_msg ) .
-                         '</strong></p></div>';
-                }
+            $loan_request_status = isset( $_GET['loan_request'] ) ? sanitize_key( $_GET['loan_request'] ) : '';
+            if ( $loan_request_status === 'success' ) {
+                echo '<div class="notice notice-success" style="margin:10px 0 16px;padding:12px;"><p><strong>' .
+                     esc_html__( '✓ Loan request submitted successfully!', 'sfs-hr' ) .
+                     '</strong></p></div>';
+            } elseif ( $loan_request_status === 'error' ) {
+                $error_msg = isset( $_GET['error'] ) ? sanitize_text_field( wp_unslash( $_GET['error'] ) ) : __( 'Failed to submit loan request.', 'sfs-hr' );
+                echo '<div class="notice notice-error" style="margin:10px 0 16px;padding:12px;background:#f8d7da;border-left:4px solid #dc3545;"><p><strong>✗ ' .
+                     esc_html( $error_msg ) .
+                     '</strong></p></div>';
             }
 
             $this->render_loan_request_form( $employee );

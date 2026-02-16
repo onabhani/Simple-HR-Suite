@@ -50,6 +50,11 @@ class Admin {
                 [],
                 SFS_HR_VER
             );
+
+            // Chart.js for dashboard and performance pages (loaded once, deferred)
+            if ( strpos( $hook, 'sfs-hr' ) !== false && strpos( $hook, 'sfs-hr-employees' ) === false ) {
+                wp_enqueue_script( 'chart-js', 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js', [], '4.4.1', true );
+            }
         }
     }
 
@@ -1939,7 +1944,6 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         <?php if ( ! empty( $dept_headcount ) ) : ?>
@@ -4960,7 +4964,8 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
     // Gender
     $gender_in = isset($_POST['gender']) ? sanitize_text_field($_POST['gender']) : '';
-    $payload['gender'] = in_array(strtolower($gender_in), ['male','female'], true) ? strtolower($gender_in) : null;
+    $gender_lower = $gender_in !== '' ? strtolower($gender_in) : '';
+    $payload['gender'] = in_array($gender_lower, ['male','female'], true) ? $gender_lower : null;
 
     // Handle photo upload if present
     if ( ! empty($_FILES['employee_photo']['name']) ) {
@@ -5830,9 +5835,9 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                             <th scope="row"><label><?php esc_html_e( 'Date Range', 'sfs-hr' ); ?></label></th>
                             <td>
                                 <?php $rpt_period = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period(); ?>
-                                <input type="date" name="date_from" value="<?php echo esc_attr( $_GET['date_from'] ?? $rpt_period['start'] ); ?>" style="width:150px;" />
+                                <input type="date" name="date_from" value="<?php echo esc_attr( isset( $_GET['date_from'] ) ? sanitize_text_field( $_GET['date_from'] ) : $rpt_period['start'] ); ?>" style="width:150px;" />
                                 <span style="margin:0 8px;"><?php esc_html_e( 'to', 'sfs-hr' ); ?></span>
-                                <input type="date" name="date_to" value="<?php echo esc_attr( $_GET['date_to'] ?? $rpt_period['end'] ); ?>" style="width:150px;" />
+                                <input type="date" name="date_to" value="<?php echo esc_attr( isset( $_GET['date_to'] ) ? sanitize_text_field( $_GET['date_to'] ) : $rpt_period['end'] ); ?>" style="width:150px;" />
                             </td>
                         </tr>
                         <tr>
@@ -5841,7 +5846,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                                 <select name="dept" id="dept" style="min-width:250px;">
                                     <option value="0"><?php esc_html_e( 'All Departments', 'sfs-hr' ); ?></option>
                                     <?php foreach ( $departments as $d ): ?>
-                                        <option value="<?php echo intval( $d->id ); ?>" <?php selected( intval( $_GET['dept'] ?? 0 ), $d->id ); ?>><?php echo esc_html( $d->name ); ?></option>
+                                        <option value="<?php echo intval( $d->id ); ?>" <?php selected( isset( $_GET['dept'] ) ? intval( $_GET['dept'] ) : 0, $d->id ); ?>><?php echo esc_html( $d->name ); ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </td>

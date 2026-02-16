@@ -29,7 +29,7 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 
 ### 2.1 General Bug Audit
 - [x] **Run** a full code review across all 17 modules for common bugs
-- [ ] **Check** PHP error logs and WordPress debug output for warnings/notices
+- [x] **Check** PHP error logs and WordPress debug output for warnings/notices
 - [x] **Fix** any SQL injection, XSS, or CSRF vulnerabilities found
 - [x] **Test** all AJAX endpoints for proper nonce verification and capability checks
 
@@ -37,7 +37,7 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 - [x] **Profile** database queries — identify slow queries (especially in Attendance and Leave modules which are the largest)
 - [x] **Add** missing database indexes (reference existing `sql/performance-indexes.sql`)
 - [x] **Implement** query caching for frequently accessed data (employee lists, department trees)
-- [ ] **Audit** admin page load times and optimize asset loading
+- [x] **Audit** admin page load times and optimize asset loading
 - [x] **Review** cron job efficiency (Reminders, Workforce Status modules)
 
 ### 2.3 Early Access Feature Review

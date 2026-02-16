@@ -56,7 +56,7 @@ class AdminPages {
             wp_die( __( 'You do not have permission to access this page.', 'sfs-hr' ) );
         }
 
-        $action = $_GET['action'] ?? '';
+        $action = isset( $_GET['action'] ) ? sanitize_key( $_GET['action'] ) : '';
         $loan_id = isset( $_GET['id'] ) ? (int) $_GET['id'] : 0;
 
         // Show loan detail if action=view
@@ -72,7 +72,7 @@ class AdminPages {
         }
 
         // Otherwise show tabs
-        $tab = $_GET['tab'] ?? 'loans';
+        $tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'loans';
 
         ?>
         <div class="wrap sfs-hr-wrap">

@@ -158,15 +158,6 @@ class Shortcodes {
             $wp_username = (string) $u->user_login;
         }
     }
-    
-        // WP username (if linked).
-    $wp_username = '';
-    if ( ! empty( $emp['user_id'] ) ) {
-        $u = get_userdata( (int) $emp['user_id'] );
-        if ( $u && $u->user_login ) {
-            $wp_username = (string) $u->user_login;
-        }
-    }
 
 
         // Can this user use self-web attendance?

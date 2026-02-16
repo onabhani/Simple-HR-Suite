@@ -1606,6 +1606,9 @@ class Notifications {
             return;
         }
 
+        if ( empty( $phone ) ) {
+            return;
+        }
         $phone = preg_replace( '/[^0-9+]/', '', $phone );
         if ( empty( $phone ) ) {
             return;
