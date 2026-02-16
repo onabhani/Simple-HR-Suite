@@ -3200,5 +3200,13 @@
     "ref_num": "حوالہ نمبر",
     "no_pending_approvals": "اس وقت کوئی زیر التوا منظوری نہیں ہے۔",
     "no_team_members": "ٹیم کے ارکان نہیں ملے",
-    "try_adjusting_filters": "فلٹرز ایڈجسٹ کریں۔"
+    "try_adjusting_filters": "فلٹرز ایڈجسٹ کریں۔",
+
+    "_comment_pages_tab": "--- Pages settings tab ---",
+    "pages": "صفحات",
+    "pages_description": "یہ صفحات پلگ ان کو فعال کرنے پر خودکار طور پر بنائے جاتے ہیں۔ ہر صفحے میں ایک شارٹ کوڈ ہوتا ہے جو ملازمین کے لیے فرنٹ اینڈ تجربہ فراہم کرتا ہے۔",
+    "status_published": "شائع شدہ",
+    "status_trashed": "ردی میں",
+    "not_created": "ابھی تک نہیں بنایا گیا",
+    "create_now": "ابھی بنائیں"
 }

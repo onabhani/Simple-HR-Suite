@@ -3250,5 +3250,13 @@
     "sar_total": "ريال إجمالي",
     "monthly_of": "أقساط شهرية من",
     "unknown_period": "فترة غير معروفة",
-    "please_allow_popups": "يرجى السماح بالنوافذ المنبثقة."
+    "please_allow_popups": "يرجى السماح بالنوافذ المنبثقة.",
+
+    "_comment_pages_tab": "--- Pages settings tab ---",
+    "pages": "الصفحات",
+    "pages_description": "يتم إنشاء هذه الصفحات تلقائياً عند تفعيل الإضافة. تحتوي كل صفحة على كود مختصر يوفر تجربة الواجهة الأمامية للموظفين.",
+    "status_published": "منشورة",
+    "status_trashed": "في سلة المهملات",
+    "not_created": "لم يتم إنشاؤها",
+    "create_now": "إنشاء الآن"
 }
