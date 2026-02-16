@@ -35,6 +35,7 @@ class Admin_Pages {
     add_action( 'admin_post_sfs_hr_att_shift_save',    [ $this, 'handle_shift_save' ] );
     add_action( 'admin_post_sfs_hr_att_shift_delete',  [ $this, 'handle_shift_delete' ] );
     add_action( 'admin_post_sfs_hr_att_assign_bulk',   [ $this, 'handle_assign_bulk' ] );
+    add_action( 'admin_post_sfs_hr_att_bulk_default_shift', [ $this, 'handle_bulk_default_shift' ] );
     add_action( 'admin_post_sfs_hr_att_device_save',   [ $this, 'handle_device_save' ] );
     add_action( 'admin_post_sfs_hr_att_device_delete', [ $this, 'handle_device_delete' ] );
     add_action( 'admin_post_sfs_hr_att_save_automation', [ $this, 'handle_save_automation' ] );
@@ -2166,6 +2167,179 @@ public function render_shifts(): void {
             <?php endforeach; ?>
             </tbody>
         </table>
+
+        <?php
+        /* ── Bulk Assign Default Shift ──────────────────────────────── */
+        $emp_table      = $wpdb->prefix . 'sfs_hr_employees';
+        $emp_shifts_tbl = $wpdb->prefix . 'sfs_hr_attendance_emp_shifts';
+        $dept_table_    = $wpdb->prefix . 'sfs_hr_departments';
+        $users_table    = $wpdb->users;
+
+        // Build employee list with current default shift info.
+        $emp_cols   = $wpdb->get_col( "SHOW COLUMNS FROM {$emp_table}", 0 ) ?: [];
+        $has_col    = static function ( string $c ) use ( $emp_cols ) { return in_array( $c, $emp_cols, true ); };
+
+        $name_parts = [];
+        if ( $has_col( 'full_name' ) )                       $name_parts[] = 'e.full_name';
+        if ( $has_col( 'name' ) )                            $name_parts[] = 'e.name';
+        if ( $has_col( 'first_name' ) && $has_col( 'last_name' ) ) $name_parts[] = "CONCAT(e.first_name,' ',e.last_name)";
+        $name_parts[] = 'u.display_name';
+        $name_parts[] = 'u.user_login';
+        $name_expr    = 'COALESCE(' . implode( ',', $name_parts ) . ') AS emp_name';
+
+        $dept_id_col = $has_col( 'dept_id' ) ? 'e.dept_id' : ( $has_col( 'department_id' ) ? 'e.department_id' : null );
+        $dept_join   = '';
+        $dept_expr   = "'—' AS dept_name";
+        if ( $dept_id_col ) {
+            $dept_join = "LEFT JOIN {$dept_table_} d ON d.id = {$dept_id_col}";
+            $dept_expr = "COALESCE(d.name,'—') AS dept_name";
+        }
+
+        $bulk_emps = $wpdb->get_results(
+            "SELECT e.id, {$name_expr}, {$dept_expr},
+                    es.shift_id AS current_shift_id, s.name AS current_shift_name
+             FROM {$emp_table} e
+             LEFT JOIN {$users_table} u ON u.ID = e.user_id
+             {$dept_join}
+             LEFT JOIN {$emp_shifts_tbl} es ON es.employee_id = e.id
+                       AND es.id = (SELECT MAX(es2.id) FROM {$emp_shifts_tbl} es2 WHERE es2.employee_id = e.id)
+             LEFT JOIN {$table} s ON s.id = es.shift_id
+             WHERE e.status = 'active'
+             ORDER BY emp_name"
+        );
+        $active_shifts = $wpdb->get_results( "SELECT id, name, start_time, end_time FROM {$table} WHERE active = 1 ORDER BY name" );
+        $departments   = $this->get_departments( $wpdb );
+
+        $bulk_done   = isset( $_GET['bulk_default_done'] ) ? (int) $_GET['bulk_default_done'] : 0;
+        ?>
+        <hr/>
+        <h2><?php esc_html_e( 'Bulk Assign Default Shift', 'sfs-hr' ); ?>
+            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Set the primary/default shift for multiple employees at once. This is used when no daily schedule override exists.', 'sfs-hr' ); ?></span></span>
+        </h2>
+
+        <?php if ( $bulk_done ) : ?>
+            <div class="notice notice-success is-dismissible">
+                <p><?php printf( esc_html( _n( '%d employee updated.', '%d employees updated.', $bulk_done, 'sfs-hr' ) ), $bulk_done ); ?></p>
+            </div>
+        <?php endif; ?>
+
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="sfs-bulk-default-shift-form">
+            <?php wp_nonce_field( 'sfs_hr_att_bulk_default_shift' ); ?>
+            <input type="hidden" name="action" value="sfs_hr_att_bulk_default_shift"/>
+
+            <table class="form-table">
+                <tr>
+                    <th><label for="sfs-bds-shift"><?php esc_html_e( 'Shift', 'sfs-hr' ); ?></label></th>
+                    <td>
+                        <select name="shift_id" id="sfs-bds-shift" required>
+                            <option value=""><?php esc_html_e( '— Select Shift —', 'sfs-hr' ); ?></option>
+                            <?php foreach ( $active_shifts as $sh ) : ?>
+                                <option value="<?php echo (int) $sh->id; ?>">
+                                    <?php echo esc_html( "{$sh->name} ({$sh->start_time} → {$sh->end_time})" ); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th><?php esc_html_e( 'Select by', 'sfs-hr' ); ?></th>
+                    <td>
+                        <fieldset>
+                            <label style="margin-right:16px;">
+                                <input type="radio" name="select_mode" value="department" checked
+                                       id="sfs-bds-mode-dept"/>
+                                <?php esc_html_e( 'Department', 'sfs-hr' ); ?>
+                            </label>
+                            <label>
+                                <input type="radio" name="select_mode" value="employees"
+                                       id="sfs-bds-mode-emp"/>
+                                <?php esc_html_e( 'Individual employees', 'sfs-hr' ); ?>
+                            </label>
+                        </fieldset>
+                    </td>
+                </tr>
+
+                <tr id="sfs-bds-dept-row">
+                    <th><label><?php esc_html_e( 'Departments', 'sfs-hr' ); ?></label></th>
+                    <td>
+                        <div style="display:flex;flex-wrap:wrap;gap:8px 20px;max-height:180px;overflow-y:auto;padding:10px;border:1px solid #dcdcde;border-radius:4px;background:#f9f9f9;">
+                            <label style="display:flex;align-items:center;gap:5px;font-weight:600;">
+                                <input type="checkbox" id="sfs-bds-dept-all"/>
+                                <?php esc_html_e( 'Select All', 'sfs-hr' ); ?>
+                            </label>
+                            <?php foreach ( $departments as $dept ) : ?>
+                                <label style="display:flex;align-items:center;gap:5px;white-space:nowrap;">
+                                    <input type="checkbox" name="dept_ids[]" class="sfs-bds-dept-cb"
+                                           value="<?php echo (int) $dept['id']; ?>"/>
+                                    <?php echo esc_html( $dept['name'] ); ?>
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
+                        <p class="description"><?php esc_html_e( 'All active employees in the selected departments will be assigned this shift.', 'sfs-hr' ); ?></p>
+                    </td>
+                </tr>
+
+                <tr id="sfs-bds-emp-row" style="display:none;">
+                    <th><label><?php esc_html_e( 'Employees', 'sfs-hr' ); ?></label></th>
+                    <td>
+                        <select name="employee_ids[]" multiple size="10" style="min-width:400px;">
+                            <?php foreach ( $bulk_emps as $be ) : ?>
+                                <option value="<?php echo (int) $be->id; ?>">
+                                    <?php
+                                    $label = $be->emp_name . ' (' . $be->dept_name . ')';
+                                    if ( $be->current_shift_name ) {
+                                        /* translators: %s: shift name */
+                                        $label .= ' — ' . sprintf( __( 'current: %s', 'sfs-hr' ), $be->current_shift_name );
+                                    }
+                                    echo esc_html( $label );
+                                    ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <p class="description"><?php esc_html_e( 'Hold Ctrl/Cmd to select multiple employees.', 'sfs-hr' ); ?></p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th><?php esc_html_e( 'Options', 'sfs-hr' ); ?></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="overwrite" value="1"/>
+                            <?php esc_html_e( 'Overwrite existing default shift assignments', 'sfs-hr' ); ?>
+                            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'If unchecked, only employees without a current default shift will be assigned. If checked, all matched employees will be updated.', 'sfs-hr' ); ?></span></span>
+                        </label>
+                    </td>
+                </tr>
+            </table>
+
+            <?php submit_button( __( 'Assign Default Shift', 'sfs-hr' ) ); ?>
+        </form>
+
+        <script>
+        (function(){
+            var modeDept = document.getElementById('sfs-bds-mode-dept');
+            var modeEmp  = document.getElementById('sfs-bds-mode-emp');
+            var deptRow  = document.getElementById('sfs-bds-dept-row');
+            var empRow   = document.getElementById('sfs-bds-emp-row');
+            function toggle(){
+                var isDept  = modeDept.checked;
+                deptRow.style.display = isDept ? '' : 'none';
+                empRow.style.display  = isDept ? 'none' : '';
+            }
+            modeDept.addEventListener('change', toggle);
+            modeEmp.addEventListener('change', toggle);
+
+            /* Select-all departments */
+            var allCb = document.getElementById('sfs-bds-dept-all');
+            if (allCb) {
+                allCb.addEventListener('change', function(){
+                    var cbs = document.querySelectorAll('.sfs-bds-dept-cb');
+                    for (var i = 0; i < cbs.length; i++) { cbs[i].checked = allCb.checked; }
+                });
+            }
+        })();
+        </script>
     </div>
     <?php
 }
@@ -2551,6 +2725,120 @@ $departments = $this->get_departments( $wpdb );
         wp_safe_redirect( admin_url('admin.php?page=sfs_hr_attendance&tab=assign&done=1') );
         exit;
     }
+
+    /* ── Bulk Assign Default Shift handler ──────────────────────── */
+    public function handle_bulk_default_shift(): void {
+        if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
+            wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
+        }
+        check_admin_referer( 'sfs_hr_att_bulk_default_shift' );
+
+        global $wpdb;
+        $emp_table      = $wpdb->prefix . 'sfs_hr_employees';
+        $emp_shifts_tbl = $wpdb->prefix . 'sfs_hr_attendance_emp_shifts';
+
+        $shift_id   = isset( $_POST['shift_id'] ) ? (int) $_POST['shift_id'] : 0;
+        $mode       = isset( $_POST['select_mode'] ) ? sanitize_key( $_POST['select_mode'] ) : 'department';
+        $overwrite  = ! empty( $_POST['overwrite'] );
+
+        if ( ! $shift_id ) {
+            wp_die( esc_html__( 'Please select a shift.', 'sfs-hr' ) );
+        }
+
+        // Verify shift exists.
+        $shift_table = $wpdb->prefix . 'sfs_hr_attendance_shifts';
+        $shift_exists = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$shift_table} WHERE id = %d AND active = 1", $shift_id ) );
+        if ( ! $shift_exists ) {
+            wp_die( esc_html__( 'Selected shift does not exist or is inactive.', 'sfs-hr' ) );
+        }
+
+        // Resolve target employee IDs.
+        $employee_ids = [];
+
+        if ( $mode === 'department' ) {
+            $dept_ids = array_map( 'intval', (array) ( $_POST['dept_ids'] ?? [] ) );
+            $dept_ids = array_filter( $dept_ids );
+            if ( empty( $dept_ids ) ) {
+                wp_die( esc_html__( 'Please select at least one department.', 'sfs-hr' ) );
+            }
+
+            // Determine which column maps to department ID.
+            $cols       = $wpdb->get_col( "SHOW COLUMNS FROM {$emp_table}", 0 ) ?: [];
+            $dept_col   = in_array( 'dept_id', $cols, true ) ? 'dept_id' : ( in_array( 'department_id', $cols, true ) ? 'department_id' : null );
+
+            if ( ! $dept_col ) {
+                wp_die( esc_html__( 'Cannot resolve department column in employees table.', 'sfs-hr' ) );
+            }
+
+            $placeholders = implode( ',', array_fill( 0, count( $dept_ids ), '%d' ) );
+            $employee_ids = $wpdb->get_col(
+                $wpdb->prepare(
+                    "SELECT id FROM {$emp_table} WHERE status = 'active' AND {$dept_col} IN ({$placeholders})",
+                    ...$dept_ids
+                )
+            );
+            $employee_ids = array_map( 'intval', $employee_ids );
+
+        } else {
+            $employee_ids = array_map( 'intval', (array) ( $_POST['employee_ids'] ?? [] ) );
+            $employee_ids = array_filter( $employee_ids );
+        }
+
+        if ( empty( $employee_ids ) ) {
+            wp_die( esc_html__( 'No employees matched the selection.', 'sfs-hr' ) );
+        }
+
+        $now     = current_time( 'mysql' );
+        $today   = current_time( 'Y-m-d' );
+        $user_id = get_current_user_id();
+        $count   = 0;
+
+        foreach ( $employee_ids as $eid ) {
+            // Check if employee already has a default shift.
+            $existing = $wpdb->get_var( $wpdb->prepare(
+                "SELECT id FROM {$emp_shifts_tbl} WHERE employee_id = %d ORDER BY id DESC LIMIT 1",
+                $eid
+            ) );
+
+            if ( $existing && ! $overwrite ) {
+                continue; // Skip — already assigned and overwrite is off.
+            }
+
+            if ( $existing && $overwrite ) {
+                // Update the latest record.
+                $wpdb->update(
+                    $emp_shifts_tbl,
+                    [
+                        'shift_id'   => $shift_id,
+                        'start_date' => $today,
+                        'created_at' => $now,
+                        'created_by' => $user_id,
+                    ],
+                    [ 'id' => (int) $existing ],
+                    [ '%d', '%s', '%s', '%d' ],
+                    [ '%d' ]
+                );
+            } else {
+                // Insert new assignment.
+                $wpdb->insert(
+                    $emp_shifts_tbl,
+                    [
+                        'employee_id' => $eid,
+                        'shift_id'    => $shift_id,
+                        'start_date'  => $today,
+                        'created_at'  => $now,
+                        'created_by'  => $user_id,
+                    ],
+                    [ '%d', '%d', '%s', '%s', '%d' ]
+                );
+            }
+            $count++;
+        }
+
+        wp_safe_redirect( admin_url( "admin.php?page=sfs_hr_attendance&tab=shifts&bulk_default_done={$count}" ) );
+        exit;
+    }
+
     /* ========================= Exceptions ========================= */
     
 public function render_exceptions(): void {
