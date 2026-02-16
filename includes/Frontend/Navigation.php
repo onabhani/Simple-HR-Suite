@@ -32,13 +32,6 @@ class Navigation {
                 'section' => 'personal',
             ],
             [
-                'slug'      => 'profile',
-                'label'     => __( 'Profile', 'sfs-hr' ),
-                'icon'      => 'user',
-                'roles'     => [ 'employee', 'trainee', 'manager', 'hr', 'gm', 'admin' ],
-                'section'   => 'personal',
-            ],
-            [
                 'slug'      => 'leave',
                 'label'     => __( 'Leave', 'sfs-hr' ),
                 'icon'      => 'calendar',
@@ -53,21 +46,6 @@ class Navigation {
                 'roles'     => [ 'employee', 'manager', 'hr', 'gm', 'admin' ],
                 'section'   => 'personal',
                 'condition' => 'not_limited',
-            ],
-            [
-                'slug'    => 'resignation',
-                'label'   => __( 'Resignation', 'sfs-hr' ),
-                'icon'    => 'logout',
-                'roles'   => [ 'employee', 'trainee', 'manager', 'hr', 'gm', 'admin' ],
-                'section' => 'personal',
-            ],
-            [
-                'slug'      => 'settlement',
-                'label'     => __( 'Settlement', 'sfs-hr' ),
-                'icon'      => 'file-text',
-                'roles'     => [ 'employee', 'manager', 'hr', 'gm', 'admin' ],
-                'section'   => 'personal',
-                'condition' => 'has_settlements',
             ],
             [
                 'slug'      => 'attendance',
@@ -91,6 +69,28 @@ class Navigation {
                 'icon'    => 'receipt',
                 'roles'   => [ 'employee', 'manager', 'hr', 'gm', 'admin' ],
                 'section' => 'personal',
+            ],
+            [
+                'slug'      => 'profile',
+                'label'     => __( 'Profile', 'sfs-hr' ),
+                'icon'      => 'user',
+                'roles'     => [ 'employee', 'trainee', 'manager', 'hr', 'gm', 'admin' ],
+                'section'   => 'personal',
+            ],
+            [
+                'slug'    => 'resignation',
+                'label'   => __( 'Resignation', 'sfs-hr' ),
+                'icon'    => 'logout',
+                'roles'   => [ 'employee', 'trainee', 'manager', 'hr', 'gm', 'admin' ],
+                'section' => 'personal',
+            ],
+            [
+                'slug'      => 'settlement',
+                'label'     => __( 'Settlement', 'sfs-hr' ),
+                'icon'      => 'file-text',
+                'roles'     => [ 'employee', 'manager', 'hr', 'gm', 'admin' ],
+                'section'   => 'personal',
+                'condition' => 'has_settlements',
             ],
 
             // ── Team section ──

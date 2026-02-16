@@ -198,16 +198,16 @@ class ResignationTab implements TabInterface {
 
             // Type badge
             if ( $type === 'final_exit' ) {
-                echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Type', 'sfs-hr' ) . '</span><span class="sfs-detail-value"><span class="sfs-badge sfs-badge--info">' . esc_html__( 'Final Exit', 'sfs-hr' ) . '</span></span></div>';
+                echo '<div class="sfs-detail-row"><span class="sfs-detail-label" data-i18n-key="type">' . esc_html__( 'Type', 'sfs-hr' ) . '</span><span class="sfs-detail-value"><span class="sfs-badge sfs-badge--info" data-i18n-key="final_exit">' . esc_html__( 'Final Exit', 'sfs-hr' ) . '</span></span></div>';
             } else {
-                echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Type', 'sfs-hr' ) . '</span><span class="sfs-detail-value"><span class="sfs-badge sfs-badge--completed">' . esc_html__( 'Regular', 'sfs-hr' ) . '</span></span></div>';
+                echo '<div class="sfs-detail-row"><span class="sfs-detail-label" data-i18n-key="type">' . esc_html__( 'Type', 'sfs-hr' ) . '</span><span class="sfs-detail-value"><span class="sfs-badge sfs-badge--completed" data-i18n-key="regular">' . esc_html__( 'Regular', 'sfs-hr' ) . '</span></span></div>';
             }
 
-            echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Date', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $r['resignation_date'] ) . '</span></div>';
-            echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Last Day', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $r['last_working_day'] ?: '-' ) . '</span></div>';
+            echo '<div class="sfs-detail-row"><span class="sfs-detail-label" data-i18n-key="date">' . esc_html__( 'Date', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $r['resignation_date'] ) . '</span></div>';
+            echo '<div class="sfs-detail-row"><span class="sfs-detail-label" data-i18n-key="last_working_day">' . esc_html__( 'Last Day', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $r['last_working_day'] ?: '-' ) . '</span></div>';
 
             if ( ! empty( $r['reason'] ) ) {
-                echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Reason', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $r['reason'] ) . '</span></div>';
+                echo '<div class="sfs-detail-row"><span class="sfs-detail-label" data-i18n-key="reason">' . esc_html__( 'Reason', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $r['reason'] ) . '</span></div>';
             }
 
             // Approver info
@@ -236,7 +236,7 @@ class ResignationTab implements TabInterface {
         echo '<div class="sfs-detail-row" style="color:' . $color . ';"><span class="sfs-detail-label">' . esc_html( $lbl ) . '</span><span class="sfs-detail-value">' . esc_html( $u->display_name ) . '</span></div>';
 
         if ( ! empty( $r['approver_note'] ) ) {
-            echo '<div class="sfs-detail-row"><span class="sfs-detail-label">' . esc_html__( 'Note', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $r['approver_note'] ) . '</span></div>';
+            echo '<div class="sfs-detail-row"><span class="sfs-detail-label" data-i18n-key="note">' . esc_html__( 'Note', 'sfs-hr' ) . '</span><span class="sfs-detail-value">' . esc_html( $r['approver_note'] ) . '</span></div>';
         }
     }
 

@@ -833,6 +833,7 @@ window.sfsAttI18n = window.sfsAttI18n || {
     error_prefix: '<?php echo esc_js( __( 'Error:', 'sfs-hr' ) ); ?>',
     request_timed_out: '<?php echo esc_js( __( 'Request timed out', 'sfs-hr' ) ); ?>',
     locate_me: '<?php echo esc_js( __( 'Locate me', 'sfs-hr' ) ); ?>',
+    target_word: '<?php echo esc_js( __( 'target', 'sfs-hr' ) ); ?>',
     // Progress & History
     no_activity_yet: '<?php echo esc_js( __( 'No activity recorded yet.', 'sfs-hr' ) ); ?>',
     hours_worked: '<?php echo esc_js( __( 'hours worked', 'sfs-hr' ) ); ?>',
@@ -1233,7 +1234,7 @@ setInterval(tickClock, 1000);
             }
             if (targetEl) {
                 targetEl.textContent = progressTargetSec > 0
-                    ? ('/ ' + formatHM(progressTargetSec) + ' target')
+                    ? ('/ ' + formatHM(progressTargetSec) + ' ' + (i18n.target_word || 'target'))
                     : '';
             }
         }
@@ -1437,7 +1438,7 @@ setInterval(tickClock, 1000);
                 if (blockedMsg) {
                     setStat(blockedMsg, 'error');
                 } else {
-                    setStat(j.label || i18n.ready, 'idle');
+                    setStat(i18n.ready, 'idle');
                 }
 
                 // Update progress timer.
@@ -4535,10 +4536,10 @@ foreach ($rows as $r) {
         if (in_array('late',$ev['flags'],true))       $status = ($status==='present' ? 'late'       : $status);
     }
 
-    // Geo/selfie counters (for completeness)
+    // Geo/selfie counters — kiosk presence IS geo validation, never flag kiosk punches
     $outside_geo = 0; $no_selfie = 0;
     foreach ($rows as $r) {
-        if ((int)$r->valid_geo === 0)    $outside_geo++;
+        if ((int)$r->valid_geo === 0 && ($r->source ?? '') !== 'kiosk') $outside_geo++;
         if ((int)$r->valid_selfie === 0) $no_selfie++;
     }
 
@@ -5516,8 +5517,15 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
             }
         }
     }
-    // Close unmatched IN? leave it open → incomplete
+    // Close unmatched IN? leave it open → incomplete, but still count the
+    // partial interval so overlap calculations don't falsely flag missed_segment.
     $has_unmatched = ($open !== null);
+    if ( $has_unmatched ) {
+        $close_at = time(); // cap at "now" so future time isn't counted
+        if ( $close_at > $open ) {
+            $intervals[] = [ $open, $close_at ];
+        }
+    }
 
     // Calculate break time from break_start..break_end pairs
     $break_total = 0;

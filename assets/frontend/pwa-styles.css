@@ -461,11 +461,11 @@
         padding-bottom: 80px;
     }
     .admin-bar .sfs-hr-pwa-app .sfs-hr-profile.sfs-hr-tab--overview {
-        padding-top: 88px;
+        padding-top: 56px;
     }
     @media screen and (max-width: 782px) {
         .admin-bar .sfs-hr-pwa-app .sfs-hr-profile.sfs-hr-tab--overview {
-            padding-top: 102px;
+            padding-top: 56px;
         }
     }
 
@@ -718,6 +718,21 @@
         /* Overview tab: contained within body, proper padding */
         .sfs-hr-pwa-app .sfs-hr-profile.sfs-hr-tab--overview {
             padding: 0 16px 24px 0 !important;
+        }
+
+        /* Desktop overview: two-column grid for KPI sections */
+        .sfs-hr-pwa-app .sfs-overview {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0 24px;
+        }
+        .sfs-hr-pwa-app .sfs-overview > .sfs-overview-hero,
+        .sfs-hr-pwa-app .sfs-overview > .sfs-overview-profile-banner,
+        .sfs-hr-pwa-app .sfs-overview > script {
+            grid-column: 1 / -1;
+        }
+        .sfs-hr-pwa-app .sfs-overview > .sfs-overview-block {
+            min-width: 0;
         }
 }
 
@@ -3269,6 +3284,21 @@ body:has(.sfs-hr-pwa-app) #masthead {
     color: #0284c7;
 }
 
+/* Documents banner — red/danger variant */
+.sfs-overview-profile-banner--danger {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    border-color: #fecaca;
+}
+.sfs-overview-profile-banner--danger .sfs-overview-profile-banner-title {
+    color: #b91c1c;
+}
+.sfs-overview-profile-banner--danger .sfs-overview-profile-banner-sub {
+    color: #dc2626;
+}
+.sfs-overview-profile-banner--danger .sfs-overview-profile-banner-arrow {
+    color: #dc2626;
+}
+
 /* ── Mobile Responsive ───────────────────────────────────────── */
 @media (max-width: 640px) {
     .sfs-overview-hero {
@@ -3365,6 +3395,16 @@ body:has(.sfs-hr-pwa-app) #masthead {
     .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-profile-banner-bar {
         background: #334155;
     }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-profile-banner--danger {
+        background: linear-gradient(135deg, #1a0505 0%, #2d1010 100%);
+        border-color: #7f1d1d;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-profile-banner--danger .sfs-overview-profile-banner-title {
+        color: #fca5a5;
+    }
+    .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-overview-profile-banner--danger .sfs-overview-profile-banner-sub {
+        color: #f87171;
+    }
     .sfs-hr-pwa-app:not(.sfs-hr-light-mode) .sfs-badge--success {
         background: #064e3b;
         color: #6ee7b7;
@@ -3418,6 +3458,16 @@ body:has(.sfs-hr-pwa-app) #masthead {
 }
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-profile-banner-bar {
     background: #334155;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-profile-banner--danger {
+    background: linear-gradient(135deg, #1a0505 0%, #2d1010 100%);
+    border-color: #7f1d1d;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-profile-banner--danger .sfs-overview-profile-banner-title {
+    color: #fca5a5;
+}
+.sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-overview-profile-banner--danger .sfs-overview-profile-banner-sub {
+    color: #f87171;
 }
 .sfs-hr-pwa-app.sfs-hr-dark-mode .sfs-badge--success {
     background: #064e3b;
