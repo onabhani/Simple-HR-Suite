@@ -166,7 +166,7 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 - [x] **Add** HR views: all employees, leave management, attendance dashboard, loans, settlements, payroll overview, documents, performance
 - [x] **Add** GM views: organization-wide dashboards, cross-department reports & analytics, all approvals, headcount/turnover/payroll summaries
 - [x] **Add** admin views: everything GM + HR has + shifts, policies, system settings, configuration
-- [ ] **Build** REST API endpoints for all manager/HR/admin actions (currently in wp-admin via `admin-post.php`)
+- [x] **Build** REST API endpoints for all manager/HR/admin actions (currently in wp-admin via `admin-post.php`)
 - [x] **Add** role-based tab/navigation rendering — each role sees only their permitted sections
 - [x] **Keep** wp-admin as a fallback for plugin configuration only (settings, migrations, advanced config)
 - [x] **Ensure** the frontend portal is fully PWA-capable (offline, installable) — reuse existing service worker infrastructure
@@ -201,7 +201,7 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 ### 10.4 Clock In/Out Experience Redesign ✅ Done in v1.0.0
 - [x] **Add** circular progress timer showing hours worked vs target hours (like efacility's clock screen)
 - [x] **Redesign** punch history as color-coded cards — green IN badge, red OUT badge
-- [ ] **Show** location tag and clock-in method on each punch card
+- [x] **Show** location tag and clock-in method on each punch card
 - [x] **Add** daily total hours display with animated counter
 - [x] **Add** status indicator (Currently In / Currently Out) with visual cue
 
