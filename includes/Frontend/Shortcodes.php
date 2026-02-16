@@ -2400,8 +2400,23 @@ class Shortcodes {
                             }
                             el.textContent = strings[key] + hint;
                         }
-                        // Handle elements with child nodes carefully
-                        else if (!el.querySelector('*') || el.classList.contains('sfs-hr-missing-field')) {
+                        // Handle elements with child nodes (e.g. buttons with SVG icons)
+                        else if (el.querySelector('*') && !el.classList.contains('sfs-hr-missing-field')) {
+                            // Replace only the text nodes, preserving child elements like SVGs
+                            var childNodes = el.childNodes;
+                            var replaced = false;
+                            for (var i = 0; i < childNodes.length; i++) {
+                                if (childNodes[i].nodeType === 3 && childNodes[i].textContent.trim()) {
+                                    childNodes[i].textContent = strings[key];
+                                    replaced = true;
+                                    break;
+                                }
+                            }
+                            if (!replaced) {
+                                el.appendChild(document.createTextNode(strings[key]));
+                            }
+                        }
+                        else {
                             el.textContent = strings[key];
                         }
                     }

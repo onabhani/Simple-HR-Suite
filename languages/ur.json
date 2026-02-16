@@ -3208,5 +3208,12 @@
     "status_published": "شائع شدہ",
     "status_trashed": "ردی میں",
     "not_created": "ابھی تک نہیں بنایا گیا",
-    "create_now": "ابھی بنائیں"
+    "create_now": "ابھی بنائیں",
+
+    "_comment_misc_missing": "--- Misc missing strings ---",
+    "default_2400_min": "ڈیفالٹ: 2400 منٹ (%d گھنٹے)",
+    "item": "آئٹم",
+    "please_log_in": "براہ کرم لاگ ان کریں۔",
+    "you_can_only_view_own_payslips": "آپ صرف اپنی تنخواہ کی پرچیاں دیکھ سکتے ہیں۔",
+    "no_permission_settings": "آپ کو ترتیبات تک رسائی کی اجازت نہیں ہے۔"
 }
