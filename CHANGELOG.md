@@ -2,6 +2,12 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [1.2.2] — 2026-02-17
+
+### Fixed
+- Employee profile page now full width with responsive breakpoints (stacks on mobile).
+- Period override break field limit raised from 240 to 1440 minutes.
+
 ## [0.8.1] — 2026-02-13
 
 ### Fixed
