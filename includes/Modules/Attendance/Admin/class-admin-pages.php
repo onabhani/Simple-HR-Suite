@@ -1983,7 +1983,7 @@ public function render_shifts(): void {
                                                title="<?php esc_attr_e( 'Break start time', 'sfs-hr' ); ?>"/>
                                         <input type="number" name="period_overrides[<?php echo (int) $idx; ?>][unpaid_break_minutes]"
                                                value="<?php echo esc_attr( $pov['unpaid_break_minutes'] ?? '' ); ?>"
-                                               min="0" max="240" step="1" style="width:70px;"
+                                               min="0" max="1440" step="1" style="width:70px;"
                                                placeholder="<?php esc_attr_e( 'Break', 'sfs-hr' ); ?>"
                                                title="<?php esc_attr_e( 'Break duration (minutes)', 'sfs-hr' ); ?>"/>
                                         <button type="button" class="button sfs-remove-period-override" title="<?php esc_attr_e( 'Remove', 'sfs-hr' ); ?>">&times;</button>
@@ -2014,7 +2014,7 @@ public function render_shifts(): void {
                                     '<span>\u2192</span>' +
                                     '<input type="time" name="period_overrides['+idx+'][end_time]" required step="60" style="width:110px;"/>' +
                                     '<input type="time" name="period_overrides['+idx+'][break_start_time]" step="60" style="width:110px;" placeholder="<?php echo esc_js( __( 'Break start', 'sfs-hr' ) ); ?>" title="<?php echo esc_js( __( 'Break start time', 'sfs-hr' ) ); ?>"/>' +
-                                    '<input type="number" name="period_overrides['+idx+'][unpaid_break_minutes]" min="0" max="240" step="1" style="width:70px;" placeholder="<?php echo esc_js( __( 'Break', 'sfs-hr' ) ); ?>" title="<?php echo esc_js( __( 'Break duration (minutes)', 'sfs-hr' ) ); ?>"/>' +
+                                    '<input type="number" name="period_overrides['+idx+'][unpaid_break_minutes]" min="0" max="1440" step="1" style="width:70px;" placeholder="<?php echo esc_js( __( 'Break', 'sfs-hr' ) ); ?>" title="<?php echo esc_js( __( 'Break duration (minutes)', 'sfs-hr' ) ); ?>"/>' +
                                     '<button type="button" class="button sfs-remove-period-override" title="<?php echo esc_js( __( 'Remove', 'sfs-hr' ) ); ?>">&times;</button>';
                                 list.appendChild(row);
                                 idx++;
@@ -2537,7 +2537,7 @@ $end   = $norm_time($_POST['end_time']   ?? '');
             $p_end_time   = $norm_time( $pov['end_time'] ?? '' );
             $p_break_start = $norm_time( $pov['break_start_time'] ?? '' );
             $p_break_mins  = isset( $pov['unpaid_break_minutes'] ) && $pov['unpaid_break_minutes'] !== ''
-                ? max( 0, min( 240, (int) $pov['unpaid_break_minutes'] ) )
+                ? max( 0, min( 1440, (int) $pov['unpaid_break_minutes'] ) )
                 : null;
 
             // Skip incomplete rows
