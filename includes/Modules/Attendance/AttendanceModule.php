@@ -4442,8 +4442,19 @@ foreach ($rows as $r) {
     $round   = ( $shift && isset($shift->rounding_rule) )             ? (string)$shift->rounding_rule           : $globalRound;
     $roundN  = ($round === 'none') ? 0 : (int)$round;
 
+    // For incomplete sessions (unmatched clock-in), cap at shift end rather than midnight.
+    // This prevents inflated worked hours (e.g. 36h for a day where clock-out was missed).
+    $dayCapUtcTs = strtotime($endUtc); // fallback: midnight end of local day
+    if ( ! empty( $segments ) ) {
+        $lastSeg = end( $segments );
+        $segEndTs = strtotime( $lastSeg['end_utc'] . ' UTC' );
+        if ( $segEndTs > 0 ) {
+            $dayCapUtcTs = $segEndTs;
+        }
+    }
+
     // Evaluate
-    $ev = self::evaluate_segments($segments, $rows, $grLate, $grEarly);
+    $ev = self::evaluate_segments($segments, $rows, $grLate, $grEarly, $dayCapUtcTs);
 
     // ---- Break deduction logic ----
     // Determine shift break config
@@ -5721,7 +5732,7 @@ public static function selfie_mode_for( int $employee_id, $dept_id, array $ctx =
 
 
 /** Evaluate a day against split segments. Stores detail for calc. */
-private static function evaluate_segments(array $segments, array $punchesUTC, int $graceLateMin, int $graceEarlyMin): array {
+private static function evaluate_segments(array $segments, array $punchesUTC, int $graceLateMin, int $graceEarlyMin, int $dayEndUtcTs = 0): array {
     // Build intervals from IN..OUT, ignore break types
     $intervals = [];
     $open = null;
@@ -5740,7 +5751,8 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
     // partial interval so overlap calculations don't falsely flag missed_segment.
     $has_unmatched = ($open !== null);
     if ( $has_unmatched ) {
-        $close_at = time(); // cap at "now" so future time isn't counted
+        // Cap at end of the work day, or "now" if the day hasn't ended yet
+        $close_at = $dayEndUtcTs > 0 ? min( $dayEndUtcTs, time() ) : time();
         if ( $close_at > $open ) {
             $intervals[] = [ $open, $close_at ];
         }
