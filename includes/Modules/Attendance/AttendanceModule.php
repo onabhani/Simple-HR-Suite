@@ -4511,6 +4511,14 @@ foreach ($rows as $r) {
         $net = max( 0, $net - $policy_break['duration_minutes'] );
     }
 
+    // In total-hours mode without meaningful shift times, the shift's default
+    // break_policy ('auto') and unpaid_break_minutes should NOT trigger
+    // "No break taken" since there are no fixed shift boundaries.
+    // Only flag no_break_taken when the policy explicitly enables breaks.
+    if ( $is_total_hours && $no_break_taken && ! $policy_break['enabled'] ) {
+        $no_break_taken = 0;
+    }
+
     if ($roundN > 0) $net = (int)round($net / $roundN) * $roundN;
 
     $scheduled = (int)$ev['scheduled_total'];
@@ -4535,7 +4543,12 @@ foreach ($rows as $r) {
             // actually clocked out before the shift end time. Otherwise it's insufficient
             // hours (e.g., late arrival) but NOT an early departure.
             $actually_left_early = false;
-            if ( $lastOut && $shift && ! empty( $shift->end_time ) ) {
+            $has_meaningful_end  = (
+                $shift
+                && ! empty( $shift->end_time )
+                && ( ! isset( $shift->start_time ) || $shift->end_time !== $shift->start_time )
+            );
+            if ( $lastOut && $has_meaningful_end ) {
                 $tz_th        = wp_timezone();
                 $shift_end_th = new \DateTimeImmutable( $ymd . ' ' . $shift->end_time, $tz_th );
                 $last_out_th  = ( new \DateTimeImmutable( $lastOut, new \DateTimeZone( 'UTC' ) ) )->setTimezone( $tz_th );
@@ -5568,6 +5581,16 @@ private static function apply_period_override( ?\stdClass $shift, string $ymd ):
  */
 private static function build_segments_from_shift( ?\stdClass $shift, string $ymd ): array {
     if ( ! $shift || empty( $shift->start_time ) || empty( $shift->end_time ) ) {
+        return [];
+    }
+
+    // When start_time == end_time (e.g. 00:00–00:00), there are no meaningful
+    // shift boundaries.  This is typical for "Total Hours" shifts that only
+    // care about the number of worked hours, not fixed start/end times.
+    // Without this guard the equal-times fallback would create a bogus
+    // 24-hour segment (midnight → midnight+1 day) that incorrectly flags
+    // every employee as "Late" and "Left early".
+    if ( $shift->start_time === $shift->end_time ) {
         return [];
     }
 
