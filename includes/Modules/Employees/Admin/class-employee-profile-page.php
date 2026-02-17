@@ -813,9 +813,9 @@ class Employee_Profile_Page {
             .sfs-ep-stat-card__sub{font-size:11px;color:#646970;margin-top:2px;}
 
             /* ═══ Card Grid ═══ */
-            .sfs-ep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;margin-bottom:20px;}
+            .sfs-ep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr));gap:16px;margin-bottom:20px;}
             .sfs-ep-grid--bottom{margin-top:0;}
-            .sfs-ep-card{background:#fff;border:1px solid #c3c4c7;border-radius:6px;padding:16px 18px;box-shadow:0 1px 1px rgba(0,0,0,.04);}
+            .sfs-ep-card{background:#fff;border:1px solid #c3c4c7;border-radius:6px;padding:16px 18px;box-shadow:0 1px 1px rgba(0,0,0,.04);min-width:0;box-sizing:border-box;overflow:hidden;}
             .sfs-ep-card h3{margin:0 0 10px;font-size:14px;font-weight:600;color:#1d2327;border-bottom:1px solid #f0f0f1;padding-bottom:8px;}
             .sfs-ep-card--wide{grid-column:1/-1;}
 
@@ -827,17 +827,16 @@ class Employee_Profile_Page {
             .sfs-ep-info-columns .sfs-ep-info-table{flex:1 1 250px;}
 
             /* ═══ Form Table (edit mode) ═══ */
-            .sfs-ep-form-table{width:100%;border-collapse:collapse;table-layout:fixed;}
+            .sfs-ep-form-table{width:100%;border-collapse:collapse;table-layout:fixed;box-sizing:border-box;}
             .sfs-ep-form-table th{text-align:start;width:38%;padding:5px 8px 5px 0;font-weight:500;font-size:13px;vertical-align:top;word-wrap:break-word;}
             .sfs-ep-form-table td{padding:5px 0;overflow:hidden;}
-            .sfs-ep-form-table td input.regular-text,
+            .sfs-ep-form-table td input,
             .sfs-ep-form-table td select,
             .sfs-ep-form-table td textarea{max-width:100%;width:100%;box-sizing:border-box;}
-            .sfs-ep-form-table td input[type="date"]{max-width:100%;width:auto;}
-            .sfs-ep-form-table td input[type="file"]{max-width:100%;}
+            .sfs-ep-form-table td input[type="date"]{width:auto;}
+            .sfs-ep-form-table td input[type="file"]{width:auto;}
             .sfs-ep-form-table td .description{word-wrap:break-word;overflow-wrap:break-word;}
-            .sfs-ep-edit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px;margin-bottom:16px;}
-            .sfs-ep-card{overflow:hidden;}
+            .sfs-ep-edit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(380px,100%),1fr));gap:16px;margin-bottom:16px;}
 
             /* ═══ Manager / Reports To ═══ */
             .sfs-ep-manager-link{display:flex;align-items:center;gap:12px;padding:12px 14px;background:#f8f9fa;border:1px solid #e2e4e7;border-radius:8px;text-decoration:none;color:inherit;transition:border-color .15s,box-shadow .15s;}
