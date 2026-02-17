@@ -4451,6 +4451,13 @@ foreach ($rows as $r) {
         if ( $segEndTs > 0 ) {
             $dayCapUtcTs = $segEndTs;
         }
+    } elseif ( $is_total_hours && $firstIn ) {
+        // Total-hours mode with no segments (00:00–00:00): cap at first clock-in + target hours.
+        $th_target = \SFS\HR\Modules\Attendance\Services\Policy_Service::get_target_hours( $employee_id, $shift );
+        $th_cap    = strtotime( $firstIn . ' UTC' ) + (int) ( $th_target * 3600 );
+        if ( $th_cap > 0 ) {
+            $dayCapUtcTs = $th_cap;
+        }
     }
 
     // Evaluate
@@ -4489,13 +4496,17 @@ foreach ($rows as $r) {
     $break_deduction     = 0; // total minutes to deduct for break (configured + any delay)
 
     if ( $has_mandatory_break && count( $rows ) > 0 ) {
+        // "free" and "auto" policies auto-deduct break — no break punches expected.
+        // Only "manual" policy requires explicit break_start/break_end punches.
+        $requires_break_punches = ! in_array( $shift_break_policy, [ 'free', 'auto' ], true );
+
         if ( $is_kiosk_day || ! $has_break_punches ) {
             // Kiosk day OR employee didn't punch break at all:
             // Always deduct configured break minutes (mandatory).
             $break_deduction = $shift_break_minutes;
 
-            if ( ! $is_kiosk_day && ! $has_break_punches ) {
-                // Self-web with no break punches = no break taken (flag it)
+            if ( ! $is_kiosk_day && ! $has_break_punches && $requires_break_punches ) {
+                // Manual break policy with no break punches = no break taken (flag it)
                 $no_break_taken = 1;
             }
         } else {
