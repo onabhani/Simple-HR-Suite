@@ -2,6 +2,12 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [1.2.4] — 2026-02-17
+
+### Fixed
+- Fix incomplete sessions showing inflated worked hours (e.g. 36h/day) —
+  unmatched clock-ins now cap at shift end time instead of current moment.
+
 ## [1.2.3] — 2026-02-17
 
 ### Fixed
