@@ -6672,6 +6672,29 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                         </td>
                     </tr>
                     <tr>
+                        <th scope="row"><?php esc_html_e( 'Contract Expiry Recipients', 'sfs-hr' ); ?></th>
+                        <td>
+                            <div class="sfs-hr-toggle-row">
+                                <label>
+                                    <input type="checkbox" name="contract_expiry_notify_gm" value="1" <?php checked( $settings['contract_expiry_notify_gm'] ?? false ); ?>>
+                                    <?php esc_html_e( 'GM', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="contract_expiry_notify_manager" value="1" <?php checked( $settings['contract_expiry_notify_manager'] ?? true ); ?>>
+                                    <?php esc_html_e( 'Department Manager', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="contract_expiry_notify_hr" value="1" <?php checked( $settings['contract_expiry_notify_hr'] ?? true ); ?>>
+                                    <?php esc_html_e( 'HR', 'sfs-hr' ); ?>
+                                </label>
+                                <label>
+                                    <input type="checkbox" name="contract_expiry_notify_employee" value="1" <?php checked( $settings['contract_expiry_notify_employee'] ?? false ); ?>>
+                                    <?php esc_html_e( 'Employee', 'sfs-hr' ); ?>
+                                </label>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
                         <th scope="row"><?php esc_html_e( 'Contract Expiry Days', 'sfs-hr' ); ?></th>
                         <td>
                             <input type="text" name="contract_expiry_days" value="<?php echo esc_attr( implode( ', ', (array) $settings['contract_expiry_days'] ) ); ?>" class="regular-text" placeholder="30, 14, 7">
@@ -6799,10 +6822,14 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             'anniversary_days_before'  => isset( $_POST['anniversary_days_before'] ) ? absint( $_POST['anniversary_days_before'] ) : 1,
 
             // Contracts
-            'notify_contract_expiry'   => isset( $_POST['notify_contract_expiry'] ),
-            'contract_expiry_days'     => $contract_expiry_days,
-            'notify_probation_end'     => isset( $_POST['notify_probation_end'] ),
-            'probation_days_before'    => isset( $_POST['probation_days_before'] ) ? absint( $_POST['probation_days_before'] ) : 7,
+            'notify_contract_expiry'          => isset( $_POST['notify_contract_expiry'] ),
+            'contract_expiry_days'            => $contract_expiry_days,
+            'contract_expiry_notify_gm'       => isset( $_POST['contract_expiry_notify_gm'] ),
+            'contract_expiry_notify_manager'  => isset( $_POST['contract_expiry_notify_manager'] ),
+            'contract_expiry_notify_hr'       => isset( $_POST['contract_expiry_notify_hr'] ),
+            'contract_expiry_notify_employee' => isset( $_POST['contract_expiry_notify_employee'] ),
+            'notify_probation_end'            => isset( $_POST['notify_probation_end'] ),
+            'probation_days_before'           => isset( $_POST['probation_days_before'] ) ? absint( $_POST['probation_days_before'] ) : 7,
 
             // Payroll
             'notify_payslip_ready'     => isset( $_POST['notify_payslip_ready'] ),
