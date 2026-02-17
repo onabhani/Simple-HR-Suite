@@ -1610,6 +1610,12 @@ public function render_shifts(): void {
     <div class="wrap">
         <h1><?php esc_html_e( 'Shifts', 'sfs-hr' ); ?></h1>
 
+        <?php if ( ! empty( $_GET['saved'] ) ) : ?>
+            <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Shift saved successfully.', 'sfs-hr' ); ?></p></div>
+        <?php elseif ( ! empty( $_GET['deleted'] ) ) : ?>
+            <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Shift deleted.', 'sfs-hr' ); ?></p></div>
+        <?php endif; ?>
+
         <h2><?php echo $editing ? esc_html__( 'Edit Shift', 'sfs-hr' ) : esc_html__( 'Add Shift', 'sfs-hr' ); ?></h2>
         <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>">
             <?php wp_nonce_field( 'sfs_hr_att_shift_save' ); ?>
@@ -2641,11 +2647,12 @@ $end   = $norm_time($_POST['end_time']   ?? '');
 
     if ( $id ) {
         $wpdb->update( $t, $data, ['id'=>$id] );
+        wp_safe_redirect( admin_url('admin.php?page=sfs_hr_attendance&tab=shifts&edit=' . $id . '&saved=1') );
     } else {
         $wpdb->insert( $t, $data );
+        $new_id = (int) $wpdb->insert_id;
+        wp_safe_redirect( admin_url('admin.php?page=sfs_hr_attendance&tab=shifts&edit=' . $new_id . '&saved=1') );
     }
-
-    wp_safe_redirect( admin_url('admin.php?page=sfs_hr_attendance&tab=shifts&saved=1') );
     exit;
 }
 
@@ -4902,6 +4909,12 @@ public function handle_rebuild_sessions_day(): void {
         ? (string) $_GET['date']
         : wp_date('Y-m-d');
 
+    // Prevent rebuilding future dates
+    $today = wp_date( 'Y-m-d' );
+    if ( $date > $today ) {
+        $date = $today;
+    }
+
     $this->rebuild_all_sessions_for_date( $date );
 
     wp_safe_redirect( admin_url( 'admin.php?page=sfs_hr_attendance&tab=sessions&date=' . $date . '&rebuilt=1' ) );
@@ -4929,6 +4942,19 @@ public function handle_rebuild_sessions_period(): void {
     // Validate date range
     if ($to < $from) {
         wp_die( esc_html__( 'Invalid date range', 'sfs-hr' ) );
+    }
+
+    // Never rebuild future dates — cap at today
+    $today = wp_date( 'Y-m-d' );
+    if ( $to > $today ) {
+        // Clean up any stale session rows that were previously created for future dates
+        $sT = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+        $wpdb->query( $wpdb->prepare(
+            "DELETE FROM {$sT} WHERE work_date > %s AND work_date <= %s",
+            $today,
+            ( isset( $_GET['to'] ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) $_GET['to'] ) ) ? (string) $_GET['to'] : $att_period_def['end']
+        ) );
+        $to = $today;
     }
 
     // Rebuild sessions for each local date in the range
