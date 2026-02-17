@@ -95,13 +95,13 @@ class Resignation_List {
             <table class="sfs-hr-resignation-table">
                 <thead>
                     <tr>
-                        <th title="<?php esc_attr_e('Unique reference number for this resignation request', 'sfs-hr'); ?>"><?php esc_html_e('Ref #', 'sfs-hr'); ?></th>
-                        <th title="<?php esc_attr_e('Employee name and code', 'sfs-hr'); ?>"><?php esc_html_e('Employee', 'sfs-hr'); ?></th>
-                        <th title="<?php esc_attr_e('Regular, Final Exit, or Company Termination', 'sfs-hr'); ?>"><?php esc_html_e('Type', 'sfs-hr'); ?></th>
-                        <th class="hide-mobile" title="<?php esc_attr_e('Date the resignation was submitted', 'sfs-hr'); ?>"><?php esc_html_e('Resignation Date', 'sfs-hr'); ?></th>
-                        <th class="hide-mobile" title="<?php esc_attr_e('Calculated last working day based on notice period', 'sfs-hr'); ?>"><?php esc_html_e('Last Working Day', 'sfs-hr'); ?></th>
-                        <th title="<?php esc_attr_e('Current approval status and level', 'sfs-hr'); ?>"><?php esc_html_e('Status', 'sfs-hr'); ?></th>
-                        <th class="hide-mobile" title="<?php esc_attr_e('Reason provided for resignation', 'sfs-hr'); ?>"><?php esc_html_e('Reason', 'sfs-hr'); ?></th>
+                        <th><?php esc_html_e('Ref #', 'sfs-hr'); ?></th>
+                        <th><?php esc_html_e('Employee', 'sfs-hr'); ?></th>
+                        <th><?php esc_html_e('Type', 'sfs-hr'); ?></th>
+                        <th class="hide-mobile"><?php esc_html_e('Resignation Date', 'sfs-hr'); ?></th>
+                        <th class="hide-mobile"><?php esc_html_e('Last Working Day', 'sfs-hr'); ?></th>
+                        <th><?php esc_html_e('Status', 'sfs-hr'); ?></th>
+                        <th class="hide-mobile"><?php esc_html_e('Reason', 'sfs-hr'); ?></th>
                         <th class="hide-mobile" style="width:50px;"></th>
                         <th class="show-mobile" style="width:50px;"></th>
                     </tr>
