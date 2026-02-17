@@ -782,8 +782,8 @@ class Employee_Profile_Page {
         $done = true;
         ?>
         <style>
-            /* ═══ Layout constraint ═══ */
-            #sfs-hr-employee-profile-wrap{max-width:1200px;}
+            /* ═══ Layout ═══ */
+            #sfs-hr-employee-profile-wrap{max-width:100%;}
 
             /* ═══ Hero Header ═══ */
             .sfs-ep-header{display:flex;align-items:center;gap:20px;background:#fff;border:1px solid #c3c4c7;border-radius:8px;padding:20px 24px;margin-bottom:16px;flex-wrap:wrap;}
@@ -965,6 +965,22 @@ class Employee_Profile_Page {
             /* ═══ Legacy card styles for bottom cards ═══ */
             #sfs-hr-employee-profile-wrap .sfs-hr-emp-card{background:#fff;border:1px solid #c3c4c7;border-radius:6px;padding:16px 18px;box-shadow:0 1px 1px rgba(0,0,0,.04);}
             #sfs-hr-employee-profile-wrap .sfs-hr-emp-card h3{margin:0 0 10px;font-size:14px;font-weight:600;border-bottom:1px solid #f0f0f1;padding-bottom:8px;}
+
+            /* ═══ Responsive ═══ */
+            @media screen and (max-width: 1200px) {
+                .sfs-ep-edit-grid{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));}
+            }
+            @media screen and (max-width: 782px) {
+                .sfs-ep-header{flex-direction:column;align-items:flex-start;padding:16px;}
+                .sfs-ep-header__actions{width:100%;}
+                .sfs-ep-grid,
+                .sfs-ep-edit-grid{grid-template-columns:1fr;}
+                .sfs-ep-info-columns{flex-direction:column;gap:12px;}
+                .sfs-ep-stats-row{gap:8px;}
+                .sfs-ep-stat-card{min-width:0;flex:1 1 calc(50% - 8px);}
+                .sfs-ep-form-table th{width:auto;display:block;padding-bottom:2px;}
+                .sfs-ep-form-table td{display:block;padding-bottom:8px;}
+            }
         </style>
         <?php
     }
