@@ -349,3 +349,58 @@
         padding: 10px 12px;
     }
 }
+
+/* ── Inline Help Tooltips ────────────────────────────────────── */
+.sfs-hr-help {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #e5e7eb;
+    color: #6b7280;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: help;
+    margin-left: 4px;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+.sfs-hr-help:hover {
+    background: #0284c7;
+    color: #fff;
+}
+.sfs-hr-help .sfs-hr-help-text {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: #f9fafb;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.5;
+    padding: 8px 12px;
+    border-radius: 8px;
+    white-space: normal;
+    width: 260px;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    pointer-events: none;
+}
+.sfs-hr-help .sfs-hr-help-text::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #1f2937;
+}
+.sfs-hr-help:hover .sfs-hr-help-text {
+    display: block;
+}

@@ -126,11 +126,11 @@ class Admin_Pages {
             return;
         }
 
-        wp_enqueue_style( 'sfs-hr-performance', plugins_url( 'assets/css/performance.css', dirname( __DIR__, 3 ) . '/sfs-hr.php' ), [], '1.0.0' );
-        wp_enqueue_script( 'chart-js', 'https://cdn.jsdelivr.net/npm/chart.js', [], '4.4.0', true );
+        wp_enqueue_style( 'sfs-hr-admin' );
+        wp_enqueue_script( 'chart-js' );
 
-        // Inline styles for the module
-        wp_add_inline_style( 'sfs-hr-performance', $this->get_inline_styles() );
+        // Inline styles for the performance module
+        wp_add_inline_style( 'sfs-hr-admin', $this->get_inline_styles() );
     }
 
     /**

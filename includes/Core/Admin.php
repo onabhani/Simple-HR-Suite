@@ -13,6 +13,7 @@ class Admin {
     add_action( 'admin_init',  [ $this, 'maybe_add_employee_photo_column' ] );
     add_action( 'admin_init',  [ $this, 'maybe_install_qr_cols' ] );
     add_action( 'admin_init',  [ $this, 'maybe_install_employee_extra_cols' ] );
+    add_action( 'admin_init',  [ $this, 'handle_recreate_page' ] );
     add_action( 'admin_head',  [ $this, 'remove_menu_separator_css' ] );
     add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_styles' ] );
 
@@ -49,7 +50,36 @@ class Admin {
                 [],
                 SFS_HR_VER
             );
+
+            // Chart.js for dashboard and performance pages (loaded once, deferred)
+            if ( strpos( $hook, 'sfs-hr' ) !== false && strpos( $hook, 'sfs-hr-employees' ) === false ) {
+                wp_enqueue_script( 'chart-js', 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js', [], '4.4.1', true );
+            }
         }
+    }
+
+    /**
+     * Handle the "Create Now" button from the Pages settings tab.
+     */
+    public function handle_recreate_page(): void {
+        if ( empty( $_POST['sfs_hr_recreate_page'] ) ) {
+            return;
+        }
+        if ( ! current_user_can( 'manage_options' ) ) {
+            return;
+        }
+        check_admin_referer( 'sfs_hr_recreate_page', '_sfs_hr_nonce' );
+
+        $option_key  = sanitize_key( $_POST['sfs_hr_recreate_page'] );
+        $definitions = \SFS\HR\Install\Pages::get_definitions();
+
+        if ( isset( $definitions[ $option_key ] ) ) {
+            delete_option( $option_key );
+            \SFS\HR\Install\Pages::create();
+        }
+
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-settings&tab=pages' ) );
+        exit;
     }
 
     public function maybe_add_employee_photo_column(): void {
@@ -1914,7 +1944,6 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         <?php if ( ! empty( $dept_headcount ) ) : ?>
@@ -4935,7 +4964,8 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
     // Gender
     $gender_in = isset($_POST['gender']) ? sanitize_text_field($_POST['gender']) : '';
-    $payload['gender'] = in_array(strtolower($gender_in), ['male','female'], true) ? strtolower($gender_in) : null;
+    $gender_lower = $gender_in !== '' ? strtolower($gender_in) : '';
+    $payload['gender'] = in_array($gender_lower, ['male','female'], true) ? $gender_lower : null;
 
     // Handle photo upload if present
     if ( ! empty($_FILES['employee_photo']['name']) ) {
@@ -5805,9 +5835,9 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                             <th scope="row"><label><?php esc_html_e( 'Date Range', 'sfs-hr' ); ?></label></th>
                             <td>
                                 <?php $rpt_period = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period(); ?>
-                                <input type="date" name="date_from" value="<?php echo esc_attr( $_GET['date_from'] ?? $rpt_period['start'] ); ?>" style="width:150px;" />
+                                <input type="date" name="date_from" value="<?php echo esc_attr( isset( $_GET['date_from'] ) ? sanitize_text_field( $_GET['date_from'] ) : $rpt_period['start'] ); ?>" style="width:150px;" />
                                 <span style="margin:0 8px;"><?php esc_html_e( 'to', 'sfs-hr' ); ?></span>
-                                <input type="date" name="date_to" value="<?php echo esc_attr( $_GET['date_to'] ?? $rpt_period['end'] ); ?>" style="width:150px;" />
+                                <input type="date" name="date_to" value="<?php echo esc_attr( isset( $_GET['date_to'] ) ? sanitize_text_field( $_GET['date_to'] ) : $rpt_period['end'] ); ?>" style="width:150px;" />
                             </td>
                         </tr>
                         <tr>
@@ -5816,7 +5846,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                                 <select name="dept" id="dept" style="min-width:250px;">
                                     <option value="0"><?php esc_html_e( 'All Departments', 'sfs-hr' ); ?></option>
                                     <?php foreach ( $departments as $d ): ?>
-                                        <option value="<?php echo intval( $d->id ); ?>" <?php selected( intval( $_GET['dept'] ?? 0 ), $d->id ); ?>><?php echo esc_html( $d->name ); ?></option>
+                                        <option value="<?php echo intval( $d->id ); ?>" <?php selected( isset( $_GET['dept'] ) ? intval( $_GET['dept'] ) : 0, $d->id ); ?>><?php echo esc_html( $d->name ); ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </td>
@@ -5913,6 +5943,10 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                    class="nav-tab <?php echo $tab === 'shortcodes' ? 'nav-tab-active' : ''; ?>">
                     <?php esc_html_e( 'Shortcodes', 'sfs-hr' ); ?>
                 </a>
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-settings&tab=pages' ) ); ?>"
+                   class="nav-tab <?php echo $tab === 'pages' ? 'nav-tab-active' : ''; ?>">
+                    <?php esc_html_e( 'Pages', 'sfs-hr' ); ?>
+                </a>
             </nav>
 
             <div class="sfs-hr-settings-content" style="margin-top: 20px;">
@@ -5923,6 +5957,8 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                     $this->render_document_settings();
                 } elseif ( $tab === 'shortcodes' ) {
                     $this->render_shortcodes_reference();
+                } elseif ( $tab === 'pages' ) {
+                    $this->render_pages_settings();
                 }
                 ?>
             </div>
@@ -6155,6 +6191,110 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             });
         });
         </script>
+        <?php
+    }
+
+    /**
+     * Render the Pages settings tab — shows auto-created pages and their status.
+     */
+    private function render_pages_settings(): void {
+        $definitions = \SFS\HR\Install\Pages::get_definitions();
+        ?>
+        <style>
+            .sfs-hr-pages { max-width: 900px; }
+            .sfs-hr-page-card {
+                background: #fff;
+                border: 1px solid #c3c4c7;
+                border-radius: 6px;
+                padding: 16px 20px;
+                margin-bottom: 12px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 16px;
+            }
+            .sfs-hr-page-info { flex: 1; }
+            .sfs-hr-page-title {
+                font-size: 14px;
+                font-weight: 600;
+                color: #1d2327;
+                margin: 0 0 4px;
+            }
+            .sfs-hr-page-shortcode {
+                font-family: monospace;
+                font-size: 13px;
+                background: #f0f0f1;
+                border: 1px solid #c3c4c7;
+                border-radius: 4px;
+                padding: 2px 8px;
+                color: #1d2327;
+            }
+            .sfs-hr-page-status {
+                font-size: 12px;
+                padding: 3px 10px;
+                border-radius: 10px;
+                font-weight: 500;
+                white-space: nowrap;
+            }
+            .sfs-hr-page-status--publish {
+                background: #edfaef;
+                color: #00a32a;
+            }
+            .sfs-hr-page-status--draft {
+                background: #f0f0f1;
+                color: #646970;
+            }
+            .sfs-hr-page-status--trash {
+                background: #fcf0f1;
+                color: #8b1a1a;
+            }
+            .sfs-hr-page-status--missing {
+                background: #fcf0f1;
+                color: #8b1a1a;
+            }
+            .sfs-hr-page-actions {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+            }
+        </style>
+        <div class="sfs-hr-pages">
+            <p><?php esc_html_e( 'These pages are automatically created when the plugin is activated. Each page contains a shortcode that powers the frontend experience for employees.', 'sfs-hr' ); ?></p>
+
+            <?php foreach ( $definitions as $option_key => $def ) :
+                $page_id = get_option( $option_key );
+                $status  = $page_id ? get_post_status( $page_id ) : false;
+            ?>
+            <div class="sfs-hr-page-card">
+                <div class="sfs-hr-page-info">
+                    <p class="sfs-hr-page-title"><?php echo esc_html( $def['title'] ); ?></p>
+                    <code class="sfs-hr-page-shortcode"><?php echo esc_html( $def['content'] ); ?></code>
+                </div>
+
+                <?php if ( $status === 'publish' ) : ?>
+                    <span class="sfs-hr-page-status sfs-hr-page-status--publish"><?php esc_html_e( 'Published', 'sfs-hr' ); ?></span>
+                    <div class="sfs-hr-page-actions">
+                        <a href="<?php echo esc_url( get_permalink( $page_id ) ); ?>" class="button button-small" target="_blank"><?php esc_html_e( 'View', 'sfs-hr' ); ?></a>
+                        <a href="<?php echo esc_url( get_edit_post_link( $page_id ) ); ?>" class="button button-small"><?php esc_html_e( 'Edit', 'sfs-hr' ); ?></a>
+                    </div>
+                <?php elseif ( $status === 'draft' ) : ?>
+                    <span class="sfs-hr-page-status sfs-hr-page-status--draft"><?php esc_html_e( 'Draft', 'sfs-hr' ); ?></span>
+                    <div class="sfs-hr-page-actions">
+                        <a href="<?php echo esc_url( get_edit_post_link( $page_id ) ); ?>" class="button button-small"><?php esc_html_e( 'Edit', 'sfs-hr' ); ?></a>
+                    </div>
+                <?php elseif ( $status === 'trash' ) : ?>
+                    <span class="sfs-hr-page-status sfs-hr-page-status--trash"><?php esc_html_e( 'Trashed', 'sfs-hr' ); ?></span>
+                <?php else : ?>
+                    <span class="sfs-hr-page-status sfs-hr-page-status--missing"><?php esc_html_e( 'Not Created', 'sfs-hr' ); ?></span>
+                    <form method="post" style="display:inline;">
+                        <?php wp_nonce_field( 'sfs_hr_recreate_page', '_sfs_hr_nonce' ); ?>
+                        <input type="hidden" name="sfs_hr_recreate_page" value="<?php echo esc_attr( $option_key ); ?>">
+                        <button type="submit" class="button button-small button-primary"><?php esc_html_e( 'Create Now', 'sfs-hr' ); ?></button>
+                    </form>
+                <?php endif; ?>
+            </div>
+            <?php endforeach; ?>
+        </div>
         <?php
     }
 

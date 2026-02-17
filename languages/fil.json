@@ -3200,5 +3200,20 @@
     "ref_num": "Ref #",
     "no_pending_approvals": "Walang pending approvals sa ngayon.",
     "no_team_members": "Walang nakitang team members",
-    "try_adjusting_filters": "Subukang i-adjust ang mga filter."
+    "try_adjusting_filters": "Subukang i-adjust ang mga filter.",
+
+    "_comment_pages_tab": "--- Pages settings tab ---",
+    "pages": "Mga Pahina",
+    "pages_description": "Awtomatikong ginagawa ang mga pahinang ito kapag na-activate ang plugin. Ang bawat pahina ay may shortcode na nagbibigay ng frontend na karanasan para sa mga empleyado.",
+    "status_published": "Nai-publish",
+    "status_trashed": "Na-trash",
+    "not_created": "Hindi Pa Nagawa",
+    "create_now": "Gumawa Ngayon",
+
+    "_comment_misc_missing": "--- Misc missing strings ---",
+    "default_2400_min": "Default: 2400 min (%d oras)",
+    "item": "Item",
+    "please_log_in": "Mangyaring mag-log in.",
+    "you_can_only_view_own_payslips": "Maaari mo lang tingnan ang sarili mong payslips.",
+    "no_permission_settings": "Wala kang pahintulot na ma-access ang settings."
 }

@@ -3230,5 +3230,20 @@
     "sar_total": "SAR total",
     "monthly_of": "monthly payments of",
     "unknown_period": "Unknown Period",
-    "please_allow_popups": "Please allow popups."
+    "please_allow_popups": "Please allow popups.",
+
+    "_comment_pages_tab": "--- Pages settings tab ---",
+    "pages": "Pages",
+    "pages_description": "These pages are automatically created when the plugin is activated. Each page contains a shortcode that powers the frontend experience for employees.",
+    "status_published": "Published",
+    "status_trashed": "Trashed",
+    "not_created": "Not Created",
+    "create_now": "Create Now",
+
+    "_comment_misc_missing": "--- Misc missing strings ---",
+    "default_2400_min": "Default: 2400 min (%d hours)",
+    "item": "Item",
+    "please_log_in": "Please log in.",
+    "you_can_only_view_own_payslips": "You can only view your own payslips.",
+    "no_permission_settings": "You do not have permission to access settings."
 }

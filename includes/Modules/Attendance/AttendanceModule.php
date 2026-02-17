@@ -3920,6 +3920,7 @@ private static function backfill_early_leave_request_numbers( \wpdb $wpdb ): voi
             dept_id BIGINT UNSIGNED NULL COMMENT 'References sfs_hr_departments.id',
             notes TEXT NULL,
             weekly_overrides TEXT NULL,
+            period_overrides TEXT NULL COMMENT 'JSON array of date-range time overrides (Ramadan, etc.)',
             dept_ids TEXT NULL COMMENT 'JSON array of department IDs for multi-department shifts',
             PRIMARY KEY (id),
             KEY active_dept_id (active, dept_id),
@@ -3948,6 +3949,15 @@ private static function backfill_early_leave_request_numbers( \wpdb $wpdb ): voi
             $wpdb->query( "UPDATE {$shifts_table} SET dept_ids = CONCAT('[', dept_id, ']') WHERE dept_id IS NOT NULL AND dept_ids IS NULL" );
         }
 
+        // Migration: Add period_overrides column for date-range time overrides (Ramadan, etc.)
+        $period_ov_exists = $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'period_overrides'",
+            $shifts_table
+        ) );
+        if ( ! $period_ov_exists ) {
+            $wpdb->query( "ALTER TABLE {$shifts_table} ADD COLUMN period_overrides TEXT NULL COMMENT 'JSON array of date-range time overrides' AFTER weekly_overrides" );
+        }
+
                 // 4) daily assignments (rota)
         dbDelta("CREATE TABLE {$p}sfs_hr_attendance_shift_assign (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -3966,12 +3976,39 @@ private static function backfill_early_leave_request_numbers( \wpdb $wpdb ): voi
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             employee_id BIGINT UNSIGNED NOT NULL,
             shift_id BIGINT UNSIGNED NOT NULL,
+            schedule_id BIGINT UNSIGNED NULL COMMENT 'FK to shift_schedules; overrides shift_id when set',
             start_date DATE NOT NULL,
             created_at DATETIME NOT NULL,
             created_by BIGINT UNSIGNED NULL,
             PRIMARY KEY (id),
             KEY emp_date (employee_id, start_date),
-            KEY shift_id (shift_id)
+            KEY shift_id (shift_id),
+            KEY schedule_id (schedule_id)
+        ) $charset_collate;");
+
+        // Migration: Add schedule_id column to emp_shifts for existing installations
+        $emp_shifts_tbl = "{$p}sfs_hr_attendance_emp_shifts";
+        $sched_col_exists = $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'schedule_id'",
+            $emp_shifts_tbl
+        ) );
+        if ( ! $sched_col_exists ) {
+            $wpdb->query( "ALTER TABLE {$emp_shifts_tbl} ADD COLUMN schedule_id BIGINT UNSIGNED NULL COMMENT 'FK to shift_schedules' AFTER shift_id" );
+            $wpdb->query( "ALTER TABLE {$emp_shifts_tbl} ADD KEY schedule_id (schedule_id)" );
+        }
+
+        // 5b) shift schedules (rotation patterns: week A/B, 4-on-4-off, etc.)
+        dbDelta("CREATE TABLE {$p}sfs_hr_attendance_shift_schedules (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            name VARCHAR(100) NOT NULL,
+            cycle_days SMALLINT UNSIGNED NOT NULL COMMENT 'Total days in one full rotation cycle',
+            anchor_date DATE NOT NULL COMMENT 'Reference date for cycle calculation (day 1 of first cycle)',
+            entries TEXT NOT NULL COMMENT 'JSON: [{day:1,shift_id:3},{day:8,shift_id:7,day_off:true},...]',
+            active TINYINT(1) NOT NULL DEFAULT 1,
+            created_at DATETIME NOT NULL,
+            created_by BIGINT UNSIGNED NULL,
+            PRIMARY KEY (id),
+            KEY active (active)
         ) $charset_collate;");
 
         // 6) devices (kiosks & locks)
@@ -5081,14 +5118,13 @@ private static function load_automation_map_and_keytype(): array {
         }
 
         // Latest mapping whose start_date <= target date.
-        $row = $wpdb->get_row(
+        // Also fetch schedule_id for rotation support.
+        $mapping = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT sh.*
+                "SELECT es.shift_id, es.schedule_id, es.start_date AS mapping_start_date
                  FROM {$emp_map_t} es
-                 INNER JOIN {$shifts_t} sh ON sh.id = es.shift_id
                  WHERE es.employee_id = %d
                    AND es.start_date  <= %s
-                   AND sh.active      = 1
                  ORDER BY es.start_date DESC, es.id DESC
                  LIMIT 1",
                 $employee_id,
@@ -5096,8 +5132,31 @@ private static function load_automation_map_and_keytype(): array {
             )
         );
 
+        if ( ! $mapping ) {
+            return null;
+        }
+
+        // If a schedule is assigned, resolve rotation to find the correct shift for this date.
+        if ( ! empty( $mapping->schedule_id ) ) {
+            $resolved = self::resolve_schedule_for_date( (int) $mapping->schedule_id, $ymd, $wpdb );
+            if ( $resolved ) {
+                if ( ! isset( $resolved->__virtual ) ) {
+                    $resolved->__virtual = 0;
+                }
+                return $resolved;
+            }
+            // Schedule couldn't resolve (bad data) — fall through to static shift_id.
+        }
+
+        // Static shift assignment.
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT sh.* FROM {$shifts_t} sh WHERE sh.id = %d AND sh.active = 1 LIMIT 1",
+                (int) $mapping->shift_id
+            )
+        );
+
         if ( $row instanceof \stdClass ) {
-            // Keep semantics consistent with normal shifts.
             if ( ! isset( $row->__virtual ) ) {
                 $row->__virtual = 0;
             }
@@ -5105,6 +5164,78 @@ private static function load_automation_map_and_keytype(): array {
         }
 
         return null;
+    }
+
+    /**
+     * Resolve a shift schedule rotation for a given date.
+     *
+     * Calculates which day of the cycle the date falls on using the anchor
+     * date, then looks up the shift for that cycle day in the entries JSON.
+     *
+     * @return \stdClass|null  Shift row, or null if day off / not found.
+     */
+    private static function resolve_schedule_for_date( int $schedule_id, string $ymd, \wpdb $wpdb = null ): ?\stdClass {
+        $wpdb  = $wpdb ?: $GLOBALS['wpdb'];
+        $p     = $wpdb->prefix;
+        $schedT = "{$p}sfs_hr_attendance_shift_schedules";
+        $shiftT = "{$p}sfs_hr_attendance_shifts";
+
+        // Check table exists.
+        $tbl_exists = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
+                $schedT
+            )
+        );
+        if ( ! $tbl_exists ) {
+            return null;
+        }
+
+        $schedule = $wpdb->get_row(
+            $wpdb->prepare( "SELECT * FROM {$schedT} WHERE id = %d AND active = 1 LIMIT 1", $schedule_id )
+        );
+        if ( ! $schedule || empty( $schedule->entries ) || (int) $schedule->cycle_days <= 0 ) {
+            return null;
+        }
+
+        $entries = json_decode( $schedule->entries, true );
+        if ( ! is_array( $entries ) || empty( $entries ) ) {
+            return null;
+        }
+
+        // Calculate which day of the cycle this date falls on.
+        $anchor = new \DateTimeImmutable( $schedule->anchor_date );
+        $target = new \DateTimeImmutable( $ymd );
+        $diff_days = (int) $anchor->diff( $target )->format( '%r%a' );
+
+        $cycle_days = (int) $schedule->cycle_days;
+        // Modulo that handles dates before anchor (wraps correctly).
+        $cycle_day = ( ( $diff_days % $cycle_days ) + $cycle_days ) % $cycle_days;
+        // Entries use 1-based day numbering.
+        $cycle_day_1 = $cycle_day + 1;
+
+        // Find the entry for this cycle day.
+        $shift_id = null;
+        foreach ( $entries as $entry ) {
+            if ( ! is_array( $entry ) ) { continue; }
+            if ( (int) ( $entry['day'] ?? 0 ) === $cycle_day_1 ) {
+                if ( ! empty( $entry['day_off'] ) ) {
+                    return null; // Day off in schedule.
+                }
+                $shift_id = (int) ( $entry['shift_id'] ?? 0 );
+                break;
+            }
+        }
+
+        if ( ! $shift_id ) {
+            return null;
+        }
+
+        $shift = $wpdb->get_row(
+            $wpdb->prepare( "SELECT * FROM {$shiftT} WHERE id = %d AND active = 1 LIMIT 1", $shift_id )
+        );
+
+        return $shift ?: null;
     }
 
 
@@ -5144,7 +5275,8 @@ public static function resolve_shift_for_date(
             $emp = $wpdb->get_row($wpdb->prepare("SELECT dept_id FROM {$empT} WHERE id=%d", $employee_id));
             $row->dept_id = $emp && ! empty( $emp->dept_id ) ? (int) $emp->dept_id : null;
         }
-        return self::apply_weekly_override( $row, $ymd, $wpdb );
+        $row = self::apply_weekly_override( $row, $ymd, $wpdb );
+        return self::apply_period_override( $row, $ymd );
     }
 
     // --- 1.5) Employee-specific shift (from emp_shifts mapping)
@@ -5158,7 +5290,8 @@ public static function resolve_shift_for_date(
         $emp_shift->__virtual  = 0;
         $emp_shift->is_holiday = 0;
 
-        return self::apply_weekly_override( $emp_shift, $ymd, $wpdb );
+        $emp_shift = self::apply_weekly_override( $emp_shift, $ymd, $wpdb );
+        return self::apply_period_override( $emp_shift, $ymd );
     }
 
     // --- 2) Dept identity (id, slug, name) for automation
@@ -5260,7 +5393,8 @@ public static function resolve_shift_for_date(
                 $sh->__virtual  = 1;
                 $sh->is_holiday = 0;
                 $sh->dept_id    = $dept_id;
-                return self::apply_weekly_override( $sh, $ymd, $wpdb );
+                $sh = self::apply_weekly_override( $sh, $ymd, $wpdb );
+                return self::apply_period_override( $sh, $ymd );
             }
         }
     }
@@ -5292,7 +5426,8 @@ public static function resolve_shift_for_date(
         if ($fb) {
             $fb->__virtual  = 1;
             $fb->is_holiday = 0;
-            return self::apply_weekly_override( $fb, $ymd, $wpdb );
+            $fb = self::apply_weekly_override( $fb, $ymd, $wpdb );
+            return self::apply_period_override( $fb, $ymd );
         }
     }
 
@@ -5371,6 +5506,53 @@ private static function apply_weekly_override( ?\stdClass $shift, string $ymd, \
     $override_shift->dept_id    = $shift->dept_id ?? null;
 
     return $override_shift;
+}
+
+/**
+ * Apply period overrides to a shift for a given date.
+ *
+ * Period overrides allow temporary time changes on a shift (e.g., Ramadan hours)
+ * without creating a separate shift definition. The override only changes
+ * start_time and end_time for dates within the specified range.
+ *
+ * JSON format in period_overrides column:
+ *   [
+ *     {"label":"Ramadan","start_date":"2026-03-01","end_date":"2026-03-29","start_time":"09:00:00","end_time":"15:00:00"},
+ *     {"label":"Summer","start_date":"2026-07-01","end_date":"2026-08-31","start_time":"07:00:00","end_time":"14:00:00"}
+ *   ]
+ */
+private static function apply_period_override( ?\stdClass $shift, string $ymd ): ?\stdClass {
+    if ( ! $shift ) {
+        return $shift;
+    }
+
+    if ( empty( $shift->period_overrides ) ) {
+        return $shift;
+    }
+
+    $overrides = json_decode( $shift->period_overrides, true );
+    if ( ! is_array( $overrides ) || empty( $overrides ) ) {
+        return $shift;
+    }
+
+    foreach ( $overrides as $ov ) {
+        if ( ! is_array( $ov ) ) {
+            continue;
+        }
+        $s = $ov['start_date'] ?? '';
+        $e = $ov['end_date']   ?? '';
+        $st = $ov['start_time'] ?? '';
+        $et = $ov['end_time']   ?? '';
+
+        if ( $s && $e && $st && $et && $ymd >= $s && $ymd <= $e ) {
+            $cloned = clone $shift;
+            $cloned->start_time = $st;
+            $cloned->end_time   = $et;
+            return $cloned;
+        }
+    }
+
+    return $shift;
 }
 
 

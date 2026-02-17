@@ -35,6 +35,7 @@ class Admin_Pages {
     add_action( 'admin_post_sfs_hr_att_shift_save',    [ $this, 'handle_shift_save' ] );
     add_action( 'admin_post_sfs_hr_att_shift_delete',  [ $this, 'handle_shift_delete' ] );
     add_action( 'admin_post_sfs_hr_att_assign_bulk',   [ $this, 'handle_assign_bulk' ] );
+    add_action( 'admin_post_sfs_hr_att_bulk_default_shift', [ $this, 'handle_bulk_default_shift' ] );
     add_action( 'admin_post_sfs_hr_att_device_save',   [ $this, 'handle_device_save' ] );
     add_action( 'admin_post_sfs_hr_att_device_delete', [ $this, 'handle_device_delete' ] );
     add_action( 'admin_post_sfs_hr_att_save_automation', [ $this, 'handle_save_automation' ] );
@@ -47,6 +48,8 @@ class Admin_Pages {
     add_action( 'admin_post_sfs_hr_att_save_template', [ $this, 'handle_save_template' ] );
     add_action( 'admin_post_sfs_hr_att_delete_template', [ $this, 'handle_delete_template' ] );
     add_action( 'admin_post_sfs_hr_att_apply_template', [ $this, 'handle_apply_template' ] );
+    add_action( 'admin_post_sfs_hr_att_schedule_save',   [ $this, 'handle_schedule_save' ] );
+    add_action( 'admin_post_sfs_hr_att_schedule_delete', [ $this, 'handle_schedule_delete' ] );
 
     // Auto-assign on new employee
     add_action( 'sfs_hr_employee_created', [ $this, 'auto_assign_on_employee_created' ], 10, 2 );
@@ -168,7 +171,7 @@ private function get_table_columns( $table ): array {
                 <input type="hidden" name="action" value="sfs_hr_att_save_settings"/>
 
                 <?php if ( ! empty( $departments ) ) : ?>
-                <h2><?php esc_html_e( 'Web/Mobile Punch Allowed by Department', 'sfs-hr' ); ?></h2>
+                <h2><?php esc_html_e( 'Web/Mobile Punch Allowed by Department', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Allow employees in each department to clock in/out via web portal or mobile app, instead of only the physical kiosk.', 'sfs-hr' ); ?></span></span></h2>
                 <table class="form-table">
                     <?php foreach ( $departments as $dept ) : ?>
                     <tr>
@@ -183,7 +186,7 @@ private function get_table_columns( $table ): array {
                     <?php endforeach; ?>
                 </table>
 
-                <h2><?php esc_html_e( 'Selfie Required by Department', 'sfs-hr' ); ?></h2>
+                <h2><?php esc_html_e( 'Selfie Required by Department', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Require employees to take a photo when clocking in/out. Helps prevent buddy-punching and verifies identity.', 'sfs-hr' ); ?></span></span></h2>
                 <table class="form-table">
                     <?php foreach ( $departments as $dept ) : ?>
                     <tr>
@@ -207,7 +210,10 @@ private function get_table_columns( $table ): array {
                 <table class="form-table">
                     <tr>
                         <th><?php esc_html_e( 'Selfie retention (days)', 'sfs-hr' ); ?></th>
-                        <td><input type="number" name="selfie_retention_days" min="1" step="1" value="<?php echo esc_attr($ret_days); ?>"/></td>
+                        <td>
+                            <input type="number" name="selfie_retention_days" min="1" step="1" value="<?php echo esc_attr($ret_days); ?>"/>
+                            <p class="description"><?php esc_html_e( 'Number of days to keep selfie images before automatic deletion. Helps manage storage usage.', 'sfs-hr' ); ?></p>
+                        </td>
                     </tr>
                     <tr>
                         <th><?php esc_html_e( 'Default rounding (nearest minutes)', 'sfs-hr' ); ?></th>
@@ -329,6 +335,7 @@ public function render_attendance_hub(): void {
         'settings'    => __( 'Settings', 'sfs-hr' ),
         'automation'  => __( 'Automation', 'sfs-hr' ),
         'shifts'      => __( 'Shifts', 'sfs-hr' ),
+        'schedules'   => __( 'Schedules', 'sfs-hr' ),
         'assign'      => __( 'Assignments', 'sfs-hr' ),
         'early_leave' => __( 'Early Leave Requests', 'sfs-hr' ),
         'exceptions'  => __( 'Exceptions', 'sfs-hr' ),
@@ -372,6 +379,7 @@ public function render_attendance_hub(): void {
             case 'punches':  $this->render_punches();  break;
             case 'sessions': $this->render_sessions(); break;
             case 'early_leave': $this->render_early_leave(); break;
+            case 'schedules':  $this->render_schedules(); break;
     }
     echo '</div>';
 }
@@ -687,6 +695,7 @@ private function render_shift_templates( array $all_shifts, array $departments )
                             </option>
                         <?php endforeach; ?>
                     </select>
+                    <p class="description"><?php esc_html_e( 'The shift pattern employees will follow during this template period.', 'sfs-hr' ); ?></p>
                 </div>
             </div>
 
@@ -694,10 +703,12 @@ private function render_shift_templates( array $all_shifts, array $departments )
                 <div class="sfs-hr-template-form-field">
                     <label><?php esc_html_e( 'Start Date', 'sfs-hr' ); ?></label>
                     <input type="date" name="template_start_date" required>
+                    <p class="description"><?php esc_html_e( 'When this template schedule becomes active.', 'sfs-hr' ); ?></p>
                 </div>
                 <div class="sfs-hr-template-form-field">
                     <label><?php esc_html_e( 'End Date', 'sfs-hr' ); ?></label>
                     <input type="date" name="template_end_date" required>
+                    <p class="description"><?php esc_html_e( 'When this template schedule ends.', 'sfs-hr' ); ?></p>
                 </div>
                 <div class="sfs-hr-template-form-field">
                     <label><?php esc_html_e( 'Color Label', 'sfs-hr' ); ?></label>
@@ -708,6 +719,7 @@ private function render_shift_templates( array $all_shifts, array $departments )
                         <option value="purple"><?php esc_html_e( 'Purple', 'sfs-hr' ); ?></option>
                         <option value="red"><?php esc_html_e( 'Red', 'sfs-hr' ); ?></option>
                     </select>
+                    <p class="description"><?php esc_html_e( 'Color used to distinguish this template on calendars and schedule views.', 'sfs-hr' ); ?></p>
                 </div>
             </div>
 
@@ -827,6 +839,7 @@ private function render_shift_templates( array $all_shifts, array $departments )
                     <label>
                         <input type="checkbox" name="overwrite_existing" value="1">
                         <?php esc_html_e( 'Overwrite existing period overrides', 'sfs-hr' ); ?>
+                        <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'If checked, replaces any existing date-range overrides. If unchecked, only fills in periods that have no override yet.', 'sfs-hr' ); ?></span></span>
                     </label>
                 </p>
 
@@ -929,7 +942,7 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                     <input type="text" name="rule_name" placeholder="<?php esc_attr_e( 'e.g., Office Staff Morning Shift', 'sfs-hr' ); ?>" required>
                 </div>
                 <div class="sfs-hr-rule-form-field" style="flex: 0 0 100px;">
-                    <label><?php esc_html_e( 'Priority', 'sfs-hr' ); ?></label>
+                    <label><?php esc_html_e( 'Priority', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Lower numbers are evaluated first. The first matching rule wins. Use this to set precedence between overlapping rules.', 'sfs-hr' ); ?></span></span></label>
                     <input type="number" name="rule_priority" value="10" min="1" max="100" style="width: 80px;">
                 </div>
                 <div class="sfs-hr-rule-form-field">
@@ -947,7 +960,7 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
 
             <div class="sfs-hr-rule-form-row">
                 <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Department (optional)', 'sfs-hr' ); ?></label>
+                    <label><?php esc_html_e( 'Department (optional)', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Leave blank to match employees in any department.', 'sfs-hr' ); ?></span></span></label>
                     <select name="rule_department">
                         <option value=""><?php esc_html_e( '— Any Department —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $departments as $d ) : ?>
@@ -958,7 +971,7 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                     </select>
                 </div>
                 <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Job Title (optional)', 'sfs-hr' ); ?></label>
+                    <label><?php esc_html_e( 'Job Title (optional)', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Leave blank to match employees with any job title.', 'sfs-hr' ); ?></span></span></label>
                     <select name="rule_job_title">
                         <option value=""><?php esc_html_e( '— Any Job Title —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $job_titles as $jt ) : ?>
@@ -969,7 +982,7 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                     </select>
                 </div>
                 <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Work Location (optional)', 'sfs-hr' ); ?></label>
+                    <label><?php esc_html_e( 'Work Location (optional)', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Leave blank to match employees at any work location.', 'sfs-hr' ); ?></span></span></label>
                     <select name="rule_work_location">
                         <option value=""><?php esc_html_e( '— Any Location —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $work_locations as $loc ) : ?>
@@ -983,7 +996,7 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
 
             <div class="sfs-hr-rule-form-row">
                 <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Contract Type (optional)', 'sfs-hr' ); ?></label>
+                    <label><?php esc_html_e( 'Contract Type (optional)', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Leave blank to match employees with any contract type.', 'sfs-hr' ); ?></span></span></label>
                     <select name="rule_contract_type">
                         <option value=""><?php esc_html_e( '— Any Contract —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $contract_types as $ct ) : ?>
@@ -994,11 +1007,11 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                     </select>
                 </div>
                 <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Hired After (optional)', 'sfs-hr' ); ?></label>
+                    <label><?php esc_html_e( 'Hired After (optional)', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Only match employees hired on or after this date.', 'sfs-hr' ); ?></span></span></label>
                     <input type="date" name="rule_hired_after">
                 </div>
                 <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Hired Before (optional)', 'sfs-hr' ); ?></label>
+                    <label><?php esc_html_e( 'Hired Before (optional)', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Only match employees hired on or before this date.', 'sfs-hr' ); ?></span></span></label>
                     <input type="date" name="rule_hired_before">
                 </div>
             </div>
@@ -1637,6 +1650,7 @@ public function render_shifts(): void {
                     <td>
                         <input required type="text" name="name"
                                value="<?php echo esc_attr($editing->name ?? ''); ?>" class="regular-text"/>
+                        <p class="description"><?php esc_html_e( 'Internal name for this shift, e.g. "Morning Shift", "Night Shift", "Ramadan Hours".', 'sfs-hr' ); ?></p>
                     </td>
                 </tr>
 
@@ -1681,6 +1695,7 @@ public function render_shifts(): void {
                     <td>
                         <input type="text" name="location_label"
                                value="<?php echo esc_attr($editing->location_label ?? ''); ?>" class="regular-text"/>
+                        <p class="description"><?php esc_html_e( 'Friendly name for the work location, e.g. "Main Office", "Warehouse B", "Site 3".', 'sfs-hr' ); ?></p>
                     </td>
                 </tr>
 
@@ -1824,6 +1839,7 @@ public function render_shifts(): void {
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                        <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Auto: break is deducted automatically. Punch: employee clocks in/out for break. None: no break deducted.', 'sfs-hr' ); ?></span></span>
                         &nbsp;<?php esc_html_e( 'Unpaid break minutes:', 'sfs-hr' ); ?>
                         <input type="number" name="unpaid_break_minutes" min="0" step="1" style="width:120px"
                                value="<?php echo esc_attr($editing->unpaid_break_minutes ?? 0); ?>"/>
@@ -1841,6 +1857,7 @@ public function render_shifts(): void {
                                value="<?php echo esc_attr($editing->grace_late_minutes ?? 5); ?>"/> /
                         <input type="number" name="grace_early_leave_minutes" min="0" step="1" style="width:120px"
                                value="<?php echo esc_attr($editing->grace_early_leave_minutes ?? 5); ?>"/>
+                        <p class="description"><?php esc_html_e( 'Minutes of tolerance before flagging an employee as late (left) or leaving early (right). Set 0 for strict enforcement.', 'sfs-hr' ); ?></p>
                     </td>
                 </tr>
 
@@ -1855,6 +1872,7 @@ public function render_shifts(): void {
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                        <p class="description"><?php esc_html_e( 'Snap worked minutes to the nearest N for payroll. "none" uses exact minutes.', 'sfs-hr' ); ?></p>
                     </td>
                 </tr>
 
@@ -1875,6 +1893,7 @@ public function render_shifts(): void {
                                 <?php checked(!empty($editing->require_selfie)); ?>/>
                             <?php esc_html_e( 'Require selfie', 'sfs-hr' ); ?>
                         </label>
+                        <p class="description"><?php esc_html_e( 'Require photo verification for every clock-in and clock-out on this shift.', 'sfs-hr' ); ?></p>
                     </td>
                 </tr>
 
@@ -1886,6 +1905,7 @@ public function render_shifts(): void {
                                 <?php checked(!isset($editing->active) || (int)$editing->active===1); ?>/>
                             <?php esc_html_e( 'Active', 'sfs-hr' ); ?>
                         </label>
+                        <p class="description"><?php esc_html_e( 'Inactive shifts are hidden from selection but preserved for historical records.', 'sfs-hr' ); ?></p>
                     </td>
                 </tr>
 
@@ -1955,6 +1975,92 @@ public function render_shifts(): void {
                     </td>
                 </tr>
 
+                <!-- Period Overrides (Ramadan, Summer, etc.) -->
+                <tr>
+                    <th colspan="2" style="padding-bottom:0;">
+                        <h3 style="margin:0;padding:10px 0 0;border-top:1px solid #dcdcde;">
+                            <?php esc_html_e( 'Period Overrides', 'sfs-hr' ); ?>
+                            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Temporarily change this shift\'s working hours for a date range (e.g., Ramadan, summer). All employees on this shift get the adjusted times automatically.', 'sfs-hr' ); ?></span></span>
+                        </h3>
+                    </th>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e( 'Date-range overrides', 'sfs-hr' ); ?></th>
+                    <td>
+                        <?php
+                        $period_overrides = [];
+                        if ( ! empty( $editing->period_overrides ) ) {
+                            $decoded = json_decode( $editing->period_overrides, true );
+                            if ( is_array( $decoded ) ) {
+                                $period_overrides = $decoded;
+                            }
+                        }
+                        ?>
+                        <div id="sfs-period-overrides-list">
+                            <?php if ( ! empty( $period_overrides ) ) : ?>
+                                <?php foreach ( $period_overrides as $idx => $pov ) : ?>
+                                    <div class="sfs-period-override-row" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+                                        <input type="text" name="period_overrides[<?php echo (int) $idx; ?>][label]"
+                                               value="<?php echo esc_attr( $pov['label'] ?? '' ); ?>"
+                                               placeholder="<?php esc_attr_e( 'Label (e.g., Ramadan)', 'sfs-hr' ); ?>"
+                                               style="width:150px;"/>
+                                        <input type="date" name="period_overrides[<?php echo (int) $idx; ?>][start_date]"
+                                               value="<?php echo esc_attr( $pov['start_date'] ?? '' ); ?>"
+                                               required style="width:150px;"/>
+                                        <span>→</span>
+                                        <input type="date" name="period_overrides[<?php echo (int) $idx; ?>][end_date]"
+                                               value="<?php echo esc_attr( $pov['end_date'] ?? '' ); ?>"
+                                               required style="width:150px;"/>
+                                        <input type="time" name="period_overrides[<?php echo (int) $idx; ?>][start_time]"
+                                               value="<?php echo esc_attr( isset( $pov['start_time'] ) ? substr( $pov['start_time'], 0, 5 ) : '' ); ?>"
+                                               required step="60" style="width:110px;"/>
+                                        <span>→</span>
+                                        <input type="time" name="period_overrides[<?php echo (int) $idx; ?>][end_time]"
+                                               value="<?php echo esc_attr( isset( $pov['end_time'] ) ? substr( $pov['end_time'], 0, 5 ) : '' ); ?>"
+                                               required step="60" style="width:110px;"/>
+                                        <button type="button" class="button sfs-remove-period-override" title="<?php esc_attr_e( 'Remove', 'sfs-hr' ); ?>">&times;</button>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+                        <button type="button" class="button" id="sfs-add-period-override">
+                            + <?php esc_html_e( 'Add Period Override', 'sfs-hr' ); ?>
+                        </button>
+                        <p class="description"><?php esc_html_e( 'Override working hours for specific date ranges. Employees assigned to this shift will use these times during the specified periods.', 'sfs-hr' ); ?></p>
+
+                        <script>
+                        (function(){
+                            var list = document.getElementById('sfs-period-overrides-list');
+                            var btn  = document.getElementById('sfs-add-period-override');
+                            var idx  = list.querySelectorAll('.sfs-period-override-row').length;
+
+                            btn.addEventListener('click', function(){
+                                var row = document.createElement('div');
+                                row.className = 'sfs-period-override-row';
+                                row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;';
+                                row.innerHTML =
+                                    '<input type="text" name="period_overrides['+idx+'][label]" placeholder="<?php echo esc_js( __( 'Label (e.g., Ramadan)', 'sfs-hr' ) ); ?>" style="width:150px;"/>' +
+                                    '<input type="date" name="period_overrides['+idx+'][start_date]" required style="width:150px;"/>' +
+                                    '<span>\u2192</span>' +
+                                    '<input type="date" name="period_overrides['+idx+'][end_date]" required style="width:150px;"/>' +
+                                    '<input type="time" name="period_overrides['+idx+'][start_time]" required step="60" style="width:110px;"/>' +
+                                    '<span>\u2192</span>' +
+                                    '<input type="time" name="period_overrides['+idx+'][end_time]" required step="60" style="width:110px;"/>' +
+                                    '<button type="button" class="button sfs-remove-period-override" title="<?php echo esc_js( __( 'Remove', 'sfs-hr' ) ); ?>">&times;</button>';
+                                list.appendChild(row);
+                                idx++;
+                            });
+
+                            list.addEventListener('click', function(e){
+                                if (e.target.classList.contains('sfs-remove-period-override')) {
+                                    e.target.closest('.sfs-period-override-row').remove();
+                                }
+                            });
+                        })();
+                        </script>
+                    </td>
+                </tr>
+
                 <!-- Attendance Policy Overrides -->
                 <tr>
                     <th colspan="2" style="padding-bottom:0;">
@@ -1976,6 +2082,7 @@ public function render_shifts(): void {
                             <option value="shift_times" <?php selected( $calc_mode, 'shift_times' ); ?>><?php esc_html_e( 'Shift Times', 'sfs-hr' ); ?></option>
                             <option value="total_hours" <?php selected( $calc_mode, 'total_hours' ); ?>><?php esc_html_e( 'Total Hours', 'sfs-hr' ); ?></option>
                         </select>
+                        <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Shift Times: attendance measured against fixed start/end. Total Hours: flexible schedule, only total daily hours matter.', 'sfs-hr' ); ?></span></span>
                         <span id="sfs-target-hours-wrap" style="margin-left:10px;display:<?php echo $calc_mode === 'total_hours' ? 'inline' : 'none'; ?>;">
                             <?php esc_html_e( 'Target hours:', 'sfs-hr' ); ?>
                             <input type="number" name="shift_target_hours" min="1" max="24" step="0.5" style="width:80px;"
@@ -2004,11 +2111,13 @@ public function render_shifts(): void {
                             <input type="checkbox" name="shift_clock_in_methods[]" value="kiosk"
                                 <?php checked( $ci_methods !== null && in_array( 'kiosk', $ci_methods, true ) ); ?> />
                             <?php esc_html_e( 'Kiosk', 'sfs-hr' ); ?>
+                            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Allow clock-in via the physical kiosk terminal.', 'sfs-hr' ); ?></span></span>
                         </label>
                         <label>
                             <input type="checkbox" name="shift_clock_in_methods[]" value="self_web"
                                 <?php checked( $ci_methods !== null && in_array( 'self_web', $ci_methods, true ) ); ?> />
                             <?php esc_html_e( 'Self Web', 'sfs-hr' ); ?>
+                            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Allow clock-in via web browser or mobile app.', 'sfs-hr' ); ?></span></span>
                         </label>
                         <p class="description"><?php esc_html_e( 'Leave unchecked to use role policy defaults.', 'sfs-hr' ); ?></p>
                     </td>
@@ -2029,11 +2138,13 @@ public function render_shifts(): void {
                             <input type="checkbox" name="shift_clock_out_methods[]" value="kiosk"
                                 <?php checked( $co_methods !== null && in_array( 'kiosk', $co_methods, true ) ); ?> />
                             <?php esc_html_e( 'Kiosk', 'sfs-hr' ); ?>
+                            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Allow clock-out via the physical kiosk terminal.', 'sfs-hr' ); ?></span></span>
                         </label>
                         <label>
                             <input type="checkbox" name="shift_clock_out_methods[]" value="self_web"
                                 <?php checked( $co_methods !== null && in_array( 'self_web', $co_methods, true ) ); ?> />
                             <?php esc_html_e( 'Self Web', 'sfs-hr' ); ?>
+                            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Allow clock-out via web browser or mobile app.', 'sfs-hr' ); ?></span></span>
                         </label>
                         <p class="description"><?php esc_html_e( 'Leave unchecked to use role policy defaults.', 'sfs-hr' ); ?></p>
                     </td>
@@ -2054,6 +2165,7 @@ public function render_shifts(): void {
                             <option value="enforced" <?php selected( $editing->geofence_out ?? '', 'enforced' ); ?>><?php esc_html_e( 'Enforced', 'sfs-hr' ); ?></option>
                             <option value="none" <?php selected( $editing->geofence_out ?? '', 'none' ); ?>><?php esc_html_e( 'None (log only)', 'sfs-hr' ); ?></option>
                         </select>
+                        <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Enforced: employee must be within the location radius. None: coordinates are recorded but punches are allowed from anywhere.', 'sfs-hr' ); ?></span></span>
                         <p class="description"><?php esc_html_e( 'Coordinates are always logged regardless of enforcement setting.', 'sfs-hr' ); ?></p>
                     </td>
                 </tr>
@@ -2064,6 +2176,7 @@ public function render_shifts(): void {
                         <textarea name="notes" rows="3" class="large-text"><?php
                             echo esc_textarea($editing->notes ?? '');
                         ?></textarea>
+                        <p class="description"><?php esc_html_e( 'Internal notes about this shift (visible to admins only, not shown to employees).', 'sfs-hr' ); ?></p>
                     </td>
                 </tr>
             </table>
@@ -2144,6 +2257,239 @@ public function render_shifts(): void {
             <?php endforeach; ?>
             </tbody>
         </table>
+
+        <?php
+        /* ── Bulk Assign Default Shift ──────────────────────────────── */
+        $emp_table      = $wpdb->prefix . 'sfs_hr_employees';
+        $emp_shifts_tbl = $wpdb->prefix . 'sfs_hr_attendance_emp_shifts';
+        $dept_table_    = $wpdb->prefix . 'sfs_hr_departments';
+        $users_table    = $wpdb->users;
+
+        // Build employee list with current default shift info.
+        $emp_cols   = $wpdb->get_col( "SHOW COLUMNS FROM {$emp_table}", 0 ) ?: [];
+        $has_col    = static function ( string $c ) use ( $emp_cols ) { return in_array( $c, $emp_cols, true ); };
+
+        $name_parts = [];
+        if ( $has_col( 'full_name' ) )                       $name_parts[] = 'e.full_name';
+        if ( $has_col( 'name' ) )                            $name_parts[] = 'e.name';
+        if ( $has_col( 'first_name' ) && $has_col( 'last_name' ) ) $name_parts[] = "CONCAT(e.first_name,' ',e.last_name)";
+        $name_parts[] = 'u.display_name';
+        $name_parts[] = 'u.user_login';
+        $name_expr    = 'COALESCE(' . implode( ',', $name_parts ) . ') AS emp_name';
+
+        $dept_id_col = $has_col( 'dept_id' ) ? 'e.dept_id' : ( $has_col( 'department_id' ) ? 'e.department_id' : null );
+        $dept_join   = '';
+        $dept_expr   = "'—' AS dept_name";
+        if ( $dept_id_col ) {
+            $dept_join = "LEFT JOIN {$dept_table_} d ON d.id = {$dept_id_col}";
+            $dept_expr = "COALESCE(d.name,'—') AS dept_name";
+        }
+
+        $bulk_emps = $wpdb->get_results(
+            "SELECT e.id, {$name_expr}, {$dept_expr},
+                    es.shift_id AS current_shift_id, s.name AS current_shift_name
+             FROM {$emp_table} e
+             LEFT JOIN {$users_table} u ON u.ID = e.user_id
+             {$dept_join}
+             LEFT JOIN {$emp_shifts_tbl} es ON es.employee_id = e.id
+                       AND es.id = (SELECT MAX(es2.id) FROM {$emp_shifts_tbl} es2 WHERE es2.employee_id = e.id)
+             LEFT JOIN {$table} s ON s.id = es.shift_id
+             WHERE e.status = 'active'
+             ORDER BY emp_name"
+        );
+        $active_shifts = $wpdb->get_results( "SELECT id, name, start_time, end_time FROM {$table} WHERE active = 1 ORDER BY name" );
+        $schedules_tbl = $wpdb->prefix . 'sfs_hr_attendance_shift_schedules';
+        $active_schedules = $wpdb->get_results( "SELECT id, name, cycle_days FROM {$schedules_tbl} WHERE active = 1 ORDER BY name" );
+        $departments   = $this->get_departments( $wpdb );
+
+        $bulk_done   = isset( $_GET['bulk_default_done'] ) ? (int) $_GET['bulk_default_done'] : 0;
+        ?>
+        <hr/>
+        <h2><?php esc_html_e( 'Bulk Assign Default Shift', 'sfs-hr' ); ?>
+            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Set the primary/default shift or rotation schedule for multiple employees at once. This is used when no daily schedule override exists.', 'sfs-hr' ); ?></span></span>
+        </h2>
+
+        <?php if ( $bulk_done ) : ?>
+            <div class="notice notice-success is-dismissible">
+                <p><?php printf( esc_html( _n( '%d employee updated.', '%d employees updated.', $bulk_done, 'sfs-hr' ) ), $bulk_done ); ?></p>
+            </div>
+        <?php endif; ?>
+
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="sfs-bulk-default-shift-form">
+            <?php wp_nonce_field( 'sfs_hr_att_bulk_default_shift' ); ?>
+            <input type="hidden" name="action" value="sfs_hr_att_bulk_default_shift"/>
+
+            <table class="form-table">
+                <tr>
+                    <th><?php esc_html_e( 'Assignment Type', 'sfs-hr' ); ?></th>
+                    <td>
+                        <fieldset>
+                            <label style="margin-right:16px;">
+                                <input type="radio" name="assign_type" value="shift" checked id="sfs-bds-type-shift"/>
+                                <?php esc_html_e( 'Static Shift', 'sfs-hr' ); ?>
+                            </label>
+                            <?php if ( ! empty( $active_schedules ) ) : ?>
+                            <label>
+                                <input type="radio" name="assign_type" value="schedule" id="sfs-bds-type-schedule"/>
+                                <?php esc_html_e( 'Rotation Schedule', 'sfs-hr' ); ?>
+                            </label>
+                            <?php endif; ?>
+                        </fieldset>
+                        <p class="description"><?php esc_html_e( 'Choose whether to assign a fixed shift or a rotating schedule pattern.', 'sfs-hr' ); ?></p>
+                    </td>
+                </tr>
+                <tr id="sfs-bds-shift-row">
+                    <th><label for="sfs-bds-shift"><?php esc_html_e( 'Shift', 'sfs-hr' ); ?></label></th>
+                    <td>
+                        <select name="shift_id" id="sfs-bds-shift">
+                            <option value=""><?php esc_html_e( '— Select Shift —', 'sfs-hr' ); ?></option>
+                            <?php foreach ( $active_shifts as $sh ) : ?>
+                                <option value="<?php echo (int) $sh->id; ?>">
+                                    <?php echo esc_html( "{$sh->name} ({$sh->start_time} → {$sh->end_time})" ); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </td>
+                </tr>
+                <?php if ( ! empty( $active_schedules ) ) : ?>
+                <tr id="sfs-bds-schedule-row" style="display:none;">
+                    <th><label for="sfs-bds-schedule"><?php esc_html_e( 'Schedule', 'sfs-hr' ); ?></label></th>
+                    <td>
+                        <select name="schedule_id" id="sfs-bds-schedule">
+                            <option value=""><?php esc_html_e( '— Select Schedule —', 'sfs-hr' ); ?></option>
+                            <?php foreach ( $active_schedules as $sched ) : ?>
+                                <option value="<?php echo (int) $sched->id; ?>">
+                                    <?php
+                                    /* translators: %1$s: schedule name, %2$d: cycle days */
+                                    echo esc_html( sprintf( __( '%1$s (%2$d-day cycle)', 'sfs-hr' ), $sched->name, (int) $sched->cycle_days ) );
+                                    ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <p class="description">
+                            <?php esc_html_e( 'Employees assigned a schedule will rotate through shifts automatically based on the cycle pattern.', 'sfs-hr' ); ?>
+                            <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs_hr_attendance&tab=schedules' ) ); ?>"><?php esc_html_e( 'Manage Schedules', 'sfs-hr' ); ?></a>
+                        </p>
+                    </td>
+                </tr>
+                <?php endif; ?>
+
+                <tr>
+                    <th><?php esc_html_e( 'Select by', 'sfs-hr' ); ?></th>
+                    <td>
+                        <fieldset>
+                            <label style="margin-right:16px;">
+                                <input type="radio" name="select_mode" value="department" checked
+                                       id="sfs-bds-mode-dept"/>
+                                <?php esc_html_e( 'Department', 'sfs-hr' ); ?>
+                            </label>
+                            <label>
+                                <input type="radio" name="select_mode" value="employees"
+                                       id="sfs-bds-mode-emp"/>
+                                <?php esc_html_e( 'Individual employees', 'sfs-hr' ); ?>
+                            </label>
+                        </fieldset>
+                    </td>
+                </tr>
+
+                <tr id="sfs-bds-dept-row">
+                    <th><label><?php esc_html_e( 'Departments', 'sfs-hr' ); ?></label></th>
+                    <td>
+                        <div style="display:flex;flex-wrap:wrap;gap:8px 20px;max-height:180px;overflow-y:auto;padding:10px;border:1px solid #dcdcde;border-radius:4px;background:#f9f9f9;">
+                            <label style="display:flex;align-items:center;gap:5px;font-weight:600;">
+                                <input type="checkbox" id="sfs-bds-dept-all"/>
+                                <?php esc_html_e( 'Select All', 'sfs-hr' ); ?>
+                            </label>
+                            <?php foreach ( $departments as $dept ) : ?>
+                                <label style="display:flex;align-items:center;gap:5px;white-space:nowrap;">
+                                    <input type="checkbox" name="dept_ids[]" class="sfs-bds-dept-cb"
+                                           value="<?php echo (int) $dept['id']; ?>"/>
+                                    <?php echo esc_html( $dept['name'] ); ?>
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
+                        <p class="description"><?php esc_html_e( 'All active employees in the selected departments will be assigned this shift.', 'sfs-hr' ); ?></p>
+                    </td>
+                </tr>
+
+                <tr id="sfs-bds-emp-row" style="display:none;">
+                    <th><label><?php esc_html_e( 'Employees', 'sfs-hr' ); ?></label></th>
+                    <td>
+                        <select name="employee_ids[]" multiple size="10" style="min-width:400px;">
+                            <?php foreach ( $bulk_emps as $be ) : ?>
+                                <option value="<?php echo (int) $be->id; ?>">
+                                    <?php
+                                    $label = $be->emp_name . ' (' . $be->dept_name . ')';
+                                    if ( $be->current_shift_name ) {
+                                        /* translators: %s: shift name */
+                                        $label .= ' — ' . sprintf( __( 'current: %s', 'sfs-hr' ), $be->current_shift_name );
+                                    }
+                                    echo esc_html( $label );
+                                    ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <p class="description"><?php esc_html_e( 'Hold Ctrl/Cmd to select multiple employees.', 'sfs-hr' ); ?></p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th><?php esc_html_e( 'Options', 'sfs-hr' ); ?></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="overwrite" value="1"/>
+                            <?php esc_html_e( 'Overwrite existing default shift assignments', 'sfs-hr' ); ?>
+                            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'If unchecked, only employees without a current default shift will be assigned. If checked, all matched employees will be updated.', 'sfs-hr' ); ?></span></span>
+                        </label>
+                    </td>
+                </tr>
+            </table>
+
+            <?php submit_button( __( 'Assign Default Shift', 'sfs-hr' ) ); ?>
+        </form>
+
+        <script>
+        (function(){
+            var modeDept = document.getElementById('sfs-bds-mode-dept');
+            var modeEmp  = document.getElementById('sfs-bds-mode-emp');
+            var deptRow  = document.getElementById('sfs-bds-dept-row');
+            var empRow   = document.getElementById('sfs-bds-emp-row');
+            function toggleMode(){
+                var isDept  = modeDept.checked;
+                deptRow.style.display = isDept ? '' : 'none';
+                empRow.style.display  = isDept ? 'none' : '';
+            }
+            modeDept.addEventListener('change', toggleMode);
+            modeEmp.addEventListener('change', toggleMode);
+
+            /* Assignment type: shift vs schedule */
+            var typeShift    = document.getElementById('sfs-bds-type-shift');
+            var typeSchedule = document.getElementById('sfs-bds-type-schedule');
+            var shiftRow     = document.getElementById('sfs-bds-shift-row');
+            var scheduleRow  = document.getElementById('sfs-bds-schedule-row');
+            var shiftSel     = document.getElementById('sfs-bds-shift');
+            var schedSel     = document.getElementById('sfs-bds-schedule');
+            function toggleType(){
+                var isShift = typeShift && typeShift.checked;
+                if (shiftRow)    shiftRow.style.display    = isShift ? '' : 'none';
+                if (scheduleRow) scheduleRow.style.display = isShift ? 'none' : '';
+                if (shiftSel)    shiftSel.required  = isShift;
+                if (schedSel)    schedSel.required  = !isShift;
+            }
+            if (typeShift)    typeShift.addEventListener('change', toggleType);
+            if (typeSchedule) typeSchedule.addEventListener('change', toggleType);
+            toggleType();
+
+            /* Select-all departments */
+            var allCb = document.getElementById('sfs-bds-dept-all');
+            if (allCb) {
+                allCb.addEventListener('change', function(){
+                    var cbs = document.querySelectorAll('.sfs-bds-dept-cb');
+                    for (var i = 0; i < cbs.length; i++) { cbs[i].checked = allCb.checked; }
+                });
+            }
+        })();
+        </script>
     </div>
     <?php
 }
@@ -2223,6 +2569,34 @@ $end   = $norm_time($_POST['end_time']   ?? '');
     }
     $weekly_override_json = ! empty( $weekly_schedule ) ? wp_json_encode( $weekly_schedule ) : '';
 
+    // Period overrides (Ramadan, summer hours, etc.)
+    $period_overrides_raw = $_POST['period_overrides'] ?? [];
+    $period_overrides = [];
+    if ( is_array( $period_overrides_raw ) ) {
+        foreach ( $period_overrides_raw as $pov ) {
+            if ( ! is_array( $pov ) ) { continue; }
+            $p_label = sanitize_text_field( $pov['label'] ?? '' );
+            $p_start_date = sanitize_text_field( $pov['start_date'] ?? '' );
+            $p_end_date   = sanitize_text_field( $pov['end_date'] ?? '' );
+            $p_start_time = $norm_time( $pov['start_time'] ?? '' );
+            $p_end_time   = $norm_time( $pov['end_time'] ?? '' );
+
+            // Skip incomplete rows
+            if ( ! $p_start_date || ! $p_end_date || ! $p_start_time || ! $p_end_time ) { continue; }
+            if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $p_start_date ) ) { continue; }
+            if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $p_end_date ) )   { continue; }
+
+            $period_overrides[] = [
+                'label'      => $p_label,
+                'start_date' => $p_start_date,
+                'end_date'   => $p_end_date,
+                'start_time' => $p_start_time,
+                'end_time'   => $p_end_time,
+            ];
+        }
+    }
+    $period_overrides_json = ! empty( $period_overrides ) ? wp_json_encode( $period_overrides ) : null;
+
     // Policy override fields from shift form (NULL = inherit from role policy)
     $shift_calc_mode = in_array( $_POST['shift_calculation_mode'] ?? '', [ 'shift_times', 'total_hours' ], true )
         ? $_POST['shift_calculation_mode'] : null;
@@ -2290,6 +2664,7 @@ $end   = $norm_time($_POST['end_time']   ?? '');
         'dept_ids'                 => $dept_ids_json,
         'notes'                    => $notes,
         'weekly_overrides'         => $weekly_override_json,
+        'period_overrides'         => $period_overrides_json,
         'clock_in_methods'         => $shift_ci_methods !== null ? wp_json_encode( $shift_ci_methods ) : null,
         'clock_out_methods'        => $shift_co_methods !== null ? wp_json_encode( $shift_co_methods ) : null,
         'geofence_in'              => $shift_geo_in,
@@ -2316,6 +2691,480 @@ $end   = $norm_time($_POST['end_time']   ?? '');
         $id = (int)($_POST['id'] ?? 0);
         if ( $id ) { $wpdb->delete( $t, ['id'=>$id] ); }
         wp_safe_redirect( admin_url('admin.php?page=sfs_hr_attendance&tab=shifts&deleted=1') );
+        exit;
+    }
+
+    /* ========================= SHIFT SCHEDULES (ROTATION PATTERNS) ========================= */
+
+    /**
+     * Render the Schedules tab — list existing schedules + create/edit form.
+     */
+    public function render_schedules(): void {
+        if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
+            wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
+        }
+        global $wpdb;
+        $table  = $wpdb->prefix . 'sfs_hr_attendance_shift_schedules';
+        $shiftT = $wpdb->prefix . 'sfs_hr_attendance_shifts';
+
+        // Active shifts for the dropdown.
+        $shifts = $wpdb->get_results( "SELECT id, name FROM {$shiftT} WHERE active = 1 ORDER BY name ASC" );
+
+        // All schedules.
+        $rows = $wpdb->get_results( "SELECT * FROM {$table} ORDER BY active DESC, name ASC" );
+
+        // Editing?
+        $editing = null;
+        if ( isset( $_GET['edit_schedule'] ) ) {
+            $editing = $wpdb->get_row(
+                $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", (int) $_GET['edit_schedule'] )
+            );
+        }
+
+        $entries = [];
+        if ( $editing && ! empty( $editing->entries ) ) {
+            $decoded = json_decode( $editing->entries, true );
+            if ( is_array( $decoded ) ) {
+                $entries = $decoded;
+            }
+        }
+
+        // Count employees using each schedule.
+        $emp_shifts_tbl = $wpdb->prefix . 'sfs_hr_attendance_emp_shifts';
+        $schedule_usage = [];
+        $usage_rows = $wpdb->get_results( "SELECT schedule_id, COUNT(*) AS cnt FROM {$emp_shifts_tbl} WHERE schedule_id IS NOT NULL GROUP BY schedule_id" );
+        foreach ( $usage_rows as $ur ) {
+            $schedule_usage[ (int) $ur->schedule_id ] = (int) $ur->cnt;
+        }
+
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e( 'Shift Schedules', 'sfs-hr' ); ?></h1>
+            <p class="description" style="margin-bottom:16px;">
+                <?php esc_html_e( 'Schedules define rotation patterns (e.g. Week A / Week B, 4-on-4-off). Assign a schedule to employees instead of a static shift so their shift rotates automatically.', 'sfs-hr' ); ?>
+            </p>
+
+            <!-- Create / Edit Form -->
+            <div class="sfs-hr-admin-card">
+                <div class="sfs-hr-admin-card-header">
+                    <h3 class="sfs-hr-admin-card-title">
+                        <?php echo $editing
+                            ? esc_html__( 'Edit Schedule', 'sfs-hr' )
+                            : esc_html__( 'Add Schedule', 'sfs-hr' ); ?>
+                    </h3>
+                </div>
+
+                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="sfs-schedule-form">
+                    <?php wp_nonce_field( 'sfs_hr_att_schedule_save' ); ?>
+                    <input type="hidden" name="action" value="sfs_hr_att_schedule_save" />
+                    <?php if ( $editing ) : ?>
+                        <input type="hidden" name="id" value="<?php echo (int) $editing->id; ?>" />
+                    <?php endif; ?>
+
+                    <table class="form-table">
+                        <tr>
+                            <th><label for="sfs-sched-name"><?php esc_html_e( 'Schedule Name', 'sfs-hr' ); ?></label></th>
+                            <td>
+                                <input required type="text" id="sfs-sched-name" name="name"
+                                       value="<?php echo esc_attr( $editing->name ?? '' ); ?>" class="regular-text" />
+                                <p class="description"><?php esc_html_e( 'e.g. "Week A/B Rotation", "4-on-4-off", "3-Shift Rotation".', 'sfs-hr' ); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><label for="sfs-sched-cycle"><?php esc_html_e( 'Cycle Length (days)', 'sfs-hr' ); ?></label></th>
+                            <td>
+                                <input required type="number" id="sfs-sched-cycle" name="cycle_days" min="2" max="365"
+                                       value="<?php echo esc_attr( $editing->cycle_days ?? '14' ); ?>" style="width:100px;" />
+                                <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Total number of days in one full rotation cycle before it repeats. For example: 14 for a 2-week rotation, 8 for 4-on-4-off.', 'sfs-hr' ); ?></span></span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><label for="sfs-sched-anchor"><?php esc_html_e( 'Anchor Date', 'sfs-hr' ); ?></label></th>
+                            <td>
+                                <input required type="date" id="sfs-sched-anchor" name="anchor_date"
+                                       value="<?php echo esc_attr( $editing->anchor_date ?? current_time( 'Y-m-d' ) ); ?>" />
+                                <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'The reference start date for the rotation (Day 1 of the first cycle). The system calculates which day of the cycle any future or past date falls on relative to this anchor.', 'sfs-hr' ); ?></span></span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>
+                                <label><?php esc_html_e( 'Active', 'sfs-hr' ); ?></label>
+                            </th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="active" value="1"
+                                        <?php checked( $editing ? (int) $editing->active : 1 ); ?> />
+                                    <?php esc_html_e( 'Schedule is active', 'sfs-hr' ); ?>
+                                </label>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <!-- Dynamic Entries -->
+                    <h3 style="margin: 20px 0 10px;"><?php esc_html_e( 'Cycle Day Entries', 'sfs-hr' ); ?>
+                        <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Define which shift applies on each day of the cycle. Mark a day as "Day Off" if employees should not work. Days without entries are treated as days off.', 'sfs-hr' ); ?></span></span>
+                    </h3>
+                    <p class="description" style="margin-bottom:12px;">
+                        <?php esc_html_e( 'Configure a shift or day off for each day in the rotation cycle. Click "Add Entry" or "Generate All Days" to populate.', 'sfs-hr' ); ?>
+                    </p>
+
+                    <table class="widefat" id="sfs-schedule-entries" style="max-width:700px;">
+                        <thead>
+                            <tr>
+                                <th style="width:80px;"><?php esc_html_e( 'Day #', 'sfs-hr' ); ?></th>
+                                <th><?php esc_html_e( 'Shift', 'sfs-hr' ); ?></th>
+                                <th style="width:80px;"><?php esc_html_e( 'Day Off', 'sfs-hr' ); ?></th>
+                                <th style="width:50px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="sfs-schedule-entries-body">
+                            <?php if ( ! empty( $entries ) ) : ?>
+                                <?php foreach ( $entries as $i => $entry ) : ?>
+                                    <tr class="sfs-schedule-entry-row">
+                                        <td>
+                                            <input type="number" name="entries[<?php echo $i; ?>][day]" min="1"
+                                                   value="<?php echo esc_attr( $entry['day'] ?? ( $i + 1 ) ); ?>"
+                                                   style="width:60px;" required />
+                                        </td>
+                                        <td>
+                                            <select name="entries[<?php echo $i; ?>][shift_id]" class="sfs-sched-shift-select" style="min-width:200px;">
+                                                <option value=""><?php esc_html_e( '— Select shift —', 'sfs-hr' ); ?></option>
+                                                <?php foreach ( $shifts as $s ) : ?>
+                                                    <option value="<?php echo (int) $s->id; ?>"
+                                                        <?php selected( (int) ( $entry['shift_id'] ?? 0 ), (int) $s->id ); ?>>
+                                                        <?php echo esc_html( $s->name ); ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </td>
+                                        <td style="text-align:center;">
+                                            <input type="checkbox" name="entries[<?php echo $i; ?>][day_off]" value="1"
+                                                <?php checked( ! empty( $entry['day_off'] ) ); ?> />
+                                        </td>
+                                        <td>
+                                            <button type="button" class="button sfs-remove-entry" title="<?php esc_attr_e( 'Remove', 'sfs-hr' ); ?>">&times;</button>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+
+                    <p style="margin-top:10px;">
+                        <button type="button" class="button" id="sfs-schedule-add-entry">
+                            + <?php esc_html_e( 'Add Entry', 'sfs-hr' ); ?>
+                        </button>
+                        <button type="button" class="button" id="sfs-schedule-generate-all" style="margin-left:8px;">
+                            <?php esc_html_e( 'Generate All Days', 'sfs-hr' ); ?>
+                        </button>
+                    </p>
+
+                    <p class="submit" style="margin-top:16px;">
+                        <button type="submit" class="button button-primary">
+                            <?php echo $editing
+                                ? esc_html__( 'Update Schedule', 'sfs-hr' )
+                                : esc_html__( 'Save Schedule', 'sfs-hr' ); ?>
+                        </button>
+                        <?php if ( $editing ) : ?>
+                            <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs_hr_attendance&tab=schedules' ) ); ?>" class="button">
+                                <?php esc_html_e( 'Cancel', 'sfs-hr' ); ?>
+                            </a>
+                        <?php endif; ?>
+                    </p>
+                </form>
+            </div>
+
+            <!-- Existing Schedules List -->
+            <?php if ( ! empty( $rows ) ) : ?>
+            <div class="sfs-hr-admin-card" style="margin-top:24px;">
+                <div class="sfs-hr-admin-card-header">
+                    <h3 class="sfs-hr-admin-card-title"><?php esc_html_e( 'Existing Schedules', 'sfs-hr' ); ?></h3>
+                </div>
+                <table class="widefat striped">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e( 'ID', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Name', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Cycle (days)', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Anchor Date', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Entries', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Employees', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ( $rows as $row ) :
+                            $row_entries = json_decode( $row->entries, true );
+                            $entry_count = is_array( $row_entries ) ? count( $row_entries ) : 0;
+                            $emp_count   = $schedule_usage[ (int) $row->id ] ?? 0;
+
+                            // Build a brief summary of entries.
+                            $summary_parts = [];
+                            if ( is_array( $row_entries ) ) {
+                                $off_days  = 0;
+                                $work_days = 0;
+                                foreach ( $row_entries as $re ) {
+                                    if ( ! empty( $re['day_off'] ) ) {
+                                        $off_days++;
+                                    } else {
+                                        $work_days++;
+                                    }
+                                }
+                                $summary_parts[] = sprintf(
+                                    /* translators: %1$d: work days count, %2$d: off days count */
+                                    __( '%1$d work / %2$d off', 'sfs-hr' ),
+                                    $work_days,
+                                    $off_days
+                                );
+                            }
+                        ?>
+                        <tr>
+                            <td><?php echo (int) $row->id; ?></td>
+                            <td><strong><?php echo esc_html( $row->name ); ?></strong></td>
+                            <td><?php echo (int) $row->cycle_days; ?></td>
+                            <td><?php echo esc_html( $row->anchor_date ); ?></td>
+                            <td>
+                                <?php echo esc_html( $entry_count . ' ' . _n( 'day', 'days', $entry_count, 'sfs-hr' ) ); ?>
+                                <?php if ( ! empty( $summary_parts ) ) : ?>
+                                    <br><small style="color:#6b7280;"><?php echo esc_html( implode( ', ', $summary_parts ) ); ?></small>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ( $emp_count > 0 ) : ?>
+                                    <span class="sfs-hr-admin-badge sfs-hr-admin-badge--info"><?php echo (int) $emp_count; ?></span>
+                                <?php else : ?>
+                                    <span style="color:#9ca3af;">0</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ( (int) $row->active ) : ?>
+                                    <span class="sfs-hr-admin-badge sfs-hr-admin-badge--active"><?php esc_html_e( 'Active', 'sfs-hr' ); ?></span>
+                                <?php else : ?>
+                                    <span class="sfs-hr-admin-badge sfs-hr-admin-badge--inactive"><?php esc_html_e( 'Inactive', 'sfs-hr' ); ?></span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <div class="sfs-hr-admin-actions">
+                                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs_hr_attendance&tab=schedules&edit_schedule=' . (int) $row->id ) ); ?>"
+                                       class="sfs-hr-admin-btn" title="<?php esc_attr_e( 'Edit', 'sfs-hr' ); ?>">
+                                        <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                        <?php esc_html_e( 'Edit', 'sfs-hr' ); ?>
+                                    </a>
+                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
+                                          style="display:inline;" onsubmit="return confirm('<?php echo esc_js( __( 'Delete this schedule?', 'sfs-hr' ) ); ?>');">
+                                        <?php wp_nonce_field( 'sfs_hr_att_schedule_delete' ); ?>
+                                        <input type="hidden" name="action" value="sfs_hr_att_schedule_delete" />
+                                        <input type="hidden" name="id" value="<?php echo (int) $row->id; ?>" />
+                                        <button type="submit" class="sfs-hr-admin-btn sfs-hr-admin-btn--danger" title="<?php esc_attr_e( 'Delete', 'sfs-hr' ); ?>">
+                                            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                                            <?php esc_html_e( 'Delete', 'sfs-hr' ); ?>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+        </div>
+
+        <script>
+        (function(){
+            var idx = <?php echo ! empty( $entries ) ? count( $entries ) : 0; ?>;
+            var shiftsJson = <?php echo wp_json_encode( array_map( function( $s ) {
+                return [ 'id' => (int) $s->id, 'name' => $s->name ];
+            }, $shifts ) ); ?>;
+
+            function buildShiftOptions( selectedId ) {
+                var html = '<option value=""><?php echo esc_js( __( '— Select shift —', 'sfs-hr' ) ); ?></option>';
+                for ( var i = 0; i < shiftsJson.length; i++ ) {
+                    var sel = ( shiftsJson[i].id == selectedId ) ? ' selected' : '';
+                    html += '<option value="' + shiftsJson[i].id + '"' + sel + '>' + shiftsJson[i].name + '</option>';
+                }
+                return html;
+            }
+
+            function addRow( dayNum, shiftId, dayOff ) {
+                var tbody = document.getElementById('sfs-schedule-entries-body');
+                var tr = document.createElement('tr');
+                tr.className = 'sfs-schedule-entry-row';
+                tr.innerHTML =
+                    '<td><input type="number" name="entries[' + idx + '][day]" min="1" value="' + dayNum + '" style="width:60px;" required /></td>' +
+                    '<td><select name="entries[' + idx + '][shift_id]" class="sfs-sched-shift-select" style="min-width:200px;">' + buildShiftOptions( shiftId ) + '</select></td>' +
+                    '<td style="text-align:center;"><input type="checkbox" name="entries[' + idx + '][day_off]" value="1"' + ( dayOff ? ' checked' : '' ) + ' /></td>' +
+                    '<td><button type="button" class="button sfs-remove-entry" title="<?php echo esc_js( __( 'Remove', 'sfs-hr' ) ); ?>">&times;</button></td>';
+                tbody.appendChild(tr);
+                idx++;
+            }
+
+            // Add single entry.
+            document.getElementById('sfs-schedule-add-entry').addEventListener('click', function(){
+                var existingRows = document.querySelectorAll('#sfs-schedule-entries-body .sfs-schedule-entry-row');
+                var nextDay = existingRows.length + 1;
+                addRow( nextDay, '', false );
+            });
+
+            // Generate all days for the cycle.
+            document.getElementById('sfs-schedule-generate-all').addEventListener('click', function(){
+                var cycleDays = parseInt( document.getElementById('sfs-sched-cycle').value ) || 14;
+                if ( cycleDays < 2 || cycleDays > 365 ) {
+                    alert('<?php echo esc_js( __( 'Please enter a valid cycle length (2–365 days).', 'sfs-hr' ) ); ?>');
+                    return;
+                }
+                var tbody = document.getElementById('sfs-schedule-entries-body');
+                var existingCount = tbody.querySelectorAll('.sfs-schedule-entry-row').length;
+                if ( existingCount > 0 && ! confirm('<?php echo esc_js( __( 'This will replace all existing entries. Continue?', 'sfs-hr' ) ); ?>') ) {
+                    return;
+                }
+                tbody.innerHTML = '';
+                idx = 0;
+                for ( var d = 1; d <= cycleDays; d++ ) {
+                    addRow( d, '', false );
+                }
+            });
+
+            // Remove entry (delegated).
+            document.getElementById('sfs-schedule-entries').addEventListener('click', function(e){
+                if ( e.target.classList.contains('sfs-remove-entry') || e.target.closest('.sfs-remove-entry') ) {
+                    var row = e.target.closest('.sfs-schedule-entry-row');
+                    if ( row ) row.remove();
+                }
+            });
+
+            // Disable shift select when day_off is checked (delegated).
+            document.getElementById('sfs-schedule-entries').addEventListener('change', function(e){
+                if ( e.target.type === 'checkbox' && e.target.name && e.target.name.indexOf('[day_off]') !== -1 ) {
+                    var row = e.target.closest('tr');
+                    if ( row ) {
+                        var sel = row.querySelector('.sfs-sched-shift-select');
+                        if ( sel ) {
+                            sel.disabled = e.target.checked;
+                            if ( e.target.checked ) sel.value = '';
+                        }
+                    }
+                }
+            });
+
+            // On load, disable shift selects for checked day_off rows.
+            document.querySelectorAll('#sfs-schedule-entries-body .sfs-schedule-entry-row').forEach(function(row){
+                var cb = row.querySelector('input[type="checkbox"]');
+                var sel = row.querySelector('.sfs-sched-shift-select');
+                if ( cb && cb.checked && sel ) {
+                    sel.disabled = true;
+                }
+            });
+        })();
+        </script>
+        <?php
+    }
+
+    /**
+     * Handle schedule create / update.
+     */
+    public function handle_schedule_save(): void {
+        if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
+            wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
+        }
+        check_admin_referer( 'sfs_hr_att_schedule_save' );
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_attendance_shift_schedules';
+
+        $id          = isset( $_POST['id'] ) ? (int) $_POST['id'] : 0;
+        $name        = sanitize_text_field( wp_unslash( $_POST['name'] ?? '' ) );
+        $cycle_days  = max( 2, min( 365, (int) ( $_POST['cycle_days'] ?? 14 ) ) );
+        $anchor_date = sanitize_text_field( $_POST['anchor_date'] ?? '' );
+        $active      = ! empty( $_POST['active'] ) ? 1 : 0;
+
+        if ( ! $name || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $anchor_date ) ) {
+            wp_die( esc_html__( 'Missing required fields (name and a valid anchor date).', 'sfs-hr' ) );
+        }
+
+        // Parse entries.
+        $raw_entries = isset( $_POST['entries'] ) && is_array( $_POST['entries'] ) ? $_POST['entries'] : [];
+        $entries = [];
+        foreach ( $raw_entries as $raw ) {
+            if ( ! is_array( $raw ) ) { continue; }
+            $day     = (int) ( $raw['day'] ?? 0 );
+            $day_off = ! empty( $raw['day_off'] );
+            $sid     = (int) ( $raw['shift_id'] ?? 0 );
+
+            if ( $day < 1 || $day > $cycle_days ) { continue; }
+            if ( ! $day_off && ! $sid ) { continue; } // Skip rows with no shift and not day_off.
+
+            $entry = [ 'day' => $day ];
+            if ( $day_off ) {
+                $entry['day_off'] = true;
+            } else {
+                $entry['shift_id'] = $sid;
+            }
+            $entries[] = $entry;
+        }
+
+        if ( empty( $entries ) ) {
+            wp_die( esc_html__( 'Please add at least one cycle day entry.', 'sfs-hr' ) );
+        }
+
+        // Sort entries by day number.
+        usort( $entries, function( $a, $b ) { return $a['day'] - $b['day']; } );
+
+        $entries_json = wp_json_encode( $entries );
+
+        $data = [
+            'name'        => $name,
+            'cycle_days'  => $cycle_days,
+            'anchor_date' => $anchor_date,
+            'entries'     => $entries_json,
+            'active'      => $active,
+        ];
+        $formats = [ '%s', '%d', '%s', '%s', '%d' ];
+
+        if ( $id ) {
+            $wpdb->update( $table, $data, [ 'id' => $id ], $formats, [ '%d' ] );
+        } else {
+            $data['created_at'] = current_time( 'mysql' );
+            $data['created_by'] = get_current_user_id();
+            $formats[] = '%s';
+            $formats[] = '%d';
+            $wpdb->insert( $table, $data, $formats );
+        }
+
+        $redirect = admin_url( 'admin.php?page=sfs_hr_attendance&tab=schedules&saved=1' );
+        wp_safe_redirect( $redirect );
+        exit;
+    }
+
+    /**
+     * Handle schedule deletion.
+     */
+    public function handle_schedule_delete(): void {
+        if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
+            wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
+        }
+        check_admin_referer( 'sfs_hr_att_schedule_delete' );
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_attendance_shift_schedules';
+        $id    = (int) ( $_POST['id'] ?? 0 );
+
+        if ( $id ) {
+            // Clear schedule_id references in emp_shifts.
+            $emp_shifts_tbl = $wpdb->prefix . 'sfs_hr_attendance_emp_shifts';
+            $wpdb->update(
+                $emp_shifts_tbl,
+                [ 'schedule_id' => null ],
+                [ 'schedule_id' => $id ],
+                [ '%d' ],
+                [ '%d' ]
+            );
+
+            $wpdb->delete( $table, [ 'id' => $id ] );
+        }
+
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs_hr_attendance&tab=schedules&deleted=1' ) );
         exit;
     }
 
@@ -2529,6 +3378,125 @@ $departments = $this->get_departments( $wpdb );
         wp_safe_redirect( admin_url('admin.php?page=sfs_hr_attendance&tab=assign&done=1') );
         exit;
     }
+
+    /* ── Bulk Assign Default Shift handler ──────────────────────── */
+    public function handle_bulk_default_shift(): void {
+        if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
+            wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
+        }
+        check_admin_referer( 'sfs_hr_att_bulk_default_shift' );
+
+        global $wpdb;
+        $emp_table      = $wpdb->prefix . 'sfs_hr_employees';
+        $emp_shifts_tbl = $wpdb->prefix . 'sfs_hr_attendance_emp_shifts';
+
+        $assign_type = isset( $_POST['assign_type'] ) ? sanitize_key( $_POST['assign_type'] ) : 'shift';
+        $shift_id    = isset( $_POST['shift_id'] ) ? (int) $_POST['shift_id'] : 0;
+        $schedule_id = isset( $_POST['schedule_id'] ) ? (int) $_POST['schedule_id'] : 0;
+        $mode        = isset( $_POST['select_mode'] ) ? sanitize_key( $_POST['select_mode'] ) : 'department';
+        $overwrite   = ! empty( $_POST['overwrite'] );
+
+        if ( $assign_type === 'schedule' ) {
+            // Validate schedule.
+            if ( ! $schedule_id ) {
+                wp_die( esc_html__( 'Please select a schedule.', 'sfs-hr' ) );
+            }
+            $sched_table = $wpdb->prefix . 'sfs_hr_attendance_shift_schedules';
+            $sched_exists = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$sched_table} WHERE id = %d AND active = 1", $schedule_id ) );
+            if ( ! $sched_exists ) {
+                wp_die( esc_html__( 'Selected schedule does not exist or is inactive.', 'sfs-hr' ) );
+            }
+            // When assigning a schedule, clear the shift_id.
+            $shift_id = 0;
+        } else {
+            // Validate shift.
+            if ( ! $shift_id ) {
+                wp_die( esc_html__( 'Please select a shift.', 'sfs-hr' ) );
+            }
+            $shift_table = $wpdb->prefix . 'sfs_hr_attendance_shifts';
+            $shift_exists = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$shift_table} WHERE id = %d AND active = 1", $shift_id ) );
+            if ( ! $shift_exists ) {
+                wp_die( esc_html__( 'Selected shift does not exist or is inactive.', 'sfs-hr' ) );
+            }
+            // When assigning a static shift, clear the schedule_id.
+            $schedule_id = 0;
+        }
+
+        // Resolve target employee IDs.
+        $employee_ids = [];
+
+        if ( $mode === 'department' ) {
+            $dept_ids = array_map( 'intval', (array) ( $_POST['dept_ids'] ?? [] ) );
+            $dept_ids = array_filter( $dept_ids );
+            if ( empty( $dept_ids ) ) {
+                wp_die( esc_html__( 'Please select at least one department.', 'sfs-hr' ) );
+            }
+
+            // Determine which column maps to department ID.
+            $cols       = $wpdb->get_col( "SHOW COLUMNS FROM {$emp_table}", 0 ) ?: [];
+            $dept_col   = in_array( 'dept_id', $cols, true ) ? 'dept_id' : ( in_array( 'department_id', $cols, true ) ? 'department_id' : null );
+
+            if ( ! $dept_col ) {
+                wp_die( esc_html__( 'Cannot resolve department column in employees table.', 'sfs-hr' ) );
+            }
+
+            $placeholders = implode( ',', array_fill( 0, count( $dept_ids ), '%d' ) );
+            $employee_ids = $wpdb->get_col(
+                $wpdb->prepare(
+                    "SELECT id FROM {$emp_table} WHERE status = 'active' AND {$dept_col} IN ({$placeholders})",
+                    ...$dept_ids
+                )
+            );
+            $employee_ids = array_map( 'intval', $employee_ids );
+
+        } else {
+            $employee_ids = array_map( 'intval', (array) ( $_POST['employee_ids'] ?? [] ) );
+            $employee_ids = array_filter( $employee_ids );
+        }
+
+        if ( empty( $employee_ids ) ) {
+            wp_die( esc_html__( 'No employees matched the selection.', 'sfs-hr' ) );
+        }
+
+        $now     = current_time( 'mysql' );
+        $today   = current_time( 'Y-m-d' );
+        $user_id = get_current_user_id();
+        $count   = 0;
+
+        foreach ( $employee_ids as $eid ) {
+            // Check if employee already has a default shift/schedule.
+            $existing = $wpdb->get_var( $wpdb->prepare(
+                "SELECT id FROM {$emp_shifts_tbl} WHERE employee_id = %d ORDER BY id DESC LIMIT 1",
+                $eid
+            ) );
+
+            if ( $existing && ! $overwrite ) {
+                continue; // Skip — already assigned and overwrite is off.
+            }
+
+            $data = [
+                'shift_id'    => $shift_id ?: null,
+                'schedule_id' => $schedule_id ?: null,
+                'start_date'  => $today,
+                'created_at'  => $now,
+                'created_by'  => $user_id,
+            ];
+            $formats = [ '%d', '%d', '%s', '%s', '%d' ];
+
+            if ( $existing && $overwrite ) {
+                $wpdb->update( $emp_shifts_tbl, $data, [ 'id' => (int) $existing ], $formats, [ '%d' ] );
+            } else {
+                $data['employee_id'] = $eid;
+                $formats_insert = array_merge( [ '%d' ], $formats );
+                $wpdb->insert( $emp_shifts_tbl, $data, $formats_insert );
+            }
+            $count++;
+        }
+
+        wp_safe_redirect( admin_url( "admin.php?page=sfs_hr_attendance&tab=shifts&bulk_default_done={$count}" ) );
+        exit;
+    }
+
     /* ========================= Exceptions ========================= */
     
 public function render_exceptions(): void {
