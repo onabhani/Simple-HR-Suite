@@ -3245,5 +3245,20 @@
     "item": "Item",
     "please_log_in": "Please log in.",
     "you_can_only_view_own_payslips": "You can only view your own payslips.",
-    "no_permission_settings": "You do not have permission to access settings."
+    "no_permission_settings": "You do not have permission to access settings.",
+
+    "_comment_v1_2_0": "v1.2.0 — Overview & Profile redesign",
+    "action_required": "Action Required",
+    "todays_shift": "Today's Shift",
+    "pending_upcoming": "Pending & Upcoming",
+    "upcoming_timeline": "Upcoming",
+    "asset_approval": "Assets awaiting your approval",
+    "docs_missing": "Required documents missing",
+    "docs_expired": "Documents expired",
+    "national_id_expires": "National ID expires",
+    "passport_expires": "Passport expires",
+    "document_expires": "%s expires",
+    "new_request": "New Request",
+    "request_leave": "Request Leave",
+    "request_loan": "Request Loan"
 }
