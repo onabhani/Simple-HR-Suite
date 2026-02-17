@@ -4909,6 +4909,12 @@ public function handle_rebuild_sessions_day(): void {
         ? (string) $_GET['date']
         : wp_date('Y-m-d');
 
+    // Prevent rebuilding future dates
+    $today = wp_date( 'Y-m-d' );
+    if ( $date > $today ) {
+        $date = $today;
+    }
+
     $this->rebuild_all_sessions_for_date( $date );
 
     wp_safe_redirect( admin_url( 'admin.php?page=sfs_hr_attendance&tab=sessions&date=' . $date . '&rebuilt=1' ) );
@@ -4936,6 +4942,19 @@ public function handle_rebuild_sessions_period(): void {
     // Validate date range
     if ($to < $from) {
         wp_die( esc_html__( 'Invalid date range', 'sfs-hr' ) );
+    }
+
+    // Never rebuild future dates — cap at today
+    $today = wp_date( 'Y-m-d' );
+    if ( $to > $today ) {
+        // Clean up any stale session rows that were previously created for future dates
+        $sT = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+        $wpdb->query( $wpdb->prepare(
+            "DELETE FROM {$sT} WHERE work_date > %s AND work_date <= %s",
+            $today,
+            ( isset( $_GET['to'] ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) $_GET['to'] ) ) ? (string) $_GET['to'] : $att_period_def['end']
+        ) );
+        $to = $today;
     }
 
     // Rebuild sessions for each local date in the range

@@ -55,6 +55,10 @@ class Attendance_Metrics {
             ];
         }
 
+        // Cap end date at today — never include future dates in metrics
+        $today = wp_date( 'Y-m-d' );
+        $effective_end = ( $end_date > $today ) ? $today : $end_date;
+
         // Get attendance sessions for the period
         $sessions = $wpdb->get_results( $wpdb->prepare(
             "SELECT work_date, status, flags_json, rounded_net_minutes, in_time, out_time,
@@ -66,7 +70,7 @@ class Attendance_Metrics {
              ORDER BY work_date ASC",
             $employee_id,
             $start_date,
-            $end_date
+            $effective_end
         ) );
 
         // Initialize counters

@@ -4369,6 +4369,11 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
     $pT   = $wpdb->prefix . 'sfs_hr_attendance_punches';
     $sT   = $wpdb->prefix . 'sfs_hr_attendance_sessions';
 
+    // Never create sessions for future dates
+    if ( $ymd > wp_date( 'Y-m-d' ) ) {
+        return;
+    }
+
     // Leave/Holiday global guard
     if ( self::is_blocked_by_leave_or_holiday($employee_id, $ymd) ) {
         $data = [
