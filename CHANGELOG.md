@@ -2,6 +2,15 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [1.2.3] — 2026-02-17
+
+### Fixed
+- Shift save now stays on the edit page and displays a success notice bar.
+- Fix form fields overflowing card boundaries on employee profile edit page.
+- Prevent attendance session rebuild from creating rows for future dates.
+- Delete stale future-date session rows when rebuilding a period.
+- Performance commitment table no longer shows future dates.
+
 ## [1.2.2] — 2026-02-17
 
 ### Fixed
