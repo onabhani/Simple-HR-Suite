@@ -56,7 +56,9 @@ class Resignation_Service {
         $params = [];
 
         // Status filter
-        if (in_array($status, ['pending', 'approved', 'rejected', 'cancelled', 'completed'], true)) {
+        if ($status === 'all') {
+            // No status filter — show all resignations
+        } elseif (in_array($status, ['pending', 'approved', 'rejected', 'cancelled', 'completed'], true)) {
             $where .= " AND r.status = %s";
             $params[] = $status;
         } elseif ($status === 'final_exit') {
