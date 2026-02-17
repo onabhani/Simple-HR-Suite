@@ -313,6 +313,27 @@ class Admin {
         $departments_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$dept_t}" );
     }
 
+    // --- Contracts expiring within notice period ---
+    $notice_period       = (int) get_option( 'sfs_hr_resignation_notice_period', 30 );
+    $contract_threshold  = $notice_period + 5;
+    $contract_cutoff     = date( 'Y-m-d', strtotime( "+{$contract_threshold} days", strtotime( $today ) ) );
+    $expiring_contracts  = (int) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COUNT(*) FROM {$emp_t}
+         WHERE status = 'active'
+           AND contract_end_date IS NOT NULL
+           AND contract_end_date BETWEEN %s AND %s",
+        $today,
+        $contract_cutoff
+    ) );
+    $expired_contracts   = (int) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COUNT(*) FROM {$emp_t}
+         WHERE status = 'active'
+           AND contract_end_date IS NOT NULL
+           AND contract_end_date < %s",
+        $today
+    ) );
+    $total_contract_alerts = $expiring_contracts + $expired_contracts;
+
     // --- Attendance: active shifts ---
     $active_shifts = 0;
     if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $shift_t ) ) ) {
@@ -962,6 +983,34 @@ echo '</a>';
     echo '<div class="sfs-hr-card-count">' . esc_html( number_format_i18n( $departments_count ) ) . '</div>';
     echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Structure & approver routing', 'sfs-hr' ) . '</div>';
     echo '</a>';
+
+    // Contracts Expiring
+    if ( $total_contract_alerts > 0 ) {
+        $contract_card_style = $expired_contracts > 0
+            ? ' style="border-left:4px solid #dc2626;background:linear-gradient(135deg,#fff 0%,#fef2f2 100%);"'
+            : ( $expiring_contracts > 0
+                ? ' style="border-left:4px solid #d97706;background:linear-gradient(135deg,#fff 0%,#fffbeb 100%);"'
+                : '' );
+        $exit_url = admin_url( 'admin.php?page=sfs-hr-employee-exit&tab=contracts' );
+        echo '<a class="sfs-hr-card" href="' . esc_url( $exit_url ) . '"' . $contract_card_style . '>';
+        echo '<h2>' . esc_html__( 'Contracts Expiring', 'sfs-hr' ) . '</h2>';
+        echo '<div class="sfs-hr-card-count"' . ( $expired_contracts > 0 ? ' style="color:#dc2626;"' : ' style="color:#d97706;"' ) . '>' . esc_html( number_format_i18n( $total_contract_alerts ) ) . '</div>';
+        if ( $expired_contracts > 0 ) {
+            echo '<div class="sfs-hr-card-meta" style="color:#dc2626;font-weight:600;">' . sprintf(
+                esc_html__( '%s already expired', 'sfs-hr' ),
+                number_format_i18n( $expired_contracts )
+            ) . '</div>';
+        }
+        if ( $expiring_contracts > 0 ) {
+            echo '<div class="sfs-hr-card-meta">' . sprintf(
+                /* translators: %1$s = count, %2$s = days */
+                esc_html__( '%1$s expiring within %2$s days', 'sfs-hr' ),
+                number_format_i18n( $expiring_contracts ),
+                number_format_i18n( $contract_threshold )
+            ) . '</div>';
+        }
+        echo '</a>';
+    }
 
     echo '</div>'; // .sfs-hr-dashboard-grid
 
