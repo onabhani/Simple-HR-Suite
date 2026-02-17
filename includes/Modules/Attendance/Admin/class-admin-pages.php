@@ -1610,6 +1610,12 @@ public function render_shifts(): void {
     <div class="wrap">
         <h1><?php esc_html_e( 'Shifts', 'sfs-hr' ); ?></h1>
 
+        <?php if ( ! empty( $_GET['saved'] ) ) : ?>
+            <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Shift saved successfully.', 'sfs-hr' ); ?></p></div>
+        <?php elseif ( ! empty( $_GET['deleted'] ) ) : ?>
+            <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Shift deleted.', 'sfs-hr' ); ?></p></div>
+        <?php endif; ?>
+
         <h2><?php echo $editing ? esc_html__( 'Edit Shift', 'sfs-hr' ) : esc_html__( 'Add Shift', 'sfs-hr' ); ?></h2>
         <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>">
             <?php wp_nonce_field( 'sfs_hr_att_shift_save' ); ?>
@@ -2641,11 +2647,12 @@ $end   = $norm_time($_POST['end_time']   ?? '');
 
     if ( $id ) {
         $wpdb->update( $t, $data, ['id'=>$id] );
+        wp_safe_redirect( admin_url('admin.php?page=sfs_hr_attendance&tab=shifts&edit=' . $id . '&saved=1') );
     } else {
         $wpdb->insert( $t, $data );
+        $new_id = (int) $wpdb->insert_id;
+        wp_safe_redirect( admin_url('admin.php?page=sfs_hr_attendance&tab=shifts&edit=' . $new_id . '&saved=1') );
     }
-
-    wp_safe_redirect( admin_url('admin.php?page=sfs_hr_attendance&tab=shifts&saved=1') );
     exit;
 }
 
