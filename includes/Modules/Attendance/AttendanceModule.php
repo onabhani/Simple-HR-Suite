@@ -4554,7 +4554,10 @@ foreach ($rows as $r) {
                 $last_out_th  = ( new \DateTimeImmutable( $lastOut, new \DateTimeZone( 'UTC' ) ) )->setTimezone( $tz_th );
                 $actually_left_early = ( $last_out_th < $shift_end_th );
             }
-            if ( $actually_left_early ) {
+            if ( $actually_left_early || ! $has_meaningful_end ) {
+                // Either departed before shift end, OR the shift has no fixed
+                // end time (total-hours 00:00–00:00) and worked hours are below
+                // the target — both are "left_early" (hours shortfall).
                 $status = 'left_early';
                 $ev['flags'][] = 'left_early';
             } else {

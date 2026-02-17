@@ -946,4 +946,75 @@ class Migrations {
 
         update_option( $flag, '1' );
     }
+
+    /**
+     * One-time repair: recalculate attendance sessions for "Total Hours" shifts
+     * (start_time == end_time, e.g. 00:00–00:00).
+     *
+     * Before the fix, these shifts built a bogus 24-hour segment (midnight →
+     * midnight+1 day) which incorrectly flagged every employee as "Late",
+     * "Left early", and "No break taken".  This migration re-runs the
+     * calculation engine for every affected session to store correct flags.
+     */
+    public static function repair_total_hours_sessions(): void {
+        $flag = 'sfs_hr_repaired_total_hours_sessions';
+        if ( get_option( $flag ) ) {
+            return; // already ran
+        }
+
+        global $wpdb;
+        $shifts_table   = $wpdb->prefix . 'sfs_hr_attendance_shifts';
+        $assign_table   = $wpdb->prefix . 'sfs_hr_attendance_shift_assign';
+        $sessions_table = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+
+        // Find all sessions linked to shifts where start_time == end_time
+        // (the problematic "Total Hours" shifts).
+        $rows = $wpdb->get_results(
+            "SELECT DISTINCT s.employee_id, s.work_date
+             FROM {$sessions_table} s
+             INNER JOIN {$assign_table} sa
+                 ON sa.employee_id = s.employee_id AND sa.work_date = s.work_date
+             INNER JOIN {$shifts_table} sh
+                 ON sh.id = sa.shift_id
+             WHERE sh.start_time = sh.end_time
+               AND ( s.flags_json LIKE '%late%'
+                  OR s.flags_json LIKE '%left_early%'
+                  OR s.flags_json LIKE '%no_break_taken%' )"
+        );
+
+        $repaired = 0;
+        if ( ! empty( $rows ) ) {
+            foreach ( $rows as $r ) {
+                \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for(
+                    (int) $r->employee_id,
+                    $r->work_date,
+                    $wpdb
+                );
+                $repaired++;
+            }
+        }
+
+        // Also clean up false early-leave requests for total-hours shifts
+        // identified by equal start/end times.
+        $el_table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+        $deleted_el = (int) $wpdb->query(
+            "DELETE el FROM `{$el_table}` el
+             INNER JOIN `{$assign_table}` sa
+                 ON sa.employee_id = el.employee_id AND sa.work_date = el.request_date
+             INNER JOIN `{$shifts_table}` sh
+                 ON sh.id = sa.shift_id
+             WHERE sh.start_time = sh.end_time
+               AND el.reason_note LIKE 'Auto-created:%'
+               AND el.status = 'pending'"
+        );
+
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            error_log( sprintf(
+                '[SFS HR] Total-hours repair: recalculated %d sessions, removed %d false early-leave requests.',
+                $repaired, $deleted_el
+            ) );
+        }
+
+        update_option( $flag, '1' );
+    }
 }
