@@ -473,7 +473,7 @@ class Resignation_Handlers {
         $finance_approver = isset($_POST['finance_approver']) ? (int)$_POST['finance_approver'] : 0;
         update_option('sfs_hr_resignation_finance_approver', (string)$finance_approver);
 
-        wp_safe_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=resignations&tab=settings&ok=1'));
+        wp_safe_redirect(admin_url('admin.php?page=sfs-hr-lifecycle&tab=exit-settings&ok=1'));
         exit;
     }
 

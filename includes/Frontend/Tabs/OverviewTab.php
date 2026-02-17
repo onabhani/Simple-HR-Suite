@@ -666,58 +666,11 @@ class OverviewTab implements TabInterface {
             echo '</div>'; // .sfs-overview-block
         }
 
-        // ── 7. My Documents ───────────────────────────────────────
-        if ( class_exists( '\SFS\HR\Modules\Documents\Services\Documents_Service' ) ) {
-            $has_doc_issues = ( $missing_docs_count > 0 || $expired_docs_count > 0 );
-
-            echo '<div class="sfs-overview-block">';
-            echo '<div class="sfs-overview-section">';
-            echo '<h3 class="sfs-overview-section-title" data-i18n-key="my_documents">' . esc_html__( 'My Documents', 'sfs-hr' ) . '</h3>';
-            echo '</div>';
-
-            echo '<div class="sfs-overview-att-grid">';
-
-            echo '<div class="sfs-overview-att-card sfs-overview-att-card--present">';
-            echo '<div class="sfs-overview-att-card-value">' . (int) $doc_total_count . '</div>';
-            echo '<div class="sfs-overview-att-card-label" data-i18n-key="uploaded">' . esc_html__( 'Uploaded', 'sfs-hr' ) . '</div>';
-            echo '</div>';
-
-            echo '<div class="sfs-overview-att-card sfs-overview-att-card--' . ( $missing_docs_count > 0 ? 'absent' : 'present' ) . '">';
-            echo '<div class="sfs-overview-att-card-value">' . $missing_docs_count . '</div>';
-            echo '<div class="sfs-overview-att-card-label" data-i18n-key="missing">' . esc_html__( 'Missing', 'sfs-hr' ) . '</div>';
-            echo '</div>';
-
-            echo '<div class="sfs-overview-att-card sfs-overview-att-card--' . ( $expired_docs_count > 0 ? 'late' : 'present' ) . '">';
-            echo '<div class="sfs-overview-att-card-value">' . $expired_docs_count . '</div>';
-            echo '<div class="sfs-overview-att-card-label" data-i18n-key="expired">' . esc_html__( 'Expired', 'sfs-hr' ) . '</div>';
-            echo '</div>';
-
-            echo '</div>'; // .sfs-overview-att-grid
-
-            if ( $has_doc_issues ) {
-                echo '<a href="' . esc_url( $documents_url ) . '" class="sfs-overview-profile-banner sfs-overview-profile-banner--danger" style="margin-top:8px;">';
-                echo '<div class="sfs-overview-profile-banner-text">';
-                echo '<span class="sfs-overview-profile-banner-title" data-i18n-key="documents_need_attention">' . esc_html__( 'Documents need attention', 'sfs-hr' ) . '</span>';
-                $parts = [];
-                if ( $missing_docs_count > 0 ) {
-                    $parts[] = sprintf( _n( '%d missing', '%d missing', $missing_docs_count, 'sfs-hr' ), $missing_docs_count );
-                }
-                if ( $expired_docs_count > 0 ) {
-                    $parts[] = sprintf( _n( '%d expired', '%d expired', $expired_docs_count, 'sfs-hr' ), $expired_docs_count );
-                }
-                echo '<span class="sfs-overview-profile-banner-sub">' . esc_html( implode( ', ', $parts ) ) . '</span>';
-                echo '</div>';
-                echo '<svg class="sfs-overview-profile-banner-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
-                echo '</a>';
-            }
-            echo '</div>'; // .sfs-overview-block (documents)
-        }
-
-        // ── 8. Upcoming Timeline ─────────────────────────────────
+        // ── 7. Upcoming Timeline ─────────────────────────────────
         if ( ! empty( $timeline ) ) {
             echo '<div class="sfs-overview-block">';
             echo '<div class="sfs-overview-section">';
-            echo '<h3 class="sfs-overview-section-title" data-i18n-key="upcoming">' . esc_html__( 'Upcoming', 'sfs-hr' ) . '</h3>';
+            echo '<h3 class="sfs-overview-section-title" data-i18n-key="upcoming_timeline">' . esc_html__( 'Upcoming', 'sfs-hr' ) . '</h3>';
             echo '</div>';
             echo '<div class="sfs-overview-timeline">';
             foreach ( $timeline as $i => $event ) {
@@ -748,6 +701,30 @@ class OverviewTab implements TabInterface {
             echo '<svg class="sfs-overview-profile-banner-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
             echo '</a>';
         }
+
+        // ── 10. Floating "+ Request" button ──────────────────────
+        echo '<div class="sfs-fab-container" id="sfs-fab-request">';
+        echo '<button class="sfs-fab-btn" type="button" aria-label="' . esc_attr__( 'New Request', 'sfs-hr' ) . '" aria-expanded="false" onclick="this.parentElement.classList.toggle(\'sfs-fab-open\');this.setAttribute(\'aria-expanded\',this.parentElement.classList.contains(\'sfs-fab-open\'))">';
+        echo '<svg class="sfs-fab-icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+        echo '<span class="sfs-fab-label" data-i18n-key="new_request">' . esc_html__( 'New Request', 'sfs-hr' ) . '</span>';
+        echo '</button>';
+
+        echo '<div class="sfs-fab-menu">';
+        // Leave request
+        echo '<a href="' . esc_url( $leave_url ) . '" class="sfs-fab-menu-item">';
+        echo '<div class="sfs-fab-menu-icon" style="background:#eff6ff;"><svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>';
+        echo '<span data-i18n-key="request_leave">' . esc_html__( 'Request Leave', 'sfs-hr' ) . '</span>';
+        echo '</a>';
+        // Loan request
+        echo '<a href="' . esc_url( $loans_url ) . '" class="sfs-fab-menu-item">';
+        echo '<div class="sfs-fab-menu-icon" style="background:#ecfdf5;"><svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>';
+        echo '<span data-i18n-key="request_loan">' . esc_html__( 'Request Loan', 'sfs-hr' ) . '</span>';
+        echo '</a>';
+        echo '</div>'; // .sfs-fab-menu
+        echo '</div>'; // .sfs-fab-container
+
+        // Backdrop overlay to close FAB menu on outside click.
+        echo '<div class="sfs-fab-backdrop" onclick="document.getElementById(\'sfs-fab-request\').classList.remove(\'sfs-fab-open\');"></div>';
 
         echo '</div>'; // .sfs-overview
     }

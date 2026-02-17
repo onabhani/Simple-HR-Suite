@@ -3265,5 +3265,20 @@
     "item": "عنصر",
     "please_log_in": "يرجى تسجيل الدخول.",
     "you_can_only_view_own_payslips": "يمكنك فقط عرض كشوف رواتبك الخاصة.",
-    "no_permission_settings": "ليس لديك صلاحية للوصول إلى الإعدادات."
+    "no_permission_settings": "ليس لديك صلاحية للوصول إلى الإعدادات.",
+
+    "_comment_v1_2_0": "v1.2.0 — Overview & Profile redesign",
+    "action_required": "إجراء مطلوب",
+    "todays_shift": "وردية اليوم",
+    "pending_upcoming": "معلّقة وقادمة",
+    "upcoming_timeline": "القادم",
+    "asset_approval": "أصول بانتظار موافقتك",
+    "docs_missing": "مستندات مطلوبة ناقصة",
+    "docs_expired": "مستندات منتهية الصلاحية",
+    "national_id_expires": "تنتهي صلاحية الهوية الوطنية",
+    "passport_expires": "تنتهي صلاحية جواز السفر",
+    "document_expires": "تنتهي صلاحية %s",
+    "new_request": "طلب جديد",
+    "request_leave": "طلب إجازة",
+    "request_loan": "طلب سلفة"
 }

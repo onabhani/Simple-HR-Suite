@@ -120,6 +120,10 @@ class Notifications {
             'anniversary_days_before'  => 1,
             'notify_contract_expiry'   => true,
             'contract_expiry_days'     => [ 30, 14, 7 ],
+            'contract_expiry_notify_gm'       => false,
+            'contract_expiry_notify_manager'  => true,
+            'contract_expiry_notify_hr'       => true,
+            'contract_expiry_notify_employee' => false,
             'notify_probation_end'     => true,
             'probation_days_before'    => 7,
 
@@ -679,27 +683,69 @@ class Notifications {
             return;
         }
 
-        // Notify HR
-        if ( $settings['hr_notification'] && ! empty( $settings['hr_emails'] ) ) {
-            foreach ( $settings['hr_emails'] as $hr_email ) {
-                self::send_notification_localized( $hr_email, function () use ( $employee, $employee_id, $days_until ) {
+        $template_vars = [
+            'employee_name' => $employee->full_name,
+            'employee_code' => $employee->employee_code,
+            'department'    => $employee->department_name ?: __( 'N/A', 'sfs-hr' ),
+            'days_until'    => $days_until,
+            'expiry_date'   => ! empty( $employee->contract_end_date ) ? wp_date( 'F j, Y', strtotime( $employee->contract_end_date ) ) : __( 'N/A', 'sfs-hr' ),
+            'view_url'      => admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . $employee_id ),
+        ];
+
+        $subject = sprintf(
+            __( '[Contract Expiry] %s contract expires in %d days', 'sfs-hr' ),
+            $employee->full_name,
+            $days_until
+        );
+
+        // Notify GM
+        if ( ! empty( $settings['contract_expiry_notify_gm'] ) ) {
+            $gm_emails = self::get_users_with_capability( 'manage_options' );
+            foreach ( $gm_emails as $gm_email ) {
+                self::send_notification_localized( $gm_email, function () use ( $subject, $template_vars ) {
                     return [
-                        'subject' => sprintf(
-                            __( '[Contract Expiry] %s contract expires in %d days', 'sfs-hr' ),
-                            $employee->full_name,
-                            $days_until
-                        ),
-                        'message' => self::get_email_template( 'contract_expiry_to_hr', [
-                            'employee_name' => $employee->full_name,
-                            'employee_code' => $employee->employee_code,
-                            'department'    => $employee->department_name ?: __( 'N/A', 'sfs-hr' ),
-                            'days_until'    => $days_until,
-                            'expiry_date'   => $employee->contract_end ? wp_date( 'F j, Y', strtotime( $employee->contract_end ) ) : __( 'N/A', 'sfs-hr' ),
-                            'view_url'      => admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . $employee_id ),
-                        ] ),
+                        'subject' => $subject,
+                        'message' => self::get_email_template( 'contract_expiry_to_hr', $template_vars ),
                     ];
                 }, '', 0, 'contract_expiry' );
             }
+        }
+
+        // Notify Department Manager
+        if ( ! empty( $settings['contract_expiry_notify_manager'] ) && ! empty( $employee->manager_email ) ) {
+            self::send_notification_localized( $employee->manager_email, function () use ( $subject, $template_vars, $employee ) {
+                $vars = $template_vars;
+                $vars['manager_name'] = $employee->manager_name ?: '';
+                return [
+                    'subject' => $subject,
+                    'message' => self::get_email_template( 'contract_expiry_to_manager', $vars ),
+                ];
+            }, '', 0, 'contract_expiry' );
+        }
+
+        // Notify HR
+        if ( ! empty( $settings['contract_expiry_notify_hr'] ) && ! empty( $settings['hr_emails'] ) ) {
+            foreach ( $settings['hr_emails'] as $hr_email ) {
+                self::send_notification_localized( $hr_email, function () use ( $subject, $template_vars ) {
+                    return [
+                        'subject' => $subject,
+                        'message' => self::get_email_template( 'contract_expiry_to_hr', $template_vars ),
+                    ];
+                }, '', 0, 'contract_expiry' );
+            }
+        }
+
+        // Notify Employee
+        if ( ! empty( $settings['contract_expiry_notify_employee'] ) && ! empty( $employee->email ) ) {
+            self::send_notification_localized( $employee->email, function () use ( $employee, $days_until, $template_vars ) {
+                return [
+                    'subject' => sprintf(
+                        __( '[Contract Notice] Your contract expires in %d days', 'sfs-hr' ),
+                        $days_until
+                    ),
+                    'message' => self::get_email_template( 'contract_expiry_to_employee', $template_vars ),
+                ];
+            }, '', 0, 'contract_expiry' );
         }
     }
 
@@ -852,7 +898,12 @@ class Notifications {
 
         // Process contract expiries
         if ( $settings['notify_contract_expiry'] ) {
-            $days = $settings['contract_expiry_days'] ?? [ 30, 14, 7 ];
+            // Use notice period from exit settings + 5 days as the primary threshold.
+            $notice_period = (int) get_option( 'sfs_hr_resignation_notice_period', 30 );
+            $primary_threshold = $notice_period + 5;
+            $days = array_unique( array_merge( [ $primary_threshold ], $settings['contract_expiry_days'] ?? [ 30, 14, 7 ] ) );
+            sort( $days );
+            $days = array_reverse( $days ); // Check largest first
             foreach ( $days as $day ) {
                 self::process_contract_expiry_notifications( (int) $day );
             }
@@ -943,7 +994,7 @@ class Notifications {
         $employees = $wpdb->get_results( $wpdb->prepare(
             "SELECT id FROM {$table}
              WHERE status = 'active'
-             AND contract_end = %s",
+             AND contract_end_date = %s",
             $target_date
         ) );
 
@@ -2167,6 +2218,45 @@ Expiry Date: {expiry_date}
 
 Please take necessary action:
 {view_url}
+
+---
+{site_name}
+HR Management System
+",
+
+            'contract_expiry_to_manager' => "
+Hello {manager_name},
+
+A team member's contract is expiring soon.
+
+Contract Expiry Alert:
+----------------------
+Employee: {employee_name} ({employee_code})
+Department: {department}
+Days Until Expiry: {days_until}
+Expiry Date: {expiry_date}
+
+Please coordinate with HR regarding next steps:
+{view_url}
+
+---
+{site_name}
+HR Management System
+",
+
+            'contract_expiry_to_employee' => "
+Hello {employee_name},
+
+This is to inform you that your employment contract is expiring soon.
+
+Contract Details:
+-----------------
+Employee Code: {employee_code}
+Department: {department}
+Days Until Expiry: {days_until}
+Expiry Date: {expiry_date}
+
+Please contact your manager or HR department for further information.
 
 ---
 {site_name}

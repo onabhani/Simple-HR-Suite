@@ -48,8 +48,19 @@ class Policy_Service {
             return $role_policy;
         }
 
-        // Check whether the shift carries ANY policy override field
+        // Check whether the shift carries ANY policy override field.
+        // Also treat equal start/end times (e.g. 00:00–00:00) as an implicit
+        // override — the shift is a "Total Hours" shift even if the column
+        // was never explicitly written.
+        $implied_total_hours = (
+            isset( $shift->start_time, $shift->end_time )
+            && $shift->start_time !== null
+            && $shift->end_time !== null
+            && $shift->start_time === $shift->end_time
+        );
+
         $has_override = (
+            $implied_total_hours ||
             ( isset( $shift->calculation_mode ) && $shift->calculation_mode !== null ) ||
             ( isset( $shift->clock_in_methods )  && $shift->clock_in_methods  !== null ) ||
             ( isset( $shift->clock_out_methods ) && $shift->clock_out_methods !== null ) ||
@@ -98,9 +109,23 @@ class Policy_Service {
             : ( $role_policy->clock_out_geofence ?? 'enforced' );
 
         // Calculation mode
-        $p->calculation_mode = ( isset( $shift->calculation_mode ) && $shift->calculation_mode !== null )
-            ? $shift->calculation_mode
-            : ( $role_policy->calculation_mode ?? 'shift_times' );
+        // When start_time == end_time (e.g. 00:00–00:00), the shift has no
+        // meaningful fixed times — infer "total_hours" mode even when the
+        // column was never explicitly set (NULL after migration).
+        $inferred_total = (
+            isset( $shift->start_time, $shift->end_time )
+            && $shift->start_time !== null
+            && $shift->end_time !== null
+            && $shift->start_time === $shift->end_time
+        );
+
+        if ( isset( $shift->calculation_mode ) && $shift->calculation_mode !== null ) {
+            $p->calculation_mode = $shift->calculation_mode;
+        } elseif ( $inferred_total ) {
+            $p->calculation_mode = 'total_hours';
+        } else {
+            $p->calculation_mode = $role_policy->calculation_mode ?? 'shift_times';
+        }
 
         // Target hours
         $p->target_hours = ( isset( $shift->target_hours ) && $shift->target_hours !== null )

@@ -16,7 +16,7 @@ class Resignation_List {
      * Render the resignations list
      */
     public static function render(): void {
-        $current_status = isset($_GET['status']) ? sanitize_key($_GET['status']) : 'pending';
+        $current_status = isset($_GET['status']) ? sanitize_key($_GET['status']) : 'all';
         $page = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
         $search = isset($_GET['s']) ? sanitize_text_field(wp_unslash($_GET['s'])) : '';
 
@@ -36,26 +36,42 @@ class Resignation_List {
         <!-- Search Toolbar -->
         <div class="sfs-hr-resignation-toolbar">
             <form method="get">
-                <input type="hidden" name="page" value="sfs-hr-resignations" />
+                <input type="hidden" name="page" value="sfs-hr-lifecycle" />
                 <input type="hidden" name="tab" value="resignations" />
                 <input type="hidden" name="status" value="<?php echo esc_attr($current_status); ?>" />
                 <input type="search" name="s" value="<?php echo esc_attr($search); ?>" placeholder="<?php esc_attr_e('Search employee name or code...', 'sfs-hr'); ?>" />
                 <button type="submit" class="button"><?php esc_html_e('Search', 'sfs-hr'); ?></button>
                 <?php if ($search !== ''): ?>
-                    <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-lifecycle&tab=resignations&tab=resignations&status=' . $current_status)); ?>" class="button"><?php esc_html_e('Clear', 'sfs-hr'); ?></a>
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=sfs-hr-lifecycle&tab=resignations&status=' . $current_status)); ?>" class="button"><?php esc_html_e('Clear', 'sfs-hr'); ?></a>
+                <?php endif; ?>
+                <?php if (current_user_can('sfs_hr.manage')): ?>
+                    <button type="button" class="button" style="background:#dc3545;border-color:#dc3545;color:#fff;margin-left:auto;" onclick="document.getElementById('sfs-hr-terminate-modal').classList.add('active');"><?php esc_html_e('Terminate Employee', 'sfs-hr'); ?></button>
                 <?php endif; ?>
             </form>
-            <?php if (current_user_can('sfs_hr.manage')): ?>
-                <button type="button" class="button" style="background:#dc3545;border-color:#dc3545;color:#fff;margin-left:auto;" onclick="document.getElementById('sfs-hr-terminate-modal').classList.add('active');"><?php esc_html_e('Terminate Employee', 'sfs-hr'); ?></button>
-            <?php endif; ?>
         </div>
 
         <!-- Status Tabs -->
         <div class="sfs-hr-resignation-tabs">
+            <?php
+            $all_count = 0;
+            foreach ($counts as $c) { $all_count += $c; }
+            $all_url = add_query_arg([
+                'page'   => 'sfs-hr-lifecycle',
+                'tab'    => 'resignations',
+                'status' => 'all',
+                's'      => $search !== '' ? $search : null,
+            ], admin_url('admin.php'));
+            $all_url = remove_query_arg('paged', $all_url);
+            $all_classes = 'sfs-tab' . ($current_status === 'all' ? ' active' : '');
+            ?>
+            <a href="<?php echo esc_url($all_url); ?>" class="<?php echo esc_attr($all_classes); ?>">
+                <?php esc_html_e('All', 'sfs-hr'); ?>
+                <span class="count"><?php echo esc_html($all_count); ?></span>
+            </a>
             <?php foreach ($status_tabs as $key => $label): ?>
                 <?php
                 $url = add_query_arg([
-                    'page'   => 'sfs-hr-resignations',
+                    'page'   => 'sfs-hr-lifecycle',
                     'tab'    => 'resignations',
                     'status' => $key,
                     's'      => $search !== '' ? $search : null,
@@ -73,7 +89,7 @@ class Resignation_List {
         <!-- Table Card -->
         <div class="sfs-hr-resignation-table-wrap">
             <div class="table-header">
-                <h3><?php echo esc_html($status_tabs[$current_status] ?? __('Resignations', 'sfs-hr')); ?> (<?php echo esc_html($result['total']); ?>)</h3>
+                <h3><?php echo esc_html($current_status === 'all' ? __('All Resignations', 'sfs-hr') : ($status_tabs[$current_status] ?? __('Resignations', 'sfs-hr'))); ?> (<?php echo esc_html($result['total']); ?>)</h3>
             </div>
 
             <table class="sfs-hr-resignation-table">

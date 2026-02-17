@@ -20,6 +20,11 @@ class Resignation_Notifications {
         $resignation = Resignation_Service::get_resignation($resignation_id);
         if (!$resignation) return;
 
+        // Skip for company-initiated terminations (no need to notify about a "submission").
+        if ( ( $resignation['resignation_type'] ?? '' ) === 'company_termination' ) {
+            return;
+        }
+
         // Get department manager
         global $wpdb;
         $dept_table = $wpdb->prefix . 'sfs_hr_departments';
@@ -51,23 +56,31 @@ class Resignation_Notifications {
     }
 
     /**
-     * Notify employee of approval
+     * Notify employee of approval.
+     *
+     * Skips sending the employee email for company-initiated terminations
+     * since the employee should not receive a resignation approval email
+     * when terminated by the company.
      */
     public static function notify_approval(int $resignation_id): void {
         $resignation = Resignation_Service::get_resignation($resignation_id);
         if (!$resignation || !$resignation['emp_user_id']) return;
 
-        $employee = get_userdata($resignation['emp_user_id']);
-        if (!$employee) return;
+        // Skip employee notification for company-initiated terminations.
+        $type = $resignation['resignation_type'] ?? '';
+        if ( $type !== 'company_termination' ) {
+            $employee = get_userdata($resignation['emp_user_id']);
+            if ($employee) {
+                self::send_notification_localized((int) $resignation['emp_user_id'], $employee->user_email, function () use ($resignation) {
+                    $message = sprintf( __('Dear %s,', 'sfs-hr'), $resignation['first_name'] );
+                    $message .= "\n\n" . __('Your resignation has been approved.', 'sfs-hr');
+                    $message .= "\n" . __('Last Working Day:', 'sfs-hr') . ' ' . $resignation['last_working_day'];
+                    return [ 'subject' => __('Your Resignation Has Been Approved', 'sfs-hr'), 'message' => $message ];
+                }, 'resignation_approved');
+            }
+        }
 
-        self::send_notification_localized((int) $resignation['emp_user_id'], $employee->user_email, function () use ($resignation) {
-            $message = sprintf( __('Dear %s,', 'sfs-hr'), $resignation['first_name'] );
-            $message .= "\n\n" . __('Your resignation has been approved.', 'sfs-hr');
-            $message .= "\n" . __('Last Working Day:', 'sfs-hr') . ' ' . $resignation['last_working_day'];
-            return [ 'subject' => __('Your Resignation Has Been Approved', 'sfs-hr'), 'message' => $message ];
-        }, 'resignation_approved');
-
-        // Also notify HR
+        // Always notify HR (even for company terminations).
         self::notify_hr_resignation_event($resignation, 'approved', $resignation_id);
     }
 
