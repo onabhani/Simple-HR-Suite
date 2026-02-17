@@ -171,7 +171,7 @@ private function get_table_columns( $table ): array {
                 <input type="hidden" name="action" value="sfs_hr_att_save_settings"/>
 
                 <?php if ( ! empty( $departments ) ) : ?>
-                <h2><?php esc_html_e( 'Web/Mobile Punch Allowed by Department', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Allow employees in each department to clock in/out via web portal or mobile app, instead of only the physical kiosk.', 'sfs-hr' ); ?></span></span></h2>
+                <h2><?php esc_html_e( 'Web/Mobile Punch Allowed by Department', 'sfs-hr' ); ?></h2>
                 <table class="form-table">
                     <?php foreach ( $departments as $dept ) : ?>
                     <tr>
@@ -186,7 +186,7 @@ private function get_table_columns( $table ): array {
                     <?php endforeach; ?>
                 </table>
 
-                <h2><?php esc_html_e( 'Selfie Required by Department', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Require employees to take a photo when clocking in/out. Helps prevent buddy-punching and verifies identity.', 'sfs-hr' ); ?></span></span></h2>
+                <h2><?php esc_html_e( 'Selfie Required by Department', 'sfs-hr' ); ?></h2>
                 <table class="form-table">
                     <?php foreach ( $departments as $dept ) : ?>
                     <tr>
@@ -839,7 +839,7 @@ private function render_shift_templates( array $all_shifts, array $departments )
                     <label>
                         <input type="checkbox" name="overwrite_existing" value="1">
                         <?php esc_html_e( 'Overwrite existing period overrides', 'sfs-hr' ); ?>
-                        <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'If checked, replaces any existing date-range overrides. If unchecked, only fills in periods that have no override yet.', 'sfs-hr' ); ?></span></span>
+                       
                     </label>
                 </p>
 
@@ -942,7 +942,7 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                     <input type="text" name="rule_name" placeholder="<?php esc_attr_e( 'e.g., Office Staff Morning Shift', 'sfs-hr' ); ?>" required>
                 </div>
                 <div class="sfs-hr-rule-form-field" style="flex: 0 0 100px;">
-                    <label><?php esc_html_e( 'Priority', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Lower numbers are evaluated first. The first matching rule wins. Use this to set precedence between overlapping rules.', 'sfs-hr' ); ?></span></span></label>
+                    <label><?php esc_html_e( 'Priority', 'sfs-hr' ); ?></label>
                     <input type="number" name="rule_priority" value="10" min="1" max="100" style="width: 80px;">
                 </div>
                 <div class="sfs-hr-rule-form-field">
@@ -960,7 +960,7 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
 
             <div class="sfs-hr-rule-form-row">
                 <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Department (optional)', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Leave blank to match employees in any department.', 'sfs-hr' ); ?></span></span></label>
+                    <label><?php esc_html_e( 'Department (optional)', 'sfs-hr' ); ?></label>
                     <select name="rule_department">
                         <option value=""><?php esc_html_e( '— Any Department —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $departments as $d ) : ?>
@@ -971,7 +971,7 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                     </select>
                 </div>
                 <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Job Title (optional)', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Leave blank to match employees with any job title.', 'sfs-hr' ); ?></span></span></label>
+                    <label><?php esc_html_e( 'Job Title (optional)', 'sfs-hr' ); ?></label>
                     <select name="rule_job_title">
                         <option value=""><?php esc_html_e( '— Any Job Title —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $job_titles as $jt ) : ?>
@@ -982,7 +982,7 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                     </select>
                 </div>
                 <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Work Location (optional)', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Leave blank to match employees at any work location.', 'sfs-hr' ); ?></span></span></label>
+                    <label><?php esc_html_e( 'Work Location (optional)', 'sfs-hr' ); ?></label>
                     <select name="rule_work_location">
                         <option value=""><?php esc_html_e( '— Any Location —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $work_locations as $loc ) : ?>
@@ -996,7 +996,7 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
 
             <div class="sfs-hr-rule-form-row">
                 <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Contract Type (optional)', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Leave blank to match employees with any contract type.', 'sfs-hr' ); ?></span></span></label>
+                    <label><?php esc_html_e( 'Contract Type (optional)', 'sfs-hr' ); ?></label>
                     <select name="rule_contract_type">
                         <option value=""><?php esc_html_e( '— Any Contract —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $contract_types as $ct ) : ?>
@@ -1007,11 +1007,11 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                     </select>
                 </div>
                 <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Hired After (optional)', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Only match employees hired on or after this date.', 'sfs-hr' ); ?></span></span></label>
+                    <label><?php esc_html_e( 'Hired After (optional)', 'sfs-hr' ); ?></label>
                     <input type="date" name="rule_hired_after">
                 </div>
                 <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Hired Before (optional)', 'sfs-hr' ); ?> <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Only match employees hired on or before this date.', 'sfs-hr' ); ?></span></span></label>
+                    <label><?php esc_html_e( 'Hired Before (optional)', 'sfs-hr' ); ?></label>
                     <input type="date" name="rule_hired_before">
                 </div>
             </div>
@@ -1839,7 +1839,7 @@ public function render_shifts(): void {
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Auto: break is deducted automatically. Punch: employee clocks in/out for break. None: no break deducted.', 'sfs-hr' ); ?></span></span>
+                       
                         &nbsp;<?php esc_html_e( 'Unpaid break minutes:', 'sfs-hr' ); ?>
                         <input type="number" name="unpaid_break_minutes" min="0" step="1" style="width:120px"
                                value="<?php echo esc_attr($editing->unpaid_break_minutes ?? 0); ?>"/>
@@ -1980,7 +1980,6 @@ public function render_shifts(): void {
                     <th colspan="2" style="padding-bottom:0;">
                         <h3 style="margin:0;padding:10px 0 0;border-top:1px solid #dcdcde;">
                             <?php esc_html_e( 'Period Overrides', 'sfs-hr' ); ?>
-                            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Temporarily change this shift\'s working hours for a date range (e.g., Ramadan, summer). All employees on this shift get the adjusted times automatically.', 'sfs-hr' ); ?></span></span>
                         </h3>
                     </th>
                 </tr>
@@ -2018,6 +2017,16 @@ public function render_shifts(): void {
                                         <input type="time" name="period_overrides[<?php echo (int) $idx; ?>][end_time]"
                                                value="<?php echo esc_attr( isset( $pov['end_time'] ) ? substr( $pov['end_time'], 0, 5 ) : '' ); ?>"
                                                required step="60" style="width:110px;"/>
+                                        <input type="time" name="period_overrides[<?php echo (int) $idx; ?>][break_start_time]"
+                                               value="<?php echo esc_attr( isset( $pov['break_start_time'] ) ? substr( $pov['break_start_time'], 0, 5 ) : '' ); ?>"
+                                               step="60" style="width:110px;"
+                                               placeholder="<?php esc_attr_e( 'Break start', 'sfs-hr' ); ?>"
+                                               title="<?php esc_attr_e( 'Break start time', 'sfs-hr' ); ?>"/>
+                                        <input type="number" name="period_overrides[<?php echo (int) $idx; ?>][unpaid_break_minutes]"
+                                               value="<?php echo esc_attr( $pov['unpaid_break_minutes'] ?? '' ); ?>"
+                                               min="0" max="240" step="1" style="width:70px;"
+                                               placeholder="<?php esc_attr_e( 'Break', 'sfs-hr' ); ?>"
+                                               title="<?php esc_attr_e( 'Break duration (minutes)', 'sfs-hr' ); ?>"/>
                                         <button type="button" class="button sfs-remove-period-override" title="<?php esc_attr_e( 'Remove', 'sfs-hr' ); ?>">&times;</button>
                                     </div>
                                 <?php endforeach; ?>
@@ -2046,6 +2055,8 @@ public function render_shifts(): void {
                                     '<input type="time" name="period_overrides['+idx+'][start_time]" required step="60" style="width:110px;"/>' +
                                     '<span>\u2192</span>' +
                                     '<input type="time" name="period_overrides['+idx+'][end_time]" required step="60" style="width:110px;"/>' +
+                                    '<input type="time" name="period_overrides['+idx+'][break_start_time]" step="60" style="width:110px;" placeholder="<?php echo esc_js( __( 'Break start', 'sfs-hr' ) ); ?>" title="<?php echo esc_js( __( 'Break start time', 'sfs-hr' ) ); ?>"/>' +
+                                    '<input type="number" name="period_overrides['+idx+'][unpaid_break_minutes]" min="0" max="240" step="1" style="width:70px;" placeholder="<?php echo esc_js( __( 'Break', 'sfs-hr' ) ); ?>" title="<?php echo esc_js( __( 'Break duration (minutes)', 'sfs-hr' ) ); ?>"/>' +
                                     '<button type="button" class="button sfs-remove-period-override" title="<?php echo esc_js( __( 'Remove', 'sfs-hr' ) ); ?>">&times;</button>';
                                 list.appendChild(row);
                                 idx++;
@@ -2082,7 +2093,7 @@ public function render_shifts(): void {
                             <option value="shift_times" <?php selected( $calc_mode, 'shift_times' ); ?>><?php esc_html_e( 'Shift Times', 'sfs-hr' ); ?></option>
                             <option value="total_hours" <?php selected( $calc_mode, 'total_hours' ); ?>><?php esc_html_e( 'Total Hours', 'sfs-hr' ); ?></option>
                         </select>
-                        <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Shift Times: attendance measured against fixed start/end. Total Hours: flexible schedule, only total daily hours matter.', 'sfs-hr' ); ?></span></span>
+                       
                         <span id="sfs-target-hours-wrap" style="margin-left:10px;display:<?php echo $calc_mode === 'total_hours' ? 'inline' : 'none'; ?>;">
                             <?php esc_html_e( 'Target hours:', 'sfs-hr' ); ?>
                             <input type="number" name="shift_target_hours" min="1" max="24" step="0.5" style="width:80px;"
@@ -2111,13 +2122,13 @@ public function render_shifts(): void {
                             <input type="checkbox" name="shift_clock_in_methods[]" value="kiosk"
                                 <?php checked( $ci_methods !== null && in_array( 'kiosk', $ci_methods, true ) ); ?> />
                             <?php esc_html_e( 'Kiosk', 'sfs-hr' ); ?>
-                            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Allow clock-in via the physical kiosk terminal.', 'sfs-hr' ); ?></span></span>
+                           
                         </label>
                         <label>
                             <input type="checkbox" name="shift_clock_in_methods[]" value="self_web"
                                 <?php checked( $ci_methods !== null && in_array( 'self_web', $ci_methods, true ) ); ?> />
                             <?php esc_html_e( 'Self Web', 'sfs-hr' ); ?>
-                            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Allow clock-in via web browser or mobile app.', 'sfs-hr' ); ?></span></span>
+                           
                         </label>
                         <p class="description"><?php esc_html_e( 'Leave unchecked to use role policy defaults.', 'sfs-hr' ); ?></p>
                     </td>
@@ -2138,13 +2149,13 @@ public function render_shifts(): void {
                             <input type="checkbox" name="shift_clock_out_methods[]" value="kiosk"
                                 <?php checked( $co_methods !== null && in_array( 'kiosk', $co_methods, true ) ); ?> />
                             <?php esc_html_e( 'Kiosk', 'sfs-hr' ); ?>
-                            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Allow clock-out via the physical kiosk terminal.', 'sfs-hr' ); ?></span></span>
+                           
                         </label>
                         <label>
                             <input type="checkbox" name="shift_clock_out_methods[]" value="self_web"
                                 <?php checked( $co_methods !== null && in_array( 'self_web', $co_methods, true ) ); ?> />
                             <?php esc_html_e( 'Self Web', 'sfs-hr' ); ?>
-                            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Allow clock-out via web browser or mobile app.', 'sfs-hr' ); ?></span></span>
+                           
                         </label>
                         <p class="description"><?php esc_html_e( 'Leave unchecked to use role policy defaults.', 'sfs-hr' ); ?></p>
                     </td>
@@ -2165,7 +2176,7 @@ public function render_shifts(): void {
                             <option value="enforced" <?php selected( $editing->geofence_out ?? '', 'enforced' ); ?>><?php esc_html_e( 'Enforced', 'sfs-hr' ); ?></option>
                             <option value="none" <?php selected( $editing->geofence_out ?? '', 'none' ); ?>><?php esc_html_e( 'None (log only)', 'sfs-hr' ); ?></option>
                         </select>
-                        <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Enforced: employee must be within the location radius. None: coordinates are recorded but punches are allowed from anywhere.', 'sfs-hr' ); ?></span></span>
+                       
                         <p class="description"><?php esc_html_e( 'Coordinates are always logged regardless of enforcement setting.', 'sfs-hr' ); ?></p>
                     </td>
                 </tr>
@@ -2306,7 +2317,7 @@ public function render_shifts(): void {
         ?>
         <hr/>
         <h2><?php esc_html_e( 'Bulk Assign Default Shift', 'sfs-hr' ); ?>
-            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Set the primary/default shift or rotation schedule for multiple employees at once. This is used when no daily schedule override exists.', 'sfs-hr' ); ?></span></span>
+           
         </h2>
 
         <?php if ( $bulk_done ) : ?>
@@ -2439,7 +2450,7 @@ public function render_shifts(): void {
                         <label>
                             <input type="checkbox" name="overwrite" value="1"/>
                             <?php esc_html_e( 'Overwrite existing default shift assignments', 'sfs-hr' ); ?>
-                            <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'If unchecked, only employees without a current default shift will be assigned. If checked, all matched employees will be updated.', 'sfs-hr' ); ?></span></span>
+                           
                         </label>
                     </td>
                 </tr>
@@ -2580,19 +2591,30 @@ $end   = $norm_time($_POST['end_time']   ?? '');
             $p_end_date   = sanitize_text_field( $pov['end_date'] ?? '' );
             $p_start_time = $norm_time( $pov['start_time'] ?? '' );
             $p_end_time   = $norm_time( $pov['end_time'] ?? '' );
+            $p_break_start = $norm_time( $pov['break_start_time'] ?? '' );
+            $p_break_mins  = isset( $pov['unpaid_break_minutes'] ) && $pov['unpaid_break_minutes'] !== ''
+                ? max( 0, min( 240, (int) $pov['unpaid_break_minutes'] ) )
+                : null;
 
             // Skip incomplete rows
             if ( ! $p_start_date || ! $p_end_date || ! $p_start_time || ! $p_end_time ) { continue; }
             if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $p_start_date ) ) { continue; }
             if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $p_end_date ) )   { continue; }
 
-            $period_overrides[] = [
+            $entry = [
                 'label'      => $p_label,
                 'start_date' => $p_start_date,
                 'end_date'   => $p_end_date,
                 'start_time' => $p_start_time,
                 'end_time'   => $p_end_time,
             ];
+            if ( $p_break_start ) {
+                $entry['break_start_time'] = $p_break_start;
+            }
+            if ( $p_break_mins !== null ) {
+                $entry['unpaid_break_minutes'] = $p_break_mins;
+            }
+            $period_overrides[] = $entry;
         }
     }
     $period_overrides_json = ! empty( $period_overrides ) ? wp_json_encode( $period_overrides ) : null;
@@ -2775,7 +2797,7 @@ $end   = $norm_time($_POST['end_time']   ?? '');
                             <td>
                                 <input required type="number" id="sfs-sched-cycle" name="cycle_days" min="2" max="365"
                                        value="<?php echo esc_attr( $editing->cycle_days ?? '14' ); ?>" style="width:100px;" />
-                                <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Total number of days in one full rotation cycle before it repeats. For example: 14 for a 2-week rotation, 8 for 4-on-4-off.', 'sfs-hr' ); ?></span></span>
+                               
                             </td>
                         </tr>
                         <tr>
@@ -2783,7 +2805,7 @@ $end   = $norm_time($_POST['end_time']   ?? '');
                             <td>
                                 <input required type="date" id="sfs-sched-anchor" name="anchor_date"
                                        value="<?php echo esc_attr( $editing->anchor_date ?? current_time( 'Y-m-d' ) ); ?>" />
-                                <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'The reference start date for the rotation (Day 1 of the first cycle). The system calculates which day of the cycle any future or past date falls on relative to this anchor.', 'sfs-hr' ); ?></span></span>
+                               
                             </td>
                         </tr>
                         <tr>
@@ -2802,7 +2824,7 @@ $end   = $norm_time($_POST['end_time']   ?? '');
 
                     <!-- Dynamic Entries -->
                     <h3 style="margin: 20px 0 10px;"><?php esc_html_e( 'Cycle Day Entries', 'sfs-hr' ); ?>
-                        <span class="sfs-hr-help">?<span class="sfs-hr-help-text"><?php esc_html_e( 'Define which shift applies on each day of the cycle. Mark a day as "Day Off" if employees should not work. Days without entries are treated as days off.', 'sfs-hr' ); ?></span></span>
+                       
                     </h3>
                     <p class="description" style="margin-bottom:12px;">
                         <?php esc_html_e( 'Configure a shift or day off for each day in the rotation cycle. Click "Add Entry" or "Generate All Days" to populate.', 'sfs-hr' ); ?>

@@ -694,7 +694,7 @@ class Notifications {
                             'employee_code' => $employee->employee_code,
                             'department'    => $employee->department_name ?: __( 'N/A', 'sfs-hr' ),
                             'days_until'    => $days_until,
-                            'expiry_date'   => $employee->contract_end ? wp_date( 'F j, Y', strtotime( $employee->contract_end ) ) : __( 'N/A', 'sfs-hr' ),
+                            'expiry_date'   => ! empty( $employee->contract_end_date ) ? wp_date( 'F j, Y', strtotime( $employee->contract_end_date ) ) : __( 'N/A', 'sfs-hr' ),
                             'view_url'      => admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . $employee_id ),
                         ] ),
                     ];
@@ -852,7 +852,12 @@ class Notifications {
 
         // Process contract expiries
         if ( $settings['notify_contract_expiry'] ) {
-            $days = $settings['contract_expiry_days'] ?? [ 30, 14, 7 ];
+            // Use notice period from exit settings + 5 days as the primary threshold.
+            $notice_period = (int) get_option( 'sfs_hr_resignation_notice_period', 30 );
+            $primary_threshold = $notice_period + 5;
+            $days = array_unique( array_merge( [ $primary_threshold ], $settings['contract_expiry_days'] ?? [ 30, 14, 7 ] ) );
+            sort( $days );
+            $days = array_reverse( $days ); // Check largest first
             foreach ( $days as $day ) {
                 self::process_contract_expiry_notifications( (int) $day );
             }
@@ -943,7 +948,7 @@ class Notifications {
         $employees = $wpdb->get_results( $wpdb->prepare(
             "SELECT id FROM {$table}
              WHERE status = 'active'
-             AND contract_end = %s",
+             AND contract_end_date = %s",
             $target_date
         ) );
 

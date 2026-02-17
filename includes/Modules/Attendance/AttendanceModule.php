@@ -5548,6 +5548,12 @@ private static function apply_period_override( ?\stdClass $shift, string $ymd ):
             $cloned = clone $shift;
             $cloned->start_time = $st;
             $cloned->end_time   = $et;
+            if ( ! empty( $ov['break_start_time'] ) ) {
+                $cloned->break_start_time = $ov['break_start_time'];
+            }
+            if ( isset( $ov['unpaid_break_minutes'] ) ) {
+                $cloned->unpaid_break_minutes = (int) $ov['unpaid_break_minutes'];
+            }
             return $cloned;
         }
     }
