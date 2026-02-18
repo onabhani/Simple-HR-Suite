@@ -822,7 +822,7 @@ class Employee_Profile_Page {
             /* ═══ Card Grid ═══ */
             .sfs-ep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr));gap:16px;margin-bottom:20px;}
             .sfs-ep-grid--bottom{margin-top:0;}
-            .sfs-ep-card{background:#fff;border:1px solid #c3c4c7;border-radius:6px;padding:16px 18px;box-shadow:0 1px 1px rgba(0,0,0,.04);min-width:0;box-sizing:border-box;overflow:visible;word-wrap:break-word;overflow-wrap:break-word;}
+            .sfs-ep-card{background:#fff;border:1px solid #c3c4c7;border-radius:6px;padding:16px 18px;box-shadow:0 1px 1px rgba(0,0,0,.04);min-width:0;box-sizing:border-box;overflow:hidden;word-wrap:break-word;overflow-wrap:break-word;}
             .sfs-ep-card h3{margin:0 0 10px;font-size:14px;font-weight:600;color:#1d2327;border-bottom:1px solid #f0f0f1;padding-bottom:8px;}
             .sfs-ep-card--wide{grid-column:1/-1;}
 
@@ -834,16 +834,19 @@ class Employee_Profile_Page {
             .sfs-ep-info-columns .sfs-ep-info-table{flex:1 1 250px;}
 
             /* ═══ Form Table (edit mode) ═══ */
-            .sfs-ep-form-table{width:100%;border-collapse:collapse;table-layout:fixed;box-sizing:border-box;}
-            .sfs-ep-form-table th{text-align:start;width:35%;padding:5px 8px 5px 0;font-weight:500;font-size:13px;vertical-align:top;word-wrap:break-word;}
-            .sfs-ep-form-table td{padding:5px 0;overflow:hidden;}
-            .sfs-ep-form-table td input:not([type="checkbox"]):not([type="radio"]),
+            .sfs-ep-form-table{width:100%;border-collapse:collapse;box-sizing:border-box;}
+            .sfs-ep-form-table th{text-align:start;white-space:nowrap;padding:5px 12px 5px 0;font-weight:500;font-size:13px;vertical-align:top;}
+            .sfs-ep-form-table td{padding:5px 0;width:100%;}
+            .sfs-ep-form-table td input.regular-text,
+            .sfs-ep-form-table td input[type="text"],
+            .sfs-ep-form-table td input[type="email"],
+            .sfs-ep-form-table td input[type="number"],
             .sfs-ep-form-table td select,
-            .sfs-ep-form-table td textarea{max-width:100%;width:100%;box-sizing:border-box;}
+            .sfs-ep-form-table td textarea{width:100% !important;max-width:100% !important;box-sizing:border-box !important;}
             .sfs-ep-form-table td input[type="checkbox"],
-            .sfs-ep-form-table td input[type="radio"]{width:auto;margin-right:6px;}
-            .sfs-ep-form-table td input[type="date"]{width:auto;}
-            .sfs-ep-form-table td input[type="file"]{width:auto;}
+            .sfs-ep-form-table td input[type="radio"]{width:auto !important;margin-right:6px;}
+            .sfs-ep-form-table td input[type="date"]{width:auto !important;max-width:100% !important;box-sizing:border-box !important;}
+            .sfs-ep-form-table td input[type="file"]{width:auto !important;}
             .sfs-ep-form-table td .description{word-wrap:break-word;overflow-wrap:break-word;}
             .sfs-ep-edit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(420px,100%),1fr));gap:16px;margin-bottom:16px;}
 
