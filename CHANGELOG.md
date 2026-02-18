@@ -2,6 +2,28 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [1.3.0] — 2026-02-18
+
+### Fixed
+- **Friday off-day marked as Absent**: When a role-based total-hours policy was
+  active and the shift resolved to null (day off via weekly override or schedule
+  rotation), the system incorrectly marked the day as "absent" instead of
+  "day_off". The total-hours status rollup now respects the shift resolver's
+  null return as a scheduled day off.
+- **Period overrides overriding all days**: Period overrides (e.g. Ramadan hours)
+  applied new working times to every day including rest days (Friday/Saturday),
+  causing employees to be marked absent on their off days.  Period overrides
+  now support an `off_days` array so admins can specify which weekdays remain
+  as days off during the override period.
+- **Overnight Ramadan shifts clocked out at midnight**: Shifts ending past
+  midnight (e.g. 22:00–01:30) lost clock-out punches because the punch query
+  window was midnight-to-midnight.  The punch window now extends to cover the
+  full shift segment when it crosses into the next calendar day.
+
+### Added
+- `off_days` checkboxes on the Period Override rows in the shift editor, allowing
+  admins to mark specific weekdays as rest days during the override period.
+
 ## [1.2.4] — 2026-02-17
 
 ### Fixed

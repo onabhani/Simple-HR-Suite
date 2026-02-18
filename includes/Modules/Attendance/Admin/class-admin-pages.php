@@ -1993,6 +1993,34 @@ public function render_shifts(): void {
                                                placeholder="<?php esc_attr_e( 'Break', 'sfs-hr' ); ?>"
                                                title="<?php esc_attr_e( 'Break duration (minutes)', 'sfs-hr' ); ?>"/>
                                         <button type="button" class="button sfs-remove-period-override" title="<?php esc_attr_e( 'Remove', 'sfs-hr' ); ?>">&times;</button>
+                                        <?php
+                                        // Off-days checkboxes — prevents the override from turning
+                                        // rest days into working days (which would mark employees absent).
+                                        $off_days = $pov['off_days'] ?? [];
+                                        if ( ! is_array( $off_days ) ) { $off_days = []; }
+                                        $day_labels = [
+                                            'sunday'    => __( 'Sun', 'sfs-hr' ),
+                                            'monday'    => __( 'Mon', 'sfs-hr' ),
+                                            'tuesday'   => __( 'Tue', 'sfs-hr' ),
+                                            'wednesday' => __( 'Wed', 'sfs-hr' ),
+                                            'thursday'  => __( 'Thu', 'sfs-hr' ),
+                                            'friday'    => __( 'Fri', 'sfs-hr' ),
+                                            'saturday'  => __( 'Sat', 'sfs-hr' ),
+                                        ];
+                                        ?>
+                                        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                                            <span style="font-size:12px;color:#666;" title="<?php esc_attr_e( 'Days off during this override period', 'sfs-hr' ); ?>"><?php esc_html_e( 'Off:', 'sfs-hr' ); ?></span>
+                                            <?php foreach ( $day_labels as $day_key => $day_lbl ) : ?>
+                                                <label style="font-size:12px;cursor:pointer;" title="<?php echo esc_attr( $day_lbl ); ?>">
+                                                    <input type="checkbox"
+                                                           name="period_overrides[<?php echo (int) $idx; ?>][off_days][]"
+                                                           value="<?php echo esc_attr( $day_key ); ?>"
+                                                           <?php checked( in_array( $day_key, $off_days, true ) ); ?>
+                                                           style="margin:0;"/>
+                                                    <?php echo esc_html( $day_lbl ); ?>
+                                                </label>
+                                            <?php endforeach; ?>
+                                        </div>
                                     </div>
                                 <?php endforeach; ?>
                             <?php endif; ?>
@@ -2011,6 +2039,23 @@ public function render_shifts(): void {
                                 var row = document.createElement('div');
                                 row.className = 'sfs-period-override-row';
                                 row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;';
+                                var days = [
+                                    ['sunday','<?php echo esc_js( __( 'Sun', 'sfs-hr' ) ); ?>'],
+                                    ['monday','<?php echo esc_js( __( 'Mon', 'sfs-hr' ) ); ?>'],
+                                    ['tuesday','<?php echo esc_js( __( 'Tue', 'sfs-hr' ) ); ?>'],
+                                    ['wednesday','<?php echo esc_js( __( 'Wed', 'sfs-hr' ) ); ?>'],
+                                    ['thursday','<?php echo esc_js( __( 'Thu', 'sfs-hr' ) ); ?>'],
+                                    ['friday','<?php echo esc_js( __( 'Fri', 'sfs-hr' ) ); ?>'],
+                                    ['saturday','<?php echo esc_js( __( 'Sat', 'sfs-hr' ) ); ?>']
+                                ];
+                                var offHtml = '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">' +
+                                    '<span style="font-size:12px;color:#666;" title="<?php echo esc_js( __( 'Days off during this override period', 'sfs-hr' ) ); ?>"><?php echo esc_js( __( 'Off:', 'sfs-hr' ) ); ?></span>';
+                                for (var d = 0; d < days.length; d++) {
+                                    offHtml += '<label style="font-size:12px;cursor:pointer;" title="'+days[d][1]+'">' +
+                                        '<input type="checkbox" name="period_overrides['+idx+'][off_days][]" value="'+days[d][0]+'" style="margin:0;"/> '+days[d][1]+
+                                        '</label>';
+                                }
+                                offHtml += '</div>';
                                 row.innerHTML =
                                     '<input type="text" name="period_overrides['+idx+'][label]" placeholder="<?php echo esc_js( __( 'Label (e.g., Ramadan)', 'sfs-hr' ) ); ?>" style="width:150px;"/>' +
                                     '<input type="date" name="period_overrides['+idx+'][start_date]" required style="width:150px;"/>' +
@@ -2021,7 +2066,8 @@ public function render_shifts(): void {
                                     '<input type="time" name="period_overrides['+idx+'][end_time]" required step="60" style="width:110px;"/>' +
                                     '<input type="time" name="period_overrides['+idx+'][break_start_time]" step="60" style="width:110px;" placeholder="<?php echo esc_js( __( 'Break start', 'sfs-hr' ) ); ?>" title="<?php echo esc_js( __( 'Break start time', 'sfs-hr' ) ); ?>"/>' +
                                     '<input type="number" name="period_overrides['+idx+'][unpaid_break_minutes]" min="0" max="1440" step="1" style="width:70px;" placeholder="<?php echo esc_js( __( 'Break', 'sfs-hr' ) ); ?>" title="<?php echo esc_js( __( 'Break duration (minutes)', 'sfs-hr' ) ); ?>"/>' +
-                                    '<button type="button" class="button sfs-remove-period-override" title="<?php echo esc_js( __( 'Remove', 'sfs-hr' ) ); ?>">&times;</button>';
+                                    '<button type="button" class="button sfs-remove-period-override" title="<?php echo esc_js( __( 'Remove', 'sfs-hr' ) ); ?>">&times;</button>' +
+                                    offHtml;
                                 list.appendChild(row);
                                 idx++;
                             });
@@ -2551,6 +2597,18 @@ $end   = $norm_time($_POST['end_time']   ?? '');
             if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $p_start_date ) ) { continue; }
             if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $p_end_date ) )   { continue; }
 
+            // Off-days: sanitize to valid lowercase day names only.
+            $valid_day_names = [ 'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday' ];
+            $p_off_days = [];
+            if ( ! empty( $pov['off_days'] ) && is_array( $pov['off_days'] ) ) {
+                foreach ( $pov['off_days'] as $d ) {
+                    $d = strtolower( sanitize_key( $d ) );
+                    if ( in_array( $d, $valid_day_names, true ) ) {
+                        $p_off_days[] = $d;
+                    }
+                }
+            }
+
             $entry = [
                 'label'      => $p_label,
                 'start_date' => $p_start_date,
@@ -2563,6 +2621,9 @@ $end   = $norm_time($_POST['end_time']   ?? '');
             }
             if ( $p_break_mins !== null ) {
                 $entry['unpaid_break_minutes'] = $p_break_mins;
+            }
+            if ( ! empty( $p_off_days ) ) {
+                $entry['off_days'] = $p_off_days;
             }
             $period_overrides[] = $entry;
         }
