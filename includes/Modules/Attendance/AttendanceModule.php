@@ -4664,26 +4664,28 @@ foreach ($rows as $r) {
         'counters'        => ['outside_geo'=>$outside_geo,'no_selfie'=>$no_selfie],
     ];
 
-    // Break diagnostics in calc_meta
-    if ( $has_mandatory_break ) {
-        $calcMeta['break'] = [
-            'policy'             => $shift_break_policy,
-            'configured_minutes' => $shift_break_minutes,
-            'break_start_time'   => $shift_break_start,
-            'actual_break'       => (int) $ev['break_total'],
-            'break_deduction'    => $break_deduction,
-            'break_delay'        => $break_delay_minutes,
-            'no_break_taken'     => $no_break_taken,
-            'is_kiosk_day'       => $is_kiosk_day,
-        ];
-    }
+    // Break diagnostics in calc_meta — always write for debugging
+    $calcMeta['break'] = [
+        'shift_break_policy'   => $shift_break_policy,
+        'shift_break_minutes'  => $shift_break_minutes,
+        'has_mandatory_break'  => $has_mandatory_break,
+        'shift_no_break'       => $shift_no_break,
+        'actual_break_punches' => (int) $ev['break_total'],
+        'break_deduction'      => $break_deduction,
+        'break_delay'          => $break_delay_minutes,
+        'no_break_taken'       => $no_break_taken,
+        'is_kiosk_day'         => $is_kiosk_day,
+        'worked_total'         => (int) $ev['worked_total'],
+        'net_after_break'      => $net,
+    ];
 
     // Add total-hours policy info to calc_meta for diagnostics
     if ( $is_total_hours ) {
         $calcMeta['policy_mode']           = 'total_hours';
         $calcMeta['target_hours']          = \SFS\HR\Modules\Attendance\Services\Policy_Service::get_target_hours( $employee_id, $shift );
         $calcMeta['target_minutes']        = (int) ( $calcMeta['target_hours'] * 60 );
-        $calcMeta['policy_break_deducted'] = ( $policy_break['enabled'] && ! $has_mandatory_break ) ? $policy_break['duration_minutes'] : 0;
+        $calcMeta['policy_break']          = $policy_break;
+        $calcMeta['policy_break_deducted'] = ( $policy_break['enabled'] && $policy_break['duration_minutes'] > 0 && ! $has_mandatory_break && ! $shift_no_break ) ? $policy_break['duration_minutes'] : 0;
     }
 
     $data = [
