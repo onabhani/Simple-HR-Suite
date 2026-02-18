@@ -738,7 +738,7 @@ class Employee_Profile_Page {
                         $out_display = wp_date( 'H:i', $out_utc->getTimestamp(), new \DateTimeZone( 'Asia/Riyadh' ) );
                     } catch ( \Throwable $e ) { /* keep dash */ }
                 }
-                $net_mins = (int) ( $row['net_minutes'] ?? 0 );
+                $net_mins = (int) ( $row['rounded_net_minutes'] ?? $row['net_minutes'] ?? 0 );
                 $ot_mins  = (int) ( $row['overtime_minutes'] ?? 0 );
                 $worked_display = $net_mins > 0 ? sprintf( '%dh %02dm', intdiv( $net_mins, 60 ), $net_mins % 60 ) : '—';
                 $ot_display     = $ot_mins > 0 ? sprintf( '%dh %02dm', intdiv( $ot_mins, 60 ), $ot_mins % 60 ) : '—';
@@ -1382,7 +1382,7 @@ class Employee_Profile_Page {
         global $wpdb;
         $sT = $wpdb->prefix . 'sfs_hr_attendance_sessions';
 
-        $sql = "SELECT work_date, status, in_time, out_time, net_minutes, overtime_minutes, flags_json
+        $sql = "SELECT work_date, status, in_time, out_time, net_minutes, rounded_net_minutes, overtime_minutes, flags_json
                 FROM {$sT}
                 WHERE employee_id = %d
                   AND work_date BETWEEN %s AND %s
