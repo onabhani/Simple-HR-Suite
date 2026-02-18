@@ -461,20 +461,23 @@ class Employee_Profile_Page {
             </div>
 
             <div class="sfs-ep-edit-grid">
-            <div class="sfs-ep-card"><h3><?php esc_html_e( 'Personal & Contact', 'sfs-hr' ); ?></h3><table class="sfs-ep-form-table"><tbody>
+            <div class="sfs-ep-card"><h3><?php esc_html_e( 'Personal', 'sfs-hr' ); ?></h3><table class="sfs-ep-form-table"><tbody>
                 <tr><th><?php esc_html_e( 'Employee ID', 'sfs-hr' ); ?></th><td><input type="text" name="employee_code" class="regular-text" value="<?php echo esc_attr( $code ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'First name', 'sfs-hr' ); ?></th><td><input type="text" name="first_name" class="regular-text" value="<?php echo esc_attr( $first_name ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Last name', 'sfs-hr' ); ?></th><td><input type="text" name="last_name" class="regular-text" value="<?php echo esc_attr( $last_name ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'First name (Arabic)', 'sfs-hr' ); ?></th><td><input type="text" name="first_name_ar" class="regular-text" dir="rtl" value="<?php echo esc_attr( $first_name_ar ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Last name (Arabic)', 'sfs-hr' ); ?></th><td><input type="text" name="last_name_ar" class="regular-text" dir="rtl" value="<?php echo esc_attr( $last_name_ar ); ?>" /></td></tr>
-                <tr><th><?php esc_html_e( 'Email', 'sfs-hr' ); ?></th><td><input type="email" name="email" class="regular-text" value="<?php echo esc_attr( $email ); ?>" /></td></tr>
-                <tr><th><?php esc_html_e( 'Phone', 'sfs-hr' ); ?></th><td><input type="text" name="phone" class="regular-text" value="<?php echo esc_attr( $phone ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Gender', 'sfs-hr' ); ?></th><td><?php $g = strtolower( (string) $gender ); ?><select name="gender"><option value=""><?php esc_html_e( '— Select —', 'sfs-hr' ); ?></option><option value="male" <?php selected( $g, 'male' ); ?>><?php esc_html_e( 'Male', 'sfs-hr' ); ?></option><option value="female" <?php selected( $g, 'female' ); ?>><?php esc_html_e( 'Female', 'sfs-hr' ); ?></option></select></td></tr>
                 <tr><th><?php esc_html_e( 'Nationality', 'sfs-hr' ); ?></th><td><input type="text" name="nationality" class="regular-text" value="<?php echo esc_attr( $nationality ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Marital status', 'sfs-hr' ); ?></th><td><?php $ms = strtolower( (string) $marital_status ); ?><select name="marital_status"><option value=""><?php esc_html_e( '— Select —', 'sfs-hr' ); ?></option><option value="single" <?php selected( $ms, 'single' ); ?>><?php esc_html_e( 'Single', 'sfs-hr' ); ?></option><option value="married" <?php selected( $ms, 'married' ); ?>><?php esc_html_e( 'Married', 'sfs-hr' ); ?></option><option value="divorced" <?php selected( $ms, 'divorced' ); ?>><?php esc_html_e( 'Divorced', 'sfs-hr' ); ?></option><option value="widowed" <?php selected( $ms, 'widowed' ); ?>><?php esc_html_e( 'Widowed', 'sfs-hr' ); ?></option></select></td></tr>
                 <tr><th><?php esc_html_e( 'Date of birth', 'sfs-hr' ); ?></th><td><input type="date" name="birth_date" class="regular-text sfs-hr-date" value="<?php echo esc_attr( $birth_date ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Work location', 'sfs-hr' ); ?></th><td><input type="text" name="work_location" class="regular-text" value="<?php echo esc_attr( $work_location ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Language', 'sfs-hr' ); ?></th><td><?php $lang_options = Helpers::get_available_languages(); ?><select name="language"><option value=""><?php esc_html_e( '— Site default —', 'sfs-hr' ); ?></option><?php foreach ( $lang_options as $lang_code => $lang_label ) : ?><option value="<?php echo esc_attr( $lang_code ); ?>" <?php selected( $language, $lang_code ); ?>><?php echo esc_html( $lang_label ); ?></option><?php endforeach; ?></select><p class="description"><?php esc_html_e( 'Sets the employee\'s preferred language for emails and their WordPress profile.', 'sfs-hr' ); ?></p></td></tr>
+            </tbody></table></div>
+
+            <div class="sfs-ep-card"><h3><?php esc_html_e( 'Contact', 'sfs-hr' ); ?></h3><table class="sfs-ep-form-table"><tbody>
+                <tr><th><?php esc_html_e( 'Email', 'sfs-hr' ); ?></th><td><input type="email" name="email" class="regular-text" value="<?php echo esc_attr( $email ); ?>" /></td></tr>
+                <tr><th><?php esc_html_e( 'Phone', 'sfs-hr' ); ?></th><td><input type="text" name="phone" class="regular-text" value="<?php echo esc_attr( $phone ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Emergency contact name', 'sfs-hr' ); ?></th><td><input type="text" name="emergency_contact_name" class="regular-text" value="<?php echo esc_attr( $emg_name ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Emergency contact phone', 'sfs-hr' ); ?></th><td><input type="text" name="emergency_contact_phone" class="regular-text" value="<?php echo esc_attr( $emg_phone ); ?>" /></td></tr>
             </tbody></table></div>
@@ -652,7 +655,6 @@ class Employee_Profile_Page {
                     <tr><th><?php esc_html_e( 'Contract type', 'sfs-hr' ); ?></th><td><?php echo $fmt_val( $contract_type ); ?></td></tr>
                     <tr><th><?php esc_html_e( 'Contract', 'sfs-hr' ); ?></th><td><?php echo $fmt_date( $contract_start ); ?> — <?php echo $fmt_date( $contract_end ); ?></td></tr>
                     <tr><th><?php esc_html_e( 'Probation end', 'sfs-hr' ); ?></th><td><?php echo $fmt_date( $probation_end ); ?></td></tr>
-                    <tr><th><?php esc_html_e( 'Current shift', 'sfs-hr' ); ?></th><td><?php if ( $current_shift ) { $cs_parts = array_filter( [ $current_shift['name'] ?? '', ( ! empty( $current_shift['start_time'] ) && ! empty( $current_shift['end_time'] ) ) ? substr( $current_shift['start_time'], 0, 5 ) . '–' . substr( $current_shift['end_time'], 0, 5 ) : '' ] ); echo esc_html( implode( ' | ', $cs_parts ) ); } else { echo '—'; } ?></td></tr>
                     <tr><th><?php esc_html_e( 'WP User', 'sfs-hr' ); ?></th><td><?php if ( $wp_username ) { $edit_link = get_edit_user_link( $wp_user ); echo $edit_link ? '<a href="' . esc_url( $edit_link ) . '">' . esc_html( $wp_username ) . '</a>' : esc_html( $wp_username ); } else { echo '—'; } ?></td></tr>
                 </tbody></table>
                 </div>
@@ -661,6 +663,11 @@ class Employee_Profile_Page {
             <div class="sfs-ep-card"><h3><?php esc_html_e( 'Payroll', 'sfs-hr' ); ?></h3><table class="sfs-ep-info-table"><tbody>
                 <tr><th><?php esc_html_e( 'Base salary', 'sfs-hr' ); ?></th><td><?php echo ( $base_salary !== null && $base_salary !== '' ) ? esc_html( number_format_i18n( (float) $base_salary, 2 ) ) : '—'; ?></td></tr>
                 <tr><th><?php esc_html_e( 'GOSI salary', 'sfs-hr' ); ?></th><td><?php echo ( $gosi_salary !== '' ) ? esc_html( number_format_i18n( (float) $gosi_salary, 2 ) ) : '—'; ?></td></tr>
+            </tbody></table></div>
+
+            <div class="sfs-ep-card"><h3><?php esc_html_e( 'Shift Assignment', 'sfs-hr' ); ?></h3><table class="sfs-ep-info-table"><tbody>
+                <tr><th><?php esc_html_e( 'Current shift', 'sfs-hr' ); ?></th><td><?php if ( $current_shift ) { $cs_parts = array_filter( [ $current_shift['name'] ?? '', ( ! empty( $current_shift['start_time'] ) && ! empty( $current_shift['end_time'] ) ) ? substr( $current_shift['start_time'], 0, 5 ) . '–' . substr( $current_shift['end_time'], 0, 5 ) : '' ] ); echo '<strong>' . esc_html( implode( ' | ', $cs_parts ) ) . '</strong>'; } else { echo '<em>' . esc_html__( 'No shift assigned', 'sfs-hr' ) . '</em>'; } ?></td></tr>
+                <?php if ( $shift_history && count( $shift_history ) > 1 ) : ?><tr><th><?php esc_html_e( 'History', 'sfs-hr' ); ?></th><td><ul style="margin:0;padding-left:16px;font-size:12px;color:#50575e;"><?php foreach ( array_slice( $shift_history, 1, 3 ) as $h ) : $h_parts = array_filter( [ $h['name'] ?? '', ( ! empty( $h['start_time'] ) && ! empty( $h['end_time'] ) ) ? substr( $h['start_time'], 0, 5 ) . '–' . substr( $h['end_time'], 0, 5 ) : '' ] ); ?><li><?php echo esc_html( ( $h['start_date'] ?? '' ) . ' — ' . implode( ' | ', $h_parts ) ); ?></li><?php endforeach; ?></ul></td></tr><?php endif; ?>
             </tbody></table></div>
 
             <div class="sfs-ep-card"><h3><?php esc_html_e( 'Documents & Residency', 'sfs-hr' ); ?></h3><table class="sfs-ep-info-table"><tbody>
@@ -813,9 +820,9 @@ class Employee_Profile_Page {
             .sfs-ep-stat-card__sub{font-size:11px;color:#646970;margin-top:2px;}
 
             /* ═══ Card Grid ═══ */
-            .sfs-ep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr));gap:16px;margin-bottom:20px;}
+            .sfs-ep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr));gap:16px;margin-bottom:20px;}
             .sfs-ep-grid--bottom{margin-top:0;}
-            .sfs-ep-card{background:#fff;border:1px solid #c3c4c7;border-radius:6px;padding:16px 18px;box-shadow:0 1px 1px rgba(0,0,0,.04);min-width:0;box-sizing:border-box;overflow:hidden;}
+            .sfs-ep-card{background:#fff;border:1px solid #c3c4c7;border-radius:6px;padding:16px 18px;box-shadow:0 1px 1px rgba(0,0,0,.04);min-width:0;box-sizing:border-box;overflow:visible;word-wrap:break-word;overflow-wrap:break-word;}
             .sfs-ep-card h3{margin:0 0 10px;font-size:14px;font-weight:600;color:#1d2327;border-bottom:1px solid #f0f0f1;padding-bottom:8px;}
             .sfs-ep-card--wide{grid-column:1/-1;}
 
@@ -828,15 +835,17 @@ class Employee_Profile_Page {
 
             /* ═══ Form Table (edit mode) ═══ */
             .sfs-ep-form-table{width:100%;border-collapse:collapse;table-layout:fixed;box-sizing:border-box;}
-            .sfs-ep-form-table th{text-align:start;width:38%;padding:5px 8px 5px 0;font-weight:500;font-size:13px;vertical-align:top;word-wrap:break-word;}
+            .sfs-ep-form-table th{text-align:start;width:35%;padding:5px 8px 5px 0;font-weight:500;font-size:13px;vertical-align:top;word-wrap:break-word;}
             .sfs-ep-form-table td{padding:5px 0;overflow:hidden;}
-            .sfs-ep-form-table td input,
+            .sfs-ep-form-table td input:not([type="checkbox"]):not([type="radio"]),
             .sfs-ep-form-table td select,
             .sfs-ep-form-table td textarea{max-width:100%;width:100%;box-sizing:border-box;}
+            .sfs-ep-form-table td input[type="checkbox"],
+            .sfs-ep-form-table td input[type="radio"]{width:auto;margin-right:6px;}
             .sfs-ep-form-table td input[type="date"]{width:auto;}
             .sfs-ep-form-table td input[type="file"]{width:auto;}
             .sfs-ep-form-table td .description{word-wrap:break-word;overflow-wrap:break-word;}
-            .sfs-ep-edit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(380px,100%),1fr));gap:16px;margin-bottom:16px;}
+            .sfs-ep-edit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(420px,100%),1fr));gap:16px;margin-bottom:16px;}
 
             /* ═══ Manager / Reports To ═══ */
             .sfs-ep-manager-link{display:flex;align-items:center;gap:12px;padding:12px 14px;background:#f8f9fa;border:1px solid #e2e4e7;border-radius:8px;text-decoration:none;color:inherit;transition:border-color .15s,box-shadow .15s;}
@@ -967,7 +976,7 @@ class Employee_Profile_Page {
 
             /* ═══ Responsive ═══ */
             @media screen and (max-width: 1200px) {
-                .sfs-ep-edit-grid{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));}
+                .sfs-ep-edit-grid{grid-template-columns:repeat(auto-fill,minmax(340px,1fr));}
             }
             @media screen and (max-width: 782px) {
                 .sfs-ep-header{flex-direction:column;align-items:flex-start;padding:16px;}
