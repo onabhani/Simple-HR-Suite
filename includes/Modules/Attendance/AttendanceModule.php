@@ -4469,6 +4469,9 @@ foreach ($rows as $r) {
     $shift_break_policy  = $shift ? ( $shift->break_policy ?? 'none' ) : 'none';
     $shift_break_start   = $shift ? ( $shift->break_start_time ?? null ) : null;
     $has_mandatory_break = ( $shift_break_policy !== 'none' && $shift_break_minutes > 0 );
+    // When the shift explicitly sets break_policy = 'none', no break should be
+    // deducted at all — not from punches and not from the role-based policy.
+    $shift_no_break = ( $shift !== null && $shift_break_policy === 'none' );
 
     // Detect if all in/out punches came from kiosk (kiosk = auto break, no punch needed)
     $is_kiosk_day = false;
@@ -4521,8 +4524,9 @@ foreach ($rows as $r) {
             $break_deduction = $shift_break_minutes + $break_delay_minutes;
         }
     } else {
-        // No mandatory break or no punches at all — deduct actual break punches only
-        $break_deduction = (int) $ev['break_total'];
+        // No mandatory break — only deduct actual break punches if the shift
+        // doesn't explicitly disable breaks (break_policy = 'none').
+        $break_deduction = $shift_no_break ? 0 : (int) $ev['break_total'];
     }
 
     // Net worked time = total worked minus break deduction
@@ -4533,8 +4537,9 @@ foreach ($rows as $r) {
     $is_total_hours = \SFS\HR\Modules\Attendance\Services\Policy_Service::is_total_hours_mode( $employee_id, $shift );
     $policy_break   = \SFS\HR\Modules\Attendance\Services\Policy_Service::get_break_settings( $employee_id, $shift );
 
-    if ( $is_total_hours && $policy_break['enabled'] && $policy_break['duration_minutes'] > 0 && ! $has_mandatory_break ) {
+    if ( $is_total_hours && $policy_break['enabled'] && $policy_break['duration_minutes'] > 0 && ! $has_mandatory_break && ! $shift_no_break ) {
         // Only apply policy-level break if shift doesn't already have a mandatory break
+        // and the shift doesn't explicitly disable breaks.
         $net = max( 0, $net - $policy_break['duration_minutes'] );
     }
 
@@ -4634,6 +4639,15 @@ foreach ($rows as $r) {
         if ( $status === 'left_early' && ! in_array( 'left_early', $flags, true ) ) {
             $flags[] = 'left_early';
         }
+        // Also clean segment-level late/left_early flags and minutes —
+        // shift fixed times are irrelevant in total-hours mode and the
+        // frontend may read these from calc_meta to display badges.
+        foreach ( $ev['segments'] as &$seg_d ) {
+            $seg_d['flags'] = array_values( array_diff( $seg_d['flags'], [ 'late', 'left_early' ] ) );
+            $seg_d['late_minutes']  = 0;
+            $seg_d['early_minutes'] = 0;
+        }
+        unset( $seg_d );
     }
 
     if ($outside_geo > 0) $flags[] = 'outside_geofence';
@@ -5758,16 +5772,10 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
             }
         }
     }
-    // Close unmatched IN? leave it open → incomplete, but still count the
-    // partial interval so overlap calculations don't falsely flag missed_segment.
+    // Unmatched IN = incomplete session.  Do NOT create a fake interval —
+    // only matched IN/OUT pairs count toward worked hours.  The 'incomplete'
+    // flag is set below so the session is marked accordingly.
     $has_unmatched = ($open !== null);
-    if ( $has_unmatched ) {
-        // Cap at end of the work day, or "now" if the day hasn't ended yet
-        $close_at = $dayEndUtcTs > 0 ? min( $dayEndUtcTs, time() ) : time();
-        if ( $close_at > $open ) {
-            $intervals[] = [ $open, $close_at ];
-        }
-    }
 
     // Calculate break time from break_start..break_end pairs
     $break_total = 0;
