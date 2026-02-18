@@ -5428,9 +5428,11 @@ public static function resolve_shift_for_date(
     if ($conf) {
         // default shift id
         $shift_id = null;
+        $default_shift_id = null;
         foreach (['default_shift_id','default','shift','shift_id'] as $k) {
             if (isset($conf[$k]) && is_numeric($conf[$k])) {
                 $shift_id = (int)$conf[$k];
+                $default_shift_id = $shift_id;
                 break;
             }
         }
@@ -5467,6 +5469,22 @@ public static function resolve_shift_for_date(
                 )
             );
             if ($sh) {
+                // When the dept automation override replaces the shift (e.g.
+                // Ramadan shift), the replacement often lacks weekly_overrides
+                // because it was created just for the override period.  Inherit
+                // the original default shift's weekly_overrides so rest days
+                // (e.g. Friday, Saturday) are preserved instead of being marked
+                // as absent.
+                if ( $shift_id !== $default_shift_id && empty( $sh->weekly_overrides ) && $default_shift_id ) {
+                    $default_sh = $wpdb->get_row( $wpdb->prepare(
+                        "SELECT weekly_overrides FROM {$shiftT} WHERE id = %d LIMIT 1",
+                        $default_shift_id
+                    ) );
+                    if ( $default_sh && ! empty( $default_sh->weekly_overrides ) ) {
+                        $sh->weekly_overrides = $default_sh->weekly_overrides;
+                    }
+                }
+
                 $sh->__virtual  = 1;
                 $sh->is_holiday = 0;
                 $sh->dept_id    = $dept_id;
