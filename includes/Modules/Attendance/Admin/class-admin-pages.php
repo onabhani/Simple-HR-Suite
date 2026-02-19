@@ -1901,7 +1901,7 @@ public function render_shifts(): void {
                         ];
 
                         foreach ( $days as $day_key => $day_label ) :
-                            $ov = $weekly_overrides[ $day_key ] ?? 'default';
+                            $ov = array_key_exists( $day_key, $weekly_overrides ) ? $weekly_overrides[ $day_key ] : 'default';
                             $is_day_off   = ( $ov === null );
                             $is_custom    = ( is_array( $ov ) && isset( $ov['start'], $ov['end'] ) );
                             $custom_start = $is_custom ? substr( $ov['start'], 0, 5 ) : '';
