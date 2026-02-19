@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Simple HR Suite
  * Description: Simple HR Suite – employees, departments, leave, balances, approvals.
- * Version: 1.3.6
+ * Version: 1.3.7
  * Author: hdqah.com
  * Author URI: https://hdqah.com
  * Text Domain: sfs-hr
@@ -12,7 +12,7 @@
 
 if (!defined('ABSPATH')) { exit; }
 
-define('SFS_HR_VER', '1.3.6');
+define('SFS_HR_VER', '1.3.7');
 define('SFS_HR_DIR', plugin_dir_path(__FILE__));
 define('SFS_HR_URL', plugin_dir_url(__FILE__));
 define('SFS_HR_PLUGIN_FILE', __FILE__);
@@ -42,6 +42,9 @@ register_activation_hook(__FILE__, function(){
 
     // Install Hiring module tables (candidates, trainees)
     \SFS\HR\Modules\Hiring\HiringModule::install();
+
+    // Install Surveys module tables
+    \SFS\HR\Modules\Surveys\SurveysModule::install();
 
     // Install Leave module
     (new \SFS\HR\Modules\Leave\LeaveModule())->install();
@@ -508,6 +511,9 @@ add_action('plugins_loaded', function(){
 
     // Performance Module (attendance commitment, goals, reviews, alerts)
     (new \SFS\HR\Modules\Performance\PerformanceModule())->hooks();
+
+    // Surveys Module (employee surveys & feedback)
+    (new \SFS\HR\Modules\Surveys\SurveysModule())->hooks();
 });
 
 /**
