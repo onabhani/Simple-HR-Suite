@@ -32,7 +32,7 @@ class SurveysModule {
 
     public function menu(): void {
         add_submenu_page(
-            'sfs-hr',
+            'sfs-hr-performance',
             __( 'Surveys', 'sfs-hr' ),
             __( 'Surveys', 'sfs-hr' ),
             'sfs_hr.manage',

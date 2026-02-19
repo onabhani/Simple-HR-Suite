@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Simple HR Suite
  * Description: Simple HR Suite – employees, departments, leave, balances, approvals.
- * Version: 1.3.7
+ * Version: 1.3.8
  * Author: hdqah.com
  * Author URI: https://hdqah.com
  * Text Domain: sfs-hr
@@ -12,7 +12,7 @@
 
 if (!defined('ABSPATH')) { exit; }
 
-define('SFS_HR_VER', '1.3.7');
+define('SFS_HR_VER', '1.3.8');
 define('SFS_HR_DIR', plugin_dir_path(__FILE__));
 define('SFS_HR_URL', plugin_dir_url(__FILE__));
 define('SFS_HR_PLUGIN_FILE', __FILE__);
@@ -160,6 +160,12 @@ add_action('admin_init', function(){
     $perf_reviews_table   = $wpdb->prefix . 'sfs_hr_performance_reviews';
     $perf_alerts_table    = $wpdb->prefix . 'sfs_hr_performance_alerts';
 
+    // Surveys module tables
+    $surveys_table          = $wpdb->prefix . 'sfs_hr_surveys';
+    $survey_questions_table = $wpdb->prefix . 'sfs_hr_survey_questions';
+    $survey_responses_table = $wpdb->prefix . 'sfs_hr_survey_responses';
+    $survey_answers_table   = $wpdb->prefix . 'sfs_hr_survey_answers';
+
     // Attendance policy tables
     $att_policies_table      = $wpdb->prefix . 'sfs_hr_attendance_policies';
     $att_policy_roles_table  = $wpdb->prefix . 'sfs_hr_attendance_policy_roles';
@@ -212,7 +218,13 @@ add_action('admin_init', function(){
 
         // Attendance policies
         !$table_exists($att_policies_table)     ||
-        !$table_exists($att_policy_roles_table)
+        !$table_exists($att_policy_roles_table) ||
+
+        // Surveys module
+        !$table_exists($surveys_table)          ||
+        !$table_exists($survey_questions_table) ||
+        !$table_exists($survey_responses_table) ||
+        !$table_exists($survey_answers_table)
     );
 
     $needs_columns = false;
@@ -229,6 +241,7 @@ add_action('admin_init', function(){
     if ($needs_migration || $needs_tables || $needs_columns) {
         \SFS\HR\Install\Migrations::run();
         \SFS\HR\Modules\Hiring\HiringModule::install();
+        \SFS\HR\Modules\Surveys\SurveysModule::install();
         update_option('sfs_hr_db_ver', SFS_HR_VER);
     }
 
@@ -242,6 +255,11 @@ add_action('admin_init', function(){
     // Self-heal Hiring tables if missing
     if (!$table_exists($candidates_table) || !$table_exists($trainees_table)) {
         \SFS\HR\Modules\Hiring\HiringModule::install();
+    }
+
+    // Self-heal Surveys tables if missing
+    if (!$table_exists($surveys_table) || !$table_exists($survey_questions_table) || !$table_exists($survey_responses_table) || !$table_exists($survey_answers_table)) {
+        \SFS\HR\Modules\Surveys\SurveysModule::install();
     }
 
     // Seed/mark data if tables already exist

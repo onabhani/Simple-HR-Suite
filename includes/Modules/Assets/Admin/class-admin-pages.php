@@ -1514,6 +1514,7 @@ class Admin_Pages {
         header('Content-Disposition: attachment; filename=assets-export-' . date('Ymd-His') . '.csv');
 
         $out = fopen('php://output', 'w');
+        fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
 
         if ( ! empty($rows) ) {
             // Header row
