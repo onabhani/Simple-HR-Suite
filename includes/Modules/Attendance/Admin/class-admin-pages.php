@@ -3744,6 +3744,7 @@ public function render_exceptions(): void {
     header('Content-Disposition: attachment; filename=attendance_'.$from.'_'.$to.'.csv');
 
     $out = fopen('php://output','w');
+    fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
     fputcsv($out, [
         'date','employee_id','employee_code','name',
         'in_time_local','out_time_local',
