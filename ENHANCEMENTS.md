@@ -125,15 +125,12 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 ## 8. Missing Modules
 
 ### 8.1 Identify and Implement Missing Modules
-- [ ] **Audit** the current 17 modules against standard HR system features
-- [ ] **Prioritize** missing modules by business value
-- [ ] **Candidate modules to evaluate:**
-  - [ ] Training & Development tracking
-  - [ ] Employee Self-Service portal enhancements
+- [x] **Audit** the current modules against standard HR system features
+- [x] **Prioritize** missing modules by business value
+- **Remaining modules to implement:**
   - [ ] Grievance / Complaints management
   - [ ] Travel & Expense management
-  - [ ] Employee Surveys / Feedback
-  - [ ] Organizational Chart
+  - [ ] Employee Surveys / Feedback *(in progress)*
   - [ ] Timesheet management (distinct from attendance)
   - [ ] Benefits administration
 - [ ] **Implement** each approved module following the existing modular architecture
