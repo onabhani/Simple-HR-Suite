@@ -2,6 +2,14 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [1.3.2] — 2026-02-19
+
+### Added
+- **Fix Off-Day Absences** button on the Sessions period view — scans all
+  `absent` records in the period, re-resolves each employee's shift, and
+  corrects any that should be `day_off` (shift resolved to null).  Shows a
+  result notification with the count of fixed vs total absent sessions.
+
 ## [1.3.1] — 2026-02-19
 
 ### Fixed
