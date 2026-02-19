@@ -1901,7 +1901,7 @@ public function render_shifts(): void {
                         ];
 
                         foreach ( $days as $day_key => $day_label ) :
-                            $ov = $weekly_overrides[ $day_key ] ?? 'default';
+                            $ov = array_key_exists( $day_key, $weekly_overrides ) ? $weekly_overrides[ $day_key ] : 'default';
                             $is_day_off   = ( $ov === null );
                             $is_custom    = ( is_array( $ov ) && isset( $ov['start'], $ov['end'] ) );
                             $custom_start = $is_custom ? substr( $ov['start'], 0, 5 ) : '';
@@ -2571,8 +2571,16 @@ $end   = $norm_time($_POST['end_time']   ?? '');
                 if ( $s_time && $e_time ) {
                     $weekly_schedule[ $day ] = [ 'start' => $s_time, 'end' => $e_time ];
                 }
+            } elseif ( isset( $config['start'] ) && isset( $config['end'] ) ) {
+                // Day included in the form but with empty/cleared times and
+                // no "Day off" checkbox — treat as day off since there is no
+                // schedule for this day.
+                $s_raw = trim( $config['start'] ?? '' );
+                $e_raw = trim( $config['end'] ?? '' );
+                if ( $s_raw === '' && $e_raw === '' ) {
+                    $weekly_schedule[ $day ] = null; // day off (empty times)
+                }
             }
-            // If neither day_off nor valid times → day is omitted (uses shift defaults)
         }
     }
     $weekly_override_json = ! empty( $weekly_schedule ) ? wp_json_encode( $weekly_schedule ) : '';
@@ -4758,9 +4766,9 @@ $export_url = esc_url( wp_nonce_url(
         $fc = (int) $_GET['fixed_absences'];
         $tc = (int) ( $_GET['total_absences'] ?? 0 );
         if ( $fc > 0 ) {
-            echo '<div class="notice notice-success is-dismissible"><p>' . sprintf( esc_html__( 'Fixed %1$d of %2$d absent sessions (changed to day_off).', 'sfs-hr' ), $fc, $tc ) . '</p></div>';
+            echo '<div class="notice notice-success is-dismissible"><p>' . sprintf( esc_html__( 'Fixed %1$d absent sessions on selected off days (changed to day_off). Total absent sessions in period: %2$d.', 'sfs-hr' ), $fc, $tc ) . '</p></div>';
         } else {
-            echo '<div class="notice notice-warning is-dismissible"><p>' . sprintf( esc_html__( 'No absences were fixable — all %d absent sessions have a valid shift assigned (not an off day). Please verify your shift weekly schedule / off-day configuration.', 'sfs-hr' ), $tc ) . '</p></div>';
+            echo '<div class="notice notice-warning is-dismissible"><p>' . esc_html__( 'No absent sessions found on the selected off days (with no punches). Nothing to fix.', 'sfs-hr' ) . '</p></div>';
         }
     }
 
@@ -4846,18 +4854,36 @@ if ( $mode === 'day' ) {
     ) );
     echo '<a class="button button-primary" href="'.$rebuild_period_url.'" onclick="return confirm(\'' . esc_js(__('Rebuild all sessions for this period? This may take a moment.', 'sfs-hr')) . '\');">' . esc_html__('Rebuild Period', 'sfs-hr') . ' (' . esc_html($from) . ' → ' . esc_html($to) . ')</a>';
 
-    // Fix Off-Day Absences button
-    $fix_absences_url = esc_url( wp_nonce_url(
-        add_query_arg([
-            'action' => 'sfs_hr_att_fix_offday_absences',
-            'from'   => $from,
-            'to'     => $to,
-            'month'  => $month,
-            'year'   => $year,
-        ], admin_url('admin-post.php')),
-        'sfs_hr_att_fix_offday_absences'
-    ) );
-    echo ' <a class="button" href="'.$fix_absences_url.'" onclick="return confirm(\'' . esc_js(__('Fix all off-day absences in this period?', 'sfs-hr')) . '\');" style="margin-left:6px;">' . esc_html__('Fix Off-Day Absences', 'sfs-hr') . '</a>';
+    // Fix Off-Day Absences — inline form with day-of-week checkboxes
+    $fix_nonce = wp_create_nonce( 'sfs_hr_att_fix_offday_absences' );
+    echo ' <span style="display:inline-flex;align-items:center;gap:4px;margin-left:8px;vertical-align:middle;">';
+    echo '<span style="font-size:12px;color:#555;">' . esc_html__( 'Off days:', 'sfs-hr' ) . '</span>';
+    $fix_day_labels = [
+        'friday'   => __( 'Fri', 'sfs-hr' ),
+        'saturday' => __( 'Sat', 'sfs-hr' ),
+        'sunday'   => __( 'Sun', 'sfs-hr' ),
+    ];
+    foreach ( $fix_day_labels as $dk => $dl ) {
+        $chk = ( $dk === 'friday' ) ? ' checked' : '';
+        echo '<label style="font-size:12px;cursor:pointer;"><input type="checkbox" class="sfs-fix-offday-cb" value="' . esc_attr( $dk ) . '"' . $chk . ' style="margin:0;"/> ' . esc_html( $dl ) . '</label>';
+    }
+    echo '<a class="button" id="sfs-fix-offday-btn" href="#" style="margin-left:4px;">' . esc_html__( 'Fix Off-Day Absences', 'sfs-hr' ) . '</a>';
+    echo '</span>';
+    echo "<script>
+    document.getElementById('sfs-fix-offday-btn').addEventListener('click', function(e) {
+        e.preventDefault();
+        var days = [];
+        document.querySelectorAll('.sfs-fix-offday-cb:checked').forEach(function(cb) { days.push(cb.value); });
+        if (!days.length) { alert('" . esc_js( __( 'Please select at least one off day.', 'sfs-hr' ) ) . "'); return; }
+        if (!confirm('" . esc_js( __( 'Fix all absent sessions on the selected off days in this period?', 'sfs-hr' ) ) . "')) return;
+        var url = '" . esc_url( admin_url( 'admin-post.php' ) ) . "?action=sfs_hr_att_fix_offday_absences'
+            + '&_wpnonce=" . esc_attr( $fix_nonce ) . "'
+            + '&from=" . esc_attr( $from ) . "&to=" . esc_attr( $to ) . "'
+            + '&month=" . (int) $month . "&year=" . (int) $year . "'
+            + '&off_days=' + encodeURIComponent(days.join(','));
+        window.location.href = url;
+    });
+    </script>";
 }
     echo '</form></div>';
 
@@ -5060,8 +5086,12 @@ public function handle_rebuild_sessions_period(): void {
 }
 
 /**
- * Fix off-day absences: find all 'absent' sessions in a period, re-resolve
- * each employee's shift, and correct records where the shift says "day off."
+ * Fix off-day absences: update all 'absent' sessions that fall on the
+ * admin-selected off days (e.g. Friday, Saturday) to 'day_off'.
+ *
+ * This directly corrects records based on the day-of-week the admin
+ * selects, without relying on shift configuration.  It only changes
+ * sessions where the employee had zero punches (truly absent vs. missed).
  */
 public function handle_fix_offday_absences(): void {
     if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
@@ -5085,38 +5115,58 @@ public function handle_fix_offday_absences(): void {
         $to = $today;
     }
 
-    // Find all 'absent' sessions in the date range.
+    // Parse admin-selected off days from the request (e.g. "friday,saturday").
+    $valid_day_names = [ 'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday' ];
+    $off_days_raw    = isset( $_GET['off_days'] ) ? sanitize_text_field( (string) $_GET['off_days'] ) : 'friday';
+    $off_days        = array_filter(
+        array_map( 'trim', explode( ',', strtolower( $off_days_raw ) ) ),
+        function ( $d ) use ( $valid_day_names ) { return in_array( $d, $valid_day_names, true ); }
+    );
+
+    if ( empty( $off_days ) ) {
+        wp_die( esc_html__( 'No valid off days selected.', 'sfs-hr' ) );
+    }
+
+    // Find all 'absent' sessions in the date range where the employee
+    // had no punches (in_time IS NULL → genuine no-show, not a missed clock-out).
     $absent_sessions = $wpdb->get_results( $wpdb->prepare(
-        "SELECT id, employee_id, work_date FROM {$sT}
+        "SELECT id, work_date FROM {$sT}
          WHERE status = 'absent'
+           AND in_time IS NULL
            AND work_date >= %s AND work_date <= %s",
         $from,
         $to
     ) );
 
+    $tz    = wp_timezone();
     $fixed = 0;
+    $total = 0;
+
     foreach ( $absent_sessions as $sess ) {
-        $eid  = (int) $sess->employee_id;
-        $ymd  = $sess->work_date;
+        $date       = new \DateTimeImmutable( $sess->work_date . ' 00:00:00', $tz );
+        $day_name   = strtolower( $date->format( 'l' ) );
 
-        // Re-resolve the shift for this employee/date using the fixed code.
-        $shift = AttendanceModule::resolve_shift_for_date( $eid, $ymd, [], $wpdb );
-
-        if ( $shift === null ) {
-            // Shift resolved to null = day off.  Fix the record.
-            $is_holiday = AttendanceModule::is_company_holiday( $ymd );
-            $new_status = $is_holiday ? 'holiday' : 'day_off';
-            $wpdb->update(
-                $sT,
-                [
-                    'status'        => $new_status,
-                    'calc_meta_json' => wp_json_encode( [ 'fixed_by' => 'fix_offday_absences', 'reason' => 'shift_resolved_null' ] ),
-                    'last_recalc_at' => current_time( 'mysql', true ),
-                ],
-                [ 'id' => (int) $sess->id ]
-            );
-            $fixed++;
+        if ( ! in_array( $day_name, $off_days, true ) ) {
+            continue;
         }
+
+        $total++;
+        $is_holiday = AttendanceModule::is_company_holiday( $sess->work_date );
+        $new_status = $is_holiday ? 'holiday' : 'day_off';
+
+        $wpdb->update(
+            $sT,
+            [
+                'status'         => $new_status,
+                'calc_meta_json' => wp_json_encode( [
+                    'fixed_by' => 'fix_offday_absences',
+                    'off_day'  => $day_name,
+                ] ),
+                'last_recalc_at' => current_time( 'mysql', true ),
+            ],
+            [ 'id' => (int) $sess->id ]
+        );
+        $fixed++;
     }
 
     // Redirect back with result count.
