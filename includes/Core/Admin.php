@@ -2218,6 +2218,7 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
   }
   .sfs-hr-toolbar select {
     height: 36px;
+    line-height: 36px;
     border-radius: 4px;
     min-width: 100px;
     padding: 0 24px 0 10px;
@@ -2225,6 +2226,8 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
     color: #1e1e1e;
     background-color: #fff;
     border: 1px solid #8c8f94;
+    vertical-align: middle;
+    box-sizing: border-box;
   }
   .sfs-hr-toolbar .button {
     height: 36px;
