@@ -4413,6 +4413,17 @@ $nextLocal = $dayLocal->modify('+1 day');
 $startUtc  = $dayLocal->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
 $endUtc    = $nextLocal->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
 
+// For overnight shifts (e.g. 22:00–01:30 during Ramadan), extend the punch
+// window past midnight so clock-out punches on the next calendar day are
+// captured.  Without this, the session would appear as "incomplete" because
+// the clock-out at 01:30 falls outside the default midnight-to-midnight window.
+if ( ! empty( $segments ) ) {
+    $lastSeg = end( $segments );
+    if ( $lastSeg['end_utc'] > $endUtc ) {
+        $endUtc = $lastSeg['end_utc'];
+    }
+}
+
 // Pull all punches for that window
 $rows = $wpdb->get_results( $wpdb->prepare(
     "SELECT punch_type, punch_time, valid_geo, valid_selfie, source
@@ -4567,7 +4578,14 @@ foreach ($rows as $r) {
 
         if ( count( $rows ) === 0 ) {
             $is_company_holiday = self::is_company_holiday( $ymd );
-            $status = $is_company_holiday ? 'holiday' : 'absent';
+            if ( $shift === null ) {
+                // Shift resolved to null = scheduled day off (weekly override,
+                // schedule rotation, or period override off_days).  Respect this
+                // even when a role-based total_hours policy is active.
+                $status = $is_company_holiday ? 'holiday' : 'day_off';
+            } else {
+                $status = $is_company_holiday ? 'holiday' : 'absent';
+            }
         } elseif ( in_array( 'incomplete', $ev['flags'], true ) ) {
             $status = 'incomplete';
         } elseif ( $net < $target_minutes ) {
@@ -5410,9 +5428,11 @@ public static function resolve_shift_for_date(
     if ($conf) {
         // default shift id
         $shift_id = null;
+        $default_shift_id = null;
         foreach (['default_shift_id','default','shift','shift_id'] as $k) {
             if (isset($conf[$k]) && is_numeric($conf[$k])) {
                 $shift_id = (int)$conf[$k];
+                $default_shift_id = $shift_id;
                 break;
             }
         }
@@ -5449,6 +5469,22 @@ public static function resolve_shift_for_date(
                 )
             );
             if ($sh) {
+                // When the dept automation override replaces the shift (e.g.
+                // Ramadan shift), the replacement often lacks weekly_overrides
+                // because it was created just for the override period.  Inherit
+                // the original default shift's weekly_overrides so rest days
+                // (e.g. Friday, Saturday) are preserved instead of being marked
+                // as absent.
+                if ( $shift_id !== $default_shift_id && empty( $sh->weekly_overrides ) && $default_shift_id ) {
+                    $default_sh = $wpdb->get_row( $wpdb->prepare(
+                        "SELECT weekly_overrides FROM {$shiftT} WHERE id = %d LIMIT 1",
+                        $default_shift_id
+                    ) );
+                    if ( $default_sh && ! empty( $default_sh->weekly_overrides ) ) {
+                        $sh->weekly_overrides = $default_sh->weekly_overrides;
+                    }
+                }
+
                 $sh->__virtual  = 1;
                 $sh->is_holiday = 0;
                 $sh->dept_id    = $dept_id;
@@ -5574,9 +5610,13 @@ private static function apply_weekly_override( ?\stdClass $shift, string $ymd, \
  * without creating a separate shift definition. The override only changes
  * start_time and end_time for dates within the specified range.
  *
+ * When `off_days` is present the override will return null (day off) for those
+ * weekdays, preventing the system from marking employees as absent on their
+ * scheduled rest days (e.g. Friday, Saturday).
+ *
  * JSON format in period_overrides column:
  *   [
- *     {"label":"Ramadan","start_date":"2026-03-01","end_date":"2026-03-29","start_time":"09:00:00","end_time":"15:00:00"},
+ *     {"label":"Ramadan","start_date":"2026-03-01","end_date":"2026-03-29","start_time":"09:00:00","end_time":"15:00:00","off_days":["friday","saturday"]},
  *     {"label":"Summer","start_date":"2026-07-01","end_date":"2026-08-31","start_time":"07:00:00","end_time":"14:00:00"}
  *   ]
  */
@@ -5604,6 +5644,19 @@ private static function apply_period_override( ?\stdClass $shift, string $ymd ):
         $et = $ov['end_time']   ?? '';
 
         if ( $s && $e && $st && $et && $ymd >= $s && $ymd <= $e ) {
+            // Check if the current day of week is an off day for this override.
+            // This prevents period overrides (e.g. Ramadan hours) from turning
+            // scheduled rest days (e.g. Friday) into working days that get
+            // marked as "absent" when nobody clocks in.
+            if ( ! empty( $ov['off_days'] ) && is_array( $ov['off_days'] ) ) {
+                $tz = wp_timezone();
+                $date = new \DateTimeImmutable( $ymd . ' 00:00:00', $tz );
+                $day_of_week = strtolower( $date->format( 'l' ) );
+                if ( in_array( $day_of_week, $ov['off_days'], true ) ) {
+                    return null; // Scheduled day off during this override period.
+                }
+            }
+
             $cloned = clone $shift;
             $cloned->start_time = $st;
             $cloned->end_time   = $et;
