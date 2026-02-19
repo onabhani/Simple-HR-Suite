@@ -97,15 +97,15 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 ### 6.1 Full Plugin Documentation
 - [x] **Create** `docs/` directory with structured documentation
 - [x] **Write** System brochure (`docs/Simple-HR-Suite-Brochure.md`) — marketing-style overview of all 17 modules, self-service portal, manager tools, reporting, security, multi-language, mobile/offline, and quick implementation guide
-- [ ] ~~**Write** Installation & Setup guide~~ *(skipped — brochure is non-technical)*
-- [ ] ~~**Write** Configuration guide (General Settings, each module's settings)~~ *(skipped — brochure is non-technical)*
-- [ ] ~~**Write** User guide for admins~~ *(skipped — brochure is non-technical)*
-- [ ] ~~**Write** User guide for employees~~ *(skipped — brochure is non-technical)*
-- [ ] ~~**Write** Developer guide~~ *(skipped — brochure is non-technical)*
-- [ ] ~~**Document** all database tables~~ *(skipped — brochure is non-technical)*
-- [ ] ~~**Document** all WordPress capabilities and roles~~ *(skipped — brochure is non-technical)*
-- [ ] ~~**Document** all cron jobs and scheduled tasks~~ *(skipped — brochure is non-technical)*
-- [ ] ~~**Add** FAQ / Troubleshooting section~~ *(skipped — brochure is non-technical)*
+- [ ] **`DOC-01`** — Write Installation & Setup guide
+- [ ] **`DOC-02`** — Write Configuration guide (General Settings, each module's settings)
+- [ ] **`DOC-03`** — Write User guide for admins
+- [ ] **`DOC-04`** — Write User guide for employees
+- [ ] **`DOC-05`** — Write Developer guide
+- [ ] **`DOC-06`** — Document all database tables
+- [ ] **`DOC-07`** — Document all WordPress capabilities and roles
+- [ ] **`DOC-08`** — Document all cron jobs and scheduled tasks
+- [ ] **`DOC-09`** — Add FAQ / Troubleshooting section
 
 ---
 
@@ -210,7 +210,7 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 - [x] **Add** bulk approve/reject buttons at the top with multi-select checkboxes
 - [x] **Show** request summary on each card: employee name, date, duration circle badge, leave type tag
 - [x] **Add** filter/sort options (by status, date, department, leave type)
-- [ ] **Add** swipe-to-approve gesture on mobile
+- [ ] ~~**Add** swipe-to-approve gesture on mobile~~ *(skipped)*
 
 ### 10.6 Admin Pages Visual Refresh ✅ Done in v1.0.0
 - [x] **Audit** admin pages for visual consistency with the modernized self-service design

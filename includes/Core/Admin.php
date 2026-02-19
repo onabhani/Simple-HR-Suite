@@ -2220,6 +2220,11 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
     height: 36px;
     border-radius: 4px;
     min-width: 100px;
+    padding: 0 24px 0 10px;
+    font-size: 14px;
+    color: #1e1e1e;
+    background-color: #fff;
+    border: 1px solid #8c8f94;
   }
   .sfs-hr-toolbar .button {
     height: 36px;
@@ -3495,6 +3500,8 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         header('Content-Disposition: attachment; filename='.$filename);
 
         $out = fopen('php://output', 'w');
+        // UTF-8 BOM so Excel correctly renders Arabic characters
+        fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
         $headers = [
     'id','employee_code','first_name','last_name','email','phone','dept_id','position','gender','status',
     'hired_at','base_salary','gosi_salary',
