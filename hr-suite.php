@@ -43,6 +43,9 @@ register_activation_hook(__FILE__, function(){
     // Install Hiring module tables (candidates, trainees)
     \SFS\HR\Modules\Hiring\HiringModule::install();
 
+    // Install Surveys module tables
+    \SFS\HR\Modules\Surveys\SurveysModule::install();
+
     // Install Leave module
     (new \SFS\HR\Modules\Leave\LeaveModule())->install();
 
@@ -508,6 +511,9 @@ add_action('plugins_loaded', function(){
 
     // Performance Module (attendance commitment, goals, reviews, alerts)
     (new \SFS\HR\Modules\Performance\PerformanceModule())->hooks();
+
+    // Surveys Module (employee surveys & feedback)
+    (new \SFS\HR\Modules\Surveys\SurveysModule())->hooks();
 });
 
 /**
