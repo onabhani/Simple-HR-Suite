@@ -2,15 +2,18 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
-## [1.3.4] — 2026-02-19
+## [1.3.5] — 2026-02-19
 
 ### Fixed
-- **"Day off" checkbox not persisting after save**: The weekly schedule used
-  the `??` (null coalescing) operator to read per-day overrides, which treated
-  the stored `null` (= day off) as "not set" and fell back to `'default'`.
-  This caused the checkbox to appear unchecked on reload, and re-saving the
-  shift silently destroyed the day-off setting.  Now uses `array_key_exists()`
-  to correctly distinguish between "key absent" and "key present with null."
+- **"Day off" checkbox not persisting after save** (two bugs):
+  1. **Display**: The `??` (null coalescing) operator treated stored `null`
+     (= day off) as "not set" and fell back to `'default'`, so the checkbox
+     appeared unchecked on reload.  Now uses `array_key_exists()`.
+  2. **Save**: The empty-times fallback (added in 1.3.3) matched ALL 7 days
+     because the form always submits time inputs — even for days using shift
+     defaults (empty `value=""`).  This saved every day as `null` (day off).
+     Removed the fallback: days with empty times and no "Day off" checkbox
+     are now omitted from the JSON and correctly use the shift's default hours.
 
 ## [1.3.3] — 2026-02-19
 
