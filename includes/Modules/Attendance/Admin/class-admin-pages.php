@@ -2571,15 +2571,6 @@ $end   = $norm_time($_POST['end_time']   ?? '');
                 if ( $s_time && $e_time ) {
                     $weekly_schedule[ $day ] = [ 'start' => $s_time, 'end' => $e_time ];
                 }
-            } elseif ( isset( $config['start'] ) && isset( $config['end'] ) ) {
-                // Day included in the form but with empty/cleared times and
-                // no "Day off" checkbox — treat as day off since there is no
-                // schedule for this day.
-                $s_raw = trim( $config['start'] ?? '' );
-                $e_raw = trim( $config['end'] ?? '' );
-                if ( $s_raw === '' && $e_raw === '' ) {
-                    $weekly_schedule[ $day ] = null; // day off (empty times)
-                }
             }
         }
     }
