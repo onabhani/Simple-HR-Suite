@@ -2,6 +2,19 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [1.3.3] — 2026-02-19
+
+### Fixed
+- **Weekly schedule empty times now treated as day off**: When a day in the
+  shift's weekly schedule has empty/cleared times and the "Day off" checkbox
+  is not explicitly checked, the day is now saved as a day off (null) instead
+  of being silently omitted (which fell back to the shift's default working
+  hours and caused absent marks).
+- **Fix Off-Day Absences tool redesigned**: The tool now lets the admin select
+  which day(s) of the week are off days (Fri, Sat, Sun checkboxes) and directly
+  updates all absent sessions on those days to `day_off` — no longer depends
+  on shift configuration resolving correctly.
+
 ## [1.3.2] — 2026-02-19
 
 ### Added
