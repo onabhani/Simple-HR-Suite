@@ -2,6 +2,11 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [1.3.1] — 2026-02-19
+
+### Fixed
+- Consolidated all attendance fixes from v1.3.0 into a stable release.
+
 ## [1.3.0] — 2026-02-18
 
 ### Fixed
