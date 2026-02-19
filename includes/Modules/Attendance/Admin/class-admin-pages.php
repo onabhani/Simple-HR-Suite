@@ -42,6 +42,7 @@ class Admin_Pages {
     add_action( 'admin_post_sfs_hr_att_export_csv', [ $this, 'handle_export_csv' ] );
     add_action( 'admin_post_sfs_hr_att_rebuild_sessions_day', [ $this, 'handle_rebuild_sessions_day' ] );
     add_action( 'admin_post_sfs_hr_att_rebuild_sessions_period', [ $this, 'handle_rebuild_sessions_period' ] );
+    add_action( 'admin_post_sfs_hr_att_fix_offday_absences', [ $this, 'handle_fix_offday_absences' ] );
     add_action( 'admin_post_sfs_hr_att_save_auto_rules', [ $this, 'handle_save_auto_rules' ] );
     add_action( 'admin_post_sfs_hr_att_run_auto_rules', [ $this, 'handle_run_auto_rules' ] );
     add_action( 'admin_post_sfs_hr_att_delete_auto_rule', [ $this, 'handle_delete_auto_rule' ] );
@@ -4752,6 +4753,17 @@ $export_url = esc_url( wp_nonce_url(
     $totalSessions = is_array($rows) ? count($rows) : 0;
     echo '<div class="wrap"><h1>' . esc_html__('Sessions', 'sfs-hr') . '</h1>';
 
+    // Fix Off-Day Absences result notification
+    if ( isset( $_GET['fixed_absences'] ) ) {
+        $fc = (int) $_GET['fixed_absences'];
+        $tc = (int) ( $_GET['total_absences'] ?? 0 );
+        if ( $fc > 0 ) {
+            echo '<div class="notice notice-success is-dismissible"><p>' . sprintf( esc_html__( 'Fixed %1$d of %2$d absent sessions (changed to day_off).', 'sfs-hr' ), $fc, $tc ) . '</p></div>';
+        } else {
+            echo '<div class="notice notice-warning is-dismissible"><p>' . sprintf( esc_html__( 'No absences were fixable — all %d absent sessions have a valid shift assigned (not an off day). Please verify your shift weekly schedule / off-day configuration.', 'sfs-hr' ), $tc ) . '</p></div>';
+        }
+    }
+
     // Toolbar Card
     echo '<div class="sfs-hr-att-toolbar">';
     echo '<form method="get">';
@@ -4833,6 +4845,19 @@ if ( $mode === 'day' ) {
         'sfs_hr_att_rebuild_sessions_period'
     ) );
     echo '<a class="button button-primary" href="'.$rebuild_period_url.'" onclick="return confirm(\'' . esc_js(__('Rebuild all sessions for this period? This may take a moment.', 'sfs-hr')) . '\');">' . esc_html__('Rebuild Period', 'sfs-hr') . ' (' . esc_html($from) . ' → ' . esc_html($to) . ')</a>';
+
+    // Fix Off-Day Absences button
+    $fix_absences_url = esc_url( wp_nonce_url(
+        add_query_arg([
+            'action' => 'sfs_hr_att_fix_offday_absences',
+            'from'   => $from,
+            'to'     => $to,
+            'month'  => $month,
+            'year'   => $year,
+        ], admin_url('admin-post.php')),
+        'sfs_hr_att_fix_offday_absences'
+    ) );
+    echo ' <a class="button" href="'.$fix_absences_url.'" onclick="return confirm(\'' . esc_js(__('Fix all off-day absences in this period?', 'sfs-hr')) . '\');" style="margin-left:6px;">' . esc_html__('Fix Off-Day Absences', 'sfs-hr') . '</a>';
 }
     echo '</form></div>';
 
@@ -5031,6 +5056,79 @@ public function handle_rebuild_sessions_period(): void {
     $year  = isset($_GET['year'])  ? (int) $_GET['year']  : (int) wp_date('Y');
 
     wp_safe_redirect( admin_url( 'admin.php?page=sfs_hr_attendance&tab=sessions&mode=period_25&month=' . $month . '&year=' . $year . '&rebuilt=1' ) );
+    exit;
+}
+
+/**
+ * Fix off-day absences: find all 'absent' sessions in a period, re-resolve
+ * each employee's shift, and correct records where the shift says "day off."
+ */
+public function handle_fix_offday_absences(): void {
+    if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
+        wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
+    }
+    check_admin_referer( 'sfs_hr_att_fix_offday_absences' );
+
+    global $wpdb;
+    $sT = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+
+    $att_period_def = AttendanceModule::get_current_period();
+    $from = ( isset( $_GET['from'] ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) $_GET['from'] ) )
+        ? (string) $_GET['from']
+        : $att_period_def['start'];
+    $to = ( isset( $_GET['to'] ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) $_GET['to'] ) )
+        ? (string) $_GET['to']
+        : $att_period_def['end'];
+
+    $today = wp_date( 'Y-m-d' );
+    if ( $to > $today ) {
+        $to = $today;
+    }
+
+    // Find all 'absent' sessions in the date range.
+    $absent_sessions = $wpdb->get_results( $wpdb->prepare(
+        "SELECT id, employee_id, work_date FROM {$sT}
+         WHERE status = 'absent'
+           AND work_date >= %s AND work_date <= %s",
+        $from,
+        $to
+    ) );
+
+    $fixed = 0;
+    foreach ( $absent_sessions as $sess ) {
+        $eid  = (int) $sess->employee_id;
+        $ymd  = $sess->work_date;
+
+        // Re-resolve the shift for this employee/date using the fixed code.
+        $shift = AttendanceModule::resolve_shift_for_date( $eid, $ymd, [], $wpdb );
+
+        if ( $shift === null ) {
+            // Shift resolved to null = day off.  Fix the record.
+            $is_holiday = AttendanceModule::is_company_holiday( $ymd );
+            $new_status = $is_holiday ? 'holiday' : 'day_off';
+            $wpdb->update(
+                $sT,
+                [
+                    'status'        => $new_status,
+                    'calc_meta_json' => wp_json_encode( [ 'fixed_by' => 'fix_offday_absences', 'reason' => 'shift_resolved_null' ] ),
+                    'last_recalc_at' => current_time( 'mysql', true ),
+                ],
+                [ 'id' => (int) $sess->id ]
+            );
+            $fixed++;
+        }
+    }
+
+    // Redirect back with result count.
+    $month = isset( $_GET['month'] ) ? (int) $_GET['month'] : (int) wp_date( 'm' );
+    $year  = isset( $_GET['year'] )  ? (int) $_GET['year']  : (int) wp_date( 'Y' );
+
+    wp_safe_redirect( admin_url(
+        'admin.php?page=sfs_hr_attendance&tab=sessions&mode=period_25'
+        . '&month=' . $month . '&year=' . $year
+        . '&fixed_absences=' . $fixed
+        . '&total_absences=' . count( $absent_sessions )
+    ) );
     exit;
 }
 
