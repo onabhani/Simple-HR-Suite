@@ -4648,7 +4648,20 @@ foreach ($rows as $r) {
         $status = 'present';
     }
     if ( ! $is_total_hours ) {
-        if (in_array('left_early',$ev['flags'],true)) $status = ($status==='present' ? 'left_early' : $status);
+        if (in_array('left_early',$ev['flags'],true)) {
+            // Suppress left_early when the employee's net worked time meets or
+            // exceeds the scheduled hours (after accounting for the shift's
+            // configured break).  This prevents false positives for employees
+            // who fulfilled their duty hours but left a few minutes before the
+            // shift end time (common for field/installation teams).
+            $expected_work_min = max( 0, $scheduled - $shift_break_minutes );
+            if ( $net >= $expected_work_min && $expected_work_min > 0 ) {
+                // Hours fulfilled — keep status as present, strip the flag
+                $ev['flags'] = array_values( array_diff( $ev['flags'], [ 'left_early' ] ) );
+            } else {
+                $status = ($status==='present' ? 'left_early' : $status);
+            }
+        }
         if (in_array('late',$ev['flags'],true))       $status = ($status==='present' ? 'late'       : $status);
     }
 
@@ -4772,23 +4785,18 @@ foreach ($rows as $r) {
         ]);
     }
 
-    // Fire early leave notification (only if newly detected)
-    if ($is_early && !$was_early) {
-        $minutes_early = 0;
-
+    // Calculate minutes early (used for both notification and request creation)
+    $minutes_early = 0;
+    if ( $is_early ) {
         if ( $is_total_hours ) {
-            // Total-hours mode: "early" means hours shortfall, not shift-time based.
-            // Calculate how many minutes short of the target the employee worked.
             $th_target = (int) ( \SFS\HR\Modules\Attendance\Services\Policy_Service::get_target_hours( $employee_id, $shift ) * 60 );
             $minutes_early = max( 0, $th_target - $net );
         } else {
-            // Segment-based mode: calculate from segment early_minutes
             foreach ($ev['segments'] as $seg) {
                 if (!empty($seg['early_minutes'])) {
                     $minutes_early += (int) $seg['early_minutes'];
                 }
             }
-            // Fallback: calculate from shift end time and last clock-out
             if ( $minutes_early === 0 && $shift && ! empty( $shift->end_time ) && $lastOut ) {
                 $tz_fb       = wp_timezone();
                 $shift_end_dt = new \DateTimeImmutable( $ymd . ' ' . $shift->end_time, $tz_fb );
@@ -4799,26 +4807,31 @@ foreach ($rows as $r) {
                 }
             }
         }
+    }
+
+    // Fire early leave notification (only if newly detected)
+    if ($is_early && !$was_early) {
         do_action('sfs_hr_attendance_early_leave', $employee_id, [
             'minutes_early' => $minutes_early,
             'work_date'     => $ymd,
             'type'          => 'attendance_flag',
         ]);
+    }
 
-        // Auto-create early leave request so manager sees it in the Early Leave tab.
-        // Skip if the employee did not actually leave early (0 minutes = on time or after shift end).
+    // Auto-create early leave request so manager sees it in the Early Leave tab.
+    // Always ensure a request exists when left_early is flagged (not just on
+    // first detection) — previous requests may have been cleaned up by migrations.
+    if ( $is_early && $minutes_early > 0 ) {
         $el_table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
-        $el_exists = ( $minutes_early > 0 ) ? $wpdb->get_var( $wpdb->prepare(
+        $el_exists = $wpdb->get_var( $wpdb->prepare(
             "SELECT id FROM {$el_table} WHERE employee_id = %d AND request_date = %s AND status IN ('pending','approved')",
             $employee_id,
             $ymd
-        ) ) : true; // treat as "already exists" to skip creation
+        ) );
 
         if ( ! $el_exists ) {
-            // Scheduled end time from shift (not meaningful in total-hours mode)
             $scheduled_end = ( ! $is_total_hours && $shift && ! empty( $shift->end_time ) ) ? $shift->end_time : null;
 
-            // Actual leave time (last clock-out) converted from UTC to local
             $actual_leave_local = null;
             if ( $lastOut ) {
                 $tz_el   = wp_timezone();
@@ -4826,7 +4839,6 @@ foreach ($rows as $r) {
                 $actual_leave_local = $utc_out->setTimezone( $tz_el )->format( 'H:i:s' );
             }
 
-            // Find department manager
             $emp_tbl  = $wpdb->prefix . 'sfs_hr_employees';
             $dept_tbl = $wpdb->prefix . 'sfs_hr_departments';
             $emp_row  = $wpdb->get_row( $wpdb->prepare(
@@ -4845,7 +4857,6 @@ foreach ($rows as $r) {
             $now_el = current_time( 'mysql' );
             $el_ref = self::generate_early_leave_request_number();
 
-            // Build reason note based on mode
             $el_reason_note = $is_total_hours
                 ? sprintf(
                     /* translators: %d = number of minutes short of required hours */
@@ -5939,6 +5950,33 @@ private static function evaluate_segments(array $segments, array $punchesUTC, in
     private static function employee_department_label( int $employee_id, \wpdb $wpdb ): ?string {
         $info = self::employee_department_info( $employee_id, $wpdb );
         return $info ? ($info['name'] ?: $info['slug']) : null;
+    }
+
+    /**
+     * Rebuild sessions for ALL active employees on a given date (static version).
+     *
+     * Callable from migrations and other static contexts where no admin page
+     * instance is available.
+     */
+    public static function rebuild_sessions_for_date_static( string $date ): void {
+        global $wpdb;
+        $pT = $wpdb->prefix . 'sfs_hr_attendance_punches';
+        $eT = $wpdb->prefix . 'sfs_hr_employees';
+
+        list( $utc_start, $utc_end ) = self::local_day_window_to_utc( $date );
+        $punched = $wpdb->get_col( $wpdb->prepare(
+            "SELECT DISTINCT employee_id FROM {$pT} WHERE punch_time >= %s AND punch_time < %s",
+            $utc_start, $utc_end
+        ) );
+        $punched = array_map( 'intval', (array) $punched );
+
+        $all_active = $wpdb->get_col( "SELECT id FROM {$eT} WHERE status = 'active'" );
+        $all_active = array_map( 'intval', (array) $all_active );
+
+        $all_ids = array_values( array_unique( array_merge( $punched, $all_active ) ) );
+        foreach ( $all_ids as $eid ) {
+            self::recalc_session_for( $eid, $date, $wpdb );
+        }
     }
 
 

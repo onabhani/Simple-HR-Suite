@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Simple HR Suite
  * Description: Simple HR Suite – employees, departments, leave, balances, approvals.
- * Version: 1.4.0
+ * Version: 1.4.1
  * Author: hdqah.com
  * Author URI: https://hdqah.com
  * Text Domain: sfs-hr
@@ -12,7 +12,7 @@
 
 if (!defined('ABSPATH')) { exit; }
 
-define('SFS_HR_VER', '1.4.0');
+define('SFS_HR_VER', '1.4.1');
 define('SFS_HR_DIR', plugin_dir_path(__FILE__));
 define('SFS_HR_URL', plugin_dir_url(__FILE__));
 define('SFS_HR_PLUGIN_FILE', __FILE__);
@@ -251,6 +251,12 @@ add_action('admin_init', function(){
     // One-time repair: recalculate sessions for total-hours shifts that had
     // incorrect Late/Left early/No break flags due to bogus 24h segments.
     \SFS\HR\Install\Migrations::repair_total_hours_sessions();
+
+    // One-time cleanup: remove stale manager_adjust OUT punches from overnight workarounds
+    \SFS\HR\Install\Migrations::cleanup_stale_overnight_adjust_punches();
+
+    // One-time backfill: create missing early leave requests for left_early sessions
+    \SFS\HR\Install\Migrations::backfill_missing_early_leave_requests();
 
     // Self-heal Hiring tables if missing
     if (!$table_exists($candidates_table) || !$table_exists($trainees_table)) {
