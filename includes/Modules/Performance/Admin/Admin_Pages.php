@@ -598,6 +598,9 @@ class Admin_Pages {
         $score_data = Performance_Calculator::calculate_overall_score( $employee_id, $start_date, $end_date );
         $attendance_metrics = Attendance_Metrics::get_employee_metrics( $employee_id, $start_date, $end_date );
         $goals = Goals_Service::get_employee_goals( $employee_id );
+
+        // Refresh attendance-related alerts so stored data matches live metrics
+        Alerts_Service::refresh_employee_attendance_alerts( $employee_id );
         $alerts = Alerts_Service::get_employee_alerts( $employee_id, 'active' );
 
         $employee_name = trim( $employee->first_name . ' ' . $employee->last_name );

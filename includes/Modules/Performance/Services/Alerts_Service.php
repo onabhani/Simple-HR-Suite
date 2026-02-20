@@ -276,6 +276,9 @@ class Alerts_Service {
                 ] );
 
                 $alerts_created++;
+            } else {
+                // Auto-resolve if below threshold
+                self::auto_resolve_alert( $emp->id, self::TYPE_EXCESSIVE_LATE );
             }
 
             // Check for excessive absence (more than 3 days in a month)
@@ -298,6 +301,9 @@ class Alerts_Service {
                 ] );
 
                 $alerts_created++;
+            } else {
+                // Auto-resolve if below threshold
+                self::auto_resolve_alert( $emp->id, self::TYPE_EXCESSIVE_ABSENCE );
             }
         }
 
@@ -379,6 +385,100 @@ class Alerts_Service {
         }
 
         return $alerts_created;
+    }
+
+    /**
+     * Refresh attendance-related alerts for a single employee.
+     *
+     * Re-evaluates excessive absence, excessive late, and low commitment
+     * alerts using live metrics. Updates or auto-resolves as needed so
+     * the stored alert data matches the current session state.
+     *
+     * @param int $employee_id
+     */
+    public static function refresh_employee_attendance_alerts( int $employee_id ): void {
+        global $wpdb;
+
+        $settings = \SFS\HR\Modules\Performance\PerformanceModule::get_settings();
+        if ( ! $settings['alerts']['enabled'] ) {
+            return;
+        }
+
+        $employees_table = $wpdb->prefix . 'sfs_hr_employees';
+        $emp = $wpdb->get_row( $wpdb->prepare(
+            "SELECT id, first_name, last_name FROM {$employees_table} WHERE id = %d",
+            $employee_id
+        ) );
+        if ( ! $emp ) {
+            return;
+        }
+
+        $att_period = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period();
+        $metrics    = Attendance_Metrics::get_employee_metrics( $emp->id, $att_period['start'], $att_period['end'] );
+
+        if ( isset( $metrics['error'] ) || $metrics['total_working_days'] < 1 ) {
+            return;
+        }
+
+        $emp_name  = trim( $emp->first_name . ' ' . $emp->last_name );
+        $threshold = (float) $settings['alerts']['commitment_threshold'];
+
+        // --- Low commitment ---
+        if ( $metrics['commitment_pct'] < $threshold ) {
+            $severity = $metrics['commitment_pct'] < 60 ? 'critical' : 'warning';
+            self::create_alert( [
+                'employee_id'     => $emp->id,
+                'alert_type'      => self::TYPE_LOW_COMMITMENT,
+                'severity'        => $severity,
+                'title'           => sprintf( __( 'Low Attendance Commitment: %s%%', 'sfs-hr' ), number_format( $metrics['commitment_pct'], 1 ) ),
+                'message'         => sprintf(
+                    __( '%s has attendance commitment of %s%% (below %s%% threshold). Late: %d, Early Leave: %d, Absent: %d days.', 'sfs-hr' ),
+                    $emp_name, number_format( $metrics['commitment_pct'], 1 ), $threshold,
+                    $metrics['late_count'], $metrics['early_leave_count'], $metrics['days_absent']
+                ),
+                'metric_value'    => $metrics['commitment_pct'],
+                'threshold_value' => $threshold,
+                'meta'            => [
+                    'period_start'      => $att_period['start'],
+                    'period_end'        => $att_period['end'],
+                    'late_count'        => $metrics['late_count'],
+                    'early_leave_count' => $metrics['early_leave_count'],
+                    'absent_days'       => $metrics['days_absent'],
+                ],
+            ] );
+        } else {
+            self::auto_resolve_alert( $emp->id, self::TYPE_LOW_COMMITMENT );
+        }
+
+        // --- Excessive lateness ---
+        if ( $metrics['late_count'] >= 5 ) {
+            self::create_alert( [
+                'employee_id'     => $emp->id,
+                'alert_type'      => self::TYPE_EXCESSIVE_LATE,
+                'severity'        => $metrics['late_count'] >= 10 ? 'critical' : 'warning',
+                'title'           => sprintf( __( 'Excessive Lateness: %d times', 'sfs-hr' ), $metrics['late_count'] ),
+                'message'         => sprintf( __( '%s was late %d times this month.', 'sfs-hr' ), $emp_name, $metrics['late_count'] ),
+                'metric_value'    => $metrics['late_count'],
+                'threshold_value' => 5,
+            ] );
+        } else {
+            self::auto_resolve_alert( $emp->id, self::TYPE_EXCESSIVE_LATE );
+        }
+
+        // --- Excessive absence ---
+        if ( $metrics['days_absent'] >= 3 ) {
+            self::create_alert( [
+                'employee_id'     => $emp->id,
+                'alert_type'      => self::TYPE_EXCESSIVE_ABSENCE,
+                'severity'        => $metrics['days_absent'] >= 5 ? 'critical' : 'warning',
+                'title'           => sprintf( __( 'Excessive Absence: %d days', 'sfs-hr' ), $metrics['days_absent'] ),
+                'message'         => sprintf( __( '%s was absent for %d days this month.', 'sfs-hr' ), $emp_name, $metrics['days_absent'] ),
+                'metric_value'    => $metrics['days_absent'],
+                'threshold_value' => 3,
+            ] );
+        } else {
+            self::auto_resolve_alert( $emp->id, self::TYPE_EXCESSIVE_ABSENCE );
+        }
     }
 
     /**
