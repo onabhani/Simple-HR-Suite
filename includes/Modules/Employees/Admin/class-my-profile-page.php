@@ -349,6 +349,27 @@ $this->render_attendance_block( $employee );
 
         // Get last punch to determine current state (punch_time is UTC)
         list($utc_start, $utc_end) = \SFS\HR\Modules\Attendance\AttendanceModule::local_day_window_to_utc($today);
+
+        // --- Overnight shift detection (same logic as snapshot_for_today) ---
+        // Check if yesterday's overnight shift extends into today, so the
+        // employee can clock out after midnight.
+        $tz        = wp_timezone();
+        $yesterday = wp_date( 'Y-m-d', strtotime( '-1 day' ) );
+        $yest_shift    = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $employee->id, $yesterday );
+        $yest_segments = \SFS\HR\Modules\Attendance\AttendanceModule::build_segments_from_shift( $yest_shift, $yesterday );
+
+        if ( ! empty( $yest_segments ) ) {
+            $last_seg    = end( $yest_segments );
+            $seg_end_utc = $last_seg['end_utc'];
+            $now_utc_str = current_time( 'mysql', true );
+
+            // Yesterday's shift extends past today's midnight AND we're still within the shift window
+            if ( $seg_end_utc > $utc_start && $now_utc_str <= $seg_end_utc ) {
+                $yest_local = new \DateTimeImmutable( $yesterday . ' 00:00:00', $tz );
+                $utc_start  = $yest_local->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' );
+            }
+        }
+
         $last_punch = $wpdb->get_row($wpdb->prepare(
             "SELECT * FROM {$punches_table}
              WHERE employee_id = %d AND punch_time >= %s AND punch_time < %s
@@ -387,11 +408,26 @@ $this->render_attendance_block( $employee );
             }
         }
 
+        // --- Day off detection ---
+        // If today's shift resolves to null and there's no open overnight
+        // session, show a "Day Off" message instead of confusing buttons.
+        $today_shift = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $employee->id, $today );
+        $is_day_off  = ( $today_shift === null && $current_status === 'not_clocked_in' );
+
+        if ( $is_day_off ) {
+            $current_status = 'day_off';
+            $can_punch_in   = false;
+            $can_punch_out  = false;
+            $can_start_break = false;
+            $can_end_break  = false;
+        }
+
         $status_labels = [
             'not_clocked_in' => __('Not Clocked In', 'sfs-hr'),
             'clocked_in' => __('Clocked In', 'sfs-hr'),
             'on_break' => __('On Break', 'sfs-hr'),
             'clocked_out' => __('Clocked Out', 'sfs-hr'),
+            'day_off' => __('Day Off', 'sfs-hr'),
         ];
 
         $status_colors = [
@@ -399,6 +435,7 @@ $this->render_attendance_block( $employee );
             'clocked_in' => '#059669',
             'on_break' => '#d97706',
             'clocked_out' => '#dc2626',
+            'day_off' => '#6366f1',
         ];
 
         ?>
@@ -413,6 +450,11 @@ $this->render_attendance_block( $employee );
                         </span>
                     </div>
                 </div>
+                <?php if ( $is_day_off ) : ?>
+                <div style="padding:12px 20px; background:#eef2ff; border-radius:8px; color:#4f46e5; font-weight:500;">
+                    <?php esc_html_e('Today is your day off. Enjoy your rest!', 'sfs-hr'); ?>
+                </div>
+                <?php else : ?>
                 <div style="display:flex; gap:8px; flex-wrap:wrap;" id="quick-punch-buttons">
                     <button type="button" class="button button-primary sfs-quick-punch-btn" data-action="in" <?php disabled(!$can_punch_in); ?> style="<?php echo $can_punch_in ? 'background:#059669; border-color:#047857;' : ''; ?>">
                         <?php esc_html_e('Punch In', 'sfs-hr'); ?>
@@ -427,10 +469,12 @@ $this->render_attendance_block( $employee );
                         <?php esc_html_e('Punch Out', 'sfs-hr'); ?>
                     </button>
                 </div>
+                <?php endif; ?>
             </div>
             <div id="quick-punch-message" style="margin-top:12px; display:none;"></div>
         </div>
 
+        <?php if ( ! $is_day_off ) : ?>
         <script>
         (function() {
             // Update clock
@@ -466,13 +510,13 @@ $this->render_attendance_block( $employee );
 
                         var data = await response.json();
 
-                        if (data.success) {
+                        if (response.ok) {
                             message.style.display = 'block';
                             message.style.padding = '10px';
                             message.style.borderRadius = '6px';
                             message.style.background = '#d1fae5';
                             message.style.color = '#059669';
-                            message.textContent = data.message || '<?php echo esc_js(__('Punch recorded!', 'sfs-hr')); ?>';
+                            message.textContent = '<?php echo esc_js(__('Punch recorded!', 'sfs-hr')); ?>';
 
                             setTimeout(function() { location.reload(); }, 1200);
                         } else {
@@ -499,6 +543,7 @@ $this->render_attendance_block( $employee );
             });
         })();
         </script>
+        <?php endif; ?>
         <?php
     }
 

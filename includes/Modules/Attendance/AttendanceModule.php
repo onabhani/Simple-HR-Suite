@@ -5678,7 +5678,7 @@ private static function apply_period_override( ?\stdClass $shift, string $ymd ):
  * Build segments from a resolved shift object.
  * Returns an array of segment arrays with start/end times in UTC and local.
  */
-private static function build_segments_from_shift( ?\stdClass $shift, string $ymd ): array {
+public static function build_segments_from_shift( ?\stdClass $shift, string $ymd ): array {
     if ( ! $shift || empty( $shift->start_time ) || empty( $shift->end_time ) ) {
         return [];
     }
