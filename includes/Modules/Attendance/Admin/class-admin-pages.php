@@ -43,6 +43,7 @@ class Admin_Pages {
     add_action( 'admin_post_sfs_hr_att_rebuild_sessions_day', [ $this, 'handle_rebuild_sessions_day' ] );
     add_action( 'admin_post_sfs_hr_att_rebuild_sessions_period', [ $this, 'handle_rebuild_sessions_period' ] );
     add_action( 'admin_post_sfs_hr_att_fix_offday_absences', [ $this, 'handle_fix_offday_absences' ] );
+    add_action( 'admin_post_sfs_hr_att_fix_overnight_sessions', [ $this, 'handle_fix_overnight_sessions' ] );
     add_action( 'admin_post_sfs_hr_att_save_auto_rules', [ $this, 'handle_save_auto_rules' ] );
     add_action( 'admin_post_sfs_hr_att_run_auto_rules', [ $this, 'handle_run_auto_rules' ] );
     add_action( 'admin_post_sfs_hr_att_delete_auto_rule', [ $this, 'handle_delete_auto_rule' ] );
@@ -4753,6 +4754,15 @@ $export_url = esc_url( wp_nonce_url(
     $totalSessions = is_array($rows) ? count($rows) : 0;
     echo '<div class="wrap"><h1>' . esc_html__('Sessions', 'sfs-hr') . '</h1>';
 
+    // Fix Overnight Sessions result notification
+    if ( isset( $_GET['fixed_overnight'] ) ) {
+        $fp = (int) ( $_GET['fixed_punches'] ?? 0 );
+        $fs = (int) ( $_GET['fixed_sessions'] ?? 0 );
+        echo '<div class="notice notice-success is-dismissible"><p>'
+            . sprintf( esc_html__( 'Overnight fix complete: removed %1$d spurious punch(es) and %2$d corrupt session(s). Both dates rebuilt.', 'sfs-hr' ), $fp, $fs )
+            . '</p></div>';
+    }
+
     // Fix Off-Day Absences result notification
     if ( isset( $_GET['fixed_absences'] ) ) {
         $fc = (int) $_GET['fixed_absences'];
@@ -4816,11 +4826,19 @@ if ( $mode === 'day' ) {
     ) );
     echo '<a class="button button-primary" id="sfs-rebuild-link" href="'.$rebuild_url.'">' . esc_html__('Rebuild Sessions for', 'sfs-hr') . ' '.esc_html($date).'</a>';
 
+    // Fix Overnight Sessions button (day view)
+    $fix_overnight_url = esc_url( wp_nonce_url(
+        add_query_arg( [ 'action' => 'sfs_hr_att_fix_overnight_sessions', 'date' => $date ], admin_url( 'admin-post.php' ) ),
+        'sfs_hr_att_fix_overnight_sessions'
+    ) );
+    echo '<a class="button" id="sfs-fix-overnight-link" href="' . $fix_overnight_url . '" onclick="return confirm(\'' . esc_js( __( 'This will remove spurious punches/sessions from the next day caused by overnight shift bugs and rebuild both dates. Continue?', 'sfs-hr' ) ) . '\');" style="margin-left:4px;">' . esc_html__( 'Fix Overnight Sessions', 'sfs-hr' ) . '</a>';
+
     // Keep the link in sync when date changes
     echo "<script>
     (function(){
       var d = document.getElementById('sfs-sessions-date');
       var a = document.getElementById('sfs-rebuild-link');
+      var o = document.getElementById('sfs-fix-overnight-link');
       if (!d || !a) return;
       d.addEventListener('change', function(){
         try {
@@ -4828,6 +4846,11 @@ if ( $mode === 'day' ) {
           url.searchParams.set('date', this.value || '".esc_js($date)."');
           a.href = url.toString();
           a.textContent = '".esc_js(__('Rebuild Sessions for', 'sfs-hr'))." ' + (this.value || '".esc_js($date)."');
+          if (o) {
+            var u2 = new URL(o.href, window.location.origin);
+            u2.searchParams.set('date', this.value || '".esc_js($date)."');
+            o.href = u2.toString();
+          }
         } catch(e) {}
       });
     })();
@@ -5170,6 +5193,100 @@ public function handle_fix_offday_absences(): void {
         . '&month=' . $month . '&year=' . $year
         . '&fixed_absences=' . $fixed
         . '&total_absences=' . count( $absent_sessions )
+    ) );
+    exit;
+}
+
+/**
+ * Fix overnight session corruption: for a given date, find employees whose
+ * shift extended past midnight, delete any spurious punches/sessions on the
+ * next calendar day that were caused by the snapshot bug, and rebuild both
+ * the original date and the next day's sessions.
+ */
+public function handle_fix_overnight_sessions(): void {
+    if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
+        wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
+    }
+    check_admin_referer( 'sfs_hr_att_fix_overnight_sessions' );
+
+    global $wpdb;
+    $pT = $wpdb->prefix . 'sfs_hr_attendance_punches';
+    $sT = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+    $eT = $wpdb->prefix . 'sfs_hr_employees';
+    $tz = wp_timezone();
+
+    $date = ( isset( $_GET['date'] ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) $_GET['date'] ) )
+        ? (string) $_GET['date']
+        : wp_date( 'Y-m-d', strtotime( '-1 day' ) );
+
+    $next_day = ( new \DateTimeImmutable( $date . ' 00:00:00', $tz ) )->modify( '+1 day' )->format( 'Y-m-d' );
+
+    // Find all active employees
+    $all_active = $wpdb->get_col( "SELECT id FROM {$eT} WHERE status = 'active'" );
+    $all_active = array_map( 'intval', (array) $all_active );
+
+    $fixed_punches  = 0;
+    $fixed_sessions = 0;
+
+    foreach ( $all_active as $eid ) {
+        // Check if this employee had an overnight shift on $date
+        $shift    = AttendanceModule::resolve_shift_for_date( $eid, $date );
+        $segments = AttendanceModule::build_segments_from_shift( $shift, $date );
+        if ( empty( $segments ) ) {
+            continue;
+        }
+
+        $last_seg    = end( $segments );
+        $seg_end_utc = $last_seg['end_utc'];
+
+        // Only process employees whose shift extends past midnight
+        $next_midnight_utc = ( new \DateTimeImmutable( $next_day . ' 00:00:00', $tz ) )
+            ->setTimezone( new \DateTimeZone( 'UTC' ) )
+            ->format( 'Y-m-d H:i:s' );
+        if ( $seg_end_utc <= $next_midnight_utc ) {
+            continue;
+        }
+
+        // Delete spurious punches on the NEXT day within the overnight window
+        // (00:00 → shift_end on next day). These were failed clock-in/out attempts.
+        $next_start_utc = $next_midnight_utc;
+        // Add a small buffer past shift end (5 min) to catch attempts just after shift end
+        $cutoff_ts  = strtotime( $seg_end_utc . ' UTC' ) + 300;
+        $cutoff_utc = gmdate( 'Y-m-d H:i:s', $cutoff_ts );
+
+        $deleted = $wpdb->query( $wpdb->prepare(
+            "DELETE FROM {$pT}
+             WHERE employee_id = %d
+               AND punch_time >= %s AND punch_time < %s",
+            $eid, $next_start_utc, $cutoff_utc
+        ) );
+        $fixed_punches += (int) $deleted;
+
+        // Delete any corrupt session on the next day for this employee
+        $del_sess = $wpdb->query( $wpdb->prepare(
+            "DELETE FROM {$sT}
+             WHERE employee_id = %d AND work_date = %s
+               AND status IN ('incomplete','absent')
+               AND in_time IS NOT NULL
+               AND TIME(in_time) < '04:00:00'",
+            $eid, $next_day
+        ) );
+        $fixed_sessions += (int) $del_sess;
+    }
+
+    // Rebuild sessions for both dates
+    $this->rebuild_all_sessions_for_date( $date );
+    $this->rebuild_all_sessions_for_date( $next_day );
+
+    $month = isset( $_GET['month'] ) ? (int) $_GET['month'] : (int) wp_date( 'm' );
+    $year  = isset( $_GET['year'] )  ? (int) $_GET['year']  : (int) wp_date( 'Y' );
+
+    wp_safe_redirect( admin_url(
+        'admin.php?page=sfs_hr_attendance&tab=sessions&date=' . $date
+        . '&month=' . $month . '&year=' . $year
+        . '&fixed_overnight=1'
+        . '&fixed_punches=' . $fixed_punches
+        . '&fixed_sessions=' . $fixed_sessions
     ) );
     exit;
 }

@@ -508,7 +508,14 @@ if ( $source === 'kiosk' && $scan_token !== '' ) {
     // =========================================================================
 
     // ---- Resolve effective shift for today (Assignments override Automation)
-    $dateYmd = wp_date( 'Y-m-d' );
+    // For overnight shifts: if the snapshot detected an open session from
+    // yesterday, use yesterday's date so clock-out/break punches are attributed
+    // to the correct work date and shift (not today's off-day/null shift).
+    $dateYmd          = wp_date( 'Y-m-d' );
+    $overnight_active = ! empty( $pre['overnight_ymd'] ) && in_array( $punch_type, [ 'out', 'break_start', 'break_end' ], true );
+    if ( $overnight_active ) {
+        $dateYmd = $pre['overnight_ymd'];
+    }
     $assign  = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $emp, $dateYmd );
     if ( ! $assign ) {
         return new \WP_Error( 'no_shift', 'No shift set (no assignment and no department automation). Ask HR to set Automation or create an assignment.', [ 'status' => 409 ] );
@@ -806,7 +813,7 @@ if ( $selfie_media_id ) {
         'created_at'         => $nowUtc,
     ] );
 
-    // ---- Recalculate today’s session, return snapshot + selfie requirement hint
+    // ---- Recalculate the session for the work date (may be yesterday for overnight shifts)
         \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( (int) $emp, $dateYmd );
 
     // Snapshot جديد بعد التسجيل
@@ -943,7 +950,34 @@ private static function save_selfie_attachment( array $src ): int {
     $start_utc    = $start_local->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
     $end_utc      = $end_local->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
 
-    // Pull today's punches in order
+    // --- Overnight shift detection ---
+    // If there are no punches today, check if there's an open overnight session
+    // from yesterday (last punch = in/break_end with no subsequent out).  This
+    // lets employees clock out after midnight when their overnight shift ends
+    // on the next calendar day (e.g. 22:00–01:30 or 12:00–01:30 Ramadan).
+    $overnight_ymd = '';
+    $yesterday     = wp_date( 'Y-m-d', strtotime( '-1 day' ) );
+    $yest_local    = new \DateTimeImmutable( $yesterday . ' 00:00:00', $tz );
+    $yest_utc      = $yest_local->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' );
+
+    // Check yesterday's shift for overnight extension
+    $yest_shift    = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( $employee_id, $yesterday );
+    $yest_segments = \SFS\HR\Modules\Attendance\AttendanceModule::build_segments_from_shift( $yest_shift, $yesterday );
+
+    if ( ! empty( $yest_segments ) ) {
+        $last_seg     = end( $yest_segments );
+        $seg_end_utc  = $last_seg['end_utc'];
+        $now_utc_str  = current_time( 'mysql', true );
+
+        // Yesterday's shift extends past midnight AND we're still within the shift window
+        if ( $seg_end_utc > $start_utc && $now_utc_str <= $seg_end_utc ) {
+            // Extend the punch window backward to include yesterday's punches
+            $start_utc     = $yest_utc;
+            $overnight_ymd = $yesterday;
+        }
+    }
+
+    // Pull punches in order (may include yesterday for overnight shifts)
     $rows = $wpdb->get_results( $wpdb->prepare(
         "SELECT punch_type, punch_time
          FROM {$pT}
@@ -1054,6 +1088,7 @@ private static function save_selfie_attachment( array $src ): int {
         'working_seconds' => max( 0, (int) $working_seconds ),
         'target_seconds'  => $target_seconds,
         'punch_history'   => $punch_history,
+        'overnight_ymd'   => $overnight_ymd,
     ];
 }
 
