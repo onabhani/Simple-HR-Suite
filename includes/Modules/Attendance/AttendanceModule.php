@@ -4422,6 +4422,19 @@ if ( ! empty( $segments ) ) {
     if ( $lastSeg['end_utc'] > $endUtc ) {
         $endUtc = $lastSeg['end_utc'];
     }
+
+    // Tighten the window START to (shift_start - 2 hours) to prevent stale
+    // punches from the previous night's overnight shift from leaking into
+    // this day's session.  E.g. for a 12:00 PM shift, midnight–10:00 AM
+    // punches are excluded since they belong to the previous day's shift.
+    $firstSeg        = reset( $segments );
+    $segStartUtcTs   = strtotime( $firstSeg['start_utc'] . ' UTC' );
+    $bufferSeconds   = 7200; // 2 hours before shift start
+    $tightenedStartTs= $segStartUtcTs - $bufferSeconds;
+    $midnightUtcTs   = strtotime( $startUtc . ' UTC' );
+    if ( $tightenedStartTs > $midnightUtcTs ) {
+        $startUtc = gmdate( 'Y-m-d H:i:s', $tightenedStartTs );
+    }
 }
 
 // Pull all punches for that window

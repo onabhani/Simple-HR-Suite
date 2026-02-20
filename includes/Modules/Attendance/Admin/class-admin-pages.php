@@ -5198,10 +5198,15 @@ public function handle_fix_offday_absences(): void {
 }
 
 /**
- * Fix overnight session corruption: for a given date, find employees whose
- * shift extended past midnight, delete any spurious punches/sessions on the
- * next calendar day that were caused by the snapshot bug, and rebuild both
- * the original date and the next day's sessions.
+ * Fix overnight session corruption for a given date.
+ *
+ * Two cleanup passes:
+ *  A) Stale previous-night punches: the previous day's overnight shift leaked
+ *     clock-in/out attempts into the early morning of $date (00:00–shift_start).
+ *  B) Stale next-day punches: $date's overnight shift leaked clock-in/out
+ *     attempts into the early morning of $date+1 (00:00–shift_end).
+ *
+ * After cleanup, rebuilds sessions for previous day, $date, and next day.
  */
 public function handle_fix_overnight_sessions(): void {
     if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
@@ -5219,62 +5224,78 @@ public function handle_fix_overnight_sessions(): void {
         ? (string) $_GET['date']
         : wp_date( 'Y-m-d', strtotime( '-1 day' ) );
 
+    $prev_day = ( new \DateTimeImmutable( $date . ' 00:00:00', $tz ) )->modify( '-1 day' )->format( 'Y-m-d' );
     $next_day = ( new \DateTimeImmutable( $date . ' 00:00:00', $tz ) )->modify( '+1 day' )->format( 'Y-m-d' );
 
-    // Find all active employees
     $all_active = $wpdb->get_col( "SELECT id FROM {$eT} WHERE status = 'active'" );
     $all_active = array_map( 'intval', (array) $all_active );
 
     $fixed_punches  = 0;
     $fixed_sessions = 0;
 
+    $date_midnight_utc = ( new \DateTimeImmutable( $date . ' 00:00:00', $tz ) )
+        ->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' );
+    $next_midnight_utc = ( new \DateTimeImmutable( $next_day . ' 00:00:00', $tz ) )
+        ->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' );
+
     foreach ( $all_active as $eid ) {
-        // Check if this employee had an overnight shift on $date
+        // --- Pass A: Clean stale PREVIOUS-night punches from early morning of $date ---
+        // If the PREVIOUS day had an overnight shift, employees may have tried
+        // to clock in/out at e.g. 01:30 AM on $date — those punches should not
+        // pollute $date's session.
+        $prev_shift    = AttendanceModule::resolve_shift_for_date( $eid, $prev_day );
+        $prev_segments = AttendanceModule::build_segments_from_shift( $prev_shift, $prev_day );
+        if ( ! empty( $prev_segments ) ) {
+            $prev_last_seg = end( $prev_segments );
+            // Previous day's shift ends past midnight of $date
+            if ( $prev_last_seg['end_utc'] > $date_midnight_utc ) {
+                $cutoff_ts  = strtotime( $prev_last_seg['end_utc'] . ' UTC' ) + 300;
+                $cutoff_utc = gmdate( 'Y-m-d H:i:s', $cutoff_ts );
+
+                $del = $wpdb->query( $wpdb->prepare(
+                    "DELETE FROM {$pT}
+                     WHERE employee_id = %d
+                       AND punch_time >= %s AND punch_time < %s",
+                    $eid, $date_midnight_utc, $cutoff_utc
+                ) );
+                $fixed_punches += (int) $del;
+            }
+        }
+
+        // --- Pass B: Clean stale NEXT-day punches from $date's overnight ---
         $shift    = AttendanceModule::resolve_shift_for_date( $eid, $date );
         $segments = AttendanceModule::build_segments_from_shift( $shift, $date );
-        if ( empty( $segments ) ) {
-            continue;
+        if ( ! empty( $segments ) ) {
+            $last_seg    = end( $segments );
+            $seg_end_utc = $last_seg['end_utc'];
+            if ( $seg_end_utc > $next_midnight_utc ) {
+                $cutoff_ts  = strtotime( $seg_end_utc . ' UTC' ) + 300;
+                $cutoff_utc = gmdate( 'Y-m-d H:i:s', $cutoff_ts );
+
+                $del = $wpdb->query( $wpdb->prepare(
+                    "DELETE FROM {$pT}
+                     WHERE employee_id = %d
+                       AND punch_time >= %s AND punch_time < %s",
+                    $eid, $next_midnight_utc, $cutoff_utc
+                ) );
+                $fixed_punches += (int) $del;
+
+                // Delete any corrupt session on the next day
+                $del_sess = $wpdb->query( $wpdb->prepare(
+                    "DELETE FROM {$sT}
+                     WHERE employee_id = %d AND work_date = %s
+                       AND status IN ('incomplete','absent')
+                       AND in_time IS NOT NULL
+                       AND TIME(in_time) < '04:00:00'",
+                    $eid, $next_day
+                ) );
+                $fixed_sessions += (int) $del_sess;
+            }
         }
-
-        $last_seg    = end( $segments );
-        $seg_end_utc = $last_seg['end_utc'];
-
-        // Only process employees whose shift extends past midnight
-        $next_midnight_utc = ( new \DateTimeImmutable( $next_day . ' 00:00:00', $tz ) )
-            ->setTimezone( new \DateTimeZone( 'UTC' ) )
-            ->format( 'Y-m-d H:i:s' );
-        if ( $seg_end_utc <= $next_midnight_utc ) {
-            continue;
-        }
-
-        // Delete spurious punches on the NEXT day within the overnight window
-        // (00:00 → shift_end on next day). These were failed clock-in/out attempts.
-        $next_start_utc = $next_midnight_utc;
-        // Add a small buffer past shift end (5 min) to catch attempts just after shift end
-        $cutoff_ts  = strtotime( $seg_end_utc . ' UTC' ) + 300;
-        $cutoff_utc = gmdate( 'Y-m-d H:i:s', $cutoff_ts );
-
-        $deleted = $wpdb->query( $wpdb->prepare(
-            "DELETE FROM {$pT}
-             WHERE employee_id = %d
-               AND punch_time >= %s AND punch_time < %s",
-            $eid, $next_start_utc, $cutoff_utc
-        ) );
-        $fixed_punches += (int) $deleted;
-
-        // Delete any corrupt session on the next day for this employee
-        $del_sess = $wpdb->query( $wpdb->prepare(
-            "DELETE FROM {$sT}
-             WHERE employee_id = %d AND work_date = %s
-               AND status IN ('incomplete','absent')
-               AND in_time IS NOT NULL
-               AND TIME(in_time) < '04:00:00'",
-            $eid, $next_day
-        ) );
-        $fixed_sessions += (int) $del_sess;
     }
 
-    // Rebuild sessions for both dates
+    // Rebuild sessions for all three dates
+    $this->rebuild_all_sessions_for_date( $prev_day );
     $this->rebuild_all_sessions_for_date( $date );
     $this->rebuild_all_sessions_for_date( $next_day );
 
