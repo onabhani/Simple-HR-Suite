@@ -4650,12 +4650,28 @@ foreach ($rows as $r) {
     if ( ! $is_total_hours ) {
         if (in_array('left_early',$ev['flags'],true)) {
             // Suppress left_early when the employee's net worked time meets or
-            // exceeds the scheduled hours (after accounting for the shift's
-            // configured break).  This prevents false positives for employees
-            // who fulfilled their duty hours but left a few minutes before the
-            // shift end time (common for field/installation teams).
+            // exceeds the expected duty hours.  Check two thresholds:
+            //  1) scheduled - break  (full shift minus configured break)
+            //  2) policy target_hours (e.g. 8h for installation teams)
+            // This prevents false positives for employees who fulfilled their
+            // duty hours but left before the shift end time.
             $expected_work_min = max( 0, $scheduled - $shift_break_minutes );
-            if ( $net >= $expected_work_min && $expected_work_min > 0 ) {
+
+            // Also check policy target_hours — but only when the employee has
+            // an explicit policy with target_hours set (avoid the 8h default
+            // which would suppress left_early for all employees).
+            $policy_target_min = 0;
+            $eff_policy = \SFS\HR\Modules\Attendance\Services\Policy_Service::resolve_effective_policy( $employee_id, $shift );
+            if ( $eff_policy && ! empty( $eff_policy->target_hours ) ) {
+                $policy_target_min = (int) ( (float) $eff_policy->target_hours * 60 );
+            }
+
+            $hours_fulfilled = (
+                ( $expected_work_min > 0 && $net >= $expected_work_min ) ||
+                ( $policy_target_min > 0 && $net >= $policy_target_min )
+            );
+
+            if ( $hours_fulfilled ) {
                 // Hours fulfilled — keep status as present, strip the flag
                 $ev['flags'] = array_values( array_diff( $ev['flags'], [ 'left_early' ] ) );
             } else {
