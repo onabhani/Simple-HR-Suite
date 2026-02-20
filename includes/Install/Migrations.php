@@ -1017,4 +1017,202 @@ class Migrations {
 
         update_option( $flag, '1' );
     }
+
+    /**
+     * One-time cleanup: remove stale manager_adjust OUT punches from overnight
+     * shift workarounds.
+     *
+     * These punches were manually created to close broken overnight sessions
+     * before the overnight logic was fixed in code.  They appear as OUT punches
+     * with source='manager_adjust' in the early-morning hours (00:00–05:00 local)
+     * where no corresponding manager_adjust IN punch exists nearby.
+     *
+     * After removal, affected sessions are rebuilt from the remaining punches.
+     */
+    public static function cleanup_stale_overnight_adjust_punches(): void {
+        $flag = 'sfs_hr_cleaned_stale_overnight_adjusts';
+        if ( get_option( $flag ) ) {
+            return; // already ran
+        }
+
+        global $wpdb;
+        $pT = $wpdb->prefix . 'sfs_hr_attendance_punches';
+        $sT = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+        $tz = wp_timezone();
+
+        // Find manager_adjust OUT punches in the early morning (00:00–05:00 local)
+        // that lack a paired manager_adjust IN punch on the same day.
+        // These are standalone OUT punches injected to close overnight sessions.
+        $early_morning_start = '00:00:00';
+        $early_morning_end   = '05:00:00';
+
+        // Convert local early-morning boundaries for the last 7 days to UTC
+        // to catch recently-created workaround punches.
+        $affected_dates = [];
+        $deleted        = 0;
+
+        for ( $i = 0; $i < 7; $i++ ) {
+            $day = wp_date( 'Y-m-d', strtotime( "-{$i} days" ) );
+            $utc_from = ( new \DateTimeImmutable( $day . ' ' . $early_morning_start, $tz ) )
+                ->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' );
+            $utc_to = ( new \DateTimeImmutable( $day . ' ' . $early_morning_end, $tz ) )
+                ->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' );
+
+            $del = (int) $wpdb->query( $wpdb->prepare(
+                "DELETE p FROM `{$pT}` p
+                 WHERE p.punch_type = 'out'
+                   AND p.source     = 'manager_adjust'
+                   AND p.punch_time >= %s
+                   AND p.punch_time <  %s
+                   AND NOT EXISTS (
+                       SELECT 1 FROM (SELECT id, employee_id, punch_time FROM `{$pT}`
+                                      WHERE source = 'manager_adjust'
+                                        AND punch_type = 'in'
+                                        AND punch_time >= %s
+                                        AND punch_time < %s) AS adj_in
+                       WHERE adj_in.employee_id = p.employee_id
+                   )",
+                $utc_from, $utc_to, $utc_from, $utc_to
+            ) );
+
+            if ( $del > 0 ) {
+                $deleted += $del;
+                $affected_dates[] = $day;
+            }
+        }
+
+        // Rebuild sessions for affected dates
+        if ( ! empty( $affected_dates ) ) {
+            foreach ( $affected_dates as $day ) {
+                \SFS\HR\Modules\Attendance\AttendanceModule::rebuild_sessions_for_date_static( $day );
+            }
+        }
+
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            error_log( sprintf(
+                '[SFS HR] Overnight adjust cleanup: removed %d stale manager_adjust OUT punch(es) on %d date(s).',
+                $deleted, count( $affected_dates )
+            ) );
+        }
+
+        update_option( $flag, '1' );
+    }
+
+    /**
+     * One-time repair: backfill missing early leave requests for sessions that
+     * have left_early status but no corresponding early leave request.
+     *
+     * This can happen when:
+     *  - Sessions were calculated before auto-creation was added.
+     *  - Cleanup migrations removed false requests but recalculation didn't
+     *    re-create them (because the left_early flag already existed).
+     */
+    public static function backfill_missing_early_leave_requests(): void {
+        $flag = 'sfs_hr_backfilled_early_leave_requests';
+        if ( get_option( $flag ) ) {
+            return; // already ran
+        }
+
+        global $wpdb;
+        $sT  = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+        $elT = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+        $eT  = $wpdb->prefix . 'sfs_hr_employees';
+        $dT  = $wpdb->prefix . 'sfs_hr_departments';
+
+        // Find sessions with left_early status that have no corresponding
+        // pending or approved early leave request.
+        $orphans = $wpdb->get_results(
+            "SELECT s.id AS session_id, s.employee_id, s.work_date, s.out_time,
+                    s.rounded_net_minutes, s.calc_meta_json
+             FROM `{$sT}` s
+             WHERE s.status = 'left_early'
+               AND NOT EXISTS (
+                   SELECT 1 FROM `{$elT}` el
+                   WHERE el.employee_id = s.employee_id
+                     AND el.request_date = s.work_date
+                     AND el.status IN ('pending','approved')
+               )
+             ORDER BY s.work_date ASC"
+        );
+
+        $created = 0;
+        $tz = wp_timezone();
+
+        foreach ( (array) $orphans as $s ) {
+            // Parse calc_meta for target/scheduled info
+            $meta = $s->calc_meta_json ? json_decode( $s->calc_meta_json, true ) : [];
+            $is_th = ( $meta['policy_mode'] ?? '' ) === 'total_hours';
+
+            // Calculate minutes early
+            $minutes_early = 0;
+            if ( $is_th && ! empty( $meta['target_minutes'] ) ) {
+                $minutes_early = max( 0, (int) $meta['target_minutes'] - (int) $s->rounded_net_minutes );
+            } elseif ( ! empty( $meta['segments'] ) ) {
+                foreach ( $meta['segments'] as $seg ) {
+                    $minutes_early += (int) ( $seg['early_minutes'] ?? 0 );
+                }
+            }
+
+            if ( $minutes_early <= 0 ) {
+                continue; // on time or no useful data
+            }
+
+            // Actual leave time
+            $actual_leave_local = null;
+            if ( $s->out_time ) {
+                try {
+                    $utc_out = new \DateTimeImmutable( $s->out_time, new \DateTimeZone( 'UTC' ) );
+                    $actual_leave_local = $utc_out->setTimezone( $tz )->format( 'H:i:s' );
+                } catch ( \Throwable $e ) { /* skip */ }
+            }
+
+            // Find department manager
+            $mgr_id = null;
+            $emp_dept = $wpdb->get_var( $wpdb->prepare(
+                "SELECT dept_id FROM `{$eT}` WHERE id = %d", (int) $s->employee_id
+            ) );
+            if ( $emp_dept ) {
+                $mgr_id = $wpdb->get_var( $wpdb->prepare(
+                    "SELECT manager_user_id FROM `{$dT}` WHERE id = %d", (int) $emp_dept
+                ) );
+            }
+
+            // Generate reference number
+            $ref = \SFS\HR\Core\Helpers::generate_reference_number(
+                'EL', $elT, 'request_number'
+            );
+
+            $reason = $is_th
+                ? sprintf( 'Auto-created: employee worked %d minutes less than required hours.', $minutes_early )
+                : sprintf( 'Auto-created: employee left %d minutes before shift end.', $minutes_early );
+
+            $now = current_time( 'mysql' );
+            $wpdb->insert( $elT, [
+                'employee_id'          => (int) $s->employee_id,
+                'session_id'           => (int) $s->session_id,
+                'request_date'         => $s->work_date,
+                'scheduled_end_time'   => null,
+                'requested_leave_time' => $actual_leave_local,
+                'actual_leave_time'    => $actual_leave_local,
+                'reason_type'          => 'other',
+                'reason_note'          => $reason,
+                'status'               => 'pending',
+                'request_number'       => $ref,
+                'manager_id'           => $mgr_id ? (int) $mgr_id : null,
+                'affects_salary'       => 0,
+                'created_at'           => $now,
+                'updated_at'           => $now,
+            ] );
+            $created++;
+        }
+
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            error_log( sprintf(
+                '[SFS HR] Early leave backfill: created %d missing early leave request(s).',
+                $created
+            ) );
+        }
+
+        update_option( $flag, '1' );
+    }
 }
