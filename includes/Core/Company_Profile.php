@@ -243,7 +243,7 @@ class Company_Profile {
                                 <td>
                                     <select id="fiscal_year_start" name="fiscal_year_start">
                                         <?php for ( $m = 1; $m <= 12; $m++ ) : $mv = str_pad( $m, 2, '0', STR_PAD_LEFT ); ?>
-                                            <option value="<?php echo $mv; ?>" <?php selected( $p['fiscal_year_start'], $mv ); ?>><?php echo esc_html( date_i18n( 'F', mktime( 0, 0, 0, $m, 1 ) ) ); ?></option>
+                                            <option value="<?php echo esc_attr( $mv ); ?>" <?php selected( $p['fiscal_year_start'], $mv ); ?>><?php echo esc_html( date_i18n( 'F', mktime( 0, 0, 0, $m, 1 ) ) ); ?></option>
                                         <?php endfor; ?>
                                     </select>
                                 </td>
