@@ -4275,14 +4275,10 @@ public function ajax_dbg(): void {
     public static function is_blocked_by_leave_or_holiday( int $employee_id, string $dateYmd ): bool {
         $blocked = false;
 
-        // Holidays
-        $ranges = get_option( 'sfs_hr_holidays' );
-        if ( is_array( $ranges ) ) {
-            foreach ( $ranges as $range ) {
-                $s = isset($range['start_date']) ? $range['start_date'] : null;
-                $e = isset($range['end_date'])   ? $range['end_date']   : null;
-                if ( $s && $e && $dateYmd >= $s && $dateYmd <= $e ) { $blocked = true; break; }
-            }
+        // Holidays (uses holidays_in_range which handles yearly repeat expansion)
+        $holiday_dates = \SFS\HR\Modules\Leave\Services\LeaveCalculationService::holidays_in_range( $dateYmd, $dateYmd );
+        if ( ! empty( $holiday_dates ) ) {
+            $blocked = true;
         }
 
         // Leaves
@@ -4310,20 +4306,8 @@ public function ajax_dbg(): void {
      * @return bool
      */
     public static function is_company_holiday( string $dateYmd ): bool {
-        $ranges = get_option( 'sfs_hr_holidays' );
-        if ( ! is_array( $ranges ) ) {
-            return false;
-        }
-
-        foreach ( $ranges as $range ) {
-            $s = isset( $range['start_date'] ) ? $range['start_date'] : null;
-            $e = isset( $range['end_date'] )   ? $range['end_date']   : null;
-            if ( $s && $e && $dateYmd >= $s && $dateYmd <= $e ) {
-                return true;
-            }
-        }
-
-        return false;
+        $holiday_dates = \SFS\HR\Modules\Leave\Services\LeaveCalculationService::holidays_in_range( $dateYmd, $dateYmd );
+        return ! empty( $holiday_dates );
     }
 
 
@@ -4374,27 +4358,47 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
         return;
     }
 
-    // Leave/Holiday global guard
-    if ( self::is_blocked_by_leave_or_holiday($employee_id, $ymd) ) {
-        $data = [
-            'employee_id'         => $employee_id,
-            'work_date'           => $ymd,
-            'in_time'             => null,
-            'out_time'            => null,
-            'break_minutes'       => 0,
-            'break_delay_minutes' => 0,
-            'no_break_taken'      => 0,
-            'net_minutes'         => 0,
-            'rounded_net_minutes' => 0,
-            'overtime_minutes'    => 0,
-            'status'              => 'on_leave',
-            'flags_json'          => wp_json_encode([]),
-            'calc_meta_json'      => wp_json_encode(['reason'=>'blocked_by_leave_or_holiday']),
-            'last_recalc_at'      => current_time('mysql', true),
-        ];
-        $exists = $wpdb->get_var( $wpdb->prepare("SELECT id FROM {$sT} WHERE employee_id=%d AND work_date=%s LIMIT 1", $employee_id, $ymd) );
-        if ($exists) $wpdb->update($sT,$data,['id'=>$exists]); else $wpdb->insert($sT,$data);
-        return;
+    // Leave/Holiday guard — check if this day is a holiday or approved leave.
+    // If the employee has NO punches, mark as holiday/on_leave.
+    // If the employee DID punch (working overtime on a holiday), let the
+    // session calculate normally so their hours are recorded as overtime.
+    $is_leave_or_holiday = self::is_blocked_by_leave_or_holiday( $employee_id, $ymd );
+    $is_holiday          = self::is_company_holiday( $ymd );
+
+    if ( $is_leave_or_holiday ) {
+        // Peek ahead to see if the employee has any punches for this day
+        list( $peek_utc_start, $peek_utc_end ) = self::local_day_window_to_utc( $ymd );
+        $has_punches = (bool) $wpdb->get_var( $wpdb->prepare(
+            "SELECT 1 FROM {$wpdb->prefix}sfs_hr_attendance_punches
+             WHERE employee_id = %d AND punch_time >= %s AND punch_time < %s LIMIT 1",
+            $employee_id, $peek_utc_start, $peek_utc_end
+        ) );
+
+        if ( ! $has_punches ) {
+            // No punches — mark as holiday or on_leave
+            $leave_status = $is_holiday ? 'holiday' : 'on_leave';
+            $data = [
+                'employee_id'         => $employee_id,
+                'work_date'           => $ymd,
+                'in_time'             => null,
+                'out_time'            => null,
+                'break_minutes'       => 0,
+                'break_delay_minutes' => 0,
+                'no_break_taken'      => 0,
+                'net_minutes'         => 0,
+                'rounded_net_minutes' => 0,
+                'overtime_minutes'    => 0,
+                'status'              => $leave_status,
+                'flags_json'          => wp_json_encode([]),
+                'calc_meta_json'      => wp_json_encode(['reason' => 'blocked_by_leave_or_holiday']),
+                'last_recalc_at'      => current_time('mysql', true),
+            ];
+            $exists = $wpdb->get_var( $wpdb->prepare("SELECT id FROM {$sT} WHERE employee_id=%d AND work_date=%s LIMIT 1", $employee_id, $ymd) );
+            if ($exists) $wpdb->update($sT,$data,['id'=>$exists]); else $wpdb->insert($sT,$data);
+            return;
+        }
+        // Employee has punches on a holiday/leave day — fall through to
+        // normal calculation so their hours are captured as overtime.
     }
 
     // Resolve shift using the proper cascade: assignment → employee shift → dept automation → fallback
@@ -4590,14 +4594,13 @@ foreach ($rows as $r) {
         $target_minutes = (int) ( $target_hours * 60 );
 
         if ( count( $rows ) === 0 ) {
-            $is_company_holiday = self::is_company_holiday( $ymd );
             if ( $shift === null ) {
                 // Shift resolved to null = scheduled day off (weekly override,
                 // schedule rotation, or period override off_days).  Respect this
                 // even when a role-based total_hours policy is active.
-                $status = $is_company_holiday ? 'holiday' : 'day_off';
+                $status = $is_holiday ? 'holiday' : 'day_off';
             } else {
-                $status = $is_company_holiday ? 'holiday' : 'absent';
+                $status = $is_holiday ? 'holiday' : 'absent';
             }
         } elseif ( in_array( 'incomplete', $ev['flags'], true ) ) {
             $status = 'incomplete';
@@ -4635,8 +4638,7 @@ foreach ($rows as $r) {
         $ot = max( 0, $net - $target_minutes );
     } elseif (!$segments || count($segments)===0) {
         // No shift segments (no fixed start/end times and NOT total_hours) → day off or holiday
-        $is_company_holiday = self::is_company_holiday( $ymd );
-        $status = $is_company_holiday ? 'holiday' : 'day_off';
+        $status = $is_holiday ? 'holiday' : 'day_off';
     } elseif (in_array('incomplete', $ev['flags'], true)) {
         $status = 'incomplete';
     } elseif (in_array('missed_segment', $ev['flags'], true) && $net === 0) {
@@ -4708,6 +4710,14 @@ foreach ($rows as $r) {
             $seg_d['early_minutes'] = 0;
         }
         unset( $seg_d );
+    }
+
+    // Holiday overtime: employee worked on a holiday — all worked time is overtime
+    if ( $is_holiday && count( $rows ) > 0 ) {
+        $ot     = $net; // all net worked time counts as overtime
+        $status = 'holiday';
+        $flags  = array_values( array_diff( $flags, [ 'late', 'left_early', 'incomplete', 'missed_segment' ] ) );
+        $flags[] = 'holiday_work';
     }
 
     if ($outside_geo > 0) $flags[] = 'outside_geofence';

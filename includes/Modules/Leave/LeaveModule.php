@@ -3343,9 +3343,25 @@ private function render_cancellation_detail( int $cancel_id ): void {
         if (!$end) $end = $start;
         if ($end < $start) { $tmp = $start; $start = $end; $end = $tmp; }
 
+        // Validate dates are real calendar dates
+        if ( ! strtotime( $start ) || ! strtotime( $end ) ) {
+            wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=settings&err='.rawurlencode(__('Invalid date','sfs-hr')))); exit;
+        }
+
         $list = $this->get_holidays_option();
+
+        // Prevent duplicate holidays on the same date range
+        foreach ( $list as $existing ) {
+            if ( ( $existing['start'] ?? '' ) === $start && ( $existing['end'] ?? '' ) === $end ) {
+                wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=settings&err='.rawurlencode(__('Holiday already exists for this date range','sfs-hr')))); exit;
+            }
+        }
+
         $list[] = ['start'=>$start,'end'=>$end,'name'=>$name,'repeat'=>$rep];
         update_option('sfs_hr_holidays', $list, false);
+
+        // Retroactively recalculate sessions for the holiday date range
+        self::recalc_sessions_for_range( $start, $end );
 
         if (get_option('sfs_hr_holiday_notify_on_add','0')==='1') {
             $this->broadcast_holiday_added($start, $end, $name, $rep);
@@ -3360,11 +3376,38 @@ private function render_cancellation_detail( int $cancel_id ): void {
         $idx = isset($_POST['idx']) ? (int)$_POST['idx'] : -1;
         $list = $this->get_holidays_option();
         if ($idx>=0 && isset($list[$idx])) {
+            $removed = $list[$idx];
             array_splice($list, $idx, 1);
             update_option('sfs_hr_holidays', $list, false);
+
+            // Retroactively recalculate sessions for the removed holiday range
+            $rs = $removed['start'] ?? '';
+            $re = $removed['end'] ?? $rs;
+            if ( $rs ) {
+                self::recalc_sessions_for_range( $rs, $re );
+            }
+
             wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=settings&ok=1')); exit;
         }
         wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=settings&err='.rawurlencode(__('Not found','sfs-hr')))); exit;
+    }
+
+    /**
+     * Recalculate attendance sessions for all employees across a date range.
+     * Only processes dates up to today (future dates are skipped by recalc).
+     */
+    private static function recalc_sessions_for_range( string $start, string $end ): void {
+        $today = wp_date( 'Y-m-d' );
+        $cap   = ( $end > $today ) ? $today : $end;
+        $d     = strtotime( $start );
+        $e     = strtotime( $cap );
+        if ( $d === false || $e === false || $d > $e ) {
+            return;
+        }
+        for ( ; $d <= $e; $d += DAY_IN_SECONDS ) {
+            $ymd = gmdate( 'Y-m-d', $d );
+            \SFS\HR\Modules\Attendance\AttendanceModule::rebuild_sessions_for_date_static( $ymd );
+        }
     }
 
     /* ---------------------------------- Frontend Shortcodes ---------------------------------- */
@@ -5481,22 +5524,39 @@ public function render_calendar(): void {
         }
     }
 
-    // Get company holidays
-    $holidays = get_option( 'sfs_hr_holidays', [] );
+    // Get company holidays (with yearly repeat expansion)
+    $holidays = \SFS\HR\Modules\Leave\Services\LeaveCalculationService::get_holidays();
     $holiday_dates = [];
     if ( is_array( $holidays ) ) {
+        $cal_years = range( (int) substr( $first_day, 0, 4 ), (int) substr( $last_day, 0, 4 ) );
         foreach ( $holidays as $h ) {
-            $hs = isset( $h['start_date'] ) ? $h['start_date'] : null;
-            $he = isset( $h['end_date'] ) ? $h['end_date'] : null;
-            $hn = isset( $h['name'] ) ? $h['name'] : __( 'Holiday', 'sfs-hr' );
-            if ( $hs && $he ) {
-                $start = new \DateTime( $hs );
-                $end   = new \DateTime( $he );
-                $end->modify( '+1 day' );
-                $interval = new \DateInterval( 'P1D' );
-                $period   = new \DatePeriod( $start, $interval, $end );
-                foreach ( $period as $date ) {
-                    $ymd = $date->format( 'Y-m-d' );
+            $hs = $h['start'] ?? null;
+            $he = $h['end']   ?? null;
+            $hn = $h['name']  ?? __( 'Holiday', 'sfs-hr' );
+            if ( ! $hs || ! $he ) continue;
+
+            $instances = [];
+            if ( ! empty( $h['repeat'] ) ) {
+                // Yearly repeat: reconstruct for each calendar year
+                $sm = substr( $hs, 5 ); // MM-DD
+                $em = substr( $he, 5 );
+                foreach ( $cal_years as $y ) {
+                    $rs = $y . '-' . $sm;
+                    $re = ( $em >= $sm ) ? ( $y . '-' . $em ) : ( ( $y + 1 ) . '-' . $em );
+                    if ( strtotime( $rs ) && strtotime( $re ) ) {
+                        $instances[] = [ $rs, $re ];
+                    }
+                }
+            } else {
+                $instances[] = [ $hs, $he ];
+            }
+
+            foreach ( $instances as list( $inst_s, $inst_e ) ) {
+                $ts = strtotime( $inst_s );
+                $te = strtotime( $inst_e );
+                if ( ! $ts || ! $te || $ts > $te ) continue;
+                for ( $d = $ts; $d <= $te; $d += DAY_IN_SECONDS ) {
+                    $ymd = gmdate( 'Y-m-d', $d );
                     if ( $ymd >= $first_day && $ymd <= $last_day ) {
                         $holiday_dates[ $ymd ] = $hn;
                     }

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Simple HR Suite
  * Description: Simple HR Suite – employees, departments, leave, balances, approvals.
- * Version: 1.4.2
+ * Version: 1.4.4
  * Author: hdqah.com
  * Author URI: https://hdqah.com
  * Text Domain: sfs-hr
@@ -12,7 +12,7 @@
 
 if (!defined('ABSPATH')) { exit; }
 
-define('SFS_HR_VER', '1.4.2');
+define('SFS_HR_VER', '1.4.4');
 define('SFS_HR_DIR', plugin_dir_path(__FILE__));
 define('SFS_HR_URL', plugin_dir_url(__FILE__));
 define('SFS_HR_PLUGIN_FILE', __FILE__);
@@ -491,7 +491,13 @@ add_action('plugins_loaded', function(){
     // Core admin + HR hooks
     (new \SFS\HR\Core\Admin())->hooks();
     (new \SFS\HR\Core\Hooks())->hooks();
-    
+
+    // Company Profile page
+    (new \SFS\HR\Core\Company_Profile())->hooks();
+
+    // Setup Wizard (optional first-run configuration)
+    (new \SFS\HR\Core\Setup_Wizard())->hooks();
+
     // Frontend shortcodes (employee self-service)
     (new \SFS\HR\Frontend\Shortcodes())->hooks();
 
