@@ -951,29 +951,37 @@ private static function save_selfie_attachment( array $src ): int {
     $end_utc      = $end_local->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
 
     // --- Overnight shift detection ---
-    // If there are no punches today, check if there's an open overnight session
-    // from yesterday (last punch = in/break_end with no subsequent out).  This
-    // lets employees clock out after midnight when their overnight shift ends
-    // on the next calendar day (e.g. 22:00–01:30 or 12:00–01:30 Ramadan).
+    // If the employee's last punch (globally) is an open 'in' or 'break_end'
+    // from yesterday, they have an unfinished session and should be able to
+    // clock out today.  We extend the window backward to include yesterday's
+    // punches so the state machine sees the full session.
+    //
+    // Previous approach compared current time to shift end_utc which failed
+    // when the employee tried to clock out even 1 second after shift end.
     $overnight_ymd = '';
-    $yesterday     = wp_date( 'Y-m-d', strtotime( '-1 day' ) );
-    $yest_local    = new \DateTimeImmutable( $yesterday . ' 00:00:00', $tz );
-    $yest_utc      = $yest_local->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' );
 
-    // Check yesterday's shift for overnight extension
-    $yest_shift    = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( $employee_id, $yesterday );
-    $yest_segments = \SFS\HR\Modules\Attendance\AttendanceModule::build_segments_from_shift( $yest_shift, $yesterday );
+    // Get employee's absolute last punch (no date filter)
+    $last_global = $wpdb->get_row( $wpdb->prepare(
+        "SELECT punch_type, punch_time FROM {$pT}
+         WHERE employee_id = %d ORDER BY punch_time DESC LIMIT 1",
+        $employee_id
+    ) );
 
-    if ( ! empty( $yest_segments ) ) {
-        $last_seg     = end( $yest_segments );
-        $seg_end_utc  = $last_seg['end_utc'];
-        $now_utc_str  = current_time( 'mysql', true );
+    if ( $last_global ) {
+        $last_type_g  = (string) $last_global->punch_type;
+        $last_ts_g    = strtotime( $last_global->punch_time . ' UTC' );
+        $last_local   = wp_date( 'Y-m-d', $last_ts_g );
 
-        // Yesterday's shift extends past midnight AND we're still within the shift window
-        if ( $seg_end_utc > $start_utc && $now_utc_str <= $seg_end_utc ) {
-            // Extend the punch window backward to include yesterday's punches
-            $start_utc     = $yest_utc;
-            $overnight_ymd = $yesterday;
+        // If the last punch is an open session (in or break_end, not out)
+        // and it belongs to a previous day, extend the window backward to
+        // capture the full session.  Limit to 1 day back to avoid stale
+        // sessions from days ago (e.g. employee forgot to clock out).
+        $yesterday = wp_date( 'Y-m-d', strtotime( '-1 day' ) );
+        if ( in_array( $last_type_g, [ 'in', 'break_end' ], true ) && $last_local >= $yesterday && $last_local < $today ) {
+            $work_date     = $last_local; // the day the session started
+            $work_local    = new \DateTimeImmutable( $work_date . ' 00:00:00', $tz );
+            $start_utc     = $work_local->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' );
+            $overnight_ymd = $work_date;
         }
     }
 
