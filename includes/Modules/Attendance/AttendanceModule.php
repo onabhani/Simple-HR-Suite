@@ -4366,11 +4366,15 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
     $is_holiday          = self::is_company_holiday( $ymd );
 
     if ( $is_leave_or_holiday ) {
-        // Peek ahead to see if the employee has any punches for this day
+        // Peek ahead to see if the employee has any clock-IN punches for this day.
+        // Only check IN punches — a lone OUT punch is an overnight carryover from
+        // the previous day's shift and should not trigger holiday-work calculation.
         list( $peek_utc_start, $peek_utc_end ) = self::local_day_window_to_utc( $ymd );
         $has_punches = (bool) $wpdb->get_var( $wpdb->prepare(
             "SELECT 1 FROM {$wpdb->prefix}sfs_hr_attendance_punches
-             WHERE employee_id = %d AND punch_time >= %s AND punch_time < %s LIMIT 1",
+             WHERE employee_id = %d AND punch_time >= %s AND punch_time < %s
+               AND punch_type = 'in'
+             LIMIT 1",
             $employee_id, $peek_utc_start, $peek_utc_end
         ) );
 
@@ -4431,13 +4435,17 @@ if ( ! empty( $segments ) ) {
     // punches from the previous night's overnight shift from leaking into
     // this day's session.  E.g. for a 12:00 PM shift, midnight–10:00 AM
     // punches are excluded since they belong to the previous day's shift.
-    $firstSeg        = reset( $segments );
-    $segStartUtcTs   = strtotime( $firstSeg['start_utc'] . ' UTC' );
-    $bufferSeconds   = 7200; // 2 hours before shift start
-    $tightenedStartTs= $segStartUtcTs - $bufferSeconds;
-    $midnightUtcTs   = strtotime( $startUtc . ' UTC' );
-    if ( $tightenedStartTs > $midnightUtcTs ) {
-        $startUtc = gmdate( 'Y-m-d H:i:s', $tightenedStartTs );
+    // EXCEPTION: on holidays, keep the full day window because employees
+    // may work at any time (all hours count as overtime).
+    if ( ! $is_holiday ) {
+        $firstSeg        = reset( $segments );
+        $segStartUtcTs   = strtotime( $firstSeg['start_utc'] . ' UTC' );
+        $bufferSeconds   = 7200; // 2 hours before shift start
+        $tightenedStartTs= $segStartUtcTs - $bufferSeconds;
+        $midnightUtcTs   = strtotime( $startUtc . ' UTC' );
+        if ( $tightenedStartTs > $midnightUtcTs ) {
+            $startUtc = gmdate( 'Y-m-d H:i:s', $tightenedStartTs );
+        }
     }
 }
 
