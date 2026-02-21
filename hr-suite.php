@@ -491,7 +491,13 @@ add_action('plugins_loaded', function(){
     // Core admin + HR hooks
     (new \SFS\HR\Core\Admin())->hooks();
     (new \SFS\HR\Core\Hooks())->hooks();
-    
+
+    // Company Profile page
+    (new \SFS\HR\Core\Company_Profile())->hooks();
+
+    // Setup Wizard (optional first-run configuration)
+    (new \SFS\HR\Core\Setup_Wizard())->hooks();
+
     // Frontend shortcodes (employee self-service)
     (new \SFS\HR\Frontend\Shortcodes())->hooks();
 
