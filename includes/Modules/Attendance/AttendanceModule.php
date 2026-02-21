@@ -4366,21 +4366,46 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
     $is_holiday          = self::is_company_holiday( $ymd );
 
     if ( $is_leave_or_holiday ) {
-        // Peek ahead to see if the employee has any clock-IN punches for this day.
-        // Only check IN punches — a lone OUT punch is an overnight carryover from
-        // the previous day's shift and should not trigger holiday-work calculation.
-        list( $peek_utc_start, $peek_utc_end ) = self::local_day_window_to_utc( $ymd );
-        $has_punches = (bool) $wpdb->get_var( $wpdb->prepare(
-            "SELECT 1 FROM {$wpdb->prefix}sfs_hr_attendance_punches
-             WHERE employee_id = %d AND punch_time >= %s AND punch_time < %s
-               AND punch_type = 'in'
-             LIMIT 1",
-            $employee_id, $peek_utc_start, $peek_utc_end
-        ) );
+        if ( $is_holiday ) {
+            // Holiday: check if employee actually clocked IN (intentional holiday work).
+            // Only check IN punches — a lone OUT is an overnight carryover from
+            // the previous day's shift and should not trigger holiday-work calculation.
+            list( $peek_utc_start, $peek_utc_end ) = self::local_day_window_to_utc( $ymd );
+            $has_clock_in = (bool) $wpdb->get_var( $wpdb->prepare(
+                "SELECT 1 FROM {$wpdb->prefix}sfs_hr_attendance_punches
+                 WHERE employee_id = %d AND punch_time >= %s AND punch_time < %s
+                   AND punch_type = 'in'
+                 LIMIT 1",
+                $employee_id, $peek_utc_start, $peek_utc_end
+            ) );
 
-        if ( ! $has_punches ) {
-            // No punches — mark as holiday or on_leave
-            $leave_status = $is_holiday ? 'holiday' : 'on_leave';
+            if ( $has_clock_in ) {
+                // Employee intentionally worked on the holiday — fall through
+                // to normal calculation so their hours are captured as overtime.
+            } else {
+                // No clock-in — mark as holiday
+                $data = [
+                    'employee_id'         => $employee_id,
+                    'work_date'           => $ymd,
+                    'in_time'             => null,
+                    'out_time'            => null,
+                    'break_minutes'       => 0,
+                    'break_delay_minutes' => 0,
+                    'no_break_taken'      => 0,
+                    'net_minutes'         => 0,
+                    'rounded_net_minutes' => 0,
+                    'overtime_minutes'    => 0,
+                    'status'              => 'holiday',
+                    'flags_json'          => wp_json_encode([]),
+                    'calc_meta_json'      => wp_json_encode(['reason' => 'blocked_by_leave_or_holiday']),
+                    'last_recalc_at'      => current_time('mysql', true),
+                ];
+                $exists = $wpdb->get_var( $wpdb->prepare("SELECT id FROM {$sT} WHERE employee_id=%d AND work_date=%s LIMIT 1", $employee_id, $ymd) );
+                if ($exists) $wpdb->update($sT,$data,['id'=>$exists]); else $wpdb->insert($sT,$data);
+                return;
+            }
+        } else {
+            // Approved personal leave — always mark as on_leave regardless of punches
             $data = [
                 'employee_id'         => $employee_id,
                 'work_date'           => $ymd,
@@ -4392,7 +4417,7 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
                 'net_minutes'         => 0,
                 'rounded_net_minutes' => 0,
                 'overtime_minutes'    => 0,
-                'status'              => $leave_status,
+                'status'              => 'on_leave',
                 'flags_json'          => wp_json_encode([]),
                 'calc_meta_json'      => wp_json_encode(['reason' => 'blocked_by_leave_or_holiday']),
                 'last_recalc_at'      => current_time('mysql', true),
@@ -4401,8 +4426,6 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
             if ($exists) $wpdb->update($sT,$data,['id'=>$exists]); else $wpdb->insert($sT,$data);
             return;
         }
-        // Employee has punches on a holiday/leave day — fall through to
-        // normal calculation so their hours are captured as overtime.
     }
 
     // Resolve shift using the proper cascade: assignment → employee shift → dept automation → fallback
