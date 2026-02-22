@@ -1612,6 +1612,15 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
         $ok = (int)$wpdb->get_var($wpdb->prepare("SELECT id FROM {$table} WHERE id=%d AND active=1", $dept_id));
         return $ok ? $dept_id : null;
     }
+
+    private function resolve_dept_by_name(string $name): ?int {
+        $name = trim($name);
+        if ($name === '') return null;
+        global $wpdb;
+        $table = $wpdb->prefix.'sfs_hr_departments';
+        $id = $wpdb->get_var($wpdb->prepare("SELECT id FROM {$table} WHERE name=%s AND active=1 LIMIT 1", $name));
+        return $id ? (int)$id : null;
+    }
     
     
         /**
@@ -3495,7 +3504,14 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         check_admin_referer('sfs_hr_export_employees');
 
         global $wpdb; $table = $wpdb->prefix.'sfs_hr_employees';
-        $rows = $wpdb->get_results("SELECT * FROM {$table} ORDER BY id ASC", ARRAY_A);
+        $dept_t = $wpdb->prefix.'sfs_hr_departments';
+        $rows = $wpdb->get_results(
+            "SELECT e.*, d.name AS department_name
+             FROM {$table} e
+             LEFT JOIN {$dept_t} d ON d.id = e.dept_id
+             ORDER BY e.id ASC",
+            ARRAY_A
+        );
 
         $filename = 'employees-export-' . date('Ymd-His') . '.csv';
         nocache_headers();
@@ -3506,7 +3522,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         // UTF-8 BOM so Excel correctly renders Arabic characters
         fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
         $headers = [
-    'id','employee_code','first_name','last_name','email','phone','dept_id','position','gender','status',
+    'id','employee_code','first_name','last_name','email','phone','department','position','gender','status',
     'hired_at','base_salary','gosi_salary',
     'national_id','national_id_expiry','passport_no','passport_expiry',
     'visa_number','visa_expiry',
@@ -3521,7 +3537,13 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         fputcsv($out, $headers);
         foreach ($rows as $r) {
             $row = [];
-            foreach ($headers as $h) { $row[] = isset($r[$h]) ? $r[$h] : ''; }
+            foreach ($headers as $h) {
+                if ($h === 'department') {
+                    $row[] = $r['department_name'] ?? '';
+                } else {
+                    $row[] = isset($r[$h]) ? $r[$h] : '';
+                }
+            }
             fputcsv($out, $row);
         }
         fclose($out);
@@ -3574,8 +3596,12 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         $status_in = isset($data['status']) ? sanitize_text_field($data['status']) : 'active';
         $status    = in_array($status_in, ['active','inactive','terminated'], true) ? $status_in : 'active';
 
-        $dept_id_in = ( isset($data['dept_id']) && $data['dept_id'] !== '' ) ? (int) $data['dept_id'] : null;
-        $dept_id    = $dept_id_in ? $this->validate_dept_id($dept_id_in) : null;
+        $dept_id = null;
+        if ( isset($data['dept_id']) && $data['dept_id'] !== '' ) {
+            $dept_id = $this->validate_dept_id((int) $data['dept_id']);
+        } elseif ( isset($data['department']) && $data['department'] !== '' ) {
+            $dept_id = $this->resolve_dept_by_name($data['department']);
+        }
 
         $g      = isset($data['gender']) ? strtolower(trim($data['gender'])) : '';
         $gender = in_array($g, ['male','female'], true) ? $g : null;
