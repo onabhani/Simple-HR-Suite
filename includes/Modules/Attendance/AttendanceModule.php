@@ -1495,12 +1495,16 @@ setInterval(tickClock, 1000);
                     selfieInput.click();
                 } else {
                     setStat(i18n.camera_not_available, 'error');
+                    punchInProgress = false;
+                    syncButtons();
                 }
                 return;
             }
 
             if (!selfiePanel || !selfieVideo) {
                 setStat(i18n.camera_ui_not_available, 'error');
+                punchInProgress = false;
+                syncButtons();
                 return;
             }
 
@@ -1532,6 +1536,8 @@ setInterval(tickClock, 1000);
                 setStat(i18n.camera_error + ' ' + (e.message || e), 'error');
                 stopSelfiePreview();
                 pendingType = null;
+                punchInProgress = false;
+                syncButtons();
             }
         }
 
@@ -1735,7 +1741,9 @@ setInterval(tickClock, 1000);
 
             // ---- Pre-flight: cooldown check (before geo/camera) ----
             const isSameType = (cooldownType === type);
-            const cdRemaining = isSameType ? cooldownSec : cooldownCrossSec;
+            const elapsed = lastRefreshAt ? Math.floor((Date.now() - lastRefreshAt) / 1000) : 0;
+            const cdRaw = isSameType ? cooldownSec : cooldownCrossSec;
+            const cdRemaining = Math.max(0, cdRaw - elapsed);
             if (cdRemaining > 0) {
                 setStat(i18n.error_prefix + ' ' + (i18n.please_wait || 'Please wait') + ' ' + cdRemaining + (i18n.seconds_short || 's'), 'error');
                 punchInProgress = false;
@@ -1745,6 +1753,8 @@ setInterval(tickClock, 1000);
                         btn.disabled = !isActionAvailable(t);
                     });
                 }
+                // Auto-refresh after cooldown expires so stale values are replaced
+                setTimeout(() => refresh(), cdRemaining * 1000 + 500);
                 return;
             }
 
@@ -4297,6 +4307,21 @@ public function ajax_dbg(): void {
         }
 
         return (bool) apply_filters( 'sfs_hr_attendance_is_leave_or_holiday', $blocked, $employee_id, $dateYmd );
+    }
+
+    /** Check if employee is on approved leave (excludes company holidays). */
+    public static function is_on_approved_leave( int $employee_id, string $dateYmd ): bool {
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_leave_requests';
+        $has = $wpdb->get_var( $wpdb->prepare(
+            "SELECT 1 FROM {$table}
+             WHERE employee_id = %d
+               AND status = 'approved'
+               AND %s BETWEEN start_date AND end_date
+             LIMIT 1",
+            $employee_id, $dateYmd
+        ) );
+        return (bool) $has;
     }
 
     /**
