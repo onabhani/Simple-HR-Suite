@@ -474,7 +474,7 @@ public function render_automation(): void {
                 <?php foreach ( $departments as $d ):
                     $did             = (int) $d['id'];
                     $current_default = isset( $dept_def[ $did ] ) ? (int) $dept_def[ $did ] : 0;
-                    $ovr             = $dept_ovr[ $did ][0] ?? [ 'label' => 'Ramadan', 'start' => '', 'end' => '', 'shift_id' => 0 ];
+                    $ovr             = $dept_ovr[ $did ][0] ?? [ 'label' => '', 'start' => '', 'end' => '', 'shift_id' => 0 ];
                     ?>
                     <tr>
                         <td><strong><?php echo esc_html( $d['name'] ); ?></strong></td>
