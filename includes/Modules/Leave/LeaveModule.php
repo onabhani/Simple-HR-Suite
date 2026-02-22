@@ -3365,6 +3365,13 @@ private function render_cancellation_detail( int $cancel_id ): void {
 
         if (get_option('sfs_hr_holiday_notify_on_add','0')==='1') {
             $this->broadcast_holiday_added($start, $end, $name, $rep);
+
+            // Mark as already notified so the daily cron reminder won't send a duplicate
+            $sent = get_option('sfs_hr_holiday_reminded', []);
+            if (!is_array($sent)) $sent = [];
+            $key = $start.'|'.$end.'|'.$name;
+            $sent[$key] = gmdate('Y-m-d H:i:s');
+            update_option('sfs_hr_holiday_reminded', $sent, false);
         }
 
         wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=settings&ok=1')); exit;
