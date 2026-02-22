@@ -325,7 +325,7 @@ add_action('rest_api_init', function () {
         <div class="sfs-att-selfie-overlay__inner">
           <div class="sfs-att-selfie-overlay__status" id="sfs-att-selfie-status"></div>
           <div class="sfs-att-selfie-overlay__viewport">
-            <video id="sfs-att-selfie-video" autoplay playsinline muted></video>
+            <video id="sfs-att-selfie-video" autoplay playsinline muted disablepictureinpicture></video>
           </div>
           <canvas id="sfs-att-selfie-canvas" width="480" height="480" hidden></canvas>
           <small class="sfs-att-selfie-overlay__hint" data-i18n-key="selfie_instruction">
@@ -711,8 +711,11 @@ add_action('rest_api_init', function () {
         border-radius:16px; overflow:hidden; border:3px solid rgba(255,255,255,0.25); background:#111;
       }
       #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-overlay__viewport video{
-        width:100%; height:100%; object-fit:cover;
+        width:100%; height:100%; object-fit:cover; pointer-events:none;
       }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-overlay__viewport video::-webkit-media-controls{ display:none !important; }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-overlay__viewport video::-webkit-media-controls-start-playback-button{ display:none !important; }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-overlay__viewport video::-webkit-media-controls-play-button{ display:none !important; }
       #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-overlay__hint{
         display:block; color:rgba(255,255,255,0.6); font-size:12px; text-align:center; margin-top:10px;
       }
@@ -5231,11 +5234,10 @@ private static function load_automation_map_and_keytype(): array {
             }
         }
 
-        // (b) **Current UI storage**: dept_defaults + dept_period_overrides
-        $defaults  = isset($settings['dept_defaults']) && is_array($settings['dept_defaults']) ? $settings['dept_defaults'] : [];
-        $overrides = isset($settings['dept_period_overrides']) && is_array($settings['dept_period_overrides']) ? $settings['dept_period_overrides'] : [];
+        // (b) **Current UI storage**: dept_defaults
+        $defaults = isset($settings['dept_defaults']) && is_array($settings['dept_defaults']) ? $settings['dept_defaults'] : [];
 
-        if (!empty($defaults) || !empty($overrides)) {
+        if (!empty($defaults)) {
             $map = [];
             foreach ($defaults as $dept_id => $shift_id) {
                 $dept_id  = (string)(int)$dept_id;
@@ -5244,23 +5246,7 @@ private static function load_automation_map_and_keytype(): array {
                     $map[$dept_id]['default_shift_id'] = $shift_id;
                 }
             }
-            foreach ($overrides as $dept_id => $list) {
-                $dept_id = (string)(int)$dept_id;
-                if (!isset($map[$dept_id])) $map[$dept_id] = [];
-                foreach ((array)$list as $ov) {
-                    $s   = $ov['start'] ?? ($ov['start_date'] ?? null);
-                    $e   = $ov['end']   ?? ($ov['end_date']   ?? null);
-                    $sid = isset($ov['shift_id']) ? (int)$ov['shift_id'] : 0;
-                    if ($s && $e && $sid > 0) {
-                        $map[$dept_id]['overrides'][] = [
-                            'start_date' => $s,
-                            'end_date'   => $e,
-                            'shift_id'   => $sid,
-                        ];
-                    }
-                }
-            }
-            return ['keytype'=>'id', 'map'=>$map, 'source'=>self::OPT_SETTINGS.'/dept_defaults+overrides'];
+            return ['keytype'=>'id', 'map'=>$map, 'source'=>self::OPT_SETTINGS.'/dept_defaults'];
         }
     }
 
@@ -5532,38 +5518,11 @@ public static function resolve_shift_for_date(
     }
 
     if ($conf) {
-        // default shift id
         $shift_id = null;
-        $default_shift_id = null;
         foreach (['default_shift_id','default','shift','shift_id'] as $k) {
             if (isset($conf[$k]) && is_numeric($conf[$k])) {
                 $shift_id = (int)$conf[$k];
-                $default_shift_id = $shift_id;
                 break;
-            }
-        }
-
-        // effective override
-        if (!empty($conf['override']) && is_array($conf['override'])) {
-            $ov  = $conf['override'];
-            $s   = $ov['start'] ?? ($ov['start_date'] ?? null);
-            $e   = $ov['end']   ?? ($ov['end_date']   ?? null);
-            $sid = isset($ov['shift_id']) ? (int)$ov['shift_id'] : 0;
-            if ($s && $e && $sid > 0 && $ymd >= $s && $ymd <= $e) {
-                $shift_id = $sid;
-            }
-        } elseif (!empty($conf['overrides']) && is_array($conf['overrides'])) {
-            foreach ($conf['overrides'] as $ov) {
-                if (!is_array($ov)) {
-                    continue;
-                }
-                $s   = $ov['start'] ?? ($ov['start_date'] ?? null);
-                $e   = $ov['end']   ?? ($ov['end_date']   ?? null);
-                $sid = isset($ov['shift_id']) ? (int)$ov['shift_id'] : 0;
-                if ($s && $e && $sid > 0 && $ymd >= $s && $ymd <= $e) {
-                    $shift_id = $sid;
-                    break;
-                }
             }
         }
 
@@ -5575,22 +5534,6 @@ public static function resolve_shift_for_date(
                 )
             );
             if ($sh) {
-                // When the dept automation override replaces the shift (e.g.
-                // Ramadan shift), the replacement often lacks weekly_overrides
-                // because it was created just for the override period.  Inherit
-                // the original default shift's weekly_overrides so rest days
-                // (e.g. Friday, Saturday) are preserved instead of being marked
-                // as absent.
-                if ( $shift_id !== $default_shift_id && empty( $sh->weekly_overrides ) && $default_shift_id ) {
-                    $default_sh = $wpdb->get_row( $wpdb->prepare(
-                        "SELECT weekly_overrides FROM {$shiftT} WHERE id = %d LIMIT 1",
-                        $default_shift_id
-                    ) );
-                    if ( $default_sh && ! empty( $default_sh->weekly_overrides ) ) {
-                        $sh->weekly_overrides = $default_sh->weekly_overrides;
-                    }
-                }
-
                 $sh->__virtual  = 1;
                 $sh->is_holiday = 0;
                 $sh->dept_id    = $dept_id;
