@@ -325,7 +325,7 @@ add_action('rest_api_init', function () {
         <div class="sfs-att-selfie-overlay__inner">
           <div class="sfs-att-selfie-overlay__status" id="sfs-att-selfie-status"></div>
           <div class="sfs-att-selfie-overlay__viewport">
-            <video id="sfs-att-selfie-video" autoplay playsinline muted></video>
+            <video id="sfs-att-selfie-video" autoplay playsinline muted disablepictureinpicture></video>
           </div>
           <canvas id="sfs-att-selfie-canvas" width="480" height="480" hidden></canvas>
           <small class="sfs-att-selfie-overlay__hint" data-i18n-key="selfie_instruction">
@@ -711,8 +711,11 @@ add_action('rest_api_init', function () {
         border-radius:16px; overflow:hidden; border:3px solid rgba(255,255,255,0.25); background:#111;
       }
       #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-overlay__viewport video{
-        width:100%; height:100%; object-fit:cover;
+        width:100%; height:100%; object-fit:cover; pointer-events:none;
       }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-overlay__viewport video::-webkit-media-controls{ display:none !important; }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-overlay__viewport video::-webkit-media-controls-start-playback-button{ display:none !important; }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-overlay__viewport video::-webkit-media-controls-play-button{ display:none !important; }
       #<?php echo esc_attr( $root_id ); ?> .sfs-att-selfie-overlay__hint{
         display:block; color:rgba(255,255,255,0.6); font-size:12px; text-align:center; margin-top:10px;
       }
