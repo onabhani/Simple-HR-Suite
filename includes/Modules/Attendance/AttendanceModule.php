@@ -332,9 +332,6 @@ add_action('rest_api_init', function () {
             <?php esc_html_e( 'Center your face, then tap "Capture & Submit".', 'sfs-hr' ); ?>
           </small>
           <div class="sfs-att-selfie-overlay__actions">
-            <button type="button" id="sfs-att-selfie-pause" class="sfs-att-selfie-btn sfs-att-selfie-btn--toggle" data-i18n-key="pause">
-              <?php esc_html_e( 'Pause', 'sfs-hr' ); ?>
-            </button>
             <button type="button" id="sfs-att-selfie-capture" class="sfs-att-selfie-btn sfs-att-selfie-btn--primary" data-i18n-key="capture_submit">
               <?php esc_html_e( 'Capture & Submit', 'sfs-hr' ); ?>
             </button>
@@ -729,8 +726,6 @@ add_action('rest_api_init', function () {
       .sfs-att-selfie-btn:disabled{ opacity:0.5; cursor:not-allowed; }
       .sfs-att-selfie-btn--primary{ background:#22c55e; color:#fff; }
       .sfs-att-selfie-btn--primary:active{ background:#16a34a; }
-      .sfs-att-selfie-btn--toggle{ background:rgba(255,255,255,0.15); color:#fff; flex:0 0 auto; width:56px; padding:14px 0; text-align:center; }
-      .sfs-att-selfie-btn--toggle:active{ background:rgba(255,255,255,0.25); }
       .sfs-att-selfie-btn--cancel{ background:rgba(255,255,255,0.15); color:#fff; }
       .sfs-att-selfie-btn--cancel:active{ background:rgba(255,255,255,0.25); }
 
@@ -1082,7 +1077,6 @@ window.sfsAttI18n = window.sfsAttI18n || {
         const selfieVideo   = document.getElementById('sfs-att-selfie-video');
         const selfieCanvas  = document.getElementById('sfs-att-selfie-canvas');
         const selfieCapture = document.getElementById('sfs-att-selfie-capture');
-        const selfiePause   = document.getElementById('sfs-att-selfie-pause');
         const selfieCancel  = document.getElementById('sfs-att-selfie-cancel');
         const selfieStatus  = document.getElementById('sfs-att-selfie-status');
 
@@ -1092,7 +1086,6 @@ window.sfsAttI18n = window.sfsAttI18n || {
 
         let selfieStream   = null;
         let pendingType    = null;
-        let videoPaused    = false;
 
         let allowed        = {};
         let state          = 'idle';
@@ -1478,8 +1471,6 @@ setInterval(tickClock, 1000);
             if (selfieVideo) selfieVideo.srcObject = null;
             if (selfiePanel) selfiePanel.style.display = 'none';
             if (selfieStatus) selfieStatus.textContent = '';
-            videoPaused = false;
-            if (selfiePause) selfiePause.textContent = i18n.pause || 'Pause';
             document.body.style.overflow = '';
         }
 
@@ -1850,18 +1841,6 @@ setInterval(tickClock, 1000);
         }
 
         selfieCapture && selfieCapture.addEventListener('click', captureAndSubmit);
-        selfiePause && selfiePause.addEventListener('click', ()=>{
-            if (!selfieVideo) return;
-            if (videoPaused) {
-                selfieVideo.play().catch(()=>{});
-                videoPaused = false;
-                selfiePause.textContent = i18n.pause || 'Pause';
-            } else {
-                selfieVideo.pause();
-                videoPaused = true;
-                selfiePause.textContent = i18n.play || 'Play';
-            }
-        });
         selfieCancel  && selfieCancel.addEventListener('click', ()=>{
             pendingType = null;
             punchInProgress = false;
