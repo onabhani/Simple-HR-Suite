@@ -4494,13 +4494,36 @@ private function email_approvers_for_employee(int $employee_id, string $subject,
         if (!$emails) return;
 
         $subject = __('New Company Holiday','sfs-hr');
-        $body = sprintf(
-            __('%s: %s%s%s','sfs-hr'),
-            $name,
-            $start,
-            ($end && $end !== $start) ? ' → '.$end : '',
-            $repeat ? ' ('.__('repeats yearly','sfs-hr').')' : ''
-        );
+        $site    = esc_html( get_bloginfo('name') );
+        $fmt     = get_option('date_format', 'F j, Y');
+        $d_start = date_i18n($fmt, strtotime($start));
+        $d_end   = ($end && $end !== $start) ? date_i18n($fmt, strtotime($end)) : '';
+        $h_name  = esc_html($name);
+
+        $date_display = esc_html($d_start);
+        if ($d_end) {
+            $date_display .= ' &ndash; ' . esc_html($d_end);
+        }
+
+        $repeat_html = $repeat
+            ? '<div style="margin-top:8px;font-size:13px;color:#6b7280;">' . esc_html__('This holiday repeats every year.', 'sfs-hr') . '</div>'
+            : '';
+
+        $body = '<table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1f2937;">'
+            . '<tr><td style="background:#2563eb;padding:24px 28px;border-radius:8px 8px 0 0;">'
+            .   '<h1 style="margin:0;font-size:20px;font-weight:600;color:#ffffff;">' . esc_html__('Company Holiday', 'sfs-hr') . '</h1>'
+            . '</td></tr>'
+            . '<tr><td style="background:#ffffff;padding:28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">'
+            .   '<div style="font-size:22px;font-weight:700;color:#1e40af;margin-bottom:4px;">' . $h_name . '</div>'
+            .   '<div style="font-size:15px;color:#374151;margin-top:12px;">'
+            .     '<span style="display:inline-block;vertical-align:middle;margin-right:6px;">&#128197;</span> '
+            .     $date_display
+            .   '</div>'
+            .   $repeat_html
+            .   '<hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0 16px;">'
+            .   '<div style="font-size:13px;color:#9ca3af;">' . $site . '</div>'
+            . '</td></tr>'
+            . '</table>';
 
         foreach ($emails as $to) {
             Helpers::send_mail($to, $subject, $body);

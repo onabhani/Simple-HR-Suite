@@ -1745,6 +1745,8 @@ setInterval(tickClock, 1000);
                         btn.disabled = !isActionAvailable(t);
                     });
                 }
+                // Auto-refresh after cooldown expires so stale values are replaced
+                setTimeout(() => refresh(), cdRemaining * 1000 + 500);
                 return;
             }
 
