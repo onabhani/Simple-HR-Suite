@@ -530,9 +530,9 @@ if ( $source === 'kiosk' && $scan_token !== '' ) {
         return $policy_method_check;
     }
 
-    // Block if on approved leave/holiday (external module/option)
-    if ( \SFS\HR\Modules\Attendance\AttendanceModule::is_blocked_by_leave_or_holiday( (int) $emp, $dateYmd ) ) {
-        return new \WP_Error( 'on_leave', 'You are on approved leave/holiday today.', [ 'status' => 409 ] );
+    // Block if on approved leave (holidays allow punches — recalc handles overtime)
+    if ( \SFS\HR\Modules\Attendance\AttendanceModule::is_on_approved_leave( (int) $emp, $dateYmd ) ) {
+        return new \WP_Error( 'on_leave', 'You are on approved leave today.', [ 'status' => 409 ] );
     }
 
     // ---- Department self-punch policy (web/mobile only; kiosk allowed regardless)

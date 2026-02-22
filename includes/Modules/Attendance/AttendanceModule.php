@@ -332,6 +332,9 @@ add_action('rest_api_init', function () {
             <?php esc_html_e( 'Center your face, then tap "Capture & Submit".', 'sfs-hr' ); ?>
           </small>
           <div class="sfs-att-selfie-overlay__actions">
+            <button type="button" id="sfs-att-selfie-pause" class="sfs-att-selfie-btn sfs-att-selfie-btn--toggle" data-i18n-key="pause">
+              <?php esc_html_e( 'Pause', 'sfs-hr' ); ?>
+            </button>
             <button type="button" id="sfs-att-selfie-capture" class="sfs-att-selfie-btn sfs-att-selfie-btn--primary" data-i18n-key="capture_submit">
               <?php esc_html_e( 'Capture & Submit', 'sfs-hr' ); ?>
             </button>
@@ -726,6 +729,8 @@ add_action('rest_api_init', function () {
       .sfs-att-selfie-btn:disabled{ opacity:0.5; cursor:not-allowed; }
       .sfs-att-selfie-btn--primary{ background:#22c55e; color:#fff; }
       .sfs-att-selfie-btn--primary:active{ background:#16a34a; }
+      .sfs-att-selfie-btn--toggle{ background:rgba(255,255,255,0.15); color:#fff; flex:0 0 auto; width:56px; padding:14px 0; text-align:center; }
+      .sfs-att-selfie-btn--toggle:active{ background:rgba(255,255,255,0.25); }
       .sfs-att-selfie-btn--cancel{ background:rgba(255,255,255,0.15); color:#fff; }
       .sfs-att-selfie-btn--cancel:active{ background:rgba(255,255,255,0.25); }
 
@@ -1077,6 +1082,7 @@ window.sfsAttI18n = window.sfsAttI18n || {
         const selfieVideo   = document.getElementById('sfs-att-selfie-video');
         const selfieCanvas  = document.getElementById('sfs-att-selfie-canvas');
         const selfieCapture = document.getElementById('sfs-att-selfie-capture');
+        const selfiePause   = document.getElementById('sfs-att-selfie-pause');
         const selfieCancel  = document.getElementById('sfs-att-selfie-cancel');
         const selfieStatus  = document.getElementById('sfs-att-selfie-status');
 
@@ -1086,6 +1092,7 @@ window.sfsAttI18n = window.sfsAttI18n || {
 
         let selfieStream   = null;
         let pendingType    = null;
+        let videoPaused    = false;
 
         let allowed        = {};
         let state          = 'idle';
@@ -1471,6 +1478,8 @@ setInterval(tickClock, 1000);
             if (selfieVideo) selfieVideo.srcObject = null;
             if (selfiePanel) selfiePanel.style.display = 'none';
             if (selfieStatus) selfieStatus.textContent = '';
+            videoPaused = false;
+            if (selfiePause) selfiePause.textContent = i18n.pause || 'Pause';
             document.body.style.overflow = '';
         }
 
@@ -1495,12 +1504,16 @@ setInterval(tickClock, 1000);
                     selfieInput.click();
                 } else {
                     setStat(i18n.camera_not_available, 'error');
+                    punchInProgress = false;
+                    syncButtons();
                 }
                 return;
             }
 
             if (!selfiePanel || !selfieVideo) {
                 setStat(i18n.camera_ui_not_available, 'error');
+                punchInProgress = false;
+                syncButtons();
                 return;
             }
 
@@ -1532,6 +1545,8 @@ setInterval(tickClock, 1000);
                 setStat(i18n.camera_error + ' ' + (e.message || e), 'error');
                 stopSelfiePreview();
                 pendingType = null;
+                punchInProgress = false;
+                syncButtons();
             }
         }
 
@@ -1735,7 +1750,9 @@ setInterval(tickClock, 1000);
 
             // ---- Pre-flight: cooldown check (before geo/camera) ----
             const isSameType = (cooldownType === type);
-            const cdRemaining = isSameType ? cooldownSec : cooldownCrossSec;
+            const elapsed = lastRefreshAt ? Math.floor((Date.now() - lastRefreshAt) / 1000) : 0;
+            const cdRaw = isSameType ? cooldownSec : cooldownCrossSec;
+            const cdRemaining = Math.max(0, cdRaw - elapsed);
             if (cdRemaining > 0) {
                 setStat(i18n.error_prefix + ' ' + (i18n.please_wait || 'Please wait') + ' ' + cdRemaining + (i18n.seconds_short || 's'), 'error');
                 punchInProgress = false;
@@ -1833,6 +1850,18 @@ setInterval(tickClock, 1000);
         }
 
         selfieCapture && selfieCapture.addEventListener('click', captureAndSubmit);
+        selfiePause && selfiePause.addEventListener('click', ()=>{
+            if (!selfieVideo) return;
+            if (videoPaused) {
+                selfieVideo.play().catch(()=>{});
+                videoPaused = false;
+                selfiePause.textContent = i18n.pause || 'Pause';
+            } else {
+                selfieVideo.pause();
+                videoPaused = true;
+                selfiePause.textContent = i18n.play || 'Play';
+            }
+        });
         selfieCancel  && selfieCancel.addEventListener('click', ()=>{
             pendingType = null;
             punchInProgress = false;
@@ -4299,6 +4328,21 @@ public function ajax_dbg(): void {
         }
 
         return (bool) apply_filters( 'sfs_hr_attendance_is_leave_or_holiday', $blocked, $employee_id, $dateYmd );
+    }
+
+    /** Check if employee is on approved leave (excludes company holidays). */
+    public static function is_on_approved_leave( int $employee_id, string $dateYmd ): bool {
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_leave_requests';
+        $has = $wpdb->get_var( $wpdb->prepare(
+            "SELECT 1 FROM {$table}
+             WHERE employee_id = %d
+               AND status = 'approved'
+               AND %s BETWEEN start_date AND end_date
+             LIMIT 1",
+            $employee_id, $dateYmd
+        ) );
+        return (bool) $has;
     }
 
     /**
