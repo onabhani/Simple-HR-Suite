@@ -2812,6 +2812,7 @@ class AdminPages {
 
         // Set headers for CSV download
         $filename = 'loan-installments-' . $selected_month . '.csv';
+        while ( ob_get_level() ) { ob_end_clean(); }
         header( 'Content-Type: text/csv; charset=utf-8' );
         header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
         header( 'Pragma: no-cache' );
@@ -2821,7 +2822,7 @@ class AdminPages {
         $output = fopen( 'php://output', 'w' );
 
         // Write UTF-8 BOM for Excel compatibility
-        fprintf( $output, chr(0xEF).chr(0xBB).chr(0xBF) );
+        fwrite( $output, "\xEF\xBB\xBF" );
 
         // Write CSV headers
         fputcsv( $output, [

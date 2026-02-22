@@ -1808,6 +1808,7 @@ class Admin_Pages {
             $filename .= '.csv';
         }
 
+        while ( ob_get_level() ) { ob_end_clean(); }
         header( 'Content-Type: text/csv; charset=utf-8' );
         header( 'Content-Disposition: attachment; filename=' . $filename );
         header( 'Pragma: no-cache' );
@@ -1837,6 +1838,7 @@ class Admin_Pages {
             $filename .= '.xlsx';
         }
 
+        while ( ob_get_level() ) { ob_end_clean(); }
         header( 'Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' );
         header( 'Content-Disposition: attachment; filename=' . $filename );
         header( 'Pragma: no-cache' );
@@ -1893,13 +1895,14 @@ class Admin_Pages {
         // Generate CSV for bank transfer
         $filename = sanitize_file_name( 'payroll-export-' . $run->period_name . '-' . wp_date( 'Y-m-d' ) . '.csv' );
 
+        while ( ob_get_level() ) { ob_end_clean(); }
         header( 'Content-Type: text/csv; charset=utf-8' );
         header( 'Content-Disposition: attachment; filename=' . $filename );
         header( 'Pragma: no-cache' );
         header( 'Expires: 0' );
 
         $output = fopen( 'php://output', 'w' );
-        fprintf( $output, chr(0xEF) . chr(0xBB) . chr(0xBF) );
+        fwrite( $output, "\xEF\xBB\xBF" );
 
         // Header row
         fputcsv( $output, [

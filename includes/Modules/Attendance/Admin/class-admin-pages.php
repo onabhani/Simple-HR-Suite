@@ -3739,12 +3739,13 @@ public function render_exceptions(): void {
     ", ...$params ), ARRAY_A );
 
     // Output CSV
+    while ( ob_get_level() ) { ob_end_clean(); }
     nocache_headers();
     header('Content-Type: text/csv; charset=UTF-8');
     header('Content-Disposition: attachment; filename=attendance_'.$from.'_'.$to.'.csv');
 
     $out = fopen('php://output','w');
-    fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+    fwrite($out, "\xEF\xBB\xBF");
     fputcsv($out, [
         'date','employee_id','employee_code','name',
         'in_time_local','out_time_local',

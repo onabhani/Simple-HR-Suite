@@ -1506,6 +1506,8 @@ class Admin_Pages {
 
         $rows = $wpdb->get_results("SELECT * FROM {$table} ORDER BY id ASC", ARRAY_A);
 
+        while ( ob_get_level() ) { ob_end_clean(); }
+
         if ( headers_sent() ) {
             wp_die('Headers already sent.');
         }
@@ -1514,7 +1516,7 @@ class Admin_Pages {
         header('Content-Disposition: attachment; filename=assets-export-' . date('Ymd-His') . '.csv');
 
         $out = fopen('php://output', 'w');
-        fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+        fwrite($out, "\xEF\xBB\xBF");
 
         if ( ! empty($rows) ) {
             // Header row

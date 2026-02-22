@@ -56,6 +56,7 @@ class ReportsService {
     public static function export_csv(string $type, array $report_data): void {
         $filename = sanitize_file_name($type . '_' . date('Y-m-d_His') . '.csv');
 
+        while ( ob_get_level() ) { ob_end_clean(); }
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         header('Pragma: no-cache');
@@ -64,7 +65,7 @@ class ReportsService {
         $output = fopen('php://output', 'w');
 
         // BOM for Excel UTF-8
-        fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
+        fwrite($output, "\xEF\xBB\xBF");
 
         // Header row
         fputcsv($output, $report_data['columns']);

@@ -3514,13 +3514,19 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         );
 
         $filename = 'employees-export-' . date('Ymd-His') . '.csv';
+
+        // Clean any active output buffers to prevent corrupted encoding
+        while ( ob_get_level() ) {
+            ob_end_clean();
+        }
+
         nocache_headers();
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename='.$filename);
 
         $out = fopen('php://output', 'w');
         // UTF-8 BOM so Excel correctly renders Arabic characters
-        fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+        fwrite($out, "\xEF\xBB\xBF");
         $headers = [
     'id','employee_code','first_name','last_name','email','phone','department','position','gender','status',
     'hired_at','base_salary','gosi_salary',
