@@ -64,6 +64,7 @@ class Policy_Service {
             ( isset( $shift->calculation_mode ) && $shift->calculation_mode !== null ) ||
             ( isset( $shift->clock_in_methods )  && $shift->clock_in_methods  !== null ) ||
             ( isset( $shift->clock_out_methods ) && $shift->clock_out_methods !== null ) ||
+            ( isset( $shift->break_methods )     && $shift->break_methods     !== null ) ||
             ( isset( $shift->geofence_in )  && $shift->geofence_in  !== null ) ||
             ( isset( $shift->geofence_out ) && $shift->geofence_out !== null ) ||
             ( isset( $shift->target_hours ) && $shift->target_hours !== null )
@@ -97,6 +98,16 @@ class Policy_Service {
             $p->clock_out_methods = is_array( $m ) && ! empty( $m ) ? $m : [ 'kiosk', 'self_web' ];
         } else {
             $p->clock_out_methods = $role_policy ? $role_policy->clock_out_methods : [ 'kiosk', 'self_web' ];
+        }
+
+        // Break methods (null = skip validation, empty array treated as null)
+        if ( isset( $shift->break_methods ) && $shift->break_methods !== null ) {
+            $m = is_string( $shift->break_methods )
+                ? json_decode( $shift->break_methods, true )
+                : $shift->break_methods;
+            $p->break_methods = is_array( $m ) && ! empty( $m ) ? $m : null;
+        } else {
+            $p->break_methods = $role_policy->break_methods ?? null;
         }
 
         // Geofence
@@ -204,6 +215,7 @@ class Policy_Service {
         if ( $row ) {
             $row->clock_in_methods  = json_decode( $row->clock_in_methods, true ) ?: [];
             $row->clock_out_methods = json_decode( $row->clock_out_methods, true ) ?: [];
+            $row->break_methods     = isset( $row->break_methods ) ? ( json_decode( $row->break_methods, true ) ?: null ) : null;
         }
 
         self::$cache[ $employee_id ] = $row ?: null;
@@ -237,18 +249,29 @@ class Policy_Service {
         } elseif ( $punch_type === 'out' ) {
             $allowed = $policy->clock_out_methods;
         } else {
-            // break_start / break_end follow clock-in method rules
-            $allowed = $policy->clock_in_methods;
+            // break_start / break_end use dedicated break_methods when configured;
+            // null means no restriction — skip validation entirely.
+            $allowed = $policy->break_methods ?? null;
+            if ( $allowed === null ) {
+                return true;
+            }
         }
 
         if ( ! in_array( $source, $allowed, true ) ) {
             $method_label = $source === 'kiosk' ? __( 'Kiosk', 'sfs-hr' ) : __( 'Self Web', 'sfs-hr' );
-            $action_label = $punch_type === 'in' ? __( 'Clock-in', 'sfs-hr' ) : __( 'Clock-out', 'sfs-hr' );
+
+            $action_labels = [
+                'in'          => __( 'Clock-in', 'sfs-hr' ),
+                'out'         => __( 'Clock-out', 'sfs-hr' ),
+                'break_start' => __( 'Break Start', 'sfs-hr' ),
+                'break_end'   => __( 'Break End', 'sfs-hr' ),
+            ];
+            $action_label = $action_labels[ $punch_type ] ?? __( 'Action', 'sfs-hr' );
 
             return new \WP_Error(
                 'method_not_allowed',
                 sprintf(
-                    /* translators: 1: action (Clock-in/Clock-out), 2: method (Kiosk/Self Web) */
+                    /* translators: 1: action (Clock-in/Clock-out/Break Start/Break End), 2: method (Kiosk/Self Web) */
                     __( '%1$s via %2$s is not allowed by your attendance policy.', 'sfs-hr' ),
                     $action_label,
                     $method_label
@@ -381,6 +404,7 @@ class Policy_Service {
         foreach ( $policies as &$p ) {
             $p->clock_in_methods  = json_decode( $p->clock_in_methods, true ) ?: [];
             $p->clock_out_methods = json_decode( $p->clock_out_methods, true ) ?: [];
+            $p->break_methods     = isset( $p->break_methods ) ? ( json_decode( $p->break_methods, true ) ?: null ) : null;
             $p->roles = $wpdb->get_col( $wpdb->prepare(
                 "SELECT role_slug FROM {$wpdb->prefix}sfs_hr_attendance_policy_roles WHERE policy_id = %d",
                 $p->id
@@ -410,6 +434,7 @@ class Policy_Service {
 
         $row->clock_in_methods  = json_decode( $row->clock_in_methods, true ) ?: [];
         $row->clock_out_methods = json_decode( $row->clock_out_methods, true ) ?: [];
+        $row->break_methods     = isset( $row->break_methods ) ? ( json_decode( $row->break_methods, true ) ?: null ) : null;
         $row->roles = $wpdb->get_col( $wpdb->prepare(
             "SELECT role_slug FROM {$wpdb->prefix}sfs_hr_attendance_policy_roles WHERE policy_id = %d",
             $row->id
@@ -435,6 +460,7 @@ class Policy_Service {
             'name'                   => sanitize_text_field( $data['name'] ?? '' ),
             'clock_in_methods'       => wp_json_encode( $data['clock_in_methods'] ?? [ 'kiosk', 'self_web' ] ),
             'clock_out_methods'      => wp_json_encode( $data['clock_out_methods'] ?? [ 'kiosk', 'self_web' ] ),
+            'break_methods'          => ! empty( $data['break_methods'] ) ? wp_json_encode( $data['break_methods'] ) : null,
             'clock_in_geofence'      => in_array( $data['clock_in_geofence'] ?? '', [ 'enforced', 'none' ] ) ? $data['clock_in_geofence'] : 'enforced',
             'clock_out_geofence'     => in_array( $data['clock_out_geofence'] ?? '', [ 'enforced', 'none' ] ) ? $data['clock_out_geofence'] : 'enforced',
             'calculation_mode'       => in_array( $data['calculation_mode'] ?? '', [ 'shift_times', 'total_hours' ] ) ? $data['calculation_mode'] : 'shift_times',

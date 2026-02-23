@@ -1658,6 +1658,29 @@ public function render_shifts(): void {
                     </div>
 
                     <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Break Methods', 'sfs-hr' ); ?></label>
+                        <?php
+                        $brk_methods_raw = $editing->break_methods ?? null;
+                        $brk_methods = null;
+                        if ( $brk_methods_raw !== null ) {
+                            $brk_methods = is_string( $brk_methods_raw ) ? json_decode( $brk_methods_raw, true ) : $brk_methods_raw;
+                            if ( ! is_array( $brk_methods ) ) { $brk_methods = null; }
+                        }
+                        ?>
+                        <label style="margin-right:15px;">
+                            <input type="checkbox" name="shift_break_methods[]" value="kiosk"
+                                <?php checked( $brk_methods !== null && in_array( 'kiosk', $brk_methods, true ) ); ?> />
+                            <?php esc_html_e( 'Kiosk', 'sfs-hr' ); ?>
+                        </label>
+                        <label>
+                            <input type="checkbox" name="shift_break_methods[]" value="self_web"
+                                <?php checked( $brk_methods !== null && in_array( 'self_web', $brk_methods, true ) ); ?> />
+                            <?php esc_html_e( 'Self Web', 'sfs-hr' ); ?>
+                        </label>
+                        <span class="sfs-hr-form-hint"><?php esc_html_e( 'Leave unchecked to skip break method validation.', 'sfs-hr' ); ?></span>
+                    </div>
+
+                    <div class="sfs-hr-form-group">
                         <label class="sfs-hr-form-label"><?php esc_html_e( 'Geofence', 'sfs-hr' ); ?></label>
                         <div class="sfs-hr-form-row">
                             <div class="sfs-hr-form-group">
@@ -2148,10 +2171,13 @@ $end   = $norm_time($_POST['end_time']   ?? '');
         ? array_values( array_intersect( $_POST['shift_clock_in_methods'], [ 'kiosk', 'self_web' ] ) ) : null;
     $shift_co_methods = isset( $_POST['shift_clock_out_methods'] ) && is_array( $_POST['shift_clock_out_methods'] )
         ? array_values( array_intersect( $_POST['shift_clock_out_methods'], [ 'kiosk', 'self_web' ] ) ) : null;
+    $shift_brk_methods = isset( $_POST['shift_break_methods'] ) && is_array( $_POST['shift_break_methods'] )
+        ? array_values( array_intersect( $_POST['shift_break_methods'], [ 'kiosk', 'self_web' ] ) ) : null;
 
-    // Empty arrays → null (inherit)
+    // Empty arrays → null (inherit / skip validation)
     if ( is_array( $shift_ci_methods ) && empty( $shift_ci_methods ) ) { $shift_ci_methods = null; }
     if ( is_array( $shift_co_methods ) && empty( $shift_co_methods ) ) { $shift_co_methods = null; }
+    if ( is_array( $shift_brk_methods ) && empty( $shift_brk_methods ) ) { $shift_brk_methods = null; }
 
     $shift_geo_in  = in_array( $_POST['shift_geofence_in']  ?? '', [ 'enforced', 'none' ], true ) ? $_POST['shift_geofence_in']  : null;
     $shift_geo_out = in_array( $_POST['shift_geofence_out'] ?? '', [ 'enforced', 'none' ], true ) ? $_POST['shift_geofence_out'] : null;
@@ -2208,6 +2234,7 @@ $end   = $norm_time($_POST['end_time']   ?? '');
         'period_overrides'         => $period_overrides_json,
         'clock_in_methods'         => $shift_ci_methods !== null ? wp_json_encode( $shift_ci_methods ) : null,
         'clock_out_methods'        => $shift_co_methods !== null ? wp_json_encode( $shift_co_methods ) : null,
+        'break_methods'            => $shift_brk_methods !== null ? wp_json_encode( $shift_brk_methods ) : null,
         'geofence_in'              => $shift_geo_in,
         'geofence_out'             => $shift_geo_out,
         'calculation_mode'         => $shift_calc_mode,

@@ -545,6 +545,7 @@ class Migrations {
         if ( $shift_tbl_exists ) {
             self::add_column_if_missing( $att_shifts, 'clock_in_methods',  "VARCHAR(255) NULL DEFAULT NULL" );
             self::add_column_if_missing( $att_shifts, 'clock_out_methods', "VARCHAR(255) NULL DEFAULT NULL" );
+            self::add_column_if_missing( $att_shifts, 'break_methods',     "VARCHAR(255) NULL DEFAULT NULL" );
             self::add_column_if_missing( $att_shifts, 'geofence_in',       "VARCHAR(20) NULL DEFAULT NULL" );
             self::add_column_if_missing( $att_shifts, 'geofence_out',      "VARCHAR(20) NULL DEFAULT NULL" );
             self::add_column_if_missing( $att_shifts, 'calculation_mode',  "VARCHAR(20) NULL DEFAULT NULL" );
