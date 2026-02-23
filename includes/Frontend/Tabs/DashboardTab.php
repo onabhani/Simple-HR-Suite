@@ -166,13 +166,139 @@ class DashboardTab implements TabInterface {
         ), ARRAY_A );
 
         // ── Render ──
+        $this->render_dashboard_styles();
         $this->render_header( $today, $period_start, $period_end, $total_employees );
         $this->render_summary_counters( $clocked_in, $not_clocked, $on_leave + $holiday, $absent, $total_employees );
+
+        // Two-column grid for gauge + methods
+        echo '<div class="sfs-dash-row">';
         $this->render_gauge( $on_time, $late, $clocked_in, $total_employees );
         $this->render_method_breakdown( $method_map );
+        echo '</div>';
+
+        // Two-column grid for department + calendar
+        echo '<div class="sfs-dash-row">';
         $this->render_dept_breakdown( $dept_stats );
         $this->render_calendar_heatmap( $heatmap_data, $period_start, $period_end );
+        echo '</div>';
+
         $this->render_today_list( $today_list );
+    }
+
+    private function render_dashboard_styles(): void {
+        echo '<style>
+        .sfs-dash-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        @media (max-width: 768px) {
+            .sfs-dash-row { grid-template-columns: 1fr; }
+        }
+        .sfs-dash-gauge-card,
+        .sfs-dash-methods-card,
+        .sfs-dash-dept-card,
+        .sfs-dash-heatmap-card {
+            margin-bottom: 0;
+        }
+        .sfs-dash-list-card {
+            margin-top: 16px;
+        }
+        .sfs-kpi-grid.sfs-kpi-grid--4 {
+            margin-bottom: 16px;
+        }
+        .sfs-dash-widget-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--sfs-text, #1f2937);
+            margin: 0 0 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--sfs-border, #f3f4f6);
+        }
+        .sfs-dash-dept-row {
+            display: grid;
+            grid-template-columns: 120px 1fr 44px 56px;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--sfs-border, #f3f4f6);
+            font-size: 13px;
+        }
+        .sfs-dash-dept-row:last-child { border-bottom: none; }
+        .sfs-dash-dept-name { font-weight: 600; color: var(--sfs-text, #1f2937); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .sfs-dash-dept-bar-wrap { height: 8px; background: #f3f4f6; border-radius: 4px; overflow: hidden; }
+        .sfs-dash-dept-bar { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+        .sfs-dash-dept-pct { font-weight: 700; text-align: right; font-size: 13px; }
+        .sfs-dash-dept-count { color: var(--sfs-text-muted, #6b7280); text-align: right; font-size: 12px; }
+        .sfs-dash-methods-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        .sfs-dash-method-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            padding: 16px 8px;
+            background: var(--sfs-background, #f9fafb);
+            border-radius: 12px;
+            text-align: center;
+        }
+        .sfs-dash-method-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .sfs-dash-method-icon svg { width: 20px; height: 20px; }
+        .sfs-dash-method-count { font-size: 22px; font-weight: 800; color: var(--sfs-text, #1f2937); line-height: 1; }
+        .sfs-dash-method-label { font-size: 12px; color: var(--sfs-text-muted, #6b7280); }
+        .sfs-dash-gauge-wrap { position: relative; max-width: 200px; margin: 0 auto 12px; }
+        .sfs-dash-gauge { width: 100%; }
+        .sfs-dash-gauge-bg { fill: none; stroke: #f3f4f6; stroke-width: 14; stroke-linecap: round; }
+        .sfs-dash-gauge-fill { fill: none; stroke-width: 14; stroke-linecap: round; }
+        .sfs-dash-gauge-fill--ontime { stroke: #059669; }
+        .sfs-dash-gauge-fill--late { stroke: #d97706; }
+        .sfs-dash-gauge-center { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); text-align: center; }
+        .sfs-dash-gauge-pct { font-size: 28px; font-weight: 800; color: var(--sfs-text, #1f2937); line-height: 1; }
+        .sfs-dash-gauge-sub { font-size: 11px; color: var(--sfs-text-muted, #6b7280); text-transform: uppercase; letter-spacing: 0.5px; }
+        .sfs-dash-gauge-legend { display: flex; justify-content: center; gap: 20px; }
+        .sfs-dash-legend-item { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+        .sfs-dash-legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .sfs-dash-heatmap-legend { display: flex; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
+        .sfs-dash-heatmap-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+        .sfs-dash-heatmap-header { font-size: 11px; font-weight: 600; color: var(--sfs-text-muted, #6b7280); text-align: center; padding: 4px 0; }
+        .sfs-dash-heatmap-cell {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 500;
+            border-radius: 6px;
+            cursor: default;
+        }
+        .sfs-dash-heatmap-cell--high { background: #dcfce7; color: #16a34a; }
+        .sfs-dash-heatmap-cell--medium { background: #fef3c7; color: #d97706; }
+        .sfs-dash-heatmap-cell--low { background: #fee2e2; color: #dc2626; }
+        .sfs-dash-heatmap-cell--none { background: #f3f4f6; color: #9ca3af; }
+        .sfs-dash-heatmap-cell--future { background: transparent; color: #d1d5db; }
+        .sfs-dash-heatmap-cell--empty { background: transparent; }
+        .sfs-dash-heatmap-cell--today { outline: 2px solid var(--sfs-primary, #0284c7); outline-offset: -1px; }
+        .sfs-dash-filter-chips { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+        .sfs-dash-emp-item { padding: 12px 0; border-bottom: 1px solid var(--sfs-border, #f3f4f6); }
+        .sfs-dash-emp-item:last-child { border-bottom: none; }
+        .sfs-dash-emp-item-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+        .sfs-dash-emp-item-meta { display: flex; gap: 16px; margin-top: 6px; font-size: 12px; color: var(--sfs-text-muted, #6b7280); }
+        </style>';
     }
 
     /* ──────────────────────────────────────────────────────────

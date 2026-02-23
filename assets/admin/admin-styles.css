@@ -404,3 +404,546 @@
 .sfs-hr-help:hover .sfs-hr-help-text {
     display: block;
 }
+
+/* ================================================================
+   Extended Admin Styles — Attendance Module Redesign
+   ================================================================ */
+
+/* ── Modern Admin Form Groups ───────────────────────────────────── */
+.sfs-hr-form-group {
+    margin-bottom: 20px;
+}
+
+.sfs-hr-form-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 6px;
+    line-height: 1.4;
+}
+
+.sfs-hr-form-label .required {
+    color: #dc2626;
+    margin-left: 2px;
+}
+
+.sfs-hr-form-hint {
+    display: block;
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+    line-height: 1.5;
+}
+
+.sfs-hr-form-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.sfs-hr-form-row > .sfs-hr-form-group {
+    flex: 1;
+    min-width: 0;
+}
+
+@media screen and (max-width: 782px) {
+    .sfs-hr-form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+}
+
+/* ── Toggle Switch ──────────────────────────────────────────────── */
+.sfs-hr-toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 14px;
+    color: #374151;
+    line-height: 1.4;
+}
+
+.sfs-hr-toggle input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.sfs-hr-toggle .sfs-hr-toggle__track {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    background: #d1d5db;
+    border-radius: 12px;
+    flex-shrink: 0;
+    transition: background 0.2s ease;
+}
+
+.sfs-hr-toggle .sfs-hr-toggle__track::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    transition: transform 0.2s ease;
+}
+
+.sfs-hr-toggle input[type="checkbox"]:checked + .sfs-hr-toggle__track {
+    background: #0284c7;
+}
+
+.sfs-hr-toggle input[type="checkbox"]:checked + .sfs-hr-toggle__track::after {
+    transform: translateX(20px);
+}
+
+.sfs-hr-toggle input[type="checkbox"]:focus-visible + .sfs-hr-toggle__track {
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.25);
+}
+
+.sfs-hr-toggle .sfs-hr-toggle__label {
+    font-weight: 500;
+}
+
+/* ── Admin Section Card ─────────────────────────────────────────── */
+.sfs-hr-section {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+}
+
+.sfs-hr-section__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid #f3f4f6;
+    background: #f9fafb;
+}
+
+.sfs-hr-section__title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.sfs-hr-section__description {
+    font-size: 13px;
+    color: #6b7280;
+    margin: 2px 0 0 0;
+    line-height: 1.4;
+}
+
+.sfs-hr-section__actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.sfs-hr-section__body {
+    padding: 24px;
+}
+
+/* ── Info / Tip Box ─────────────────────────────────────────────── */
+.sfs-hr-info-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 18px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 20px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e40af;
+}
+
+.sfs-hr-info-box svg,
+.sfs-hr-info-box .dashicons {
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.sfs-hr-info-box--warning {
+    background: #fffbeb;
+    border-color: #fde68a;
+    color: #92400e;
+}
+
+.sfs-hr-info-box--success {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    color: #166534;
+}
+
+/* ── Empty State ────────────────────────────────────────────────── */
+.sfs-hr-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 48px 24px;
+}
+
+.sfs-hr-empty-state__icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    color: #9ca3af;
+}
+
+.sfs-hr-empty-state__icon svg {
+    width: 28px;
+    height: 28px;
+}
+
+.sfs-hr-empty-state__title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0 0 6px 0;
+}
+
+.sfs-hr-empty-state__text {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0 0 20px 0;
+    max-width: 360px;
+    line-height: 1.6;
+}
+
+/* ── Admin Modal ────────────────────────────────────────────────── */
+.sfs-hr-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100100;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.sfs-hr-modal-overlay.is-open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.sfs-hr-modal {
+    background: #fff;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 560px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+    transform: translateY(12px) scale(0.97);
+    transition: transform 0.2s ease;
+}
+
+.sfs-hr-modal-overlay.is-open .sfs-hr-modal {
+    transform: translateY(0) scale(1);
+}
+
+.sfs-hr-modal__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 24px;
+    border-bottom: 1px solid #e5e7eb;
+    flex-shrink: 0;
+}
+
+.sfs-hr-modal__title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0;
+}
+
+.sfs-hr-modal__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: #6b7280;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.sfs-hr-modal__close:hover {
+    background: #f3f4f6;
+    color: #1f2937;
+}
+
+.sfs-hr-modal__body {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.sfs-hr-modal__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 16px 24px;
+    border-top: 1px solid #e5e7eb;
+    flex-shrink: 0;
+}
+
+@media screen and (max-width: 600px) {
+    .sfs-hr-modal {
+        width: 95%;
+        max-height: 90vh;
+    }
+
+    .sfs-hr-modal__header,
+    .sfs-hr-modal__body,
+    .sfs-hr-modal__footer {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+}
+
+/* ── Chip / Tag ─────────────────────────────────────────────────── */
+.sfs-hr-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.sfs-hr-chip svg {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+}
+
+.sfs-hr-chip--primary {
+    background: #e0f2fe;
+    color: #0369a1;
+    border-color: #bae6fd;
+}
+
+.sfs-hr-chip--success {
+    background: #dcfce7;
+    color: #16a34a;
+    border-color: #bbf7d0;
+}
+
+.sfs-hr-chip--warning {
+    background: #fef3c7;
+    color: #d97706;
+    border-color: #fde68a;
+}
+
+.sfs-hr-chip--danger {
+    background: #fee2e2;
+    color: #dc2626;
+    border-color: #fecaca;
+}
+
+.sfs-hr-chip--removable {
+    cursor: pointer;
+    padding-right: 6px;
+}
+
+.sfs-hr-chip--removable:hover {
+    background: #e5e7eb;
+    border-color: #d1d5db;
+}
+
+.sfs-hr-chip__remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.08);
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 2px;
+    color: inherit;
+    transition: background 0.15s;
+}
+
+.sfs-hr-chip__remove:hover {
+    background: rgba(0, 0, 0, 0.16);
+}
+
+/* ── Admin Grid Layouts ─────────────────────────────────────────── */
+.sfs-hr-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.sfs-hr-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.sfs-hr-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+
+@media screen and (max-width: 1200px) {
+    .sfs-hr-grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media screen and (max-width: 782px) {
+    .sfs-hr-grid-2,
+    .sfs-hr-grid-3 {
+        grid-template-columns: 1fr;
+    }
+
+    .sfs-hr-grid-4 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── Department Toggle List ─────────────────────────────────────── */
+.sfs-hr-dept-toggle-list {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.sfs-hr-dept-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid #f3f4f6;
+    transition: background 0.15s;
+}
+
+.sfs-hr-dept-toggle-row:last-child {
+    border-bottom: none;
+}
+
+.sfs-hr-dept-toggle-row:hover {
+    background: #f9fafb;
+}
+
+.sfs-hr-dept-toggle-row__info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.sfs-hr-dept-toggle-row__name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+    line-height: 1.4;
+}
+
+.sfs-hr-dept-toggle-row__meta {
+    font-size: 12px;
+    color: #6b7280;
+    line-height: 1.4;
+}
+
+.sfs-hr-dept-toggle-row__control {
+    flex-shrink: 0;
+    margin-left: 16px;
+}
+
+@media screen and (max-width: 600px) {
+    .sfs-hr-dept-toggle-row {
+        padding: 12px 14px;
+    }
+}
+
+/* ── Scrollable List ────────────────────────────────────────────── */
+.sfs-hr-scroll-list {
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 4px;
+}
+
+.sfs-hr-scroll-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sfs-hr-scroll-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sfs-hr-scroll-list::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+}
+
+.sfs-hr-scroll-list::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+.sfs-hr-scroll-list__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #374151;
+    transition: background 0.15s;
+}
+
+.sfs-hr-scroll-list__item:hover {
+    background: #f3f4f6;
+}
+
+.sfs-hr-scroll-list__item.is-selected {
+    background: #eff6ff;
+    color: #0369a1;
+    font-weight: 600;
+}

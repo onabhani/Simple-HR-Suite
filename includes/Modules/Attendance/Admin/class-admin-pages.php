@@ -162,111 +162,127 @@ private function get_table_columns( $table ): array {
         $period_day  = isset($opt['period_start_day']) ? (int)$opt['period_start_day'] : 1;
 
         ?>
-        <div class="wrap">
+        <div class="wrap sfs-hr-wrap">
             <h1><?php esc_html_e( 'Attendance Settings', 'sfs-hr' ); ?></h1>
             <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>">
                 <?php wp_nonce_field( 'sfs_hr_att_save_settings' ); ?>
                 <input type="hidden" name="action" value="sfs_hr_att_save_settings"/>
 
-                <?php if ( ! empty( $departments ) ) : ?>
-                <h2><?php esc_html_e( 'Web/Mobile Punch Allowed by Department', 'sfs-hr' ); ?></h2>
-                <table class="form-table">
-                    <?php foreach ( $departments as $dept ) : ?>
-                    <tr>
-                        <th><?php echo esc_html( $dept['name'] ); ?></th>
-                        <td>
-                            <label>
-                                <input type="checkbox" name="web_allowed_by_dept_id[<?php echo esc_attr( $dept['id'] ); ?>]" value="1" <?php checked( ! empty( $web_allowed[ $dept['id'] ] ) ); ?>/>
-                                <?php esc_html_e( 'Allow web/mobile punches', 'sfs-hr' ); ?>
-                            </label>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </table>
+                <!-- Card 1: Department Punch Settings -->
+                <div class="sfs-hr-admin-card">
+                    <div class="sfs-hr-admin-card-header">
+                        <h2 class="sfs-hr-admin-card-title"><?php esc_html_e( 'Department Punch Settings', 'sfs-hr' ); ?></h2>
+                    </div>
 
-                <h2><?php esc_html_e( 'Selfie Required by Department', 'sfs-hr' ); ?></h2>
-                <table class="form-table">
-                    <?php foreach ( $departments as $dept ) : ?>
-                    <tr>
-                        <th><?php echo esc_html( $dept['name'] ); ?></th>
-                        <td>
-                            <label>
-                                <input type="checkbox" name="selfie_required_by_dept_id[<?php echo esc_attr( $dept['id'] ); ?>]" value="1" <?php checked( ! empty( $selfie_req[ $dept['id'] ] ) ); ?>/>
-                                <?php esc_html_e( 'Require selfie on punch', 'sfs-hr' ); ?>
-                            </label>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </table>
-                <?php else : ?>
-                <div class="notice notice-warning">
-                    <p><?php esc_html_e( 'No departments found. Please create departments first in HR → Departments.', 'sfs-hr' ); ?></p>
+                    <?php if ( ! empty( $departments ) ) : ?>
+                        <div class="sfs-hr-dept-toggle-list">
+                            <?php foreach ( $departments as $dept ) : ?>
+                                <div class="sfs-hr-dept-toggle-row">
+                                    <div class="sfs-hr-dept-toggle-row__info">
+                                        <span class="sfs-hr-dept-toggle-row__name"><?php echo esc_html( $dept['name'] ); ?></span>
+                                    </div>
+                                    <div class="sfs-hr-dept-toggle-row__control" style="display:flex;align-items:center;gap:24px;">
+                                        <label class="sfs-hr-toggle">
+                                            <input type="checkbox" name="web_allowed_by_dept_id[<?php echo esc_attr( $dept['id'] ); ?>]" value="1" <?php checked( ! empty( $web_allowed[ $dept['id'] ] ) ); ?>/>
+                                            <span class="sfs-hr-toggle__track"></span>
+                                            <span class="sfs-hr-toggle__label"><?php esc_html_e( 'Web Punch', 'sfs-hr' ); ?></span>
+                                        </label>
+                                        <label class="sfs-hr-toggle">
+                                            <input type="checkbox" name="selfie_required_by_dept_id[<?php echo esc_attr( $dept['id'] ); ?>]" value="1" <?php checked( ! empty( $selfie_req[ $dept['id'] ] ) ); ?>/>
+                                            <span class="sfs-hr-toggle__track"></span>
+                                            <span class="sfs-hr-toggle__label"><?php esc_html_e( 'Selfie Required', 'sfs-hr' ); ?></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php else : ?>
+                        <div class="sfs-hr-info-box sfs-hr-info-box--warning">
+                            <span class="dashicons dashicons-warning"></span>
+                            <p><?php esc_html_e( 'No departments found. Please create departments first in HR → Departments.', 'sfs-hr' ); ?></p>
+                        </div>
+                    <?php endif; ?>
                 </div>
-                <?php endif; ?>
 
-                <h2><?php esc_html_e( 'Retention & Defaults', 'sfs-hr' ); ?></h2>
-                <table class="form-table">
-                    <tr>
-                        <th><?php esc_html_e( 'Selfie retention (days)', 'sfs-hr' ); ?></th>
-                        <td>
-                            <input type="number" name="selfie_retention_days" min="1" step="1" value="<?php echo esc_attr($ret_days); ?>"/>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th><?php esc_html_e( 'Default rounding (nearest minutes)', 'sfs-hr' ); ?></th>
-                        <td>
-                            <select name="default_rounding_rule">
-                                <?php foreach (['none','5','10','15'] as $r): ?>
-                                    <option value="<?php echo esc_attr($r); ?>" <?php selected($def_round,$r); ?>><?php echo esc_html($r); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th><?php esc_html_e( 'Default grace (late / early-leave)', 'sfs-hr' ); ?></th>
-                        <td>
-                            <input type="number" min="0" step="1" name="default_grace_late"  value="<?php echo esc_attr($def_gl); ?>" style="width:80px"/> <?php esc_html_e( 'min', 'sfs-hr' ); ?>
-                            /
-                            <input type="number" min="0" step="1" name="default_grace_early" value="<?php echo esc_attr($def_ge); ?>" style="width:80px"/> <?php esc_html_e( 'min', 'sfs-hr' ); ?>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th><?php esc_html_e( 'Monthly overtime threshold', 'sfs-hr' ); ?></th>
-                        <td>
-                            <input type="number" min="0" step="30" name="monthly_ot_threshold" value="<?php echo esc_attr($monthly_ot); ?>" style="width:100px"/> <?php esc_html_e( 'minutes', 'sfs-hr' ); ?>
-                            <span style="color:#666;margin-left:10px;">(<?php echo esc_html( number_format($monthly_ot / 60, 1) ); ?> <?php esc_html_e( 'hours', 'sfs-hr' ); ?>)</span>
-                        </td>
-                    </tr>
-                </table>
+                <!-- Card 2: Timing & Rules -->
+                <div class="sfs-hr-admin-card">
+                    <div class="sfs-hr-admin-card-header">
+                        <h2 class="sfs-hr-admin-card-title"><?php esc_html_e( 'Timing & Rules', 'sfs-hr' ); ?></h2>
+                    </div>
 
-                <h2><?php esc_html_e( 'Attendance Period', 'sfs-hr' ); ?></h2>
-                <table class="form-table">
-                    <tr>
-                        <th><?php esc_html_e( 'Period type', 'sfs-hr' ); ?></th>
-                        <td>
-                            <fieldset>
-                                <label style="display:block;margin-bottom:6px;">
-                                    <input type="radio" name="period_type" value="full_month" <?php checked( $period_type, 'full_month' ); ?> />
-                                    <?php esc_html_e( 'Full calendar month', 'sfs-hr' ); ?>
-                                </label>
-                                <label style="display:block;">
-                                    <input type="radio" name="period_type" value="custom" <?php checked( $period_type, 'custom' ); ?> />
-                                    <?php esc_html_e( 'Custom period', 'sfs-hr' ); ?>
-                                </label>
-                            </fieldset>
-                        </td>
-                    </tr>
-                    <tr id="sfs-period-day-row" style="<?php echo $period_type !== 'custom' ? 'display:none;' : ''; ?>">
-                        <th><?php esc_html_e( 'Period start day', 'sfs-hr' ); ?></th>
-                        <td>
-                            <select name="period_start_day">
-                                <?php for ( $d = 1; $d <= 28; $d++ ) : ?>
-                                    <option value="<?php echo $d; ?>" <?php selected( $period_day, $d ); ?>><?php echo $d; ?></option>
-                                <?php endfor; ?>
-                            </select>
-                        </td>
-                    </tr>
-                </table>
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label" for="sfs-selfie-retention"><?php esc_html_e( 'Selfie retention (days)', 'sfs-hr' ); ?></label>
+                        <input type="number" id="sfs-selfie-retention" name="selfie_retention_days" min="1" step="1" value="<?php echo esc_attr($ret_days); ?>"/>
+                        <span class="sfs-hr-form-hint"><?php esc_html_e( 'Number of days to keep selfie images before automatic cleanup.', 'sfs-hr' ); ?></span>
+                    </div>
+
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label" for="sfs-rounding-rule"><?php esc_html_e( 'Default rounding (nearest minutes)', 'sfs-hr' ); ?></label>
+                        <select id="sfs-rounding-rule" name="default_rounding_rule">
+                            <?php foreach (['none','5','10','15'] as $r): ?>
+                                <option value="<?php echo esc_attr($r); ?>" <?php selected($def_round,$r); ?>><?php echo esc_html($r); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <span class="sfs-hr-form-hint"><?php esc_html_e( 'Round punch times to the nearest specified minutes.', 'sfs-hr' ); ?></span>
+                    </div>
+
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Default grace period (late / early-leave)', 'sfs-hr' ); ?></label>
+                        <div class="sfs-hr-grid-2">
+                            <div>
+                                <label class="sfs-hr-form-label" for="sfs-grace-late" style="font-weight:500;font-size:12px;"><?php esc_html_e( 'Late arrival grace', 'sfs-hr' ); ?></label>
+                                <input type="number" id="sfs-grace-late" min="0" step="1" name="default_grace_late" value="<?php echo esc_attr($def_gl); ?>"/>
+                                <span class="sfs-hr-form-hint"><?php esc_html_e( 'min', 'sfs-hr' ); ?></span>
+                            </div>
+                            <div>
+                                <label class="sfs-hr-form-label" for="sfs-grace-early" style="font-weight:500;font-size:12px;"><?php esc_html_e( 'Early leave grace', 'sfs-hr' ); ?></label>
+                                <input type="number" id="sfs-grace-early" min="0" step="1" name="default_grace_early" value="<?php echo esc_attr($def_ge); ?>"/>
+                                <span class="sfs-hr-form-hint"><?php esc_html_e( 'min', 'sfs-hr' ); ?></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label" for="sfs-ot-threshold"><?php esc_html_e( 'Monthly overtime threshold', 'sfs-hr' ); ?></label>
+                        <input type="number" id="sfs-ot-threshold" min="0" step="30" name="monthly_ot_threshold" value="<?php echo esc_attr($monthly_ot); ?>"/>
+                        <span class="sfs-hr-form-hint">
+                            <?php esc_html_e( 'minutes', 'sfs-hr' ); ?>
+                            (<?php echo esc_html( number_format($monthly_ot / 60, 1) ); ?> <?php esc_html_e( 'hours', 'sfs-hr' ); ?>)
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Card 3: Attendance Period -->
+                <div class="sfs-hr-admin-card">
+                    <div class="sfs-hr-admin-card-header">
+                        <h2 class="sfs-hr-admin-card-title"><?php esc_html_e( 'Attendance Period', 'sfs-hr' ); ?></h2>
+                    </div>
+
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Period type', 'sfs-hr' ); ?></label>
+                        <fieldset style="margin:0;padding:0;border:none;">
+                            <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;margin-bottom:10px;">
+                                <input type="radio" name="period_type" value="full_month" <?php checked( $period_type, 'full_month' ); ?> />
+                                <span><?php esc_html_e( 'Full calendar month', 'sfs-hr' ); ?></span>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;">
+                                <input type="radio" name="period_type" value="custom" <?php checked( $period_type, 'custom' ); ?> />
+                                <span><?php esc_html_e( 'Custom period', 'sfs-hr' ); ?></span>
+                            </label>
+                        </fieldset>
+                    </div>
+
+                    <div class="sfs-hr-form-group" id="sfs-period-day-row" style="<?php echo $period_type !== 'custom' ? 'display:none;' : ''; ?>">
+                        <label class="sfs-hr-form-label" for="sfs-period-start-day"><?php esc_html_e( 'Period start day', 'sfs-hr' ); ?></label>
+                        <select id="sfs-period-start-day" name="period_start_day">
+                            <?php for ( $d = 1; $d <= 28; $d++ ) : ?>
+                                <option value="<?php echo $d; ?>" <?php selected( $period_day, $d ); ?>><?php echo $d; ?></option>
+                            <?php endfor; ?>
+                        </select>
+                        <span class="sfs-hr-form-hint"><?php esc_html_e( 'Day of the month when the attendance period begins.', 'sfs-hr' ); ?></span>
+                    </div>
+                </div>
+
                 <script>
                 (function(){
                     var radios = document.querySelectorAll('input[name="period_type"]');
@@ -439,172 +455,70 @@ public function render_automation(): void {
     $unmapped_depts = $total_depts - $mapped_depts;
 
     ?>
-    <div class="wrap sfs-hr-automation-wrap">
-        <h1><?php esc_html_e( 'Automation', 'sfs-hr' ); ?></h1>
+    <!-- Info box -->
+    <div class="sfs-hr-info-box">
+        <span class="dashicons dashicons-info-outline"></span>
+        <span>
+            <?php printf(
+                __( 'Map each department to a %sDefault Shift%s. This is the lowest-priority fallback — employee-level assignments and shift-level period overrides (e.g. Ramadan hours) always take precedence.', 'sfs-hr' ),
+                '<strong>', '</strong>'
+            ); ?>
+        </span>
+    </div>
 
-        <style>
-        .sfs-hr-automation-wrap { max-width: 960px; }
-
-        /* Summary bar */
-        .sfs-auto-summary {
-            display: flex;
-            gap: 16px;
-            margin: 20px 0;
-        }
-        .sfs-auto-summary-card {
-            flex: 1;
-            background: #fff;
-            border: 1px solid #c3c4c7;
-            border-radius: 6px;
-            padding: 16px 20px;
-            border-left: 4px solid #2271b1;
-        }
-        .sfs-auto-summary-card.--warning { border-left-color: #dba617; }
-        .sfs-auto-summary-card.--success { border-left-color: #00a32a; }
-        .sfs-auto-summary-card .sfs-auto-summary-number {
-            font-size: 28px;
-            font-weight: 700;
-            line-height: 1;
-            margin-bottom: 4px;
-        }
-        .sfs-auto-summary-card .sfs-auto-summary-label {
-            font-size: 13px;
-            color: #50575e;
-        }
-
-        /* Department mapping cards */
-        .sfs-auto-dept-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0;
-            margin: 20px 0;
-            background: #fff;
-            border: 1px solid #c3c4c7;
-            border-radius: 6px;
-            overflow: hidden;
-        }
-        .sfs-auto-dept-row {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            padding: 14px 20px;
-            border-bottom: 1px solid #f0f0f1;
-            transition: background 0.15s;
-        }
-        .sfs-auto-dept-row:last-child { border-bottom: none; }
-        .sfs-auto-dept-row:hover { background: #f6f7f7; }
-        .sfs-auto-dept-row .sfs-auto-dept-status {
-            flex: 0 0 10px;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #dba617;
-        }
-        .sfs-auto-dept-row .sfs-auto-dept-status.--active { background: #00a32a; }
-        .sfs-auto-dept-row .sfs-auto-dept-name {
-            flex: 0 0 180px;
-            font-weight: 600;
-            font-size: 13px;
-        }
-        .sfs-auto-dept-row .sfs-auto-dept-select {
-            flex: 1;
-        }
-        .sfs-auto-dept-row .sfs-auto-dept-select select {
-            width: 100%;
-            max-width: 100%;
-            box-sizing: border-box;
-            padding: 6px 8px;
-        }
-
-        /* Section headings */
-        .sfs-auto-section-head {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin: 0;
-            padding: 14px 20px;
-            background: #f6f7f7;
-            font-size: 13px;
-            font-weight: 600;
-            color: #1d2327;
-            border-bottom: 1px solid #f0f0f1;
-        }
-        .sfs-auto-section-head .dashicons {
-            font-size: 16px;
-            width: 16px;
-            height: 16px;
-            color: #2271b1;
-        }
-
-        /* Info box */
-        .sfs-auto-info {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            padding: 12px 16px;
-            background: #f0f6fc;
-            border: 1px solid #c3c4c7;
-            border-radius: 6px;
-            font-size: 13px;
-            color: #2c3338;
-            margin-bottom: 20px;
-            line-height: 1.5;
-        }
-        .sfs-auto-info .dashicons {
-            flex-shrink: 0;
-            color: #2271b1;
-            margin-top: 1px;
-        }
-        </style>
-
-        <!-- Info box -->
-        <div class="sfs-auto-info">
-            <span class="dashicons dashicons-info-outline"></span>
-            <span>
-                <?php printf(
-                    __( 'Map each department to a %sDefault Shift%s. This is the lowest-priority fallback — employee-level assignments and shift-level period overrides (e.g. Ramadan hours) always take precedence.', 'sfs-hr' ),
-                    '<strong>', '</strong>'
-                ); ?>
-            </span>
+    <!-- Summary KPI Row -->
+    <div class="sfs-hr-admin-kpi-row">
+        <div class="sfs-hr-admin-kpi">
+            <div>
+                <div class="sfs-hr-admin-kpi-label"><?php esc_html_e( 'Total Departments', 'sfs-hr' ); ?></div>
+                <div class="sfs-hr-admin-kpi-value"><?php echo (int) $total_depts; ?></div>
+            </div>
         </div>
-
-        <!-- Summary bar -->
-        <div class="sfs-auto-summary">
-            <div class="sfs-auto-summary-card">
-                <div class="sfs-auto-summary-number"><?php echo (int) $total_depts; ?></div>
-                <div class="sfs-auto-summary-label"><?php esc_html_e( 'Total Departments', 'sfs-hr' ); ?></div>
+        <div class="sfs-hr-admin-kpi">
+            <div>
+                <div class="sfs-hr-admin-kpi-label"><?php esc_html_e( 'Mapped to Shift', 'sfs-hr' ); ?></div>
+                <div class="sfs-hr-admin-kpi-value"><?php echo (int) $mapped_depts; ?></div>
             </div>
-            <div class="sfs-auto-summary-card --success">
-                <div class="sfs-auto-summary-number"><?php echo (int) $mapped_depts; ?></div>
-                <div class="sfs-auto-summary-label"><?php esc_html_e( 'Mapped to Shift', 'sfs-hr' ); ?></div>
-            </div>
-            <?php if ( $unmapped_depts > 0 ) : ?>
-            <div class="sfs-auto-summary-card --warning">
-                <div class="sfs-auto-summary-number"><?php echo (int) $unmapped_depts; ?></div>
-                <div class="sfs-auto-summary-label"><?php esc_html_e( 'Not Mapped', 'sfs-hr' ); ?></div>
-            </div>
-            <?php endif; ?>
         </div>
+        <?php if ( $unmapped_depts > 0 ) : ?>
+        <div class="sfs-hr-admin-kpi">
+            <div>
+                <div class="sfs-hr-admin-kpi-label"><?php esc_html_e( 'Not Mapped', 'sfs-hr' ); ?></div>
+                <div class="sfs-hr-admin-kpi-value"><?php echo (int) $unmapped_depts; ?></div>
+            </div>
+        </div>
+        <?php endif; ?>
+    </div>
 
-        <!-- Department mapping form -->
+    <!-- Department mapping form -->
+    <div class="sfs-hr-admin-card">
+        <div class="sfs-hr-admin-card-header">
+            <h2 class="sfs-hr-admin-card-title">
+                <span class="dashicons dashicons-building"></span>
+                <?php esc_html_e( 'Department → Default Shift', 'sfs-hr' ); ?>
+            </h2>
+        </div>
         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
             <?php wp_nonce_field( 'sfs_hr_att_save_automation' ); ?>
             <input type="hidden" name="action" value="sfs_hr_att_save_automation"/>
 
-            <div class="sfs-auto-dept-list">
-                <div class="sfs-auto-section-head">
-                    <span class="dashicons dashicons-building"></span>
-                    <?php esc_html_e( 'Department → Default Shift', 'sfs-hr' ); ?>
-                </div>
-
+            <div class="sfs-hr-dept-toggle-list">
                 <?php foreach ( $departments as $d ):
                     $did             = (int) $d['id'];
                     $current_default = isset( $dept_def[ $did ] ) ? (int) $dept_def[ $did ] : 0;
                     ?>
-                    <div class="sfs-auto-dept-row">
-                        <span class="sfs-auto-dept-status <?php echo $current_default ? '--active' : ''; ?>"></span>
-                        <span class="sfs-auto-dept-name"><?php echo esc_html( $d['name'] ); ?></span>
-                        <span class="sfs-auto-dept-select">
+                    <div class="sfs-hr-dept-toggle-row">
+                        <div class="sfs-hr-dept-toggle-row__info">
+                            <span class="sfs-hr-dept-toggle-row__name"><?php echo esc_html( $d['name'] ); ?></span>
+                            <span class="sfs-hr-dept-toggle-row__meta">
+                                <?php if ( $current_default ) : ?>
+                                    <span class="sfs-hr-admin-badge sfs-hr-admin-badge--active"><?php esc_html_e( 'Mapped', 'sfs-hr' ); ?></span>
+                                <?php else : ?>
+                                    <span class="sfs-hr-admin-badge sfs-hr-admin-badge--pending"><?php esc_html_e( 'Not mapped', 'sfs-hr' ); ?></span>
+                                <?php endif; ?>
+                            </span>
+                        </div>
+                        <div class="sfs-hr-dept-toggle-row__control">
                             <select name="dept_default_shift[<?php echo $did; ?>]">
                                 <option value="0"><?php esc_html_e( '— None —', 'sfs-hr' ); ?></option>
                                 <?php foreach ( $all_shifts as $s ) :
@@ -615,16 +529,18 @@ public function render_automation(): void {
                                     </option>
                                 <?php endforeach; ?>
                             </select>
-                        </span>
+                        </div>
                     </div>
                 <?php endforeach; ?>
             </div>
 
-            <?php submit_button( __( 'Save Automation', 'sfs-hr' ) ); ?>
+            <div style="margin-top: 16px;">
+                <button type="submit" class="sfs-hr-admin-btn sfs-hr-admin-btn--primary"><?php esc_html_e( 'Save Automation', 'sfs-hr' ); ?></button>
+            </div>
         </form>
-
-        <?php $this->render_auto_assignment_rules( $all_shifts, $departments ); ?>
     </div>
+
+    <?php $this->render_auto_assignment_rules( $all_shifts, $departments ); ?>
     <?php
 }
 
@@ -650,51 +566,30 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
     $contract_types = [ 'full-time', 'part-time', 'contract', 'temporary', 'intern' ];
 
     ?>
-    <hr style="margin: 30px 0;">
-
-    <h2><?php esc_html_e( 'Auto-Assignment Rules', 'sfs-hr' ); ?></h2>
-    <p><?php esc_html_e( 'Define rules to automatically assign shifts to employees based on their attributes. Rules are evaluated in priority order (lowest number first).', 'sfs-hr' ); ?></p>
-
-    <style>
-        .sfs-hr-rules-table { width: 100%; border-collapse: collapse; }
-        .sfs-hr-rules-table th,
-        .sfs-hr-rules-table td { padding: 10px; text-align: start; border-bottom: 1px solid #ddd; }
-        .sfs-hr-rules-table th { background: #f9f9f9; }
-        .sfs-hr-rule-conditions { display: flex; flex-wrap: wrap; gap: 10px; }
-        .sfs-hr-rule-condition {
-            background: #f0f6fc;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-        }
-        .sfs-hr-rule-form { background: #fff; border: 1px solid #c3c4c7; padding: 20px; margin-bottom: 20px; border-radius: 4px; }
-        .sfs-hr-rule-form-row { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; }
-        .sfs-hr-rule-form-field { flex: 1; min-width: 200px; }
-        .sfs-hr-rule-form-field label { display: block; margin-bottom: 5px; font-weight: 600; }
-        .sfs-hr-rule-form-field select,
-        .sfs-hr-rule-form-field input { width: 100%; }
-        .sfs-hr-no-rules { padding: 20px; text-align: center; color: #666; background: #f9f9f9; }
-        .sfs-hr-rule-actions { display: flex; gap: 10px; }
-    </style>
-
-    <!-- Add New Rule Form -->
-    <div class="sfs-hr-rule-form">
-        <h3 style="margin-top:0;"><?php esc_html_e( 'Add New Rule', 'sfs-hr' ); ?></h3>
+    <!-- Add New Rule Card -->
+    <div class="sfs-hr-admin-card">
+        <div class="sfs-hr-admin-card-header">
+            <h2 class="sfs-hr-admin-card-title"><?php esc_html_e( 'Add New Rule', 'sfs-hr' ); ?></h2>
+        </div>
+        <div class="sfs-hr-info-box">
+            <span class="dashicons dashicons-info-outline"></span>
+            <span><?php esc_html_e( 'Define rules to automatically assign shifts to employees based on their attributes. Rules are evaluated in priority order (lowest number first).', 'sfs-hr' ); ?></span>
+        </div>
         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
             <?php wp_nonce_field( 'sfs_hr_att_save_auto_rules' ); ?>
             <input type="hidden" name="action" value="sfs_hr_att_save_auto_rules">
 
-            <div class="sfs-hr-rule-form-row">
-                <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Rule Name', 'sfs-hr' ); ?></label>
+            <div class="sfs-hr-form-row">
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Rule Name', 'sfs-hr' ); ?></label>
                     <input type="text" name="rule_name" placeholder="<?php esc_attr_e( 'e.g., Office Staff Morning Shift', 'sfs-hr' ); ?>" required>
                 </div>
-                <div class="sfs-hr-rule-form-field" style="flex: 0 0 100px;">
-                    <label><?php esc_html_e( 'Priority', 'sfs-hr' ); ?></label>
-                    <input type="number" name="rule_priority" value="10" min="1" max="100" style="width: 80px;">
+                <div class="sfs-hr-form-group" style="flex: 0 0 120px;">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Priority', 'sfs-hr' ); ?></label>
+                    <input type="number" name="rule_priority" value="10" min="1" max="100">
                 </div>
-                <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Assign Shift', 'sfs-hr' ); ?></label>
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Assign Shift', 'sfs-hr' ); ?></label>
                     <select name="rule_shift_id" required>
                         <option value=""><?php esc_html_e( '— Select Shift —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $all_shifts as $s ) : ?>
@@ -706,9 +601,9 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                 </div>
             </div>
 
-            <div class="sfs-hr-rule-form-row">
-                <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Department (optional)', 'sfs-hr' ); ?></label>
+            <div class="sfs-hr-form-row">
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Department (optional)', 'sfs-hr' ); ?></label>
                     <select name="rule_department">
                         <option value=""><?php esc_html_e( '— Any Department —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $departments as $d ) : ?>
@@ -718,8 +613,8 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Job Title (optional)', 'sfs-hr' ); ?></label>
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Job Title (optional)', 'sfs-hr' ); ?></label>
                     <select name="rule_job_title">
                         <option value=""><?php esc_html_e( '— Any Job Title —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $job_titles as $jt ) : ?>
@@ -729,8 +624,8 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Work Location (optional)', 'sfs-hr' ); ?></label>
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Work Location (optional)', 'sfs-hr' ); ?></label>
                     <select name="rule_work_location">
                         <option value=""><?php esc_html_e( '— Any Location —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $work_locations as $loc ) : ?>
@@ -742,9 +637,9 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                 </div>
             </div>
 
-            <div class="sfs-hr-rule-form-row">
-                <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Contract Type (optional)', 'sfs-hr' ); ?></label>
+            <div class="sfs-hr-form-row">
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Contract Type (optional)', 'sfs-hr' ); ?></label>
                     <select name="rule_contract_type">
                         <option value=""><?php esc_html_e( '— Any Contract —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $contract_types as $ct ) : ?>
@@ -754,122 +649,125 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Hired After (optional)', 'sfs-hr' ); ?></label>
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Hired After (optional)', 'sfs-hr' ); ?></label>
                     <input type="date" name="rule_hired_after">
                 </div>
-                <div class="sfs-hr-rule-form-field">
-                    <label><?php esc_html_e( 'Hired Before (optional)', 'sfs-hr' ); ?></label>
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Hired Before (optional)', 'sfs-hr' ); ?></label>
                     <input type="date" name="rule_hired_before">
                 </div>
             </div>
 
-            <div class="sfs-hr-rule-form-row">
-                <div class="sfs-hr-rule-form-field">
-                    <label>
-                        <input type="checkbox" name="rule_apply_on_create" value="1" checked>
-                        <?php esc_html_e( 'Apply automatically when new employee is created', 'sfs-hr' ); ?>
-                    </label>
-                </div>
+            <div class="sfs-hr-form-group">
+                <label>
+                    <input type="checkbox" name="rule_apply_on_create" value="1" checked>
+                    <?php esc_html_e( 'Apply automatically when new employee is created', 'sfs-hr' ); ?>
+                </label>
             </div>
 
-            <button type="submit" class="button button-primary"><?php esc_html_e( 'Add Rule', 'sfs-hr' ); ?></button>
+            <button type="submit" class="sfs-hr-admin-btn sfs-hr-admin-btn--primary"><?php esc_html_e( 'Add Rule', 'sfs-hr' ); ?></button>
         </form>
     </div>
 
     <!-- Existing Rules -->
     <?php if ( empty( $rules ) ) : ?>
-        <div class="sfs-hr-no-rules">
-            <p><?php esc_html_e( 'No auto-assignment rules defined yet.', 'sfs-hr' ); ?></p>
+        <div class="sfs-hr-admin-card">
+            <p style="text-align: center; color: #6b7280; padding: 20px 0;"><?php esc_html_e( 'No auto-assignment rules defined yet.', 'sfs-hr' ); ?></p>
         </div>
     <?php else : ?>
-        <table class="widefat sfs-hr-rules-table">
-            <thead>
-                <tr>
-                    <th style="width: 60px;"><?php esc_html_e( 'Priority', 'sfs-hr' ); ?></th>
-                    <th><?php esc_html_e( 'Rule Name', 'sfs-hr' ); ?></th>
-                    <th><?php esc_html_e( 'Conditions', 'sfs-hr' ); ?></th>
-                    <th><?php esc_html_e( 'Shift', 'sfs-hr' ); ?></th>
-                    <th style="width: 100px;"><?php esc_html_e( 'Auto', 'sfs-hr' ); ?></th>
-                    <th style="width: 80px;"><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php
-                // Sort by priority
-                usort( $rules, fn( $a, $b ) => ( $a['priority'] ?? 10 ) <=> ( $b['priority'] ?? 10 ) );
+        <div class="sfs-hr-admin-card">
+            <div class="sfs-hr-admin-card-header">
+                <h2 class="sfs-hr-admin-card-title"><?php esc_html_e( 'Existing Rules', 'sfs-hr' ); ?></h2>
+            </div>
+            <table class="widefat">
+                <thead>
+                    <tr>
+                        <th style="width: 60px;"><?php esc_html_e( 'Priority', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Rule Name', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Conditions', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Shift', 'sfs-hr' ); ?></th>
+                        <th style="width: 100px;"><?php esc_html_e( 'Auto', 'sfs-hr' ); ?></th>
+                        <th style="width: 80px;"><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    // Sort by priority
+                    usort( $rules, fn( $a, $b ) => ( $a['priority'] ?? 10 ) <=> ( $b['priority'] ?? 10 ) );
 
-                foreach ( $rules as $idx => $rule ) :
-                    // Find shift name
-                    $shift_name = '—';
-                    foreach ( $all_shifts as $s ) {
-                        if ( (int) $s['id'] === (int) $rule['shift_id'] ) {
-                            $shift_name = $s['name'] . " ({$s['start_time']}→{$s['end_time']})";
-                            break;
-                        }
-                    }
-
-                    // Build conditions display
-                    $conditions = [];
-                    if ( ! empty( $rule['department'] ) ) {
-                        foreach ( $departments as $d ) {
-                            if ( (int) $d['id'] === (int) $rule['department'] ) {
-                                $conditions[] = __( 'Dept:', 'sfs-hr' ) . ' ' . $d['name'];
+                    foreach ( $rules as $idx => $rule ) :
+                        // Find shift name
+                        $shift_name = '—';
+                        foreach ( $all_shifts as $s ) {
+                            if ( (int) $s['id'] === (int) $rule['shift_id'] ) {
+                                $shift_name = $s['name'] . " ({$s['start_time']}→{$s['end_time']})";
                                 break;
                             }
                         }
-                    }
-                    if ( ! empty( $rule['job_title'] ) ) {
-                        $conditions[] = __( 'Title:', 'sfs-hr' ) . ' ' . $rule['job_title'];
-                    }
-                    if ( ! empty( $rule['work_location'] ) ) {
-                        $conditions[] = __( 'Location:', 'sfs-hr' ) . ' ' . $rule['work_location'];
-                    }
-                    if ( ! empty( $rule['contract_type'] ) ) {
-                        $conditions[] = __( 'Contract:', 'sfs-hr' ) . ' ' . ucfirst( $rule['contract_type'] );
-                    }
-                    if ( ! empty( $rule['hired_after'] ) ) {
-                        $conditions[] = __( 'Hired after:', 'sfs-hr' ) . ' ' . $rule['hired_after'];
-                    }
-                    if ( ! empty( $rule['hired_before'] ) ) {
-                        $conditions[] = __( 'Hired before:', 'sfs-hr' ) . ' ' . $rule['hired_before'];
-                    }
-                    if ( empty( $conditions ) ) {
-                        $conditions[] = __( 'All employees', 'sfs-hr' );
-                    }
-                    ?>
-                    <tr>
-                        <td><strong><?php echo (int) ( $rule['priority'] ?? 10 ); ?></strong></td>
-                        <td><?php echo esc_html( $rule['name'] ?? __( 'Unnamed Rule', 'sfs-hr' ) ); ?></td>
-                        <td>
-                            <div class="sfs-hr-rule-conditions">
-                                <?php foreach ( $conditions as $cond ) : ?>
-                                    <span class="sfs-hr-rule-condition"><?php echo esc_html( $cond ); ?></span>
-                                <?php endforeach; ?>
-                            </div>
-                        </td>
-                        <td><?php echo esc_html( $shift_name ); ?></td>
-                        <td>
-                            <?php if ( ! empty( $rule['apply_on_create'] ) ) : ?>
-                                <span style="color: green;">✓</span>
-                            <?php else : ?>
-                                <span style="color: #999;">—</span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display: inline;">
-                                <?php wp_nonce_field( 'sfs_hr_att_delete_auto_rule' ); ?>
-                                <input type="hidden" name="action" value="sfs_hr_att_delete_auto_rule">
-                                <input type="hidden" name="rule_index" value="<?php echo (int) $idx; ?>">
-                                <button type="submit" class="button button-small" onclick="return confirm('<?php esc_attr_e( 'Delete this rule?', 'sfs-hr' ); ?>');">
-                                    <?php esc_html_e( 'Delete', 'sfs-hr' ); ?>
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+
+                        // Build conditions display
+                        $conditions = [];
+                        if ( ! empty( $rule['department'] ) ) {
+                            foreach ( $departments as $d ) {
+                                if ( (int) $d['id'] === (int) $rule['department'] ) {
+                                    $conditions[] = __( 'Dept:', 'sfs-hr' ) . ' ' . $d['name'];
+                                    break;
+                                }
+                            }
+                        }
+                        if ( ! empty( $rule['job_title'] ) ) {
+                            $conditions[] = __( 'Title:', 'sfs-hr' ) . ' ' . $rule['job_title'];
+                        }
+                        if ( ! empty( $rule['work_location'] ) ) {
+                            $conditions[] = __( 'Location:', 'sfs-hr' ) . ' ' . $rule['work_location'];
+                        }
+                        if ( ! empty( $rule['contract_type'] ) ) {
+                            $conditions[] = __( 'Contract:', 'sfs-hr' ) . ' ' . ucfirst( $rule['contract_type'] );
+                        }
+                        if ( ! empty( $rule['hired_after'] ) ) {
+                            $conditions[] = __( 'Hired after:', 'sfs-hr' ) . ' ' . $rule['hired_after'];
+                        }
+                        if ( ! empty( $rule['hired_before'] ) ) {
+                            $conditions[] = __( 'Hired before:', 'sfs-hr' ) . ' ' . $rule['hired_before'];
+                        }
+                        if ( empty( $conditions ) ) {
+                            $conditions[] = __( 'All employees', 'sfs-hr' );
+                        }
+                        ?>
+                        <tr>
+                            <td><strong><?php echo (int) ( $rule['priority'] ?? 10 ); ?></strong></td>
+                            <td><?php echo esc_html( $rule['name'] ?? __( 'Unnamed Rule', 'sfs-hr' ) ); ?></td>
+                            <td>
+                                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                    <?php foreach ( $conditions as $cond ) : ?>
+                                        <span class="sfs-hr-admin-badge sfs-hr-admin-badge--info"><?php echo esc_html( $cond ); ?></span>
+                                    <?php endforeach; ?>
+                                </div>
+                            </td>
+                            <td><?php echo esc_html( $shift_name ); ?></td>
+                            <td>
+                                <?php if ( ! empty( $rule['apply_on_create'] ) ) : ?>
+                                    <span class="sfs-hr-admin-badge sfs-hr-admin-badge--active"><?php esc_html_e( 'Yes', 'sfs-hr' ); ?></span>
+                                <?php else : ?>
+                                    <span class="sfs-hr-admin-badge sfs-hr-admin-badge--inactive"><?php esc_html_e( 'No', 'sfs-hr' ); ?></span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display: inline;">
+                                    <?php wp_nonce_field( 'sfs_hr_att_delete_auto_rule' ); ?>
+                                    <input type="hidden" name="action" value="sfs_hr_att_delete_auto_rule">
+                                    <input type="hidden" name="rule_index" value="<?php echo (int) $idx; ?>">
+                                    <button type="submit" class="sfs-hr-admin-btn sfs-hr-admin-btn--danger" onclick="return confirm('<?php esc_attr_e( 'Delete this rule?', 'sfs-hr' ); ?>');">
+                                        <?php esc_html_e( 'Delete', 'sfs-hr' ); ?>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
     <?php endif; ?>
 
     <!-- Run Rules Button -->
@@ -877,7 +775,7 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display: inline;">
             <?php wp_nonce_field( 'sfs_hr_att_run_auto_rules' ); ?>
             <input type="hidden" name="action" value="sfs_hr_att_run_auto_rules">
-            <button type="submit" class="button button-secondary" onclick="return confirm('<?php esc_attr_e( 'This will apply rules to all employees who do not have a default shift assigned. Continue?', 'sfs-hr' ); ?>');">
+            <button type="submit" class="sfs-hr-admin-btn" onclick="return confirm('<?php esc_attr_e( 'This will apply rules to all employees who do not have a default shift assigned. Continue?', 'sfs-hr' ); ?>');">
                 <?php esc_html_e( 'Run Rules on Existing Employees', 'sfs-hr' ); ?>
             </button>
         </form>
@@ -1213,35 +1111,34 @@ public function render_shifts(): void {
     $dept_list = Helpers::get_departments_for_select( true );
 
     ?>
-    <div class="wrap">
-        <h1><?php esc_html_e( 'Shifts', 'sfs-hr' ); ?></h1>
-
         <?php if ( ! empty( $_GET['saved'] ) ) : ?>
             <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Shift saved successfully.', 'sfs-hr' ); ?></p></div>
         <?php elseif ( ! empty( $_GET['deleted'] ) ) : ?>
             <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Shift deleted.', 'sfs-hr' ); ?></p></div>
         <?php endif; ?>
 
-        <h2><?php echo $editing ? esc_html__( 'Edit Shift', 'sfs-hr' ) : esc_html__( 'Add Shift', 'sfs-hr' ); ?></h2>
-        <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>">
-            <?php wp_nonce_field( 'sfs_hr_att_shift_save' ); ?>
-            <input type="hidden" name="action" value="sfs_hr_att_shift_save"/>
-            <?php if ( $editing ): ?>
-                <input type="hidden" name="id" value="<?php echo (int)$editing->id; ?>"/>
-            <?php endif; ?>
+        <!-- Add / Edit Shift Card -->
+        <div class="sfs-hr-admin-card">
+            <div class="sfs-hr-admin-card-header">
+                <h3 class="sfs-hr-admin-card-title">
+                    <?php echo $editing ? esc_html__( 'Edit Shift', 'sfs-hr' ) : esc_html__( 'Add Shift', 'sfs-hr' ); ?>
+                </h3>
+            </div>
 
-            <table class="form-table">
-                <tr>
-                    <th><?php esc_html_e( 'Name', 'sfs-hr' ); ?></th>
-                    <td>
-                        <input required type="text" name="name"
-                               value="<?php echo esc_attr($editing->name ?? ''); ?>" class="regular-text"/>
-                    </td>
-                </tr>
+            <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>">
+                <?php wp_nonce_field( 'sfs_hr_att_shift_save' ); ?>
+                <input type="hidden" name="action" value="sfs_hr_att_shift_save"/>
+                <?php if ( $editing ): ?>
+                    <input type="hidden" name="id" value="<?php echo (int)$editing->id; ?>"/>
+                <?php endif; ?>
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Name', 'sfs-hr' ); ?> <span class="required">*</span></label>
+                    <input required type="text" name="name"
+                           value="<?php echo esc_attr($editing->name ?? ''); ?>" class="regular-text"/>
+                </div>
 
-                <tr>
-                    <th><?php esc_html_e( 'Departments', 'sfs-hr' ); ?></th>
-                    <td>
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Departments', 'sfs-hr' ); ?></label>
                         <?php
                         // Get current dept_ids (JSON array) or fall back to single dept_id
                         $current_dept_ids = [];
@@ -1269,20 +1166,16 @@ public function render_shifts(): void {
                                 <?php endforeach; ?>
                             </div>
                         <?php endif; ?>
-                    </td>
-                </tr>
+                </div>
 
-                <tr>
-                    <th><?php esc_html_e( 'Location Label', 'sfs-hr' ); ?></th>
-                    <td>
-                        <input type="text" name="location_label"
-                               value="<?php echo esc_attr($editing->location_label ?? ''); ?>" class="regular-text"/>
-                    </td>
-                </tr>
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Location Label', 'sfs-hr' ); ?></label>
+                    <input type="text" name="location_label"
+                           value="<?php echo esc_attr($editing->location_label ?? ''); ?>" class="regular-text"/>
+                </div>
 
-                <tr>
-                    <th><?php esc_html_e( 'Location (lat, lng, radius m)', 'sfs-hr' ); ?></th>
-                    <td>
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Location (lat, lng, radius m)', 'sfs-hr' ); ?></label>
                         <input type="text" name="location_lat" id="sfs-shift-lat" style="width:120px"
                                value="<?php echo esc_attr($editing->location_lat ?? ''); ?>" placeholder="24.7136"/>
                         <input type="text" name="location_lng" id="sfs-shift-lng" style="width:120px"
@@ -1390,58 +1283,73 @@ public function render_shifts(): void {
                             initMap();
                         })();
                         </script>
-                    </td>
-                </tr>
+                </div>
 
-                <tr>
-                    <th><?php esc_html_e( 'Start / End (local)', 'sfs-hr' ); ?></th>
-                    <td>
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Start / End (local)', 'sfs-hr' ); ?></label>
+                    <div class="sfs-hr-form-row">
                         <?php
                         $start_val = isset($editing->start_time) ? substr((string)$editing->start_time, 0, 5) : '';
                         $end_val   = isset($editing->end_time)   ? substr((string)$editing->end_time,   0, 5) : '';
                         ?>
-                        <input type="time" name="start_time" step="60"
-                               value="<?php echo esc_attr($start_val); ?>"/> →
-                        <input type="time" name="end_time" step="60"
-                               value="<?php echo esc_attr($end_val); ?>"/>
-                    </td>
-                </tr>
+                        <div class="sfs-hr-form-group">
+                            <input type="time" name="start_time" step="60"
+                                   value="<?php echo esc_attr($start_val); ?>"/>
+                        </div>
+                        <span style="padding-top:6px;color:#6b7280;">&rarr;</span>
+                        <div class="sfs-hr-form-group">
+                            <input type="time" name="end_time" step="60"
+                                   value="<?php echo esc_attr($end_val); ?>"/>
+                        </div>
+                    </div>
+                </div>
 
-                <tr>
-                    <th><?php esc_html_e( 'Break policy', 'sfs-hr' ); ?></th>
-                    <td>
-                        <select name="break_policy">
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Break policy', 'sfs-hr' ); ?></label>
+                    <div class="sfs-hr-form-row">
+                        <div class="sfs-hr-form-group">
+                            <select name="break_policy">
                             <?php foreach (['auto','punch','none'] as $bp): ?>
                                 <option value="<?php echo esc_attr($bp); ?>"
                                     <?php selected(($editing->break_policy ?? 'auto'), $bp); ?>>
                                     <?php echo esc_html($bp); ?>
                                 </option>
                             <?php endforeach; ?>
-                        </select>
-                       
-                        &nbsp;<?php esc_html_e( 'Unpaid break minutes:', 'sfs-hr' ); ?>
-                        <input type="number" name="unpaid_break_minutes" min="0" step="1" style="width:120px"
-                               value="<?php echo esc_attr($editing->unpaid_break_minutes ?? 0); ?>"/>
-                        &nbsp;<?php esc_html_e( 'Break start time:', 'sfs-hr' ); ?>
-                        <input type="time" name="break_start_time" style="width:120px"
-                               value="<?php echo esc_attr($editing->break_start_time ?? ''); ?>"/>
-                        <small style="color:#666;display:block;margin-top:4px;"><?php esc_html_e( 'Set break start time to calculate break delay. Break end = start + unpaid minutes.', 'sfs-hr' ); ?></small>
-                    </td>
-                </tr>
+                            </select>
+                        </div>
+                        <div class="sfs-hr-form-group">
+                            <label class="sfs-hr-form-label"><?php esc_html_e( 'Unpaid break minutes', 'sfs-hr' ); ?></label>
+                            <input type="number" name="unpaid_break_minutes" min="0" step="1" style="width:120px"
+                                   value="<?php echo esc_attr($editing->unpaid_break_minutes ?? 0); ?>"/>
+                        </div>
+                        <div class="sfs-hr-form-group">
+                            <label class="sfs-hr-form-label"><?php esc_html_e( 'Break start time', 'sfs-hr' ); ?></label>
+                            <input type="time" name="break_start_time" style="width:120px"
+                                   value="<?php echo esc_attr($editing->break_start_time ?? ''); ?>"/>
+                        </div>
+                    </div>
+                    <span class="sfs-hr-form-hint"><?php esc_html_e( 'Set break start time to calculate break delay. Break end = start + unpaid minutes.', 'sfs-hr' ); ?></span>
+                </div>
 
-                <tr>
-                    <th><?php esc_html_e( 'Grace (late / early)', 'sfs-hr' ); ?></th>
-                    <td>
-                        <input type="number" name="grace_late_minutes" min="0" step="1" style="width:120px"
-                               value="<?php echo esc_attr($editing->grace_late_minutes ?? 5); ?>"/> /
-                        <input type="number" name="grace_early_leave_minutes" min="0" step="1" style="width:120px"
-                               value="<?php echo esc_attr($editing->grace_early_leave_minutes ?? 5); ?>"/>
-                    </td>
-                </tr>
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Grace (late / early)', 'sfs-hr' ); ?></label>
+                    <div class="sfs-hr-form-row">
+                        <div class="sfs-hr-form-group">
+                            <label class="sfs-hr-form-label" style="font-size:12px;font-weight:400;"><?php esc_html_e( 'Late minutes', 'sfs-hr' ); ?></label>
+                            <input type="number" name="grace_late_minutes" min="0" step="1" style="width:120px"
+                                   value="<?php echo esc_attr($editing->grace_late_minutes ?? 5); ?>"/>
+                        </div>
+                        <div class="sfs-hr-form-group">
+                            <label class="sfs-hr-form-label" style="font-size:12px;font-weight:400;"><?php esc_html_e( 'Early leave minutes', 'sfs-hr' ); ?></label>
+                            <input type="number" name="grace_early_leave_minutes" min="0" step="1" style="width:120px"
+                                   value="<?php echo esc_attr($editing->grace_early_leave_minutes ?? 5); ?>"/>
+                        </div>
+                    </div>
+                </div>
 
-                <tr>
-                    <th><?php esc_html_e( 'Rounding (nearest minutes)', 'sfs-hr' ); ?></th>
-                    <td>
+                <div class="sfs-hr-form-row">
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Rounding (nearest minutes)', 'sfs-hr' ); ?></label>
                         <select name="rounding_rule">
                             <?php foreach (['none','5','10','15'] as $r): ?>
                                 <option value="<?php echo esc_attr($r); ?>"
@@ -1450,42 +1358,35 @@ public function render_shifts(): void {
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                    </td>
-                </tr>
+                    </div>
 
-                <tr>
-                    <th><?php esc_html_e( 'Overtime threshold (minutes)', 'sfs-hr' ); ?></th>
-                    <td>
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Overtime threshold (minutes)', 'sfs-hr' ); ?></label>
                         <input type="number" name="overtime_after_minutes" min="0" step="1" style="width:120px"
                                value="<?php echo esc_attr($editing->overtime_after_minutes ?? 0); ?>"/>
-                    </td>
-                </tr>
+                    </div>
+                </div>
 
-                <tr>
-                    <th><?php esc_html_e( 'Selfie required', 'sfs-hr' ); ?></th>
-                    <td>
+                <div class="sfs-hr-form-row">
+                    <div class="sfs-hr-form-group">
                         <label>
                             <input type="checkbox" name="require_selfie" value="1"
                                 <?php checked(!empty($editing->require_selfie)); ?>/>
                             <?php esc_html_e( 'Require selfie', 'sfs-hr' ); ?>
                         </label>
-                    </td>
-                </tr>
+                    </div>
 
-                <tr>
-                    <th><?php esc_html_e( 'Active', 'sfs-hr' ); ?></th>
-                    <td>
+                    <div class="sfs-hr-form-group">
                         <label>
                             <input type="checkbox" name="active" value="1"
                                 <?php checked(!isset($editing->active) || (int)$editing->active===1); ?>/>
                             <?php esc_html_e( 'Active', 'sfs-hr' ); ?>
                         </label>
-                    </td>
-                </tr>
+                    </div>
+                </div>
 
-                <tr>
-                    <th><?php esc_html_e( 'Weekly Schedule', 'sfs-hr' ); ?></th>
-                    <td>
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Weekly Schedule', 'sfs-hr' ); ?></label>
                         <?php
                         $weekly_overrides = [];
                         if ( isset( $editing->weekly_overrides ) && ! empty( $editing->weekly_overrides ) ) {
@@ -1543,20 +1444,16 @@ public function render_shifts(): void {
                             });
                         });
                         </script>
-                    </td>
-                </tr>
+                </div>
 
                 <!-- Period Overrides (Ramadan, Summer, etc.) -->
-                <tr>
-                    <th colspan="2" style="padding-bottom:0;">
-                        <h3 style="margin:0;padding:10px 0 0;border-top:1px solid #dcdcde;">
-                            <?php esc_html_e( 'Period Overrides', 'sfs-hr' ); ?>
-                        </h3>
-                    </th>
-                </tr>
-                <tr>
-                    <th><?php esc_html_e( 'Date-range overrides', 'sfs-hr' ); ?></th>
-                    <td>
+                <div style="border-top:1px solid #e5e7eb;padding-top:20px;margin-top:20px;">
+                    <h3 class="sfs-hr-admin-card-title" style="margin-bottom:16px;">
+                        <?php esc_html_e( 'Period Overrides', 'sfs-hr' ); ?>
+                    </h3>
+
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Date-range overrides', 'sfs-hr' ); ?></label>
                         <?php
                         $period_overrides = [];
                         if ( ! empty( $editing->period_overrides ) ) {
@@ -1685,28 +1582,23 @@ public function render_shifts(): void {
                             });
                         })();
                         </script>
-                    </td>
-                </tr>
+                    </div>
+                </div>
 
                 <!-- Attendance Policy Overrides -->
-                <tr>
-                    <th colspan="2" style="padding-bottom:0;">
-                        <h3 style="margin:0;padding:10px 0 0;border-top:1px solid #dcdcde;">
-                            <?php esc_html_e( 'Attendance Policy (optional)', 'sfs-hr' ); ?>
-                        </h3>
-                    </th>
-                </tr>
+                <div style="border-top:1px solid #e5e7eb;padding-top:20px;margin-top:20px;">
+                    <h3 class="sfs-hr-admin-card-title" style="margin-bottom:16px;">
+                        <?php esc_html_e( 'Attendance Policy (optional)', 'sfs-hr' ); ?>
+                    </h3>
 
-                <tr>
-                    <th><?php esc_html_e( 'Calculation Mode', 'sfs-hr' ); ?></th>
-                    <td>
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Calculation Mode', 'sfs-hr' ); ?></label>
                         <?php $calc_mode = $editing->calculation_mode ?? ''; ?>
                         <select name="shift_calculation_mode" id="sfs-shift-calc-mode">
                             <option value="" <?php selected( $calc_mode, '' ); ?>><?php esc_html_e( '— Default (role policy) —', 'sfs-hr' ); ?></option>
                             <option value="shift_times" <?php selected( $calc_mode, 'shift_times' ); ?>><?php esc_html_e( 'Shift Times', 'sfs-hr' ); ?></option>
                             <option value="total_hours" <?php selected( $calc_mode, 'total_hours' ); ?>><?php esc_html_e( 'Total Hours', 'sfs-hr' ); ?></option>
                         </select>
-                       
                         <span id="sfs-target-hours-wrap" style="margin-left:10px;display:<?php echo $calc_mode === 'total_hours' ? 'inline' : 'none'; ?>;">
                             <?php esc_html_e( 'Target hours:', 'sfs-hr' ); ?>
                             <input type="number" name="shift_target_hours" min="1" max="24" step="0.5" style="width:80px;"
@@ -1717,12 +1609,10 @@ public function render_shifts(): void {
                             document.getElementById('sfs-target-hours-wrap').style.display = this.value==='total_hours' ? 'inline' : 'none';
                         });
                         </script>
-                    </td>
-                </tr>
+                    </div>
 
-                <tr>
-                    <th><?php esc_html_e( 'Clock-in Methods', 'sfs-hr' ); ?></th>
-                    <td>
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Clock-in Methods', 'sfs-hr' ); ?></label>
                         <?php
                         $ci_methods_raw = $editing->clock_in_methods ?? null;
                         $ci_methods = null;
@@ -1743,12 +1633,10 @@ public function render_shifts(): void {
                             <?php esc_html_e( 'Self Web', 'sfs-hr' ); ?>
                            
                         </label>
-                    </td>
-                </tr>
+                    </div>
 
-                <tr>
-                    <th><?php esc_html_e( 'Clock-out Methods', 'sfs-hr' ); ?></th>
-                    <td>
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Clock-out Methods', 'sfs-hr' ); ?></label>
                         <?php
                         $co_methods_raw = $editing->clock_out_methods ?? null;
                         $co_methods = null;
@@ -1761,52 +1649,63 @@ public function render_shifts(): void {
                             <input type="checkbox" name="shift_clock_out_methods[]" value="kiosk"
                                 <?php checked( $co_methods !== null && in_array( 'kiosk', $co_methods, true ) ); ?> />
                             <?php esc_html_e( 'Kiosk', 'sfs-hr' ); ?>
-                           
                         </label>
                         <label>
                             <input type="checkbox" name="shift_clock_out_methods[]" value="self_web"
                                 <?php checked( $co_methods !== null && in_array( 'self_web', $co_methods, true ) ); ?> />
                             <?php esc_html_e( 'Self Web', 'sfs-hr' ); ?>
-                           
                         </label>
-                    </td>
-                </tr>
+                    </div>
 
-                <tr>
-                    <th><?php esc_html_e( 'Geofence', 'sfs-hr' ); ?></th>
-                    <td>
-                        <?php esc_html_e( 'Clock-in:', 'sfs-hr' ); ?>
-                        <select name="shift_geofence_in" style="margin-right:20px;">
-                            <option value="" <?php selected( $editing->geofence_in ?? '', '' ); ?>><?php esc_html_e( '— Default —', 'sfs-hr' ); ?></option>
-                            <option value="enforced" <?php selected( $editing->geofence_in ?? '', 'enforced' ); ?>><?php esc_html_e( 'Enforced', 'sfs-hr' ); ?></option>
-                            <option value="none" <?php selected( $editing->geofence_in ?? '', 'none' ); ?>><?php esc_html_e( 'None (log only)', 'sfs-hr' ); ?></option>
-                        </select>
-                        <?php esc_html_e( 'Clock-out:', 'sfs-hr' ); ?>
-                        <select name="shift_geofence_out">
-                            <option value="" <?php selected( $editing->geofence_out ?? '', '' ); ?>><?php esc_html_e( '— Default —', 'sfs-hr' ); ?></option>
-                            <option value="enforced" <?php selected( $editing->geofence_out ?? '', 'enforced' ); ?>><?php esc_html_e( 'Enforced', 'sfs-hr' ); ?></option>
-                            <option value="none" <?php selected( $editing->geofence_out ?? '', 'none' ); ?>><?php esc_html_e( 'None (log only)', 'sfs-hr' ); ?></option>
-                        </select>
-                       
-                    </td>
-                </tr>
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Geofence', 'sfs-hr' ); ?></label>
+                        <div class="sfs-hr-form-row">
+                            <div class="sfs-hr-form-group">
+                                <label class="sfs-hr-form-label" style="font-size:12px;font-weight:400;"><?php esc_html_e( 'Clock-in:', 'sfs-hr' ); ?></label>
+                                <select name="shift_geofence_in">
+                                    <option value="" <?php selected( $editing->geofence_in ?? '', '' ); ?>><?php esc_html_e( '— Default —', 'sfs-hr' ); ?></option>
+                                    <option value="enforced" <?php selected( $editing->geofence_in ?? '', 'enforced' ); ?>><?php esc_html_e( 'Enforced', 'sfs-hr' ); ?></option>
+                                    <option value="none" <?php selected( $editing->geofence_in ?? '', 'none' ); ?>><?php esc_html_e( 'None (log only)', 'sfs-hr' ); ?></option>
+                                </select>
+                            </div>
+                            <div class="sfs-hr-form-group">
+                                <label class="sfs-hr-form-label" style="font-size:12px;font-weight:400;"><?php esc_html_e( 'Clock-out:', 'sfs-hr' ); ?></label>
+                                <select name="shift_geofence_out">
+                                    <option value="" <?php selected( $editing->geofence_out ?? '', '' ); ?>><?php esc_html_e( '— Default —', 'sfs-hr' ); ?></option>
+                                    <option value="enforced" <?php selected( $editing->geofence_out ?? '', 'enforced' ); ?>><?php esc_html_e( 'Enforced', 'sfs-hr' ); ?></option>
+                                    <option value="none" <?php selected( $editing->geofence_out ?? '', 'none' ); ?>><?php esc_html_e( 'None (log only)', 'sfs-hr' ); ?></option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
 
-                <tr>
-                    <th><?php esc_html_e( 'Notes', 'sfs-hr' ); ?></th>
-                    <td>
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Notes', 'sfs-hr' ); ?></label>
                         <textarea name="notes" rows="3" class="large-text"><?php
                             echo esc_textarea($editing->notes ?? '');
                         ?></textarea>
-                    </td>
-                </tr>
-            </table>
+                    </div>
+                </div><!-- /Attendance Policy -->
 
-            <?php submit_button( $editing ? __( 'Update Shift', 'sfs-hr' ) : __( 'Add Shift', 'sfs-hr' ) ); ?>
-        </form>
+                <p style="margin-top:20px;">
+                    <button type="submit" class="sfs-hr-admin-btn sfs-hr-admin-btn--primary">
+                        <?php echo $editing ? esc_html__( 'Update Shift', 'sfs-hr' ) : esc_html__( 'Add Shift', 'sfs-hr' ); ?>
+                    </button>
+                    <?php if ( $editing ) : ?>
+                        <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs_hr_attendance&tab=shifts' ) ); ?>" class="sfs-hr-admin-btn">
+                            <?php esc_html_e( 'Cancel', 'sfs-hr' ); ?>
+                        </a>
+                    <?php endif; ?>
+                </p>
+            </form>
+        </div><!-- /Add-Edit Shift Card -->
 
-        <hr/>
-        <h2><?php esc_html_e( 'Existing Shifts', 'sfs-hr' ); ?></h2>
-        <table class="widefat striped">
+        <!-- Existing Shifts Card -->
+        <div class="sfs-hr-admin-card">
+            <div class="sfs-hr-admin-card-header">
+                <h3 class="sfs-hr-admin-card-title"><?php esc_html_e( 'Existing Shifts', 'sfs-hr' ); ?></h3>
+            </div>
+            <table class="widefat striped">
             <thead>
             <tr>
                 <th><?php esc_html_e( 'ID', 'sfs-hr' ); ?></th>
@@ -1857,26 +1756,41 @@ public function render_shifts(): void {
                             echo '<em style="color:#999;">' . esc_html__( 'Default', 'sfs-hr' ) . '</em>';
                         }
                     ?></td>
-                    <td><?php echo $r->active ? esc_html__( 'Yes', 'sfs-hr' ) : esc_html__( 'No', 'sfs-hr' ); ?></td>
                     <td>
-                        <a class="button button-small"
-                           href="<?php echo esc_url(
-                               admin_url('admin.php?page=sfs_hr_attendance&tab=shifts&edit='.(int)$r->id)
-                           ); ?>"><?php esc_html_e( 'Edit', 'sfs-hr' ); ?></a>
+                        <?php if ( (int) $r->active ) : ?>
+                            <span class="sfs-hr-admin-badge sfs-hr-admin-badge--active"><?php esc_html_e( 'Active', 'sfs-hr' ); ?></span>
+                        <?php else : ?>
+                            <span class="sfs-hr-admin-badge sfs-hr-admin-badge--inactive"><?php esc_html_e( 'Inactive', 'sfs-hr' ); ?></span>
+                        <?php endif; ?>
+                    </td>
+                    <td>
+                        <div class="sfs-hr-admin-actions">
+                            <a class="sfs-hr-admin-btn"
+                               href="<?php echo esc_url(
+                                   admin_url('admin.php?page=sfs_hr_attendance&tab=shifts&edit='.(int)$r->id)
+                               ); ?>" title="<?php esc_attr_e( 'Edit', 'sfs-hr' ); ?>">
+                                <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                <?php esc_html_e( 'Edit', 'sfs-hr' ); ?>
+                            </a>
 
-                        <form style="display:inline" method="post"
-                              action="<?php echo esc_url( admin_url('admin-post.php') ); ?>"
-                              onsubmit="return confirm('<?php echo esc_js( __( 'Delete this shift?', 'sfs-hr' ) ); ?>');">
-                            <?php wp_nonce_field( 'sfs_hr_att_shift_delete' ); ?>
-                            <input type="hidden" name="action" value="sfs_hr_att_shift_delete"/>
-                            <input type="hidden" name="id" value="<?php echo (int)$r->id; ?>"/>
-                            <button class="button button-small" type="submit"><?php esc_html_e( 'Delete', 'sfs-hr' ); ?></button>
-                        </form>
+                            <form style="display:inline" method="post"
+                                  action="<?php echo esc_url( admin_url('admin-post.php') ); ?>"
+                                  onsubmit="return confirm('<?php echo esc_js( __( 'Delete this shift?', 'sfs-hr' ) ); ?>');">
+                                <?php wp_nonce_field( 'sfs_hr_att_shift_delete' ); ?>
+                                <input type="hidden" name="action" value="sfs_hr_att_shift_delete"/>
+                                <input type="hidden" name="id" value="<?php echo (int)$r->id; ?>"/>
+                                <button class="sfs-hr-admin-btn sfs-hr-admin-btn--danger" type="submit" title="<?php esc_attr_e( 'Delete', 'sfs-hr' ); ?>">
+                                    <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                                    <?php esc_html_e( 'Delete', 'sfs-hr' ); ?>
+                                </button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
             <?php endforeach; ?>
             </tbody>
         </table>
+        </div><!-- /Existing Shifts Card -->
 
         <?php
         /* ── Bulk Assign Default Shift ──────────────────────────────── */
@@ -1924,142 +1838,131 @@ public function render_shifts(): void {
 
         $bulk_done   = isset( $_GET['bulk_default_done'] ) ? (int) $_GET['bulk_default_done'] : 0;
         ?>
-        <hr/>
-        <h2><?php esc_html_e( 'Bulk Assign Default Shift', 'sfs-hr' ); ?>
-           
-        </h2>
-
-        <?php if ( $bulk_done ) : ?>
-            <div class="notice notice-success is-dismissible">
-                <p><?php printf( esc_html( _n( '%d employee updated.', '%d employees updated.', $bulk_done, 'sfs-hr' ) ), $bulk_done ); ?></p>
+        <!-- Bulk Assign Default Shift Card -->
+        <div class="sfs-hr-admin-card">
+            <div class="sfs-hr-admin-card-header">
+                <h3 class="sfs-hr-admin-card-title"><?php esc_html_e( 'Bulk Assign Default Shift', 'sfs-hr' ); ?></h3>
             </div>
-        <?php endif; ?>
 
-        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="sfs-bulk-default-shift-form">
-            <?php wp_nonce_field( 'sfs_hr_att_bulk_default_shift' ); ?>
-            <input type="hidden" name="action" value="sfs_hr_att_bulk_default_shift"/>
+            <?php if ( $bulk_done ) : ?>
+                <div class="notice notice-success is-dismissible">
+                    <p><?php printf( esc_html( _n( '%d employee updated.', '%d employees updated.', $bulk_done, 'sfs-hr' ) ), $bulk_done ); ?></p>
+                </div>
+            <?php endif; ?>
 
-            <table class="form-table">
-                <tr>
-                    <th><?php esc_html_e( 'Assignment Type', 'sfs-hr' ); ?></th>
-                    <td>
-                        <fieldset>
-                            <label style="margin-right:16px;">
-                                <input type="radio" name="assign_type" value="shift" checked id="sfs-bds-type-shift"/>
-                                <?php esc_html_e( 'Static Shift', 'sfs-hr' ); ?>
-                            </label>
-                            <?php if ( ! empty( $active_schedules ) ) : ?>
-                            <label>
-                                <input type="radio" name="assign_type" value="schedule" id="sfs-bds-type-schedule"/>
-                                <?php esc_html_e( 'Rotation Schedule', 'sfs-hr' ); ?>
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="sfs-bulk-default-shift-form">
+                <?php wp_nonce_field( 'sfs_hr_att_bulk_default_shift' ); ?>
+                <input type="hidden" name="action" value="sfs_hr_att_bulk_default_shift"/>
+
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Assignment Type', 'sfs-hr' ); ?></label>
+                    <fieldset>
+                        <label style="margin-right:16px;">
+                            <input type="radio" name="assign_type" value="shift" checked id="sfs-bds-type-shift"/>
+                            <?php esc_html_e( 'Static Shift', 'sfs-hr' ); ?>
+                        </label>
+                        <?php if ( ! empty( $active_schedules ) ) : ?>
+                        <label>
+                            <input type="radio" name="assign_type" value="schedule" id="sfs-bds-type-schedule"/>
+                            <?php esc_html_e( 'Rotation Schedule', 'sfs-hr' ); ?>
                             </label>
                             <?php endif; ?>
-                        </fieldset>
-                    </td>
-                </tr>
-                <tr id="sfs-bds-shift-row">
-                    <th><label for="sfs-bds-shift"><?php esc_html_e( 'Shift', 'sfs-hr' ); ?></label></th>
-                    <td>
-                        <select name="shift_id" id="sfs-bds-shift">
-                            <option value=""><?php esc_html_e( '— Select Shift —', 'sfs-hr' ); ?></option>
-                            <?php foreach ( $active_shifts as $sh ) : ?>
-                                <option value="<?php echo (int) $sh->id; ?>">
-                                    <?php echo esc_html( "{$sh->name} ({$sh->start_time} → {$sh->end_time})" ); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </td>
-                </tr>
+                    </fieldset>
+                </div>
+
+                <div class="sfs-hr-form-group" id="sfs-bds-shift-row">
+                    <label class="sfs-hr-form-label" for="sfs-bds-shift"><?php esc_html_e( 'Shift', 'sfs-hr' ); ?></label>
+                    <select name="shift_id" id="sfs-bds-shift">
+                        <option value=""><?php esc_html_e( '— Select Shift —', 'sfs-hr' ); ?></option>
+                        <?php foreach ( $active_shifts as $sh ) : ?>
+                            <option value="<?php echo (int) $sh->id; ?>">
+                                <?php echo esc_html( "{$sh->name} ({$sh->start_time} → {$sh->end_time})" ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
                 <?php if ( ! empty( $active_schedules ) ) : ?>
-                <tr id="sfs-bds-schedule-row" style="display:none;">
-                    <th><label for="sfs-bds-schedule"><?php esc_html_e( 'Schedule', 'sfs-hr' ); ?></label></th>
-                    <td>
-                        <select name="schedule_id" id="sfs-bds-schedule">
-                            <option value=""><?php esc_html_e( '— Select Schedule —', 'sfs-hr' ); ?></option>
-                            <?php foreach ( $active_schedules as $sched ) : ?>
-                                <option value="<?php echo (int) $sched->id; ?>">
-                                    <?php
-                                    /* translators: %1$s: schedule name, %2$d: cycle days */
-                                    echo esc_html( sprintf( __( '%1$s (%2$d-day cycle)', 'sfs-hr' ), $sched->name, (int) $sched->cycle_days ) );
-                                    ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </td>
-                </tr>
+                <div class="sfs-hr-form-group" id="sfs-bds-schedule-row" style="display:none;">
+                    <label class="sfs-hr-form-label" for="sfs-bds-schedule"><?php esc_html_e( 'Schedule', 'sfs-hr' ); ?></label>
+                    <select name="schedule_id" id="sfs-bds-schedule">
+                        <option value=""><?php esc_html_e( '— Select Schedule —', 'sfs-hr' ); ?></option>
+                        <?php foreach ( $active_schedules as $sched ) : ?>
+                            <option value="<?php echo (int) $sched->id; ?>">
+                                <?php
+                                /* translators: %1$s: schedule name, %2$d: cycle days */
+                                echo esc_html( sprintf( __( '%1$s (%2$d-day cycle)', 'sfs-hr' ), $sched->name, (int) $sched->cycle_days ) );
+                                ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
                 <?php endif; ?>
 
-                <tr>
-                    <th><?php esc_html_e( 'Select by', 'sfs-hr' ); ?></th>
-                    <td>
-                        <fieldset>
-                            <label style="margin-right:16px;">
-                                <input type="radio" name="select_mode" value="department" checked
-                                       id="sfs-bds-mode-dept"/>
-                                <?php esc_html_e( 'Department', 'sfs-hr' ); ?>
-                            </label>
-                            <label>
-                                <input type="radio" name="select_mode" value="employees"
-                                       id="sfs-bds-mode-emp"/>
-                                <?php esc_html_e( 'Individual employees', 'sfs-hr' ); ?>
-                            </label>
-                        </fieldset>
-                    </td>
-                </tr>
-
-                <tr id="sfs-bds-dept-row">
-                    <th><label><?php esc_html_e( 'Departments', 'sfs-hr' ); ?></label></th>
-                    <td>
-                        <div style="display:flex;flex-wrap:wrap;gap:8px 20px;max-height:180px;overflow-y:auto;padding:10px;border:1px solid #dcdcde;border-radius:4px;background:#f9f9f9;">
-                            <label style="display:flex;align-items:center;gap:5px;font-weight:600;">
-                                <input type="checkbox" id="sfs-bds-dept-all"/>
-                                <?php esc_html_e( 'Select All', 'sfs-hr' ); ?>
-                            </label>
-                            <?php foreach ( $departments as $dept ) : ?>
-                                <label style="display:flex;align-items:center;gap:5px;white-space:nowrap;">
-                                    <input type="checkbox" name="dept_ids[]" class="sfs-bds-dept-cb"
-                                           value="<?php echo (int) $dept['id']; ?>"/>
-                                    <?php echo esc_html( $dept['name'] ); ?>
-                                </label>
-                            <?php endforeach; ?>
-                        </div>
-                    </td>
-                </tr>
-
-                <tr id="sfs-bds-emp-row" style="display:none;">
-                    <th><label><?php esc_html_e( 'Employees', 'sfs-hr' ); ?></label></th>
-                    <td>
-                        <select name="employee_ids[]" multiple size="10" style="min-width:400px;">
-                            <?php foreach ( $bulk_emps as $be ) : ?>
-                                <option value="<?php echo (int) $be->id; ?>">
-                                    <?php
-                                    $label = $be->emp_name . ' (' . $be->dept_name . ')';
-                                    if ( $be->current_shift_name ) {
-                                        /* translators: %s: shift name */
-                                        $label .= ' — ' . sprintf( __( 'current: %s', 'sfs-hr' ), $be->current_shift_name );
-                                    }
-                                    echo esc_html( $label );
-                                    ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </td>
-                </tr>
-
-                <tr>
-                    <th><?php esc_html_e( 'Options', 'sfs-hr' ); ?></th>
-                    <td>
-                        <label>
-                            <input type="checkbox" name="overwrite" value="1"/>
-                            <?php esc_html_e( 'Overwrite existing default shift assignments', 'sfs-hr' ); ?>
-                           
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Select by', 'sfs-hr' ); ?></label>
+                    <fieldset>
+                        <label style="margin-right:16px;">
+                            <input type="radio" name="select_mode" value="department" checked
+                                   id="sfs-bds-mode-dept"/>
+                            <?php esc_html_e( 'Department', 'sfs-hr' ); ?>
                         </label>
-                    </td>
-                </tr>
-            </table>
+                        <label>
+                            <input type="radio" name="select_mode" value="employees"
+                                   id="sfs-bds-mode-emp"/>
+                            <?php esc_html_e( 'Individual employees', 'sfs-hr' ); ?>
+                        </label>
+                    </fieldset>
+                </div>
 
-            <?php submit_button( __( 'Assign Default Shift', 'sfs-hr' ) ); ?>
-        </form>
+                <div class="sfs-hr-form-group" id="sfs-bds-dept-row">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Departments', 'sfs-hr' ); ?></label>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px 20px;max-height:180px;overflow-y:auto;padding:10px;border:1px solid #dcdcde;border-radius:4px;background:#f9f9f9;">
+                        <label style="display:flex;align-items:center;gap:5px;font-weight:600;">
+                            <input type="checkbox" id="sfs-bds-dept-all"/>
+                            <?php esc_html_e( 'Select All', 'sfs-hr' ); ?>
+                        </label>
+                        <?php foreach ( $departments as $dept ) : ?>
+                            <label style="display:flex;align-items:center;gap:5px;white-space:nowrap;">
+                                <input type="checkbox" name="dept_ids[]" class="sfs-bds-dept-cb"
+                                       value="<?php echo (int) $dept['id']; ?>"/>
+                                <?php echo esc_html( $dept['name'] ); ?>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
+                <div class="sfs-hr-form-group" id="sfs-bds-emp-row" style="display:none;">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Employees', 'sfs-hr' ); ?></label>
+                    <select name="employee_ids[]" multiple size="10" style="min-width:400px;">
+                        <?php foreach ( $bulk_emps as $be ) : ?>
+                            <option value="<?php echo (int) $be->id; ?>">
+                                <?php
+                                $label = $be->emp_name . ' (' . $be->dept_name . ')';
+                                if ( $be->current_shift_name ) {
+                                    /* translators: %s: shift name */
+                                    $label .= ' — ' . sprintf( __( 'current: %s', 'sfs-hr' ), $be->current_shift_name );
+                                }
+                                echo esc_html( $label );
+                                ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="sfs-hr-form-group">
+                    <label>
+                        <input type="checkbox" name="overwrite" value="1"/>
+                        <?php esc_html_e( 'Overwrite existing default shift assignments', 'sfs-hr' ); ?>
+                    </label>
+                </div>
+
+                <p>
+                    <button type="submit" class="sfs-hr-admin-btn sfs-hr-admin-btn--primary">
+                        <?php esc_html_e( 'Assign Default Shift', 'sfs-hr' ); ?>
+                    </button>
+                </p>
+            </form>
 
         <script>
         (function(){
@@ -2103,7 +2006,7 @@ public function render_shifts(): void {
             }
         })();
         </script>
-    </div>
+        </div><!-- /Bulk Assign Card -->
     <?php
 }
 
@@ -2377,9 +2280,6 @@ $end   = $norm_time($_POST['end_time']   ?? '');
         }
 
         ?>
-        <div class="wrap">
-            <h1><?php esc_html_e( 'Shift Schedules', 'sfs-hr' ); ?></h1>
-
             <!-- Create / Edit Form -->
             <div class="sfs-hr-admin-card">
                 <div class="sfs-hr-admin-card-header">
@@ -2397,48 +2297,37 @@ $end   = $norm_time($_POST['end_time']   ?? '');
                         <input type="hidden" name="id" value="<?php echo (int) $editing->id; ?>" />
                     <?php endif; ?>
 
-                    <table class="form-table">
-                        <tr>
-                            <th><label for="sfs-sched-name"><?php esc_html_e( 'Schedule Name', 'sfs-hr' ); ?></label></th>
-                            <td>
-                                <input required type="text" id="sfs-sched-name" name="name"
-                                       value="<?php echo esc_attr( $editing->name ?? '' ); ?>" class="regular-text" />
-                            </td>
-                        </tr>
-                        <tr>
-                            <th><label for="sfs-sched-cycle"><?php esc_html_e( 'Cycle Length (days)', 'sfs-hr' ); ?></label></th>
-                            <td>
-                                <input required type="number" id="sfs-sched-cycle" name="cycle_days" min="2" max="365"
-                                       value="<?php echo esc_attr( $editing->cycle_days ?? '14' ); ?>" style="width:100px;" />
-                               
-                            </td>
-                        </tr>
-                        <tr>
-                            <th><label for="sfs-sched-anchor"><?php esc_html_e( 'Anchor Date', 'sfs-hr' ); ?></label></th>
-                            <td>
-                                <input required type="date" id="sfs-sched-anchor" name="anchor_date"
-                                       value="<?php echo esc_attr( $editing->anchor_date ?? current_time( 'Y-m-d' ) ); ?>" />
-                               
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>
-                                <label><?php esc_html_e( 'Active', 'sfs-hr' ); ?></label>
-                            </th>
-                            <td>
-                                <label>
-                                    <input type="checkbox" name="active" value="1"
-                                        <?php checked( $editing ? (int) $editing->active : 1 ); ?> />
-                                    <?php esc_html_e( 'Schedule is active', 'sfs-hr' ); ?>
-                                </label>
-                            </td>
-                        </tr>
-                    </table>
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label" for="sfs-sched-name"><?php esc_html_e( 'Schedule Name', 'sfs-hr' ); ?> <span class="required">*</span></label>
+                        <input required type="text" id="sfs-sched-name" name="name"
+                               value="<?php echo esc_attr( $editing->name ?? '' ); ?>" class="regular-text" />
+                    </div>
+
+                    <div class="sfs-hr-form-row">
+                        <div class="sfs-hr-form-group">
+                            <label class="sfs-hr-form-label" for="sfs-sched-cycle"><?php esc_html_e( 'Cycle Length (days)', 'sfs-hr' ); ?> <span class="required">*</span></label>
+                            <input required type="number" id="sfs-sched-cycle" name="cycle_days" min="2" max="365"
+                                   value="<?php echo esc_attr( $editing->cycle_days ?? '14' ); ?>" style="width:100px;" />
+                        </div>
+                        <div class="sfs-hr-form-group">
+                            <label class="sfs-hr-form-label" for="sfs-sched-anchor"><?php esc_html_e( 'Anchor Date', 'sfs-hr' ); ?> <span class="required">*</span></label>
+                            <input required type="date" id="sfs-sched-anchor" name="anchor_date"
+                                   value="<?php echo esc_attr( $editing->anchor_date ?? current_time( 'Y-m-d' ) ); ?>" />
+                        </div>
+                    </div>
+
+                    <div class="sfs-hr-form-group">
+                        <label>
+                            <input type="checkbox" name="active" value="1"
+                                <?php checked( $editing ? (int) $editing->active : 1 ); ?> />
+                            <?php esc_html_e( 'Schedule is active', 'sfs-hr' ); ?>
+                        </label>
+                    </div>
 
                     <!-- Dynamic Entries -->
-                    <h3 style="margin: 20px 0 10px;"><?php esc_html_e( 'Cycle Day Entries', 'sfs-hr' ); ?>
-                       
-                    </h3>
+                    <div style="border-top:1px solid #e5e7eb;padding-top:20px;margin-top:10px;">
+                        <h3 class="sfs-hr-admin-card-title" style="margin-bottom:12px;"><?php esc_html_e( 'Cycle Day Entries', 'sfs-hr' ); ?></h3>
+                    </div>
 
                     <table class="widefat" id="sfs-schedule-entries" style="max-width:700px;">
                         <thead>
@@ -2483,22 +2372,22 @@ $end   = $norm_time($_POST['end_time']   ?? '');
                     </table>
 
                     <p style="margin-top:10px;">
-                        <button type="button" class="button" id="sfs-schedule-add-entry">
+                        <button type="button" class="sfs-hr-admin-btn" id="sfs-schedule-add-entry">
                             + <?php esc_html_e( 'Add Entry', 'sfs-hr' ); ?>
                         </button>
-                        <button type="button" class="button" id="sfs-schedule-generate-all" style="margin-left:8px;">
+                        <button type="button" class="sfs-hr-admin-btn" id="sfs-schedule-generate-all" style="margin-left:8px;">
                             <?php esc_html_e( 'Generate All Days', 'sfs-hr' ); ?>
                         </button>
                     </p>
 
-                    <p class="submit" style="margin-top:16px;">
-                        <button type="submit" class="button button-primary">
+                    <p style="margin-top:20px;">
+                        <button type="submit" class="sfs-hr-admin-btn sfs-hr-admin-btn--primary">
                             <?php echo $editing
                                 ? esc_html__( 'Update Schedule', 'sfs-hr' )
                                 : esc_html__( 'Save Schedule', 'sfs-hr' ); ?>
                         </button>
                         <?php if ( $editing ) : ?>
-                            <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs_hr_attendance&tab=schedules' ) ); ?>" class="button">
+                            <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs_hr_attendance&tab=schedules' ) ); ?>" class="sfs-hr-admin-btn">
                                 <?php esc_html_e( 'Cancel', 'sfs-hr' ); ?>
                             </a>
                         <?php endif; ?>
@@ -2601,7 +2490,6 @@ $end   = $norm_time($_POST['end_time']   ?? '');
                 </table>
             </div>
             <?php endif; ?>
-        </div>
 
         <script>
         (function(){
@@ -2882,32 +2770,47 @@ $departments = $this->get_departments( $wpdb );
     }
     $meta_json = wp_json_encode( $meta );
     ?>
-    <div class="wrap">
-        <h1><?php esc_html_e( 'Assignments (Bulk)', 'sfs-hr' ); ?></h1>
-        <p><?php esc_html_e( 'Assign a shift over a date range (e.g., Ramadan). Shifts carry location/geofence and rules.', 'sfs-hr' ); ?></p>
+    <h1><?php esc_html_e( 'Assignments (Bulk)', 'sfs-hr' ); ?></h1>
 
-        <!-- Department filter (server-side) -->
-        <form method="get" style="margin:10px 0 20px 0;">
-            <input type="hidden" name="page" value="sfs_hr_attendance"/>
-            <input type="hidden" name="tab" value="assign"/>
-            <label><?php esc_html_e( 'Filter employees by Department:', 'sfs-hr' ); ?>&nbsp;
-                <select name="dept_id" onchange="this.form.submit()">
-                    <option value="0"><?php esc_html_e( '— All departments —', 'sfs-hr' ); ?></option>
-                    <?php foreach ( $departments as $d ): ?>
-                        <option value="<?php echo (int)$d['id']; ?>" <?php selected($dept_id_filter, (int)$d['id']); ?>>
-                            <?php echo esc_html($d['name']); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-        </form>
+    <div class="sfs-hr-info-box">
+        <?php esc_html_e( 'Assign a shift over a date range (e.g., Ramadan). Shifts carry location/geofence and rules.', 'sfs-hr' ); ?>
+    </div>
 
-        <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>">
-            <?php wp_nonce_field( 'sfs_hr_att_assign_bulk' ); ?>
-            <input type="hidden" name="action" value="sfs_hr_att_assign_bulk"/>
+    <!-- Department filter (server-side) -->
+    <div class="sfs-hr-admin-card">
+        <div class="sfs-hr-admin-card-header">
+            <h2 class="sfs-hr-admin-card-title"><?php esc_html_e( 'Filter by Department', 'sfs-hr' ); ?></h2>
+        </div>
+        <div class="sfs-hr-admin-card-body">
+            <form method="get">
+                <input type="hidden" name="page" value="sfs_hr_attendance"/>
+                <input type="hidden" name="tab" value="assign"/>
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Filter employees by Department:', 'sfs-hr' ); ?></label>
+                    <select name="dept_id" onchange="this.form.submit()">
+                        <option value="0"><?php esc_html_e( '— All departments —', 'sfs-hr' ); ?></option>
+                        <?php foreach ( $departments as $d ): ?>
+                            <option value="<?php echo (int)$d['id']; ?>" <?php selected($dept_id_filter, (int)$d['id']); ?>>
+                                <?php echo esc_html($d['name']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
 
-            <table class="form-table">
-                <tr><th><?php esc_html_e( 'Shift', 'sfs-hr' ); ?></th><td>
+    <div class="sfs-hr-admin-card">
+        <div class="sfs-hr-admin-card-header">
+            <h2 class="sfs-hr-admin-card-title"><?php esc_html_e( 'Bulk Assignment', 'sfs-hr' ); ?></h2>
+        </div>
+        <div class="sfs-hr-admin-card-body">
+            <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>">
+                <?php wp_nonce_field( 'sfs_hr_att_assign_bulk' ); ?>
+                <input type="hidden" name="action" value="sfs_hr_att_assign_bulk"/>
+
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Shift', 'sfs-hr' ); ?></label>
                     <select name="shift_id" required id="sfs-assign-shift">
                         <?php foreach ( $shifts as $s ): ?>
                             <option value="<?php echo (int)$s->id; ?>">
@@ -2915,32 +2818,48 @@ $departments = $this->get_departments( $wpdb );
                             </option>
                         <?php endforeach; ?>
                     </select>
-                    <div id="sfs-shift-preview" class="description" style="margin-top:6px"></div>
-                </td></tr>
+                    <div id="sfs-shift-preview" class="sfs-hr-form-hint"></div>
+                </div>
 
-                <tr><th><?php esc_html_e( 'Date range', 'sfs-hr' ); ?></th><td>
-                    <input type="date" name="start_date" required/> →
-                    <input type="date" name="end_date" required/>
-                </td></tr>
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Date range', 'sfs-hr' ); ?></label>
+                    <div class="sfs-hr-form-row">
+                        <div class="sfs-hr-form-group">
+                            <input type="date" name="start_date" required/>
+                        </div>
+                        <div class="sfs-hr-form-group">
+                            <span>&rarr;</span>
+                        </div>
+                        <div class="sfs-hr-form-group">
+                            <input type="date" name="end_date" required/>
+                        </div>
+                    </div>
+                </div>
 
-                <tr><th><?php esc_html_e( 'Employees', 'sfs-hr' ); ?></th><td>
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Employees', 'sfs-hr' ); ?></label>
                     <select name="employee_id[]" multiple size="12" style="min-width:360px" required>
                         <?php foreach ( $employees as $e ): ?>
-<option value="<?php echo (int)$e->id; ?>">
-    <?php echo esc_html("{$e->full_name} ({$e->dept_label})"); ?>
-</option>
-
+                            <option value="<?php echo (int)$e->id; ?>">
+                                <?php echo esc_html("{$e->full_name} ({$e->dept_label})"); ?>
+                            </option>
                         <?php endforeach; ?>
                     </select>
-                </td></tr>
+                    <p class="sfs-hr-form-hint"><?php esc_html_e( 'Hold Ctrl/Cmd to select multiple employees.', 'sfs-hr' ); ?></p>
+                </div>
 
-                <tr><th><?php esc_html_e( 'Overwrite existing', 'sfs-hr' ); ?></th><td>
-                    <label><input type="checkbox" name="overwrite" value="1"/> <?php esc_html_e( 'Replace existing assignments in range', 'sfs-hr' ); ?></label>
-                </td></tr>
-            </table>
+                <div class="sfs-hr-form-group">
+                    <label>
+                        <input type="checkbox" name="overwrite" value="1"/>
+                        <?php esc_html_e( 'Replace existing assignments in range', 'sfs-hr' ); ?>
+                    </label>
+                </div>
 
-            <?php submit_button( __( 'Assign', 'sfs-hr' ) ); ?>
-        </form>
+                <button type="submit" class="sfs-hr-admin-btn sfs-hr-admin-btn--primary">
+                    <?php esc_html_e( 'Assign', 'sfs-hr' ); ?>
+                </button>
+            </form>
+        </div>
     </div>
 
     <script>
@@ -3187,62 +3106,98 @@ public function render_exceptions(): void {
         'sfs_hr_att_export_csv'
     ) );
     ?>
-    <div class="wrap">
-      <h1><?php esc_html_e( 'Exceptions', 'sfs-hr' ); ?></h1>
-      <form method="get" style="margin:10px 0">
-        <input type="hidden" name="page" value="sfs_hr_attendance"/>
-        <input type="hidden" name="tab"  value="exceptions"/>
-        <label><?php esc_html_e( 'Date:', 'sfs-hr' ); ?>
-          <input type="date" name="date" value="<?php echo esc_attr($date); ?>"/>
-        </label>
-        <label style="margin-left:16px"><?php esc_html_e( 'Department:', 'sfs-hr' ); ?>
-          <select name="dept_id">
-            <option value="0"><?php echo esc_html( '— ' . __( 'All', 'sfs-hr' ) . ' —' ); ?></option>
-            <?php foreach ($departments as $d): ?>
-              <option value="<?php echo (int)$d['id']; ?>" <?php selected($dept_id,(int)$d['id']); ?>>
-                <?php echo esc_html($d['name']); ?>
-              </option>
-            <?php endforeach; ?>
-          </select>
-        </label>
-        <button class="button"><?php esc_html_e( 'Filter', 'sfs-hr' ); ?></button>
-        <a class="button" style="margin-left:8px" href="<?php echo $export_url; ?>"><?php esc_html_e( 'Export CSV', 'sfs-hr' ); ?></a>
-      </form>
+    <h1><?php esc_html_e( 'Exceptions', 'sfs-hr' ); ?></h1>
 
-      <table class="widefat striped">
-        <thead><tr>
-          <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th><th><?php esc_html_e( 'Dept', 'sfs-hr' ); ?></th><th><?php esc_html_e( 'In', 'sfs-hr' ); ?></th><th><?php esc_html_e( 'Out', 'sfs-hr' ); ?></th><th><?php esc_html_e( 'Worked (r)', 'sfs-hr' ); ?></th><th><?php esc_html_e( 'OT', 'sfs-hr' ); ?></th><th><?php esc_html_e( 'Flags', 'sfs-hr' ); ?></th><th><?php esc_html_e( 'Geo', 'sfs-hr' ); ?></th><th><?php esc_html_e( 'Selfie', 'sfs-hr' ); ?></th>
-        </tr></thead>
-        <tbody>
-          <?php foreach ($rows as $r): ?>
-            <tr>
-              <td><?php
-                $profile_url = admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . (int) $r->employee_id);
-                $emp_label = $r->display_name ?: ('#'.$r->employee_id);
-              ?><a href="<?php echo esc_url($profile_url); ?>" style="color:#2271b1;text-decoration:none;font-weight:500;"><?php echo esc_html($emp_label); ?></a></td>
-              <td><?php echo esc_html( $r->dept_name ); ?></td>
-              <td><?php echo esc_html( $r->in_time ?: '-' ); ?></td>
-              <td><?php echo esc_html( $r->out_time ?: '-' ); ?></td>
-              <td><?php echo (int)$r->worked_minutes_rounded; ?>m</td>
-              <td><?php echo (int)$r->ot_minutes; ?>m</td>
-              <td>
-                <?php
-                  $flags = [];
-                  if (!empty($r->late_flag)) $flags[]='late';
-                  if (!empty($r->early_flag)) $flags[]='early';
-                  if (!empty($r->missed_punch_flag)) $flags[]='missed';
-                  echo esc_html( $flags ? implode(', ', $flags) : '-' );
-                ?>
-              </td>
-              <td><?php echo isset($r->outside_geo_count) ? (int)$r->outside_geo_count : '-'; ?></td>
-              <td><?php echo isset($r->no_selfie_count) ? (int)$r->no_selfie_count : '-'; ?></td>
-            </tr>
-          <?php endforeach; ?>
-          <?php if (empty($rows)): ?>
-            <tr><td colspan="9"><?php esc_html_e( 'No exceptions for this selection.', 'sfs-hr' ); ?></td></tr>
-          <?php endif; ?>
-        </tbody>
-      </table>
+    <div class="sfs-hr-admin-card">
+        <div class="sfs-hr-admin-card-header">
+            <h2 class="sfs-hr-admin-card-title"><?php esc_html_e( 'Filter Exceptions', 'sfs-hr' ); ?></h2>
+        </div>
+        <div class="sfs-hr-admin-card-body">
+            <form method="get">
+                <input type="hidden" name="page" value="sfs_hr_attendance"/>
+                <input type="hidden" name="tab"  value="exceptions"/>
+                <div class="sfs-hr-form-row">
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Date:', 'sfs-hr' ); ?></label>
+                        <input type="date" name="date" value="<?php echo esc_attr($date); ?>"/>
+                    </div>
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Department:', 'sfs-hr' ); ?></label>
+                        <select name="dept_id">
+                            <option value="0"><?php echo esc_html( '— ' . __( 'All', 'sfs-hr' ) . ' —' ); ?></option>
+                            <?php foreach ($departments as $d): ?>
+                                <option value="<?php echo (int)$d['id']; ?>" <?php selected($dept_id,(int)$d['id']); ?>>
+                                    <?php echo esc_html($d['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+                <div style="margin-top:12px;">
+                    <button type="submit" class="sfs-hr-admin-btn sfs-hr-admin-btn--primary"><?php esc_html_e( 'Filter', 'sfs-hr' ); ?></button>
+                    <a class="sfs-hr-admin-btn" href="<?php echo $export_url; ?>"><?php esc_html_e( 'Export CSV', 'sfs-hr' ); ?></a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="sfs-hr-admin-card">
+        <div class="sfs-hr-admin-card-header">
+            <h2 class="sfs-hr-admin-card-title"><?php esc_html_e( 'Exception Records', 'sfs-hr' ); ?></h2>
+        </div>
+        <div class="sfs-hr-admin-card-body">
+            <table class="widefat striped">
+                <thead>
+                    <tr>
+                        <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Dept', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'In', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Out', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Worked (r)', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'OT', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Flags', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Geo', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Selfie', 'sfs-hr' ); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($rows as $r): ?>
+                        <tr>
+                            <td><?php
+                                $profile_url = admin_url('admin.php?page=sfs-hr-employee-profile&employee_id=' . (int) $r->employee_id);
+                                $emp_label = $r->display_name ?: ('#'.$r->employee_id);
+                            ?><a href="<?php echo esc_url($profile_url); ?>"><?php echo esc_html($emp_label); ?></a></td>
+                            <td><?php echo esc_html( $r->dept_name ); ?></td>
+                            <td><?php echo esc_html( $r->in_time ?: '-' ); ?></td>
+                            <td><?php echo esc_html( $r->out_time ?: '-' ); ?></td>
+                            <td><?php echo (int)$r->worked_minutes_rounded; ?>m</td>
+                            <td><?php echo (int)$r->ot_minutes; ?>m</td>
+                            <td>
+                                <?php
+                                  $flags = [];
+                                  if (!empty($r->late_flag)) $flags[]='late';
+                                  if (!empty($r->early_flag)) $flags[]='early';
+                                  if (!empty($r->missed_punch_flag)) $flags[]='missed';
+                                  if ( $flags ) {
+                                      foreach ( $flags as $flag ) {
+                                          $badge_class = $flag === 'late' ? 'sfs-hr-admin-badge--late' : 'sfs-hr-admin-badge--absent';
+                                          echo '<span class="sfs-hr-admin-badge ' . esc_attr( $badge_class ) . '">' . esc_html( $flag ) . '</span> ';
+                                      }
+                                  } else {
+                                      echo '-';
+                                  }
+                                ?>
+                            </td>
+                            <td><?php echo isset($r->outside_geo_count) ? (int)$r->outside_geo_count : '-'; ?></td>
+                            <td><?php echo isset($r->no_selfie_count) ? (int)$r->no_selfie_count : '-'; ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    <?php if (empty($rows)): ?>
+                        <tr><td colspan="9"><?php esc_html_e( 'No exceptions for this selection.', 'sfs-hr' ); ?></td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
     </div>
     <?php
 }
@@ -3427,65 +3382,72 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
 
 
         ?>
-        <div class="wrap">
-            <h1><?php esc_html_e( 'Devices (Kiosk)', 'sfs-hr' ); ?></h1>
 
-            <h2><?php echo $editing ? esc_html__( 'Edit Device', 'sfs-hr' ) : esc_html__( 'Add Device', 'sfs-hr' ); ?></h2>
+        <!-- Device Form Card -->
+        <div class="sfs-hr-admin-card">
+            <div class="sfs-hr-admin-card-header">
+                <h2 class="sfs-hr-admin-card-title"><?php echo $editing ? esc_html__( 'Edit Device', 'sfs-hr' ) : esc_html__( 'Add Device', 'sfs-hr' ); ?></h2>
+            </div>
             <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>">
                 <?php wp_nonce_field( 'sfs_hr_att_device_save' ); ?>
                 <input type="hidden" name="action" value="sfs_hr_att_device_save"/>
                 <?php if ( $editing ): ?><input type="hidden" name="id" value="<?php echo (int)$editing->id; ?>"/><?php endif; ?>
 
-                <table class="form-table">
-                    <tr><th><?php esc_html_e( 'Label', 'sfs-hr' ); ?></th><td><input required type="text" name="label" value="<?php echo esc_attr($editing->label ?? ''); ?>" class="regular-text"/></td></tr>
-                    <tr><th><?php esc_html_e( 'Type', 'sfs-hr' ); ?></th><td>
+                <div class="sfs-hr-form-row">
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Label', 'sfs-hr' ); ?></label>
+                        <input required type="text" name="label" value="<?php echo esc_attr($editing->label ?? ''); ?>" class="regular-text"/>
+                    </div>
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Type', 'sfs-hr' ); ?></label>
                         <select name="type">
                             <?php foreach (['kiosk','mobile','web'] as $tp): ?>
                                 <option value="<?php echo esc_attr($tp); ?>" <?php selected(($editing->type ?? 'kiosk'), $tp); ?>><?php echo esc_html($tp); ?></option>
                             <?php endforeach; ?>
                         </select>
-                        &nbsp;<label><input type="checkbox" name="kiosk_enabled" value="1" <?php checked(!empty($editing->kiosk_enabled)); ?>/> <?php esc_html_e( 'Kiosk enabled', 'sfs-hr' ); ?></label>
-                        &nbsp;<label><input type="checkbox" name="kiosk_offline" value="1" <?php checked(!empty($editing->kiosk_offline)); ?>/> <?php esc_html_e( 'Allow offline', 'sfs-hr' ); ?></label>
-                        
-                    </td></tr>
-                    <tr>
-  <th><?php esc_html_e('QR & Selfie','sfs-hr'); ?></th>
-  <td>
-    <label style="margin-right:12px;">
-      <input type="checkbox" name="qr_enabled" value="1" <?php checked($qr_enabled); ?> />
-      <?php esc_html_e('Enable QR scanning for this kiosk','sfs-hr'); ?>
-    </label>
-    <label style="margin-left:16px;">
-      <?php esc_html_e('Selfie at kiosk:','sfs-hr'); ?>
-      <select name="selfie_mode">
-  <?php
-  $modes = [
-    'inherit' => __( 'Inherit (Shift/Employee/Dept)', 'sfs-hr' ),
-    'never'   => __( 'Never', 'sfs-hr' ),
-    'in_only' => __( 'Only on Clock In', 'sfs-hr' ),
-    'in_out'  => __( 'On In & Out', 'sfs-hr' ),
-    'all'     => __( 'All punches', 'sfs-hr' ),
-  ];
-  foreach ($modes as $k=>$label) : ?>
-    <option value="<?php echo esc_attr($k); ?>" <?php selected($selfie_mode,$k); ?>>
-      <?php echo esc_html($label); ?>
-    </option>
-  <?php endforeach; ?>
-</select>
+                        <span class="sfs-hr-form-hint">
+                            <label><input type="checkbox" name="kiosk_enabled" value="1" <?php checked(!empty($editing->kiosk_enabled)); ?>/> <?php esc_html_e( 'Kiosk enabled', 'sfs-hr' ); ?></label>
+                            &nbsp;
+                            <label><input type="checkbox" name="kiosk_offline" value="1" <?php checked(!empty($editing->kiosk_offline)); ?>/> <?php esc_html_e( 'Allow offline', 'sfs-hr' ); ?></label>
+                        </span>
+                    </div>
+                </div>
 
-    </label>
-  </td>
-</tr>
+                <div class="sfs-hr-form-row">
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label"><?php esc_html_e('QR Scanning','sfs-hr'); ?></label>
+                        <label>
+                            <input type="checkbox" name="qr_enabled" value="1" <?php checked($qr_enabled); ?> />
+                            <?php esc_html_e('Enable QR scanning for this kiosk','sfs-hr'); ?>
+                        </label>
+                    </div>
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label"><?php esc_html_e('Selfie at kiosk','sfs-hr'); ?></label>
+                        <select name="selfie_mode">
+                            <?php
+                            $modes = [
+                                'inherit' => __( 'Inherit (Shift/Employee/Dept)', 'sfs-hr' ),
+                                'never'   => __( 'Never', 'sfs-hr' ),
+                                'in_only' => __( 'Only on Clock In', 'sfs-hr' ),
+                                'in_out'  => __( 'On In & Out', 'sfs-hr' ),
+                                'all'     => __( 'All punches', 'sfs-hr' ),
+                            ];
+                            foreach ($modes as $k=>$label) : ?>
+                                <option value="<?php echo esc_attr($k); ?>" <?php selected($selfie_mode,$k); ?>>
+                                    <?php echo esc_html($label); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
 
-                    <tr><th><?php esc_html_e( 'Manager PIN (set/replace)', 'sfs-hr' ); ?></th><td>
+                <div class="sfs-hr-form-row">
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Manager PIN (set/replace)', 'sfs-hr' ); ?></label>
                         <input type="password" name="kiosk_pin" class="regular-text" placeholder="<?php echo $editing ? esc_attr__( '(leave blank to keep existing)', 'sfs-hr' ) : esc_attr__( 'Set PIN', 'sfs-hr' ); ?>"/>
-                    </td></tr>
-                    <tr><th><?php esc_html_e( 'Geo lock (lat,lng,radius m)', 'sfs-hr' ); ?></th><td>
-                        <input type="text" name="geo_lock_lat" style="width:120px" value="<?php echo esc_attr($editing->geo_lock_lat ?? ''); ?>"/>
-                        <input type="text" name="geo_lock_lng" style="width:120px" value="<?php echo esc_attr($editing->geo_lock_lng ?? ''); ?>"/>
-                        <input type="number" name="geo_lock_radius_m" min="10" step="1" style="width:120px" value="<?php echo esc_attr($editing->geo_lock_radius_m ?? ''); ?>"/>
-                    </td></tr>
-                                       <tr><th><?php esc_html_e( 'Allowed dept', 'sfs-hr' ); ?></th><td>
+                    </div>
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Allowed dept', 'sfs-hr' ); ?></label>
                         <select name="allowed_dept">
                             <?php
                             $current_dept = (string) ( $editing->allowed_dept ?? 'any' );
@@ -3502,50 +3464,70 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
                                 <?php endforeach; ?>
                             <?php endif; ?>
                         </select>
-                        &nbsp;<label><input type="checkbox" name="active" value="1" <?php checked(!isset($editing->active) || (int)$editing->active===1); ?>/> <?php esc_html_e( 'Active', 'sfs-hr' ); ?></label>
-                    </td></tr>
+                        <span class="sfs-hr-form-hint">
+                            <label><input type="checkbox" name="active" value="1" <?php checked(!isset($editing->active) || (int)$editing->active===1); ?>/> <?php esc_html_e( 'Active', 'sfs-hr' ); ?></label>
+                        </span>
+                    </div>
+                </div>
 
-                    <tr>
-                        <th><?php esc_html_e('Time-Based Suggestions', 'sfs-hr'); ?></th>
-                        <td>
-                            <table style="margin-top:8px;">
-                                <tr>
-                                    <td style="padding:4px 8px;"><strong><?php esc_html_e('Clock In:', 'sfs-hr'); ?></strong></td>
-                                    <td style="padding:4px 8px;">
-                                        <input type="time" name="suggest_in_time" value="<?php echo esc_attr($editing->suggest_in_time ?? ''); ?>" style="width:120px;"/>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding:4px 8px;"><strong><?php esc_html_e('Break Start:', 'sfs-hr'); ?></strong></td>
-                                    <td style="padding:4px 8px;">
-                                        <input type="time" name="suggest_break_start_time" value="<?php echo esc_attr($editing->suggest_break_start_time ?? ''); ?>" style="width:120px;"/>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding:4px 8px;"><strong><?php esc_html_e('Break End:', 'sfs-hr'); ?></strong></td>
-                                    <td style="padding:4px 8px;">
-                                        <input type="time" name="suggest_break_end_time" value="<?php echo esc_attr($editing->suggest_break_end_time ?? ''); ?>" style="width:120px;"/>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding:4px 8px;"><strong><?php esc_html_e('Clock Out:', 'sfs-hr'); ?></strong></td>
-                                    <td style="padding:4px 8px;">
-                                        <input type="time" name="suggest_out_time" value="<?php echo esc_attr($editing->suggest_out_time ?? ''); ?>" style="width:120px;"/>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Geo lock (lat, lng, radius m)', 'sfs-hr' ); ?></label>
+                    <div class="sfs-hr-form-row">
+                        <div class="sfs-hr-form-group">
+                            <input type="text" name="geo_lock_lat" placeholder="<?php esc_attr_e( 'Latitude', 'sfs-hr' ); ?>" value="<?php echo esc_attr($editing->geo_lock_lat ?? ''); ?>"/>
+                        </div>
+                        <div class="sfs-hr-form-group">
+                            <input type="text" name="geo_lock_lng" placeholder="<?php esc_attr_e( 'Longitude', 'sfs-hr' ); ?>" value="<?php echo esc_attr($editing->geo_lock_lng ?? ''); ?>"/>
+                        </div>
+                        <div class="sfs-hr-form-group">
+                            <input type="number" name="geo_lock_radius_m" min="10" step="1" placeholder="<?php esc_attr_e( 'Radius (m)', 'sfs-hr' ); ?>" value="<?php echo esc_attr($editing->geo_lock_radius_m ?? ''); ?>"/>
+                        </div>
+                    </div>
+                </div>
 
-                </table>
+                <div class="sfs-hr-form-group">
+                    <label class="sfs-hr-form-label"><?php esc_html_e('Time-Based Suggestions', 'sfs-hr'); ?></label>
+                    <div class="sfs-hr-form-row">
+                        <div class="sfs-hr-form-group">
+                            <label class="sfs-hr-form-label"><?php esc_html_e('Clock In', 'sfs-hr'); ?></label>
+                            <input type="time" name="suggest_in_time" value="<?php echo esc_attr($editing->suggest_in_time ?? ''); ?>"/>
+                        </div>
+                        <div class="sfs-hr-form-group">
+                            <label class="sfs-hr-form-label"><?php esc_html_e('Break Start', 'sfs-hr'); ?></label>
+                            <input type="time" name="suggest_break_start_time" value="<?php echo esc_attr($editing->suggest_break_start_time ?? ''); ?>"/>
+                        </div>
+                        <div class="sfs-hr-form-group">
+                            <label class="sfs-hr-form-label"><?php esc_html_e('Break End', 'sfs-hr'); ?></label>
+                            <input type="time" name="suggest_break_end_time" value="<?php echo esc_attr($editing->suggest_break_end_time ?? ''); ?>"/>
+                        </div>
+                        <div class="sfs-hr-form-group">
+                            <label class="sfs-hr-form-label"><?php esc_html_e('Clock Out', 'sfs-hr'); ?></label>
+                            <input type="time" name="suggest_out_time" value="<?php echo esc_attr($editing->suggest_out_time ?? ''); ?>"/>
+                        </div>
+                    </div>
+                </div>
 
-                <?php submit_button( $editing ? __( 'Update Device', 'sfs-hr' ) : __( 'Add Device', 'sfs-hr' ) ); ?>
+                <button type="submit" class="sfs-hr-admin-btn sfs-hr-admin-btn--primary"><?php echo $editing ? esc_html__( 'Update Device', 'sfs-hr' ) : esc_html__( 'Add Device', 'sfs-hr' ); ?></button>
             </form>
+        </div>
 
-            <hr/>
-            <h2><?php esc_html_e( 'Existing Devices', 'sfs-hr' ); ?></h2>
+        <!-- Existing Devices Card -->
+        <div class="sfs-hr-admin-card">
+            <div class="sfs-hr-admin-card-header">
+                <h2 class="sfs-hr-admin-card-title"><?php esc_html_e( 'Existing Devices', 'sfs-hr' ); ?></h2>
+            </div>
             <table class="widefat striped">
-                <thead><tr><th><?php esc_html_e( 'ID', 'sfs-hr' ); ?></th><th><?php esc_html_e( 'Label', 'sfs-hr' ); ?></th><th><?php esc_html_e( 'Type', 'sfs-hr' ); ?></th><th><?php esc_html_e( 'Dept', 'sfs-hr' ); ?></th><th><?php esc_html_e( 'Offline', 'sfs-hr' ); ?></th><th><?php esc_html_e( 'Active', 'sfs-hr' ); ?></th><th></th></tr></thead>
+                <thead>
+                    <tr>
+                        <th><?php esc_html_e( 'ID', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Label', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Type', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Dept', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Offline', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Active', 'sfs-hr' ); ?></th>
+                        <th></th>
+                    </tr>
+                </thead>
                 <tbody>
                 <?php foreach ( $rows as $r ): ?>
                     <tr>
@@ -3553,22 +3535,33 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
                         <td><?php echo esc_html($r->label); ?></td>
                         <td><?php echo esc_html($r->type); ?></td>
                         <td>
-    <?php
-    $key   = (string) $r->allowed_dept;
-    $label = $dept_labels[ $key ] ?? $key;
-    echo esc_html( $label );
-    ?>
-</td>
-
-                        <td><?php echo $r->kiosk_offline ? esc_html__( 'Yes', 'sfs-hr' ) : esc_html__( 'No', 'sfs-hr' ); ?></td>
-                        <td><?php echo $r->active ? esc_html__( 'Yes', 'sfs-hr' ) : esc_html__( 'No', 'sfs-hr' ); ?></td>
+                            <?php
+                            $key   = (string) $r->allowed_dept;
+                            $label = $dept_labels[ $key ] ?? $key;
+                            echo esc_html( $label );
+                            ?>
+                        </td>
                         <td>
-                            <a class="button button-small" href="<?php echo esc_url( admin_url('admin.php?page=sfs_hr_attendance&tab=devices&edit='.(int)$r->id) ); ?>"><?php esc_html_e( 'Edit', 'sfs-hr' ); ?></a>
+                            <?php if ( $r->kiosk_offline ) : ?>
+                                <span class="sfs-hr-admin-badge sfs-hr-admin-badge--active"><?php esc_html_e( 'Yes', 'sfs-hr' ); ?></span>
+                            <?php else : ?>
+                                <span class="sfs-hr-admin-badge sfs-hr-admin-badge--inactive"><?php esc_html_e( 'No', 'sfs-hr' ); ?></span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if ( $r->active ) : ?>
+                                <span class="sfs-hr-admin-badge sfs-hr-admin-badge--active"><?php esc_html_e( 'Yes', 'sfs-hr' ); ?></span>
+                            <?php else : ?>
+                                <span class="sfs-hr-admin-badge sfs-hr-admin-badge--inactive"><?php esc_html_e( 'No', 'sfs-hr' ); ?></span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <a class="sfs-hr-admin-btn" href="<?php echo esc_url( admin_url('admin.php?page=sfs_hr_attendance&tab=devices&edit='.(int)$r->id) ); ?>"><?php esc_html_e( 'Edit', 'sfs-hr' ); ?></a>
                             <form style="display:inline" method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Delete this device?', 'sfs-hr' ) ); ?>');">
                                 <?php wp_nonce_field( 'sfs_hr_att_device_delete' ); ?>
                                 <input type="hidden" name="action" value="sfs_hr_att_device_delete"/>
                                 <input type="hidden" name="id" value="<?php echo (int)$r->id; ?>"/>
-                                <button class="button button-small" type="submit"><?php esc_html_e( 'Delete', 'sfs-hr' ); ?></button>
+                                <button class="sfs-hr-admin-btn sfs-hr-admin-btn--danger" type="submit"><?php esc_html_e( 'Delete', 'sfs-hr' ); ?></button>
                             </form>
                         </td>
                     </tr>
@@ -3579,7 +3572,7 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
         <?php
     }
 
-    public function handle_device_save(): void {
+        public function handle_device_save(): void {
         if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) { wp_die( esc_html__( 'Access denied', 'sfs-hr' ) ); }
         check_admin_referer( 'sfs_hr_att_device_save' );
         global $wpdb; $t = $wpdb->prefix . 'sfs_hr_attendance_devices';
@@ -4935,81 +4928,73 @@ private function render_early_leave(): void {
 
     $base_url = admin_url('admin.php?page=sfs_hr_attendance&tab=early_leave');
     ?>
-    <div class="wrap">
-        <h2><?php esc_html_e('Early Leave Requests', 'sfs-hr'); ?></h2>
-
-        <!-- Status Filter Tabs -->
-        <ul class="subsubsub">
-            <li>
-                <a href="<?php echo esc_url(add_query_arg('status', 'all', $base_url)); ?>"
-                   class="<?php echo $status_filter === 'all' ? 'current' : ''; ?>">
-                    <?php esc_html_e('All', 'sfs-hr'); ?> <span class="count">(<?php echo intval($total_count); ?>)</span>
-                </a> |
-            </li>
-            <li>
-                <a href="<?php echo esc_url(add_query_arg('status', 'pending', $base_url)); ?>"
-                   class="<?php echo $status_filter === 'pending' ? 'current' : ''; ?>">
-                    <?php esc_html_e('Pending', 'sfs-hr'); ?> <span class="count">(<?php echo intval($pending_count); ?>)</span>
-                </a> |
-            </li>
-            <li>
-                <a href="<?php echo esc_url(add_query_arg('status', 'approved', $base_url)); ?>"
-                   class="<?php echo $status_filter === 'approved' ? 'current' : ''; ?>">
-                    <?php esc_html_e('Approved', 'sfs-hr'); ?> <span class="count">(<?php echo intval($approved_count); ?>)</span>
-                </a> |
-            </li>
-            <li>
-                <a href="<?php echo esc_url(add_query_arg('status', 'rejected', $base_url)); ?>"
-                   class="<?php echo $status_filter === 'rejected' ? 'current' : ''; ?>">
-                    <?php esc_html_e('Rejected', 'sfs-hr'); ?> <span class="count">(<?php echo intval($rejected_count); ?>)</span>
-                </a> |
-            </li>
-            <li>
-                <a href="<?php echo esc_url(add_query_arg('status', 'cancelled', $base_url)); ?>"
-                   class="<?php echo $status_filter === 'cancelled' ? 'current' : ''; ?>">
-                    <?php esc_html_e('Cancelled', 'sfs-hr'); ?> <span class="count">(<?php echo intval($cancelled_count); ?>)</span>
-                </a>
-            </li>
-        </ul>
-
-        <br class="clear" />
+        <!-- KPI Summary Cards -->
+        <div class="sfs-hr-admin-kpi-row">
+            <a href="<?php echo esc_url(add_query_arg('status', 'all', $base_url)); ?>" class="sfs-hr-admin-kpi" style="text-decoration:none;<?php echo $status_filter === 'all' ? 'outline:2px solid #0284c7;' : ''; ?>">
+                <div class="sfs-hr-admin-kpi-icon" style="background:#eff6ff;">
+                    <svg viewBox="0 0 24 24" stroke="#3b82f6" fill="none" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                </div>
+                <div>
+                    <div class="sfs-hr-admin-kpi-label"><?php esc_html_e('Total', 'sfs-hr'); ?></div>
+                    <div class="sfs-hr-admin-kpi-value"><?php echo intval($total_count); ?></div>
+                </div>
+            </a>
+            <a href="<?php echo esc_url(add_query_arg('status', 'pending', $base_url)); ?>" class="sfs-hr-admin-kpi" style="text-decoration:none;<?php echo $status_filter === 'pending' ? 'outline:2px solid #0284c7;' : ''; ?>">
+                <div class="sfs-hr-admin-kpi-icon" style="background:#fef3c7;">
+                    <svg viewBox="0 0 24 24" stroke="#d97706" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </div>
+                <div>
+                    <div class="sfs-hr-admin-kpi-label"><?php esc_html_e('Pending', 'sfs-hr'); ?></div>
+                    <div class="sfs-hr-admin-kpi-value"><?php echo intval($pending_count); ?></div>
+                </div>
+            </a>
+            <a href="<?php echo esc_url(add_query_arg('status', 'approved', $base_url)); ?>" class="sfs-hr-admin-kpi" style="text-decoration:none;<?php echo $status_filter === 'approved' ? 'outline:2px solid #0284c7;' : ''; ?>">
+                <div class="sfs-hr-admin-kpi-icon" style="background:#dcfce7;">
+                    <svg viewBox="0 0 24 24" stroke="#16a34a" fill="none" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                </div>
+                <div>
+                    <div class="sfs-hr-admin-kpi-label"><?php esc_html_e('Approved', 'sfs-hr'); ?></div>
+                    <div class="sfs-hr-admin-kpi-value"><?php echo intval($approved_count); ?></div>
+                </div>
+            </a>
+            <a href="<?php echo esc_url(add_query_arg('status', 'rejected', $base_url)); ?>" class="sfs-hr-admin-kpi" style="text-decoration:none;<?php echo $status_filter === 'rejected' ? 'outline:2px solid #0284c7;' : ''; ?>">
+                <div class="sfs-hr-admin-kpi-icon" style="background:#fee2e2;">
+                    <svg viewBox="0 0 24 24" stroke="#dc2626" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                </div>
+                <div>
+                    <div class="sfs-hr-admin-kpi-label"><?php esc_html_e('Rejected', 'sfs-hr'); ?></div>
+                    <div class="sfs-hr-admin-kpi-value"><?php echo intval($rejected_count); ?></div>
+                </div>
+            </a>
+        </div>
 
         <!-- Date Range Filter -->
-        <form method="get" class="early-leave-filters" style="margin: 15px 0; padding: 10px; background: #f9f9f9; border: 1px solid #e5e5e5;">
-            <input type="hidden" name="page" value="sfs_hr_attendance" />
-            <input type="hidden" name="tab" value="early_leave" />
-            <input type="hidden" name="status" value="<?php echo esc_attr($status_filter); ?>" />
-
-            <div class="sfs-el-filter-row">
-                <label>
-                    <?php esc_html_e('From:', 'sfs-hr'); ?>
+        <div class="sfs-hr-admin-card" style="margin-bottom:20px;">
+            <form method="get" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+                <input type="hidden" name="page" value="sfs_hr_attendance" />
+                <input type="hidden" name="tab" value="early_leave" />
+                <input type="hidden" name="status" value="<?php echo esc_attr($status_filter); ?>" />
+                <div class="sfs-hr-form-group" style="margin-bottom:0;">
+                    <label class="sfs-hr-form-label"><?php esc_html_e('From', 'sfs-hr'); ?></label>
                     <input type="date" name="date_from" value="<?php echo esc_attr($date_from); ?>" />
-                </label>
-
-                <label>
-                    <?php esc_html_e('To:', 'sfs-hr'); ?>
+                </div>
+                <div class="sfs-hr-form-group" style="margin-bottom:0;">
+                    <label class="sfs-hr-form-label"><?php esc_html_e('To', 'sfs-hr'); ?></label>
                     <input type="date" name="date_to" value="<?php echo esc_attr($date_to); ?>" />
-                </label>
-
-                <span class="sfs-el-filter-buttons">
-                    <button type="submit" class="button"><?php esc_html_e('Filter', 'sfs-hr'); ?></button>
-                    <a href="<?php echo esc_url($base_url); ?>" class="button"><?php esc_html_e('Reset', 'sfs-hr'); ?></a>
-                </span>
-            </div>
-        </form>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button type="submit" class="sfs-hr-admin-btn sfs-hr-admin-btn--primary"><?php esc_html_e('Filter', 'sfs-hr'); ?></button>
+                    <a href="<?php echo esc_url($base_url); ?>" class="sfs-hr-admin-btn"><?php esc_html_e('Reset', 'sfs-hr'); ?></a>
+                </div>
+            </form>
+        </div>
 
         <style>
-        /* ── Early Leave Requests – styles matching loan list design ── */
-        .sfs-el-filter-row {
-            display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end;
-        }
-        .sfs-el-filter-row label { white-space: nowrap; }
-        .sfs-el-filter-buttons { display: flex; gap: 4px; }
-
+        /* ── Early Leave Requests – modernized styles ── */
         .sfs-el-table-wrap {
             background: #fff;
-            border: 1px solid #e2e4e7;
-            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
             overflow: hidden;
             box-shadow: 0 1px 3px rgba(0,0,0,0.04);
         }
