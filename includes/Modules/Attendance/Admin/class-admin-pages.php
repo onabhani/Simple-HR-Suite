@@ -1774,59 +1774,99 @@ public function render_shifts(): void {
             font-size: 13px;
         }
 
+        /* Weekly schedule row */
+        .sfs-weekly-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f1;
+        }
+        .sfs-weekly-row:last-child { border-bottom: none; }
+        .sfs-weekly-day { min-width: 90px; font-weight: 500; font-size: 13px; }
+        .sfs-weekly-times { display: inline-flex; align-items: center; gap: 6px; }
+        .sfs-weekly-times input[type="time"] { width: 100px; }
+        @media (max-width: 600px) {
+            .sfs-weekly-row { flex-direction: column; align-items: flex-start; gap: 6px; }
+            .sfs-weekly-day { min-width: auto; }
+        }
+
         /* Existing shifts as cards */
         .sfs-existing-shifts-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 16px;
             margin-top: 16px;
         }
         .sfs-existing-shift-card {
             background: #fff;
             border: 1px solid #c3c4c7;
+            border-left: 4px solid #2271b1;
             border-radius: 6px;
-            padding: 16px;
+            padding: 14px 16px;
             position: relative;
         }
         .sfs-existing-shift-card.--inactive {
             opacity: 0.65;
-            border-style: dashed;
+            border-left-color: #9ca3af;
+            border-style: solid;
+            border-left-style: solid;
         }
         .sfs-existing-shift-card .sfs-esc-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
         }
         .sfs-existing-shift-card .sfs-esc-name {
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 600;
             color: #1d2327;
         }
         .sfs-existing-shift-card .sfs-esc-id {
-            font-size: 12px;
+            font-size: 11px;
             color: #999;
         }
+        .sfs-existing-shift-card .sfs-esc-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+        .sfs-esc-badge {
+            display: inline-block;
+            padding: 1px 7px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 10px;
+        }
+        .sfs-esc-badge--active { background: #dcfce7; color: #166534; }
+        .sfs-esc-badge--inactive { background: #f3f4f6; color: #6b7280; }
+        .sfs-esc-badge--policy { background: #f0f6fc; color: #1e40af; }
         .sfs-existing-shift-card .sfs-esc-meta {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            font-size: 13px;
+            gap: 2px 12px;
+            font-size: 12px;
             color: #50575e;
+            line-height: 1.4;
         }
         .sfs-existing-shift-card .sfs-esc-meta dt {
             font-weight: 600;
-            color: #1d2327;
-            font-size: 12px;
+            color: #374151;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            margin-top: 4px;
         }
         .sfs-existing-shift-card .sfs-esc-meta dd {
-            margin: 0 0 8px;
+            margin: 0 0 2px;
         }
         .sfs-existing-shift-card .sfs-esc-actions {
             display: flex;
             gap: 8px;
-            margin-top: 12px;
-            padding-top: 12px;
+            margin-top: 10px;
+            padding-top: 8px;
             border-top: 1px solid #f0f0f1;
         }
 
@@ -1982,8 +2022,8 @@ public function render_shifts(): void {
                     </div>
                 </div>
 
-                <!-- Card: Location & Map (full width) -->
-                <div class="sfs-shift-card sfs-shift-card--full">
+                <!-- Card: Location & Map -->
+                <div class="sfs-shift-card">
                     <h4><span class="dashicons dashicons-location"></span> <?php esc_html_e( 'Location & Geofence', 'sfs-hr' ); ?></h4>
                     <div class="sfs-inline" style="margin-bottom: 10px;">
                         <div>
@@ -2107,8 +2147,8 @@ public function render_shifts(): void {
                         </script>
                 </div><!-- /Location & Map card -->
 
-                <!-- Card: Weekly Schedule (full width) -->
-                <div class="sfs-shift-card sfs-shift-card--full">
+                <!-- Card: Weekly Schedule -->
+                <div class="sfs-shift-card">
                     <h4><span class="dashicons dashicons-calendar-alt"></span> <?php esc_html_e( 'Weekly Schedule', 'sfs-hr' ); ?></h4>
                         <?php
                         $weekly_overrides = [];
@@ -2136,26 +2176,24 @@ public function render_shifts(): void {
                             $custom_start = $is_custom ? substr( $ov['start'], 0, 5 ) : '';
                             $custom_end   = $is_custom ? substr( $ov['end'], 0, 5 ) : '';
                             ?>
-                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
-                                <span style="display:inline-block;width:100px;font-weight:500;">
-                                    <?php echo esc_html( $day_label ); ?>
-                                </span>
-                                <label style="display:flex;align-items:center;gap:4px;">
+                            <div class="sfs-weekly-row">
+                                <span class="sfs-weekly-day"><?php echo esc_html( $day_label ); ?></span>
+                                <label style="display:flex;align-items:center;gap:4px;font-size:13px;">
                                     <input type="checkbox" class="sfs-day-off-toggle"
                                            name="weekly_schedule[<?php echo esc_attr( $day_key ); ?>][day_off]"
                                            value="1" <?php checked( $is_day_off ); ?>
                                            data-day="<?php echo esc_attr( $day_key ); ?>" />
                                     <?php esc_html_e( 'Day off', 'sfs-hr' ); ?>
                                 </label>
-                                <span class="sfs-day-times-<?php echo esc_attr( $day_key ); ?>"
-                                      style="display:<?php echo $is_day_off ? 'none' : 'inline-flex'; ?>;align-items:center;gap:6px;">
+                                <span class="sfs-weekly-times sfs-day-times-<?php echo esc_attr( $day_key ); ?>"
+                                      style="display:<?php echo $is_day_off ? 'none' : 'inline-flex'; ?>;">
                                     <input type="time" name="weekly_schedule[<?php echo esc_attr( $day_key ); ?>][start]"
                                            value="<?php echo esc_attr( $custom_start ); ?>" step="60"
-                                           style="width:110px;" placeholder="<?php echo esc_attr( $start_val ); ?>" />
+                                           placeholder="<?php echo esc_attr( $start_val ); ?>" />
                                     <span>→</span>
                                     <input type="time" name="weekly_schedule[<?php echo esc_attr( $day_key ); ?>][end]"
                                            value="<?php echo esc_attr( $custom_end ); ?>" step="60"
-                                           style="width:110px;" placeholder="<?php echo esc_attr( $end_val ); ?>" />
+                                           placeholder="<?php echo esc_attr( $end_val ); ?>" />
                                 </span>
                             </div>
                         <?php endforeach; ?>
@@ -2169,8 +2207,8 @@ public function render_shifts(): void {
                         </script>
                 </div><!-- /Weekly Schedule card -->
 
-                <!-- Card: Period Overrides (full width) -->
-                <div class="sfs-shift-card sfs-shift-card--full">
+                <!-- Card: Period Overrides -->
+                <div class="sfs-shift-card">
                     <h4><span class="dashicons dashicons-backup"></span> <?php esc_html_e( 'Period Overrides', 'sfs-hr' ); ?></h4>
                     <div class="sfs-field">
                         <label class="sfs-label"><?php esc_html_e( 'Date-range overrides', 'sfs-hr' ); ?></label>
@@ -2473,6 +2511,21 @@ public function render_shifts(): void {
                 } elseif ( ! empty( $r->dept_id ) && isset( $depts[ $r->dept_id ] ) ) {
                     $dept_names[] = $depts[ $r->dept_id ];
                 }
+
+                // Check for override policy indicators
+                $has_calc_mode  = ! empty( $r->calculation_mode );
+                $has_clock_in   = ! empty( $r->clock_in_methods ) && $r->clock_in_methods !== 'null';
+                $has_clock_out  = ! empty( $r->clock_out_methods ) && $r->clock_out_methods !== 'null';
+                $has_geofence   = ! empty( $r->geofence_in ) || ! empty( $r->geofence_out );
+                $has_ot_buffer  = $r->overtime_buffer_minutes !== null && $r->overtime_buffer_minutes !== '';
+                $has_policy     = $has_calc_mode || $has_clock_in || $has_clock_out || $has_geofence || $has_ot_buffer;
+
+                // Check for period overrides
+                $has_period_overrides = false;
+                if ( ! empty( $r->period_overrides ) ) {
+                    $po = json_decode( $r->period_overrides, true );
+                    $has_period_overrides = is_array( $po ) && ! empty( $po );
+                }
                 ?>
                 <div class="sfs-existing-shift-card <?php echo (int) $r->active ? '' : '--inactive'; ?>">
                     <div class="sfs-esc-header">
@@ -2480,10 +2533,18 @@ public function render_shifts(): void {
                             <div class="sfs-esc-name"><?php echo esc_html( $r->name ); ?></div>
                             <div class="sfs-esc-id">#<?php echo (int) $r->id; ?> &middot; <?php echo esc_html( $r->location_label ?: '—' ); ?></div>
                         </div>
+                    </div>
+                    <div class="sfs-esc-badges">
                         <?php if ( (int) $r->active ) : ?>
-                            <span style="display:inline-block;padding:2px 8px;font-size:11px;font-weight:600;border-radius:10px;background:#dcfce7;color:#166534;"><?php esc_html_e( 'Active', 'sfs-hr' ); ?></span>
+                            <span class="sfs-esc-badge sfs-esc-badge--active"><?php esc_html_e( 'Active', 'sfs-hr' ); ?></span>
                         <?php else : ?>
-                            <span style="display:inline-block;padding:2px 8px;font-size:11px;font-weight:600;border-radius:10px;background:#f3f4f6;color:#6b7280;"><?php esc_html_e( 'Inactive', 'sfs-hr' ); ?></span>
+                            <span class="sfs-esc-badge sfs-esc-badge--inactive"><?php esc_html_e( 'Inactive', 'sfs-hr' ); ?></span>
+                        <?php endif; ?>
+                        <?php if ( $has_policy ) : ?>
+                            <span class="sfs-esc-badge sfs-esc-badge--policy"><?php esc_html_e( 'Custom Policy', 'sfs-hr' ); ?></span>
+                        <?php endif; ?>
+                        <?php if ( $has_period_overrides ) : ?>
+                            <span class="sfs-esc-badge sfs-esc-badge--policy"><?php esc_html_e( 'Period Override', 'sfs-hr' ); ?></span>
                         <?php endif; ?>
                     </div>
                     <div class="sfs-esc-meta">
@@ -2543,7 +2604,9 @@ public function render_shifts(): void {
                 </div>
             <?php endforeach; ?>
         </div>
-        <?php endif; ?>
+        <?php endif ?>
+
+        <div style="margin-top: 30px;"></div>
 
         <?php
         /* ── Bulk Assign Default Shift ──────────────────────────────── */
