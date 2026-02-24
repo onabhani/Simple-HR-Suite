@@ -294,7 +294,7 @@ class Admin_Pages {
         // Compute company-avg delta
         $company_delta = ( $prev_company_avg > 0 ) ? round( $company_avg - $prev_company_avg, 1 ) : null;
         ?>
-        <div class="wrap sfs-perf-wrap">
+        <div class="wrap sfs-hr-wrap sfs-perf-wrap">
             <div class="sfs-perf-header">
                 <div>
                     <h1><?php esc_html_e( 'Performance Dashboard', 'sfs-hr' ); ?></h1>
@@ -481,7 +481,7 @@ class Admin_Pages {
         $rankings = Performance_Calculator::get_performance_ranking( $dept_id, $start_date, $end_date );
 
         ?>
-        <div class="wrap sfs-perf-wrap">
+        <div class="wrap sfs-hr-wrap sfs-perf-wrap">
             <h1><?php esc_html_e( 'Employee Performance', 'sfs-hr' ); ?></h1>
 
             <form method="get" class="sfs-perf-filters">
@@ -591,7 +591,7 @@ class Admin_Pages {
         ) );
 
         if ( ! $employee ) {
-            echo '<div class="wrap"><p>' . esc_html__( 'Employee not found.', 'sfs-hr' ) . '</p></div>';
+            echo '<div class="wrap sfs-hr-wrap"><p>' . esc_html__( 'Employee not found.', 'sfs-hr' ) . '</p></div>';
             return;
         }
 
@@ -607,7 +607,7 @@ class Admin_Pages {
         $grade_display = $score_data['overall_grade'] ? Performance_Calculator::get_grade_display( $score_data['overall_grade'] ) : null;
 
         ?>
-        <div class="wrap sfs-perf-wrap">
+        <div class="wrap sfs-hr-wrap sfs-perf-wrap">
             <p>
                 <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-performance-employees' ) ); ?>">
                     ← <?php esc_html_e( 'Back to Employees', 'sfs-hr' ); ?>
@@ -850,7 +850,7 @@ class Admin_Pages {
         }
 
         ?>
-        <div class="wrap sfs-perf-wrap">
+        <div class="wrap sfs-hr-wrap sfs-perf-wrap">
             <div class="sfs-perf-header">
                 <h1><?php esc_html_e( 'Goals Management', 'sfs-hr' ); ?></h1>
                 <button type="button" class="button button-primary" onclick="document.getElementById('add-goal-form').style.display='block'">
@@ -1012,7 +1012,7 @@ class Admin_Pages {
         );
 
         ?>
-        <div class="wrap sfs-perf-wrap">
+        <div class="wrap sfs-hr-wrap sfs-perf-wrap">
             <h1><?php esc_html_e( 'Performance Reviews', 'sfs-hr' ); ?></h1>
 
             <div class="sfs-perf-table">
@@ -1075,7 +1075,7 @@ class Admin_Pages {
         $stats = Alerts_Service::get_statistics();
 
         ?>
-        <div class="wrap sfs-perf-wrap">
+        <div class="wrap sfs-hr-wrap sfs-perf-wrap">
             <h1><?php esc_html_e( 'Performance Alerts', 'sfs-hr' ); ?></h1>
 
             <!-- Summary Cards -->
@@ -1155,7 +1155,7 @@ class Admin_Pages {
         $settings = PerformanceModule::get_settings();
 
         ?>
-        <div class="wrap sfs-perf-wrap">
+        <div class="wrap sfs-hr-wrap sfs-perf-wrap">
             <h1><?php esc_html_e( 'Performance Settings', 'sfs-hr' ); ?></h1>
 
             <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">

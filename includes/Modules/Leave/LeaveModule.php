@@ -93,7 +93,7 @@ public function render_leave_page(): void {
     }
 
     if ( empty($available) ) {
-        echo '<div class="wrap"><h1>' . esc_html__('Leave', 'sfs-hr') . '</h1>';
+        echo '<div class="wrap sfs-hr-wrap"><h1>' . esc_html__('Leave', 'sfs-hr') . '</h1>';
         echo '<p>' . esc_html__('You do not have access to Leave admin.', 'sfs-hr') . '</p></div>';
         return;
     }
@@ -2314,7 +2314,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
     ) );
 
     if ( ! $cancel ) {
-        echo '<div class="wrap"><div class="notice notice-error"><p>' . esc_html__( 'Cancellation request not found.', 'sfs-hr' ) . '</p></div></div>';
+        echo '<div class="wrap sfs-hr-wrap"><div class="notice notice-error"><p>' . esc_html__( 'Cancellation request not found.', 'sfs-hr' ) . '</p></div></div>';
         return;
     }
 
@@ -2666,7 +2666,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
         $nonce_mark = wp_create_nonce('sfs_hr_leave_markannual');
         ?>
                         
-        <div class="wrap">
+        <div class="wrap sfs-hr-wrap">
           <h2 class="title"><?php esc_html_e('Leave Types','sfs-hr'); ?></h2>
 
 
@@ -2845,7 +2845,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
 
         ?>
         
-        <div class="wrap">
+        <div class="wrap sfs-hr-wrap">
           <h2 class="title"><?php esc_html_e('Leave Balances','sfs-hr'); ?></h2>
           <?php if(!empty($_GET['ok'])): ?>
             <div class="notice notice-success"><p><?php esc_html_e('Balance updated.','sfs-hr'); ?></p></div>
@@ -3087,7 +3087,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
         $nonce_add = wp_create_nonce('sfs_hr_holiday_add');
         $nonce_del = wp_create_nonce('sfs_hr_holiday_del');
         ?>
-        <div class="wrap">
+        <div class="wrap sfs-hr-wrap">
           <h2 class="title"><?php esc_html_e('Leave Settings','sfs-hr'); ?></h2>
           <?php if(!empty($_GET['ok'])): ?>
             <div class="notice notice-success"><p><?php esc_html_e('Settings saved.','sfs-hr'); ?></p></div>
@@ -5999,7 +5999,7 @@ public function render_calendar(): void {
         ) );
 
         if ( ! $request ) {
-            echo '<div class="wrap"><div class="notice notice-error"><p>' . esc_html__( 'Leave request not found.', 'sfs-hr' ) . '</p></div></div>';
+            echo '<div class="wrap sfs-hr-wrap"><div class="notice notice-error"><p>' . esc_html__( 'Leave request not found.', 'sfs-hr' ) . '</p></div></div>';
             return;
         }
 

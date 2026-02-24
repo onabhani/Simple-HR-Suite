@@ -43,7 +43,9 @@ class Admin {
     public function enqueue_admin_styles( string $hook ): void {
         // Only load on our plugin's admin pages.
         $screen = get_current_screen();
-        if ( $screen && ( strpos( $screen->id, 'sfs-hr' ) !== false || strpos( $hook, 'sfs-hr' ) !== false ) ) {
+        $is_hr_page = $screen && ( strpos( $screen->id, 'sfs-hr' ) !== false || strpos( $screen->id, 'sfs_hr' ) !== false );
+        $is_hr_hook = strpos( $hook, 'sfs-hr' ) !== false || strpos( $hook, 'sfs_hr' ) !== false;
+        if ( $is_hr_page || $is_hr_hook ) {
             wp_enqueue_style(
                 'sfs-hr-admin',
                 SFS_HR_URL . 'assets/admin/admin-styles.css',
@@ -3822,7 +3824,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         <?php
     };
     ?>
-    <div class="wrap">
+    <div class="wrap sfs-hr-wrap">
         <h1><?php echo esc_html__( 'Edit Employee', 'sfs-hr' ); ?></h1>
 
         <style>

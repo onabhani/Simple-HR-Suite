@@ -162,8 +162,6 @@ private function get_table_columns( $table ): array {
         $period_day  = isset($opt['period_start_day']) ? (int)$opt['period_start_day'] : 1;
 
         ?>
-        <div class="wrap sfs-hr-wrap">
-            <h1><?php esc_html_e( 'Attendance Settings', 'sfs-hr' ); ?></h1>
             <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>">
                 <?php wp_nonce_field( 'sfs_hr_att_save_settings' ); ?>
                 <input type="hidden" name="action" value="sfs_hr_att_save_settings"/>
@@ -297,7 +295,6 @@ private function get_table_columns( $table ): array {
 
                 <?php submit_button( __( 'Save Settings', 'sfs-hr' ) ); ?>
             </form>
-        </div>
         <?php
     }
     
@@ -3983,7 +3980,7 @@ $this->att_log('Punches query done', [
 
   // 5) UI
   $totalPunches = is_array($rows) ? count($rows) : 0;
-  echo '<div class="wrap"><h1>' . esc_html__('Punches', 'sfs-hr') . '</h1>';
+  echo '<h2>' . esc_html__('Punches', 'sfs-hr') . '</h2>';
 
   // Toolbar Card
   echo '<div class="sfs-hr-att-toolbar">';
@@ -4271,7 +4268,7 @@ echo '</tr>';
   } else {
     echo '<tr><td colspan="8" class="empty-state"><p>' . esc_html__('No punches found for this selection.', 'sfs-hr') . '</p></td></tr>';
   }
-  echo '</tbody></table></div></div>';
+  echo '</tbody></table></div>';
 }
 
 
@@ -4393,7 +4390,7 @@ $export_url = esc_url( wp_nonce_url(
 
 
     $totalSessions = is_array($rows) ? count($rows) : 0;
-    echo '<div class="wrap"><h1>' . esc_html__('Sessions', 'sfs-hr') . '</h1>';
+    echo '<h2>' . esc_html__('Sessions', 'sfs-hr') . '</h2>';
 
     // Fix Off-Day Absences result notification
     if ( isset( $_GET['fixed_absences'] ) ) {
@@ -4614,7 +4611,7 @@ if ( $rows ) {
     echo '<tr><td colspan="9" class="empty-state"><p>' . esc_html__('No sessions found for this selection.', 'sfs-hr') . '</p></td></tr>';
 }
 
-echo '</tbody></table></div></div>';
+echo '</tbody></table></div>';
 
 }
 

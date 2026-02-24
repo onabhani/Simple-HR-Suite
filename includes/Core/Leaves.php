@@ -21,7 +21,7 @@ class Leaves {
         $rows = $wpdb->get_results("SELECT * FROM {$t} ORDER BY name ASC", ARRAY_A);
         $nonce_add = wp_create_nonce('sfs_hr_add_leave_type');
         ?>
-        <div class="wrap">
+        <div class="wrap sfs-hr-wrap">
           <h1><?php esc_html_e('Leave Types','sfs-hr'); ?></h1>
           <h2><?php esc_html_e('Add New Type','sfs-hr'); ?></h2>
           <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
@@ -89,7 +89,7 @@ class Leaves {
                 WHERE {$where} ORDER BY lr.id DESC";
         $rows = $params ? $wpdb->get_results( $wpdb->prepare($sql, ...$params), ARRAY_A ) : $wpdb->get_results($sql, ARRAY_A);
         ?>
-        <div class="wrap">
+        <div class="wrap sfs-hr-wrap">
           <h1><?php esc_html_e('Leave Requests','sfs-hr'); ?></h1>
           <form method="get" style="margin:10px 0;">
             <input type="hidden" name="page" value="sfs-hr-leave-requests" />

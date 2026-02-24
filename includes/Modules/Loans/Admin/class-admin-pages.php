@@ -747,7 +747,7 @@ class AdminPages {
         );
 
         ?>
-        <div class="wrap">
+        <div class="wrap sfs-hr-wrap">
             <h1>
                 <?php esc_html_e( 'Create New Loan', 'sfs-hr' ); ?>
                 <a href="?page=sfs-hr-loans" class="page-title-action"><?php esc_html_e( '← Back to List', 'sfs-hr' ); ?></a>
@@ -1559,7 +1559,7 @@ class AdminPages {
         ) );
 
         if ( ! $loan ) {
-            echo '<div class="wrap"><h1>' . esc_html__( 'Loan not found', 'sfs-hr' ) . '</h1></div>';
+            echo '<div class="wrap sfs-hr-wrap"><h1>' . esc_html__( 'Loan not found', 'sfs-hr' ) . '</h1></div>';
             return;
         }
 
@@ -1582,7 +1582,7 @@ class AdminPages {
         ) );
 
         ?>
-        <div class="wrap">
+        <div class="wrap sfs-hr-wrap">
             <h1>
                 <?php echo esc_html( $loan->loan_number ); ?>
                 <a href="?page=sfs-hr-loans" class="page-title-action"><?php esc_html_e( '← Back to List', 'sfs-hr' ); ?></a>
