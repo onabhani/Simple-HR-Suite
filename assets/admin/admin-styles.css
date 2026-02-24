@@ -217,15 +217,16 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 6px 12px;
-    border-radius: 8px;
-    font-size: 13px;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 12px;
     font-weight: 500;
     text-decoration: none;
-    border: 1px solid #e5e7eb;
+    border: 1px solid #d1d5db;
     background: #fff;
     color: #374151;
     cursor: pointer;
+    line-height: 1.5;
     transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
@@ -258,11 +259,12 @@
 
 .sfs-hr-admin-btn--danger {
     color: #dc2626;
-    border-color: #fecaca;
+    border-color: #fca5a5;
 }
 
 .sfs-hr-admin-btn--danger:hover {
     background: #fef2f2;
+    border-color: #f87171;
     color: #b91c1c;
 }
 

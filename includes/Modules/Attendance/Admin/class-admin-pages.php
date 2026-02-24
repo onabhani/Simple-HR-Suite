@@ -4340,7 +4340,7 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
 
                 <div class="sfs-hr-form-group">
                     <label class="sfs-hr-form-label"><?php esc_html_e( 'Geo lock (lat, lng, radius m)', 'sfs-hr' ); ?></label>
-                    <div class="sfs-hr-form-row">
+                    <div class="sfs-hr-form-row sfs-geofence-row">
                         <div class="sfs-hr-form-group">
                             <input type="text" name="geo_lock_lat" placeholder="<?php esc_attr_e( 'Latitude', 'sfs-hr' ); ?>" value="<?php echo esc_attr($editing->geo_lock_lat ?? ''); ?>"/>
                         </div>
