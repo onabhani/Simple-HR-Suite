@@ -43,6 +43,9 @@ class Admin_Pages {
     add_action( 'admin_post_sfs_hr_att_rebuild_sessions_day', [ $this, 'handle_rebuild_sessions_day' ] );
     add_action( 'admin_post_sfs_hr_att_rebuild_sessions_period', [ $this, 'handle_rebuild_sessions_period' ] );
     add_action( 'admin_post_sfs_hr_att_fix_offday_absences', [ $this, 'handle_fix_offday_absences' ] );
+    add_action( 'admin_post_sfs_hr_att_save_template', [ $this, 'handle_save_template' ] );
+    add_action( 'admin_post_sfs_hr_att_delete_template', [ $this, 'handle_delete_template' ] );
+    add_action( 'admin_post_sfs_hr_att_apply_template', [ $this, 'handle_apply_template' ] );
     add_action( 'admin_post_sfs_hr_att_save_auto_rules', [ $this, 'handle_save_auto_rules' ] );
     add_action( 'admin_post_sfs_hr_att_run_auto_rules', [ $this, 'handle_run_auto_rules' ] );
     add_action( 'admin_post_sfs_hr_att_delete_auto_rule', [ $this, 'handle_delete_auto_rule' ] );
@@ -452,70 +455,172 @@ public function render_automation(): void {
     $unmapped_depts = $total_depts - $mapped_depts;
 
     ?>
-    <!-- Info box -->
-    <div class="sfs-hr-info-box">
-        <span class="dashicons dashicons-info-outline"></span>
-        <span>
-            <?php printf(
-                __( 'Map each department to a %sDefault Shift%s. This is the lowest-priority fallback — employee-level assignments and shift-level period overrides (e.g. Ramadan hours) always take precedence.', 'sfs-hr' ),
-                '<strong>', '</strong>'
-            ); ?>
-        </span>
-    </div>
+    <div class="wrap sfs-hr-automation-wrap">
+        <h1><?php esc_html_e( 'Automation', 'sfs-hr' ); ?></h1>
 
-    <!-- Summary KPI Row -->
-    <div class="sfs-hr-admin-kpi-row">
-        <div class="sfs-hr-admin-kpi">
-            <div>
-                <div class="sfs-hr-admin-kpi-label"><?php esc_html_e( 'Total Departments', 'sfs-hr' ); ?></div>
-                <div class="sfs-hr-admin-kpi-value"><?php echo (int) $total_depts; ?></div>
-            </div>
-        </div>
-        <div class="sfs-hr-admin-kpi">
-            <div>
-                <div class="sfs-hr-admin-kpi-label"><?php esc_html_e( 'Mapped to Shift', 'sfs-hr' ); ?></div>
-                <div class="sfs-hr-admin-kpi-value"><?php echo (int) $mapped_depts; ?></div>
-            </div>
-        </div>
-        <?php if ( $unmapped_depts > 0 ) : ?>
-        <div class="sfs-hr-admin-kpi">
-            <div>
-                <div class="sfs-hr-admin-kpi-label"><?php esc_html_e( 'Not Mapped', 'sfs-hr' ); ?></div>
-                <div class="sfs-hr-admin-kpi-value"><?php echo (int) $unmapped_depts; ?></div>
-            </div>
-        </div>
-        <?php endif; ?>
-    </div>
+        <style>
+        .sfs-hr-automation-wrap { max-width: 960px; }
 
-    <!-- Department mapping form -->
-    <div class="sfs-hr-admin-card">
-        <div class="sfs-hr-admin-card-header">
-            <h2 class="sfs-hr-admin-card-title">
-                <span class="dashicons dashicons-building"></span>
-                <?php esc_html_e( 'Department → Default Shift', 'sfs-hr' ); ?>
-            </h2>
+        /* Summary bar */
+        .sfs-auto-summary {
+            display: flex;
+            gap: 16px;
+            margin: 20px 0;
+        }
+        .sfs-auto-summary-card {
+            flex: 1;
+            background: #fff;
+            border: 1px solid #c3c4c7;
+            border-radius: 6px;
+            padding: 16px 20px;
+            border-left: 4px solid #2271b1;
+        }
+        .sfs-auto-summary-card.--warning { border-left-color: #dba617; }
+        .sfs-auto-summary-card.--success { border-left-color: #00a32a; }
+        .sfs-auto-summary-card .sfs-auto-summary-number {
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+        .sfs-auto-summary-card .sfs-auto-summary-label {
+            font-size: 13px;
+            color: #50575e;
+        }
+
+        /* Department mapping cards */
+        .sfs-auto-dept-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            margin: 20px 0;
+            background: #fff;
+            border: 1px solid #c3c4c7;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .sfs-auto-dept-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 14px 20px;
+            border-bottom: 1px solid #f0f0f1;
+            transition: background 0.15s;
+        }
+        .sfs-auto-dept-row:last-child { border-bottom: none; }
+        .sfs-auto-dept-row:hover { background: #f6f7f7; }
+        .sfs-auto-dept-row .sfs-auto-dept-status {
+            flex: 0 0 10px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #dba617;
+        }
+        .sfs-auto-dept-row .sfs-auto-dept-status.--active { background: #00a32a; }
+        .sfs-auto-dept-row .sfs-auto-dept-name {
+            flex: 0 0 180px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .sfs-auto-dept-row .sfs-auto-dept-select {
+            flex: 1;
+        }
+        .sfs-auto-dept-row .sfs-auto-dept-select select {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            padding: 6px 8px;
+        }
+
+        /* Section headings */
+        .sfs-auto-section-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+            padding: 14px 20px;
+            background: #f6f7f7;
+            font-size: 13px;
+            font-weight: 600;
+            color: #1d2327;
+            border-bottom: 1px solid #f0f0f1;
+        }
+        .sfs-auto-section-head .dashicons {
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
+            color: #2271b1;
+        }
+
+        /* Info box */
+        .sfs-auto-info {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px 16px;
+            background: #f0f6fc;
+            border: 1px solid #c3c4c7;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #2c3338;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        .sfs-auto-info .dashicons {
+            flex-shrink: 0;
+            color: #2271b1;
+            margin-top: 1px;
+        }
+        </style>
+
+        <!-- Info box -->
+        <div class="sfs-auto-info">
+            <span class="dashicons dashicons-info-outline"></span>
+            <span>
+                <?php printf(
+                    __( 'Map each department to a %sDefault Shift%s. This is the lowest-priority fallback — employee-level assignments and shift-level period overrides (e.g. Ramadan hours) always take precedence.', 'sfs-hr' ),
+                    '<strong>', '</strong>'
+                ); ?>
+            </span>
         </div>
+
+        <!-- Summary bar -->
+        <div class="sfs-auto-summary">
+            <div class="sfs-auto-summary-card">
+                <div class="sfs-auto-summary-number"><?php echo (int) $total_depts; ?></div>
+                <div class="sfs-auto-summary-label"><?php esc_html_e( 'Total Departments', 'sfs-hr' ); ?></div>
+            </div>
+            <div class="sfs-auto-summary-card --success">
+                <div class="sfs-auto-summary-number"><?php echo (int) $mapped_depts; ?></div>
+                <div class="sfs-auto-summary-label"><?php esc_html_e( 'Mapped to Shift', 'sfs-hr' ); ?></div>
+            </div>
+            <?php if ( $unmapped_depts > 0 ) : ?>
+            <div class="sfs-auto-summary-card --warning">
+                <div class="sfs-auto-summary-number"><?php echo (int) $unmapped_depts; ?></div>
+                <div class="sfs-auto-summary-label"><?php esc_html_e( 'Not Mapped', 'sfs-hr' ); ?></div>
+            </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Department mapping form -->
         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
             <?php wp_nonce_field( 'sfs_hr_att_save_automation' ); ?>
             <input type="hidden" name="action" value="sfs_hr_att_save_automation"/>
 
-            <div class="sfs-hr-dept-toggle-list">
+            <div class="sfs-auto-dept-list">
+                <div class="sfs-auto-section-head">
+                    <span class="dashicons dashicons-building"></span>
+                    <?php esc_html_e( 'Department → Default Shift', 'sfs-hr' ); ?>
+                </div>
+
                 <?php foreach ( $departments as $d ):
                     $did             = (int) $d['id'];
                     $current_default = isset( $dept_def[ $did ] ) ? (int) $dept_def[ $did ] : 0;
                     ?>
-                    <div class="sfs-hr-dept-toggle-row">
-                        <div class="sfs-hr-dept-toggle-row__info">
-                            <span class="sfs-hr-dept-toggle-row__name"><?php echo esc_html( $d['name'] ); ?></span>
-                            <span class="sfs-hr-dept-toggle-row__meta">
-                                <?php if ( $current_default ) : ?>
-                                    <span class="sfs-hr-admin-badge sfs-hr-admin-badge--active"><?php esc_html_e( 'Mapped', 'sfs-hr' ); ?></span>
-                                <?php else : ?>
-                                    <span class="sfs-hr-admin-badge sfs-hr-admin-badge--pending"><?php esc_html_e( 'Not mapped', 'sfs-hr' ); ?></span>
-                                <?php endif; ?>
-                            </span>
-                        </div>
-                        <div class="sfs-hr-dept-toggle-row__control">
+                    <div class="sfs-auto-dept-row">
+                        <span class="sfs-auto-dept-status <?php echo $current_default ? '--active' : ''; ?>"></span>
+                        <span class="sfs-auto-dept-name"><?php echo esc_html( $d['name'] ); ?></span>
+                        <span class="sfs-auto-dept-select">
                             <select name="dept_default_shift[<?php echo $did; ?>]">
                                 <option value="0"><?php esc_html_e( '— None —', 'sfs-hr' ); ?></option>
                                 <?php foreach ( $all_shifts as $s ) :
@@ -526,18 +631,338 @@ public function render_automation(): void {
                                     </option>
                                 <?php endforeach; ?>
                             </select>
-                        </div>
+                        </span>
                     </div>
                 <?php endforeach; ?>
             </div>
 
-            <div style="margin-top: 16px;">
-                <button type="submit" class="sfs-hr-admin-btn sfs-hr-admin-btn--primary"><?php esc_html_e( 'Save Automation', 'sfs-hr' ); ?></button>
+            <?php submit_button( __( 'Save Automation', 'sfs-hr' ) ); ?>
+        </form>
+
+        <?php $this->render_shift_templates( $all_shifts, $departments ); ?>
+
+        <?php $this->render_auto_assignment_rules( $all_shifts, $departments ); ?>
+    </div>
+    <?php
+}
+
+/**
+ * Render Shift Templates section
+ *
+ * @param array $all_shifts   Available shifts
+ * @param array $departments  Available departments
+ */
+private function render_shift_templates( array $all_shifts, array $departments ): void {
+    $opt       = get_option( AttendanceModule::OPT_SETTINGS, [] );
+    $templates = $opt['shift_templates'] ?? [];
+
+    ?>
+    <hr style="margin: 30px 0;">
+
+    <h2><?php esc_html_e( 'Shift Templates', 'sfs-hr' ); ?></h2>
+    <p><?php esc_html_e( 'Create reusable shift patterns (e.g., Ramadan Hours, Summer Schedule) that can be quickly applied to multiple departments.', 'sfs-hr' ); ?></p>
+
+    <style>
+        .sfs-hr-templates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .sfs-hr-template-card {
+            background: #fff;
+            border: 1px solid #c3c4c7;
+            border-radius: 4px;
+            padding: 15px;
+        }
+        .sfs-hr-template-card h4 {
+            margin: 0 0 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .sfs-hr-template-card .template-meta {
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+        .sfs-hr-template-card .template-dates {
+            background: #f0f6fc;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+        .sfs-hr-template-card .template-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .sfs-hr-template-form {
+            background: #fff;
+            border: 1px solid #c3c4c7;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .sfs-hr-template-form-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .sfs-hr-template-form-field {
+            flex: 1;
+            min-width: 180px;
+        }
+        .sfs-hr-template-form-field label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        .sfs-hr-template-form-field select,
+        .sfs-hr-template-form-field input {
+            width: 100%;
+        }
+        .sfs-hr-apply-template-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 100000;
+            align-items: center;
+            justify-content: center;
+        }
+        .sfs-hr-apply-template-modal.active {
+            display: flex;
+        }
+        .sfs-hr-apply-template-content {
+            background: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .sfs-hr-apply-template-content h3 {
+            margin-top: 0;
+        }
+        .sfs-hr-dept-checklist {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        .sfs-hr-dept-checklist label {
+            display: block;
+            padding: 5px 0;
+        }
+    </style>
+
+    <!-- Add New Template Form -->
+    <div class="sfs-hr-template-form">
+        <h3 style="margin-top:0;"><?php esc_html_e( 'Create New Template', 'sfs-hr' ); ?></h3>
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+            <?php wp_nonce_field( 'sfs_hr_att_save_template' ); ?>
+            <input type="hidden" name="action" value="sfs_hr_att_save_template">
+
+            <div class="sfs-hr-template-form-row">
+                <div class="sfs-hr-template-form-field" style="flex: 2;">
+                    <label><?php esc_html_e( 'Template Name', 'sfs-hr' ); ?></label>
+                    <input type="text" name="template_name" placeholder="<?php esc_attr_e( 'e.g., Ramadan Hours 2026', 'sfs-hr' ); ?>" required>
+                </div>
+                <div class="sfs-hr-template-form-field">
+                    <label><?php esc_html_e( 'Shift', 'sfs-hr' ); ?></label>
+                    <select name="template_shift_id" required>
+                        <option value=""><?php esc_html_e( '— Select Shift —', 'sfs-hr' ); ?></option>
+                        <?php foreach ( $all_shifts as $s ) : ?>
+                            <option value="<?php echo (int) $s['id']; ?>">
+                                <?php echo esc_html( "{$s['name']} ({$s['start_time']}→{$s['end_time']})" ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
             </div>
+
+            <div class="sfs-hr-template-form-row">
+                <div class="sfs-hr-template-form-field">
+                    <label><?php esc_html_e( 'Start Date', 'sfs-hr' ); ?></label>
+                    <input type="date" name="template_start_date" required>
+                </div>
+                <div class="sfs-hr-template-form-field">
+                    <label><?php esc_html_e( 'End Date', 'sfs-hr' ); ?></label>
+                    <input type="date" name="template_end_date" required>
+                </div>
+                <div class="sfs-hr-template-form-field">
+                    <label><?php esc_html_e( 'Color Label', 'sfs-hr' ); ?></label>
+                    <select name="template_color">
+                        <option value="blue"><?php esc_html_e( 'Blue', 'sfs-hr' ); ?></option>
+                        <option value="green"><?php esc_html_e( 'Green', 'sfs-hr' ); ?></option>
+                        <option value="orange"><?php esc_html_e( 'Orange', 'sfs-hr' ); ?></option>
+                        <option value="purple"><?php esc_html_e( 'Purple', 'sfs-hr' ); ?></option>
+                        <option value="red"><?php esc_html_e( 'Red', 'sfs-hr' ); ?></option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="sfs-hr-template-form-row">
+                <div class="sfs-hr-template-form-field">
+                    <label><?php esc_html_e( 'Description (optional)', 'sfs-hr' ); ?></label>
+                    <input type="text" name="template_description" placeholder="<?php esc_attr_e( 'Short description of this template', 'sfs-hr' ); ?>">
+                </div>
+            </div>
+
+            <button type="submit" class="button button-primary"><?php esc_html_e( 'Create Template', 'sfs-hr' ); ?></button>
         </form>
     </div>
 
-    <?php $this->render_auto_assignment_rules( $all_shifts, $departments ); ?>
+    <!-- Existing Templates -->
+    <?php if ( empty( $templates ) ) : ?>
+        <div style="padding: 20px; text-align: center; color: #666; background: #f9f9f9;">
+            <p><?php esc_html_e( 'No shift templates created yet.', 'sfs-hr' ); ?></p>
+        </div>
+    <?php else : ?>
+        <div class="sfs-hr-templates-grid">
+            <?php
+            $colors = [
+                'blue'   => '#2271b1',
+                'green'  => '#00a32a',
+                'orange' => '#d63638',
+                'purple' => '#7e3bd0',
+                'red'    => '#dc3232',
+            ];
+
+            foreach ( $templates as $idx => $tpl ) :
+                // Find shift name
+                $shift_name = '—';
+                $shift_times = '';
+                foreach ( $all_shifts as $s ) {
+                    if ( (int) $s['id'] === (int) $tpl['shift_id'] ) {
+                        $shift_name = $s['name'];
+                        $shift_times = "{$s['start_time']}→{$s['end_time']}";
+                        break;
+                    }
+                }
+
+                $color_code = $colors[ $tpl['color'] ?? 'blue' ] ?? '#2271b1';
+                ?>
+                <div class="sfs-hr-template-card">
+                    <h4>
+                        <span style="color: <?php echo esc_attr( $color_code ); ?>;">
+                            <?php echo esc_html( $tpl['name'] ); ?>
+                        </span>
+                        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin: 0;">
+                            <?php wp_nonce_field( 'sfs_hr_att_delete_template' ); ?>
+                            <input type="hidden" name="action" value="sfs_hr_att_delete_template">
+                            <input type="hidden" name="template_index" value="<?php echo (int) $idx; ?>">
+                            <button type="submit" class="button-link" style="color: #b32d2e;" onclick="return confirm('<?php esc_attr_e( 'Delete this template?', 'sfs-hr' ); ?>');">
+                                <span class="dashicons dashicons-trash" style="vertical-align: middle;"></span>
+                            </button>
+                        </form>
+                    </h4>
+                    <div class="template-meta">
+                        <strong><?php echo esc_html( $shift_name ); ?></strong>
+                        <?php if ( $shift_times ) : ?>
+                            <span style="color: #999;">(<?php echo esc_html( $shift_times ); ?>)</span>
+                        <?php endif; ?>
+                    </div>
+                    <div class="template-dates">
+                        <span class="dashicons dashicons-calendar-alt" style="vertical-align: middle; font-size: 14px;"></span>
+                        <?php
+                        echo esc_html(
+                            wp_date( 'M j, Y', strtotime( $tpl['start_date'] ) ) .
+                            ' → ' .
+                            wp_date( 'M j, Y', strtotime( $tpl['end_date'] ) )
+                        );
+                        ?>
+                    </div>
+                    <?php if ( ! empty( $tpl['description'] ) ) : ?>
+                        <p style="margin: 0 0 10px; font-size: 13px; color: #666;">
+                            <?php echo esc_html( $tpl['description'] ); ?>
+                        </p>
+                    <?php endif; ?>
+                    <div class="template-actions">
+                        <button type="button" class="button button-secondary apply-template-btn"
+                                data-template-idx="<?php echo (int) $idx; ?>"
+                                data-template-name="<?php echo esc_attr( $tpl['name'] ); ?>">
+                            <?php esc_html_e( 'Apply to Departments', 'sfs-hr' ); ?>
+                        </button>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+
+    <!-- Apply Template Modal -->
+    <div id="apply-template-modal" class="sfs-hr-apply-template-modal">
+        <div class="sfs-hr-apply-template-content">
+            <h3><?php esc_html_e( 'Apply Template', 'sfs-hr' ); ?>: <span id="apply-template-name"></span></h3>
+            <p><?php esc_html_e( 'Select departments to apply this template to:', 'sfs-hr' ); ?></p>
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                <?php wp_nonce_field( 'sfs_hr_att_apply_template' ); ?>
+                <input type="hidden" name="action" value="sfs_hr_att_apply_template">
+                <input type="hidden" name="template_index" id="apply-template-index" value="">
+
+                <div class="sfs-hr-dept-checklist">
+                    <label>
+                        <input type="checkbox" id="select-all-depts">
+                        <strong><?php esc_html_e( 'Select All', 'sfs-hr' ); ?></strong>
+                    </label>
+                    <hr style="margin: 5px 0;">
+                    <?php foreach ( $departments as $d ) : ?>
+                        <label>
+                            <input type="checkbox" name="apply_departments[]" value="<?php echo (int) $d['id']; ?>">
+                            <?php echo esc_html( $d['name'] ); ?>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+
+                <p style="margin-top: 15px;">
+                    <label>
+                        <input type="checkbox" name="overwrite_existing" value="1">
+                        <?php esc_html_e( 'Overwrite existing period overrides', 'sfs-hr' ); ?>
+                    </label>
+                </p>
+
+                <div style="margin-top: 20px; display: flex; gap: 10px;">
+                    <button type="submit" class="button button-primary"><?php esc_html_e( 'Apply Template', 'sfs-hr' ); ?></button>
+                    <button type="button" class="button" onclick="document.getElementById('apply-template-modal').classList.remove('active');">
+                        <?php esc_html_e( 'Cancel', 'sfs-hr' ); ?>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    jQuery(function($) {
+        // Open apply modal
+        $('.apply-template-btn').on('click', function() {
+            var idx = $(this).data('template-idx');
+            var name = $(this).data('template-name');
+            $('#apply-template-index').val(idx);
+            $('#apply-template-name').text(name);
+            $('#apply-template-modal').addClass('active');
+        });
+
+        // Close modal on backdrop click
+        $('#apply-template-modal').on('click', function(e) {
+            if (e.target === this) {
+                $(this).removeClass('active');
+            }
+        });
+
+        // Select all departments
+        $('#select-all-depts').on('change', function() {
+            $('input[name="apply_departments[]"]').prop('checked', this.checked);
+        });
+    });
+    </script>
     <?php
 }
 
@@ -563,30 +988,51 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
     $contract_types = [ 'full-time', 'part-time', 'contract', 'temporary', 'intern' ];
 
     ?>
-    <!-- Add New Rule Card -->
-    <div class="sfs-hr-admin-card">
-        <div class="sfs-hr-admin-card-header">
-            <h2 class="sfs-hr-admin-card-title"><?php esc_html_e( 'Add New Rule', 'sfs-hr' ); ?></h2>
-        </div>
-        <div class="sfs-hr-info-box">
-            <span class="dashicons dashicons-info-outline"></span>
-            <span><?php esc_html_e( 'Define rules to automatically assign shifts to employees based on their attributes. Rules are evaluated in priority order (lowest number first).', 'sfs-hr' ); ?></span>
-        </div>
+    <hr style="margin: 30px 0;">
+
+    <h2><?php esc_html_e( 'Auto-Assignment Rules', 'sfs-hr' ); ?></h2>
+    <p><?php esc_html_e( 'Define rules to automatically assign shifts to employees based on their attributes. Rules are evaluated in priority order (lowest number first).', 'sfs-hr' ); ?></p>
+
+    <style>
+        .sfs-hr-rules-table { width: 100%; border-collapse: collapse; }
+        .sfs-hr-rules-table th,
+        .sfs-hr-rules-table td { padding: 10px; text-align: start; border-bottom: 1px solid #ddd; }
+        .sfs-hr-rules-table th { background: #f9f9f9; }
+        .sfs-hr-rule-conditions { display: flex; flex-wrap: wrap; gap: 10px; }
+        .sfs-hr-rule-condition {
+            background: #f0f6fc;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .sfs-hr-rule-form { background: #fff; border: 1px solid #c3c4c7; padding: 20px; margin-bottom: 20px; border-radius: 4px; }
+        .sfs-hr-rule-form-row { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; }
+        .sfs-hr-rule-form-field { flex: 1; min-width: 200px; }
+        .sfs-hr-rule-form-field label { display: block; margin-bottom: 5px; font-weight: 600; }
+        .sfs-hr-rule-form-field select,
+        .sfs-hr-rule-form-field input { width: 100%; }
+        .sfs-hr-no-rules { padding: 20px; text-align: center; color: #666; background: #f9f9f9; }
+        .sfs-hr-rule-actions { display: flex; gap: 10px; }
+    </style>
+
+    <!-- Add New Rule Form -->
+    <div class="sfs-hr-rule-form">
+        <h3 style="margin-top:0;"><?php esc_html_e( 'Add New Rule', 'sfs-hr' ); ?></h3>
         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
             <?php wp_nonce_field( 'sfs_hr_att_save_auto_rules' ); ?>
             <input type="hidden" name="action" value="sfs_hr_att_save_auto_rules">
 
-            <div class="sfs-hr-form-row">
-                <div class="sfs-hr-form-group">
-                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Rule Name', 'sfs-hr' ); ?></label>
+            <div class="sfs-hr-rule-form-row">
+                <div class="sfs-hr-rule-form-field">
+                    <label><?php esc_html_e( 'Rule Name', 'sfs-hr' ); ?></label>
                     <input type="text" name="rule_name" placeholder="<?php esc_attr_e( 'e.g., Office Staff Morning Shift', 'sfs-hr' ); ?>" required>
                 </div>
-                <div class="sfs-hr-form-group" style="flex: 0 0 120px;">
-                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Priority', 'sfs-hr' ); ?></label>
-                    <input type="number" name="rule_priority" value="10" min="1" max="100">
+                <div class="sfs-hr-rule-form-field" style="flex: 0 0 100px;">
+                    <label><?php esc_html_e( 'Priority', 'sfs-hr' ); ?></label>
+                    <input type="number" name="rule_priority" value="10" min="1" max="100" style="width: 80px;">
                 </div>
-                <div class="sfs-hr-form-group">
-                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Assign Shift', 'sfs-hr' ); ?></label>
+                <div class="sfs-hr-rule-form-field">
+                    <label><?php esc_html_e( 'Assign Shift', 'sfs-hr' ); ?></label>
                     <select name="rule_shift_id" required>
                         <option value=""><?php esc_html_e( '— Select Shift —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $all_shifts as $s ) : ?>
@@ -598,9 +1044,9 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                 </div>
             </div>
 
-            <div class="sfs-hr-form-row">
-                <div class="sfs-hr-form-group">
-                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Department (optional)', 'sfs-hr' ); ?></label>
+            <div class="sfs-hr-rule-form-row">
+                <div class="sfs-hr-rule-form-field">
+                    <label><?php esc_html_e( 'Department (optional)', 'sfs-hr' ); ?></label>
                     <select name="rule_department">
                         <option value=""><?php esc_html_e( '— Any Department —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $departments as $d ) : ?>
@@ -610,8 +1056,8 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="sfs-hr-form-group">
-                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Job Title (optional)', 'sfs-hr' ); ?></label>
+                <div class="sfs-hr-rule-form-field">
+                    <label><?php esc_html_e( 'Job Title (optional)', 'sfs-hr' ); ?></label>
                     <select name="rule_job_title">
                         <option value=""><?php esc_html_e( '— Any Job Title —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $job_titles as $jt ) : ?>
@@ -621,8 +1067,8 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="sfs-hr-form-group">
-                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Work Location (optional)', 'sfs-hr' ); ?></label>
+                <div class="sfs-hr-rule-form-field">
+                    <label><?php esc_html_e( 'Work Location (optional)', 'sfs-hr' ); ?></label>
                     <select name="rule_work_location">
                         <option value=""><?php esc_html_e( '— Any Location —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $work_locations as $loc ) : ?>
@@ -634,9 +1080,9 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                 </div>
             </div>
 
-            <div class="sfs-hr-form-row">
-                <div class="sfs-hr-form-group">
-                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Contract Type (optional)', 'sfs-hr' ); ?></label>
+            <div class="sfs-hr-rule-form-row">
+                <div class="sfs-hr-rule-form-field">
+                    <label><?php esc_html_e( 'Contract Type (optional)', 'sfs-hr' ); ?></label>
                     <select name="rule_contract_type">
                         <option value=""><?php esc_html_e( '— Any Contract —', 'sfs-hr' ); ?></option>
                         <?php foreach ( $contract_types as $ct ) : ?>
@@ -646,125 +1092,122 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="sfs-hr-form-group">
-                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Hired After (optional)', 'sfs-hr' ); ?></label>
+                <div class="sfs-hr-rule-form-field">
+                    <label><?php esc_html_e( 'Hired After (optional)', 'sfs-hr' ); ?></label>
                     <input type="date" name="rule_hired_after">
                 </div>
-                <div class="sfs-hr-form-group">
-                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Hired Before (optional)', 'sfs-hr' ); ?></label>
+                <div class="sfs-hr-rule-form-field">
+                    <label><?php esc_html_e( 'Hired Before (optional)', 'sfs-hr' ); ?></label>
                     <input type="date" name="rule_hired_before">
                 </div>
             </div>
 
-            <div class="sfs-hr-form-group">
-                <label>
-                    <input type="checkbox" name="rule_apply_on_create" value="1" checked>
-                    <?php esc_html_e( 'Apply automatically when new employee is created', 'sfs-hr' ); ?>
-                </label>
+            <div class="sfs-hr-rule-form-row">
+                <div class="sfs-hr-rule-form-field">
+                    <label>
+                        <input type="checkbox" name="rule_apply_on_create" value="1" checked>
+                        <?php esc_html_e( 'Apply automatically when new employee is created', 'sfs-hr' ); ?>
+                    </label>
+                </div>
             </div>
 
-            <button type="submit" class="sfs-hr-admin-btn sfs-hr-admin-btn--primary"><?php esc_html_e( 'Add Rule', 'sfs-hr' ); ?></button>
+            <button type="submit" class="button button-primary"><?php esc_html_e( 'Add Rule', 'sfs-hr' ); ?></button>
         </form>
     </div>
 
     <!-- Existing Rules -->
     <?php if ( empty( $rules ) ) : ?>
-        <div class="sfs-hr-admin-card">
-            <p style="text-align: center; color: #6b7280; padding: 20px 0;"><?php esc_html_e( 'No auto-assignment rules defined yet.', 'sfs-hr' ); ?></p>
+        <div class="sfs-hr-no-rules">
+            <p><?php esc_html_e( 'No auto-assignment rules defined yet.', 'sfs-hr' ); ?></p>
         </div>
     <?php else : ?>
-        <div class="sfs-hr-admin-card">
-            <div class="sfs-hr-admin-card-header">
-                <h2 class="sfs-hr-admin-card-title"><?php esc_html_e( 'Existing Rules', 'sfs-hr' ); ?></h2>
-            </div>
-            <table class="widefat">
-                <thead>
-                    <tr>
-                        <th style="width: 60px;"><?php esc_html_e( 'Priority', 'sfs-hr' ); ?></th>
-                        <th><?php esc_html_e( 'Rule Name', 'sfs-hr' ); ?></th>
-                        <th><?php esc_html_e( 'Conditions', 'sfs-hr' ); ?></th>
-                        <th><?php esc_html_e( 'Shift', 'sfs-hr' ); ?></th>
-                        <th style="width: 100px;"><?php esc_html_e( 'Auto', 'sfs-hr' ); ?></th>
-                        <th style="width: 80px;"><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php
-                    // Sort by priority
-                    usort( $rules, fn( $a, $b ) => ( $a['priority'] ?? 10 ) <=> ( $b['priority'] ?? 10 ) );
+        <table class="widefat sfs-hr-rules-table">
+            <thead>
+                <tr>
+                    <th style="width: 60px;"><?php esc_html_e( 'Priority', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Rule Name', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Conditions', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Shift', 'sfs-hr' ); ?></th>
+                    <th style="width: 100px;"><?php esc_html_e( 'Auto', 'sfs-hr' ); ?></th>
+                    <th style="width: 80px;"><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php
+                // Sort by priority
+                usort( $rules, fn( $a, $b ) => ( $a['priority'] ?? 10 ) <=> ( $b['priority'] ?? 10 ) );
 
-                    foreach ( $rules as $idx => $rule ) :
-                        // Find shift name
-                        $shift_name = '—';
-                        foreach ( $all_shifts as $s ) {
-                            if ( (int) $s['id'] === (int) $rule['shift_id'] ) {
-                                $shift_name = $s['name'] . " ({$s['start_time']}→{$s['end_time']})";
+                foreach ( $rules as $idx => $rule ) :
+                    // Find shift name
+                    $shift_name = '—';
+                    foreach ( $all_shifts as $s ) {
+                        if ( (int) $s['id'] === (int) $rule['shift_id'] ) {
+                            $shift_name = $s['name'] . " ({$s['start_time']}→{$s['end_time']})";
+                            break;
+                        }
+                    }
+
+                    // Build conditions display
+                    $conditions = [];
+                    if ( ! empty( $rule['department'] ) ) {
+                        foreach ( $departments as $d ) {
+                            if ( (int) $d['id'] === (int) $rule['department'] ) {
+                                $conditions[] = __( 'Dept:', 'sfs-hr' ) . ' ' . $d['name'];
                                 break;
                             }
                         }
-
-                        // Build conditions display
-                        $conditions = [];
-                        if ( ! empty( $rule['department'] ) ) {
-                            foreach ( $departments as $d ) {
-                                if ( (int) $d['id'] === (int) $rule['department'] ) {
-                                    $conditions[] = __( 'Dept:', 'sfs-hr' ) . ' ' . $d['name'];
-                                    break;
-                                }
-                            }
-                        }
-                        if ( ! empty( $rule['job_title'] ) ) {
-                            $conditions[] = __( 'Title:', 'sfs-hr' ) . ' ' . $rule['job_title'];
-                        }
-                        if ( ! empty( $rule['work_location'] ) ) {
-                            $conditions[] = __( 'Location:', 'sfs-hr' ) . ' ' . $rule['work_location'];
-                        }
-                        if ( ! empty( $rule['contract_type'] ) ) {
-                            $conditions[] = __( 'Contract:', 'sfs-hr' ) . ' ' . ucfirst( $rule['contract_type'] );
-                        }
-                        if ( ! empty( $rule['hired_after'] ) ) {
-                            $conditions[] = __( 'Hired after:', 'sfs-hr' ) . ' ' . $rule['hired_after'];
-                        }
-                        if ( ! empty( $rule['hired_before'] ) ) {
-                            $conditions[] = __( 'Hired before:', 'sfs-hr' ) . ' ' . $rule['hired_before'];
-                        }
-                        if ( empty( $conditions ) ) {
-                            $conditions[] = __( 'All employees', 'sfs-hr' );
-                        }
-                        ?>
-                        <tr>
-                            <td><strong><?php echo (int) ( $rule['priority'] ?? 10 ); ?></strong></td>
-                            <td><?php echo esc_html( $rule['name'] ?? __( 'Unnamed Rule', 'sfs-hr' ) ); ?></td>
-                            <td>
-                                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-                                    <?php foreach ( $conditions as $cond ) : ?>
-                                        <span class="sfs-hr-admin-badge sfs-hr-admin-badge--info"><?php echo esc_html( $cond ); ?></span>
-                                    <?php endforeach; ?>
-                                </div>
-                            </td>
-                            <td><?php echo esc_html( $shift_name ); ?></td>
-                            <td>
-                                <?php if ( ! empty( $rule['apply_on_create'] ) ) : ?>
-                                    <span class="sfs-hr-admin-badge sfs-hr-admin-badge--active"><?php esc_html_e( 'Yes', 'sfs-hr' ); ?></span>
-                                <?php else : ?>
-                                    <span class="sfs-hr-admin-badge sfs-hr-admin-badge--inactive"><?php esc_html_e( 'No', 'sfs-hr' ); ?></span>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display: inline;">
-                                    <?php wp_nonce_field( 'sfs_hr_att_delete_auto_rule' ); ?>
-                                    <input type="hidden" name="action" value="sfs_hr_att_delete_auto_rule">
-                                    <input type="hidden" name="rule_index" value="<?php echo (int) $idx; ?>">
-                                    <button type="submit" class="sfs-hr-admin-btn sfs-hr-admin-btn--danger" onclick="return confirm('<?php esc_attr_e( 'Delete this rule?', 'sfs-hr' ); ?>');">
-                                        <?php esc_html_e( 'Delete', 'sfs-hr' ); ?>
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
+                    }
+                    if ( ! empty( $rule['job_title'] ) ) {
+                        $conditions[] = __( 'Title:', 'sfs-hr' ) . ' ' . $rule['job_title'];
+                    }
+                    if ( ! empty( $rule['work_location'] ) ) {
+                        $conditions[] = __( 'Location:', 'sfs-hr' ) . ' ' . $rule['work_location'];
+                    }
+                    if ( ! empty( $rule['contract_type'] ) ) {
+                        $conditions[] = __( 'Contract:', 'sfs-hr' ) . ' ' . ucfirst( $rule['contract_type'] );
+                    }
+                    if ( ! empty( $rule['hired_after'] ) ) {
+                        $conditions[] = __( 'Hired after:', 'sfs-hr' ) . ' ' . $rule['hired_after'];
+                    }
+                    if ( ! empty( $rule['hired_before'] ) ) {
+                        $conditions[] = __( 'Hired before:', 'sfs-hr' ) . ' ' . $rule['hired_before'];
+                    }
+                    if ( empty( $conditions ) ) {
+                        $conditions[] = __( 'All employees', 'sfs-hr' );
+                    }
+                    ?>
+                    <tr>
+                        <td><strong><?php echo (int) ( $rule['priority'] ?? 10 ); ?></strong></td>
+                        <td><?php echo esc_html( $rule['name'] ?? __( 'Unnamed Rule', 'sfs-hr' ) ); ?></td>
+                        <td>
+                            <div class="sfs-hr-rule-conditions">
+                                <?php foreach ( $conditions as $cond ) : ?>
+                                    <span class="sfs-hr-rule-condition"><?php echo esc_html( $cond ); ?></span>
+                                <?php endforeach; ?>
+                            </div>
+                        </td>
+                        <td><?php echo esc_html( $shift_name ); ?></td>
+                        <td>
+                            <?php if ( ! empty( $rule['apply_on_create'] ) ) : ?>
+                                <span style="color: green;">&#10003;</span>
+                            <?php else : ?>
+                                <span style="color: #999;">—</span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display: inline;">
+                                <?php wp_nonce_field( 'sfs_hr_att_delete_auto_rule' ); ?>
+                                <input type="hidden" name="action" value="sfs_hr_att_delete_auto_rule">
+                                <input type="hidden" name="rule_index" value="<?php echo (int) $idx; ?>">
+                                <button type="submit" class="button button-small" onclick="return confirm('<?php esc_attr_e( 'Delete this rule?', 'sfs-hr' ); ?>');">
+                                    <?php esc_html_e( 'Delete', 'sfs-hr' ); ?>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
     <?php endif; ?>
 
     <!-- Run Rules Button -->
@@ -772,7 +1215,7 @@ private function render_auto_assignment_rules( array $all_shifts, array $departm
         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display: inline;">
             <?php wp_nonce_field( 'sfs_hr_att_run_auto_rules' ); ?>
             <input type="hidden" name="action" value="sfs_hr_att_run_auto_rules">
-            <button type="submit" class="sfs-hr-admin-btn" onclick="return confirm('<?php esc_attr_e( 'This will apply rules to all employees who do not have a default shift assigned. Continue?', 'sfs-hr' ); ?>');">
+            <button type="submit" class="button button-secondary" onclick="return confirm('<?php esc_attr_e( 'This will apply rules to all employees who do not have a default shift assigned. Continue?', 'sfs-hr' ); ?>');">
                 <?php esc_html_e( 'Run Rules on Existing Employees', 'sfs-hr' ); ?>
             </button>
         </form>
@@ -804,6 +1247,139 @@ public function handle_save_automation(): void {
     update_option( \SFS\HR\Modules\Attendance\AttendanceModule::OPT_SETTINGS, $opt, false );
 
     wp_safe_redirect( admin_url( 'admin.php?page=sfs_hr_attendance&tab=automation&saved=1' ) );
+    exit;
+}
+
+/**
+ * Handle saving a shift template
+ */
+public function handle_save_template(): void {
+    if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
+        wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
+    }
+    check_admin_referer( 'sfs_hr_att_save_template' );
+
+    $name        = sanitize_text_field( wp_unslash( $_POST['template_name'] ?? '' ) );
+    $shift_id    = absint( $_POST['template_shift_id'] ?? 0 );
+    $start_date  = sanitize_text_field( wp_unslash( $_POST['template_start_date'] ?? '' ) );
+    $end_date    = sanitize_text_field( wp_unslash( $_POST['template_end_date'] ?? '' ) );
+    $color       = sanitize_key( $_POST['template_color'] ?? 'blue' );
+    $description = sanitize_text_field( wp_unslash( $_POST['template_description'] ?? '' ) );
+
+    if ( empty( $name ) || empty( $shift_id ) || empty( $start_date ) || empty( $end_date ) ) {
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs_hr_attendance&tab=automation&error=missing_fields' ) );
+        exit;
+    }
+
+    if ( $end_date < $start_date ) {
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs_hr_attendance&tab=automation&error=invalid_dates' ) );
+        exit;
+    }
+
+    $new_template = [
+        'name'        => $name,
+        'shift_id'    => $shift_id,
+        'start_date'  => $start_date,
+        'end_date'    => $end_date,
+        'color'       => $color,
+        'description' => $description,
+        'created_at'  => current_time( 'mysql' ),
+        'created_by'  => get_current_user_id(),
+    ];
+
+    $opt       = get_option( AttendanceModule::OPT_SETTINGS, [] );
+    $templates = $opt['shift_templates'] ?? [];
+    $templates[] = $new_template;
+
+    $opt['shift_templates'] = $templates;
+    update_option( AttendanceModule::OPT_SETTINGS, $opt, false );
+
+    wp_safe_redirect( admin_url( 'admin.php?page=sfs_hr_attendance&tab=automation&template_saved=1' ) );
+    exit;
+}
+
+/**
+ * Handle deleting a shift template
+ */
+public function handle_delete_template(): void {
+    if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
+        wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
+    }
+    check_admin_referer( 'sfs_hr_att_delete_template' );
+
+    $template_index = absint( $_POST['template_index'] ?? -1 );
+
+    $opt       = get_option( AttendanceModule::OPT_SETTINGS, [] );
+    $templates = $opt['shift_templates'] ?? [];
+
+    if ( isset( $templates[ $template_index ] ) ) {
+        array_splice( $templates, $template_index, 1 );
+        $opt['shift_templates'] = array_values( $templates );
+        update_option( AttendanceModule::OPT_SETTINGS, $opt, false );
+    }
+
+    wp_safe_redirect( admin_url( 'admin.php?page=sfs_hr_attendance&tab=automation&template_deleted=1' ) );
+    exit;
+}
+
+/**
+ * Handle applying a shift template to departments
+ */
+public function handle_apply_template(): void {
+    if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
+        wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
+    }
+    check_admin_referer( 'sfs_hr_att_apply_template' );
+
+    $template_index   = absint( $_POST['template_index'] ?? -1 );
+    $apply_depts      = isset( $_POST['apply_departments'] ) && is_array( $_POST['apply_departments'] )
+                        ? array_map( 'absint', $_POST['apply_departments'] )
+                        : [];
+    $overwrite        = ! empty( $_POST['overwrite_existing'] );
+
+    if ( empty( $apply_depts ) ) {
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs_hr_attendance&tab=automation&error=no_departments' ) );
+        exit;
+    }
+
+    $opt       = get_option( AttendanceModule::OPT_SETTINGS, [] );
+    $templates = $opt['shift_templates'] ?? [];
+
+    if ( ! isset( $templates[ $template_index ] ) ) {
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs_hr_attendance&tab=automation&error=template_not_found' ) );
+        exit;
+    }
+
+    $template = $templates[ $template_index ];
+    $dept_ovr = $opt['dept_period_overrides'] ?? [];
+
+    $applied_count = 0;
+
+    foreach ( $apply_depts as $dept_id ) {
+        // Check if department already has an override
+        $has_existing = ! empty( $dept_ovr[ $dept_id ] );
+
+        if ( $has_existing && ! $overwrite ) {
+            continue;
+        }
+
+        // Apply template as period override
+        $dept_ovr[ $dept_id ] = [
+            [
+                'label'    => $template['name'],
+                'start'    => $template['start_date'],
+                'end'      => $template['end_date'],
+                'shift_id' => (int) $template['shift_id'],
+            ],
+        ];
+
+        $applied_count++;
+    }
+
+    $opt['dept_period_overrides'] = $dept_ovr;
+    update_option( AttendanceModule::OPT_SETTINGS, $opt, false );
+
+    wp_safe_redirect( admin_url( "admin.php?page=sfs_hr_attendance&tab=automation&template_applied=1&count={$applied_count}" ) );
     exit;
 }
 
