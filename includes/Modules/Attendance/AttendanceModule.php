@@ -2494,15 +2494,19 @@ async function attemptPunch(type, scanToken, selfieBlob, geox) {
   } catch (e) {
     dbg('attemptPunch network error', e && (e.message || e));
 
-    // Offline queueing: store punch locally if enabled
+    // Offline queueing: store punch locally with offline_origin fields for later sync
     if (OFFLINE_ENABLED && window.sfsHrPwa && window.sfsHrPwa.db) {
       try {
+        const empId = scannedEmpId || parseInt(String(scanToken || '').split('_')[0], 10) || 0;
         await window.sfsHrPwa.db.storePunch({
           url: punchUrl,
           nonce: nonce,
-          data: { punch_type: type, source: 'kiosk', device: String(DEVICE_ID), employee_scan_token: scanToken }
+          offline_origin: true,
+          offline_employee_id: empId,
+          client_punch_time: new Date().toISOString(),
+          data: { punch_type: type, source: 'kiosk', device: String(DEVICE_ID) }
         });
-        dbg('punch queued offline');
+        dbg('punch queued offline (origin) for emp', empId);
         return { ok:true, status:0, data:{ message: t.offline_queued || 'Offline — will sync when connection is restored', label: t.offline_queued_short || 'Queued offline' }, code:'offline_queued', raw:'' };
       } catch(qe) {
         dbg('offline queue failed', qe);
@@ -3043,8 +3047,16 @@ async function handleQrFound(raw) {
       throw new Error('invalid_qr_payload');
     }
 
+    // Track employee ID for offline queueing in attemptPunch()
+    scannedEmpId = parseInt(emp, 10) || null;
+
     // --- Hit /attendance/scan to mint/use a short-lived scan_token
+    // If the server is unreachable and offline mode is enabled, fall back
+    // to validating the QR against the cached employee roster.
     let resp, text, data;
+    let offlineFallback = false;
+    let offlineEmpRecord = null;
+
     try {
       resp = await fetch(url.toString(), {
         method: 'GET',
@@ -3053,50 +3065,93 @@ async function handleQrFound(raw) {
       });
       text = await resp.text();
     } catch (e) {
-      setStat(OFFLINE_ENABLED ? (t.offline_no_connection||'No connection — offline mode active') : (t.network_error||'Network error'), 'error');
       dbg('scan network error', e && e.message);
-      // mild backoff to avoid hammering same frame
-      lastQrValue = raw;
-      lastQrTs    = Date.now();
-      throw e;
+
+      // --- Offline fallback: validate QR against cached roster ---
+      if (OFFLINE_ENABLED && window.sfsHrPwa && window.sfsHrPwa.db && window.sfsHrPwa.sha256) {
+        try {
+          const empId = parseInt(emp, 10);
+          offlineEmpRecord = await window.sfsHrPwa.db.getEmployee(empId);
+          if (offlineEmpRecord && offlineEmpRecord.token_hash) {
+            const scannedHash = await window.sfsHrPwa.sha256(token);
+            if (scannedHash === offlineEmpRecord.token_hash) {
+              offlineFallback = true;
+              dbg('offline fallback: QR verified for employee', empId);
+            } else {
+              dbg('offline fallback: token hash mismatch');
+              setStat(t.invalid_qr||'Invalid QR', 'error');
+              lastQrValue = raw; lastQrTs = Date.now();
+              throw new Error('offline_token_mismatch');
+            }
+          } else {
+            dbg('offline fallback: employee not in cached roster', empId);
+            setStat(t.offline_employee_not_cached||'Offline — employee not recognized. Cache may be stale.', 'error');
+            lastQrValue = raw; lastQrTs = Date.now();
+            throw new Error('offline_employee_not_found');
+          }
+        } catch (offErr) {
+          if (offErr.message === 'offline_token_mismatch' || offErr.message === 'offline_employee_not_found') throw offErr;
+          dbg('offline fallback failed', offErr);
+          setStat(t.network_error||'Network error', 'error');
+          lastQrValue = raw; lastQrTs = Date.now();
+          throw e;
+        }
+      } else {
+        setStat(t.network_error||'Network error', 'error');
+        lastQrValue = raw; lastQrTs = Date.now();
+        throw e;
+      }
     }
 
-    // Try parse JSON; WP may return HTML on error
-    try { data = JSON.parse(text); } catch {
-      dbg('scan parse error; raw=', (text || '').slice(0, 200));
-      setStat(t.scan_failed_invalid_reply||'Scan failed: invalid server reply', 'error');
-      lastQrValue = raw; lastQrTs = Date.now();
-      throw new Error('invalid_json_from_scan');
+    let scanToken = null;
+    let empName = '';
+
+    if (offlineFallback) {
+      // Offline mode: use cached employee data, no server scan token
+      empName = (offlineEmpRecord && offlineEmpRecord.name) || `Employee #${emp}`;
+      scanToken = null; // no server token in offline mode
+
+      setStat(`⚡ ${empName} — ${t.offline_mode||'Offline mode'}`, 'ok');
+      dbg('offline scan accepted', { emp, name: empName });
+
+      if (empEl) { empEl.textContent = empName; }
+    } else {
+      // Online mode: parse server response
+      // Try parse JSON; WP may return HTML on error
+      try { data = JSON.parse(text); } catch {
+        dbg('scan parse error; raw=', (text || '').slice(0, 200));
+        setStat(t.scan_failed_invalid_reply||'Scan failed: invalid server reply', 'error');
+        lastQrValue = raw; lastQrTs = Date.now();
+        throw new Error('invalid_json_from_scan');
+      }
+
+      // Normalize REST errors
+      if (!resp.ok || !data || data.ok === false) {
+        const msg  = (data && (data.message || data.msg)) || `HTTP ${resp.status}`;
+        const code = (data && (data.code || data.data?.status)) || resp.status;
+        setStat((t.scan_failed_invalid_reply||'Scan failed:') + ` ${msg}`, 'error');
+        dbg('scan failed', { status: resp.status, code, data });
+        lastQrValue = raw; lastQrTs = Date.now();
+        throw new Error(`scan_failed:${code}:${msg}`);
+      }
+
+      // Expect { ok:true, scan_token: "...", employee_id, device_id, ttl }
+      scanToken = data.scan_token;
+      if (!scanToken) {
+        setStat(t.scan_failed_no_token||'Scan failed: no token', 'error');
+        dbg('scan ok but no scan_token', data);
+        lastQrValue = raw; lastQrTs = Date.now();
+        throw new Error('no_scan_token');
+      }
+
+      empName = (data && (data.employee_name || data.name))
+        || `Employee #${data.employee_id || emp}`;
+
+      setStat(`✓ ${empName} — ${t.validating_ellipsis||'Validating…'}`, 'ok');
+      dbg('scan ok', data);
+
+      if (empEl) { empEl.textContent = empName; }
     }
-
-    // Normalize REST errors
-    if (!resp.ok || !data || data.ok === false) {
-      const msg  = (data && (data.message || data.msg)) || `HTTP ${resp.status}`;
-      const code = (data && (data.code || data.data?.status)) || resp.status;
-      setStat((t.scan_failed_invalid_reply||'Scan failed:') + ` ${msg}`, 'error');
-      dbg('scan failed', { status: resp.status, code, data });
-      lastQrValue = raw; lastQrTs = Date.now();
-      throw new Error(`scan_failed:${code}:${msg}`);
-    }
-
-    // Expect { ok:true, scan_token: "...", employee_id, device_id, ttl }
-    const scanToken = data.scan_token;
-    if (!scanToken) {
-      setStat(t.scan_failed_no_token||'Scan failed: no token', 'error');
-      dbg('scan ok but no scan_token', data);
-      lastQrValue = raw; lastQrTs = Date.now();
-      throw new Error('no_scan_token');
-    }
-
-    const empName = (data && (data.employee_name || data.name))
-  || `Employee #${data.employee_id || emp}`;
-
-setStat(`✓ ${empName} — ${t.validating_ellipsis||'Validating…'}`, 'ok');
-dbg('scan ok', data);
-
-if (empEl) {
-  empEl.textContent = empName;
-}
 
 
     // --- Prepare geo + selfie (if required)
@@ -3136,7 +3191,43 @@ if (empEl) {
     }
 
     if (qrStat) qrStat.textContent = requiresSelfie ? '3/3 ' + (t.uploading_recording||'Uploading & recording…') : '2/2 ' + (t.recording_punch||'Recording punch…');
-    const r = await attemptPunch(currentAction, scanToken, selfieBlob, geox);
+
+    let r;
+    if (offlineFallback) {
+      // Offline mode: queue punch directly to IndexedDB (no server call)
+      if (window.sfsHrPwa && window.sfsHrPwa.db) {
+        try {
+          await window.sfsHrPwa.db.storePunch({
+            url: punchUrl,
+            nonce: nonce,
+            offline_origin: true,
+            offline_employee_id: parseInt(emp, 10),
+            client_punch_time: new Date().toISOString(),
+            data: {
+              punch_type: currentAction,
+              source: 'kiosk',
+              device: String(DEVICE_ID)
+            }
+          });
+          dbg('offline punch queued for', emp, currentAction);
+          r = {
+            ok: true, status: 0, code: 'offline_queued',
+            data: {
+              message: t.offline_queued||'Offline — will sync when connection is restored',
+              label: `⚡ ${empName} — ${t.offline_queued_short||'Queued offline'}`
+            }
+          };
+        } catch (qe) {
+          dbg('offline queue failed', qe);
+          r = { ok: false, status: 0, data: { message: t.offline_queue_error||'Failed to save offline punch' }, code: null, raw: '' };
+        }
+      } else {
+        r = { ok: false, status: 0, data: { message: t.offline_not_supported||'Offline storage not available' }, code: null, raw: '' };
+      }
+    } else {
+      // Online mode: normal server punch
+      r = await attemptPunch(currentAction, scanToken, selfieBlob, geox);
+    }
 
 
     if (r.ok) {
@@ -3149,7 +3240,7 @@ if (empEl) {
   lastQrValue = raw;
   lastQrTs    = Date.now() + BACKOFF_MS_OK;
 
-  await refresh();
+  if (!offlineFallback) { await refresh(); }
 
   setTimeout(() => {
     if (uiMode !== 'error') setStat(t.scanning||'Scanning…', 'scanning');
@@ -3788,6 +3879,22 @@ tickDate();
 ROOT.dataset.view = 'menu';
 setMode('menu');
       refresh();
+
+      // --- Offline roster: preload employee cache on init + periodic refresh ---
+      if (OFFLINE_ENABLED && window.sfsHrPwa && window.sfsHrPwa.refreshRoster) {
+        // Initial roster cache (non-blocking)
+        window.sfsHrPwa.refreshRoster(DEVICE_ID, nonce).then(ok => {
+          dbg('roster initial cache:', ok ? 'success' : 'skipped/failed');
+        });
+        // Periodic refresh every 15 minutes (while page is open)
+        setInterval(() => {
+          if (navigator.onLine) {
+            window.sfsHrPwa.refreshRoster(DEVICE_ID, nonce).then(ok => {
+              dbg('roster periodic refresh:', ok ? 'success' : 'skipped/failed');
+            });
+          }
+        }, 15 * 60 * 1000);
+      }
     })();
     </script>
     <?php
@@ -3875,6 +3982,7 @@ private static function backfill_early_leave_request_numbers( \wpdb $wpdb ): voi
             selfie_media_id BIGINT UNSIGNED NULL,
             valid_geo TINYINT(1) NOT NULL DEFAULT 1,
             valid_selfie TINYINT(1) NOT NULL DEFAULT 1,
+            offline_origin TINYINT(1) NOT NULL DEFAULT 0,
             note TEXT NULL,
             created_at DATETIME NOT NULL,
             created_by BIGINT UNSIGNED NULL,
@@ -3886,6 +3994,10 @@ private static function backfill_early_leave_request_numbers( \wpdb $wpdb ): voi
             KEY source (source),
             KEY emp_type_date (employee_id, punch_type, punch_time)
         ) $charset_collate;");
+
+        // Migration: Add offline_origin column for existing installations
+        $punchesT = "{$p}sfs_hr_attendance_punches";
+        self::add_column_if_missing($wpdb, $punchesT, 'offline_origin', "offline_origin TINYINT(1) NOT NULL DEFAULT 0 AFTER valid_selfie");
 
         // 2) sessions (processed day rows for payroll)
         dbDelta("CREATE TABLE {$p}sfs_hr_attendance_sessions (

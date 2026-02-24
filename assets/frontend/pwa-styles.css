@@ -4126,19 +4126,19 @@ body:has(.sfs-hr-pwa-app) #masthead {
 .sfs-overview-shift-card {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 10px;
     background: var(--sfs-surface, #ffffff);
     border: 1px solid var(--sfs-border, #e5e7eb);
     border-radius: 12px;
-    padding: 14px 16px;
-    margin-bottom: 20px;
+    padding: 8px 14px;
+    margin-bottom: 14px;
     border-left: 4px solid var(--sfs-primary, #0f4c5c);
 }
 .sfs-overview-shift-icon {
     flex-shrink: 0;
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
     background: #f0f9ff;
     display: flex;
     align-items: center;

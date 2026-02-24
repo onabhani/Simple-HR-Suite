@@ -3,7 +3,7 @@
  * Provides offline capability for punch in/out
  */
 
-const CACHE_NAME = 'sfs-hr-pwa-v2';
+const CACHE_NAME = 'sfs-hr-pwa-v3';
 
 // Assets to cache for offline use (only safe, always-available assets)
 const PRECACHE_ASSETS = [
@@ -105,13 +105,22 @@ async function syncPunches() {
     for (const punch of punches) {
         try {
             const useNonce = freshNonce || punch.nonce;
+
+            // Build the body — include offline_origin fields if present
+            const body = Object.assign({}, punch.data);
+            if (punch.offline_origin) {
+                body.offline_origin      = true;
+                body.offline_employee_id = punch.offline_employee_id || 0;
+                body.client_punch_time   = punch.client_punch_time || '';
+            }
+
             const response = await fetch(punch.url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-WP-Nonce': useNonce
                 },
-                body: JSON.stringify(punch.data)
+                body: JSON.stringify(body)
             });
 
             if (response.ok || response.status === 409) {
@@ -137,16 +146,20 @@ async function syncPunches() {
     }
 }
 
-// IndexedDB helpers for offline punch storage
+// IndexedDB helpers for offline punch storage (v2: includes employees store)
 function openDB() {
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open('sfs-hr-punches', 1);
+        const request = indexedDB.open('sfs-hr-punches', 2);
         request.onerror = () => reject(request.error);
         request.onsuccess = () => resolve(request.result);
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
             if (!db.objectStoreNames.contains('punches')) {
                 db.createObjectStore('punches', { keyPath: 'id', autoIncrement: true });
+            }
+            if (!db.objectStoreNames.contains('employees')) {
+                const empStore = db.createObjectStore('employees', { keyPath: 'id' });
+                empStore.createIndex('token_hash', 'token_hash', { unique: false });
             }
         };
     });

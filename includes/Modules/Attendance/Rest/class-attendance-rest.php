@@ -62,6 +62,14 @@ public static function routes(): void {
             ],
             'device' => [ 'type'=>'integer', 'required'=>false ],
             'selfie_data_url' => [ 'type'=>'string', 'required'=>false ],
+            // Offline kiosk punch fields
+            'offline_origin' => [ 'type'=>'boolean', 'required'=>false, 'default'=>false ],
+            'offline_employee_id' => [
+                'required'=>false,
+                'validate_callback'=>fn($v)=>$v===null||$v===''||is_numeric($v),
+                'sanitize_callback'=>fn($v)=>($v===''||$v===null)?null:(int)$v,
+            ],
+            'client_punch_time' => [ 'type'=>'string', 'required'=>false ],
         ],
     ]);
 
@@ -86,6 +94,21 @@ public static function routes(): void {
         'args' => [
             'emp'    => [ 'type'=>'integer', 'required'=>true ],
             'token'  => [ 'type'=>'string',  'required'=>true ],
+            'device' => [ 'type'=>'integer', 'required'=>false ],
+        ],
+    ]);
+
+    // GET /sfs-hr/v1/attendance/kiosk-roster  (employee list for offline kiosk validation)
+    register_rest_route('sfs-hr/v1', '/attendance/kiosk-roster', [
+        'methods'  => 'GET',
+        'callback' => [ __CLASS__, 'kiosk_roster' ],
+        'permission_callback' => function () {
+            return is_user_logged_in() && (
+                current_user_can('sfs_hr_attendance_clock_kiosk') ||
+                current_user_can('sfs_hr_attendance_admin')
+            );
+        },
+        'args' => [
             'device' => [ 'type'=>'integer', 'required'=>false ],
         ],
     ]);
@@ -234,6 +257,88 @@ public static function scan( \WP_REST_Request $req ) {
         'device_id'     => ($device ?: null),
     ]);
 }
+
+
+/**
+ * GET /sfs-hr/v1/attendance/kiosk-roster
+ *
+ * Returns active, QR-enabled employees with SHA-256 hashed tokens
+ * for offline kiosk validation. Only includes employees visible to
+ * the device's allowed department (if set).
+ */
+public static function kiosk_roster( \WP_REST_Request $req ) {
+    global $wpdb;
+
+    $device_id = (int) ( $req->get_param('device') ?: 0 );
+    $empT = $wpdb->prefix . 'sfs_hr_employees';
+    $devT = $wpdb->prefix . 'sfs_hr_attendance_devices';
+
+    // Verify device exists, is active, and has offline enabled
+    $allowed_dept_id = null;
+    if ( $device_id > 0 ) {
+        $dev = $wpdb->get_row( $wpdb->prepare(
+            "SELECT id, kiosk_offline, allowed_dept_id FROM {$devT} WHERE id = %d AND active = 1",
+            $device_id
+        ) );
+        if ( ! $dev ) {
+            return new \WP_Error( 'device_not_found', 'Device not found or inactive.', [ 'status' => 404 ] );
+        }
+        if ( ! (int) $dev->kiosk_offline ) {
+            return new \WP_Error( 'offline_disabled', 'Offline mode is not enabled for this device.', [ 'status' => 403 ] );
+        }
+        if ( $dev->allowed_dept_id ) {
+            $allowed_dept_id = (int) $dev->allowed_dept_id;
+        }
+    }
+
+    // Build query: active employees with QR enabled and a valid token
+    $where = "e.status = 'active' AND e.qr_enabled = 1 AND e.qr_token IS NOT NULL AND e.qr_token != ''";
+    $params = [];
+
+    if ( $allowed_dept_id ) {
+        $where .= ' AND e.dept_id = %d';
+        $params[] = $allowed_dept_id;
+    }
+
+    $sql = "SELECT e.id, e.employee_code, e.first_name, e.last_name, e.qr_token, u.display_name
+            FROM {$empT} e
+            LEFT JOIN {$wpdb->users} u ON u.ID = e.user_id
+            WHERE {$where}
+            ORDER BY e.id ASC";
+
+    $rows = $params
+        ? $wpdb->get_results( $wpdb->prepare( $sql, ...$params ), ARRAY_A )
+        : $wpdb->get_results( $sql, ARRAY_A );
+
+    $employees = [];
+    foreach ( (array) $rows as $r ) {
+        $name = trim( ( $r['first_name'] ?? '' ) . ' ' . ( $r['last_name'] ?? '' ) );
+        if ( empty( $name ) ) {
+            $name = $r['display_name'] ?? '';
+        }
+        if ( empty( $name ) ) {
+            $name = 'Employee #' . ( $r['employee_code'] ?: $r['id'] );
+        }
+
+        $employees[] = [
+            'id'         => (int) $r['id'],
+            'code'       => (string) ( $r['employee_code'] ?? '' ),
+            'name'       => $name,
+            // SHA-256 hash — client computes same hash on scanned token to verify
+            'token_hash' => hash( 'sha256', (string) $r['qr_token'] ),
+        ];
+    }
+
+    $ttl = 1800; // 30 minutes
+
+    return rest_ensure_response( [
+        'ok'           => true,
+        'employees'    => $employees,
+        'generated_at' => time(),
+        'ttl'          => $ttl,
+    ] );
+}
+
 
 public static function status( \WP_REST_Request $req ) {
     global $wpdb;
@@ -418,14 +523,57 @@ public static function punch( \WP_REST_Request $req ) {
     $device_id   = isset( $params['device'] ) ? (int) $params['device'] : 0;
     $scan_token  = isset( $params['employee_scan_token'] ) ? sanitize_text_field( (string) $params['employee_scan_token'] ) : '';
     $uid = get_current_user_id();
-    
 
+    // ---- Offline-origin kiosk punch handling
+    $is_offline_origin    = ! empty( $params['offline_origin'] );
+    $offline_employee_id  = isset( $params['offline_employee_id'] ) ? (int) $params['offline_employee_id'] : 0;
+    $client_punch_time    = isset( $params['client_punch_time'] ) ? sanitize_text_field( (string) $params['client_punch_time'] ) : '';
 
+    if ( $is_offline_origin ) {
+        // Validate: must be kiosk source with a device that has offline enabled
+        if ( $source !== 'kiosk' || $device_id <= 0 ) {
+            return new \WP_Error( 'offline_invalid', 'Offline punches require kiosk source and a device ID.', [ 'status' => 400 ] );
+        }
+        $devT = $wpdb->prefix . 'sfs_hr_attendance_devices';
+        $dev_check = $wpdb->get_row( $wpdb->prepare(
+            "SELECT id, kiosk_offline FROM {$devT} WHERE id = %d AND active = 1",
+            $device_id
+        ) );
+        if ( ! $dev_check || ! (int) $dev_check->kiosk_offline ) {
+            return new \WP_Error( 'offline_not_allowed', 'Offline mode is not enabled for this device.', [ 'status' => 403 ] );
+        }
+        if ( $offline_employee_id <= 0 ) {
+            return new \WP_Error( 'offline_no_employee', 'Offline punch requires an employee ID.', [ 'status' => 400 ] );
+        }
+        // Verify employee exists and is active
+        $empT = $wpdb->prefix . 'sfs_hr_employees';
+        $emp_exists = $wpdb->get_var( $wpdb->prepare(
+            "SELECT id FROM {$empT} WHERE id = %d AND status = 'active'",
+            $offline_employee_id
+        ) );
+        if ( ! $emp_exists ) {
+            return new \WP_Error( 'offline_unknown_employee', 'Employee not found or inactive.', [ 'status' => 404 ] );
+        }
+        // Validate client_punch_time: must be a parseable datetime, not more than 24h old
+        if ( $client_punch_time !== '' ) {
+            $client_ts = strtotime( $client_punch_time );
+            if ( ! $client_ts ) {
+                return new \WP_Error( 'offline_bad_time', 'Invalid client_punch_time format.', [ 'status' => 400 ] );
+            }
+            $age = time() - $client_ts;
+            if ( $age > 86400 ) { // older than 24 hours
+                return new \WP_Error( 'offline_stale', 'Offline punch is older than 24 hours.', [ 'status' => 409 ] );
+            }
+            if ( $age < -300 ) { // more than 5 min in the future
+                return new \WP_Error( 'offline_future', 'Offline punch time is in the future.', [ 'status' => 409 ] );
+            }
+        }
+    }
 
     // ---- Kiosk: PEEK (not consume) the short-lived scan token to allow multiple punch types
     // Token will expire naturally after TTL (10 minutes), allowing Break/Out after In
 $scanned_emp = null;
-if ( $source === 'kiosk' && $scan_token !== '' ) {
+if ( $source === 'kiosk' && $scan_token !== '' && ! $is_offline_origin ) {
     $payload = self::get_scan_token( $scan_token ); // ← peek, don't consume (allows multiple punches)
     if ( ! $payload || ! is_array( $payload ) ) {
         error_log( sprintf('[SFS ATT] bad_token: missing/expired token=%s device=%d uid=%d',
@@ -438,6 +586,9 @@ if ( $source === 'kiosk' && $scan_token !== '' ) {
         return new \WP_Error( 'bad_token', 'Scan token not valid for this device.', [ 'status' => 403 ] );
     }
     $scanned_emp = (int) $payload['employee_id'];
+} elseif ( $is_offline_origin && $offline_employee_id > 0 ) {
+    // Offline punch: employee ID comes directly from the cached roster
+    $scanned_emp = $offline_employee_id;
 }
 
     // ---- Resolve acting employee (kiosk scan overrides WP-user mapping)
@@ -706,6 +857,11 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
 
     // ---- Define variables needed for duplicate check and insert
     $nowUtc = current_time( 'mysql', true );
+    // For offline punches, use client-reported time (already validated above)
+    $punchTimeUtc = $nowUtc;
+    if ( $is_offline_origin && $client_punch_time !== '' ) {
+        $punchTimeUtc = gmdate( 'Y-m-d H:i:s', strtotime( $client_punch_time ) );
+    }
     $punchT = $wpdb->prefix . 'sfs_hr_attendance_punches';
 
     // ---- ACQUIRE DATABASE LOCK to prevent race conditions
@@ -725,18 +881,21 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
     }
 
     try {
-        // ---- FINAL DUPLICATE CHECK: Prevent exact duplicate within last 30 seconds
-        // Now protected by database lock, this check is atomic
+        // ---- FINAL DUPLICATE CHECK: Prevent exact duplicate within 30 seconds of punch time
+        // For offline punches, check around the client-reported time to catch duplicates
+        $dup_ref_time = $punchTimeUtc;
         $duplicate_check = $wpdb->get_row( $wpdb->prepare(
             "SELECT id, punch_time FROM {$punchT}
              WHERE employee_id = %d
                AND punch_type = %s
                AND punch_time >= DATE_SUB(%s, INTERVAL 30 SECOND)
+               AND punch_time <= DATE_ADD(%s, INTERVAL 30 SECOND)
              ORDER BY punch_time DESC
              LIMIT 1",
             (int) $emp,
             $punch_type,
-            $nowUtc
+            $dup_ref_time,
+            $dup_ref_time
         ) );
 
         if ( $duplicate_check ) {
@@ -750,10 +909,15 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
         }
 
         // ---- Insert immutable punch (inside lock)
+        $punch_note = null;
+        if ( $is_offline_origin ) {
+            $punch_note = '[offline] Queued at device while offline; synced at ' . wp_date( 'Y-m-d H:i:s' );
+        }
+
         $wpdb->insert( $punchT, [
         'employee_id'     => (int) $emp,
         'punch_type'      => $punch_type,
-        'punch_time'      => $nowUtc,
+        'punch_time'      => $punchTimeUtc,
         'source'          => $source,
         'device_id'       => ( $device_id ?: null ),
         'ip_addr'         => isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( (string) $_SERVER['REMOTE_ADDR'] ) : null,
@@ -761,9 +925,10 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
         'geo_lng'         => $lng,
         'geo_accuracy_m'  => $acc,
         'valid_geo'       => (int) $valid_geo,
-        'note'            => null,
+        'note'            => $punch_note,
         'selfie_media_id' => ($selfie_media_id ?: null),
         'valid_selfie'    => (int) $valid_selfie,
+        'offline_origin'  => $is_offline_origin ? 1 : 0,
         'created_at'      => $nowUtc,
         'created_by'      => $uid,
     ] );
@@ -804,12 +969,14 @@ if ( $selfie_media_id ) {
         'target_punch_id'    => $punch_id,
         'target_session_id'  => null,
         'before_json'        => null,
-        'after_json'         => wp_json_encode( [
-            'punch_type'   => $punch_type,
-            'source'       => $source,
-            'valid_geo'    => $valid_geo,
-            'valid_selfie' => $valid_selfie,
-        ] ),
+        'after_json'         => wp_json_encode( array_filter( [
+            'punch_type'      => $punch_type,
+            'source'          => $source,
+            'valid_geo'       => $valid_geo,
+            'valid_selfie'    => $valid_selfie,
+            'offline_origin'  => $is_offline_origin ? true : null,
+            'client_punch_time' => $is_offline_origin ? $client_punch_time : null,
+        ], fn( $v ) => $v !== null ) ),
         'created_at'         => $nowUtc,
     ] );
 

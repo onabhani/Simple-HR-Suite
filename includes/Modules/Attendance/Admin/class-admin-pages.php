@@ -1812,6 +1812,16 @@ public function render_shifts(): void {
             border-style: solid;
             border-left-style: solid;
         }
+        .sfs-existing-shift-card.--has-policy {
+            border-left-color: #7c3aed;
+        }
+        .sfs-existing-shift-card.--has-period {
+            border-left-color: #d97706;
+        }
+        .sfs-existing-shift-card.--inactive.--has-policy,
+        .sfs-existing-shift-card.--inactive.--has-period {
+            border-left-color: #9ca3af;
+        }
         .sfs-existing-shift-card .sfs-esc-header {
             display: flex;
             justify-content: space-between;
@@ -1868,6 +1878,38 @@ public function render_shifts(): void {
             margin-top: 10px;
             padding-top: 8px;
             border-top: 1px solid #f0f0f1;
+        }
+        .sfs-esc-actions .sfs-esc-btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 14px;
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 20px;
+            cursor: pointer;
+            text-decoration: none;
+            line-height: 1.5;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .sfs-esc-btn--edit {
+            background: #fff;
+            border: 1px solid #d1d5db;
+            color: #374151;
+        }
+        .sfs-esc-btn--edit:hover {
+            background: #f9fafb;
+            border-color: #9ca3af;
+            color: #111827;
+        }
+        .sfs-esc-btn--delete {
+            background: #fff;
+            border: 1px solid #fca5a5;
+            color: #dc2626;
+        }
+        .sfs-esc-btn--delete:hover {
+            background: #fef2f2;
+            border-color: #f87171;
+            color: #b91c1c;
         }
 
         @media (max-width: 1200px) {
@@ -2448,7 +2490,7 @@ public function render_shifts(): void {
 
                     <div class="sfs-hr-form-group">
                         <label class="sfs-hr-form-label"><?php esc_html_e( 'Geofence', 'sfs-hr' ); ?></label>
-                        <div class="sfs-hr-form-row">
+                        <div class="sfs-hr-form-row sfs-geofence-row">
                             <div class="sfs-hr-form-group">
                                 <label class="sfs-hr-form-label" style="font-size:12px;font-weight:400;"><?php esc_html_e( 'Clock-in:', 'sfs-hr' ); ?></label>
                                 <select name="shift_geofence_in">
@@ -2527,7 +2569,7 @@ public function render_shifts(): void {
                     $has_period_overrides = is_array( $po ) && ! empty( $po );
                 }
                 ?>
-                <div class="sfs-existing-shift-card <?php echo (int) $r->active ? '' : '--inactive'; ?>">
+                <div class="sfs-existing-shift-card <?php echo (int) $r->active ? '' : '--inactive'; ?><?php echo $has_policy ? ' --has-policy' : ''; ?><?php echo $has_period_overrides ? ' --has-period' : ''; ?>">
                     <div class="sfs-esc-header">
                         <div>
                             <div class="sfs-esc-name"><?php echo esc_html( $r->name ); ?></div>
@@ -2586,7 +2628,7 @@ public function render_shifts(): void {
                         </dl>
                     </div>
                     <div class="sfs-esc-actions">
-                        <a class="button button-small"
+                        <a class="sfs-esc-btn sfs-esc-btn--edit"
                            href="<?php echo esc_url( admin_url( 'admin.php?page=sfs_hr_attendance&tab=shifts&edit=' . (int) $r->id ) ); ?>">
                             <?php esc_html_e( 'Edit', 'sfs-hr' ); ?>
                         </a>
@@ -2596,7 +2638,7 @@ public function render_shifts(): void {
                             <?php wp_nonce_field( 'sfs_hr_att_shift_delete' ); ?>
                             <input type="hidden" name="action" value="sfs_hr_att_shift_delete"/>
                             <input type="hidden" name="id" value="<?php echo (int) $r->id; ?>"/>
-                            <button class="button button-small" type="submit" style="color: #b32d2e;">
+                            <button class="sfs-esc-btn sfs-esc-btn--delete" type="submit">
                                 <?php esc_html_e( 'Delete', 'sfs-hr' ); ?>
                             </button>
                         </form>
@@ -4209,46 +4251,218 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
 
         ?>
 
-        <!-- Device Form Card -->
-        <div class="sfs-hr-admin-card">
-            <div class="sfs-hr-admin-card-header">
-                <h2 class="sfs-hr-admin-card-title"><?php echo $editing ? esc_html__( 'Edit Device', 'sfs-hr' ) : esc_html__( 'Add Device', 'sfs-hr' ); ?></h2>
-            </div>
-            <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>">
-                <?php wp_nonce_field( 'sfs_hr_att_device_save' ); ?>
-                <input type="hidden" name="action" value="sfs_hr_att_device_save"/>
-                <?php if ( $editing ): ?><input type="hidden" name="id" value="<?php echo (int)$editing->id; ?>"/><?php endif; ?>
+        <style>
+        /* ── Device form grid (mirrors shifts) ──────────────────────── */
+        .sfs-devices-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .sfs-devices-grid .sfs-device-card {
+            background: #fff;
+            border: 1px solid #c3c4c7;
+            border-radius: 6px;
+            padding: 20px;
+        }
+        .sfs-devices-grid .sfs-device-card--full {
+            grid-column: 1 / -1;
+        }
+        .sfs-device-card h4 {
+            margin: 0 0 16px;
+            padding: 0 0 10px;
+            border-bottom: 1px solid #f0f0f1;
+            font-size: 14px;
+            font-weight: 600;
+            color: #1d2327;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .sfs-device-card h4 .dashicons {
+            color: #2271b1;
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+        }
+        .sfs-device-card .sfs-field { margin-bottom: 14px; }
+        .sfs-device-card .sfs-field:last-child { margin-bottom: 0; }
+        .sfs-device-card .sfs-field label.sfs-label {
+            display: block;
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 5px;
+            color: #1d2327;
+        }
+        .sfs-device-card .sfs-field input[type="text"],
+        .sfs-device-card .sfs-field input[type="number"],
+        .sfs-device-card .sfs-field input[type="password"],
+        .sfs-device-card .sfs-field select {
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .sfs-device-card .sfs-field input[type="time"] {
+            width: auto;
+        }
+        .sfs-device-card .sfs-inline {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .sfs-device-card .sfs-hint {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+        .sfs-device-card .sfs-checks label {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-right: 14px;
+            font-size: 13px;
+        }
+        .sfs-device-card .sfs-suggestions-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .sfs-device-card .sfs-suggestions-grid label.sfs-label {
+            display: block;
+            font-weight: 600;
+            font-size: 12px;
+            margin-bottom: 4px;
+            color: #374151;
+        }
 
-                <div class="sfs-hr-form-row">
-                    <div class="sfs-hr-form-group">
-                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Label', 'sfs-hr' ); ?></label>
-                        <input required type="text" name="label" value="<?php echo esc_attr($editing->label ?? ''); ?>" class="regular-text"/>
+        /* ── Existing devices as cards ──────────────────────────────── */
+        .sfs-existing-devices-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .sfs-existing-device-card {
+            background: #fff;
+            border: 1px solid #c3c4c7;
+            border-left: 4px solid #2271b1;
+            border-radius: 6px;
+            padding: 14px 16px;
+            position: relative;
+        }
+        .sfs-existing-device-card.--inactive {
+            opacity: 0.65;
+            border-left-color: #9ca3af;
+        }
+        .sfs-existing-device-card.--has-geo {
+            border-left-color: #059669;
+        }
+        .sfs-existing-device-card.--inactive.--has-geo {
+            border-left-color: #9ca3af;
+        }
+        .sfs-existing-device-card .sfs-edc-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+        .sfs-existing-device-card .sfs-edc-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1d2327;
+        }
+        .sfs-existing-device-card .sfs-edc-id {
+            font-size: 11px;
+            color: #999;
+        }
+        .sfs-existing-device-card .sfs-edc-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+        .sfs-existing-device-card .sfs-edc-meta {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px 12px;
+            font-size: 12px;
+            color: #50575e;
+            line-height: 1.4;
+        }
+        .sfs-existing-device-card .sfs-edc-meta dt {
+            font-weight: 600;
+            color: #374151;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            margin-top: 4px;
+        }
+        .sfs-existing-device-card .sfs-edc-meta dd {
+            margin: 0 0 2px;
+        }
+        .sfs-existing-device-card .sfs-edc-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #f0f0f1;
+        }
+
+        @media (max-width: 782px) {
+            .sfs-devices-grid { grid-template-columns: 1fr; }
+            .sfs-existing-devices-grid { grid-template-columns: 1fr; }
+        }
+        </style>
+
+        <?php if ( ! empty( $_GET['saved'] ) ) : ?>
+            <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Device saved successfully.', 'sfs-hr' ); ?></p></div>
+        <?php elseif ( ! empty( $_GET['deleted'] ) ) : ?>
+            <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Device deleted.', 'sfs-hr' ); ?></p></div>
+        <?php endif; ?>
+
+        <h3 style="margin: 0 0 16px;">
+            <?php echo $editing ? esc_html__( 'Edit Device', 'sfs-hr' ) : esc_html__( 'Add Device', 'sfs-hr' ); ?>
+        </h3>
+
+        <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>">
+            <?php wp_nonce_field( 'sfs_hr_att_device_save' ); ?>
+            <input type="hidden" name="action" value="sfs_hr_att_device_save"/>
+            <?php if ( $editing ): ?><input type="hidden" name="id" value="<?php echo (int)$editing->id; ?>"/><?php endif; ?>
+
+            <div class="sfs-devices-grid">
+                <!-- Card: Device Settings -->
+                <div class="sfs-device-card">
+                    <h4><span class="dashicons dashicons-desktop"></span> <?php esc_html_e( 'Device Settings', 'sfs-hr' ); ?></h4>
+                    <div class="sfs-field">
+                        <label class="sfs-label"><?php esc_html_e( 'Label', 'sfs-hr' ); ?> <span style="color:#d63638;">*</span></label>
+                        <input required type="text" name="label" value="<?php echo esc_attr($editing->label ?? ''); ?>"/>
                     </div>
-                    <div class="sfs-hr-form-group">
-                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Type', 'sfs-hr' ); ?></label>
+                    <div class="sfs-field">
+                        <label class="sfs-label"><?php esc_html_e( 'Type', 'sfs-hr' ); ?></label>
                         <select name="type">
                             <?php foreach (['kiosk','mobile','web'] as $tp): ?>
-                                <option value="<?php echo esc_attr($tp); ?>" <?php selected(($editing->type ?? 'kiosk'), $tp); ?>><?php echo esc_html($tp); ?></option>
+                                <option value="<?php echo esc_attr($tp); ?>" <?php selected(($editing->type ?? 'kiosk'), $tp); ?>><?php echo esc_html( ucfirst($tp) ); ?></option>
                             <?php endforeach; ?>
                         </select>
-                        <span class="sfs-hr-form-hint">
-                            <label><input type="checkbox" name="kiosk_enabled" value="1" <?php checked(!empty($editing->kiosk_enabled)); ?>/> <?php esc_html_e( 'Kiosk enabled', 'sfs-hr' ); ?></label>
-                            &nbsp;
-                            <label><input type="checkbox" name="kiosk_offline" value="1" <?php checked(!empty($editing->kiosk_offline)); ?>/> <?php esc_html_e( 'Allow offline', 'sfs-hr' ); ?></label>
-                        </span>
                     </div>
-                </div>
-
-                <div class="sfs-hr-form-row">
-                    <div class="sfs-hr-form-group">
-                        <label class="sfs-hr-form-label"><?php esc_html_e('QR Scanning','sfs-hr'); ?></label>
-                        <label>
-                            <input type="checkbox" name="qr_enabled" value="1" <?php checked($qr_enabled); ?> />
-                            <?php esc_html_e('Enable QR scanning for this kiosk','sfs-hr'); ?>
-                        </label>
+                    <div class="sfs-field">
+                        <label class="sfs-label"><?php esc_html_e( 'Allowed Department', 'sfs-hr' ); ?></label>
+                        <select name="allowed_dept">
+                            <?php $current_dept = (string) ( $editing->allowed_dept ?? 'any' ); ?>
+                            <option value="any" <?php selected( $current_dept, 'any' ); ?>><?php esc_html_e( 'Any', 'sfs-hr' ); ?></option>
+                            <?php if ( ! empty( $dept_list ) ) : ?>
+                                <?php foreach ( $dept_list as $slug => $dept ) : ?>
+                                    <option value="<?php echo esc_attr( $slug ); ?>" <?php selected( $current_dept, $slug ); ?>><?php echo esc_html( $dept['name'] ); ?></option>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </select>
                     </div>
-                    <div class="sfs-hr-form-group">
-                        <label class="sfs-hr-form-label"><?php esc_html_e('Selfie at kiosk','sfs-hr'); ?></label>
+                    <div class="sfs-field">
+                        <label class="sfs-label"><?php esc_html_e( 'Manager PIN', 'sfs-hr' ); ?></label>
+                        <input type="password" name="kiosk_pin" placeholder="<?php echo $editing ? esc_attr__( '(leave blank to keep existing)', 'sfs-hr' ) : esc_attr__( 'Set PIN', 'sfs-hr' ); ?>"/>
+                    </div>
+                    <div class="sfs-field">
+                        <label class="sfs-label"><?php esc_html_e( 'Selfie Mode', 'sfs-hr' ); ?></label>
                         <select name="selfie_mode">
                             <?php
                             $modes = [
@@ -4258,142 +4472,239 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
                                 'in_out'  => __( 'On In & Out', 'sfs-hr' ),
                                 'all'     => __( 'All punches', 'sfs-hr' ),
                             ];
-                            foreach ($modes as $k=>$label) : ?>
-                                <option value="<?php echo esc_attr($k); ?>" <?php selected($selfie_mode,$k); ?>>
-                                    <?php echo esc_html($label); ?>
-                                </option>
+                            foreach ($modes as $k=>$lbl) : ?>
+                                <option value="<?php echo esc_attr($k); ?>" <?php selected($selfie_mode,$k); ?>><?php echo esc_html($lbl); ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                </div>
-
-                <div class="sfs-hr-form-row">
-                    <div class="sfs-hr-form-group">
-                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Manager PIN (set/replace)', 'sfs-hr' ); ?></label>
-                        <input type="password" name="kiosk_pin" class="regular-text" placeholder="<?php echo $editing ? esc_attr__( '(leave blank to keep existing)', 'sfs-hr' ) : esc_attr__( 'Set PIN', 'sfs-hr' ); ?>"/>
-                    </div>
-                    <div class="sfs-hr-form-group">
-                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Allowed dept', 'sfs-hr' ); ?></label>
-                        <select name="allowed_dept">
-                            <?php
-                            $current_dept = (string) ( $editing->allowed_dept ?? 'any' );
-                            ?>
-                            <option value="any" <?php selected( $current_dept, 'any' ); ?>>
-                                <?php esc_html_e( 'Any', 'sfs-hr' ); ?>
-                            </option>
-                            <?php if ( ! empty( $dept_list ) ) : ?>
-                                <?php foreach ( $dept_list as $slug => $dept ) : ?>
-                                    <option value="<?php echo esc_attr( $slug ); ?>"
-                                        <?php selected( $current_dept, $slug ); ?>>
-                                        <?php echo esc_html( $dept['name'] ); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </select>
-                        <span class="sfs-hr-form-hint">
+                    <div class="sfs-field" style="margin-top: 14px;">
+                        <div class="sfs-checks">
+                            <label><input type="checkbox" name="qr_enabled" value="1" <?php checked($qr_enabled); ?>/> <?php esc_html_e( 'QR Scanning', 'sfs-hr' ); ?></label>
+                            <label><input type="checkbox" name="kiosk_enabled" value="1" <?php checked(!empty($editing->kiosk_enabled)); ?>/> <?php esc_html_e( 'Kiosk enabled', 'sfs-hr' ); ?></label>
+                            <label><input type="checkbox" name="kiosk_offline" value="1" <?php checked(!empty($editing->kiosk_offline)); ?>/> <?php esc_html_e( 'Allow offline', 'sfs-hr' ); ?></label>
                             <label><input type="checkbox" name="active" value="1" <?php checked(!isset($editing->active) || (int)$editing->active===1); ?>/> <?php esc_html_e( 'Active', 'sfs-hr' ); ?></label>
-                        </span>
-                    </div>
-                </div>
-
-                <div class="sfs-hr-form-group">
-                    <label class="sfs-hr-form-label"><?php esc_html_e( 'Geo lock (lat, lng, radius m)', 'sfs-hr' ); ?></label>
-                    <div class="sfs-hr-form-row">
-                        <div class="sfs-hr-form-group">
-                            <input type="text" name="geo_lock_lat" placeholder="<?php esc_attr_e( 'Latitude', 'sfs-hr' ); ?>" value="<?php echo esc_attr($editing->geo_lock_lat ?? ''); ?>"/>
-                        </div>
-                        <div class="sfs-hr-form-group">
-                            <input type="text" name="geo_lock_lng" placeholder="<?php esc_attr_e( 'Longitude', 'sfs-hr' ); ?>" value="<?php echo esc_attr($editing->geo_lock_lng ?? ''); ?>"/>
-                        </div>
-                        <div class="sfs-hr-form-group">
-                            <input type="number" name="geo_lock_radius_m" min="10" step="1" placeholder="<?php esc_attr_e( 'Radius (m)', 'sfs-hr' ); ?>" value="<?php echo esc_attr($editing->geo_lock_radius_m ?? ''); ?>"/>
                         </div>
                     </div>
                 </div>
 
-                <div class="sfs-hr-form-group">
-                    <label class="sfs-hr-form-label"><?php esc_html_e('Time-Based Suggestions', 'sfs-hr'); ?></label>
-                    <div class="sfs-hr-form-row">
-                        <div class="sfs-hr-form-group">
-                            <label class="sfs-hr-form-label"><?php esc_html_e('Clock In', 'sfs-hr'); ?></label>
+                <!-- Card: Geo Lock & Map -->
+                <div class="sfs-device-card">
+                    <h4><span class="dashicons dashicons-location"></span> <?php esc_html_e( 'Geo Lock', 'sfs-hr' ); ?></h4>
+                    <div class="sfs-inline" style="margin-bottom: 10px;">
+                        <div>
+                            <label class="sfs-label"><?php esc_html_e( 'Latitude', 'sfs-hr' ); ?></label>
+                            <input type="text" name="geo_lock_lat" id="sfs-device-lat" style="width:140px"
+                                   value="<?php echo esc_attr($editing->geo_lock_lat ?? ''); ?>" placeholder="24.7136"/>
+                        </div>
+                        <div>
+                            <label class="sfs-label"><?php esc_html_e( 'Longitude', 'sfs-hr' ); ?></label>
+                            <input type="text" name="geo_lock_lng" id="sfs-device-lng" style="width:140px"
+                                   value="<?php echo esc_attr($editing->geo_lock_lng ?? ''); ?>" placeholder="46.6753"/>
+                        </div>
+                        <div>
+                            <label class="sfs-label"><?php esc_html_e( 'Radius (m)', 'sfs-hr' ); ?></label>
+                            <input type="number" name="geo_lock_radius_m" id="sfs-device-radius" min="10" step="1" style="width:120px"
+                                   value="<?php echo esc_attr($editing->geo_lock_radius_m ?? ''); ?>" placeholder="150"/>
+                        </div>
+                        <div style="align-self: flex-end;">
+                            <button type="button" id="sfs-device-detect-location" class="button button-secondary">
+                                <span class="dashicons dashicons-location" style="vertical-align:middle;margin-right:2px;"></span>
+                                <?php esc_html_e( 'Detect My Location', 'sfs-hr' ); ?>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="sfs-device-map" style="height:300px;border:1px solid #c3c4c7;border-radius:4px;"></div>
+                    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+                    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+                    <script>
+                    (function(){
+                        var mapEl = document.getElementById('sfs-device-map');
+                        var latIn = document.getElementById('sfs-device-lat');
+                        var lngIn = document.getElementById('sfs-device-lng');
+                        var radIn = document.getElementById('sfs-device-radius');
+                        if (!mapEl) return;
+
+                        function initMap() {
+                            if (typeof L === 'undefined') { setTimeout(initMap, 200); return; }
+                            var lat = parseFloat(latIn.value) || 24.7136;
+                            var lng = parseFloat(lngIn.value) || 46.6753;
+                            var rad = parseInt(radIn.value) || 150;
+                            var hasCoords = latIn.value && lngIn.value;
+
+                            var map = L.map(mapEl).setView([lat, lng], hasCoords ? 16 : 6);
+                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+                            var marker = null;
+                            var circle = null;
+
+                            function placeMarker(ll, r) {
+                                if (marker) { marker.setLatLng(ll); } else {
+                                    marker = L.marker(ll, { draggable: true }).addTo(map);
+                                    marker.on('dragend', function() {
+                                        var p = marker.getLatLng();
+                                        latIn.value = p.lat.toFixed(7);
+                                        lngIn.value = p.lng.toFixed(7);
+                                        if (circle) circle.setLatLng(p);
+                                    });
+                                }
+                                if (circle) { circle.setLatLng(ll).setRadius(r); } else {
+                                    circle = L.circle(ll, { radius: r, color: '#0f4c5c', fillColor: '#0f4c5c', fillOpacity: 0.12, weight: 2 }).addTo(map);
+                                }
+                            }
+
+                            if (hasCoords) {
+                                placeMarker([lat, lng], rad);
+                                map.fitBounds(circle.getBounds().pad(0.15));
+                            }
+
+                            map.on('click', function(e) {
+                                var r = parseInt(radIn.value) || 150;
+                                latIn.value = e.latlng.lat.toFixed(7);
+                                lngIn.value = e.latlng.lng.toFixed(7);
+                                if (!radIn.value) radIn.value = 150;
+                                placeMarker(e.latlng, r);
+                            });
+
+                            radIn.addEventListener('input', function() {
+                                if (circle) circle.setRadius(parseInt(this.value) || 150);
+                            });
+
+                            function syncFromInputs() {
+                                var lt = parseFloat(latIn.value), ln = parseFloat(lngIn.value);
+                                if (!isNaN(lt) && !isNaN(ln)) {
+                                    var r = parseInt(radIn.value) || 150;
+                                    placeMarker([lt, ln], r);
+                                    map.setView([lt, ln], 16);
+                                }
+                            }
+                            latIn.addEventListener('change', syncFromInputs);
+                            lngIn.addEventListener('change', syncFromInputs);
+
+                            var detectBtn = document.getElementById('sfs-device-detect-location');
+                            if (detectBtn) {
+                                detectBtn.addEventListener('click', function() {
+                                    if (!navigator.geolocation) {
+                                        alert('<?php echo esc_js( __( 'Geolocation is not supported by your browser.', 'sfs-hr' ) ); ?>');
+                                        return;
+                                    }
+                                    detectBtn.disabled = true;
+                                    detectBtn.textContent = '<?php echo esc_js( __( 'Detecting...', 'sfs-hr' ) ); ?>';
+                                    navigator.geolocation.getCurrentPosition(function(pos) {
+                                        latIn.value = pos.coords.latitude.toFixed(7);
+                                        lngIn.value = pos.coords.longitude.toFixed(7);
+                                        if (!radIn.value) radIn.value = 150;
+                                        var r = parseInt(radIn.value) || 150;
+                                        placeMarker([pos.coords.latitude, pos.coords.longitude], r);
+                                        map.setView([pos.coords.latitude, pos.coords.longitude], 16);
+                                        detectBtn.disabled = false;
+                                        detectBtn.innerHTML = '<span class="dashicons dashicons-location" style="vertical-align:middle;margin-right:2px;"></span> <?php echo esc_js( __( 'Detect My Location', 'sfs-hr' ) ); ?>';
+                                    }, function(err) {
+                                        alert('<?php echo esc_js( __( 'Could not detect location: ', 'sfs-hr' ) ); ?>' + err.message);
+                                        detectBtn.disabled = false;
+                                        detectBtn.innerHTML = '<span class="dashicons dashicons-location" style="vertical-align:middle;margin-right:2px;"></span> <?php echo esc_js( __( 'Detect My Location', 'sfs-hr' ) ); ?>';
+                                    }, { enableHighAccuracy: true, timeout: 10000 });
+                                });
+                            }
+                        }
+                        initMap();
+                    })();
+                    </script>
+                </div>
+
+                <!-- Card: Time-Based Suggestions (full-width) -->
+                <div class="sfs-device-card sfs-device-card--full">
+                    <h4><span class="dashicons dashicons-clock"></span> <?php esc_html_e( 'Time-Based Suggestions', 'sfs-hr' ); ?></h4>
+                    <div class="sfs-suggestions-grid">
+                        <div>
+                            <label class="sfs-label"><?php esc_html_e( 'Clock In', 'sfs-hr' ); ?></label>
                             <input type="time" name="suggest_in_time" value="<?php echo esc_attr($editing->suggest_in_time ?? ''); ?>"/>
                         </div>
-                        <div class="sfs-hr-form-group">
-                            <label class="sfs-hr-form-label"><?php esc_html_e('Break Start', 'sfs-hr'); ?></label>
+                        <div>
+                            <label class="sfs-label"><?php esc_html_e( 'Break Start', 'sfs-hr' ); ?></label>
                             <input type="time" name="suggest_break_start_time" value="<?php echo esc_attr($editing->suggest_break_start_time ?? ''); ?>"/>
                         </div>
-                        <div class="sfs-hr-form-group">
-                            <label class="sfs-hr-form-label"><?php esc_html_e('Break End', 'sfs-hr'); ?></label>
+                        <div>
+                            <label class="sfs-label"><?php esc_html_e( 'Break End', 'sfs-hr' ); ?></label>
                             <input type="time" name="suggest_break_end_time" value="<?php echo esc_attr($editing->suggest_break_end_time ?? ''); ?>"/>
                         </div>
-                        <div class="sfs-hr-form-group">
-                            <label class="sfs-hr-form-label"><?php esc_html_e('Clock Out', 'sfs-hr'); ?></label>
+                        <div>
+                            <label class="sfs-label"><?php esc_html_e( 'Clock Out', 'sfs-hr' ); ?></label>
                             <input type="time" name="suggest_out_time" value="<?php echo esc_attr($editing->suggest_out_time ?? ''); ?>"/>
                         </div>
                     </div>
                 </div>
-
-                <button type="submit" class="sfs-hr-admin-btn sfs-hr-admin-btn--primary"><?php echo $editing ? esc_html__( 'Update Device', 'sfs-hr' ) : esc_html__( 'Add Device', 'sfs-hr' ); ?></button>
-            </form>
-        </div>
-
-        <!-- Existing Devices Card -->
-        <div class="sfs-hr-admin-card">
-            <div class="sfs-hr-admin-card-header">
-                <h2 class="sfs-hr-admin-card-title"><?php esc_html_e( 'Existing Devices', 'sfs-hr' ); ?></h2>
             </div>
-            <table class="widefat striped">
-                <thead>
-                    <tr>
-                        <th><?php esc_html_e( 'ID', 'sfs-hr' ); ?></th>
-                        <th><?php esc_html_e( 'Label', 'sfs-hr' ); ?></th>
-                        <th><?php esc_html_e( 'Type', 'sfs-hr' ); ?></th>
-                        <th><?php esc_html_e( 'Dept', 'sfs-hr' ); ?></th>
-                        <th><?php esc_html_e( 'Offline', 'sfs-hr' ); ?></th>
-                        <th><?php esc_html_e( 'Active', 'sfs-hr' ); ?></th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                <?php foreach ( $rows as $r ): ?>
-                    <tr>
-                        <td><?php echo (int)$r->id; ?></td>
-                        <td><?php echo esc_html($r->label); ?></td>
-                        <td><?php echo esc_html($r->type); ?></td>
-                        <td>
-                            <?php
-                            $key   = (string) $r->allowed_dept;
-                            $label = $dept_labels[ $key ] ?? $key;
-                            echo esc_html( $label );
-                            ?>
-                        </td>
-                        <td>
-                            <?php if ( $r->kiosk_offline ) : ?>
-                                <span class="sfs-hr-admin-badge sfs-hr-admin-badge--active"><?php esc_html_e( 'Yes', 'sfs-hr' ); ?></span>
-                            <?php else : ?>
-                                <span class="sfs-hr-admin-badge sfs-hr-admin-badge--inactive"><?php esc_html_e( 'No', 'sfs-hr' ); ?></span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <?php if ( $r->active ) : ?>
-                                <span class="sfs-hr-admin-badge sfs-hr-admin-badge--active"><?php esc_html_e( 'Yes', 'sfs-hr' ); ?></span>
-                            <?php else : ?>
-                                <span class="sfs-hr-admin-badge sfs-hr-admin-badge--inactive"><?php esc_html_e( 'No', 'sfs-hr' ); ?></span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <a class="sfs-hr-admin-btn" href="<?php echo esc_url( admin_url('admin.php?page=sfs_hr_attendance&tab=devices&edit='.(int)$r->id) ); ?>"><?php esc_html_e( 'Edit', 'sfs-hr' ); ?></a>
-                            <form style="display:inline" method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Delete this device?', 'sfs-hr' ) ); ?>');">
-                                <?php wp_nonce_field( 'sfs_hr_att_device_delete' ); ?>
-                                <input type="hidden" name="action" value="sfs_hr_att_device_delete"/>
-                                <input type="hidden" name="id" value="<?php echo (int)$r->id; ?>"/>
-                                <button class="sfs-hr-admin-btn sfs-hr-admin-btn--danger" type="submit"><?php esc_html_e( 'Delete', 'sfs-hr' ); ?></button>
-                            </form>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-                </tbody>
-            </table>
+
+            <button type="submit" class="sfs-hr-admin-btn sfs-hr-admin-btn--primary" style="margin-bottom: 24px;">
+                <?php echo $editing ? esc_html__( 'Update Device', 'sfs-hr' ) : esc_html__( 'Add Device', 'sfs-hr' ); ?>
+            </button>
+        </form>
+
+        <!-- Existing Devices -->
+        <h3 style="margin: 0 0 8px;"><?php esc_html_e( 'Existing Devices', 'sfs-hr' ); ?></h3>
+        <div class="sfs-existing-devices-grid">
+            <?php foreach ( $rows as $r ):
+                $key   = (string) $r->allowed_dept;
+                $d_label = $dept_labels[ $key ] ?? $key;
+                $has_geo = $r->geo_lock_lat !== null && $r->geo_lock_lng !== null;
+            ?>
+                <div class="sfs-existing-device-card <?php echo (int) $r->active ? '' : '--inactive'; ?><?php echo $has_geo ? ' --has-geo' : ''; ?>">
+                    <div class="sfs-edc-header">
+                        <div>
+                            <div class="sfs-edc-name"><?php echo esc_html($r->label); ?></div>
+                            <div class="sfs-edc-id">#<?php echo (int) $r->id; ?> &middot; <?php echo esc_html( ucfirst($r->type) ); ?></div>
+                        </div>
+                    </div>
+                    <div class="sfs-edc-badges">
+                        <?php if ( (int) $r->active ) : ?>
+                            <span class="sfs-esc-badge sfs-esc-badge--active"><?php esc_html_e( 'Active', 'sfs-hr' ); ?></span>
+                        <?php else : ?>
+                            <span class="sfs-esc-badge sfs-esc-badge--inactive"><?php esc_html_e( 'Inactive', 'sfs-hr' ); ?></span>
+                        <?php endif; ?>
+                        <?php if ( $r->kiosk_offline ) : ?>
+                            <span class="sfs-esc-badge sfs-esc-badge--policy"><?php esc_html_e( 'Offline', 'sfs-hr' ); ?></span>
+                        <?php endif; ?>
+                        <?php if ( $has_geo ) : ?>
+                            <span class="sfs-esc-badge sfs-esc-badge--policy"><?php esc_html_e( 'Geo Lock', 'sfs-hr' ); ?></span>
+                        <?php endif; ?>
+                        <?php if ( ! empty( $r->qr_enabled ) ) : ?>
+                            <span class="sfs-esc-badge sfs-esc-badge--policy"><?php esc_html_e( 'QR', 'sfs-hr' ); ?></span>
+                        <?php endif; ?>
+                    </div>
+                    <div class="sfs-edc-meta">
+                        <dl>
+                            <dt><?php esc_html_e( 'Department', 'sfs-hr' ); ?></dt>
+                            <dd><?php echo esc_html( $d_label ); ?></dd>
+                        </dl>
+                        <dl>
+                            <dt><?php esc_html_e( 'Selfie', 'sfs-hr' ); ?></dt>
+                            <dd><?php echo esc_html( ucfirst( str_replace( '_', ' ', $r->selfie_mode ?? 'inherit' ) ) ); ?></dd>
+                        </dl>
+                        <?php if ( $has_geo ) : ?>
+                        <dl>
+                            <dt><?php esc_html_e( 'Geo Radius', 'sfs-hr' ); ?></dt>
+                            <dd><?php echo (int) $r->geo_lock_radius_m; ?>m</dd>
+                        </dl>
+                        <?php endif; ?>
+                    </div>
+                    <div class="sfs-edc-actions">
+                        <a class="sfs-esc-btn sfs-esc-btn--edit"
+                           href="<?php echo esc_url( admin_url('admin.php?page=sfs_hr_attendance&tab=devices&edit='.(int)$r->id) ); ?>">
+                            <?php esc_html_e( 'Edit', 'sfs-hr' ); ?>
+                        </a>
+                        <form style="display:inline" method="post"
+                              action="<?php echo esc_url( admin_url('admin-post.php') ); ?>"
+                              onsubmit="return confirm('<?php echo esc_js( __( 'Delete this device?', 'sfs-hr' ) ); ?>');">
+                            <?php wp_nonce_field( 'sfs_hr_att_device_delete' ); ?>
+                            <input type="hidden" name="action" value="sfs_hr_att_device_delete"/>
+                            <input type="hidden" name="id" value="<?php echo (int)$r->id; ?>"/>
+                            <button class="sfs-esc-btn sfs-esc-btn--delete" type="submit">
+                                <?php esc_html_e( 'Delete', 'sfs-hr' ); ?>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            <?php endforeach; ?>
         </div>
         <?php
     }
