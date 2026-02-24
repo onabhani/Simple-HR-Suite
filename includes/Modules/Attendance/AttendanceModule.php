@@ -3935,6 +3935,105 @@ public static function generate_early_leave_request_number(): string {
 }
 
 /**
+ * Create an early leave request if one doesn't already exist for the given
+ * employee + date.  Called from both the normal recalc path and the
+ * retro-close path so the logic is shared.
+ */
+private static function maybe_create_early_leave_request(
+    int $employee_id,
+    string $ymd,
+    int $session_id,
+    ?string $lastOutUtc,
+    int $minutes_early,
+    bool $is_total_hours,
+    $shift,
+    \wpdb $wpdb
+): void {
+    $el_table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+    $el_exists = $wpdb->get_var( $wpdb->prepare(
+        "SELECT id FROM {$el_table} WHERE employee_id = %d AND request_date = %s AND status IN ('pending','approved')",
+        $employee_id,
+        $ymd
+    ) );
+
+    if ( $el_exists ) {
+        return;
+    }
+
+    $scheduled_end = ( ! $is_total_hours && $shift && ! empty( $shift->end_time ) ) ? $shift->end_time : null;
+
+    $actual_leave_local = null;
+    if ( $lastOutUtc ) {
+        $tz_el   = wp_timezone();
+        $utc_out = new \DateTimeImmutable( $lastOutUtc, new \DateTimeZone( 'UTC' ) );
+        $actual_leave_local = $utc_out->setTimezone( $tz_el )->format( 'H:i:s' );
+    }
+
+    // Fallback: if no OUT time available, use the shift end time so the
+    // NOT NULL DB constraint on requested_leave_time is satisfied.
+    if ( $actual_leave_local === null && $scheduled_end ) {
+        $actual_leave_local = $scheduled_end;
+    }
+    if ( $actual_leave_local === null ) {
+        $actual_leave_local = '00:00:00';
+    }
+
+    $emp_tbl  = $wpdb->prefix . 'sfs_hr_employees';
+    $dept_tbl = $wpdb->prefix . 'sfs_hr_departments';
+    $emp_row  = $wpdb->get_row( $wpdb->prepare(
+        "SELECT dept_id FROM {$emp_tbl} WHERE id = %d", $employee_id
+    ) );
+    $mgr_id = null;
+    if ( $emp_row && $emp_row->dept_id ) {
+        $dept_row = $wpdb->get_row( $wpdb->prepare(
+            "SELECT manager_user_id FROM {$dept_tbl} WHERE id = %d", $emp_row->dept_id
+        ) );
+        if ( $dept_row && $dept_row->manager_user_id ) {
+            $mgr_id = (int) $dept_row->manager_user_id;
+        }
+    }
+
+    $now_el = current_time( 'mysql' );
+    $el_ref = self::generate_early_leave_request_number();
+
+    $el_reason_note = $is_total_hours
+        ? sprintf(
+            /* translators: %d = number of minutes short of required hours */
+            __( 'Auto-created: employee worked %d minutes less than required hours.', 'sfs-hr' ),
+            $minutes_early
+        )
+        : sprintf(
+            /* translators: %d = number of minutes the employee left early */
+            __( 'Auto-created: employee left %d minutes before shift end.', 'sfs-hr' ),
+            $minutes_early
+        );
+
+    $inserted = $wpdb->insert( $el_table, [
+        'employee_id'          => $employee_id,
+        'session_id'           => $session_id,
+        'request_date'         => $ymd,
+        'scheduled_end_time'   => $scheduled_end,
+        'requested_leave_time' => $actual_leave_local,
+        'actual_leave_time'    => $actual_leave_local,
+        'reason_type'          => 'other',
+        'reason_note'          => $el_reason_note,
+        'status'               => 'pending',
+        'request_number'       => $el_ref,
+        'manager_id'           => $mgr_id,
+        'affects_salary'       => 0,
+        'created_at'           => $now_el,
+        'updated_at'           => $now_el,
+    ] );
+
+    if ( $inserted === false ) {
+        error_log( sprintf(
+            '[SFS HR] Failed to auto-create early leave request for employee %d on %s: %s',
+            $employee_id, $ymd, $wpdb->last_error
+        ) );
+    }
+}
+
+/**
  * Backfill reference numbers for existing early leave requests
  */
 private static function backfill_early_leave_request_numbers( \wpdb $wpdb ): void {
@@ -4688,6 +4787,41 @@ if ( ! empty( $leadingOuts ) ) {
         $prevFlags = $prevSess->flags_json ? ( json_decode( $prevSess->flags_json, true ) ?: [] ) : [];
         $prevFlags = array_values( array_filter( $prevFlags, fn( $f ) => $f !== 'incomplete' ) );
 
+        // Detect left_early from the closing OUT vs the previous day's shift end.
+        // The original incomplete session may not have had left_early (no matched
+        // OUT at the time), so we must evaluate it now that we have the closing OUT.
+        $prevIsEarly     = false;
+        $prevEarlyMin    = 0;
+        $prevIsTotalHrs  = \SFS\HR\Modules\Attendance\Services\Policy_Service::is_total_hours_mode( $employee_id, $prevShift );
+        if ( $prevIsTotalHrs ) {
+            $prevTargetHrs = \SFS\HR\Modules\Attendance\Services\Policy_Service::get_target_hours( $employee_id, $prevShift );
+            $prevTargetMin = (int) ( $prevTargetHrs * 60 );
+            if ( $roundedNet < $prevTargetMin ) {
+                $prevIsEarly  = true;
+                $prevEarlyMin = $prevTargetMin - $roundedNet;
+            }
+        } elseif ( $prevShift && ! empty( $prevShift->end_time ) ) {
+            $tz_rc        = wp_timezone();
+            $grEarlyRc    = ( isset( $prevShift->grace_early_leave_minutes ) )
+                ? (int) $prevShift->grace_early_leave_minutes
+                : (int) ( $prevSettings['default_grace_early'] ?? 5 );
+            $shiftEndDt   = new \DateTimeImmutable( $prevDate . ' ' . $prevShift->end_time, $tz_rc );
+            // Overnight shift: if end_time < start_time, the shift end is the next day
+            if ( $prevShift->start_time && $prevShift->end_time < $prevShift->start_time ) {
+                $shiftEndDt = $shiftEndDt->modify( '+1 day' );
+            }
+            $closingOutDt = ( new \DateTimeImmutable( $closingOut, new \DateTimeZone( 'UTC' ) ) )->setTimezone( $tz_rc );
+            $diffSecs     = $shiftEndDt->getTimestamp() - $closingOutDt->getTimestamp();
+            if ( $diffSecs > ( $grEarlyRc * 60 ) ) {
+                $prevIsEarly  = true;
+                $prevEarlyMin = (int) round( $diffSecs / 60 );
+            }
+        }
+
+        if ( $prevIsEarly && ! in_array( 'left_early', $prevFlags, true ) ) {
+            $prevFlags[] = 'left_early';
+        }
+
         $prevStatus = 'present';
         if ( in_array( 'late', $prevFlags, true ) && in_array( 'left_early', $prevFlags, true ) ) {
             $prevStatus = 'late';
@@ -4709,6 +4843,20 @@ if ( ! empty( $leadingOuts ) ) {
             ],
             [ 'id' => (int) $prevSess->id ]
         );
+
+        // Auto-create early leave request for the retro-closed session.
+        if ( $prevIsEarly && $prevEarlyMin > 0 ) {
+            self::maybe_create_early_leave_request(
+                $employee_id,
+                $prevDate,
+                (int) $prevSess->id,
+                $closingOut,
+                $prevEarlyMin,
+                $prevIsTotalHrs,
+                $prevShift,
+                $wpdb
+            );
+        }
     }
 }
 
@@ -5111,77 +5259,16 @@ if ( ! empty( $leadingOuts ) ) {
     // Always ensure a request exists when left_early is flagged (not just on
     // first detection) — previous requests may have been cleaned up by migrations.
     if ( $is_early && $minutes_early > 0 ) {
-        $el_table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
-        $el_exists = $wpdb->get_var( $wpdb->prepare(
-            "SELECT id FROM {$el_table} WHERE employee_id = %d AND request_date = %s AND status IN ('pending','approved')",
+        self::maybe_create_early_leave_request(
             $employee_id,
-            $ymd
-        ) );
-
-        if ( ! $el_exists ) {
-            $scheduled_end = ( ! $is_total_hours && $shift && ! empty( $shift->end_time ) ) ? $shift->end_time : null;
-
-            $actual_leave_local = null;
-            if ( $lastOut ) {
-                $tz_el   = wp_timezone();
-                $utc_out = new \DateTimeImmutable( $lastOut, new \DateTimeZone( 'UTC' ) );
-                $actual_leave_local = $utc_out->setTimezone( $tz_el )->format( 'H:i:s' );
-            }
-
-            $emp_tbl  = $wpdb->prefix . 'sfs_hr_employees';
-            $dept_tbl = $wpdb->prefix . 'sfs_hr_departments';
-            $emp_row  = $wpdb->get_row( $wpdb->prepare(
-                "SELECT dept_id FROM {$emp_tbl} WHERE id = %d", $employee_id
-            ) );
-            $mgr_id = null;
-            if ( $emp_row && $emp_row->dept_id ) {
-                $dept_row = $wpdb->get_row( $wpdb->prepare(
-                    "SELECT manager_user_id FROM {$dept_tbl} WHERE id = %d", $emp_row->dept_id
-                ) );
-                if ( $dept_row && $dept_row->manager_user_id ) {
-                    $mgr_id = (int) $dept_row->manager_user_id;
-                }
-            }
-
-            $now_el = current_time( 'mysql' );
-            $el_ref = self::generate_early_leave_request_number();
-
-            $el_reason_note = $is_total_hours
-                ? sprintf(
-                    /* translators: %d = number of minutes short of required hours */
-                    __( 'Auto-created: employee worked %d minutes less than required hours.', 'sfs-hr' ),
-                    $minutes_early
-                )
-                : sprintf(
-                    /* translators: %d = number of minutes the employee left early */
-                    __( 'Auto-created: employee left %d minutes before shift end.', 'sfs-hr' ),
-                    $minutes_early
-                );
-
-            $inserted = $wpdb->insert( $el_table, [
-                'employee_id'          => $employee_id,
-                'session_id'           => $session_id,
-                'request_date'         => $ymd,
-                'scheduled_end_time'   => $scheduled_end,
-                'requested_leave_time' => $actual_leave_local,
-                'actual_leave_time'    => $actual_leave_local,
-                'reason_type'          => 'other',
-                'reason_note'          => $el_reason_note,
-                'status'               => 'pending',
-                'request_number'       => $el_ref,
-                'manager_id'           => $mgr_id,
-                'affects_salary'       => 0,
-                'created_at'           => $now_el,
-                'updated_at'           => $now_el,
-            ] );
-
-            if ( $inserted === false && defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( sprintf(
-                    '[SFS HR] Failed to auto-create early leave request for employee %d on %s: %s',
-                    $employee_id, $ymd, $wpdb->last_error
-                ) );
-            }
-        }
+            $ymd,
+            $session_id,
+            $lastOut,
+            $minutes_early,
+            $is_total_hours,
+            $shift,
+            $wpdb
+        );
     }
 
     // Fire no-break-taken notification (only if newly detected)

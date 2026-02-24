@@ -576,15 +576,24 @@ public static function asset_status_badge( string $status ): string {
         $year = $created_at ? date( 'Y', strtotime( $created_at ) ) : wp_date( 'Y' );
         $like_pattern = $prefix . '-' . $year . '-%';
 
-        // Get count for this year with this prefix
-        $count = (int) $wpdb->get_var(
+        // Use MAX of the numeric suffix to avoid collisions when rows are
+        // deleted.  The old COUNT(*) approach would re-use existing numbers
+        // if any request was removed, violating the UNIQUE constraint.
+        $max_ref = $wpdb->get_var(
             $wpdb->prepare(
-                "SELECT COUNT(*) FROM `{$table}` WHERE `{$column}` LIKE %s",
+                "SELECT MAX(`{$column}`) FROM `{$table}` WHERE `{$column}` LIKE %s",
                 $like_pattern
             )
         );
 
-        $sequence = str_pad( $count + 1, 4, '0', STR_PAD_LEFT );
+        $next = 1;
+        if ( $max_ref ) {
+            $parts = explode( '-', $max_ref );
+            $last_seq = (int) end( $parts );
+            $next = $last_seq + 1;
+        }
+
+        $sequence = str_pad( $next, 4, '0', STR_PAD_LEFT );
         return $prefix . '-' . $year . '-' . $sequence;
     }
 
