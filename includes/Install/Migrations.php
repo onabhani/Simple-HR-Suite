@@ -550,6 +550,7 @@ class Migrations {
             self::add_column_if_missing( $att_shifts, 'geofence_out',      "VARCHAR(20) NULL DEFAULT NULL" );
             self::add_column_if_missing( $att_shifts, 'calculation_mode',  "VARCHAR(20) NULL DEFAULT NULL" );
             self::add_column_if_missing( $att_shifts, 'target_hours',      "DECIMAL(4,2) NULL DEFAULT NULL" );
+            self::add_column_if_missing( $att_shifts, 'overtime_buffer_minutes', "SMALLINT UNSIGNED NULL DEFAULT NULL" );
         }
 
         /** Seed Departments + assign */

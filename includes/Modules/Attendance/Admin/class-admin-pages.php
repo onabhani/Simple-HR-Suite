@@ -1681,6 +1681,16 @@ public function render_shifts(): void {
                     </div>
 
                     <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label"><?php esc_html_e( 'Overtime Buffer (hours)', 'sfs-hr' ); ?></label>
+                        <?php $ot_buf = $editing->overtime_buffer_minutes ?? null; ?>
+                        <input type="number" name="shift_overtime_buffer_hours" min="0" max="24" step="0.5"
+                            value="<?php echo $ot_buf !== null ? esc_attr( round( (int) $ot_buf / 60, 1 ) ) : ''; ?>"
+                            placeholder="<?php esc_attr_e( 'Auto', 'sfs-hr' ); ?>"
+                            style="width:100px;" />
+                        <span class="sfs-hr-form-hint"><?php esc_html_e( 'How far past the shift end to look for a clock-out punch. Leave empty for automatic (50% of shift duration, max 4 h).', 'sfs-hr' ); ?></span>
+                    </div>
+
+                    <div class="sfs-hr-form-group">
                         <label class="sfs-hr-form-label"><?php esc_html_e( 'Geofence', 'sfs-hr' ); ?></label>
                         <div class="sfs-hr-form-row">
                             <div class="sfs-hr-form-group">
@@ -2182,6 +2192,11 @@ $end   = $norm_time($_POST['end_time']   ?? '');
     $shift_geo_in  = in_array( $_POST['shift_geofence_in']  ?? '', [ 'enforced', 'none' ], true ) ? $_POST['shift_geofence_in']  : null;
     $shift_geo_out = in_array( $_POST['shift_geofence_out'] ?? '', [ 'enforced', 'none' ], true ) ? $_POST['shift_geofence_out'] : null;
 
+    // Overtime buffer: admin enters hours, store as minutes. Empty = null (auto).
+    $ot_buf_hours = isset( $_POST['shift_overtime_buffer_hours'] ) && $_POST['shift_overtime_buffer_hours'] !== ''
+        ? (float) $_POST['shift_overtime_buffer_hours'] : null;
+    $ot_buf_minutes = $ot_buf_hours !== null ? max( 0, (int) round( $ot_buf_hours * 60 ) ) : null;
+
     // Enforce required fields ONLY when saving an ACTIVE shift.
     // For total_hours mode, location and start/end times are optional.
     // If weekly schedule provides per-day times, start_time/end_time are also optional (used as fallback only).
@@ -2239,6 +2254,7 @@ $end   = $norm_time($_POST['end_time']   ?? '');
         'geofence_out'             => $shift_geo_out,
         'calculation_mode'         => $shift_calc_mode,
         'target_hours'             => $shift_target_hours,
+        'overtime_buffer_minutes'  => $ot_buf_minutes,
     ];
 
     if ( $id ) {

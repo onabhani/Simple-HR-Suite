@@ -4480,10 +4480,15 @@ if ( ! empty( $segments ) ) {
     $lastSeg = end( $segments );
 
     // Extend the punch query window past the shift's scheduled end to capture
-    // overtime clock-outs.  The buffer is shift_duration × 50%, capped at 4 hours,
-    // so we catch reasonable overtime without accidentally absorbing next-day punches.
-    $shiftDurationMin = $lastSeg['minutes'];
-    $bufferMin        = min( (int) round( $shiftDurationMin * 0.5 ), 240 ); // max 4 hours
+    // overtime clock-outs.  Use the admin-configured buffer if set on the shift,
+    // otherwise fall back to shift_duration × 50% capped at 4 hours.
+    $configuredBuffer = isset( $shift->overtime_buffer_minutes ) ? (int) $shift->overtime_buffer_minutes : 0;
+    if ( $configuredBuffer > 0 ) {
+        $bufferMin = $configuredBuffer;
+    } else {
+        $shiftDurationMin = $lastSeg['minutes'];
+        $bufferMin        = min( (int) round( $shiftDurationMin * 0.5 ), 240 ); // max 4 hours
+    }
     $segEndTs         = strtotime( $lastSeg['end_utc'] . ' UTC' );
     $extendedEndUtc   = gmdate( 'Y-m-d H:i:s', $segEndTs + $bufferMin * 60 );
 
