@@ -553,6 +553,15 @@ class Migrations {
             self::add_column_if_missing( $att_shifts, 'overtime_buffer_minutes', "SMALLINT UNSIGNED NULL DEFAULT NULL" );
         }
 
+        /** ATTENDANCE POLICIES — add break_methods column if missing */
+        $att_policies_tbl_exists = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s",
+            $att_policies
+        ) );
+        if ( $att_policies_tbl_exists ) {
+            self::add_column_if_missing( $att_policies, 'break_methods', "VARCHAR(255) NULL DEFAULT NULL" );
+        }
+
         /** Seed Departments + assign */
         $has_dept = (int)$wpdb->get_var("SELECT COUNT(*) FROM `$dept`");
         if ($has_dept === 0) {

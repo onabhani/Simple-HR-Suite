@@ -19,6 +19,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class SettingsTab implements TabInterface {
 
+    /** @var array|null Cached user list for select dropdowns. */
+    private ?array $cached_users = null;
+
     public function render( array $emp, int $emp_id ): void {
         if ( ! is_user_logged_in() ) {
             echo '<p>' . esc_html__( 'Please log in.', 'sfs-hr' ) . '</p>';
@@ -186,7 +189,7 @@ class SettingsTab implements TabInterface {
         echo '<div style="width:36px;height:36px;border-radius:10px;background:#eff6ff;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg viewBox="0 0 24 24" width="18" height="18" stroke="#3b82f6" fill="none" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>';
         echo '<div>';
         echo '<h3 style="font-size:15px;font-weight:700;color:var(--sfs-text);margin:0;" data-i18n-key="leave_policy">' . esc_html__( 'Leave Policy', 'sfs-hr' ) . '</h3>';
-        echo '<p style="font-size:12px;color:var(--sfs-text-muted,#6b7280);margin:2px 0 0;" data-i18n-key="leave_policy_desc">' . esc_html__( 'Configure annual leave quotas and approval workflow.', 'sfs-hr' ) . '</p>';
+        echo '<p style="font-size:12px;color:var(--sfs-text-muted,#6b7280);margin:2px 0 0;" data-i18n-key="leave_policy_desc">' . esc_html__( 'Configure annual leave day quotas.', 'sfs-hr' ) . '</p>';
         echo '</div></div>';
 
         // Annual leave quotas.
@@ -263,9 +266,9 @@ class SettingsTab implements TabInterface {
             ? \SFS\HR\Modules\Loans\LoansModule::get_settings()
             : [];
 
-        $enabled        = $settings['enabled'] ?? true;
-        $show_profile   = $settings['show_in_my_profile'] ?? true;
-        $allow_requests = $settings['allow_employee_requests'] ?? true;
+        $enabled        = $settings['enabled'] ?? false;
+        $show_profile   = $settings['show_in_my_profile'] ?? false;
+        $allow_requests = $settings['allow_employee_requests'] ?? false;
         $max_amount     = $settings['max_loan_amount'] ?? 0;
         $gm_ids         = $settings['gm_user_ids'] ?? [];
         $finance_id     = (int) ( $settings['finance_user_id'] ?? 0 );
@@ -400,12 +403,15 @@ class SettingsTab implements TabInterface {
     }
 
     private function render_user_select( string $name, int $selected_id ): void {
-        $users = get_users( [
-            'fields'  => [ 'ID', 'display_name' ],
-            'orderby' => 'display_name',
-            'order'   => 'ASC',
-            'number'  => 200,
-        ] );
+        if ( $this->cached_users === null ) {
+            $this->cached_users = get_users( [
+                'fields'  => [ 'ID', 'display_name' ],
+                'orderby' => 'display_name',
+                'order'   => 'ASC',
+                'number'  => 200,
+            ] );
+        }
+        $users = $this->cached_users;
 
         echo '<select name="' . esc_attr( $name ) . '" class="sfs-select">';
         echo '<option value="0" data-i18n-key="none_option">' . esc_html__( '— None —', 'sfs-hr' ) . '</option>';

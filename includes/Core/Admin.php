@@ -4716,6 +4716,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             var container = document.querySelector('.sfs-hr-org-container');
             if (!container) return;
             var isShown = container.classList.toggle('sfs-hr-show-employees');
+            btn.setAttribute('aria-pressed', isShown ? 'true' : 'false');
             var label = btn.querySelector('.sfs-hr-toggle-label');
             var icon = btn.querySelector('.dashicons');
             if (isShown) {
@@ -4746,7 +4747,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                     <?php esc_html_e('Cards', 'sfs-hr'); ?>
                 </a>
             </div>
-            <button type="button" id="sfs-hr-org-toggle-names" class="sfs-hr-org-view-btn" onclick="sfsHrToggleOrgNames(this)">
+            <button type="button" id="sfs-hr-org-toggle-names" class="sfs-hr-org-view-btn" aria-pressed="false" onclick="sfsHrToggleOrgNames(this)">
                 <span class="dashicons dashicons-visibility" style="vertical-align: middle; margin-right: 4px;"></span>
                 <span class="sfs-hr-toggle-label"><?php esc_html_e('Show Employees', 'sfs-hr'); ?></span>
             </button>
@@ -4957,9 +4958,11 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
                             <div class="sfs-hr-org-employees">
                                 <div class="sfs-hr-org-emp-hidden-hint">
-                                    <?php echo sprintf(
-                                        esc_html(_n('%d employee', '%d employees', (int)$dept['employee_count'] - ($manager ? 1 : 0), 'sfs-hr')),
-                                        (int)$dept['employee_count'] - ($manager ? 1 : 0)
+                                    <?php
+                                        $hidden_count = max( 0, (int) $dept['employee_count'] - ( $manager_employee ? 1 : 0 ) );
+                                        echo sprintf(
+                                        esc_html(_n('%d employee', '%d employees', $hidden_count, 'sfs-hr')),
+                                        $hidden_count
                                     ); ?>
                                     — <?php esc_html_e('click "Show Employees" to reveal', 'sfs-hr'); ?>
                                 </div>
@@ -7130,6 +7133,24 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             update_option( 'sfs_hr_holiday_notify_on_add', ! empty( $lv['holiday_notify'] ) ? '1' : '0' );
             update_option( 'sfs_hr_holiday_reminder_enabled', ! empty( $lv['holiday_remind'] ) ? '1' : '0' );
             update_option( 'sfs_hr_holiday_reminder_days', max( 1, min( 30, (int) ( $lv['holiday_reminder_days'] ?? 1 ) ) ) );
+        }
+
+        // ── Loans settings ────────────────────────────────────────
+        $loans_input = isset( $_POST['loans'] ) && is_array( $_POST['loans'] ) ? $_POST['loans'] : [];
+        if ( ! empty( $loans_input ) && class_exists( '\SFS\HR\Modules\Loans\LoansModule' ) ) {
+            $loans_saved = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+            $loans_saved['enabled']                  = ! empty( $loans_input['enabled'] );
+            $loans_saved['show_in_my_profile']       = ! empty( $loans_input['show_in_my_profile'] );
+            $loans_saved['allow_employee_requests']  = ! empty( $loans_input['allow_employee_requests'] );
+            $loans_saved['max_loan_amount']          = max( 0, (int) ( $loans_input['max_loan_amount'] ?? 0 ) );
+            if ( isset( $loans_input['gm_user_id'] ) ) {
+                $gm_id = (int) $loans_input['gm_user_id'];
+                $loans_saved['gm_user_ids'] = $gm_id > 0 ? [ $gm_id ] : [];
+            }
+            if ( isset( $loans_input['finance_user_id'] ) ) {
+                $loans_saved['finance_user_id'] = (int) $loans_input['finance_user_id'];
+            }
+            update_option( 'sfs_hr_loans_settings', $loans_saved );
         }
 
         // ── Notification settings ─────────────────────────────────
