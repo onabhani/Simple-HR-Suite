@@ -409,10 +409,10 @@ class Admin_Pages {
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Exceptional', 'sfs-hr' ); ?>" style="color: #22c55e;"><span class="sfs-dist-label"><?php esc_html_e( 'Exc', 'sfs-hr' ); ?> </span>●<?php echo $dept['grade_distribution']['exceptional']; ?></span>
-                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Exceeds', 'sfs-hr' ); ?>" style="color: #3b82f6;"><span class="sfs-dist-label"><?php esc_html_e( 'Exc+', 'sfs-hr' ); ?> </span>●<?php echo $dept['grade_distribution']['exceeds']; ?></span>
-                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Meets', 'sfs-hr' ); ?>" style="color: #f59e0b;"><span class="sfs-dist-label"><?php esc_html_e( 'Meet', 'sfs-hr' ); ?> </span>●<?php echo $dept['grade_distribution']['meets']; ?></span>
-                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Needs Improvement', 'sfs-hr' ); ?>" style="color: #ef4444;"><span class="sfs-dist-label"><?php esc_html_e( 'Low', 'sfs-hr' ); ?> </span>●<?php echo $dept['grade_distribution']['needs_improvement']; ?></span>
+                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Exceptional', 'sfs-hr' ); ?>" style="color: #22c55e;"><span class="sfs-dist-label"><?php esc_html_e( 'Exc', 'sfs-hr' ); ?> </span>●<?php echo esc_html( $dept['grade_distribution']['exceptional'] ); ?></span>
+                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Exceeds', 'sfs-hr' ); ?>" style="color: #3b82f6;"><span class="sfs-dist-label"><?php esc_html_e( 'Exc+', 'sfs-hr' ); ?> </span>●<?php echo esc_html( $dept['grade_distribution']['exceeds'] ); ?></span>
+                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Meets', 'sfs-hr' ); ?>" style="color: #f59e0b;"><span class="sfs-dist-label"><?php esc_html_e( 'Meet', 'sfs-hr' ); ?> </span>●<?php echo esc_html( $dept['grade_distribution']['meets'] ); ?></span>
+                                        <span class="sfs-dist-item" title="<?php esc_attr_e( 'Needs Improvement', 'sfs-hr' ); ?>" style="color: #ef4444;"><span class="sfs-dist-label"><?php esc_html_e( 'Low', 'sfs-hr' ); ?> </span>●<?php echo esc_html( $dept['grade_distribution']['needs_improvement'] ); ?></span>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -1349,6 +1349,10 @@ class Admin_Pages {
      * Handle acknowledge alert.
      */
     public function handle_acknowledge_alert(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
+            wp_die( __( 'Permission denied', 'sfs-hr' ), '', 403 );
+        }
+
         $alert_id = isset( $_GET['id'] ) ? (int) $_GET['id'] : 0;
 
         check_admin_referer( 'sfs_hr_acknowledge_alert_' . $alert_id );
@@ -1363,6 +1367,10 @@ class Admin_Pages {
      * Handle resolve alert.
      */
     public function handle_resolve_alert(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
+            wp_die( __( 'Permission denied', 'sfs-hr' ), '', 403 );
+        }
+
         $alert_id = isset( $_GET['id'] ) ? (int) $_GET['id'] : 0;
 
         check_admin_referer( 'sfs_hr_resolve_alert_' . $alert_id );

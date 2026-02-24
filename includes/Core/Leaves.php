@@ -148,7 +148,7 @@ class Leaves {
         Helpers::require_cap('sfs_hr.leave.approve');
         $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
         check_admin_referer('sfs_hr_approve_leave_'.$id);
-        if ($id<=0) wp_safe_redirect( admin_url('admin.php?page=sfs-hr-leave-requests&err=id') );
+        if ($id<=0) { wp_safe_redirect( admin_url('admin.php?page=sfs-hr-leave-requests&err=id') ); exit; }
         global $wpdb; $r = $wpdb->prefix.'sfs_hr_leave_requests';
         $wpdb->update($r, ['status'=>'approved','approved_by'=>get_current_user_id(),'approved_at'=>Helpers::now_mysql(),'updated_at'=>Helpers::now_mysql()], ['id'=>$id]);
         wp_safe_redirect( admin_url('admin.php?page=sfs-hr-leave-requests&ok=approved') ); exit;
@@ -157,7 +157,7 @@ class Leaves {
         Helpers::require_cap('sfs_hr.leave.approve');
         $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
         check_admin_referer('sfs_hr_reject_leave_'.$id);
-        if ($id<=0) wp_safe_redirect( admin_url('admin.php?page=sfs-hr-leave-requests&err=id') );
+        if ($id<=0) { wp_safe_redirect( admin_url('admin.php?page=sfs-hr-leave-requests&err=id') ); exit; }
         global $wpdb; $r = $wpdb->prefix.'sfs_hr_leave_requests';
         $wpdb->update($r, ['status'=>'rejected','approved_by'=>get_current_user_id(),'approved_at'=>Helpers::now_mysql(),'updated_at'=>Helpers::now_mysql()], ['id'=>$id]);
         wp_safe_redirect( admin_url('admin.php?page=sfs-hr-leave-requests&ok=rejected') ); exit;

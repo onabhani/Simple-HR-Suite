@@ -2433,7 +2433,7 @@ class AdminPages {
                     wp_safe_redirect( add_query_arg( [
                         'page' => 'sfs-hr-loans',
                         'action' => 'create',
-                        'error' => urlencode( 'Failed to create loan: ' . $wpdb->last_error ),
+                        'error' => urlencode( __( 'Failed to create loan. Please contact an administrator.', 'sfs-hr' ) ),
                     ], admin_url( 'admin.php' ) ) );
                     exit;
                 }
@@ -2485,8 +2485,7 @@ class AdminPages {
             $due_date = clone $first_date;
             $due_date->modify( '+' . ($i - 1) . ' months' );
 
-            // Last installment may need adjustment for rounding
-            $amount = ( $i === $installments ) ? $installment_amount : $installment_amount;
+            $amount = $installment_amount;
 
             $wpdb->insert( $payments_table, [
                 'loan_id'        => $loan_id,

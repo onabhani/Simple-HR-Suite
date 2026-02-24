@@ -54,7 +54,7 @@ class Admin {
             );
 
             // Chart.js for dashboard and performance pages (loaded once, deferred)
-            if ( strpos( $hook, 'sfs-hr' ) !== false && strpos( $hook, 'sfs-hr-employees' ) === false ) {
+            if ( $is_hr_hook && strpos( $hook, 'sfs-hr-employees' ) === false && strpos( $hook, 'sfs_hr_employees' ) === false ) {
                 wp_enqueue_script( 'chart-js', 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js', [], '4.4.1', true );
             }
         }
