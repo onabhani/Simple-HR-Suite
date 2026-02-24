@@ -4358,9 +4358,16 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
         .sfs-device-card .sfs-field select {
             width: 100%;
             box-sizing: border-box;
+            height: 36px;
+            padding: 6px 10px;
+            font-size: 14px;
         }
         .sfs-device-card .sfs-field input[type="time"] {
-            width: auto;
+            width: 100%;
+            box-sizing: border-box;
+            height: 36px;
+            padding: 6px 10px;
+            font-size: 14px;
         }
         .sfs-device-card .sfs-inline {
             display: flex;
@@ -4382,15 +4389,22 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
         }
         .sfs-device-card .sfs-suggestions-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
         }
         .sfs-device-card .sfs-suggestions-grid label.sfs-label {
             display: block;
             font-weight: 600;
             font-size: 12px;
-            margin-bottom: 4px;
+            margin-bottom: 3px;
             color: #374151;
+        }
+        .sfs-device-card .sfs-suggestions-grid input[type="time"] {
+            width: 100%;
+            box-sizing: border-box;
+            height: 36px;
+            padding: 6px 10px;
+            font-size: 14px;
         }
 
         /* ── Existing devices as cards ──────────────────────────────── */
@@ -4465,10 +4479,23 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
             padding-top: 8px;
             border-top: 1px solid #f0f0f1;
         }
+        .sfs-edc-actions .sfs-esc-btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 14px;
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 20px;
+            cursor: pointer;
+            text-decoration: none;
+            line-height: 1.5;
+            transition: background 0.15s, border-color 0.15s;
+        }
 
         @media (max-width: 782px) {
             .sfs-devices-grid { grid-template-columns: 1fr; }
             .sfs-existing-devices-grid { grid-template-columns: 1fr; }
+            .sfs-device-card .sfs-suggestions-grid { grid-template-columns: 1fr 1fr; }
         }
         </style>
 
@@ -4549,19 +4576,19 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
                 <div class="sfs-device-card">
                     <h4><span class="dashicons dashicons-location"></span> <?php esc_html_e( 'Geo Lock', 'sfs-hr' ); ?></h4>
                     <div class="sfs-inline" style="margin-bottom: 10px;">
-                        <div>
+                        <div class="sfs-field" style="flex:1;min-width:0;margin-bottom:0;">
                             <label class="sfs-label"><?php esc_html_e( 'Latitude', 'sfs-hr' ); ?></label>
-                            <input type="text" name="geo_lock_lat" id="sfs-device-lat" style="width:140px"
+                            <input type="text" name="geo_lock_lat" id="sfs-device-lat"
                                    value="<?php echo esc_attr($editing->geo_lock_lat ?? ''); ?>" placeholder="24.7136"/>
                         </div>
-                        <div>
+                        <div class="sfs-field" style="flex:1;min-width:0;margin-bottom:0;">
                             <label class="sfs-label"><?php esc_html_e( 'Longitude', 'sfs-hr' ); ?></label>
-                            <input type="text" name="geo_lock_lng" id="sfs-device-lng" style="width:140px"
+                            <input type="text" name="geo_lock_lng" id="sfs-device-lng"
                                    value="<?php echo esc_attr($editing->geo_lock_lng ?? ''); ?>" placeholder="46.6753"/>
                         </div>
-                        <div>
+                        <div class="sfs-field" style="flex:1;min-width:0;margin-bottom:0;">
                             <label class="sfs-label"><?php esc_html_e( 'Radius (m)', 'sfs-hr' ); ?></label>
-                            <input type="number" name="geo_lock_radius_m" id="sfs-device-radius" min="10" step="1" style="width:120px"
+                            <input type="number" name="geo_lock_radius_m" id="sfs-device-radius" min="10" step="1"
                                    value="<?php echo esc_attr($editing->geo_lock_radius_m ?? ''); ?>" placeholder="150"/>
                         </div>
                         <div style="align-self: flex-end;">
