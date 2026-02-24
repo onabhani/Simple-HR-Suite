@@ -545,10 +545,21 @@ class Migrations {
         if ( $shift_tbl_exists ) {
             self::add_column_if_missing( $att_shifts, 'clock_in_methods',  "VARCHAR(255) NULL DEFAULT NULL" );
             self::add_column_if_missing( $att_shifts, 'clock_out_methods', "VARCHAR(255) NULL DEFAULT NULL" );
+            self::add_column_if_missing( $att_shifts, 'break_methods',     "VARCHAR(255) NULL DEFAULT NULL" );
             self::add_column_if_missing( $att_shifts, 'geofence_in',       "VARCHAR(20) NULL DEFAULT NULL" );
             self::add_column_if_missing( $att_shifts, 'geofence_out',      "VARCHAR(20) NULL DEFAULT NULL" );
             self::add_column_if_missing( $att_shifts, 'calculation_mode',  "VARCHAR(20) NULL DEFAULT NULL" );
             self::add_column_if_missing( $att_shifts, 'target_hours',      "DECIMAL(4,2) NULL DEFAULT NULL" );
+            self::add_column_if_missing( $att_shifts, 'overtime_buffer_minutes', "SMALLINT UNSIGNED NULL DEFAULT NULL" );
+        }
+
+        /** ATTENDANCE POLICIES — add break_methods column if missing */
+        $att_policies_tbl_exists = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s",
+            $att_policies
+        ) );
+        if ( $att_policies_tbl_exists ) {
+            self::add_column_if_missing( $att_policies, 'break_methods', "VARCHAR(255) NULL DEFAULT NULL" );
         }
 
         /** Seed Departments + assign */

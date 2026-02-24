@@ -19,6 +19,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class SettingsTab implements TabInterface {
 
+    /** @var array|null Cached user list for select dropdowns. */
+    private ?array $cached_users = null;
+
     public function render( array $emp, int $emp_id ): void {
         if ( ! is_user_logged_in() ) {
             echo '<p>' . esc_html__( 'Please log in.', 'sfs-hr' ) . '</p>';
@@ -56,6 +59,7 @@ class SettingsTab implements TabInterface {
 
         $this->render_attendance_section();
         $this->render_leave_section();
+        $this->render_loans_section();
         $this->render_notification_section();
 
         // Save button.
@@ -75,6 +79,7 @@ class SettingsTab implements TabInterface {
         $tabs = [
             'attendance'   => [ __( 'Attendance', 'sfs-hr' ), 'attendance' ],
             'leave'        => [ __( 'Leave', 'sfs-hr' ), 'leave' ],
+            'loans'        => [ __( 'Loans', 'sfs-hr' ), 'loans' ],
             'notification' => [ __( 'Notifications', 'sfs-hr' ), 'notifications' ],
         ];
         $first = true;
@@ -176,48 +181,145 @@ class SettingsTab implements TabInterface {
         $hol_days     = get_option( 'sfs_hr_holiday_reminder_days', '1' );
 
         echo '<div class="sfs-settings-section" data-settings-section="leave" style="display:none;">';
-        echo '<div class="sfs-card" style="margin-bottom:20px;">';
-        echo '<div class="sfs-card-body">';
-        echo '<h3 style="font-size:16px;font-weight:700;color:var(--sfs-text);margin:0 0 16px;" data-i18n-key="leave_settings">' . esc_html__( 'Leave Settings', 'sfs-hr' ) . '</h3>';
 
-        // Email notifications.
-        $this->toggle_field( 'leave[email]', __( 'Email Notifications', 'sfs-hr' ), $email, 'email_notifications', __( 'Send email notifications for leave requests.', 'sfs-hr' ), 'leave_email_hint' );
+        // ── Card 1: Leave Policy ──
+        echo '<div class="sfs-card" style="margin-bottom:16px;">';
+        echo '<div class="sfs-card-body">';
+        echo '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--sfs-border,#f3f4f6);">';
+        echo '<div style="width:36px;height:36px;border-radius:10px;background:#eff6ff;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg viewBox="0 0 24 24" width="18" height="18" stroke="#3b82f6" fill="none" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>';
+        echo '<div>';
+        echo '<h3 style="font-size:15px;font-weight:700;color:var(--sfs-text);margin:0;" data-i18n-key="leave_policy">' . esc_html__( 'Leave Policy', 'sfs-hr' ) . '</h3>';
+        echo '<p style="font-size:12px;color:var(--sfs-text-muted,#6b7280);margin:2px 0 0;" data-i18n-key="leave_policy_desc">' . esc_html__( 'Configure annual leave day quotas.', 'sfs-hr' ) . '</p>';
+        echo '</div></div>';
 
         // Annual leave quotas.
-        echo '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
-
+        echo '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:4px;">';
         echo '<div class="sfs-form-group">';
         echo '<label class="sfs-form-label" data-i18n-key="annual_leave_lt5">' . esc_html__( 'Annual Leave (< 5 yrs)', 'sfs-hr' ) . '</label>';
         echo '<input type="number" name="leave[annual_lt5]" class="sfs-input" value="' . esc_attr( (string) $lt5 ) . '" min="0" max="365">';
+        echo '<span class="sfs-form-hint" data-i18n-key="days_per_year">' . esc_html__( 'Days per year', 'sfs-hr' ) . '</span>';
         echo '</div>';
-
         echo '<div class="sfs-form-group">';
         echo '<label class="sfs-form-label" data-i18n-key="annual_leave_ge5">' . esc_html__( 'Annual Leave (≥ 5 yrs)', 'sfs-hr' ) . '</label>';
         echo '<input type="number" name="leave[annual_ge5]" class="sfs-input" value="' . esc_attr( (string) $ge5 ) . '" min="0" max="365">';
+        echo '<span class="sfs-form-hint" data-i18n-key="days_per_year">' . esc_html__( 'Days per year', 'sfs-hr' ) . '</span>';
+        echo '</div>';
         echo '</div>';
 
-        echo '</div>';
+        echo '</div></div>';
+
+        // ── Card 2: Approval Workflow ──
+        echo '<div class="sfs-card" style="margin-bottom:16px;">';
+        echo '<div class="sfs-card-body">';
+        echo '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--sfs-border,#f3f4f6);">';
+        echo '<div style="width:36px;height:36px;border-radius:10px;background:#ecfdf5;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg viewBox="0 0 24 24" width="18" height="18" stroke="#059669" fill="none" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>';
+        echo '<div>';
+        echo '<h3 style="font-size:15px;font-weight:700;color:var(--sfs-text);margin:0;" data-i18n-key="approval_workflow">' . esc_html__( 'Approval Workflow', 'sfs-hr' ) . '</h3>';
+        echo '<p style="font-size:12px;color:var(--sfs-text-muted,#6b7280);margin:2px 0 0;" data-i18n-key="approval_workflow_desc">' . esc_html__( 'Set up who approves leave requests.', 'sfs-hr' ) . '</p>';
+        echo '</div></div>';
+
+        // Email notifications.
+        $this->toggle_field( 'leave[email]', __( 'Email Notifications', 'sfs-hr' ), $email, 'email_notifications', __( 'Send email notifications for leave requests.', 'sfs-hr' ), 'leave_email_hint' );
 
         // GM approver.
         echo '<div class="sfs-form-group">';
         echo '<label class="sfs-form-label" data-i18n-key="general_manager_approver">' . esc_html__( 'General Manager (Approver)', 'sfs-hr' ) . '</label>';
         $this->render_user_select( 'leave[gm_approver]', $gm_id );
+        echo '<span class="sfs-form-hint" data-i18n-key="gm_approver_hint">' . esc_html__( 'First level approver for leave requests.', 'sfs-hr' ) . '</span>';
         echo '</div>';
 
         // Finance approver.
         echo '<div class="sfs-form-group">';
         echo '<label class="sfs-form-label" data-i18n-key="finance_approver">' . esc_html__( 'Finance Approver', 'sfs-hr' ) . '</label>';
         $this->render_user_select( 'leave[finance_approver]', $finance );
+        echo '<span class="sfs-form-hint" data-i18n-key="finance_approver_hint">' . esc_html__( 'Final approver for leave requests (optional).', 'sfs-hr' ) . '</span>';
         echo '</div>';
 
-        // Holiday settings.
-        echo '<h4 style="font-size:14px;font-weight:700;color:var(--sfs-text);margin:20px 0 12px;" data-i18n-key="holiday_notifications">' . esc_html__( 'Holiday Notifications', 'sfs-hr' ) . '</h4>';
+        echo '</div></div>';
+
+        // ── Card 3: Holiday Notifications ──
+        echo '<div class="sfs-card" style="margin-bottom:16px;">';
+        echo '<div class="sfs-card-body">';
+        echo '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--sfs-border,#f3f4f6);">';
+        echo '<div style="width:36px;height:36px;border-radius:10px;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg viewBox="0 0 24 24" width="18" height="18" stroke="#d97706" fill="none" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>';
+        echo '<div>';
+        echo '<h3 style="font-size:15px;font-weight:700;color:var(--sfs-text);margin:0;" data-i18n-key="holiday_notifications">' . esc_html__( 'Holiday Notifications', 'sfs-hr' ) . '</h3>';
+        echo '<p style="font-size:12px;color:var(--sfs-text-muted,#6b7280);margin:2px 0 0;" data-i18n-key="holiday_notify_desc">' . esc_html__( 'Notify employees about upcoming holidays.', 'sfs-hr' ) . '</p>';
+        echo '</div></div>';
+
         $this->toggle_field( 'leave[holiday_notify]', __( 'Notify on Holiday Add', 'sfs-hr' ), $hol_notify, 'notify_on_holiday_add', __( 'Email employees when a new holiday is added.', 'sfs-hr' ), 'holiday_add_hint' );
         $this->toggle_field( 'leave[holiday_remind]', __( 'Holiday Reminders', 'sfs-hr' ), $hol_remind, 'holiday_reminders', __( 'Send reminder before upcoming holidays.', 'sfs-hr' ), 'holiday_reminder_hint' );
 
         echo '<div class="sfs-form-group">';
         echo '<label class="sfs-form-label" data-i18n-key="reminder_days_before">' . esc_html__( 'Reminder Days Before', 'sfs-hr' ) . '</label>';
         echo '<input type="number" name="leave[holiday_reminder_days]" class="sfs-input" value="' . esc_attr( (string) $hol_days ) . '" min="1" max="30">';
+        echo '</div>';
+
+        echo '</div></div>';
+        echo '</div>';
+    }
+
+    /* ── Loans Section ─────────────────────────────────────────── */
+
+    private function render_loans_section(): void {
+        $settings = class_exists( '\SFS\HR\Modules\Loans\LoansModule' )
+            ? \SFS\HR\Modules\Loans\LoansModule::get_settings()
+            : [];
+
+        $enabled        = $settings['enabled'] ?? false;
+        $show_profile   = $settings['show_in_my_profile'] ?? false;
+        $allow_requests = $settings['allow_employee_requests'] ?? false;
+        $max_amount     = $settings['max_loan_amount'] ?? 0;
+        $gm_ids         = $settings['gm_user_ids'] ?? [];
+        $finance_id     = (int) ( $settings['finance_user_id'] ?? 0 );
+
+        echo '<div class="sfs-settings-section" data-settings-section="loans" style="display:none;">';
+
+        // ── Card 1: Module Settings ──
+        echo '<div class="sfs-card" style="margin-bottom:16px;">';
+        echo '<div class="sfs-card-body">';
+        echo '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--sfs-border,#f3f4f6);">';
+        echo '<div style="width:36px;height:36px;border-radius:10px;background:#dbeafe;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg viewBox="0 0 24 24" width="18" height="18" stroke="#3b82f6" fill="none" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>';
+        echo '<div>';
+        echo '<h3 style="font-size:15px;font-weight:700;color:var(--sfs-text);margin:0;" data-i18n-key="loan_module_settings">' . esc_html__( 'Loan Module', 'sfs-hr' ) . '</h3>';
+        echo '<p style="font-size:12px;color:var(--sfs-text-muted,#6b7280);margin:2px 0 0;" data-i18n-key="loan_module_desc">' . esc_html__( 'Enable and configure employee loan features.', 'sfs-hr' ) . '</p>';
+        echo '</div></div>';
+
+        $this->toggle_field( 'loans[enabled]', __( 'Enable Loans Module', 'sfs-hr' ), $enabled, 'enable_loans', __( 'Allow the loans feature across the system.', 'sfs-hr' ), 'loans_enabled_hint' );
+        $this->toggle_field( 'loans[show_in_my_profile]', __( 'Show in Employee Portal', 'sfs-hr' ), $show_profile, 'show_loan_portal', __( 'Employees can view their loans in the portal.', 'sfs-hr' ), 'loans_portal_hint' );
+        $this->toggle_field( 'loans[allow_employee_requests]', __( 'Allow Self-Service Requests', 'sfs-hr' ), $allow_requests, 'allow_loan_requests', __( 'Employees can submit loan requests themselves.', 'sfs-hr' ), 'loans_selfservice_hint' );
+
+        echo '<div class="sfs-form-group">';
+        echo '<label class="sfs-form-label" data-i18n-key="max_loan_amount">' . esc_html__( 'Max Loan Amount (SAR)', 'sfs-hr' ) . '</label>';
+        echo '<input type="number" name="loans[max_loan_amount]" class="sfs-input" value="' . esc_attr( (string) $max_amount ) . '" min="0" step="100">';
+        echo '<span class="sfs-form-hint" data-i18n-key="max_loan_hint">' . esc_html__( 'Set to 0 for no limit.', 'sfs-hr' ) . '</span>';
+        echo '</div>';
+
+        echo '</div></div>';
+
+        // ── Card 2: Loan Approvers ──
+        echo '<div class="sfs-card" style="margin-bottom:16px;">';
+        echo '<div class="sfs-card-body">';
+        echo '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--sfs-border,#f3f4f6);">';
+        echo '<div style="width:36px;height:36px;border-radius:10px;background:#ecfdf5;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg viewBox="0 0 24 24" width="18" height="18" stroke="#059669" fill="none" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>';
+        echo '<div>';
+        echo '<h3 style="font-size:15px;font-weight:700;color:var(--sfs-text);margin:0;" data-i18n-key="loan_approvers">' . esc_html__( 'Loan Approvers', 'sfs-hr' ) . '</h3>';
+        echo '<p style="font-size:12px;color:var(--sfs-text-muted,#6b7280);margin:2px 0 0;" data-i18n-key="loan_approvers_desc">' . esc_html__( 'Loans require GM approval then Finance approval.', 'sfs-hr' ) . '</p>';
+        echo '</div></div>';
+
+        // GM approver (first from the array).
+        $gm_selected = ! empty( $gm_ids ) ? (int) $gm_ids[0] : 0;
+        echo '<div class="sfs-form-group">';
+        echo '<label class="sfs-form-label" data-i18n-key="loan_gm_approver">' . esc_html__( 'GM Approver', 'sfs-hr' ) . '</label>';
+        $this->render_user_select( 'loans[gm_user_id]', $gm_selected );
+        echo '<span class="sfs-form-hint" data-i18n-key="loan_gm_hint">' . esc_html__( 'First-level approver for loan requests.', 'sfs-hr' ) . '</span>';
+        echo '</div>';
+
+        // Finance approver.
+        echo '<div class="sfs-form-group">';
+        echo '<label class="sfs-form-label" data-i18n-key="loan_finance_approver">' . esc_html__( 'Finance Approver', 'sfs-hr' ) . '</label>';
+        $this->render_user_select( 'loans[finance_user_id]', $finance_id );
+        echo '<span class="sfs-form-hint" data-i18n-key="loan_finance_hint">' . esc_html__( 'Final approver and loan disbursement authority.', 'sfs-hr' ) . '</span>';
         echo '</div>';
 
         echo '</div></div>';
@@ -301,12 +403,15 @@ class SettingsTab implements TabInterface {
     }
 
     private function render_user_select( string $name, int $selected_id ): void {
-        $users = get_users( [
-            'fields'  => [ 'ID', 'display_name' ],
-            'orderby' => 'display_name',
-            'order'   => 'ASC',
-            'number'  => 200,
-        ] );
+        if ( $this->cached_users === null ) {
+            $this->cached_users = get_users( [
+                'fields'  => [ 'ID', 'display_name' ],
+                'orderby' => 'display_name',
+                'order'   => 'ASC',
+                'number'  => 200,
+            ] );
+        }
+        $users = $this->cached_users;
 
         echo '<select name="' . esc_attr( $name ) . '" class="sfs-select">';
         echo '<option value="0" data-i18n-key="none_option">' . esc_html__( '— None —', 'sfs-hr' ) . '</option>';

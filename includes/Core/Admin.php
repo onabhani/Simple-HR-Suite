@@ -153,15 +153,6 @@ class Admin {
             [$this, 'render_settings']
         );
 
-        // Design Samples (admin-only reference page)
-        add_submenu_page(
-            'sfs-hr',
-            __('Design Samples','sfs-hr'),
-            __('Design Samples','sfs-hr'),
-            'manage_options',
-            'sfs-hr-design-samples',
-            [ DesignSamples::class, 'render' ]
-        );
     }
 
     public function remove_menu_separator_css(): void {
@@ -4701,20 +4692,65 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 color: #646970;
                 font-style: italic;
             }
-        </style>
 
-        <!-- View Toggle -->
-        <div class="sfs-hr-org-view-toggle">
-            <a href="<?php echo esc_url(add_query_arg('view', 'chart', $base_org_url)); ?>"
-               class="sfs-hr-org-view-btn <?php echo $org_view === 'chart' ? 'active' : ''; ?>">
-                <span class="dashicons dashicons-networking" style="vertical-align: middle; margin-right: 4px;"></span>
-                <?php esc_html_e('Org Chart', 'sfs-hr'); ?>
-            </a>
-            <a href="<?php echo esc_url(add_query_arg('view', 'cards', $base_org_url)); ?>"
-               class="sfs-hr-org-view-btn <?php echo $org_view === 'cards' ? 'active' : ''; ?>">
-                <span class="dashicons dashicons-grid-view" style="vertical-align: middle; margin-right: 4px;"></span>
-                <?php esc_html_e('Cards', 'sfs-hr'); ?>
-            </a>
+            /* ── Employee visibility toggle ── */
+            .sfs-hr-org-container:not(.sfs-hr-show-employees) .sfs-hr-chart-employees,
+            .sfs-hr-org-container:not(.sfs-hr-show-employees) .sfs-hr-org-employees .sfs-hr-org-employee {
+                display: none;
+            }
+            .sfs-hr-org-container:not(.sfs-hr-show-employees) .sfs-hr-org-employees {
+                padding: 16px 20px;
+                text-align: center;
+            }
+            .sfs-hr-org-emp-hidden-hint {
+                font-size: 13px;
+                color: #787c82;
+                font-style: italic;
+            }
+            .sfs-hr-org-container.sfs-hr-show-employees .sfs-hr-org-emp-hidden-hint {
+                display: none;
+            }
+        </style>
+        <script>
+        function sfsHrToggleOrgNames(btn) {
+            var container = document.querySelector('.sfs-hr-org-container');
+            if (!container) return;
+            var isShown = container.classList.toggle('sfs-hr-show-employees');
+            btn.setAttribute('aria-pressed', isShown ? 'true' : 'false');
+            var label = btn.querySelector('.sfs-hr-toggle-label');
+            var icon = btn.querySelector('.dashicons');
+            if (isShown) {
+                label.textContent = '<?php echo esc_js(__('Hide Employees', 'sfs-hr')); ?>';
+                icon.className = 'dashicons dashicons-hidden';
+                icon.style.verticalAlign = 'middle';
+                icon.style.marginRight = '4px';
+            } else {
+                label.textContent = '<?php echo esc_js(__('Show Employees', 'sfs-hr')); ?>';
+                icon.className = 'dashicons dashicons-visibility';
+                icon.style.verticalAlign = 'middle';
+                icon.style.marginRight = '4px';
+            }
+        }
+        </script>
+
+        <!-- View Toggle & Controls -->
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+            <div class="sfs-hr-org-view-toggle" style="margin-bottom:0;">
+                <a href="<?php echo esc_url(add_query_arg('view', 'chart', $base_org_url)); ?>"
+                   class="sfs-hr-org-view-btn <?php echo $org_view === 'chart' ? 'active' : ''; ?>">
+                    <span class="dashicons dashicons-networking" style="vertical-align: middle; margin-right: 4px;"></span>
+                    <?php esc_html_e('Org Chart', 'sfs-hr'); ?>
+                </a>
+                <a href="<?php echo esc_url(add_query_arg('view', 'cards', $base_org_url)); ?>"
+                   class="sfs-hr-org-view-btn <?php echo $org_view === 'cards' ? 'active' : ''; ?>">
+                    <span class="dashicons dashicons-grid-view" style="vertical-align: middle; margin-right: 4px;"></span>
+                    <?php esc_html_e('Cards', 'sfs-hr'); ?>
+                </a>
+            </div>
+            <button type="button" id="sfs-hr-org-toggle-names" class="sfs-hr-org-view-btn" aria-pressed="false" onclick="sfsHrToggleOrgNames(this)">
+                <span class="dashicons dashicons-visibility" style="vertical-align: middle; margin-right: 4px;"></span>
+                <span class="sfs-hr-toggle-label"><?php esc_html_e('Show Employees', 'sfs-hr'); ?></span>
+            </button>
         </div>
 
         <div class="sfs-hr-org-container">
@@ -4921,6 +4957,15 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                             <?php endif; ?>
 
                             <div class="sfs-hr-org-employees">
+                                <div class="sfs-hr-org-emp-hidden-hint">
+                                    <?php
+                                        $hidden_count = max( 0, (int) $dept['employee_count'] - ( $manager_employee ? 1 : 0 ) );
+                                        echo sprintf(
+                                        esc_html(_n('%d employee', '%d employees', $hidden_count, 'sfs-hr')),
+                                        $hidden_count
+                                    ); ?>
+                                    — <?php esc_html_e('click "Show Employees" to reveal', 'sfs-hr'); ?>
+                                </div>
                                 <?php if (empty($employees)): ?>
                                     <div class="sfs-hr-org-empty">
                                         <?php esc_html_e('No other employees in this department', 'sfs-hr'); ?>
@@ -7088,6 +7133,24 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             update_option( 'sfs_hr_holiday_notify_on_add', ! empty( $lv['holiday_notify'] ) ? '1' : '0' );
             update_option( 'sfs_hr_holiday_reminder_enabled', ! empty( $lv['holiday_remind'] ) ? '1' : '0' );
             update_option( 'sfs_hr_holiday_reminder_days', max( 1, min( 30, (int) ( $lv['holiday_reminder_days'] ?? 1 ) ) ) );
+        }
+
+        // ── Loans settings ────────────────────────────────────────
+        $loans_input = isset( $_POST['loans'] ) && is_array( $_POST['loans'] ) ? $_POST['loans'] : [];
+        if ( ! empty( $loans_input ) && class_exists( '\SFS\HR\Modules\Loans\LoansModule' ) ) {
+            $loans_saved = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+            $loans_saved['enabled']                  = ! empty( $loans_input['enabled'] );
+            $loans_saved['show_in_my_profile']       = ! empty( $loans_input['show_in_my_profile'] );
+            $loans_saved['allow_employee_requests']  = ! empty( $loans_input['allow_employee_requests'] );
+            $loans_saved['max_loan_amount']          = max( 0, (int) ( $loans_input['max_loan_amount'] ?? 0 ) );
+            if ( isset( $loans_input['gm_user_id'] ) ) {
+                $gm_id = (int) $loans_input['gm_user_id'];
+                $loans_saved['gm_user_ids'] = $gm_id > 0 ? [ $gm_id ] : [];
+            }
+            if ( isset( $loans_input['finance_user_id'] ) ) {
+                $loans_saved['finance_user_id'] = (int) $loans_input['finance_user_id'];
+            }
+            update_option( 'sfs_hr_loans_settings', $loans_saved );
         }
 
         // ── Notification settings ─────────────────────────────────
