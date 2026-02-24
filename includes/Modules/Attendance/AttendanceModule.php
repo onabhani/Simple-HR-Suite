@@ -4478,8 +4478,17 @@ $endUtc    = $nextLocal->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:
 // the clock-out at 01:30 falls outside the default midnight-to-midnight window.
 if ( ! empty( $segments ) ) {
     $lastSeg = end( $segments );
-    if ( $lastSeg['end_utc'] > $endUtc ) {
-        $endUtc = $lastSeg['end_utc'];
+
+    // Extend the punch query window past the shift's scheduled end to capture
+    // overtime clock-outs.  The buffer is shift_duration × 50%, capped at 4 hours,
+    // so we catch reasonable overtime without accidentally absorbing next-day punches.
+    $shiftDurationMin = $lastSeg['minutes'];
+    $bufferMin        = min( (int) round( $shiftDurationMin * 0.5 ), 240 ); // max 4 hours
+    $segEndTs         = strtotime( $lastSeg['end_utc'] . ' UTC' );
+    $extendedEndUtc   = gmdate( 'Y-m-d H:i:s', $segEndTs + $bufferMin * 60 );
+
+    if ( $extendedEndUtc > $endUtc ) {
+        $endUtc = $extendedEndUtc;
     }
 
     // Tighten the window START to (shift_start - 2 hours) to prevent stale
