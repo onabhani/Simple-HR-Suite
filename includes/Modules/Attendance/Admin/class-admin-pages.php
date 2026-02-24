@@ -30,6 +30,9 @@ class Admin_Pages {
     // Run after the core HR menu (which uses the same parent slug).
     add_action( 'admin_menu', [ $this, 'menu' ], 20 );
 
+    // Enqueue Leaflet assets only on attendance admin pages.
+    add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_leaflet_assets' ] );
+
     // Handlers ...
     add_action( 'admin_post_sfs_hr_att_save_settings', [ $this, 'handle_save_settings' ] );
     add_action( 'admin_post_sfs_hr_att_shift_save',    [ $this, 'handle_shift_save' ] );
@@ -56,7 +59,65 @@ class Admin_Pages {
     add_action( 'sfs_hr_employee_created', [ $this, 'auto_assign_on_employee_created' ], 10, 2 );
 }
 
-    
+    /**
+     * Register and enqueue Leaflet CSS/JS on attendance admin pages.
+     *
+     * Uses the CDN with SRI integrity attributes and provides a local
+     * fallback from assets/vendor/leaflet/ when the CDN load fails.
+     */
+    public function enqueue_leaflet_assets( string $hook ): void {
+        if ( strpos( $hook, 'sfs_hr_attendance' ) === false && strpos( $hook, 'sfs-hr-attendance' ) === false ) {
+            return;
+        }
+
+        $ver       = '1.9.4';
+        $cdn_css   = "https://unpkg.com/leaflet@{$ver}/dist/leaflet.css";
+        $cdn_js    = "https://unpkg.com/leaflet@{$ver}/dist/leaflet.js";
+        $local_css = SFS_HR_URL . 'assets/vendor/leaflet/leaflet.css';
+        $local_js  = SFS_HR_URL . 'assets/vendor/leaflet/leaflet.js';
+
+        // Register CDN assets.
+        wp_register_style( 'leaflet', $cdn_css, [], $ver );
+        wp_register_script( 'leaflet', $cdn_js, [], $ver, true );
+
+        // Add SRI integrity and crossorigin attributes via loader-tag filters.
+        add_filter( 'style_loader_tag', function ( $tag, $handle ) {
+            if ( 'leaflet' !== $handle ) {
+                return $tag;
+            }
+            return str_replace(
+                "rel='stylesheet'",
+                "rel='stylesheet' integrity='sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=' crossorigin=''",
+                $tag
+            );
+        }, 10, 2 );
+
+        add_filter( 'script_loader_tag', function ( $tag, $handle ) {
+            if ( 'leaflet' !== $handle ) {
+                return $tag;
+            }
+            return str_replace(
+                ' src=',
+                " integrity='sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=' crossorigin='' src=",
+                $tag
+            );
+        }, 10, 2 );
+
+        wp_enqueue_style( 'leaflet' );
+        wp_enqueue_script( 'leaflet' );
+
+        // Local fallback: if CDN fails, attempt to load the bundled copy.
+        wp_add_inline_script(
+            'leaflet',
+            sprintf(
+                'if(typeof L==="undefined"){var s=document.createElement("script");s.src=%s;document.head.appendChild(s);}',
+                wp_json_encode( $local_js )
+            ),
+            'after'
+        );
+    }
+
+
     /**
  * Submenu callback for: admin.php?page=sfs_hr_attendance_devices
  * Reuses the main Attendance hub UI but forces the "Devices" tab.
@@ -2091,8 +2152,6 @@ public function render_shifts(): void {
                         </div>
                     </div>
                     <div id="sfs-shift-map" style="height:300px;border:1px solid #c3c4c7;border-radius:4px;"></div>
-                        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
-                        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
                         <script>
                         (function(){
                             var mapEl = document.getElementById('sfs-shift-map');
@@ -4232,14 +4291,13 @@ public function render_exceptions(): void {
         if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) { wp_die( esc_html__( 'Access denied', 'sfs-hr' ) ); }
         global $wpdb; $t = $wpdb->prefix . 'sfs_hr_attendance_devices';
 
-        $rows = $wpdb->get_results( "SELECT * FROM {$t} ORDER BY active DESC, allowed_dept, label" );
-        // Get departments from Departments module
+        $rows = $wpdb->get_results( "SELECT * FROM {$t} ORDER BY active DESC, allowed_dept_id, label" );
+        // Get departments from Departments module – build ID-keyed label map.
         $dept_list   = Helpers::get_departments_for_select( true );
         $dept_labels = [];
         foreach ( $dept_list as $slug => $d ) {
-            $dept_labels[ $slug ] = $d['name'];
+            $dept_labels[ (int) $d['id'] ] = $d['name'];
         }
-        $dept_labels['any'] = __( 'Any', 'sfs-hr' );
 
         $editing = null;
         if ( isset($_GET['edit']) ) {
@@ -4447,12 +4505,12 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
                     </div>
                     <div class="sfs-field">
                         <label class="sfs-label"><?php esc_html_e( 'Allowed Department', 'sfs-hr' ); ?></label>
-                        <select name="allowed_dept">
-                            <?php $current_dept = (string) ( $editing->allowed_dept ?? 'any' ); ?>
-                            <option value="any" <?php selected( $current_dept, 'any' ); ?>><?php esc_html_e( 'Any', 'sfs-hr' ); ?></option>
+                        <select name="allowed_dept_id">
+                            <?php $current_dept_id = (int) ( $editing->allowed_dept_id ?? 0 ); ?>
+                            <option value="0" <?php selected( $current_dept_id, 0 ); ?>><?php esc_html_e( 'Any', 'sfs-hr' ); ?></option>
                             <?php if ( ! empty( $dept_list ) ) : ?>
                                 <?php foreach ( $dept_list as $slug => $dept ) : ?>
-                                    <option value="<?php echo esc_attr( $slug ); ?>" <?php selected( $current_dept, $slug ); ?>><?php echo esc_html( $dept['name'] ); ?></option>
+                                    <option value="<?php echo esc_attr( $dept['id'] ); ?>" <?php selected( $current_dept_id, (int) $dept['id'] ); ?>><?php echo esc_html( $dept['name'] ); ?></option>
                                 <?php endforeach; ?>
                             <?php endif; ?>
                         </select>
@@ -4514,8 +4572,6 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
                         </div>
                     </div>
                     <div id="sfs-device-map" style="height:300px;border:1px solid #c3c4c7;border-radius:4px;"></div>
-                    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
-                    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
                     <script>
                     (function(){
                         var mapEl = document.getElementById('sfs-device-map');
@@ -4644,8 +4700,8 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
         <h3 style="margin: 0 0 8px;"><?php esc_html_e( 'Existing Devices', 'sfs-hr' ); ?></h3>
         <div class="sfs-existing-devices-grid">
             <?php foreach ( $rows as $r ):
-                $key   = (string) $r->allowed_dept;
-                $d_label = $dept_labels[ $key ] ?? $key;
+                $dept_id = (int) ( $r->allowed_dept_id ?? 0 );
+                $d_label = $dept_id > 0 ? ( $dept_labels[ $dept_id ] ?? __( 'Unknown', 'sfs-hr' ) ) : __( 'Any', 'sfs-hr' );
                 $has_geo = $r->geo_lock_lat !== null && $r->geo_lock_lng !== null;
             ?>
                 <div class="sfs-existing-device-card <?php echo (int) $r->active ? '' : '--inactive'; ?><?php echo $has_geo ? ' --has-geo' : ''; ?>">
@@ -4724,7 +4780,8 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
         $lat = is_numeric($_POST['geo_lock_lat'] ?? null) ? (float)$_POST['geo_lock_lat'] : null;
         $lng = is_numeric($_POST['geo_lock_lng'] ?? null) ? (float)$_POST['geo_lock_lng'] : null;
         $rad = is_numeric($_POST['geo_lock_radius_m'] ?? null) ? max(10, (int)$_POST['geo_lock_radius_m']) : null;
-        $allowed_dept = sanitize_text_field( $_POST['allowed_dept'] ?? 'any' );
+        $allowed_dept_id = (int) ( $_POST['allowed_dept_id'] ?? 0 );
+        $allowed_dept_id = $allowed_dept_id > 0 ? $allowed_dept_id : null;
         $active = !empty($_POST['active']) ? 1 : 0;
         
         $qr_enabled  = !empty($_POST['qr_enabled']) ? 1 : 0;
@@ -4755,7 +4812,7 @@ $data = [
     'geo_lock_lat'      => $lat,
     'geo_lock_lng'      => $lng,
     'geo_lock_radius_m' => $rad,
-    'allowed_dept'      => $allowed_dept,
+    'allowed_dept_id'   => $allowed_dept_id,
     'active'            => $active,
 
     // keep these in columns
