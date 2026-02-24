@@ -1812,6 +1812,16 @@ public function render_shifts(): void {
             border-style: solid;
             border-left-style: solid;
         }
+        .sfs-existing-shift-card.--has-policy {
+            border-left-color: #7c3aed;
+        }
+        .sfs-existing-shift-card.--has-period {
+            border-left-color: #d97706;
+        }
+        .sfs-existing-shift-card.--inactive.--has-policy,
+        .sfs-existing-shift-card.--inactive.--has-period {
+            border-left-color: #9ca3af;
+        }
         .sfs-existing-shift-card .sfs-esc-header {
             display: flex;
             justify-content: space-between;
@@ -2448,7 +2458,7 @@ public function render_shifts(): void {
 
                     <div class="sfs-hr-form-group">
                         <label class="sfs-hr-form-label"><?php esc_html_e( 'Geofence', 'sfs-hr' ); ?></label>
-                        <div class="sfs-hr-form-row">
+                        <div class="sfs-hr-form-row sfs-geofence-row">
                             <div class="sfs-hr-form-group">
                                 <label class="sfs-hr-form-label" style="font-size:12px;font-weight:400;"><?php esc_html_e( 'Clock-in:', 'sfs-hr' ); ?></label>
                                 <select name="shift_geofence_in">
@@ -2527,7 +2537,7 @@ public function render_shifts(): void {
                     $has_period_overrides = is_array( $po ) && ! empty( $po );
                 }
                 ?>
-                <div class="sfs-existing-shift-card <?php echo (int) $r->active ? '' : '--inactive'; ?>">
+                <div class="sfs-existing-shift-card <?php echo (int) $r->active ? '' : '--inactive'; ?><?php echo $has_policy ? ' --has-policy' : ''; ?><?php echo $has_period_overrides ? ' --has-period' : ''; ?>">
                     <div class="sfs-esc-header">
                         <div>
                             <div class="sfs-esc-name"><?php echo esc_html( $r->name ); ?></div>

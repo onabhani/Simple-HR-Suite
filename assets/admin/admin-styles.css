@@ -447,10 +447,18 @@
     min-width: 0;
 }
 
+.sfs-hr-form-row.sfs-geofence-row {
+    gap: 8px;
+}
+
 @media screen and (max-width: 782px) {
     .sfs-hr-form-row {
         flex-direction: column;
         gap: 0;
+    }
+    .sfs-hr-form-row.sfs-geofence-row {
+        flex-direction: row;
+        gap: 8px;
     }
 }
 
