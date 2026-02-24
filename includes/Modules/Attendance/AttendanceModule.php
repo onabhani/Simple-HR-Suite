@@ -4637,9 +4637,66 @@ $rows = $wpdb->get_results( $wpdb->prepare(
 ) );
 
 $firstIn = null; $lastOut = null;
+$leadingOuts = []; // OUT punches that precede the first IN (belong to a previous day's session)
 foreach ($rows as $r) {
     if ($r->punch_type === 'in'  && $firstIn === null) $firstIn = $r->punch_time;
-    if ($r->punch_type === 'out') $lastOut = $r->punch_time;
+    if ($r->punch_type === 'out') {
+        if ( $firstIn !== null ) {
+            // Normal case: OUT after IN — update lastOut.
+            $lastOut = $r->punch_time;
+        } else {
+            // Leading OUT: this punch closes a previous day's incomplete session.
+            $leadingOuts[] = $r->punch_time;
+        }
+    }
+}
+
+// Retroactively close the previous day's incomplete session when leading OUTs
+// are found (e.g. employee clocked IN yesterday, forgot to clock OUT, then
+// clocked OUT today before starting a new session).  We update the previous
+// session directly because its punch window can't extend far enough to capture
+// today's OUT punch.
+if ( ! empty( $leadingOuts ) ) {
+    $prevDate = gmdate( 'Y-m-d', strtotime( $ymd ) - 86400 );
+    $sT       = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+    $prevSess = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, status, in_time, out_time, break_minutes, flags_json FROM {$sT}
+         WHERE employee_id = %d AND work_date = %s LIMIT 1",
+        $employee_id, $prevDate
+    ) );
+    if ( $prevSess && ( $prevSess->status === 'incomplete' || $prevSess->out_time === null ) && $prevSess->in_time ) {
+        $closingOut   = end( $leadingOuts );
+        $inTs         = strtotime( $prevSess->in_time . ' UTC' );
+        $outTs        = strtotime( $closingOut . ' UTC' );
+        $grossMinutes = ( $outTs > $inTs ) ? (int) round( ( $outTs - $inTs ) / 60 ) : 0;
+        $netMinutes   = max( 0, $grossMinutes - (int) $prevSess->break_minutes );
+
+        // Remove 'incomplete' flag, keep other flags.
+        $prevFlags = $prevSess->flags_json ? ( json_decode( $prevSess->flags_json, true ) ?: [] ) : [];
+        $prevFlags = array_values( array_filter( $prevFlags, fn( $f ) => $f !== 'incomplete' ) );
+
+        $prevStatus = 'present';
+        if ( in_array( 'late', $prevFlags, true ) && in_array( 'left_early', $prevFlags, true ) ) {
+            $prevStatus = 'late';
+        } elseif ( in_array( 'late', $prevFlags, true ) ) {
+            $prevStatus = 'late';
+        } elseif ( in_array( 'left_early', $prevFlags, true ) ) {
+            $prevStatus = 'left_early';
+        }
+
+        $wpdb->update(
+            $sT,
+            [
+                'out_time'            => $closingOut,
+                'net_minutes'         => $netMinutes,
+                'rounded_net_minutes' => $netMinutes,
+                'status'              => $prevStatus,
+                'flags_json'          => wp_json_encode( $prevFlags ),
+                'last_recalc_at'      => current_time( 'mysql', true ),
+            ],
+            [ 'id' => (int) $prevSess->id ]
+        );
+    }
 }
 
 
