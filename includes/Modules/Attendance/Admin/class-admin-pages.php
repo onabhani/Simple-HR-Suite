@@ -1879,6 +1879,38 @@ public function render_shifts(): void {
             padding-top: 8px;
             border-top: 1px solid #f0f0f1;
         }
+        .sfs-esc-actions .sfs-esc-btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 14px;
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 20px;
+            cursor: pointer;
+            text-decoration: none;
+            line-height: 1.5;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .sfs-esc-btn--edit {
+            background: #fff;
+            border: 1px solid #d1d5db;
+            color: #374151;
+        }
+        .sfs-esc-btn--edit:hover {
+            background: #f9fafb;
+            border-color: #9ca3af;
+            color: #111827;
+        }
+        .sfs-esc-btn--delete {
+            background: #fff;
+            border: 1px solid #fca5a5;
+            color: #dc2626;
+        }
+        .sfs-esc-btn--delete:hover {
+            background: #fef2f2;
+            border-color: #f87171;
+            color: #b91c1c;
+        }
 
         @media (max-width: 1200px) {
             .sfs-shifts-grid { grid-template-columns: repeat(2, 1fr); }
@@ -2596,7 +2628,7 @@ public function render_shifts(): void {
                         </dl>
                     </div>
                     <div class="sfs-esc-actions">
-                        <a class="button button-small"
+                        <a class="sfs-esc-btn sfs-esc-btn--edit"
                            href="<?php echo esc_url( admin_url( 'admin.php?page=sfs_hr_attendance&tab=shifts&edit=' . (int) $r->id ) ); ?>">
                             <?php esc_html_e( 'Edit', 'sfs-hr' ); ?>
                         </a>
@@ -2606,7 +2638,7 @@ public function render_shifts(): void {
                             <?php wp_nonce_field( 'sfs_hr_att_shift_delete' ); ?>
                             <input type="hidden" name="action" value="sfs_hr_att_shift_delete"/>
                             <input type="hidden" name="id" value="<?php echo (int) $r->id; ?>"/>
-                            <button class="button button-small" type="submit" style="color: #b32d2e;">
+                            <button class="sfs-esc-btn sfs-esc-btn--delete" type="submit">
                                 <?php esc_html_e( 'Delete', 'sfs-hr' ); ?>
                             </button>
                         </form>
