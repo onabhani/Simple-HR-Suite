@@ -115,6 +115,16 @@ class Admin_Pages {
             ),
             'after'
         );
+
+        // CSS fallback: if the CDN stylesheet failed, load the local copy.
+        wp_add_inline_script(
+            'leaflet',
+            sprintf(
+                '(function(){var ok=false;for(var i=0;i<document.styleSheets.length;i++){try{if(document.styleSheets[i].href&&document.styleSheets[i].href.indexOf("leaflet")!==-1){ok=true;break;}}catch(e){}}if(!ok){var l=document.createElement("link");l.rel="stylesheet";l.href=%s;document.head.appendChild(l);}})()',
+                wp_json_encode( $local_css )
+            ),
+            'after'
+        );
     }
 
 

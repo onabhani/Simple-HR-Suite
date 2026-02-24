@@ -1153,15 +1153,26 @@ private static function save_selfie_attachment( array $src ): int {
             $prev_segs  = \SFS\HR\Modules\Attendance\AttendanceModule::build_segments_from_shift( $prev_shift, $work_date );
 
             $still_within_buffer = false;
+            $nowTs = current_time( 'timestamp', true );
+
             if ( ! empty( $prev_segs ) ) {
-                $lastSeg       = end( $prev_segs );
-                $segEndTs      = strtotime( $lastSeg['end_utc'] . ' UTC' );
-                $confBuf       = isset( $prev_shift->overtime_buffer_minutes ) ? (int) $prev_shift->overtime_buffer_minutes : 0;
-                $bufferMin     = $confBuf > 0
-                    ? $confBuf
+                $lastSeg    = end( $prev_segs );
+                $segEndTs   = strtotime( $lastSeg['end_utc'] . ' UTC' );
+                $confBufRaw = $prev_shift->overtime_buffer_minutes ?? null;
+                $bufferMin  = ( $confBufRaw !== null )
+                    ? (int) $confBufRaw
                     : min( (int) round( $lastSeg['minutes'] * 0.5 ), 240 );
-                $deadlineTs    = $segEndTs + $bufferMin * 60;
-                $nowTs         = current_time( 'timestamp', true );
+                $deadlineTs = $segEndTs + $bufferMin * 60;
+                $still_within_buffer = ( $nowTs <= $deadlineTs );
+            } else {
+                // Total-hours shifts (00:00–00:00) produce no segments.
+                // Fall back to a time cap from the last IN punch so the
+                // employee can still close the overnight session.
+                $confBufRaw = ( $prev_shift->overtime_buffer_minutes ?? null );
+                $bufferMin  = ( $confBufRaw !== null )
+                    ? (int) $confBufRaw
+                    : 1440; // 24-hour default for segment-less shifts
+                $deadlineTs = $last_ts_g + $bufferMin * 60;
                 $still_within_buffer = ( $nowTs <= $deadlineTs );
             }
 
