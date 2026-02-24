@@ -43,7 +43,9 @@ class Admin {
     public function enqueue_admin_styles( string $hook ): void {
         // Only load on our plugin's admin pages.
         $screen = get_current_screen();
-        if ( $screen && ( strpos( $screen->id, 'sfs-hr' ) !== false || strpos( $hook, 'sfs-hr' ) !== false ) ) {
+        $is_hr_page = $screen && ( strpos( $screen->id, 'sfs-hr' ) !== false || strpos( $screen->id, 'sfs_hr' ) !== false );
+        $is_hr_hook = strpos( $hook, 'sfs-hr' ) !== false || strpos( $hook, 'sfs_hr' ) !== false;
+        if ( $is_hr_page || $is_hr_hook ) {
             wp_enqueue_style(
                 'sfs-hr-admin',
                 SFS_HR_URL . 'assets/admin/admin-styles.css',
@@ -52,7 +54,7 @@ class Admin {
             );
 
             // Chart.js for dashboard and performance pages (loaded once, deferred)
-            if ( strpos( $hook, 'sfs-hr' ) !== false && strpos( $hook, 'sfs-hr-employees' ) === false ) {
+            if ( $is_hr_hook && strpos( $hook, 'sfs-hr-employees' ) === false && strpos( $hook, 'sfs_hr_employees' ) === false ) {
                 wp_enqueue_script( 'chart-js', 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js', [], '4.4.1', true );
             }
         }
@@ -3822,7 +3824,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         <?php
     };
     ?>
-    <div class="wrap">
+    <div class="wrap sfs-hr-wrap">
         <h1><?php echo esc_html__( 'Edit Employee', 'sfs-hr' ); ?></h1>
 
         <style>

@@ -747,7 +747,7 @@ class AdminPages {
         );
 
         ?>
-        <div class="wrap">
+        <div class="wrap sfs-hr-wrap">
             <h1>
                 <?php esc_html_e( 'Create New Loan', 'sfs-hr' ); ?>
                 <a href="?page=sfs-hr-loans" class="page-title-action"><?php esc_html_e( '← Back to List', 'sfs-hr' ); ?></a>
@@ -1559,7 +1559,7 @@ class AdminPages {
         ) );
 
         if ( ! $loan ) {
-            echo '<div class="wrap"><h1>' . esc_html__( 'Loan not found', 'sfs-hr' ) . '</h1></div>';
+            echo '<div class="wrap sfs-hr-wrap"><h1>' . esc_html__( 'Loan not found', 'sfs-hr' ) . '</h1></div>';
             return;
         }
 
@@ -1582,7 +1582,7 @@ class AdminPages {
         ) );
 
         ?>
-        <div class="wrap">
+        <div class="wrap sfs-hr-wrap">
             <h1>
                 <?php echo esc_html( $loan->loan_number ); ?>
                 <a href="?page=sfs-hr-loans" class="page-title-action"><?php esc_html_e( '← Back to List', 'sfs-hr' ); ?></a>
@@ -2433,7 +2433,7 @@ class AdminPages {
                     wp_safe_redirect( add_query_arg( [
                         'page' => 'sfs-hr-loans',
                         'action' => 'create',
-                        'error' => urlencode( 'Failed to create loan: ' . $wpdb->last_error ),
+                        'error' => urlencode( __( 'Failed to create loan. Please contact an administrator.', 'sfs-hr' ) ),
                     ], admin_url( 'admin.php' ) ) );
                     exit;
                 }
@@ -2485,8 +2485,7 @@ class AdminPages {
             $due_date = clone $first_date;
             $due_date->modify( '+' . ($i - 1) . ' months' );
 
-            // Last installment may need adjustment for rounding
-            $amount = ( $i === $installments ) ? $installment_amount : $installment_amount;
+            $amount = $installment_amount;
 
             $wpdb->insert( $payments_table, [
                 'loan_id'        => $loan_id,

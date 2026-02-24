@@ -209,7 +209,7 @@ class AssetsModule {
         )
     );
     ?>
-    <div class="wrap">
+    <div class="wrap sfs-hr-wrap">
         <h2><?php echo esc_html__( 'Employee Assets', 'sfs-hr' ); ?></h2>
 
         <?php if ( empty( $rows ) ) : ?>
