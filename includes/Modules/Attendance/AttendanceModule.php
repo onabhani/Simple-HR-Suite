@@ -4594,9 +4594,9 @@ if ( ! empty( $segments ) ) {
     // Extend the punch query window past the shift's scheduled end to capture
     // overtime clock-outs.  Use the admin-configured buffer if set on the shift,
     // otherwise fall back to shift_duration × 50% capped at 4 hours.
-    $configuredBuffer = isset( $shift->overtime_buffer_minutes ) ? (int) $shift->overtime_buffer_minutes : 0;
-    if ( $configuredBuffer > 0 ) {
-        $bufferMin = $configuredBuffer;
+    $configuredBuffer = $shift->overtime_buffer_minutes ?? null;
+    if ( $configuredBuffer !== null ) {
+        $bufferMin = (int) $configuredBuffer;
     } else {
         $shiftDurationMin = $lastSeg['minutes'];
         $bufferMin        = min( (int) round( $shiftDurationMin * 0.5 ), 240 ); // max 4 hours
@@ -4637,11 +4637,89 @@ $rows = $wpdb->get_results( $wpdb->prepare(
 ) );
 
 $firstIn = null; $lastOut = null;
+$leadingOuts = []; // OUT punches that precede the first IN (belong to a previous day's session)
 foreach ($rows as $r) {
     if ($r->punch_type === 'in'  && $firstIn === null) $firstIn = $r->punch_time;
-    if ($r->punch_type === 'out') $lastOut = $r->punch_time;
+    if ($r->punch_type === 'out') {
+        if ( $firstIn !== null ) {
+            // Normal case: OUT after IN — update lastOut.
+            $lastOut = $r->punch_time;
+        } else {
+            // Leading OUT: this punch closes a previous day's incomplete session.
+            $leadingOuts[] = $r->punch_time;
+        }
+    }
 }
 
+// Retroactively close the previous day's incomplete session when leading OUTs
+// are found (e.g. employee clocked IN yesterday, forgot to clock OUT, then
+// clocked OUT today before starting a new session).  We update the previous
+// session directly because its punch window can't extend far enough to capture
+// today's OUT punch.
+if ( ! empty( $leadingOuts ) ) {
+    $prevDateDt = ( new \DateTimeImmutable( $ymd, wp_timezone() ) )->modify( '-1 day' );
+    $prevDate   = $prevDateDt->format( 'Y-m-d' );
+    $sT         = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+    $prevSess   = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, status, in_time, out_time, break_minutes, flags_json FROM {$sT}
+         WHERE employee_id = %d AND work_date = %s LIMIT 1",
+        $employee_id, $prevDate
+    ) );
+    if ( $prevSess && ( $prevSess->status === 'incomplete' || $prevSess->out_time === null ) && $prevSess->in_time ) {
+        $closingOut   = end( $leadingOuts );
+        $inTs         = strtotime( $prevSess->in_time . ' UTC' );
+        $outTs        = strtotime( $closingOut . ' UTC' );
+        $grossMinutes = ( $outTs > $inTs ) ? (int) round( ( $outTs - $inTs ) / 60 ) : 0;
+        $netMinutes   = max( 0, $grossMinutes - (int) $prevSess->break_minutes );
+
+        // Apply the same rounding rule the normal path uses.
+        $prevShift  = self::resolve_shift_for_date( $employee_id, $prevDate, [], $wpdb );
+        $prevSettings = get_option( self::OPT_SETTINGS ) ?: [];
+        $prevRound    = ( $prevShift && isset( $prevShift->rounding_rule ) )
+            ? (string) $prevShift->rounding_rule
+            : (string) ( $prevSettings['default_rounding_rule'] ?? '5' );
+        $prevRoundN   = ( $prevRound === 'none' ) ? 0 : (int) $prevRound;
+        $roundedNet   = $netMinutes;
+        if ( $prevRoundN > 0 ) {
+            $roundedNet = (int) round( $netMinutes / $prevRoundN ) * $prevRoundN;
+        }
+
+        // Remove 'incomplete' flag, keep other flags.
+        $prevFlags = $prevSess->flags_json ? ( json_decode( $prevSess->flags_json, true ) ?: [] ) : [];
+        $prevFlags = array_values( array_filter( $prevFlags, fn( $f ) => $f !== 'incomplete' ) );
+
+        $prevStatus = 'present';
+        if ( in_array( 'late', $prevFlags, true ) && in_array( 'left_early', $prevFlags, true ) ) {
+            $prevStatus = 'late';
+        } elseif ( in_array( 'late', $prevFlags, true ) ) {
+            $prevStatus = 'late';
+        } elseif ( in_array( 'left_early', $prevFlags, true ) ) {
+            $prevStatus = 'left_early';
+        }
+
+        $wpdb->update(
+            $sT,
+            [
+                'out_time'            => $closingOut,
+                'net_minutes'         => $netMinutes,
+                'rounded_net_minutes' => $roundedNet,
+                'status'              => $prevStatus,
+                'flags_json'          => wp_json_encode( $prevFlags ),
+                'last_recalc_at'      => current_time( 'mysql', true ),
+            ],
+            [ 'id' => (int) $prevSess->id ]
+        );
+    }
+}
+
+// Strip leading OUTs from $rows so downstream aggregations (is_kiosk_day,
+// geo/selfie flags, break logic, evaluate_segments) only process punches
+// that belong to today's session.
+if ( ! empty( $leadingOuts ) ) {
+    $rows = array_values( array_filter( $rows, function ( $r ) use ( $leadingOuts ) {
+        return ! in_array( $r->punch_time, $leadingOuts, true );
+    } ) );
+}
 
     // Grace & rounding — per-shift values first, global settings as fallback
     $settings = get_option(self::OPT_SETTINGS) ?: [];

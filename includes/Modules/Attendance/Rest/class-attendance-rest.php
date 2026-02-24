@@ -1120,11 +1120,13 @@ private static function save_selfie_attachment( array $src ): int {
     // --- Overnight shift detection ---
     // If the employee's last punch (globally) is an open 'in' or 'break_end'
     // from yesterday, they have an unfinished session and should be able to
-    // clock out today.  We extend the window backward to include yesterday's
-    // punches so the state machine sees the full session.
+    // clock out today — but only within the shift's overtime buffer.
     //
     // Previous approach compared current time to shift end_utc which failed
     // when the employee tried to clock out even 1 second after shift end.
+    // We now use the same overtime buffer the session builder uses so the
+    // employee can clock out during a reasonable window after shift end,
+    // but stale sessions (e.g. forgot to clock out) auto-expire.
     $overnight_ymd = '';
 
     // Get employee's absolute last punch (no date filter)
@@ -1140,15 +1142,46 @@ private static function save_selfie_attachment( array $src ): int {
         $last_local   = wp_date( 'Y-m-d', $last_ts_g );
 
         // If the last punch is an open session (in or break_end, not out)
-        // and it belongs to a previous day, extend the window backward to
-        // capture the full session.  Limit to 1 day back to avoid stale
-        // sessions from days ago (e.g. employee forgot to clock out).
+        // and it belongs to a previous day, check whether we're still within
+        // the shift's allowed window before extending.
         $yesterday = wp_date( 'Y-m-d', strtotime( '-1 day' ) );
         if ( in_array( $last_type_g, [ 'in', 'break_end' ], true ) && $last_local >= $yesterday && $last_local < $today ) {
-            $work_date     = $last_local; // the day the session started
-            $work_local    = new \DateTimeImmutable( $work_date . ' 00:00:00', $tz );
-            $start_utc     = $work_local->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' );
-            $overnight_ymd = $work_date;
+            // Resolve the shift for the day the session started and check
+            // whether current time is still within shift_end + buffer.
+            $work_date  = $last_local;
+            $prev_shift = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( $employee_id, $work_date );
+            $prev_segs  = \SFS\HR\Modules\Attendance\AttendanceModule::build_segments_from_shift( $prev_shift, $work_date );
+
+            $still_within_buffer = false;
+            $nowTs = current_time( 'timestamp', true );
+
+            if ( ! empty( $prev_segs ) ) {
+                $lastSeg    = end( $prev_segs );
+                $segEndTs   = strtotime( $lastSeg['end_utc'] . ' UTC' );
+                $confBufRaw = $prev_shift->overtime_buffer_minutes ?? null;
+                $bufferMin  = ( $confBufRaw !== null )
+                    ? (int) $confBufRaw
+                    : min( (int) round( $lastSeg['minutes'] * 0.5 ), 240 );
+                $deadlineTs = $segEndTs + $bufferMin * 60;
+                $still_within_buffer = ( $nowTs <= $deadlineTs );
+            } else {
+                // Total-hours shifts (00:00–00:00) produce no segments.
+                // Fall back to a time cap from the last IN punch so the
+                // employee can still close the overnight session.
+                $confBufRaw = ( $prev_shift->overtime_buffer_minutes ?? null );
+                $bufferMin  = ( $confBufRaw !== null )
+                    ? (int) $confBufRaw
+                    : 1440; // 24-hour default for segment-less shifts
+                $deadlineTs = $last_ts_g + $bufferMin * 60;
+                $still_within_buffer = ( $nowTs <= $deadlineTs );
+            }
+
+            if ( $still_within_buffer ) {
+                $work_local    = new \DateTimeImmutable( $work_date . ' 00:00:00', $tz );
+                $start_utc     = $work_local->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' );
+                $overnight_ymd = $work_date;
+            }
+            // else: buffer expired — treat the employee as idle (forgot to clock out)
         }
     }
 

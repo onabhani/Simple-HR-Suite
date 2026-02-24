@@ -458,6 +458,11 @@
         flex-direction: column;
         gap: 0;
     }
+    /*
+     * Override: .sfs-hr-form-row.sfs-geofence-row keeps flex-direction: row
+     * on mobile (≤ 782 px) so the lat/lng inputs stay side-by-side instead of
+     * stacking into a column like the generic .sfs-hr-form-row rule above.
+     */
     .sfs-hr-form-row.sfs-geofence-row {
         flex-direction: row;
         gap: 8px;
