@@ -187,187 +187,147 @@ add_action('admin_init', function(){
     $stored          = get_option('sfs_hr_db_ver', '0');
     $needs_migration = version_compare((string) $stored, SFS_HR_VER, '<');
 
-    $needs_tables = (
-        !$table_exists($types_table)          ||
-        !$table_exists($req_table)            ||
-        !$table_exists($bal_table)            ||
-        !$table_exists($emp_table)            ||
-        !$table_exists($dept_table)           ||
-
-        // From first version
-        !$table_exists($resign_table)         ||
-        !$table_exists($settle_table)         ||
-
-        // From second version
-        !$table_exists($assets_table)         ||
-        !$table_exists($assign_table)         ||
-        !$table_exists($loans_table)          ||
-        !$table_exists($loan_payments_table)  ||
-        !$table_exists($loan_history_table)   ||
-        !$table_exists($leave_history_table)  ||
-
-        // Hiring module
-        !$table_exists($candidates_table)     ||
-        !$table_exists($trainees_table)       ||
-
-        // Performance module
-        !$table_exists($perf_snapshots_table) ||
-        !$table_exists($perf_goals_table)     ||
-        !$table_exists($perf_reviews_table)   ||
-        !$table_exists($perf_alerts_table)    ||
-
-        // Attendance policies
-        !$table_exists($att_policies_table)     ||
-        !$table_exists($att_policy_roles_table) ||
-
-        // Surveys module
-        !$table_exists($surveys_table)          ||
-        !$table_exists($survey_questions_table) ||
-        !$table_exists($survey_responses_table) ||
-        !$table_exists($survey_answers_table)
-    );
-
+    // Only run expensive table/column existence checks when a version upgrade
+    // is detected.  On steady-state requests (DB already up to date) this
+    // skips 28+ information_schema queries per admin page load.
+    $needs_tables  = false;
     $needs_columns = false;
-    if ($table_exists($types_table) && !$column_exists($types_table, 'is_annual')) {
-        $needs_columns = true;
-    }
-    if ($table_exists($emp_table) && !$column_exists($emp_table, 'hire_date')) {
-        $needs_columns = true;
-    }
-    if ($table_exists($shifts_table) && !$column_exists($shifts_table, 'weekly_overrides')) {
-        $needs_columns = true;
+
+    if ( $needs_migration ) {
+        $needs_tables = (
+            !$table_exists($types_table)          ||
+            !$table_exists($req_table)            ||
+            !$table_exists($bal_table)            ||
+            !$table_exists($emp_table)            ||
+            !$table_exists($dept_table)           ||
+
+            // From first version
+            !$table_exists($resign_table)         ||
+            !$table_exists($settle_table)         ||
+
+            // From second version
+            !$table_exists($assets_table)         ||
+            !$table_exists($assign_table)         ||
+            !$table_exists($loans_table)          ||
+            !$table_exists($loan_payments_table)  ||
+            !$table_exists($loan_history_table)   ||
+            !$table_exists($leave_history_table)  ||
+
+            // Hiring module
+            !$table_exists($candidates_table)     ||
+            !$table_exists($trainees_table)       ||
+
+            // Performance module
+            !$table_exists($perf_snapshots_table) ||
+            !$table_exists($perf_goals_table)     ||
+            !$table_exists($perf_reviews_table)   ||
+            !$table_exists($perf_alerts_table)    ||
+
+            // Attendance policies
+            !$table_exists($att_policies_table)     ||
+            !$table_exists($att_policy_roles_table) ||
+
+            // Surveys module
+            !$table_exists($surveys_table)          ||
+            !$table_exists($survey_questions_table) ||
+            !$table_exists($survey_responses_table) ||
+            !$table_exists($survey_answers_table)
+        );
+
+        if ($table_exists($types_table) && !$column_exists($types_table, 'is_annual')) {
+            $needs_columns = true;
+        }
+        if ($table_exists($emp_table) && !$column_exists($emp_table, 'hire_date')) {
+            $needs_columns = true;
+        }
+        if ($table_exists($shifts_table) && !$column_exists($shifts_table, 'weekly_overrides')) {
+            $needs_columns = true;
+        }
     }
 
     if ($needs_migration || $needs_tables || $needs_columns) {
         \SFS\HR\Install\Migrations::run();
         \SFS\HR\Modules\Hiring\HiringModule::install();
         \SFS\HR\Modules\Surveys\SurveysModule::install();
-        update_option('sfs_hr_db_ver', SFS_HR_VER);
-    }
 
-    // One-time cleanup: remove false early leave requests created by pre-fix code
-    \SFS\HR\Install\Migrations::cleanup_false_early_leave_requests();
+        // One-time cleanup/repair migrations (each is idempotent with its own guard)
+        \SFS\HR\Install\Migrations::cleanup_false_early_leave_requests();
+        \SFS\HR\Install\Migrations::repair_total_hours_sessions();
+        \SFS\HR\Install\Migrations::cleanup_stale_overnight_adjust_punches();
+        \SFS\HR\Install\Migrations::backfill_missing_early_leave_requests();
 
-    // One-time repair: recalculate sessions for total-hours shifts that had
-    // incorrect Late/Left early/No break flags due to bogus 24h segments.
-    \SFS\HR\Install\Migrations::repair_total_hours_sessions();
+        // Self-heal module tables if missing
+        if (!$table_exists($candidates_table) || !$table_exists($trainees_table)) {
+            \SFS\HR\Modules\Hiring\HiringModule::install();
+        }
+        if (!$table_exists($surveys_table) || !$table_exists($survey_questions_table) || !$table_exists($survey_responses_table) || !$table_exists($survey_answers_table)) {
+            \SFS\HR\Modules\Surveys\SurveysModule::install();
+        }
 
-    // One-time cleanup: remove stale manager_adjust OUT punches from overnight workarounds
-    \SFS\HR\Install\Migrations::cleanup_stale_overnight_adjust_punches();
-
-    // One-time backfill: create missing early leave requests for left_early sessions
-    \SFS\HR\Install\Migrations::backfill_missing_early_leave_requests();
-
-    // Self-heal Hiring tables if missing
-    if (!$table_exists($candidates_table) || !$table_exists($trainees_table)) {
-        \SFS\HR\Modules\Hiring\HiringModule::install();
-    }
-
-    // Self-heal Surveys tables if missing
-    if (!$table_exists($surveys_table) || !$table_exists($survey_questions_table) || !$table_exists($survey_responses_table) || !$table_exists($survey_answers_table)) {
-        \SFS\HR\Modules\Surveys\SurveysModule::install();
-    }
-
-    // Seed/mark data if tables already exist
-    if ($table_exists($types_table)) {
-        $count_types = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$types_table}");
-        if ($count_types === 0) {
-            \SFS\HR\Install\Migrations::run();
-            update_option('sfs_hr_db_ver', SFS_HR_VER);
-        } else {
-            // Mark annual names broadly
-            if ($column_exists($types_table, 'is_annual')) {
-                $wpdb->query("UPDATE {$types_table}
-                              SET is_annual = 1
-                              WHERE (LOWER(name) = 'annual'
-                                  OR LOWER(name) = 'annual leave'
-                                  OR LOWER(name) = 'annual vacation'
-                                  OR LOWER(name) LIKE 'annual %')
-                                AND (is_annual IS NULL OR is_annual = 0)");
+        // Seed/mark data if tables already exist
+        if ($table_exists($types_table)) {
+            $count_types = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$types_table}");
+            if ($count_types === 0) {
+                \SFS\HR\Install\Migrations::run();
+            } else {
+                // Mark annual names broadly
+                if ($column_exists($types_table, 'is_annual')) {
+                    $wpdb->query("UPDATE {$types_table}
+                                  SET is_annual = 1
+                                  WHERE (LOWER(name) = 'annual'
+                                      OR LOWER(name) = 'annual leave'
+                                      OR LOWER(name) = 'annual vacation'
+                                      OR LOWER(name) LIKE 'annual %')
+                                    AND (is_annual IS NULL OR is_annual = 0)");
+                }
+                add_option('sfs_hr_annual_lt5', '21');
+                add_option('sfs_hr_annual_ge5', '30');
             }
-
-            add_option('sfs_hr_annual_lt5', '21');
-            add_option('sfs_hr_annual_ge5', '30');
-        }
-    }
-
-    // Ensure global fallback approver role option exists
-    if (get_option('sfs_hr_global_approver_role', '') === '') {
-        add_option('sfs_hr_global_approver_role', 'sfs_hr_manager');
-    }
-
-    // Migrate attendance sessions ENUM to include 'day_off' (v0.1.8+ fix)
-    // This fixes incorrect 'holiday' status for days without shifts
-    if ($table_exists($sessions_table)) {
-        $col_type = $wpdb->get_var($wpdb->prepare(
-            "SELECT COLUMN_TYPE FROM information_schema.columns
-             WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'status'",
-            $sessions_table
-        ));
-        // Check if 'day_off' is NOT in the ENUM definition
-        if ($col_type && strpos($col_type, "'day_off'") === false) {
-            $wpdb->query("ALTER TABLE {$sessions_table}
-                          MODIFY COLUMN status ENUM('present','late','left_early','absent','incomplete','on_leave','holiday','day_off')
-                          NOT NULL DEFAULT 'present'");
-            // Update existing incorrect 'holiday' records where no shift was assigned
-            // These should be 'day_off' (no scheduled work) not 'holiday' (company holiday)
-            $wpdb->query("UPDATE {$sessions_table} SET status = 'day_off'
-                          WHERE status = 'holiday' AND shift_assign_id IS NULL");
-        }
-    }
-
-    // Migrate leave_types table to add gender filtering and attachment options
-    if ($table_exists($types_table)) {
-        // Add gender_required column
-        $has_gender = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'gender_required'",
-            $types_table
-        ));
-        if (!$has_gender) {
-            $wpdb->query("ALTER TABLE {$types_table} ADD COLUMN gender_required ENUM('any','male','female') DEFAULT 'any' AFTER special_code");
-            // Auto-set gender for existing maternity/paternity leaves based on special_code
-            $wpdb->query("UPDATE {$types_table} SET gender_required = 'female' WHERE special_code = 'MATERNITY'");
-            $wpdb->query("UPDATE {$types_table} SET gender_required = 'male' WHERE special_code = 'PATERNITY'");
         }
 
-        // Add requires_attachment column
-        $has_attachment = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'requires_attachment'",
-            $types_table
-        ));
-        if (!$has_attachment) {
-            $wpdb->query("ALTER TABLE {$types_table} ADD COLUMN requires_attachment TINYINT(1) DEFAULT 0 AFTER gender_required");
-            // Auto-enable attachment for sick leave types
-            $wpdb->query("UPDATE {$types_table} SET requires_attachment = 1 WHERE special_code IN ('SICK_SHORT', 'SICK_LONG')");
+        // Migrate attendance sessions ENUM to include 'day_off'
+        if ($table_exists($sessions_table)) {
+            $col_type = $wpdb->get_var($wpdb->prepare(
+                "SELECT COLUMN_TYPE FROM information_schema.columns
+                 WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'status'",
+                $sessions_table
+            ));
+            if ($col_type && strpos($col_type, "'day_off'") === false) {
+                $wpdb->query("ALTER TABLE {$sessions_table}
+                              MODIFY COLUMN status ENUM('present','late','left_early','absent','incomplete','on_leave','holiday','day_off')
+                              NOT NULL DEFAULT 'present'");
+                $wpdb->query("UPDATE {$sessions_table} SET status = 'day_off'
+                              WHERE status = 'holiday' AND shift_assign_id IS NULL");
+            }
         }
 
-        // Add color column if missing
-        $has_color = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'color'",
-            $types_table
-        ));
-        if (!$has_color) {
-            $wpdb->query("ALTER TABLE {$types_table} ADD COLUMN color VARCHAR(20) DEFAULT '#2271b1' AFTER requires_attachment");
+        // Migrate leave_types: gender filtering + attachment + color columns
+        if ($table_exists($types_table)) {
+            if (!$column_exists($types_table, 'gender_required')) {
+                $wpdb->query("ALTER TABLE {$types_table} ADD COLUMN gender_required ENUM('any','male','female') DEFAULT 'any' AFTER special_code");
+                $wpdb->query("UPDATE {$types_table} SET gender_required = 'female' WHERE special_code = 'MATERNITY'");
+                $wpdb->query("UPDATE {$types_table} SET gender_required = 'male' WHERE special_code = 'PATERNITY'");
+            }
+            if (!$column_exists($types_table, 'requires_attachment')) {
+                $wpdb->query("ALTER TABLE {$types_table} ADD COLUMN requires_attachment TINYINT(1) DEFAULT 0 AFTER gender_required");
+                $wpdb->query("UPDATE {$types_table} SET requires_attachment = 1 WHERE special_code IN ('SICK_SHORT', 'SICK_LONG')");
+            }
+            if (!$column_exists($types_table, 'color')) {
+                $wpdb->query("ALTER TABLE {$types_table} ADD COLUMN color VARCHAR(20) DEFAULT '#2271b1' AFTER requires_attachment");
+            }
         }
-    }
 
-    // Migrate employees table to add birth_date column for birthday reminders
-    if ($table_exists($emp_table)) {
-        $has_birth_date = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'birth_date'",
-            $emp_table
-        ));
-        if (!$has_birth_date) {
+        // Migrate employees: birth_date column
+        if ($table_exists($emp_table) && !$column_exists($emp_table, 'birth_date')) {
             $wpdb->query("ALTER TABLE {$emp_table} ADD COLUMN birth_date DATE DEFAULT NULL AFTER gender");
         }
-    }
 
-    // Self-heal Assets tables if missing - use direct SQL instead of dbDelta
-    if (!$table_exists($assets_table) || !$table_exists($assign_table)) {
-        $charset_collate = $wpdb->get_charset_collate();
+        // Self-heal Assets tables
+        if (!$table_exists($assets_table) || !$table_exists($assign_table)) {
+            $charset_collate = $wpdb->get_charset_collate();
 
-        // Create Assets table
-        if (!$table_exists($assets_table)) {
+            // Create Assets table
+            if (!$table_exists($assets_table)) {
             $wpdb->query("CREATE TABLE IF NOT EXISTS {$assets_table} (
                 id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
                 asset_code VARCHAR(50) NOT NULL,
@@ -422,8 +382,16 @@ add_action('admin_init', function(){
             ) {$charset_collate}");
         }
 
-        // Set the version option
-        update_option('sfs_hr_assets_db_version', SFS_HR_VER);
+            // Set the version option
+            update_option('sfs_hr_assets_db_version', SFS_HR_VER);
+        }
+
+        update_option('sfs_hr_db_ver', SFS_HR_VER);
+    }
+
+    // Ensure global fallback approver role option exists (lightweight, runs always)
+    if (get_option('sfs_hr_global_approver_role', '') === '') {
+        add_option('sfs_hr_global_approver_role', 'sfs_hr_manager');
     }
 });
 

@@ -1077,7 +1077,11 @@ class Admin_Pages {
     }
 
     public function handle_save_component(): void {
-        // TODO: Implement component editing
+        wp_die(
+            __( 'Payroll component editing is not yet available.', 'sfs-hr' ),
+            __( 'Feature Not Implemented', 'sfs-hr' ),
+            [ 'response' => 501, 'back_link' => true ]
+        );
     }
 
     /**

@@ -62,7 +62,6 @@ class Capabilities {
     public static function dynamic_caps(array $allcaps, array $caps, array $args, \WP_User $user): array {
         if (empty($user->ID)) return $allcaps;
 
-        global $wpdb;
         $uid = (int)$user->ID;
 
         // Administrators get base HR capabilities (fallback if static caps weren't properly assigned)
@@ -74,7 +73,6 @@ class Capabilities {
             $allcaps['sfs_hr.leave.manage']   = true;
             $allcaps['sfs_hr.leave.review']   = true;
             $allcaps['sfs_hr.leave.request']  = true;
-            // sfs_hr_loans_finance_approve and sfs_hr_loans_gm_approve are position-based only
         }
 
         // Anyone with sfs_hr.manage automatically gets performance view
@@ -82,26 +80,34 @@ class Capabilities {
             $allcaps['sfs_hr_performance_view'] = true;
         }
 
-        // If an active employee row exists -> can request leave
-        $emp_tbl = $wpdb->prefix . 'sfs_hr_employees';
-        $has_emp = (int)$wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM `$emp_tbl` WHERE user_id=%d AND status='active'",
-            $uid
-        ));
-        if ($has_emp > 0) {
+        // Cache DB lookups per request — user_has_cap fires on every
+        // current_user_can() call, but the employee/manager status won't
+        // change mid-request.
+        static $cache = [];
+        if ( ! isset( $cache[ $uid ] ) ) {
+            global $wpdb;
+            $emp_tbl  = $wpdb->prefix . 'sfs_hr_employees';
+            $dept_tbl = $wpdb->prefix . 'sfs_hr_departments';
+
+            $cache[ $uid ] = [
+                'is_emp' => (int) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COUNT(*) FROM `$emp_tbl` WHERE user_id=%d AND status='active'",
+                    $uid
+                ) ) > 0,
+                'is_mgr' => (int) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COUNT(*) FROM `$dept_tbl` WHERE manager_user_id=%d AND active=1",
+                    $uid
+                ) ) > 0,
+            ];
+        }
+
+        if ( $cache[ $uid ]['is_emp'] ) {
             $allcaps['sfs_hr.leave.request'] = true;
         }
 
-        // If mapped as a department manager -> can view HR + review leaves
-        $dept_tbl = $wpdb->prefix . 'sfs_hr_departments';
-        $is_mgr = (int)$wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM `$dept_tbl` WHERE manager_user_id=%d AND active=1",
-            $uid
-        ));
-        if ($is_mgr > 0) {
-            $allcaps['sfs_hr.view']         = true; // shows HR menu if your menu uses this cap
+        if ( $cache[ $uid ]['is_mgr'] ) {
+            $allcaps['sfs_hr.view']         = true;
             $allcaps['sfs_hr.leave.review'] = true;
-            // Deliberately NOT granting sfs_hr.manage here (that's for HR admins).
         }
 
         return $allcaps;

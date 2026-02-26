@@ -157,7 +157,8 @@ class Early_Leave_Rest {
             return new \WP_Error( 'db_error', __( 'Failed to create request.', 'sfs-hr' ), [ 'status' => 500 ] );
         }
 
-        // TODO: Send notification to manager
+        // Notify manager that a new early leave request was submitted
+        do_action( 'sfs_hr_early_leave_requested', $request_id, $employee_id, $manager_id );
 
         return rest_ensure_response( [
             'success'        => true,
@@ -344,7 +345,8 @@ class Early_Leave_Rest {
         // Fire hook for AuditTrail
         do_action( 'sfs_hr_early_leave_status_changed', $request_id, 'pending', $new_status );
 
-        // TODO: Send notification to employee
+        // Notify employee that their request was reviewed
+        do_action( 'sfs_hr_early_leave_reviewed', $request_id, $new_status, (int) $request->employee_id );
 
         return rest_ensure_response( [
             'success' => true,
