@@ -192,7 +192,7 @@ class Employee_Exit_Admin {
             $today
         ), ARRAY_A );
 
-        echo '<div class="sfs-hr-section">';
+        echo '<div class="sfs-hr-section" style="padding:20px 24px;">';
         echo '<h2>' . esc_html__( 'Expiring Contracts', 'sfs-hr' ) . '</h2>';
         echo '<p class="description">' . sprintf(
             /* translators: %d: notice period days */
@@ -263,7 +263,7 @@ class Employee_Exit_Admin {
                 $days_text = sprintf( _n( '%d day', '%d days', $days_left, 'sfs-hr' ), $days_left );
             }
 
-            $view_url = admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . (int) $emp['id'] );
+            $view_url = wp_nonce_url( admin_url( 'admin.php?page=sfs-hr-employees&action=edit&id=' . (int) $emp['id'] ), 'sfs_hr_edit_' . (int) $emp['id'] );
 
             echo '<tr>';
             echo '<td>' . esc_html( $emp['employee_code'] ?? '' ) . '</td>';

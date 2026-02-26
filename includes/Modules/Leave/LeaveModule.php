@@ -267,7 +267,7 @@ public function render_requests(): void {
     <?php if (!empty($_GET['ok'])): ?>
         <div class="notice notice-success"><p><?php esc_html_e('Action completed.', 'sfs-hr'); ?></p></div>
     <?php endif; if (!empty($_GET['err'])): ?>
-        <div class="notice notice-error"><p><?php echo esc_html($_GET['err']); ?></p></div>
+        <div class="notice notice-error"><p><?php echo esc_html( sanitize_text_field( wp_unslash( $_GET['err'] ) ) );?></p></div>
     <?php endif; ?>
 
     <!-- Table Card -->
@@ -2671,7 +2671,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
 
 
           <?php if(!empty($_GET['err'])): ?>
-            <div class="notice notice-error"><p><?php echo esc_html($_GET['err']); ?></p></div>
+            <div class="notice notice-error"><p><?php echo esc_html( sanitize_text_field( wp_unslash( $_GET['err'] ) ) );?></p></div>
           <?php endif; if(!empty($_GET['ok'])): ?>
             <div class="notice notice-success"><p><?php esc_html_e('Saved.','sfs-hr'); ?></p></div>
           <?php endif; ?>
@@ -2850,7 +2850,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
           <?php if(!empty($_GET['ok'])): ?>
             <div class="notice notice-success"><p><?php esc_html_e('Balance updated.','sfs-hr'); ?></p></div>
           <?php endif; if(!empty($_GET['err'])): ?>
-            <div class="notice notice-error"><p><?php echo esc_html($_GET['err']); ?></p></div>
+            <div class="notice notice-error"><p><?php echo esc_html( sanitize_text_field( wp_unslash( $_GET['err'] ) ) );?></p></div>
           <?php endif; ?>
           <form method="get" style="margin-bottom:12px;">
             <input type="hidden" name="page" value="sfs-hr-leave-requests"/>
@@ -3092,7 +3092,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
           <?php if(!empty($_GET['ok'])): ?>
             <div class="notice notice-success"><p><?php esc_html_e('Settings saved.','sfs-hr'); ?></p></div>
           <?php endif; if(!empty($_GET['err'])): ?>
-            <div class="notice notice-error"><p><?php echo esc_html($_GET['err']); ?></p></div>
+            <div class="notice notice-error"><p><?php echo esc_html( sanitize_text_field( wp_unslash( $_GET['err'] ) ) );?></p></div>
           <?php endif; ?>
 
           <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-bottom:24px;">
@@ -3853,7 +3853,7 @@ public function shortcode_request($atts = []): string {
                 '</p></div>';
     }
     if (!empty($_GET['sfs_hr_err'])) {
-        $out .= '<div class="notice notice-error"><p>' . esc_html($_GET['sfs_hr_err']) . '</p></div>';
+        $out .= '<div class="notice notice-error"><p>' . esc_html( sanitize_text_field( wp_unslash( $_GET['sfs_hr_err'] ) ) ) . '</p></div>';
     }
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sfs_hr_leave_submit'])) {

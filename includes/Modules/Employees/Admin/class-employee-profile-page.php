@@ -386,7 +386,7 @@ class Employee_Profile_Page {
                         <span class="sfs-ep-badge sfs-ep-badge--neutral"><a href="<?php echo esc_url( get_edit_user_link( $wp_user ) ); ?>" style="color:inherit;text-decoration:none;"><?php echo esc_html( $wp_username ?: 'USR-' . $wp_user ); ?></a></span>
                     <?php endif; ?>
                     <?php if ( $hire_date ) : ?>
-                        <span class="sfs-ep-badge sfs-ep-badge--neutral" title="<?php esc_attr_e( 'Hire date', 'sfs-hr' ); ?>"><?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $hire_date ) ) ); ?></span>
+                        <span class="sfs-ep-badge sfs-ep-badge--neutral" title="<?php esc_attr_e( 'Hire date', 'sfs-hr' ); ?>"><?php $dt_badge = \DateTimeImmutable::createFromFormat( 'Y-m-d', $hire_date ); echo esc_html( $dt_badge ? $dt_badge->format( 'd/m/Y' ) : $hire_date ); ?></span>
                     <?php endif; ?>
                 </div>
             </div>
@@ -440,6 +440,14 @@ class Employee_Profile_Page {
 
         <?php if ( $mode === 'edit' ) : ?>
         <!-- ═══ EDIT MODE ═══ -->
+        <?php
+        // Format Y-m-d dates as dd/mm/yyyy for text inputs.
+        $fmt_input = function( string $d ) : string {
+            if ( ! $d ) return '';
+            $dt = \DateTimeImmutable::createFromFormat( 'Y-m-d', $d );
+            return $dt ? $dt->format( 'd/m/Y' ) : $d;
+        };
+        ?>
         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data" class="sfs-hr-emp-edit-form">
             <input type="hidden" name="action" value="sfs_hr_save_edit" />
             <input type="hidden" name="id" value="<?php echo (int) $employee_id; ?>" />
@@ -470,7 +478,7 @@ class Employee_Profile_Page {
                 <tr><th><?php esc_html_e( 'Gender', 'sfs-hr' ); ?></th><td><?php $g = strtolower( (string) $gender ); ?><select name="gender"><option value=""><?php esc_html_e( '— Select —', 'sfs-hr' ); ?></option><option value="male" <?php selected( $g, 'male' ); ?>><?php esc_html_e( 'Male', 'sfs-hr' ); ?></option><option value="female" <?php selected( $g, 'female' ); ?>><?php esc_html_e( 'Female', 'sfs-hr' ); ?></option></select></td></tr>
                 <tr><th><?php esc_html_e( 'Nationality', 'sfs-hr' ); ?></th><td><input type="text" name="nationality" class="regular-text" value="<?php echo esc_attr( $nationality ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Marital status', 'sfs-hr' ); ?></th><td><?php $ms = strtolower( (string) $marital_status ); ?><select name="marital_status"><option value=""><?php esc_html_e( '— Select —', 'sfs-hr' ); ?></option><option value="single" <?php selected( $ms, 'single' ); ?>><?php esc_html_e( 'Single', 'sfs-hr' ); ?></option><option value="married" <?php selected( $ms, 'married' ); ?>><?php esc_html_e( 'Married', 'sfs-hr' ); ?></option><option value="divorced" <?php selected( $ms, 'divorced' ); ?>><?php esc_html_e( 'Divorced', 'sfs-hr' ); ?></option><option value="widowed" <?php selected( $ms, 'widowed' ); ?>><?php esc_html_e( 'Widowed', 'sfs-hr' ); ?></option></select></td></tr>
-                <tr><th><?php esc_html_e( 'Date of birth', 'sfs-hr' ); ?></th><td><input type="date" name="birth_date" class="regular-text sfs-hr-date" value="<?php echo esc_attr( $birth_date ); ?>" /></td></tr>
+                <tr><th><?php esc_html_e( 'Date of birth', 'sfs-hr' ); ?></th><td><input type="text" name="birth_date" class="regular-text sfs-hr-date" placeholder="dd/mm/yyyy" value="<?php echo esc_attr( $fmt_input( $birth_date ) ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Work location', 'sfs-hr' ); ?></th><td><input type="text" name="work_location" class="regular-text" value="<?php echo esc_attr( $work_location ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Language', 'sfs-hr' ); ?></th><td><?php $lang_options = Helpers::get_available_languages(); ?><select name="language"><option value=""><?php esc_html_e( '— Site default —', 'sfs-hr' ); ?></option><?php foreach ( $lang_options as $lang_code => $lang_label ) : ?><option value="<?php echo esc_attr( $lang_code ); ?>" <?php selected( $language, $lang_code ); ?>><?php echo esc_html( $lang_label ); ?></option><?php endforeach; ?></select><p class="description"><?php esc_html_e( 'Sets the employee\'s preferred language for emails and their WordPress profile.', 'sfs-hr' ); ?></p></td></tr>
             </tbody></table></div>
@@ -486,12 +494,12 @@ class Employee_Profile_Page {
                 <tr><th><?php esc_html_e( 'Department', 'sfs-hr' ); ?></th><td><select name="dept_id" class="sfs-hr-select"><option value=""><?php esc_html_e( 'General (no department)', 'sfs-hr' ); ?></option><?php foreach ( $dept_map as $did => $dname ) : ?><option value="<?php echo (int) $did; ?>" <?php selected( $dept_id, $did ); ?>><?php echo esc_html( $dname ); ?></option><?php endforeach; ?></select></td></tr>
                 <tr><th><?php esc_html_e( 'Position', 'sfs-hr' ); ?></th><td><input type="text" name="position" class="regular-text" value="<?php echo esc_attr( $position ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th><td><?php $st = $status ?: 'active'; ?><select name="status"><option value="active" <?php selected( $st, 'active' ); ?>><?php esc_html_e( 'Active', 'sfs-hr' ); ?></option><option value="inactive" <?php selected( $st, 'inactive' ); ?>><?php esc_html_e( 'Inactive', 'sfs-hr' ); ?></option><option value="terminated" <?php selected( $st, 'terminated' ); ?>><?php esc_html_e( 'Terminated', 'sfs-hr' ); ?></option></select></td></tr>
-                <tr><th><?php esc_html_e( 'Hire date', 'sfs-hr' ); ?></th><td><input type="date" name="hired_at" class="regular-text sfs-hr-date" value="<?php echo esc_attr( $hire_date ); ?>" /></td></tr>
-                <tr><th><?php esc_html_e( 'Entry date (KSA)', 'sfs-hr' ); ?></th><td><input type="date" name="entry_date_ksa" class="regular-text sfs-hr-date" value="<?php echo esc_attr( $entry_date_ksa ); ?>" /></td></tr>
+                <tr><th><?php esc_html_e( 'Hire date', 'sfs-hr' ); ?></th><td><input type="text" name="hired_at" class="regular-text sfs-hr-date" placeholder="dd/mm/yyyy" value="<?php echo esc_attr( $fmt_input( $hire_date ) ); ?>" /></td></tr>
+                <tr><th><?php esc_html_e( 'Entry date (KSA)', 'sfs-hr' ); ?></th><td><input type="text" name="entry_date_ksa" class="regular-text sfs-hr-date" placeholder="dd/mm/yyyy" value="<?php echo esc_attr( $fmt_input( $entry_date_ksa ) ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Contract type', 'sfs-hr' ); ?></th><td><input type="text" name="contract_type" class="regular-text" value="<?php echo esc_attr( $contract_type ); ?>" /></td></tr>
-                <tr><th><?php esc_html_e( 'Contract start', 'sfs-hr' ); ?></th><td><input type="date" name="contract_start_date" class="regular-text sfs-hr-date" value="<?php echo esc_attr( $contract_start ); ?>" /></td></tr>
-                <tr><th><?php esc_html_e( 'Contract end', 'sfs-hr' ); ?></th><td><input type="date" name="contract_end_date" class="regular-text sfs-hr-date" value="<?php echo esc_attr( $contract_end ); ?>" /></td></tr>
-                <tr><th><?php esc_html_e( 'Probation end', 'sfs-hr' ); ?></th><td><input type="date" name="probation_end_date" class="regular-text sfs-hr-date" value="<?php echo esc_attr( $probation_end ); ?>" /></td></tr>
+                <tr><th><?php esc_html_e( 'Contract start', 'sfs-hr' ); ?></th><td><input type="text" name="contract_start_date" class="regular-text sfs-hr-date" placeholder="dd/mm/yyyy" value="<?php echo esc_attr( $fmt_input( $contract_start ) ); ?>" /></td></tr>
+                <tr><th><?php esc_html_e( 'Contract end', 'sfs-hr' ); ?></th><td><input type="text" name="contract_end_date" class="regular-text sfs-hr-date" placeholder="dd/mm/yyyy" value="<?php echo esc_attr( $fmt_input( $contract_end ) ); ?>" /></td></tr>
+                <tr><th><?php esc_html_e( 'Probation end', 'sfs-hr' ); ?></th><td><input type="text" name="probation_end_date" class="regular-text sfs-hr-date" placeholder="dd/mm/yyyy" value="<?php echo esc_attr( $fmt_input( $probation_end ) ); ?>" /></td></tr>
             </tbody></table></div>
 
             <div class="sfs-ep-card"><h3><?php esc_html_e( 'Payroll', 'sfs-hr' ); ?></h3><table class="sfs-ep-form-table"><tbody>
@@ -501,17 +509,17 @@ class Employee_Profile_Page {
 
             <div class="sfs-ep-card"><h3><?php esc_html_e( 'Shift Assignment', 'sfs-hr' ); ?></h3><table class="sfs-ep-form-table"><tbody>
                 <tr><th><?php esc_html_e( 'Current shift', 'sfs-hr' ); ?></th><td><?php if ( $current_shift ) { $cs_parts = array_filter( [ $current_shift['name'] ?? '', ( ! empty( $current_shift['start_time'] ) && ! empty( $current_shift['end_time'] ) ) ? substr( $current_shift['start_time'], 0, 5 ) . '–' . substr( $current_shift['end_time'], 0, 5 ) : '', $current_shift['dept'] ?? '' ] ); echo esc_html( implode( ' | ', $cs_parts ) ); } else { echo '<em>' . esc_html__( 'No shift configured.', 'sfs-hr' ) . '</em>'; } ?></td></tr>
-                <tr><th><?php esc_html_e( 'Change shift', 'sfs-hr' ); ?></th><td><?php if ( $shift_groups ) : ?><select name="attendance_shift_id" class="sfs-hr-select"><option value=""><?php esc_html_e( '— Keep current —', 'sfs-hr' ); ?></option><?php foreach ( $shift_groups as $dept_slug => $group_shifts ) : ?><optgroup label="<?php echo esc_attr( ucfirst( $dept_slug ) ); ?>"><?php foreach ( $group_shifts as $sid => $label ) : ?><option value="<?php echo (int) $sid; ?>"><?php echo esc_html( $label ); ?></option><?php endforeach; ?></optgroup><?php endforeach; ?></select><br/><input type="date" name="attendance_shift_start" class="regular-text sfs-hr-date" value="<?php echo esc_attr( wp_date( 'Y-m-d' ) ); ?>" /><p class="description"><?php esc_html_e( 'Adds a new shift history row from the given date.', 'sfs-hr' ); ?></p><?php else : ?><p class="description"><?php esc_html_e( 'No active shifts. Configure under Attendance > Shifts.', 'sfs-hr' ); ?></p><?php endif; ?></td></tr>
+                <tr><th><?php esc_html_e( 'Change shift', 'sfs-hr' ); ?></th><td><?php if ( $shift_groups ) : ?><select name="attendance_shift_id" class="sfs-hr-select"><option value=""><?php esc_html_e( '— Keep current —', 'sfs-hr' ); ?></option><?php foreach ( $shift_groups as $dept_slug => $group_shifts ) : ?><optgroup label="<?php echo esc_attr( ucfirst( $dept_slug ) ); ?>"><?php foreach ( $group_shifts as $sid => $label ) : ?><option value="<?php echo (int) $sid; ?>"><?php echo esc_html( $label ); ?></option><?php endforeach; ?></optgroup><?php endforeach; ?></select><br/><input type="text" name="attendance_shift_start" class="regular-text sfs-hr-date" placeholder="dd/mm/yyyy" value="<?php echo esc_attr( wp_date( 'd/m/Y' ) ); ?>" /><p class="description"><?php esc_html_e( 'Adds a new shift history row from the given date.', 'sfs-hr' ); ?></p><?php else : ?><p class="description"><?php esc_html_e( 'No active shifts. Configure under Attendance > Shifts.', 'sfs-hr' ); ?></p><?php endif; ?></td></tr>
                 <?php if ( $shift_history ) : ?><tr><th><?php esc_html_e( 'History', 'sfs-hr' ); ?></th><td><ul style="margin:0;padding-left:18px;"><?php foreach ( $shift_history as $h ) : $h_parts = array_filter( [ $h['name'] ?? '', ( ! empty( $h['start_time'] ) && ! empty( $h['end_time'] ) ) ? substr( $h['start_time'], 0, 5 ) . '–' . substr( $h['end_time'], 0, 5 ) : '', $h['dept'] ?? '' ] ); ?><li><strong><?php echo esc_html( $h['start_date'] ?? '' ); ?></strong> — <?php echo esc_html( implode( ' | ', $h_parts ) ); ?></li><?php endforeach; ?></ul></td></tr><?php endif; ?>
             </tbody></table></div>
 
             <div class="sfs-ep-card"><h3><?php esc_html_e( 'Documents & Residency', 'sfs-hr' ); ?></h3><table class="sfs-ep-form-table"><tbody>
                 <tr><th><?php esc_html_e( 'National ID', 'sfs-hr' ); ?></th><td><input type="text" name="national_id" class="regular-text" value="<?php echo esc_attr( $national_id ); ?>" /></td></tr>
-                <tr><th><?php esc_html_e( 'National ID expiry', 'sfs-hr' ); ?></th><td><input type="date" name="national_id_expiry" class="regular-text sfs-hr-date" value="<?php echo esc_attr( $nid_exp ); ?>" /></td></tr>
+                <tr><th><?php esc_html_e( 'National ID expiry', 'sfs-hr' ); ?></th><td><input type="text" name="national_id_expiry" class="regular-text sfs-hr-date" placeholder="dd/mm/yyyy" value="<?php echo esc_attr( $fmt_input( $nid_exp ) ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Passport No.', 'sfs-hr' ); ?></th><td><input type="text" name="passport_no" class="regular-text" value="<?php echo esc_attr( $passport_no ); ?>" /></td></tr>
-                <tr><th><?php esc_html_e( 'Passport expiry', 'sfs-hr' ); ?></th><td><input type="date" name="passport_expiry" class="regular-text sfs-hr-date" value="<?php echo esc_attr( $pass_exp ); ?>" /></td></tr>
+                <tr><th><?php esc_html_e( 'Passport expiry', 'sfs-hr' ); ?></th><td><input type="text" name="passport_expiry" class="regular-text sfs-hr-date" placeholder="dd/mm/yyyy" value="<?php echo esc_attr( $fmt_input( $pass_exp ) ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Visa number', 'sfs-hr' ); ?></th><td><input type="text" name="visa_number" class="regular-text" value="<?php echo esc_attr( $visa_number ); ?>" /></td></tr>
-                <tr><th><?php esc_html_e( 'Visa expiry', 'sfs-hr' ); ?></th><td><input type="date" name="visa_expiry" class="regular-text sfs-hr-date" value="<?php echo esc_attr( $visa_expiry ); ?>" /></td></tr>
+                <tr><th><?php esc_html_e( 'Visa expiry', 'sfs-hr' ); ?></th><td><input type="text" name="visa_expiry" class="regular-text sfs-hr-date" placeholder="dd/mm/yyyy" value="<?php echo esc_attr( $fmt_input( $visa_expiry ) ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Residence profession', 'sfs-hr' ); ?></th><td><input type="text" name="residence_profession" class="regular-text" value="<?php echo esc_attr( $res_profession ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Sponsor name', 'sfs-hr' ); ?></th><td><input type="text" name="sponsor_name" class="regular-text" value="<?php echo esc_attr( $sponsor_name ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'Sponsor ID', 'sfs-hr' ); ?></th><td><input type="text" name="sponsor_id" class="regular-text" value="<?php echo esc_attr( $sponsor_id_val ); ?>" /></td></tr>
@@ -520,7 +528,7 @@ class Employee_Profile_Page {
             <div class="sfs-ep-card"><h3><?php esc_html_e( 'Driving License', 'sfs-hr' ); ?></h3><table class="sfs-ep-form-table"><tbody>
                 <tr><th><?php esc_html_e( 'Has license', 'sfs-hr' ); ?></th><td><label><input type="checkbox" name="driving_license_has" value="1" <?php checked( $dl_has ); ?> /> <?php esc_html_e( 'Yes', 'sfs-hr' ); ?></label></td></tr>
                 <tr><th><?php esc_html_e( 'License number', 'sfs-hr' ); ?></th><td><input type="text" name="driving_license_number" class="regular-text" value="<?php echo esc_attr( $dl_number ); ?>" /></td></tr>
-                <tr><th><?php esc_html_e( 'License expiry', 'sfs-hr' ); ?></th><td><input type="date" name="driving_license_expiry" class="regular-text sfs-hr-date" value="<?php echo esc_attr( $dl_expiry ); ?>" /></td></tr>
+                <tr><th><?php esc_html_e( 'License expiry', 'sfs-hr' ); ?></th><td><input type="text" name="driving_license_expiry" class="regular-text sfs-hr-date" placeholder="dd/mm/yyyy" value="<?php echo esc_attr( $fmt_input( $dl_expiry ) ); ?>" /></td></tr>
             </tbody></table></div>
             </div><!-- .sfs-ep-edit-grid -->
 
@@ -545,9 +553,20 @@ class Employee_Profile_Page {
         <?php else : ?>
         <!-- ═══ VIEW MODE ═══ -->
         <?php
-        $fmt_date = function( string $d ) : string { return $d ? esc_html( date_i18n( get_option( 'date_format' ), strtotime( $d ) ) ) : '—'; };
+        $fmt_date = function( string $d ) : string {
+            if ( ! $d ) return '—';
+            $dt = \DateTimeImmutable::createFromFormat( 'Y-m-d', $d )
+               ?: \DateTimeImmutable::createFromFormat( 'Y-m-d H:i:s', $d );
+            return esc_html( $dt ? $dt->format( 'd/m/Y' ) : $d );
+        };
         $fmt_val = function( $v ) : string { return ( $v !== null && $v !== '' ) ? esc_html( (string) $v ) : '—'; };
-        $fmt_id_exp = function( string $val, string $exp ) use ( $fmt_val ) : string { $out = $fmt_val( $val ); if ( $exp ) { $out .= ' <span class="description">(' . esc_html( sprintf( __( 'expires %s', 'sfs-hr' ), date_i18n( get_option( 'date_format' ), strtotime( $exp ) ) ) ) . ')</span>'; } return $out; };
+        $fmt_id_exp = function( string $val, string $exp ) use ( $fmt_val, $fmt_date ) : string {
+            $out = $fmt_val( $val );
+            if ( $exp ) {
+                $out .= ' <span class="description">(' . esc_html( sprintf( __( 'expires %s', 'sfs-hr' ), wp_strip_all_tags( $fmt_date( $exp ) ) ) ) . ')</span>';
+            }
+            return $out;
+        };
         ?>
 
         <!-- Quick Stats -->
@@ -857,7 +876,7 @@ class Employee_Profile_Page {
             .sfs-ep-form-table td textarea{width:100% !important;max-width:100% !important;box-sizing:border-box !important;}
             .sfs-ep-form-table td input[type="checkbox"],
             .sfs-ep-form-table td input[type="radio"]{width:auto !important;margin-right:6px;}
-            .sfs-ep-form-table td input[type="date"]{width:auto !important;max-width:100% !important;box-sizing:border-box !important;}
+            .sfs-ep-form-table td input.sfs-hr-date{width:auto !important;max-width:100% !important;box-sizing:border-box !important;}
             .sfs-ep-form-table td input[type="file"]{width:auto !important;}
             .sfs-ep-form-table td .description{word-wrap:break-word;overflow-wrap:break-word;}
             .sfs-ep-edit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(420px,100%),1fr));gap:16px;margin-bottom:16px;}
