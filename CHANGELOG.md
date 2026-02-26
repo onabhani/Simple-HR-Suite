@@ -14,8 +14,13 @@ All notable changes to Simple HR Suite will be documented in this file.
   previously-rejected requests are not silently re-created.
 - **Early-leave REST hook** (`sfs_hr_early_leave_requested`) now passes the
   correct `$emp_id` variable instead of undefined `$employee_id`.
+- **CSV date import** now normalizes dates from multiple formats (dd/mm/yyyy,
+  mm/dd/yyyy, d-m-Y, etc.) to MySQL `Y-m-d` before saving; previously,
+  Excel-reformatted dates were passed verbatim and silently rejected by MySQL.
 
 ### Improved
+- **CSV export** now formats date columns as `dd/mm/yyyy` for user-friendly
+  display in spreadsheet applications.
 - **Plugin activation**: removed redundant conditional re-invocations of
   `HiringModule::install()` and `SurveysModule::install()` that duplicated the
   unconditional calls made immediately above.

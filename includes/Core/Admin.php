@@ -3533,12 +3533,22 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
     'user_id','created_at','updated_at'
 ];
 
+        $date_columns = [
+            'hired_at','national_id_expiry','passport_expiry','visa_expiry',
+            'date_of_birth','contract_start_date','contract_end_date',
+            'probation_end_date','entry_date_ksa','driving_license_expiry',
+        ];
+
         fputcsv($out, $headers);
         foreach ($rows as $r) {
             $row = [];
             foreach ($headers as $h) {
                 if ($h === 'department') {
                     $row[] = $r['department_name'] ?? '';
+                } elseif ( in_array($h, $date_columns, true) && !empty($r[$h]) ) {
+                    // Format DATE columns as dd/mm/yyyy for user-friendly export
+                    $ts = strtotime($r[$h]);
+                    $row[] = $ts ? gmdate('d/m/Y', $ts) : $r[$h];
                 } else {
                     $row[] = isset($r[$h]) ? $r[$h] : '';
                 }
@@ -3645,12 +3655,12 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             'position'                => sanitize_text_field($data['position']                ?? ''),
             'status'                  => $status,
             'gender'                  => $gender,
-            'hired_at'                => ($data['hired_at']                ?? '') ?: null,
+            'hired_at'                => Helpers::normalize_date($data['hired_at'] ?? ''),
             'base_salary'             => ($data['base_salary']             ?? '') !== '' ? $data['base_salary'] : null,
             'national_id'             => sanitize_text_field($data['national_id']             ?? ''),
-            'national_id_expiry'      => ($data['national_id_expiry']      ?? '') ?: null,
+            'national_id_expiry'      => Helpers::normalize_date($data['national_id_expiry'] ?? ''),
             'passport_no'             => sanitize_text_field($data['passport_no']             ?? ''),
-            'passport_expiry'         => ($data['passport_expiry']         ?? '') ?: null,
+            'passport_expiry'         => Helpers::normalize_date($data['passport_expiry'] ?? ''),
             'emergency_contact_name'  => sanitize_text_field($data['emergency_contact_name']  ?? ''),
             'emergency_contact_phone' => sanitize_text_field($data['emergency_contact_phone'] ?? ''),
         ];
@@ -3659,18 +3669,18 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         $payload['gosi_salary']            = ($data['gosi_salary']            ?? '') !== '' ? $data['gosi_salary'] : null;
 
         $payload['visa_number']            = sanitize_text_field($data['visa_number']            ?? '');
-        $payload['visa_expiry']            = ($data['visa_expiry']            ?? '') ?: null;
+        $payload['visa_expiry']            = Helpers::normalize_date($data['visa_expiry'] ?? '');
 
         $payload['nationality']            = sanitize_text_field($data['nationality']            ?? '');
         $payload['marital_status']         = sanitize_text_field($data['marital_status']         ?? '');
-        $payload['date_of_birth']          = ($data['date_of_birth']          ?? '') ?: null;
+        $payload['date_of_birth']          = Helpers::normalize_date($data['date_of_birth'] ?? '');
 
         $payload['work_location']          = sanitize_text_field($data['work_location']          ?? '');
         $payload['contract_type']          = sanitize_text_field($data['contract_type']          ?? '');
-        $payload['contract_start_date']    = ($data['contract_start_date']    ?? '') ?: null;
-        $payload['contract_end_date']      = ($data['contract_end_date']      ?? '') ?: null;
-        $payload['probation_end_date']     = ($data['probation_end_date']     ?? '') ?: null;
-        $payload['entry_date_ksa']         = ($data['entry_date_ksa']         ?? '') ?: null;
+        $payload['contract_start_date']    = Helpers::normalize_date($data['contract_start_date'] ?? '');
+        $payload['contract_end_date']      = Helpers::normalize_date($data['contract_end_date'] ?? '');
+        $payload['probation_end_date']     = Helpers::normalize_date($data['probation_end_date'] ?? '');
+        $payload['entry_date_ksa']         = Helpers::normalize_date($data['entry_date_ksa'] ?? '');
 
         $payload['residence_profession']   = sanitize_text_field($data['residence_profession']   ?? '');
         $payload['sponsor_name']           = sanitize_text_field($data['sponsor_name']           ?? '');
@@ -3678,7 +3688,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
         $payload['driving_license_has']    = ! empty($data['driving_license_has']) ? 1 : 0;
         $payload['driving_license_number'] = sanitize_text_field($data['driving_license_number'] ?? '');
-        $payload['driving_license_expiry'] = ($data['driving_license_expiry'] ?? '') ?: null;
+        $payload['driving_license_expiry'] = Helpers::normalize_date($data['driving_license_expiry'] ?? '');
 
         $payload['updated_at']             = Helpers::now_mysql();
 
