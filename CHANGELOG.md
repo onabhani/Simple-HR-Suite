@@ -2,6 +2,11 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [1.6.1] — 2026-02-26
+
+### Changed
+- Version bump from 1.6.0 to 1.6.1.
+
 ## [1.5.9] — 2026-02-26
 
 ### Improved
