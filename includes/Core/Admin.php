@@ -1354,7 +1354,7 @@ private function render_expiry_list( string $id, array $alerts, bool $active ): 
                 $days_class = 'soon';
             }
 
-            $edit_url = admin_url( 'admin.php?page=sfs-hr-employees&action=edit&id=' . intval( $alert['employee_id'] ) );
+            $edit_url = wp_nonce_url( admin_url( 'admin.php?page=sfs-hr-employees&action=edit&id=' . intval( $alert['employee_id'] ) ), 'sfs_hr_edit_' . intval( $alert['employee_id'] ) );
 
             echo '<tr>';
             echo '<td>';
@@ -3726,9 +3726,11 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             if ( $res === false ) {
                 $skipped++;
                 $skipped_rows[] = sprintf( __( 'Row %d (%s): DB error on update', 'sfs-hr' ), $row_num, $code );
+                continue;
             } elseif ( $res === 0 ) {
                 $skipped++;
                 $skipped_rows[] = sprintf( __( 'Row %d (%s): no change', 'sfs-hr' ), $row_num, $code );
+                continue;
             } else {
                 $employee_id = $exists;
                 $updated++;
@@ -3754,9 +3756,11 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                     if ( $res === false ) {
                         $skipped++;
                         $skipped_rows[] = sprintf( __( 'Row %d (%s): DB error on fallback update', 'sfs-hr' ), $row_num, $code );
+                        continue;
                     } elseif ( $res === 0 ) {
                         $skipped++;
                         $skipped_rows[] = sprintf( __( 'Row %d (%s): no change', 'sfs-hr' ), $row_num, $code );
+                        continue;
                     } else {
                         $employee_id = $fallback_id;
                         $updated++;
@@ -3810,7 +3814,17 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
     }
 
     if ( $skipped_rows ) {
-        set_transient( 'sfs_hr_import_skipped_' . get_current_user_id(), $skipped_rows, 120 );
+        $max_stored = 50;
+        $total_skipped_rows = count( $skipped_rows );
+        $stored_rows = array_slice( $skipped_rows, 0, $max_stored );
+        if ( $total_skipped_rows > $max_stored ) {
+            $stored_rows[] = sprintf(
+                /* translators: %d = number of additional skipped rows not shown */
+                __( '… and %d more skipped rows.', 'sfs-hr' ),
+                $total_skipped_rows - $max_stored
+            );
+        }
+        set_transient( 'sfs_hr_import_skipped_' . get_current_user_id(), $stored_rows, 120 );
     }
 
     wp_safe_redirect( add_query_arg( array_merge($redir_base, [
@@ -3874,6 +3888,8 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-employees&err=id' ) );
         exit;
     }
+
+    check_admin_referer( 'sfs_hr_edit_' . $id );
 
     // Redirect to unified Employee Profile page in edit mode.
     wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-employee-profile&employee_id=' . $id . '&mode=edit' ) );
@@ -5207,6 +5223,12 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
     $allowed_status = ['active','inactive','terminated'];
 
+    $date_fields = [
+        'hired_at', 'birth_date', 'national_id_expiry', 'passport_expiry',
+        'visa_expiry', 'contract_start_date', 'contract_end_date',
+        'probation_end_date', 'entry_date_ksa', 'driving_license_expiry',
+    ];
+
     foreach ( $fields as $f ) {
         $val = isset($_POST[$f]) ? $_POST[$f] : '';
 
@@ -5218,6 +5240,11 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
         if ( $f === 'status' && ! in_array( $val, $allowed_status, true ) ) {
             $val = 'active';
+        }
+
+        // Normalize date fields from dd/mm/yyyy to Y-m-d.
+        if ( in_array( $f, $date_fields, true ) && $val !== '' ) {
+            $val = Helpers::normalize_date( $val );
         }
 
         if ( $val === '' ) {
