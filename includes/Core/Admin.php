@@ -763,7 +763,7 @@ class Admin {
             // Count resignations at level 1 (Dept Manager) in managed departments (exclude own)
             if ( ! empty( $managed_dept_ids ) ) {
                 $placeholders = implode( ',', array_fill( 0, count( $managed_dept_ids ), '%d' ) );
-                $exclude_own = $current_employee_id > 0 ? " AND r.employee_id != {$current_employee_id}" : "";
+                $exclude_own = $current_employee_id > 0 ? $wpdb->prepare( " AND r.employee_id != %d", $current_employee_id ) : "";
                 $pending_resignations += (int) $wpdb->get_var( $wpdb->prepare(
                     "SELECT COUNT(*) FROM {$resignations_t} r
                      INNER JOIN {$emp_t} e ON e.id = r.employee_id
@@ -2165,7 +2165,7 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
         $action = isset($_GET['action']) ? sanitize_key($_GET['action']) : '';
         if ($action === 'edit') { $this->render_edit_form(); return; }
 
-        $q        = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
+        $q        = isset($_GET['s']) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
         $page     = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
         $per_page = isset($_GET['per_page']) ? max(5, intval($_GET['per_page'])) : 20;
 
@@ -3839,7 +3839,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         Helpers::require_cap('sfs_hr.manage');
         $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
         check_admin_referer('sfs_hr_term_'.$id);
-        if ($id<=0) wp_safe_redirect( admin_url('admin.php?page=sfs-hr-employees&err=id') );
+        if ($id<=0) { wp_safe_redirect( admin_url('admin.php?page=sfs-hr-employees&err=id') ); exit; }
 
         // Check if employee can be terminated (last_working_day must have passed)
         if (!Helpers::can_terminate_employee($id)) {
@@ -3859,7 +3859,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         Helpers::require_cap('sfs_hr.manage');
         $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
         check_admin_referer('sfs_hr_del_'.$id);
-        if ($id<=0) wp_safe_redirect( admin_url('admin.php?page=sfs-hr-employees&err=id') );
+        if ($id<=0) { wp_safe_redirect( admin_url('admin.php?page=sfs-hr-employees&err=id') ); exit; }
 
         global $wpdb;
         $loan_table = $wpdb->prefix.'sfs_hr_loans';
@@ -3894,481 +3894,8 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
     // Redirect to unified Employee Profile page in edit mode.
     wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-employee-profile&employee_id=' . $id . '&mode=edit' ) );
     exit;
-
-    // --- Legacy edit form below (kept for reference, no longer reached) ---
-
-    Helpers::require_cap( 'sfs_hr.manage' );
-
-    $nonce = wp_create_nonce( 'sfs_hr_save_edit_' . $id );
-
-    global $wpdb;
-    $table = $wpdb->prefix . 'sfs_hr_employees';
-    $emp   = $wpdb->get_row(
-        $wpdb->prepare( "SELECT * FROM {$table} WHERE id=%d", $id ),
-        ARRAY_A
-    );
-
-    if ( ! $emp ) {
-        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-employees&err=notfound' ) );
-        exit;
-    }
-
-    $qr_token   = $this->ensure_qr_token( (int) $emp['id'] );
-    $qr_enabled = (int) ( $emp['qr_enabled'] ?? 1 );
-
-    // Build raw URL (not escaped) for QR service; escape only when outputting into HTML.
-    $qr_url_raw = $this->qr_payload_url( (int) $emp['id'], $qr_token );
-    $qr_img     = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' . rawurlencode( $qr_url_raw );
-
-    // Fields that should be rendered as <input type="date">
-    $date_fields = [
-        'hired_at',
-        'national_id_expiry',
-        'passport_expiry',
-        'visa_expiry',
-        'date_of_birth',
-        'entry_date_ksa',
-        'contract_start_date',
-        'contract_end_date',
-        'probation_end_date',
-        'driving_license_expiry',
-    ];
-
-    $dept_map     = $this->departments_map();
-    $current_dept = (int) ( $emp['dept_id'] ?? 0 );
-    $status_val   = $emp['status'] ?? 'active';
-    $shift_groups  = $this->attendance_shifts_grouped();
-    $current_shift = $this->get_emp_default_shift( (int) $emp['id'] );
-    $shift_history = $this->get_emp_shift_history( (int) $emp['id'], 5 );
-
-    // Small helper to render a simple <input> row.
-    $render_input_row = function ( string $field, string $label = '' ) use ( $emp, $date_fields ) {
-        if ( $label === '' ) {
-            $label = ucwords( str_replace( '_', ' ', $field ) );
-        }
-        $val  = $emp[ $field ] ?? '';
-        $type = in_array( $field, $date_fields, true )
-            ? 'date'
-            : ( $field === 'email' ? 'email' : 'text' );
-
-        $cls = in_array( $field, $date_fields, true )
-            ? 'regular-text sfs-hr-date'
-            : 'regular-text';
-        ?>
-        <tr>
-            <th>
-                <label for="sfs-hr-<?php echo esc_attr( $field ); ?>">
-                    <?php echo esc_html( $label ); ?>
-                </label>
-            </th>
-            <td>
-                <input
-                    id="sfs-hr-<?php echo esc_attr( $field ); ?>"
-                    name="<?php echo esc_attr( $field ); ?>"
-                    type="<?php echo esc_attr( $type ); ?>"
-                    class="<?php echo esc_attr( $cls ); ?>"
-                    value="<?php echo esc_attr( $val ); ?>"
-                />
-            </td>
-        </tr>
-        <?php
-    };
-    ?>
-    <div class="wrap sfs-hr-wrap">
-        <h1><?php echo esc_html__( 'Edit Employee', 'sfs-hr' ); ?></h1>
-
-        <style>
-            .sfs-hr-emp-edit-layout {
-                margin-top: 20px;
-                display: flex;
-                flex-wrap: wrap;
-                gap: 20px;
-            }
-            .sfs-hr-emp-card {
-                flex: 1 1 360px;
-                background: #fff;
-                border: 1px solid #dcdcde;
-                border-radius: 8px;
-                padding: 16px 20px;
-                box-shadow: 0 1px 1px rgba(0,0,0,0.02);
-            }
-            .sfs-hr-emp-card h2 {
-                margin: 0 0 10px;
-                font-size: 16px;
-            }
-            .sfs-hr-emp-card .description {
-                margin-top: 4px;
-            }
-            .sfs-hr-emp-card .form-table {
-                margin-top: 5px;
-            }
-            .sfs-hr-emp-card .form-table th {
-                width: 180px;
-            }
-            .sfs-hr-emp-dual {
-                display: grid;
-                grid-template-columns: repeat(auto-fit,minmax(260px,1fr));
-                gap: 20px;
-            }
-        </style>
-
-        <!-- MAIN FORM (no nested forms inside) -->
-        <form method="post"
-              action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
-              enctype="multipart/form-data">
-            <input type="hidden" name="action" value="sfs_hr_save_edit" />
-            <input type="hidden" name="id" value="<?php echo (int) $id; ?>" />
-            <input type="hidden" name="_wpnonce" value="<?php echo esc_attr( $nonce ); ?>" />
-
-            <div class="sfs-hr-emp-edit-layout">
-
-                <!-- Personal & contact -->
-                <div class="sfs-hr-emp-card">
-                    <h2><?php esc_html_e( 'Personal & Contact', 'sfs-hr' ); ?></h2>
-                    <table class="form-table">
-                        <?php
-                        $render_input_row( 'employee_code', __( 'Employee Code', 'sfs-hr' ) );
-                        $render_input_row( 'first_name', __( 'First Name', 'sfs-hr' ) );
-                        $render_input_row( 'last_name', __( 'Last Name', 'sfs-hr' ) );
-                        $render_input_row( 'first_name_ar', __( 'First Name (Arabic)', 'sfs-hr' ) );
-                        $render_input_row( 'last_name_ar', __( 'Last Name (Arabic)', 'sfs-hr' ) );
-                        $render_input_row( 'email', __( 'Email', 'sfs-hr' ) );
-                        $render_input_row( 'phone', __( 'Phone', 'sfs-hr' ) );
-                        ?>
-                        <tr>
-                            <th><?php esc_html_e( 'Gender', 'sfs-hr' ); ?></th>
-                            <td>
-                                <?php $g = strtolower( (string) ( $emp['gender'] ?? '' ) ); ?>
-                                <select name="gender">
-                                    <option value=""><?php esc_html_e( '— Select —', 'sfs-hr' ); ?></option>
-                                    <option value="male"   <?php selected( $g === 'male' ); ?>><?php esc_html_e( 'Male', 'sfs-hr' ); ?></option>
-                                    <option value="female" <?php selected( $g === 'female' ); ?>><?php esc_html_e( 'Female', 'sfs-hr' ); ?></option>
-                                </select>
-                            </td>
-                        </tr>
-                        <?php
-                        $render_input_row( 'nationality', __( 'Nationality', 'sfs-hr' ) );
-                        ?>
-                        <tr>
-                            <th><?php esc_html_e( 'Marital Status', 'sfs-hr' ); ?></th>
-                            <td>
-                                <?php $ms = strtolower( (string) ( $emp['marital_status'] ?? '' ) ); ?>
-                                <select name="marital_status">
-                                    <option value=""><?php esc_html_e( '— Select —', 'sfs-hr' ); ?></option>
-                                    <option value="single"   <?php selected( $ms === 'single' ); ?>><?php esc_html_e( 'Single', 'sfs-hr' ); ?></option>
-                                    <option value="married"  <?php selected( $ms === 'married' ); ?>><?php esc_html_e( 'Married', 'sfs-hr' ); ?></option>
-                                    <option value="divorced" <?php selected( $ms === 'divorced' ); ?>><?php esc_html_e( 'Divorced', 'sfs-hr' ); ?></option>
-                                    <option value="widowed"  <?php selected( $ms === 'widowed' ); ?>><?php esc_html_e( 'Widowed', 'sfs-hr' ); ?></option>
-                                </select>
-                            </td>
-                        </tr>
-                        <?php
-                        $render_input_row( 'date_of_birth', __( 'Date of Birth', 'sfs-hr' ) );
-                        $render_input_row( 'work_location', __( 'Work Location', 'sfs-hr' ) );
-                        ?>
-                    </table>
-                </div>
-
-                <!-- Job, department & contract -->
-                <div class="sfs-hr-emp-card">
-                    <h2><?php esc_html_e( 'Job & Contract', 'sfs-hr' ); ?></h2>
-                    <table class="form-table">
-                        <tr>
-                            <th><?php esc_html_e( 'Department', 'sfs-hr' ); ?></th>
-                            <td>
-                                <select name="dept_id" class="sfs-hr-select">
-                                    <option value=""><?php esc_html_e( 'General (no department)', 'sfs-hr' ); ?></option>
-                                    <?php foreach ( $dept_map as $dept_id_key => $dept_name ) : ?>
-                                        <option value="<?php echo (int) $dept_id_key; ?>"
-                                            <?php selected( $current_dept, $dept_id_key ); ?>>
-                                            <?php echo esc_html( $dept_name ); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </td>
-                        </tr>
-                        <?php
-                        $render_input_row( 'position', __( 'Position', 'sfs-hr' ) );
-                        ?>
-                        <tr>
-                            <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
-                            <td>
-                                <select name="status">
-                                    <option value="active"     <?php selected( $status_val, 'active' ); ?>><?php esc_html_e( 'Active', 'sfs-hr' ); ?></option>
-                                    <option value="inactive"   <?php selected( $status_val, 'inactive' ); ?>><?php esc_html_e( 'Inactive', 'sfs-hr' ); ?></option>
-                                    <option value="terminated" <?php selected( $status_val, 'terminated' ); ?>><?php esc_html_e( 'Terminated', 'sfs-hr' ); ?></option>
-                                </select>
-                            </td>
-                        </tr>
-                        <?php
-                                                $render_input_row( 'hired_at', __( 'Hire Date', 'sfs-hr' ) );
-                        $render_input_row( 'entry_date_ksa', __( 'Entry Date (KSA)', 'sfs-hr' ) );
-                        $render_input_row( 'contract_type', __( 'Contract Type', 'sfs-hr' ) );
-                        $render_input_row( 'contract_start_date', __( 'Contract Start Date', 'sfs-hr' ) );
-                        $render_input_row( 'contract_end_date', __( 'Contract End Date', 'sfs-hr' ) );
-                        $render_input_row( 'probation_end_date', __( 'Probation End Date', 'sfs-hr' ) );
-                        $render_input_row( 'base_salary', __( 'Base Salary', 'sfs-hr' ) );
-                        $render_input_row( 'gosi_salary', __( 'GOSI Salary', 'sfs-hr' ) );
-                        ?>
-                        <tr>
-                            <th><?php esc_html_e( 'Current default shift', 'sfs-hr' ); ?></th>
-                            <td>
-                                <?php
-                                if ( $current_shift ) {
-                                    $cs_label = $current_shift['name'] ?? '';
-                                    $cs_dept  = $current_shift['dept'] ?? '';
-                                    $cs_time  = '';
-                                    if ( ! empty( $current_shift['start_time'] ) && ! empty( $current_shift['end_time'] ) ) {
-                                        $cs_time = sprintf(
-                                            '%s–%s',
-                                            substr( (string) $current_shift['start_time'], 0, 5 ),
-                                            substr( (string) $current_shift['end_time'], 0, 5 )
-                                        );
-                                    }
-                                    $parts = array_filter( [ $cs_label, $cs_time, $cs_dept ] );
-                                    echo esc_html( implode( ' | ', $parts ) );
-                                    echo '<br />';
-                                    echo '<span class="description">'
-                                        . esc_html__( 'Effective today based on shift history.', 'sfs-hr' )
-                                        . '</span>';
-                                } else {
-                                    echo '<em>' . esc_html__( 'No default shift configured yet.', 'sfs-hr' ) . '</em>';
-                                }
-                                ?>
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <th><?php esc_html_e( 'Change default shift', 'sfs-hr' ); ?></th>
-                            <td>
-                                <?php if ( $shift_groups ) : ?>
-                                    <select name="attendance_shift_id" class="sfs-hr-select">
-                                        <option value="">
-                                            <?php esc_html_e( '— Keep current —', 'sfs-hr' ); ?>
-                                        </option>
-                                        <?php foreach ( $shift_groups as $dept_slug => $group_shifts ) : ?>
-                                            <optgroup label="<?php echo esc_attr( ucfirst( $dept_slug ) ); ?>">
-                                                <?php foreach ( $group_shifts as $sid => $label ) : ?>
-                                                    <option value="<?php echo (int) $sid; ?>">
-                                                        <?php echo esc_html( $label ); ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </optgroup>
-                                        <?php endforeach; ?>
-                                    </select>
-                                    <br />
-                                    <input
-                                        type="date"
-                                        name="attendance_shift_start"
-                                        class="regular-text sfs-hr-date"
-                                        value="<?php echo esc_attr( wp_date( 'Y-m-d' ) ); ?>"
-                                    />
-                                    <p class="description">
-                                        <?php esc_html_e(
-                                            'Selecting a shift here adds a new history row starting from the given date. Previous rows are kept for past attendance.',
-                                            'sfs-hr'
-                                        ); ?>
-                                    </p>
-                                <?php else : ?>
-                                    <p class="description">
-                                        <?php esc_html_e(
-                                            'No active attendance shifts found. Configure shifts first under Attendance > Shifts.',
-                                            'sfs-hr'
-                                        ); ?>
-                                    </p>
-                                <?php endif; ?>
-                            </td>
-                        </tr>
-
-                        <?php if ( $shift_history ) : ?>
-                            <tr>
-                                <th><?php esc_html_e( 'Shift history (last 5)', 'sfs-hr' ); ?></th>
-                                <td>
-                                    <ul style="margin:0;padding-left:18px;">
-                                        <?php foreach ( $shift_history as $h ) : ?>
-                                            <?php
-                                            $h_label = $h['name'] ?? '';
-                                            $h_dept  = $h['dept'] ?? '';
-                                            $h_time  = '';
-                                            if ( ! empty( $h['start_time'] ) && ! empty( $h['end_time'] ) ) {
-                                                $h_time = sprintf(
-                                                    '%s–%s',
-                                                    substr( (string) $h['start_time'], 0, 5 ),
-                                                    substr( (string) $h['end_time'], 0, 5 )
-                                                );
-                                            }
-                                            $parts = array_filter( [ $h_label, $h_time, $h_dept ] );
-                                            ?>
-                                            <li>
-                                                <strong><?php echo esc_html( $h['start_date'] ?? '' ); ?></strong>
-                                                — <?php echo esc_html( implode( ' | ', $parts ) ); ?>
-                                            </li>
-                                        <?php endforeach; ?>
-                                    </ul>
-                                </td>
-                            </tr>
-                        <?php endif; ?>
-                    </table>
-                </div>
-
-
-                <!-- IDs, visa, sponsor -->
-                <div class="sfs-hr-emp-card">
-                    <h2><?php esc_html_e( 'Documents & Residency', 'sfs-hr' ); ?></h2>
-                    <table class="form-table">
-                        <?php
-                        $render_input_row( 'national_id', __( 'National ID', 'sfs-hr' ) );
-                        $render_input_row( 'national_id_expiry', __( 'National ID Expiry', 'sfs-hr' ) );
-                        $render_input_row( 'passport_no', __( 'Passport No.', 'sfs-hr' ) );
-                        $render_input_row( 'passport_expiry', __( 'Passport Expiry', 'sfs-hr' ) );
-                        $render_input_row( 'visa_number', __( 'Visa Number', 'sfs-hr' ) );
-                        $render_input_row( 'visa_expiry', __( 'Visa Expiry', 'sfs-hr' ) );
-                        $render_input_row( 'residence_profession', __( 'Residence Profession', 'sfs-hr' ) );
-                        $render_input_row( 'sponsor_name', __( 'Sponsor Name', 'sfs-hr' ) );
-                        $render_input_row( 'sponsor_id', __( 'Sponsor ID', 'sfs-hr' ) );
-                        ?>
-                    </table>
-                </div>
-
-                <!-- Driving license & emergency -->
-                <div class="sfs-hr-emp-card">
-                    <h2><?php esc_html_e( 'Driving License & Emergency', 'sfs-hr' ); ?></h2>
-                    <table class="form-table">
-                        <tr>
-                            <th><?php esc_html_e( 'Driving License', 'sfs-hr' ); ?></th>
-                            <td>
-                                <?php $dl_has = ! empty( $emp['driving_license_has'] ); ?>
-                                <label style="display:block;margin-bottom:6px;">
-                                    <input type="checkbox" name="driving_license_has" value="1" <?php checked( $dl_has ); ?> />
-                                    <?php esc_html_e( 'Has driving license', 'sfs-hr' ); ?>
-                                </label>
-                                <input
-                                    name="driving_license_number"
-                                    class="regular-text"
-                                    value="<?php echo esc_attr( $emp['driving_license_number'] ?? '' ); ?>"
-                                    placeholder="<?php esc_attr_e( 'License number', 'sfs-hr' ); ?>"
-                                /><br/>
-                                <input
-                                    name="driving_license_expiry"
-                                    type="date"
-                                    class="regular-text sfs-hr-date"
-                                    value="<?php echo esc_attr( $emp['driving_license_expiry'] ?? '' ); ?>"
-                                    placeholder="<?php esc_attr_e( 'Expiry date', 'sfs-hr' ); ?>"
-                                />
-                            </td>
-                        </tr>
-
-                        <?php
-                        $render_input_row( 'emergency_contact_name', __( 'Emergency Contact Name', 'sfs-hr' ) );
-                        $render_input_row( 'emergency_contact_phone', __( 'Emergency Contact Phone', 'sfs-hr' ) );
-                        ?>
-                    </table>
-                </div>
-
-                <!-- QR & photo -->
-                <div class="sfs-hr-emp-card">
-                    <h2><?php esc_html_e( 'QR & Photo', 'sfs-hr' ); ?></h2>
-                    <table class="form-table">
-                        <tr>
-                            <th><?php esc_html_e( 'Employee QR', 'sfs-hr' ); ?></th>
-                            <td>
-                                <?php if ( $qr_enabled ) : ?>
-                                    <img src="<?php echo esc_url( $qr_img ); ?>"
-                                        alt="QR" width="220" height="220"
-                                        referrerpolicy="no-referrer"
-                                        style="border:1px solid #c3c4c7;border-radius:6px;background:#fff;"/>
-                                    <p style="margin-top:12px;">
-        <a class="button button-secondary" href="<?php
-            echo esc_url(
-                wp_nonce_url(
-                    add_query_arg(
-                        [
-                            'action' => 'sfs_hr_download_qr_card',
-                            'id'     => (int) $emp['id'],
-                        ],
-                        admin_url( 'admin-post.php' )
-                    ),
-                    'sfs_hr_download_qr_card_' . (int) $emp['id'],
-                    '_sfsqr_download'
-                )
-            );
-        ?>">
-            <?php esc_html_e( 'Download QR Card (86×54mm)', 'sfs-hr' ); ?>
-        </a>
-    </p>
-                                <?php else : ?>
-                                    <em><?php esc_html_e( 'QR is disabled for this employee.', 'sfs-hr' ); ?></em>
-                                <?php endif; ?>
-                                <p class="description">
-                                    <?php esc_html_e( 'Scanning the code opens a secure URL with a token for this employee.', 'sfs-hr' ); ?>
-                                </p>
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <th><?php esc_html_e( 'Employee Photo', 'sfs-hr' ); ?></th>
-                            <td>
-                                <?php
-                                $photo_id = isset( $emp['photo_id'] ) ? (int) $emp['photo_id'] : 0;
-                                if ( $photo_id ) {
-                                    echo wp_get_attachment_image(
-                                        $photo_id,
-                                        [ 96, 96 ],
-                                        false,
-                                        [ 'style' => 'border-radius:6px;display:block;margin-bottom:8px' ]
-                                    );
-                                }
-                                ?>
-                                <input type="file" name="employee_photo" accept="image/*" />
-                                <p class="description">
-                                    <?php esc_html_e( 'JPEG/PNG. Optional. Shown on kiosk/web confirmation.', 'sfs-hr' ); ?>
-                                </p>
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-
-            </div><!-- /.sfs-hr-emp-edit-layout -->
-
-            <?php submit_button( __( 'Save Changes', 'sfs-hr' ) ); ?>
-        </form>
-        <!-- END MAIN FORM -->
-
-        <!-- Standalone QR action forms (AFTER the main form) -->
-        <div style="margin-top:16px;display:flex;gap:12px;">
-            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-                <input type="hidden" name="action" value="sfs_hr_regen_qr" />
-                <input type="hidden" name="id" value="<?php echo (int) $emp['id']; ?>" />
-                <?php wp_nonce_field( 'sfs_hr_regen_qr_' . (int) $emp['id'], '_sfsqr_regen' ); ?>
-                <?php submit_button(
-                    __( 'Regenerate QR Token', 'sfs-hr' ),
-                    'secondary',
-                    '',
-                    false,
-                    [ 'onclick' => "return confirm('" . esc_js( __( 'Regenerate token? Old QR codes will stop working.', 'sfs-hr' ) ) . "');" ]
-                ); ?>
-            </form>
-
-            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-                <input type="hidden" name="action" value="sfs_hr_toggle_qr" />
-                <input type="hidden" name="id" value="<?php echo (int) $emp['id']; ?>" />
-                <input type="hidden" name="new" value="<?php echo $qr_enabled ? '0' : '1'; ?>" />
-                <?php wp_nonce_field( 'sfs_hr_toggle_qr_' . (int) $emp['id'], '_sfsqr_toggle' ); ?>
-                <?php submit_button(
-                    $qr_enabled ? __( 'Disable QR', 'sfs-hr' ) : __( 'Enable QR', 'sfs-hr' ),
-                    $qr_enabled ? 'delete' : 'primary',
-                    '',
-                    false
-                ); ?>
-            </form>
-        </div>
-    </div>
-    <?php
 }
 
-    /**
-     * Render the organization structure view (Department → Manager → Employees)
-     */
     /**
      * Adjust color brightness
      * @param string $hex Hex color code
@@ -5401,7 +4928,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
     public function handle_regen_qr(): void {
         Helpers::require_cap('sfs_hr.manage');
         $id = isset($_POST['id']) ? (int)$_POST['id'] : 0;
-        if ($id<=0) wp_safe_redirect( admin_url('admin.php?page=sfs-hr-employees&err=id') );
+        if ($id<=0) { wp_safe_redirect( admin_url('admin.php?page=sfs-hr-employees&err=id') ); exit; }
         check_admin_referer('sfs_hr_regen_qr_'.$id, '_sfsqr_regen');
 
         global $wpdb; $t = $wpdb->prefix.'sfs_hr_employees';
@@ -5418,7 +4945,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         Helpers::require_cap('sfs_hr.manage');
         $id  = isset($_POST['id']) ? (int)$_POST['id'] : 0;
         $new = isset($_POST['new']) ? (int)$_POST['new'] : 0;
-        if ($id<=0) wp_safe_redirect( admin_url('admin.php?page=sfs-hr-employees&err=id') );
+        if ($id<=0) { wp_safe_redirect( admin_url('admin.php?page=sfs-hr-employees&err=id') ); exit; }
         check_admin_referer('sfs_hr_toggle_qr_'.$id, '_sfsqr_toggle');
 
         global $wpdb; $t = $wpdb->prefix.'sfs_hr_employees';
@@ -5685,7 +5212,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             return;
         }
 
-        $q        = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
+        $q        = isset($_GET['s']) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
         $page     = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
         $per_page = isset($_GET['per_page']) ? max(5, intval($_GET['per_page'])) : 20;
 
@@ -6087,8 +5614,8 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
         if ( isset( $_GET['generate'] ) && wp_verify_nonce( $_GET['_wpnonce'] ?? '', 'sfs_hr_generate_report' ) ) {
             $report_type = sanitize_key( $_GET['report_type'] ?? '' );
-            $date_from = sanitize_text_field( $_GET['date_from'] ?? '' );
-            $date_to = sanitize_text_field( $_GET['date_to'] ?? '' );
+            $date_from = sanitize_text_field( wp_unslash( $_GET['date_from'] ?? '' ) );
+            $date_to = sanitize_text_field( wp_unslash( $_GET['date_to'] ?? '' ) );
             $dept_filter = intval( $_GET['dept'] ?? 0 );
             $export_csv = ! empty( $_GET['export'] );
 
@@ -6134,9 +5661,9 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                             <th scope="row"><label><?php esc_html_e( 'Date Range', 'sfs-hr' ); ?></label></th>
                             <td>
                                 <?php $rpt_period = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period(); ?>
-                                <input type="date" name="date_from" value="<?php echo esc_attr( isset( $_GET['date_from'] ) ? sanitize_text_field( $_GET['date_from'] ) : $rpt_period['start'] ); ?>" style="width:150px;" />
+                                <input type="date" name="date_from" value="<?php echo esc_attr( isset( $_GET['date_from'] ) ? sanitize_text_field( wp_unslash( $_GET['date_from'] ) ) : $rpt_period['start'] ); ?>" style="width:150px;" />
                                 <span style="margin:0 8px;"><?php esc_html_e( 'to', 'sfs-hr' ); ?></span>
-                                <input type="date" name="date_to" value="<?php echo esc_attr( isset( $_GET['date_to'] ) ? sanitize_text_field( $_GET['date_to'] ) : $rpt_period['end'] ); ?>" style="width:150px;" />
+                                <input type="date" name="date_to" value="<?php echo esc_attr( isset( $_GET['date_to'] ) ? sanitize_text_field( wp_unslash( $_GET['date_to'] ) ) : $rpt_period['end'] ); ?>" style="width:150px;" />
                             </td>
                         </tr>
                         <tr>
@@ -7357,9 +6884,12 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
      */
     private function find_portal_page_id(): int {
         global $wpdb;
-        $page_id = (int) $wpdb->get_var(
-            "SELECT ID FROM {$wpdb->posts} WHERE post_type='page' AND post_status='publish' AND post_content LIKE '%[sfs_hr_my_profile%' LIMIT 1"
-        );
+        $page_id = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT ID FROM {$wpdb->posts} WHERE post_type = %s AND post_status = %s AND post_content LIKE %s LIMIT 1",
+            'page',
+            'publish',
+            '%[sfs_hr_my_profile%'
+        ) );
         return $page_id;
     }
 }
