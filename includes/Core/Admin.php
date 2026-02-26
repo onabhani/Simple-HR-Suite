@@ -3564,6 +3564,13 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         exit;
     }
 
+    // Strip UTF-8 BOM if present — the export adds one (\xEF\xBB\xBF) for
+    // Excel Arabic support, but it corrupts the first header cell on re-import.
+    $bom = fread( $fh, 3 );
+    if ( $bom !== "\xEF\xBB\xBF" ) {
+        rewind( $fh );
+    }
+
     $header = fgetcsv($fh);
     if ( ! $header ) {
         fclose($fh);
@@ -3578,19 +3585,41 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
     $created = 0;
 
     while ( ($row = fgetcsv($fh)) !== false ) {
+        // Handle column count mismatch (trailing commas, Excel quirks)
+        $hc = count( $header );
+        $rc = count( $row );
+        if ( $rc < $hc ) {
+            $row = array_pad( $row, $hc, '' );
+        } elseif ( $rc > $hc ) {
+            $row = array_slice( $row, 0, $hc );
+        }
+
         $data = array_combine($header, $row);
-        if ( ! is_array($data) ) { 
+        if ( ! is_array($data) ) {
             continue;
         }
 
-        $code = isset($data['employee_code']) ? sanitize_text_field($data['employee_code']) : '';
-        if ( $code === '' ) { 
+        $code = isset($data['employee_code']) ? trim( sanitize_text_field($data['employee_code']) ) : '';
+        if ( $code === '' ) {
             continue;
         }
 
+        // Primary match: employee_code (the unique business key)
         $exists = (int) $wpdb->get_var(
             $wpdb->prepare("SELECT id FROM {$table} WHERE employee_code=%s LIMIT 1", $code)
         );
+
+        // Secondary match: if employee_code didn't match but the CSV contains
+        // the DB row id, try matching by id.  This handles Excel round-trips
+        // that strip leading zeros or alter the code (e.g. "0042" → "42").
+        if ( ! $exists && isset( $data['id'] ) && $data['id'] !== '' ) {
+            $csv_id = (int) $data['id'];
+            if ( $csv_id > 0 ) {
+                $exists = (int) $wpdb->get_var(
+                    $wpdb->prepare( "SELECT id FROM {$table} WHERE id=%d LIMIT 1", $csv_id )
+                );
+            }
+        }
 
         $status_in = isset($data['status']) ? sanitize_text_field($data['status']) : 'active';
         $status    = in_array($status_in, ['active','inactive','terminated'], true) ? $status_in : 'active';
@@ -3599,7 +3628,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         if ( isset($data['dept_id']) && $data['dept_id'] !== '' ) {
             $dept_id = $this->validate_dept_id((int) $data['dept_id']);
         } elseif ( isset($data['department']) && $data['department'] !== '' ) {
-            $dept_id = $this->resolve_dept_by_name($data['department']);
+            $dept_id = $this->resolve_dept_by_name( trim($data['department']) );
         }
 
         $g      = isset($data['gender']) ? strtolower(trim($data['gender'])) : '';
@@ -3659,6 +3688,9 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 // Keep existing status instead of terminating early
                 unset($payload['status']);
             }
+            // Also update employee_code in case it was matched by id and the
+            // code in the CSV is the corrected/canonical value.
+            $payload['employee_code'] = $code;
             $wpdb->update($table, $payload, ['id'=>$exists]);
             $employee_id = $exists;
             $updated++;
@@ -3667,9 +3699,25 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 'employee_code' => $code,
                 'created_at'    => Helpers::now_mysql(),
             ]);
-            $wpdb->insert($table, $payload);
-            $employee_id = (int) $wpdb->insert_id;
-            $created++;
+            $result = $wpdb->insert($table, $payload);
+            if ( $result === false ) {
+                // Insert failed — likely UNIQUE constraint on employee_code.
+                // Try to find and update the existing row instead.
+                $fallback_id = (int) $wpdb->get_var(
+                    $wpdb->prepare( "SELECT id FROM {$table} WHERE employee_code=%s LIMIT 1", $code )
+                );
+                if ( $fallback_id ) {
+                    unset( $payload['employee_code'], $payload['created_at'] );
+                    $wpdb->update( $table, $payload, [ 'id' => $fallback_id ] );
+                    $employee_id = $fallback_id;
+                    $updated++;
+                } else {
+                    continue; // Truly failed — skip this row
+                }
+            } else {
+                $employee_id = (int) $wpdb->insert_id;
+                $created++;
+            }
         }
 
         if ( ! empty($payload['email']) ) {
