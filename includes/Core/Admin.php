@@ -3547,8 +3547,9 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                     $row[] = $r['department_name'] ?? '';
                 } elseif ( in_array($h, $date_columns, true) && !empty($r[$h]) ) {
                     // Format DATE columns as dd/mm/yyyy for user-friendly export
-                    $ts = strtotime($r[$h]);
-                    $row[] = $ts ? gmdate('d/m/Y', $ts) : $r[$h];
+                    $dt = \DateTimeImmutable::createFromFormat('Y-m-d', $r[$h])
+                       ?: \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $r[$h]);
+                    $row[] = $dt ? $dt->format('d/m/Y') : $r[$h];
                 } else {
                     $row[] = isset($r[$h]) ? $r[$h] : '';
                 }
@@ -3719,11 +3720,13 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             // code in the CSV is the corrected/canonical value.
             $payload['employee_code'] = $code;
             $res = $wpdb->update($table, $payload, ['id'=>$exists]);
-            if ( $res !== false ) {
+            if ( $res === false ) {
+                $skipped++;
+            } elseif ( $res === 0 ) {
+                $skipped++;
+            } else {
                 $employee_id = $exists;
                 $updated++;
-            } else {
-                $skipped++;
             }
         } else {
             $payload = array_merge($payload, [
@@ -3743,7 +3746,11 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                         unset( $payload['status'] );
                     }
                     $res = $wpdb->update( $table, $payload, [ 'id' => $fallback_id ] );
-                    if ( $res !== false ) {
+                    if ( $res === false ) {
+                        $skipped++;
+                    } elseif ( $res === 0 ) {
+                        $skipped++;
+                    } else {
                         $employee_id = $fallback_id;
                         $updated++;
                     }
@@ -3767,7 +3774,6 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
     fclose($fh);
 
-    $total = $created + $updated + $skipped;
     $parts = [];
     if ( $created ) {
         /* translators: %d = number of employees created */
