@@ -2,6 +2,13 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [1.5.9] — 2026-02-26
+
+### Improved
+- **CSV import status notices** — the import handler now shows dismissible
+  WordPress admin notices (success/warning/error) with detailed counts of
+  created, updated, and skipped rows. Previously, import results were silent.
+
 ## [1.5.8] — 2026-02-26
 
 ### Fixed
