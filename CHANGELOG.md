@@ -2,6 +2,24 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [1.5.8] — 2026-02-26
+
+### Fixed
+- **CSV import fallback upsert** now enforces the `can_terminate_employee` guard
+  before setting status to 'terminated', matching the primary update path.
+- **CSV import update paths** now check the return value of `$wpdb->update()`;
+  a `false` return (DB error) no longer incorrectly increments the updated count.
+- **Early-leave auto-creation** during attendance recalculation now checks for
+  any existing request for that employee/date (including rejected/cancelled), so
+  previously-rejected requests are not silently re-created.
+- **Early-leave REST hook** (`sfs_hr_early_leave_requested`) now passes the
+  correct `$emp_id` variable instead of undefined `$employee_id`.
+
+### Improved
+- **Plugin activation**: removed redundant conditional re-invocations of
+  `HiringModule::install()` and `SurveysModule::install()` that duplicated the
+  unconditional calls made immediately above.
+
 ## [1.5.7] — 2026-02-26
 
 ### Fixed

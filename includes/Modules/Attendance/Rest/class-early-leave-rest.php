@@ -158,7 +158,7 @@ class Early_Leave_Rest {
         }
 
         // Notify manager that a new early leave request was submitted
-        do_action( 'sfs_hr_early_leave_requested', $request_id, $employee_id, $manager_id );
+        do_action( 'sfs_hr_early_leave_requested', $request_id, $emp_id, $manager_id );
 
         return rest_ensure_response( [
             'success'        => true,

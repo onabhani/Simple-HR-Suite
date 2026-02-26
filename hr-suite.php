@@ -256,14 +256,6 @@ add_action('admin_init', function(){
         \SFS\HR\Install\Migrations::cleanup_stale_overnight_adjust_punches();
         \SFS\HR\Install\Migrations::backfill_missing_early_leave_requests();
 
-        // Self-heal module tables if missing
-        if (!$table_exists($candidates_table) || !$table_exists($trainees_table)) {
-            \SFS\HR\Modules\Hiring\HiringModule::install();
-        }
-        if (!$table_exists($surveys_table) || !$table_exists($survey_questions_table) || !$table_exists($survey_responses_table) || !$table_exists($survey_answers_table)) {
-            \SFS\HR\Modules\Surveys\SurveysModule::install();
-        }
-
         // Seed/mark data if tables already exist
         if ($table_exists($types_table)) {
             $count_types = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$types_table}");

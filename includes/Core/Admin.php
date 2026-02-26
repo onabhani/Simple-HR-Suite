@@ -3691,9 +3691,11 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             // Also update employee_code in case it was matched by id and the
             // code in the CSV is the corrected/canonical value.
             $payload['employee_code'] = $code;
-            $wpdb->update($table, $payload, ['id'=>$exists]);
-            $employee_id = $exists;
-            $updated++;
+            $res = $wpdb->update($table, $payload, ['id'=>$exists]);
+            if ( $res !== false ) {
+                $employee_id = $exists;
+                $updated++;
+            }
         } else {
             $payload = array_merge($payload, [
                 'employee_code' => $code,
@@ -3708,9 +3710,14 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 );
                 if ( $fallback_id ) {
                     unset( $payload['employee_code'], $payload['created_at'] );
-                    $wpdb->update( $table, $payload, [ 'id' => $fallback_id ] );
-                    $employee_id = $fallback_id;
-                    $updated++;
+                    if ( ($payload['status'] ?? '') === 'terminated' && !Helpers::can_terminate_employee($fallback_id) ) {
+                        unset( $payload['status'] );
+                    }
+                    $res = $wpdb->update( $table, $payload, [ 'id' => $fallback_id ] );
+                    if ( $res !== false ) {
+                        $employee_id = $fallback_id;
+                        $updated++;
+                    }
                 } else {
                     continue; // Truly failed — skip this row
                 }

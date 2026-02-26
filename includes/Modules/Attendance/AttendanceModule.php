@@ -3951,7 +3951,7 @@ private static function maybe_create_early_leave_request(
 ): void {
     $el_table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
     $el_exists = $wpdb->get_var( $wpdb->prepare(
-        "SELECT id FROM {$el_table} WHERE employee_id = %d AND request_date = %s AND status IN ('pending','approved')",
+        "SELECT id FROM {$el_table} WHERE employee_id = %d AND request_date = %s",
         $employee_id,
         $ymd
     ) );
