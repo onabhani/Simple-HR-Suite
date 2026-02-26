@@ -841,7 +841,7 @@ class Admin {
 
             if ( $pending_early_leaves > 0 ) {
                 $has_approval_cards = true;
-                echo '<a class="sfs-hr-card sfs-hr-approval-card" href="' . esc_url( admin_url( 'admin.php?page=sfs-hr-attendance&tab=early_leave&status=pending' ) ) . '">';
+                echo '<a class="sfs-hr-card sfs-hr-approval-card" href="' . esc_url( admin_url( 'admin.php?page=sfs_hr_attendance&tab=early_leave&status=pending' ) ) . '">';
                 echo '<h2>' . esc_html__( 'Early Leave Requests', 'sfs-hr' ) . '</h2>';
                 echo '<div class="sfs-hr-card-count">' . esc_html( number_format_i18n( $pending_early_leaves ) ) . '</div>';
                 echo '<div class="sfs-hr-card-meta">' . esc_html__( 'Awaiting your approval', 'sfs-hr' ) . '</div>';
@@ -984,7 +984,7 @@ echo '</a>';
             : ( $expiring_contracts > 0
                 ? ' style="border-left:4px solid #d97706;background:linear-gradient(135deg,#fff 0%,#fffbeb 100%);"'
                 : '' );
-        $exit_url = admin_url( 'admin.php?page=sfs-hr-employee-exit&tab=contracts' );
+        $exit_url = admin_url( 'admin.php?page=sfs-hr-lifecycle&tab=contracts' );
         echo '<a class="sfs-hr-card" href="' . esc_url( $exit_url ) . '"' . $contract_card_style . '>';
         echo '<h2>' . esc_html__( 'Contracts Expiring', 'sfs-hr' ) . '</h2>';
         echo '<div class="sfs-hr-card-count"' . ( $expired_contracts > 0 ? ' style="color:#dc2626;"' : ' style="color:#d97706;"' ) . '>' . esc_html( number_format_i18n( $total_contract_alerts ) ) . '</div>';
@@ -3677,7 +3677,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             'status'                  => $status,
             'gender'                  => $gender,
             'hired_at'                => Helpers::normalize_date($data['hired_at'] ?? ''),
-            'base_salary'             => ($data['base_salary']             ?? '') !== '' ? $data['base_salary'] : null,
+            'base_salary'             => ($data['base_salary']             ?? '') !== '' ? floatval( str_replace( ',', '', $data['base_salary'] ) ) : null,
             'national_id'             => sanitize_text_field($data['national_id']             ?? ''),
             'national_id_expiry'      => Helpers::normalize_date($data['national_id_expiry'] ?? ''),
             'passport_no'             => sanitize_text_field($data['passport_no']             ?? ''),
@@ -3687,7 +3687,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         ];
 
         // NEW FIELDS
-        $payload['gosi_salary']            = ($data['gosi_salary']            ?? '') !== '' ? $data['gosi_salary'] : null;
+        $payload['gosi_salary']            = ($data['gosi_salary']            ?? '') !== '' ? floatval( str_replace( ',', '', $data['gosi_salary'] ) ) : null;
 
         $payload['visa_number']            = sanitize_text_field($data['visa_number']            ?? '');
         $payload['visa_expiry']            = Helpers::normalize_date($data['visa_expiry'] ?? '');
