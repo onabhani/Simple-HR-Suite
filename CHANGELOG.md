@@ -2,6 +2,61 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [1.5.8] — 2026-02-26
+
+### Fixed
+- **CSV import fallback upsert** now enforces the `can_terminate_employee` guard
+  before setting status to 'terminated', matching the primary update path.
+- **CSV import update paths** now check the return value of `$wpdb->update()`;
+  a `false` return (DB error) no longer incorrectly increments the updated count.
+- **Early-leave auto-creation** during attendance recalculation now checks for
+  any existing request for that employee/date (including rejected/cancelled), so
+  previously-rejected requests are not silently re-created.
+- **Early-leave REST hook** (`sfs_hr_early_leave_requested`) now passes the
+  correct `$emp_id` variable instead of undefined `$employee_id`.
+
+### Improved
+- **Plugin activation**: removed redundant conditional re-invocations of
+  `HiringModule::install()` and `SurveysModule::install()` that duplicated the
+  unconditional calls made immediately above.
+
+## [1.5.7] — 2026-02-26
+
+### Fixed
+- **Early leave requests not auto-created** when sessions flagged `left_early`:
+  retro-close path (leading OUT closing yesterday's session) now detects
+  left_early and creates the request; extracted shared
+  `maybe_create_early_leave_request()` method; fixed `generate_reference_number()`
+  to use MAX instead of COUNT to prevent UNIQUE constraint collisions.
+- **Stale overnight sessions** staying open past shift-end + buffer: added
+  shift-end deadline guard to `snapshot_for_today()`.
+- **Impossible OUT < IN sessions**: leading OUT punches from previous day no
+  longer set `$lastOut` before `$firstIn`; retro-close updates previous day's
+  incomplete session directly.
+- **CodeRabbit review fixes** (two batches): Leaflet CDN enqueue with SRI +
+  local fallback, `allowed_dept_id` column correction, CSS fallback script,
+  leading-OUT filter for downstream aggregations, rounding rule applied to
+  `rounded_net_minutes` in retro-close, timezone-aware `$prevDate`, NULL vs 0
+  for `overtime_buffer_minutes`, empty-segments fallback for total-hours shifts.
+
+### Improved
+- **Admin performance**: schema/migration checks (~56 information_schema queries)
+  now skipped on steady-state admin pages via version guard; `dynamic_caps()` DB
+  lookups cached per request via static variable.
+- **Assets REST API**: removed unimplemented placeholder routes that exposed
+  publicly-accessible endpoints returning empty responses.
+- **Uninstall routine**: documented intentional data-retention policy.
+- **Payroll component edit handler**: returns proper error instead of silently
+  doing nothing.
+- **Early-leave notifications**: manager and employee notification hooks now fire
+  via `do_action()` on request creation and review.
+
+### Changed
+- Version references synchronized across README (was 1.2.4), CHANGELOG (was
+  1.3.5), and plugin header/constant (1.5.7).
+- Devices/Kiosk tab UI polished: pill-shaped buttons, compact punch timing
+  fields, uniform 36px input heights.
+
 ## [1.3.5] — 2026-02-19
 
 ### Fixed
