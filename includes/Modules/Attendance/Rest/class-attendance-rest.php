@@ -602,6 +602,13 @@ if ( $source === 'kiosk' && $scan_token !== '' && ! $is_offline_origin ) {
     $pre   = self::snapshot_for_today( (int) $emp );
     $allow = isset( $pre['allow'] ) && is_array( $pre['allow'] ) ? $pre['allow'] : [];
 
+    // When a stale open session exists (buffer expired, snapshot shows idle),
+    // allow clock-out so the employee can close the stuck session.
+    $has_stale_session = ! empty( $pre['stale_session_msg'] );
+    if ( $has_stale_session && $punch_type === 'out' ) {
+        $allow['out'] = true;
+    }
+
     if ( empty( $allow[ $punch_type ] ) ) {
         $msg = 'Invalid action.';
         $st  = $pre['state'] ?? 'idle';
@@ -668,6 +675,35 @@ if ( $source === 'kiosk' && $scan_token !== '' && ! $is_offline_origin ) {
         $dateYmd = $pre['overnight_ymd'];
     }
     $assign  = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $emp, $dateYmd );
+
+    // --- Allow clock-out / break actions on off-days when an open session exists ---
+    // When today is an off-day (no shift) and the snapshot shows the employee is
+    // still clocked in (state=in/break), look for an open session from the
+    // previous day and use that day's shift for validation.  This covers two cases:
+    //   1. Overnight session detected by snapshot but shift resolves to null for
+    //      today (off-day) — the snapshot's overnight_ymd should have handled this
+    //      but may not if the employee navigated away and the snapshot is stale.
+    //   2. Buffer-expired overnight session where the employee still needs to close
+    //      out — we allow clock-out regardless of buffer to prevent stuck sessions.
+    if ( ! $assign && in_array( $punch_type, [ 'out', 'break_start', 'break_end' ], true ) ) {
+        $pT_check = $wpdb->prefix . 'sfs_hr_attendance_punches';
+        $last_open = $wpdb->get_row( $wpdb->prepare(
+            "SELECT punch_type, punch_time FROM {$pT_check}
+             WHERE employee_id = %d ORDER BY punch_time DESC LIMIT 1",
+            (int) $emp
+        ) );
+        if ( $last_open && in_array( (string) $last_open->punch_type, [ 'in', 'break_end' ], true ) ) {
+            $open_date = wp_date( 'Y-m-d', strtotime( $last_open->punch_time . ' UTC' ) );
+            if ( $open_date < $dateYmd ) {
+                $prev_assign = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $emp, $open_date );
+                if ( $prev_assign ) {
+                    $assign  = $prev_assign;
+                    $dateYmd = $open_date;
+                }
+            }
+        }
+    }
+
     if ( ! $assign ) {
         return new \WP_Error( 'no_shift', 'No shift set (no assignment and no department automation). Ask HR to set Automation or create an assignment.', [ 'status' => 409 ] );
     }
@@ -1127,7 +1163,8 @@ private static function save_selfie_attachment( array $src ): int {
     // We now use the same overtime buffer the session builder uses so the
     // employee can clock out during a reasonable window after shift end,
     // but stale sessions (e.g. forgot to clock out) auto-expire.
-    $overnight_ymd = '';
+    $overnight_ymd      = '';
+    $stale_open_session = '';
 
     // Get employee's absolute last punch (no date filter)
     $last_global = $wpdb->get_row( $wpdb->prepare(
@@ -1180,8 +1217,11 @@ private static function save_selfie_attachment( array $src ): int {
                 $work_local    = new \DateTimeImmutable( $work_date . ' 00:00:00', $tz );
                 $start_utc     = $work_local->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' );
                 $overnight_ymd = $work_date;
+            } else {
+                // Buffer expired — stale open session (forgot to clock out).
+                // Surface this to the UI so the employee knows why they can't act.
+                $stale_open_session = $work_date;
             }
-            // else: buffer expired — treat the employee as idle (forgot to clock out)
         }
     }
 
@@ -1270,6 +1310,30 @@ private static function save_selfie_attachment( array $src ): int {
         'break_end'   => ($state === 'break'),
     ];
 
+    // --- Off-day detection ---
+    // Check if today has a valid shift. When the shift resolves to null (weekly
+    // override, period override off_days, or schedule rotation day-off), block
+    // new clock-ins so the button doesn't appear on rest days.
+    // An active overnight session (clocked in yesterday) still allows clock-out.
+    $is_off_day = false;
+    if ( $state === 'idle' && empty( $overnight_ymd ) ) {
+        $today_shift = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( $employee_id, $today );
+        if ( ! $today_shift ) {
+            $is_off_day  = true;
+            $allow['in'] = false;
+            $label       = __( 'Day Off', 'sfs-hr' );
+        }
+    }
+
+    // --- Stale open session ---
+    // When an overnight session exists but its buffer has expired, inform the
+    // employee.  The UI will display a message instead of showing stale buttons.
+    $stale_session_msg = '';
+    if ( $stale_open_session !== '' && $state === 'idle' ) {
+        $stale_session_msg = __( 'Your previous shift was not closed. Please contact HR.', 'sfs-hr' );
+        $label             = $stale_session_msg;
+    }
+
     // Build punch history for UI display.
     $punch_history = [];
     foreach ( $rows as $r ) {
@@ -1289,14 +1353,16 @@ private static function save_selfie_attachment( array $src ): int {
     }
 
     return [
-        'label'           => $label,
-        'state'           => $state,
-        'allow'           => $allow,
-        'clock_in_time'   => $clock_in_time,
-        'working_seconds' => max( 0, (int) $working_seconds ),
-        'target_seconds'  => $target_seconds,
-        'punch_history'   => $punch_history,
-        'overnight_ymd'   => $overnight_ymd,
+        'label'              => $label,
+        'state'              => $state,
+        'allow'              => $allow,
+        'clock_in_time'      => $clock_in_time,
+        'working_seconds'    => max( 0, (int) $working_seconds ),
+        'target_seconds'     => $target_seconds,
+        'punch_history'      => $punch_history,
+        'overnight_ymd'      => $overnight_ymd,
+        'is_off_day'         => $is_off_day,
+        'stale_session_msg'  => $stale_session_msg,
     ];
 }
 

@@ -840,7 +840,10 @@ window.sfsAttI18n = window.sfsAttI18n || {
     // Progress & History
     no_activity_yet: '<?php echo esc_js( __( 'No activity recorded yet.', 'sfs-hr' ) ); ?>',
     hours_worked: '<?php echo esc_js( __( 'hours worked', 'sfs-hr' ) ); ?>',
-    todays_activity: '<?php echo esc_js( __( "Today\'s Activity", 'sfs-hr' ) ); ?>'
+    todays_activity: '<?php echo esc_js( __( "Today\'s Activity", 'sfs-hr' ) ); ?>',
+    // Off-day / stale session
+    day_off: '<?php echo esc_js( __( 'Day Off', 'sfs-hr' ) ); ?>',
+    stale_session_contact_hr: '<?php echo esc_js( __( 'Your previous shift was not closed. Please contact HR.', 'sfs-hr' ) ); ?>'
 };
 
 // Language switching support for attendance widget
@@ -882,7 +885,8 @@ window.sfsAttI18n = window.sfsAttI18n || {
                 'selfie_required_hint', 'location_hint', 'selfie_required_capture', 'error_prefix', 'request_timed_out',
                 'clock_in', 'clock_out', 'start_break', 'end_break', 'break_start', 'break_end',
                 'please_wait', 'seconds_short',
-                'no_activity_yet', 'hours_worked', 'todays_activity', 'locate_me'];
+                'no_activity_yet', 'hours_worked', 'todays_activity', 'locate_me',
+                'day_off', 'stale_session_contact_hr'];
 
             keys.forEach(function(key) {
                 if (strings[key]) {
@@ -1430,18 +1434,41 @@ setInterval(tickClock, 1000);
                 // Show/hide buttons based on allowed transitions + method policy
                 syncButtons();
 
-                // If ALL state-allowed actions are method-blocked, show why
-                var blockedMsg = null;
-                for (var pt in allowed) {
-                    if (allowed[pt] && methodBlocked[pt]) {
-                        blockedMsg = methodBlocked[pt];
-                        break;
-                    }
-                }
-                if (blockedMsg) {
-                    setStat(blockedMsg, 'error');
+                // --- Off-day / stale session messaging ---
+                if (j.is_off_day) {
+                    setStat(i18n.day_off || 'Day Off', 'idle');
+                    hint && (hint.textContent = '');
+                } else if (j.stale_session_msg) {
+                    // Show the stale session warning but enable Clock Out so
+                    // the employee can close the stuck session themselves.
+                    setStat(j.stale_session_msg, 'error');
+                    allowed['out'] = true;
+                    allowed['in'] = false;
+                    allowed['break_start'] = false;
+                    allowed['break_end'] = false;
+                    syncButtons();
+                    hint && (hint.textContent = '');
                 } else {
-                    setStat(i18n.ready, 'idle');
+                    // If ALL state-allowed actions are method-blocked, show why
+                    var blockedMsg = null;
+                    for (var pt in allowed) {
+                        if (allowed[pt] && methodBlocked[pt]) {
+                            blockedMsg = methodBlocked[pt];
+                            break;
+                        }
+                    }
+                    if (blockedMsg) {
+                        setStat(blockedMsg, 'error');
+                    } else {
+                        setStat(i18n.ready, 'idle');
+                    }
+
+                    // Selfie hint
+                    if (requiresSelfie) {
+                        hint && (hint.textContent = i18n.selfie_required_hint);
+                    } else {
+                        hint && (hint.textContent = i18n.location_hint);
+                    }
                 }
 
                 // Update progress timer.
@@ -1449,13 +1476,6 @@ setInterval(tickClock, 1000);
 
                 // Update punch history.
                 updatePunchHistory(j.punch_history || []);
-
-                // Selfie hint
-                if (requiresSelfie) {
-                    hint && (hint.textContent = i18n.selfie_required_hint);
-                } else {
-                    hint && (hint.textContent = i18n.location_hint);
-                }
 
             } catch(e) {
                 setStat(i18n.error_prefix + ' ' + (e.name === 'AbortError' ? i18n.request_timed_out : e.message), 'error');

@@ -3146,6 +3146,8 @@
     "clock_out_punch": "رخصتی لگائیں",
     "break_start_punch": "وقفہ شروع",
     "break_end_punch": "وقفہ ختم",
+    "day_off": "چھٹی کا دن",
+    "stale_session_contact_hr": "آپ کی پچھلی شفٹ بند نہیں ہوئی۔ براہ کرم HR سے رابطہ کریں۔",
 
     "_comment_approvals_enhanced": "Approvals Tab Enhanced",
     "all_filter": "سب",
