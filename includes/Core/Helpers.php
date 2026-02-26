@@ -768,4 +768,56 @@ public static function asset_status_badge( string $status ): string {
         }
     }
 
+    /**
+     * Normalize a date string from various formats to MySQL DATE (Y-m-d).
+     *
+     * Handles: Y-m-d, d/m/Y, m/d/Y, d-m-Y, d.m.Y, and common Excel variants.
+     * Returns null for empty or unparseable values.
+     */
+    public static function normalize_date( ?string $value ): ?string {
+        if ( $value === null || trim( $value ) === '' ) {
+            return null;
+        }
+
+        $value = trim( $value );
+
+        // Already in MySQL format (Y-m-d)
+        if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $value ) ) {
+            return $value;
+        }
+
+        // dd/mm/yyyy or dd-mm-yyyy or dd.mm.yyyy
+        if ( preg_match( '#^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$#', $value, $m ) ) {
+            $a = (int) $m[1];
+            $b = (int) $m[2];
+            $y = (int) $m[3];
+
+            // Unambiguous: if first part > 12 it must be day (dd/mm/yyyy)
+            if ( $a > 12 ) {
+                $d = $a;
+                $mo = $b;
+            // Unambiguous: if second part > 12 it must be day (mm/dd/yyyy)
+            } elseif ( $b > 12 ) {
+                $mo = $a;
+                $d  = $b;
+            } else {
+                // Ambiguous (both <= 12): treat as dd/mm/yyyy per user preference
+                $d  = $a;
+                $mo = $b;
+            }
+
+            if ( checkdate( $mo, $d, $y ) ) {
+                return sprintf( '%04d-%02d-%02d', $y, $mo, $d );
+            }
+        }
+
+        // Fallback: let PHP try to parse it
+        $ts = strtotime( $value );
+        if ( $ts !== false && $ts > 0 ) {
+            return gmdate( 'Y-m-d', $ts );
+        }
+
+        return null;
+    }
+
 }

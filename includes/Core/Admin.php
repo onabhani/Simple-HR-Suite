@@ -3533,12 +3533,23 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
     'user_id','created_at','updated_at'
 ];
 
+        $date_columns = [
+            'hired_at','national_id_expiry','passport_expiry','visa_expiry',
+            'date_of_birth','contract_start_date','contract_end_date',
+            'probation_end_date','entry_date_ksa','driving_license_expiry',
+        ];
+
         fputcsv($out, $headers);
         foreach ($rows as $r) {
             $row = [];
             foreach ($headers as $h) {
                 if ($h === 'department') {
                     $row[] = $r['department_name'] ?? '';
+                } elseif ( in_array($h, $date_columns, true) && !empty($r[$h]) ) {
+                    // Format DATE columns as dd/mm/yyyy for user-friendly export
+                    $dt = \DateTimeImmutable::createFromFormat('Y-m-d', $r[$h])
+                       ?: \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $r[$h]);
+                    $row[] = $dt ? $dt->format('d/m/Y') : $r[$h];
                 } else {
                     $row[] = isset($r[$h]) ? $r[$h] : '';
                 }
@@ -3553,14 +3564,22 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
     Helpers::require_cap('sfs_hr.manage');
     check_admin_referer('sfs_hr_import_employees');
 
+    $redir_base = ['page' => 'sfs-hr-employees'];
+
     if ( empty($_FILES['csv']['tmp_name']) ) {
-        wp_safe_redirect( add_query_arg(['page'=>'sfs-hr-employees','err'=>'nocsv'], admin_url('admin.php')) );
+        wp_safe_redirect( add_query_arg( array_merge($redir_base, [
+            'sfs_hr_notice' => 'error',
+            'sfs_hr_msg'    => __('No CSV file selected.', 'sfs-hr'),
+        ]), admin_url('admin.php') ) );
         exit;
     }
 
     $fh = fopen($_FILES['csv']['tmp_name'], 'r');
     if ( ! $fh ) {
-        wp_safe_redirect( add_query_arg(['page'=>'sfs-hr-employees','err'=>'upload'], admin_url('admin.php')) );
+        wp_safe_redirect( add_query_arg( array_merge($redir_base, [
+            'sfs_hr_notice' => 'error',
+            'sfs_hr_msg'    => __('Failed to open the uploaded file.', 'sfs-hr'),
+        ]), admin_url('admin.php') ) );
         exit;
     }
 
@@ -3574,7 +3593,10 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
     $header = fgetcsv($fh);
     if ( ! $header ) {
         fclose($fh);
-        wp_safe_redirect( add_query_arg(['page'=>'sfs-hr-employees','err'=>'header'], admin_url('admin.php')) );
+        wp_safe_redirect( add_query_arg( array_merge($redir_base, [
+            'sfs_hr_notice' => 'error',
+            'sfs_hr_msg'    => __('Invalid or empty CSV header row.', 'sfs-hr'),
+        ]), admin_url('admin.php') ) );
         exit;
     }
     $header = array_map('sanitize_key', $header);
@@ -3583,8 +3605,12 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
     $table   = $wpdb->prefix.'sfs_hr_employees';
     $updated = 0;
     $created = 0;
+    $skipped = 0;
+    $row_num = 1; // header is row 1
 
     while ( ($row = fgetcsv($fh)) !== false ) {
+        $row_num++;
+
         // Handle column count mismatch (trailing commas, Excel quirks)
         $hc = count( $header );
         $rc = count( $row );
@@ -3596,11 +3622,13 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
         $data = array_combine($header, $row);
         if ( ! is_array($data) ) {
+            $skipped++;
             continue;
         }
 
         $code = isset($data['employee_code']) ? trim( sanitize_text_field($data['employee_code']) ) : '';
         if ( $code === '' ) {
+            $skipped++;
             continue;
         }
 
@@ -3645,12 +3673,12 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             'position'                => sanitize_text_field($data['position']                ?? ''),
             'status'                  => $status,
             'gender'                  => $gender,
-            'hired_at'                => ($data['hired_at']                ?? '') ?: null,
+            'hired_at'                => Helpers::normalize_date($data['hired_at'] ?? ''),
             'base_salary'             => ($data['base_salary']             ?? '') !== '' ? $data['base_salary'] : null,
             'national_id'             => sanitize_text_field($data['national_id']             ?? ''),
-            'national_id_expiry'      => ($data['national_id_expiry']      ?? '') ?: null,
+            'national_id_expiry'      => Helpers::normalize_date($data['national_id_expiry'] ?? ''),
             'passport_no'             => sanitize_text_field($data['passport_no']             ?? ''),
-            'passport_expiry'         => ($data['passport_expiry']         ?? '') ?: null,
+            'passport_expiry'         => Helpers::normalize_date($data['passport_expiry'] ?? ''),
             'emergency_contact_name'  => sanitize_text_field($data['emergency_contact_name']  ?? ''),
             'emergency_contact_phone' => sanitize_text_field($data['emergency_contact_phone'] ?? ''),
         ];
@@ -3659,18 +3687,18 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         $payload['gosi_salary']            = ($data['gosi_salary']            ?? '') !== '' ? $data['gosi_salary'] : null;
 
         $payload['visa_number']            = sanitize_text_field($data['visa_number']            ?? '');
-        $payload['visa_expiry']            = ($data['visa_expiry']            ?? '') ?: null;
+        $payload['visa_expiry']            = Helpers::normalize_date($data['visa_expiry'] ?? '');
 
         $payload['nationality']            = sanitize_text_field($data['nationality']            ?? '');
         $payload['marital_status']         = sanitize_text_field($data['marital_status']         ?? '');
-        $payload['date_of_birth']          = ($data['date_of_birth']          ?? '') ?: null;
+        $payload['date_of_birth']          = Helpers::normalize_date($data['date_of_birth'] ?? '');
 
         $payload['work_location']          = sanitize_text_field($data['work_location']          ?? '');
         $payload['contract_type']          = sanitize_text_field($data['contract_type']          ?? '');
-        $payload['contract_start_date']    = ($data['contract_start_date']    ?? '') ?: null;
-        $payload['contract_end_date']      = ($data['contract_end_date']      ?? '') ?: null;
-        $payload['probation_end_date']     = ($data['probation_end_date']     ?? '') ?: null;
-        $payload['entry_date_ksa']         = ($data['entry_date_ksa']         ?? '') ?: null;
+        $payload['contract_start_date']    = Helpers::normalize_date($data['contract_start_date'] ?? '');
+        $payload['contract_end_date']      = Helpers::normalize_date($data['contract_end_date'] ?? '');
+        $payload['probation_end_date']     = Helpers::normalize_date($data['probation_end_date'] ?? '');
+        $payload['entry_date_ksa']         = Helpers::normalize_date($data['entry_date_ksa'] ?? '');
 
         $payload['residence_profession']   = sanitize_text_field($data['residence_profession']   ?? '');
         $payload['sponsor_name']           = sanitize_text_field($data['sponsor_name']           ?? '');
@@ -3678,7 +3706,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
         $payload['driving_license_has']    = ! empty($data['driving_license_has']) ? 1 : 0;
         $payload['driving_license_number'] = sanitize_text_field($data['driving_license_number'] ?? '');
-        $payload['driving_license_expiry'] = ($data['driving_license_expiry'] ?? '') ?: null;
+        $payload['driving_license_expiry'] = Helpers::normalize_date($data['driving_license_expiry'] ?? '');
 
         $payload['updated_at']             = Helpers::now_mysql();
 
@@ -3692,7 +3720,11 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             // code in the CSV is the corrected/canonical value.
             $payload['employee_code'] = $code;
             $res = $wpdb->update($table, $payload, ['id'=>$exists]);
-            if ( $res !== false ) {
+            if ( $res === false ) {
+                $skipped++;
+            } elseif ( $res === 0 ) {
+                $skipped++;
+            } else {
                 $employee_id = $exists;
                 $updated++;
             }
@@ -3714,11 +3746,16 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                         unset( $payload['status'] );
                     }
                     $res = $wpdb->update( $table, $payload, [ 'id' => $fallback_id ] );
-                    if ( $res !== false ) {
+                    if ( $res === false ) {
+                        $skipped++;
+                    } elseif ( $res === 0 ) {
+                        $skipped++;
+                    } else {
                         $employee_id = $fallback_id;
                         $updated++;
                     }
                 } else {
+                    $skipped++;
                     continue; // Truly failed — skip this row
                 }
             } else {
@@ -3737,7 +3774,37 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
     fclose($fh);
 
-    wp_safe_redirect( add_query_arg(['page'=>'sfs-hr-employees','ok'=>"import:$created:$updated"], admin_url('admin.php')) );
+    $parts = [];
+    if ( $created ) {
+        /* translators: %d = number of employees created */
+        $parts[] = sprintf( _n( '%d created', '%d created', $created, 'sfs-hr' ), $created );
+    }
+    if ( $updated ) {
+        /* translators: %d = number of employees updated */
+        $parts[] = sprintf( _n( '%d updated', '%d updated', $updated, 'sfs-hr' ), $updated );
+    }
+    if ( $skipped ) {
+        /* translators: %d = number of rows skipped */
+        $parts[] = sprintf( _n( '%d skipped', '%d skipped', $skipped, 'sfs-hr' ), $skipped );
+    }
+
+    if ( $created === 0 && $updated === 0 ) {
+        $notice = 'warning';
+        $msg    = __( 'Import finished but no records were created or updated.', 'sfs-hr' );
+        if ( $skipped ) {
+            /* translators: %d = number of rows skipped */
+            $msg .= ' ' . sprintf( _n( '(%d row skipped)', '(%d rows skipped)', $skipped, 'sfs-hr' ), $skipped );
+        }
+    } else {
+        $notice = $skipped ? 'warning' : 'success';
+        /* translators: %s = comma-separated counts, e.g. "3 created, 2 updated" */
+        $msg = sprintf( __( 'Import complete: %s.', 'sfs-hr' ), implode( ', ', $parts ) );
+    }
+
+    wp_safe_redirect( add_query_arg( array_merge($redir_base, [
+        'sfs_hr_notice' => $notice,
+        'sfs_hr_msg'    => $msg,
+    ]), admin_url('admin.php') ) );
     exit;
 }
 
