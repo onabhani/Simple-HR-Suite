@@ -3603,10 +3603,11 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
     global $wpdb;
     $table   = $wpdb->prefix.'sfs_hr_employees';
-    $updated = 0;
-    $created = 0;
-    $skipped = 0;
-    $row_num = 1; // header is row 1
+    $updated      = 0;
+    $created      = 0;
+    $skipped      = 0;
+    $skipped_rows = []; // collect "row N (code): reason"
+    $row_num      = 1;  // header is row 1
 
     while ( ($row = fgetcsv($fh)) !== false ) {
         $row_num++;
@@ -3623,12 +3624,14 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         $data = array_combine($header, $row);
         if ( ! is_array($data) ) {
             $skipped++;
+            $skipped_rows[] = sprintf( __( 'Row %d: malformed columns', 'sfs-hr' ), $row_num );
             continue;
         }
 
         $code = isset($data['employee_code']) ? trim( sanitize_text_field($data['employee_code']) ) : '';
         if ( $code === '' ) {
             $skipped++;
+            $skipped_rows[] = sprintf( __( 'Row %d: missing employee_code', 'sfs-hr' ), $row_num );
             continue;
         }
 
@@ -3722,8 +3725,10 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             $res = $wpdb->update($table, $payload, ['id'=>$exists]);
             if ( $res === false ) {
                 $skipped++;
+                $skipped_rows[] = sprintf( __( 'Row %d (%s): DB error on update', 'sfs-hr' ), $row_num, $code );
             } elseif ( $res === 0 ) {
                 $skipped++;
+                $skipped_rows[] = sprintf( __( 'Row %d (%s): no change', 'sfs-hr' ), $row_num, $code );
             } else {
                 $employee_id = $exists;
                 $updated++;
@@ -3748,14 +3753,17 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                     $res = $wpdb->update( $table, $payload, [ 'id' => $fallback_id ] );
                     if ( $res === false ) {
                         $skipped++;
+                        $skipped_rows[] = sprintf( __( 'Row %d (%s): DB error on fallback update', 'sfs-hr' ), $row_num, $code );
                     } elseif ( $res === 0 ) {
                         $skipped++;
+                        $skipped_rows[] = sprintf( __( 'Row %d (%s): no change', 'sfs-hr' ), $row_num, $code );
                     } else {
                         $employee_id = $fallback_id;
                         $updated++;
                     }
                 } else {
                     $skipped++;
+                    $skipped_rows[] = sprintf( __( 'Row %d (%s): insert failed, no matching record found', 'sfs-hr' ), $row_num, $code );
                     continue; // Truly failed — skip this row
                 }
             } else {
@@ -3799,6 +3807,10 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         $notice = $skipped ? 'warning' : 'success';
         /* translators: %s = comma-separated counts, e.g. "3 created, 2 updated" */
         $msg = sprintf( __( 'Import complete: %s.', 'sfs-hr' ), implode( ', ', $parts ) );
+    }
+
+    if ( $skipped_rows ) {
+        set_transient( 'sfs_hr_import_skipped_' . get_current_user_id(), $skipped_rows, 120 );
     }
 
     wp_safe_redirect( add_query_arg( array_merge($redir_base, [

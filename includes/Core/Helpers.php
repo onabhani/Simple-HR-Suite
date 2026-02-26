@@ -324,7 +324,23 @@ class Helpers {
                 : __( 'Action failed. Please try again.', 'sfs-hr' )
         );
 
-        echo '<div class="notice notice-' . esc_attr( $type ) . ' is-dismissible sfs-hr-notice"><p>' . esc_html( $msg ) . '</p></div>';
+        $html = '<div class="notice notice-' . esc_attr( $type ) . ' is-dismissible sfs-hr-notice"><p>' . esc_html( $msg ) . '</p>';
+
+        // Append per-row skip details stored by the CSV importer.
+        $transient_key  = 'sfs_hr_import_skipped_' . get_current_user_id();
+        $skipped_detail = get_transient( $transient_key );
+        if ( is_array( $skipped_detail ) && $skipped_detail ) {
+            delete_transient( $transient_key );
+            $html .= '<details style="margin-top:6px;"><summary style="cursor:pointer;font-weight:600;">'
+                   . esc_html__( 'Show skipped rows', 'sfs-hr' ) . '</summary><ul style="margin:4px 0 0 18px;">';
+            foreach ( $skipped_detail as $line ) {
+                $html .= '<li>' . esc_html( $line ) . '</li>';
+            }
+            $html .= '</ul></details>';
+        }
+
+        $html .= '</div>';
+        echo $html;
     }
 
     /**
