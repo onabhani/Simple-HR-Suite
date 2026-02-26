@@ -3563,14 +3563,22 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
     Helpers::require_cap('sfs_hr.manage');
     check_admin_referer('sfs_hr_import_employees');
 
+    $redir_base = ['page' => 'sfs-hr-employees'];
+
     if ( empty($_FILES['csv']['tmp_name']) ) {
-        wp_safe_redirect( add_query_arg(['page'=>'sfs-hr-employees','err'=>'nocsv'], admin_url('admin.php')) );
+        wp_safe_redirect( add_query_arg( array_merge($redir_base, [
+            'sfs_hr_notice' => 'error',
+            'sfs_hr_msg'    => __('No CSV file selected.', 'sfs-hr'),
+        ]), admin_url('admin.php') ) );
         exit;
     }
 
     $fh = fopen($_FILES['csv']['tmp_name'], 'r');
     if ( ! $fh ) {
-        wp_safe_redirect( add_query_arg(['page'=>'sfs-hr-employees','err'=>'upload'], admin_url('admin.php')) );
+        wp_safe_redirect( add_query_arg( array_merge($redir_base, [
+            'sfs_hr_notice' => 'error',
+            'sfs_hr_msg'    => __('Failed to open the uploaded file.', 'sfs-hr'),
+        ]), admin_url('admin.php') ) );
         exit;
     }
 
@@ -3584,7 +3592,10 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
     $header = fgetcsv($fh);
     if ( ! $header ) {
         fclose($fh);
-        wp_safe_redirect( add_query_arg(['page'=>'sfs-hr-employees','err'=>'header'], admin_url('admin.php')) );
+        wp_safe_redirect( add_query_arg( array_merge($redir_base, [
+            'sfs_hr_notice' => 'error',
+            'sfs_hr_msg'    => __('Invalid or empty CSV header row.', 'sfs-hr'),
+        ]), admin_url('admin.php') ) );
         exit;
     }
     $header = array_map('sanitize_key', $header);
@@ -3593,8 +3604,12 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
     $table   = $wpdb->prefix.'sfs_hr_employees';
     $updated = 0;
     $created = 0;
+    $skipped = 0;
+    $row_num = 1; // header is row 1
 
     while ( ($row = fgetcsv($fh)) !== false ) {
+        $row_num++;
+
         // Handle column count mismatch (trailing commas, Excel quirks)
         $hc = count( $header );
         $rc = count( $row );
@@ -3606,11 +3621,13 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
         $data = array_combine($header, $row);
         if ( ! is_array($data) ) {
+            $skipped++;
             continue;
         }
 
         $code = isset($data['employee_code']) ? trim( sanitize_text_field($data['employee_code']) ) : '';
         if ( $code === '' ) {
+            $skipped++;
             continue;
         }
 
@@ -3705,6 +3722,8 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             if ( $res !== false ) {
                 $employee_id = $exists;
                 $updated++;
+            } else {
+                $skipped++;
             }
         } else {
             $payload = array_merge($payload, [
@@ -3729,6 +3748,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                         $updated++;
                     }
                 } else {
+                    $skipped++;
                     continue; // Truly failed — skip this row
                 }
             } else {
@@ -3747,7 +3767,38 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
     fclose($fh);
 
-    wp_safe_redirect( add_query_arg(['page'=>'sfs-hr-employees','ok'=>"import:$created:$updated"], admin_url('admin.php')) );
+    $total = $created + $updated + $skipped;
+    $parts = [];
+    if ( $created ) {
+        /* translators: %d = number of employees created */
+        $parts[] = sprintf( _n( '%d created', '%d created', $created, 'sfs-hr' ), $created );
+    }
+    if ( $updated ) {
+        /* translators: %d = number of employees updated */
+        $parts[] = sprintf( _n( '%d updated', '%d updated', $updated, 'sfs-hr' ), $updated );
+    }
+    if ( $skipped ) {
+        /* translators: %d = number of rows skipped */
+        $parts[] = sprintf( _n( '%d skipped', '%d skipped', $skipped, 'sfs-hr' ), $skipped );
+    }
+
+    if ( $created === 0 && $updated === 0 ) {
+        $notice = 'warning';
+        $msg    = __( 'Import finished but no records were created or updated.', 'sfs-hr' );
+        if ( $skipped ) {
+            /* translators: %d = number of rows skipped */
+            $msg .= ' ' . sprintf( _n( '(%d row skipped)', '(%d rows skipped)', $skipped, 'sfs-hr' ), $skipped );
+        }
+    } else {
+        $notice = $skipped ? 'warning' : 'success';
+        /* translators: %s = comma-separated counts, e.g. "3 created, 2 updated" */
+        $msg = sprintf( __( 'Import complete: %s.', 'sfs-hr' ), implode( ', ', $parts ) );
+    }
+
+    wp_safe_redirect( add_query_arg( array_merge($redir_base, [
+        'sfs_hr_notice' => $notice,
+        'sfs_hr_msg'    => $msg,
+    ]), admin_url('admin.php') ) );
     exit;
 }
 
