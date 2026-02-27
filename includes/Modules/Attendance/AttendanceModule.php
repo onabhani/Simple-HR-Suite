@@ -1220,6 +1220,7 @@ setInterval(tickClock, 1000);
         var progressBar = document.getElementById('sfs-att-progress-bar-<?php echo $inst; ?>');
         var workedEl    = document.getElementById('sfs-att-worked-<?php echo $inst; ?>');
         var targetEl    = document.getElementById('sfs-att-target-<?php echo $inst; ?>');
+        var progressWrap = document.getElementById('sfs-att-progress-<?php echo $inst; ?>');
         var CIRCUMFERENCE = 2 * Math.PI * 52; // ~326.7
 
         function formatHM(seconds) {
@@ -1443,6 +1444,7 @@ setInterval(tickClock, 1000);
                 if (j.is_off_day) {
                     setStat(i18n.day_off || 'Day Off', 'off_day');
                     hint && (hint.textContent = '');
+                    if (progressWrap) progressWrap.style.display = 'none';
                 } else if (j.stale_session_msg) {
                     // Show the stale session warning but enable Clock Out so
                     // the employee can close the stuck session themselves.
@@ -1456,6 +1458,7 @@ setInterval(tickClock, 1000);
                     delete methodBlocked['out'];
                     syncButtons();
                     hint && (hint.textContent = '');
+                    if (progressWrap) progressWrap.style.display = '';
                 } else {
                     // If ALL state-allowed actions are method-blocked, show why
                     var blockedMsg = null;
@@ -1482,6 +1485,7 @@ setInterval(tickClock, 1000);
                     } else {
                         hint && (hint.textContent = i18n.location_hint);
                     }
+                    if (progressWrap) progressWrap.style.display = '';
                 }
 
                 // Update progress timer.
