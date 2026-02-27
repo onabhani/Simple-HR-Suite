@@ -541,9 +541,13 @@ class Admin_Pages {
                                     'start_date'  => $start_date,
                                     'end_date'    => $end_date,
                                 ], admin_url( 'admin.php' ) );
+                                $profile_url = admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . (int) $emp['employee_id'] );
                                 ?>
                                 <a href="<?php echo esc_url( $detail_url ); ?>" style="text-decoration: none; color: inherit;">
                                     <strong><?php echo esc_html( $emp['employee_name'] ); ?></strong>
+                                </a>
+                                <a href="<?php echo esc_url( $profile_url ); ?>" title="<?php esc_attr_e( 'View employee profile', 'sfs-hr' ); ?>" style="margin-left:4px;color:#0284c7;text-decoration:none;font-size:14px;">
+                                    <span class="dashicons dashicons-id-alt" style="font-size:14px;width:14px;height:14px;vertical-align:middle;"></span>
                                 </a><br>
                                 <small style="color: #666;"><?php echo esc_html( $emp['employee_code'] ); ?></small>
                             </td>

@@ -145,6 +145,10 @@ add_action('rest_api_init', function () {
 
         // Auto-reject early leave requests after 72 hours of no action
         ( new \SFS\HR\Modules\Attendance\Cron\Early_Leave_Auto_Reject() )->hooks();
+
+        // Daily session builder — ensures sessions exist for yesterday/today
+        require_once __DIR__ . '/Cron/Daily_Session_Builder.php';
+        ( new \SFS\HR\Modules\Attendance\Cron\Daily_Session_Builder() )->hooks();
     }
 
     /**
