@@ -5797,6 +5797,28 @@ public static function resolve_shift_for_date(
         return self::apply_period_override( $emp_shift, $ymd );
     }
 
+    // --- 1.7) Project shift — if employee is assigned to an active project on this date
+    if ( class_exists( '\SFS\HR\Modules\Projects\Services\Projects_Service' ) ) {
+        $prj = \SFS\HR\Modules\Projects\Services\Projects_Service::get_employee_project_on_date( $employee_id, $ymd );
+        if ( $prj && $prj->default_shift_id ) {
+            $psh = $wpdb->get_row(
+                $wpdb->prepare(
+                    "SELECT * FROM {$shiftT} WHERE id = %d AND active = 1 LIMIT 1",
+                    $prj->default_shift_id
+                )
+            );
+            if ( $psh ) {
+                $emp_row      = $wpdb->get_row( $wpdb->prepare( "SELECT dept_id FROM {$empT} WHERE id=%d", $employee_id ) );
+                $psh->dept_id    = $emp_row && ! empty( $emp_row->dept_id ) ? (int) $emp_row->dept_id : null;
+                $psh->__virtual  = 0;
+                $psh->is_holiday = 0;
+                error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=1.7_project project=%d shift_id=%d', $employee_id, $ymd, $prj->id, $psh->id ?? 0 ) );
+                $psh = self::apply_weekly_override( $psh, $ymd, $wpdb );
+                return self::apply_period_override( $psh, $ymd );
+            }
+        }
+    }
+
     // --- 2) Dept identity (id, slug, name) for automation
     $emp = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$empT} WHERE id=%d", $employee_id));
     if (!$emp) {

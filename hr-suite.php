@@ -503,6 +503,10 @@ add_action('plugins_loaded', function(){
 
     // Surveys Module (employee surveys & feedback)
     (new \SFS\HR\Modules\Surveys\SurveysModule())->hooks();
+
+    // Projects Module (project sites, employee-project assignments, project shifts)
+    require_once __DIR__ . '/includes/Modules/Projects/ProjectsModule.php';
+    (new \SFS\HR\Modules\Projects\ProjectsModule())->hooks();
 });
 
 /**
