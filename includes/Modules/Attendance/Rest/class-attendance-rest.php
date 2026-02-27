@@ -1321,6 +1321,28 @@ private static function save_selfie_attachment( array $src ): int {
     $is_off_day = false;
     if ( $state === 'idle' && empty( $overnight_ymd ) ) {
         $today_shift = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( $employee_id, $today );
+
+        // Diagnostic: log which shift resolved and its weekly_overrides so we
+        // can verify the correct shift is being used for off-day detection.
+        $tz_diag      = wp_timezone();
+        $diag_date    = new \DateTimeImmutable( $today . ' 00:00:00', $tz_diag );
+        $diag_dow     = strtolower( $diag_date->format( 'l' ) );
+        $diag_shift_id = $today_shift ? ( $today_shift->id ?? 'no-id' ) : 'null';
+        $diag_wo       = $today_shift ? ( $today_shift->weekly_overrides ?? '(empty)' ) : 'N/A';
+        $diag_virtual  = $today_shift ? ( $today_shift->__virtual ?? '?' ) : 'N/A';
+        $diag_path     = 'unknown';
+        if ( $today_shift ) {
+            if ( isset( $today_shift->__virtual ) && (int) $today_shift->__virtual === 0 ) {
+                $diag_path = 'assignment_or_emp_shift';
+            } else {
+                $diag_path = 'dept_automation_or_fallback';
+            }
+        }
+        error_log( sprintf(
+            '[SFS ATT OFF-DAY DIAG] emp=%d date=%s dow=%s | resolved_shift_id=%s path=%s virtual=%s | weekly_overrides=%s',
+            $employee_id, $today, $diag_dow, $diag_shift_id, $diag_path, $diag_virtual, $diag_wo
+        ) );
+
         if ( ! $today_shift ) {
             $is_off_day  = true;
             $allow['in'] = false;
