@@ -1486,7 +1486,7 @@
     "entity_shift_swap": "Shift Swap",
     "left_early_cap": "Left Early",
     "on_leave_cap": "On Leave",
-    "day_off": "Day Off",
+    "day_off": "چھٹی کا دن",
     "holiday_status": "Holiday",
     "empty_value": "empty",
     "more_items_fmt": "+%d more",
@@ -3146,6 +3146,7 @@
     "clock_out_punch": "رخصتی لگائیں",
     "break_start_punch": "وقفہ شروع",
     "break_end_punch": "وقفہ ختم",
+    "stale_session_contact_hr": "آپ کی پچھلی شفٹ بند نہیں ہوئی۔ براہ کرم HR سے رابطہ کریں۔",
 
     "_comment_approvals_enhanced": "Approvals Tab Enhanced",
     "all_filter": "سب",

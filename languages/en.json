@@ -3146,6 +3146,7 @@
     "clock_out_punch": "Clock Out",
     "break_start_punch": "Break Start",
     "break_end_punch": "Break End",
+    "stale_session_contact_hr": "Your previous shift was not closed. Please contact HR.",
 
     "_comment_approvals_enhanced": "Approvals Tab Enhanced",
     "all_filter": "All",
