@@ -575,6 +575,11 @@ add_action('rest_api_init', function () {
         color:#1e40af; background:#dbeafe; border:1px solid #bfdbfe;
         border-radius:10px; padding:10px 14px; font-weight:600;
       }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-statusline[data-mode="off_day"]{
+        color:#4338ca; background:#eef2ff; border:1px solid #c7d2fe;
+        border-radius:10px; padding:12px 18px; font-weight:600; font-size:15px;
+        text-align:center;
+      }
 
       /* ===== Action buttons ===== */
       #<?php echo esc_attr( $root_id ); ?> .sfs-att-actions{
@@ -1436,7 +1441,7 @@ setInterval(tickClock, 1000);
 
                 // --- Off-day / stale session messaging ---
                 if (j.is_off_day) {
-                    setStat(i18n.day_off || 'Day Off', 'idle');
+                    setStat(i18n.day_off || 'Day Off', 'off_day');
                     hint && (hint.textContent = '');
                 } else if (j.stale_session_msg) {
                     // Show the stale session warning but enable Clock Out so
