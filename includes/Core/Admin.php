@@ -2936,8 +2936,12 @@ document.getElementById('sfs-hr-action-modal').addEventListener('click', functio
                   </div>
 
                   <div class="sfs-hr-field">
-                    <label for="sfs-hr-contract-type"><?php esc_html_e( 'Contract Type', 'sfs-hr' ); ?></label>
-                    <input id="sfs-hr-contract-type" name="contract_type" class="regular-text" />
+                    <label for="sfs-hr-contract-type"><?php esc_html_e( 'Contract Duration', 'sfs-hr' ); ?></label>
+                    <select id="sfs-hr-contract-type" name="contract_type" class="regular-text">
+                      <option value=""><?php esc_html_e( '— Select —', 'sfs-hr' ); ?></option>
+                      <option value="1 year"><?php esc_html_e( '1 year', 'sfs-hr' ); ?></option>
+                      <option value="2 years"><?php esc_html_e( '2 years', 'sfs-hr' ); ?></option>
+                    </select>
                   </div>
 
                   <div class="sfs-hr-field">
