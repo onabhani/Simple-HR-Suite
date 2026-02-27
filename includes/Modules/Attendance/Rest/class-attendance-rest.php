@@ -603,10 +603,13 @@ if ( $source === 'kiosk' && $scan_token !== '' && ! $is_offline_origin ) {
     $allow = isset( $pre['allow'] ) && is_array( $pre['allow'] ) ? $pre['allow'] : [];
 
     // When a stale open session exists (buffer expired, snapshot shows idle),
-    // allow clock-out so the employee can close the stuck session.
+    // only permit closing the session — no new clock-in or break actions.
     $has_stale_session = ! empty( $pre['stale_session_msg'] );
-    if ( $has_stale_session && $punch_type === 'out' ) {
-        $allow['out'] = true;
+    if ( $has_stale_session ) {
+        $allow['out']         = true;
+        $allow['in']          = false;
+        $allow['break_start'] = false;
+        $allow['break_end']   = false;
     }
 
     if ( empty( $allow[ $punch_type ] ) ) {
@@ -692,7 +695,7 @@ if ( $source === 'kiosk' && $scan_token !== '' && ! $is_offline_origin ) {
              WHERE employee_id = %d ORDER BY punch_time DESC LIMIT 1",
             (int) $emp
         ) );
-        if ( $last_open && in_array( (string) $last_open->punch_type, [ 'in', 'break_end' ], true ) ) {
+        if ( $last_open && in_array( (string) $last_open->punch_type, [ 'in', 'break_end', 'break_start' ], true ) ) {
             $open_date = wp_date( 'Y-m-d', strtotime( $last_open->punch_time . ' UTC' ) );
             if ( $open_date < $dateYmd ) {
                 $prev_assign = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $emp, $open_date );

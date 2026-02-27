@@ -1441,23 +1441,31 @@ setInterval(tickClock, 1000);
                 } else if (j.stale_session_msg) {
                     // Show the stale session warning but enable Clock Out so
                     // the employee can close the stuck session themselves.
+                    // Clear any method-level block on 'out' so syncButtons()
+                    // won't disable the button due to policy restrictions.
                     setStat(j.stale_session_msg, 'error');
                     allowed['out'] = true;
                     allowed['in'] = false;
                     allowed['break_start'] = false;
                     allowed['break_end'] = false;
+                    delete methodBlocked['out'];
                     syncButtons();
                     hint && (hint.textContent = '');
                 } else {
                     // If ALL state-allowed actions are method-blocked, show why
                     var blockedMsg = null;
+                    var allAllowedBlocked = true;
                     for (var pt in allowed) {
-                        if (allowed[pt] && methodBlocked[pt]) {
-                            blockedMsg = methodBlocked[pt];
-                            break;
+                        if (allowed[pt]) {
+                            if (methodBlocked[pt]) {
+                                blockedMsg = methodBlocked[pt];
+                            } else {
+                                allAllowedBlocked = false;
+                                break;
+                            }
                         }
                     }
-                    if (blockedMsg) {
+                    if (allAllowedBlocked && blockedMsg) {
                         setStat(blockedMsg, 'error');
                     } else {
                         setStat(i18n.ready, 'idle');
