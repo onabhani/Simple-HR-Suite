@@ -5763,6 +5763,7 @@ public static function resolve_shift_for_date(
             $emp = $wpdb->get_row($wpdb->prepare("SELECT dept_id FROM {$empT} WHERE id=%d", $employee_id));
             $row->dept_id = $emp && ! empty( $emp->dept_id ) ? (int) $emp->dept_id : null;
         }
+        error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=1_assignment shift_id=%d wo=%s', $employee_id, $ymd, $row->id ?? 0, $row->weekly_overrides ?? '(empty)' ) );
         $row = self::apply_weekly_override( $row, $ymd, $wpdb );
         return self::apply_period_override( $row, $ymd );
     }
@@ -5778,6 +5779,7 @@ public static function resolve_shift_for_date(
         $emp_shift->__virtual  = 0;
         $emp_shift->is_holiday = 0;
 
+        error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=1.5_emp_shift shift_id=%d wo=%s', $employee_id, $ymd, $emp_shift->id ?? 0, $emp_shift->weekly_overrides ?? '(empty)' ) );
         $emp_shift = self::apply_weekly_override( $emp_shift, $ymd, $wpdb );
         return self::apply_period_override( $emp_shift, $ymd );
     }
@@ -5856,6 +5858,7 @@ public static function resolve_shift_for_date(
                 $sh->__virtual  = 1;
                 $sh->is_holiday = 0;
                 $sh->dept_id    = $dept_id;
+                error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=3_dept_auto shift_id=%d wo=%s', $employee_id, $ymd, $sh->id ?? 0, $sh->weekly_overrides ?? '(empty)' ) );
                 $sh = self::apply_weekly_override( $sh, $ymd, $wpdb );
                 return self::apply_period_override( $sh, $ymd );
             }
@@ -5889,11 +5892,13 @@ public static function resolve_shift_for_date(
         if ($fb) {
             $fb->__virtual  = 1;
             $fb->is_holiday = 0;
+            error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=4_fallback shift_id=%d wo=%s', $employee_id, $ymd, $fb->id ?? 0, $fb->weekly_overrides ?? '(empty)' ) );
             $fb = self::apply_weekly_override( $fb, $ymd, $wpdb );
             return self::apply_period_override( $fb, $ymd );
         }
     }
 
+    error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=none (no shift found)', $employee_id, $ymd ) );
     return null;
 }
 
