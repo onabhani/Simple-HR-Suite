@@ -4071,6 +4071,9 @@ private static function maybe_create_early_leave_request(
             '[SFS HR] Failed to auto-create early leave request for employee %d on %s: %s',
             $employee_id, $ymd, $wpdb->last_error
         ) );
+    } else {
+        $new_el_id = (int) $wpdb->insert_id;
+        do_action( 'sfs_hr_early_leave_requested', $new_el_id, $employee_id, $mgr_id );
     }
 }
 
@@ -4863,6 +4866,22 @@ if ( ! empty( $leadingOuts ) ) {
             $prevFlags[] = 'left_early';
         }
 
+        // Suppress left_early if the previous day has an approved early leave request.
+        $elr_prev_table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+        $prev_has_approved_el = $prevIsEarly ? (bool) $wpdb->get_var( $wpdb->prepare(
+            "SELECT 1 FROM {$elr_prev_table}
+             WHERE employee_id = %d AND request_date = %s AND status = 'approved'
+             LIMIT 1",
+            $employee_id, $prevDate
+        ) ) : false;
+        if ( $prev_has_approved_el ) {
+            $prevIsEarly = false;
+            $prevFlags   = array_values( array_diff( $prevFlags, [ 'left_early' ] ) );
+            if ( ! in_array( 'early_leave', $prevFlags, true ) ) {
+                $prevFlags[] = 'early_leave';
+            }
+        }
+
         $prevStatus = 'present';
         if ( in_array( 'late', $prevFlags, true ) && in_array( 'left_early', $prevFlags, true ) ) {
             $prevStatus = 'late';
@@ -5172,6 +5191,30 @@ if ( ! empty( $leadingOuts ) ) {
         $flags[] = 'holiday_work';
     }
 
+    // Suppress left_early when the employee has an approved early leave request
+    // for this date. The departure was authorized by a manager so the session
+    // should not be penalized. Replace the left_early flag with early_leave
+    // to indicate an approved early departure occurred.
+    $approved_el_id = null;
+    if ( $status === 'left_early' || in_array( 'left_early', $flags, true ) ) {
+        $elr_table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+        $approved_el_id = $wpdb->get_var( $wpdb->prepare(
+            "SELECT id FROM {$elr_table}
+             WHERE employee_id = %d AND request_date = %s AND status = 'approved'
+             LIMIT 1",
+            $employee_id, $ymd
+        ) );
+        if ( $approved_el_id ) {
+            if ( $status === 'left_early' ) {
+                $status = 'present';
+            }
+            $flags = array_values( array_diff( $flags, [ 'left_early' ] ) );
+            if ( ! in_array( 'early_leave', $flags, true ) ) {
+                $flags[] = 'early_leave';
+            }
+        }
+    }
+
     if ($outside_geo > 0) $flags[] = 'outside_geofence';
     if ($no_selfie > 0)   $flags[] = 'no_selfie';
     if ($no_break_taken)          $flags[] = 'no_break_taken';
@@ -5226,6 +5269,15 @@ if ( ! empty( $leadingOuts ) ) {
         'calc_meta_json'      => wp_json_encode($calcMeta),
         'last_recalc_at'      => current_time('mysql', true),
     ];
+
+    // Keep session early_leave_approved flag in sync with the requests table.
+    if ( ! empty( $approved_el_id ) ) {
+        $data['early_leave_approved']   = 1;
+        $data['early_leave_request_id'] = (int) $approved_el_id;
+    } else {
+        $data['early_leave_approved']   = 0;
+        $data['early_leave_request_id'] = null;
+    }
 
     // Check if this is a new late/early detection (to avoid duplicate notifications)
     $existing_flags = [];

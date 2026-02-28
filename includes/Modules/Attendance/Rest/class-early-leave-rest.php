@@ -324,21 +324,43 @@ class Early_Leave_Rest {
             'updated_at'     => $now,
         ];
 
-        $wpdb->update( $table, $update_data, [ 'id' => $request_id ] );
+        // Atomically update only if still pending (prevents race condition
+        // where two managers approve the same request simultaneously).
+        $updated = $wpdb->update( $table, $update_data, [ 'id' => $request_id, 'status' => 'pending' ] );
+        if ( $updated === 0 ) {
+            return new \WP_Error( 'already_reviewed', __( 'Request has already been reviewed by another user.', 'sfs-hr' ), [ 'status' => 409 ] );
+        }
 
-        // If approved, update the attendance session
-        if ( $action === 'approve' && $request->session_id ) {
+        // If approved, update the attendance session and recalculate.
+        // If the request wasn't linked to a session at creation time (session_id is NULL),
+        // look up the session now — it may have been created since then.
+        if ( $action === 'approve' ) {
             $session_table = $wpdb->prefix . 'sfs_hr_attendance_sessions';
-            $wpdb->update(
-                $session_table,
-                [
-                    'early_leave_approved'    => 1,
-                    'early_leave_request_id'  => $request_id,
-                ],
-                [ 'id' => $request->session_id ]
-            );
+            $session_id    = $request->session_id;
 
-            // Recalculate session to update status
+            if ( ! $session_id ) {
+                $session_id = $wpdb->get_var( $wpdb->prepare(
+                    "SELECT id FROM {$session_table} WHERE employee_id = %d AND work_date = %s LIMIT 1",
+                    $request->employee_id, $request->request_date
+                ) );
+                // Back-link the session to the early leave request
+                if ( $session_id ) {
+                    $wpdb->update( $table, [ 'session_id' => $session_id ], [ 'id' => $request_id ] );
+                }
+            }
+
+            if ( $session_id ) {
+                $wpdb->update(
+                    $session_table,
+                    [
+                        'early_leave_approved'    => 1,
+                        'early_leave_request_id'  => $request_id,
+                    ],
+                    [ 'id' => $session_id ]
+                );
+            }
+
+            // Recalculate session to suppress left_early status
             AttendanceModule::recalc_session_for( (int) $request->employee_id, $request->request_date );
         }
 
