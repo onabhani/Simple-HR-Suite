@@ -2,6 +2,24 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [1.6.3] — 2026-02-28
+
+### Fixed
+- **Early leave approval now suppresses `left_early` session status** —
+  `recalc_session_for()` checks the early leave requests table for approved
+  requests and changes status to `present` with an `early_leave` flag instead
+  of penalizing the employee. Previously the `early_leave_approved` session
+  flag was set but never read.
+- **Race condition on early leave review** — the UPDATE now atomically checks
+  `WHERE status = 'pending'`, preventing two managers from approving the same
+  request simultaneously.
+- **Approval with missing session link** — when a request's `session_id` is
+  NULL at approval time (session created after request), the review endpoint
+  now looks up and back-links the session before recalculating.
+- **Auto-created early leave requests** now fire the
+  `sfs_hr_early_leave_requested` hook for notification consistency with
+  manually submitted requests.
+
 ## [1.6.1] — 2026-02-26
 
 ### Changed
