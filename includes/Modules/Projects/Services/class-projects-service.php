@@ -48,7 +48,8 @@ class Projects_Service {
         global $wpdb;
         $t = $wpdb->prefix . 'sfs_hr_projects';
         $data['updated_at'] = current_time( 'mysql' );
-        return (bool) $wpdb->update( $t, $data, [ 'id' => $id ] );
+        $result = $wpdb->update( $t, $data, [ 'id' => $id ] );
+        return $result !== false;
     }
 
     /* ---- Employee assignments ---- */
@@ -131,9 +132,15 @@ class Projects_Service {
         global $wpdb;
         $t = $wpdb->prefix . 'sfs_hr_project_shifts';
 
+        $wpdb->query( 'START TRANSACTION' );
+
         // If setting as default, clear any existing default first
         if ( $is_default ) {
-            $wpdb->update( $t, [ 'is_default' => 0 ], [ 'project_id' => $project_id ] );
+            $cleared = $wpdb->update( $t, [ 'is_default' => 0 ], [ 'project_id' => $project_id ] );
+            if ( $cleared === false ) {
+                $wpdb->query( 'ROLLBACK' );
+                return 0;
+            }
         }
 
         $ok = $wpdb->insert( $t, [
@@ -142,7 +149,15 @@ class Projects_Service {
             'is_default' => (int) $is_default,
             'created_at' => current_time( 'mysql' ),
         ] );
-        return $ok ? (int) $wpdb->insert_id : 0;
+
+        if ( ! $ok ) {
+            $wpdb->query( 'ROLLBACK' );
+            return 0;
+        }
+
+        $new_id = (int) $wpdb->insert_id;
+        $wpdb->query( 'COMMIT' );
+        return $new_id;
     }
 
     /**
@@ -166,12 +181,16 @@ class Projects_Service {
         $pr = $wpdb->prefix . 'sfs_hr_projects';
         $ps = $wpdb->prefix . 'sfs_hr_project_shifts';
 
-        // Check table existence first (module may not be installed yet)
-        $exists = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-            $pe
-        ) );
-        if ( ! $exists ) {
+        // Check table existence first (module may not be installed yet).
+        // Cache the result so repeated calls avoid hitting information_schema.
+        static $table_exists_cache = [];
+        if ( ! isset( $table_exists_cache[ $pe ] ) ) {
+            $table_exists_cache[ $pe ] = (bool) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
+                $pe
+            ) );
+        }
+        if ( ! $table_exists_cache[ $pe ] ) {
             return null;
         }
 
@@ -201,5 +220,47 @@ class Projects_Service {
         $row->default_shift_id = $default_shift ? (int) $default_shift : null;
 
         return $row;
+    }
+
+    /**
+     * Get employee counts for multiple projects in a single query.
+     *
+     * @param int[] $project_ids
+     * @return array<int, int> Map of project_id => count
+     */
+    public static function get_employee_counts( array $project_ids ): array {
+        if ( empty( $project_ids ) ) {
+            return [];
+        }
+        global $wpdb;
+        $pe           = $wpdb->prefix . 'sfs_hr_project_employees';
+        $placeholders = implode( ',', array_fill( 0, count( $project_ids ), '%d' ) );
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT project_id, COUNT(*) AS cnt FROM {$pe} WHERE project_id IN ({$placeholders}) GROUP BY project_id",
+            ...$project_ids
+        ) );
+        $map = [];
+        foreach ( $rows as $r ) {
+            $map[ (int) $r->project_id ] = (int) $r->cnt;
+        }
+        return $map;
+    }
+
+    /**
+     * Get a single employee assignment row.
+     */
+    public static function get_assignment( int $assignment_id ): ?\stdClass {
+        global $wpdb;
+        $t = $wpdb->prefix . 'sfs_hr_project_employees';
+        return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$t} WHERE id = %d", $assignment_id ) );
+    }
+
+    /**
+     * Get a single shift-link row.
+     */
+    public static function get_shift_link( int $link_id ): ?\stdClass {
+        global $wpdb;
+        $t = $wpdb->prefix . 'sfs_hr_project_shifts';
+        return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$t} WHERE id = %d", $link_id ) );
     }
 }

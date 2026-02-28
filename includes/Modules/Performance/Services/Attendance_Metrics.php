@@ -208,8 +208,12 @@ class Attendance_Metrics {
             $issue_score += $metrics['incomplete_count'] * 0.5; // 50% deduction per incomplete
             $issue_score += $metrics['break_delay_count'] * 0.25; // 25% deduction per break delay
 
-            // Only penalize "no break taken" if enabled in attendance settings
-            $att_opt = get_option( \SFS\HR\Modules\Attendance\AttendanceModule::OPT_SETTINGS, [] );
+            // Only penalize "no break taken" if enabled in attendance settings.
+            // Cache the option to avoid repeated DB lookups when called per-employee.
+            static $att_opt = null;
+            if ( $att_opt === null ) {
+                $att_opt = get_option( \SFS\HR\Modules\Attendance\AttendanceModule::OPT_SETTINGS, [] );
+            }
             if ( ! empty( $att_opt['no_break_penalty_enabled'] ) ) {
                 $issue_score += $metrics['no_break_taken_count'] * 0.15; // 15% deduction per no break taken
             }

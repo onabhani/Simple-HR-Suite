@@ -84,8 +84,12 @@ class Admin_Pages {
                 <?php if ( empty( $projects ) ) : ?>
                     <tr><td colspan="7"><?php esc_html_e( 'No projects yet.', 'sfs-hr' ); ?></td></tr>
                 <?php else : ?>
+                    <?php
+                        $project_ids = array_map( fn( $p ) => (int) $p->id, $projects );
+                        $emp_counts  = Projects_Service::get_employee_counts( $project_ids );
+                    ?>
                     <?php foreach ( $projects as $p ) :
-                        $emp_count = count( Projects_Service::get_project_employees( (int) $p->id ) );
+                        $emp_count = $emp_counts[ (int) $p->id ] ?? 0;
                     ?>
                         <tr>
                             <td>
@@ -445,6 +449,17 @@ class Admin_Pages {
         $start_date = sanitize_text_field( $_GET['dash_from'] ?? $project->start_date ?? $period['start'] );
         $end_date   = sanitize_text_field( $_GET['dash_to'] ?? $period['end'] );
 
+        // Validate Y-m-d format; fall back to period defaults on malformed input
+        $validate_ymd = static fn( string $d ): bool =>
+            (bool) preg_match( '/^\d{4}-\d{2}-\d{2}$/', $d )
+            && \DateTimeImmutable::createFromFormat( 'Y-m-d', $d ) !== false;
+
+        if ( ! $validate_ymd( $start_date ) ) { $start_date = $period['start']; }
+        if ( ! $validate_ymd( $end_date ) )   { $end_date   = $period['end']; }
+
+        // Ensure start <= end
+        if ( $start_date > $end_date ) { $start_date = $end_date; }
+
         // Cap end date at today
         $today = wp_date( 'Y-m-d' );
         if ( $end_date > $today ) { $end_date = $today; }
@@ -589,12 +604,17 @@ class Admin_Pages {
         ];
 
         if ( $id ) {
-            Projects_Service::update( $id, $data );
+            $ok = Projects_Service::update( $id, $data );
         } else {
             $id = Projects_Service::insert( $data );
+            $ok = $id > 0;
         }
 
-        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-projects&action=view&id=' . $id . '&saved=1' ) );
+        if ( $ok && $id ) {
+            wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-projects&action=view&id=' . $id . '&saved=1' ) );
+        } else {
+            wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-projects&save_error=1' ) );
+        }
         exit;
     }
 
@@ -607,11 +627,18 @@ class Admin_Pages {
         $from        = sanitize_text_field( $_POST['assigned_from'] ?? '' );
         $to          = ! empty( $_POST['assigned_to'] ) ? sanitize_text_field( $_POST['assigned_to'] ) : null;
 
+        $success = false;
         if ( $project_id && $employee_id && $from ) {
-            Projects_Service::assign_employee( $project_id, $employee_id, $from, $to );
+            // Validate date interval: $to must not be earlier than $from
+            if ( $to !== null && $to < $from ) {
+                $success = false;
+            } else {
+                $success = Projects_Service::assign_employee( $project_id, $employee_id, $from, $to ) > 0;
+            }
         }
 
-        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-projects&action=view&id=' . $project_id . '&employee_added=1' ) );
+        $flag = $success ? 'employee_added=1' : 'assign_error=1';
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-projects&action=view&id=' . $project_id . '&' . $flag ) );
         exit;
     }
 
@@ -622,11 +649,17 @@ class Admin_Pages {
         $assignment_id = (int) ( $_POST['assignment_id'] ?? 0 );
         $project_id    = (int) ( $_POST['project_id'] ?? 0 );
 
-        if ( $assignment_id ) {
-            Projects_Service::remove_employee_assignment( $assignment_id );
+        $success = false;
+        if ( $assignment_id && $project_id ) {
+            // Verify the assignment belongs to the given project before deleting
+            $assignment = Projects_Service::get_assignment( $assignment_id );
+            if ( $assignment && (int) $assignment->project_id === $project_id ) {
+                $success = Projects_Service::remove_employee_assignment( $assignment_id );
+            }
         }
 
-        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-projects&action=view&id=' . $project_id . '&employee_removed=1' ) );
+        $flag = $success ? 'employee_removed=1' : 'remove_error=1';
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-projects&action=view&id=' . $project_id . '&' . $flag ) );
         exit;
     }
 
@@ -638,11 +671,13 @@ class Admin_Pages {
         $shift_id   = (int) ( $_POST['shift_id'] ?? 0 );
         $is_default = ! empty( $_POST['is_default'] );
 
+        $success = false;
         if ( $project_id && $shift_id ) {
-            Projects_Service::add_shift( $project_id, $shift_id, $is_default );
+            $success = Projects_Service::add_shift( $project_id, $shift_id, $is_default ) > 0;
         }
 
-        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-projects&action=view&id=' . $project_id . '&shift_added=1' ) );
+        $flag = $success ? 'shift_added=1' : 'shift_error=1';
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-projects&action=view&id=' . $project_id . '&' . $flag ) );
         exit;
     }
 
@@ -653,11 +688,17 @@ class Admin_Pages {
         $link_id    = (int) ( $_POST['link_id'] ?? 0 );
         $project_id = (int) ( $_POST['project_id'] ?? 0 );
 
-        if ( $link_id ) {
-            Projects_Service::remove_shift( $link_id );
+        $success = false;
+        if ( $link_id && $project_id ) {
+            // Verify the shift link belongs to the given project before deleting
+            $link = Projects_Service::get_shift_link( $link_id );
+            if ( $link && (int) $link->project_id === $project_id ) {
+                $success = Projects_Service::remove_shift( $link_id );
+            }
         }
 
-        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-projects&action=view&id=' . $project_id . '&shift_removed=1' ) );
+        $flag = $success ? 'shift_removed=1' : 'shift_remove_error=1';
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-projects&action=view&id=' . $project_id . '&' . $flag ) );
         exit;
     }
 

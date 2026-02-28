@@ -327,6 +327,9 @@ class Early_Leave_Rest {
         // Atomically update only if still pending (prevents race condition
         // where two managers approve the same request simultaneously).
         $updated = $wpdb->update( $table, $update_data, [ 'id' => $request_id, 'status' => 'pending' ] );
+        if ( $updated === false ) {
+            return new \WP_Error( 'db_error', __( 'Database error while updating the request.', 'sfs-hr' ), [ 'status' => 500 ] );
+        }
         if ( $updated === 0 ) {
             return new \WP_Error( 'already_reviewed', __( 'Request has already been reviewed by another user.', 'sfs-hr' ), [ 'status' => 409 ] );
         }

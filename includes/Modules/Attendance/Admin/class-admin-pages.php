@@ -4165,14 +4165,18 @@ public function render_exceptions(): void {
         wp_die( esc_html__( 'Invalid date range', 'sfs-hr' ) );
     }
 
-    // Optional on-demand rebuild
-    if ( !empty($_GET['recalc']) ) {
-        // Iterate each local date in range and rebuild its session
+    // Optional on-demand rebuild — requires admin-level capability (view-only
+    // users must not trigger write operations) and is capped at 31 days to
+    // prevent excessively long blocking requests.
+    if ( !empty($_GET['recalc']) && current_user_can('sfs_hr_attendance_admin') ) {
         $day = new \DateTimeImmutable($from);
         $end = new \DateTimeImmutable($to);
-        while ($day <= $end) {
+        $max_days = 31;
+        $count    = 0;
+        while ($day <= $end && $count < $max_days) {
             $this->rebuild_all_sessions_for_date($day->format('Y-m-d'));
             $day = $day->modify('+1 day');
+            $count++;
         }
     }
 

@@ -7,11 +7,14 @@ require_once __DIR__ . '/Admin/class-admin-pages.php';
 require_once __DIR__ . '/Services/class-projects-service.php';
 
 use SFS\HR\Modules\Projects\Admin\Admin_Pages;
-use SFS\HR\Modules\Projects\Services\Projects_Service;
 
 class ProjectsModule {
 
     private static $instance = null;
+
+    private function __construct() {}
+    private function __clone() {}
+    public function __wakeup() { throw new \RuntimeException( 'Cannot unserialize singleton.' ); }
 
     public static function instance(): self {
         if ( self::$instance === null ) {

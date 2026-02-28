@@ -19,6 +19,7 @@ require_once __DIR__ . '/Admin/class-admin-pages.php';
 require_once __DIR__ . '/Rest/class-attendance-admin-rest.php';
 require_once __DIR__ . '/Rest/class-attendance-rest.php';
 require_once __DIR__ . '/Rest/class-early-leave-rest.php';
+require_once __DIR__ . '/Cron/Daily_Session_Builder.php';
 
 class AttendanceModule {
 
@@ -147,7 +148,6 @@ add_action('rest_api_init', function () {
         ( new \SFS\HR\Modules\Attendance\Cron\Early_Leave_Auto_Reject() )->hooks();
 
         // Daily session builder — ensures sessions exist for yesterday/today
-        require_once __DIR__ . '/Cron/Daily_Session_Builder.php';
         ( new \SFS\HR\Modules\Attendance\Cron\Daily_Session_Builder() )->hooks();
     }
 
@@ -4867,14 +4867,14 @@ if ( ! empty( $leadingOuts ) ) {
         }
 
         // Suppress left_early if the previous day has an approved early leave request.
-        $elr_prev_table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
-        $prev_has_approved_el = $prevIsEarly ? (bool) $wpdb->get_var( $wpdb->prepare(
-            "SELECT 1 FROM {$elr_prev_table}
+        $elr_prev_table  = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+        $prev_approved_elr_id = $prevIsEarly ? $wpdb->get_var( $wpdb->prepare(
+            "SELECT id FROM {$elr_prev_table}
              WHERE employee_id = %d AND request_date = %s AND status = 'approved'
              LIMIT 1",
             $employee_id, $prevDate
-        ) ) : false;
-        if ( $prev_has_approved_el ) {
+        ) ) : null;
+        if ( $prev_approved_elr_id ) {
             $prevIsEarly = false;
             $prevFlags   = array_values( array_diff( $prevFlags, [ 'left_early' ] ) );
             if ( ! in_array( 'early_leave', $prevFlags, true ) ) {
@@ -4891,18 +4891,23 @@ if ( ! empty( $leadingOuts ) ) {
             $prevStatus = 'left_early';
         }
 
-        $wpdb->update(
-            $sT,
-            [
-                'out_time'            => $closingOut,
-                'net_minutes'         => $netMinutes,
-                'rounded_net_minutes' => $roundedNet,
-                'status'              => $prevStatus,
-                'flags_json'          => wp_json_encode( $prevFlags ),
-                'last_recalc_at'      => current_time( 'mysql', true ),
-            ],
-            [ 'id' => (int) $prevSess->id ]
-        );
+        $prev_session_data = [
+            'out_time'            => $closingOut,
+            'net_minutes'         => $netMinutes,
+            'rounded_net_minutes' => $roundedNet,
+            'status'              => $prevStatus,
+            'flags_json'          => wp_json_encode( $prevFlags ),
+            'last_recalc_at'      => current_time( 'mysql', true ),
+        ];
+        if ( $prev_approved_elr_id ) {
+            $prev_session_data['early_leave_approved']   = 1;
+            $prev_session_data['early_leave_request_id'] = (int) $prev_approved_elr_id;
+        } else {
+            $prev_session_data['early_leave_approved']   = 0;
+            $prev_session_data['early_leave_request_id'] = null;
+        }
+
+        $wpdb->update( $sT, $prev_session_data, [ 'id' => (int) $prevSess->id ] );
 
         // Auto-create early leave request for the retro-closed session.
         if ( $prevIsEarly && $prevEarlyMin > 0 ) {
