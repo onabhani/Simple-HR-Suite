@@ -610,6 +610,12 @@ class Admin_Pages {
         $employee_name = trim( $employee->first_name . ' ' . $employee->last_name );
         $grade_display = $score_data['overall_grade'] ? Performance_Calculator::get_grade_display( $score_data['overall_grade'] ) : null;
 
+        // Look up the employee's current project assignment
+        $emp_project = \SFS\HR\Modules\Projects\Services\Projects_Service::get_employee_project_on_date(
+            $employee_id,
+            wp_date( 'Y-m-d' )
+        );
+
         ?>
         <div class="wrap sfs-hr-wrap sfs-perf-wrap">
             <p>
@@ -624,6 +630,11 @@ class Admin_Pages {
                     <p style="color: #666; margin: 5px 0;">
                         <?php echo esc_html( $employee->employee_code ); ?> •
                         <?php echo esc_html( $employee->dept_name ?? __( 'General', 'sfs-hr' ) ); ?>
+                        <?php if ( $emp_project ) : ?>
+                            • <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-projects&action=view&id=' . (int) $emp_project->id ) ); ?>" style="color:#1565c0; text-decoration:none;">
+                                <?php echo esc_html( $emp_project->name ); ?>
+                            </a>
+                        <?php endif; ?>
                     </p>
                 </div>
                 <?php if ( $grade_display ) : ?>
