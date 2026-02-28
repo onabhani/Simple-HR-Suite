@@ -525,24 +525,18 @@ class Alerts_Service {
             return;
         }
 
-        // Only send immediate notification to the employee themselves (if enabled).
-        // HR/admin and managers now receive a consolidated weekly digest instead.
-        if ( empty( $settings['alerts']['notify_employee'] ) ) {
-            return;
-        }
-
         $table = $wpdb->prefix . 'sfs_hr_performance_alerts';
         $employees_table = $wpdb->prefix . 'sfs_hr_employees';
 
         $alert = $wpdb->get_row( $wpdb->prepare(
-            "SELECT a.*, e.first_name, e.last_name, e.email
+            "SELECT a.*, e.first_name, e.last_name, e.email, e.dept_id
              FROM {$table} a
              JOIN {$employees_table} e ON e.id = a.employee_id
              WHERE a.id = %d",
             $alert_id
         ) );
 
-        if ( ! $alert || empty( $alert->email ) ) {
+        if ( ! $alert ) {
             return;
         }
 
@@ -557,10 +551,31 @@ class Alerts_Service {
 
         $message = self::build_alert_email( $alert, $employee_name );
 
-        if ( class_exists( 'SFS\\HR\\Core\\Helpers' ) && method_exists( Helpers::class, 'send_mail' ) ) {
-            Helpers::send_mail( $alert->email, $subject, $message );
-        } else {
-            wp_mail( $alert->email, $subject, $message, [ 'Content-Type: text/html; charset=UTF-8' ] );
+        $send = function ( string $email ) use ( $subject, $message ) {
+            if ( class_exists( 'SFS\\HR\\Core\\Helpers' ) && method_exists( Helpers::class, 'send_mail' ) ) {
+                Helpers::send_mail( $email, $subject, $message );
+            } else {
+                wp_mail( $email, $subject, $message, [ 'Content-Type: text/html; charset=UTF-8' ] );
+            }
+        };
+
+        // Notify the employee (if enabled).
+        if ( ! empty( $settings['alerts']['notify_employee'] ) && ! empty( $alert->email ) ) {
+            $send( $alert->email );
+        }
+
+        // Notify the department's HR responsible person.
+        if ( ! empty( $alert->dept_id ) ) {
+            $hr_user_id = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT hr_responsible_user_id FROM {$wpdb->prefix}sfs_hr_departments WHERE id = %d",
+                $alert->dept_id
+            ) );
+            if ( $hr_user_id ) {
+                $hr_user = get_userdata( $hr_user_id );
+                if ( $hr_user && ! empty( $hr_user->user_email ) ) {
+                    $send( $hr_user->user_email );
+                }
+            }
         }
     }
 

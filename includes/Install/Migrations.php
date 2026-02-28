@@ -67,6 +67,8 @@ class Migrations {
         ) $charset");
         // Add color column for department cards/charts
         self::add_column_if_missing($dept, 'color', "VARCHAR(7) NULL");
+        // HR responsible person per department (for performance justification)
+        self::add_column_if_missing($dept, 'hr_responsible_user_id', "BIGINT(20) UNSIGNED NULL AFTER `manager_user_id`");
 
         /** LEAVE TYPES */
         $wpdb->query("CREATE TABLE IF NOT EXISTS `$types` (

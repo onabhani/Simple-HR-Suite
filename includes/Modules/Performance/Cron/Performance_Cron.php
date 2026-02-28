@@ -344,31 +344,39 @@ class Performance_Cron {
             }
         }
 
-        // --- Send to each department manager (their dept only) ---
+        // --- Send to each department manager & HR responsible (their dept only) ---
         $departments = $wpdb->get_results(
-            "SELECT id, name, manager_user_id FROM {$dept_t} WHERE active = 1 AND manager_user_id IS NOT NULL"
+            "SELECT id, name, manager_user_id, hr_responsible_user_id FROM {$dept_t} WHERE active = 1"
         );
 
+        $sent_emails = array_merge( [ $gm_email ], $hr_emails );
+
         foreach ( $departments as $dept ) {
-            $mgr_uid = (int) $dept->manager_user_id;
-            if ( $mgr_uid <= 0 || empty( $by_dept[ (int) $dept->id ] ) ) {
+            if ( empty( $by_dept[ (int) $dept->id ] ) ) {
                 continue;
             }
-            $mgr_user = get_user_by( 'id', $mgr_uid );
-            if ( ! $mgr_user || ! $mgr_user->user_email ) {
-                continue;
-            }
-            // Skip if already received the full report as GM or HR
-            if ( $mgr_user->user_email === $gm_email || in_array( $mgr_user->user_email, $hr_emails, true ) ) {
-                continue;
-            }
+
+            $dept_subject = sprintf( __( '[Weekly Performance Digest] %s – %s', 'sfs-hr' ), $dept->name, $period_label );
             $title = sprintf( __( 'Weekly Performance Digest – %s', 'sfs-hr' ), $dept->name );
             $body  = $this->build_report_table( $by_dept[ (int) $dept->id ], $period_label, $title );
-            Helpers::send_mail(
-                $mgr_user->user_email,
-                sprintf( __( '[Weekly Performance Digest] %s – %s', 'sfs-hr' ), $dept->name, $period_label ),
-                $body
-            );
+
+            // Department manager
+            $mgr_uid = (int) $dept->manager_user_id;
+            if ( $mgr_uid > 0 ) {
+                $mgr_user = get_user_by( 'id', $mgr_uid );
+                if ( $mgr_user && $mgr_user->user_email && ! in_array( $mgr_user->user_email, $sent_emails, true ) ) {
+                    Helpers::send_mail( $mgr_user->user_email, $dept_subject, $body );
+                }
+            }
+
+            // HR responsible
+            $hr_resp_uid = (int) $dept->hr_responsible_user_id;
+            if ( $hr_resp_uid > 0 && $hr_resp_uid !== $mgr_uid ) {
+                $hr_resp_user = get_user_by( 'id', $hr_resp_uid );
+                if ( $hr_resp_user && $hr_resp_user->user_email && ! in_array( $hr_resp_user->user_email, $sent_emails, true ) ) {
+                    Helpers::send_mail( $hr_resp_user->user_email, $dept_subject, $body );
+                }
+            }
         }
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -479,27 +487,37 @@ class Performance_Cron {
             }
         }
 
-        // --- B) Send to each Department Manager ---
+        // --- B) Send to each Department Manager & HR Responsible ---
         $departments = $wpdb->get_results(
-            "SELECT id, name, manager_user_id FROM {$dept_t} WHERE active = 1 AND manager_user_id IS NOT NULL"
+            "SELECT id, name, manager_user_id, hr_responsible_user_id FROM {$dept_t} WHERE active = 1"
         );
 
         foreach ( $departments as $dept ) {
-            $mgr_uid = (int) $dept->manager_user_id;
-            if ( $mgr_uid <= 0 || empty( $by_dept[ (int) $dept->id ] ) ) {
+            if ( empty( $by_dept[ (int) $dept->id ] ) ) {
                 continue;
             }
-            $mgr_user = get_user_by( 'id', $mgr_uid );
-            if ( ! $mgr_user || ! $mgr_user->user_email ) {
-                continue;
-            }
+
             $title = sprintf( __( '%s Department Performance Report', 'sfs-hr' ), $dept->name );
             $body  = $this->build_report_table( $by_dept[ (int) $dept->id ], $period_label, $title );
-            Helpers::send_mail(
-                $mgr_user->user_email,
-                sprintf( __( '[Performance Report] %s – %s', 'sfs-hr' ), $dept->name, $period_label ),
-                $body
-            );
+            $dept_subject = sprintf( __( '[Performance Report] %s – %s', 'sfs-hr' ), $dept->name, $period_label );
+
+            // Department manager
+            $mgr_uid = (int) $dept->manager_user_id;
+            if ( $mgr_uid > 0 ) {
+                $mgr_user = get_user_by( 'id', $mgr_uid );
+                if ( $mgr_user && $mgr_user->user_email ) {
+                    Helpers::send_mail( $mgr_user->user_email, $dept_subject, $body );
+                }
+            }
+
+            // HR responsible
+            $hr_resp_uid = (int) $dept->hr_responsible_user_id;
+            if ( $hr_resp_uid > 0 && $hr_resp_uid !== $mgr_uid ) {
+                $hr_resp_user = get_user_by( 'id', $hr_resp_uid );
+                if ( $hr_resp_user && $hr_resp_user->user_email ) {
+                    Helpers::send_mail( $hr_resp_user->user_email, $dept_subject, $body );
+                }
+            }
         }
 
         // --- C) Send to each employee ---
