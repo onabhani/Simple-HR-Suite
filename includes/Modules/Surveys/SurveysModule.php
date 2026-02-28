@@ -13,7 +13,7 @@ class SurveysModule {
     /* ───────────────────────── hooks ───────────────────────── */
 
     public function hooks(): void {
-        add_action( 'admin_menu', [ $this, 'menu' ] );
+        add_action( 'admin_menu', [ $this, 'menu' ], 20 );
 
         // Admin form handlers.
         add_action( 'admin_post_sfs_hr_survey_save',           [ $this, 'handle_survey_save' ] );

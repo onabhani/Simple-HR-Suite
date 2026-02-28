@@ -344,31 +344,39 @@ class Performance_Cron {
             }
         }
 
-        // --- Send to each department manager (their dept only) ---
+        // --- Send to each department manager & HR responsible (their dept only) ---
         $departments = $wpdb->get_results(
-            "SELECT id, name, manager_user_id FROM {$dept_t} WHERE active = 1 AND manager_user_id IS NOT NULL"
+            "SELECT id, name, manager_user_id, hr_responsible_user_id FROM {$dept_t} WHERE active = 1"
         );
 
+        $sent_emails = array_merge( [ $gm_email ], $hr_emails );
+
         foreach ( $departments as $dept ) {
-            $mgr_uid = (int) $dept->manager_user_id;
-            if ( $mgr_uid <= 0 || empty( $by_dept[ (int) $dept->id ] ) ) {
+            if ( empty( $by_dept[ (int) $dept->id ] ) ) {
                 continue;
             }
-            $mgr_user = get_user_by( 'id', $mgr_uid );
-            if ( ! $mgr_user || ! $mgr_user->user_email ) {
-                continue;
-            }
-            // Skip if already received the full report as GM or HR
-            if ( $mgr_user->user_email === $gm_email || in_array( $mgr_user->user_email, $hr_emails, true ) ) {
-                continue;
-            }
+
+            $dept_subject = sprintf( __( '[Weekly Performance Digest] %s – %s', 'sfs-hr' ), $dept->name, $period_label );
             $title = sprintf( __( 'Weekly Performance Digest – %s', 'sfs-hr' ), $dept->name );
             $body  = $this->build_report_table( $by_dept[ (int) $dept->id ], $period_label, $title );
-            Helpers::send_mail(
-                $mgr_user->user_email,
-                sprintf( __( '[Weekly Performance Digest] %s – %s', 'sfs-hr' ), $dept->name, $period_label ),
-                $body
-            );
+
+            // Department manager
+            $mgr_uid = (int) $dept->manager_user_id;
+            if ( $mgr_uid > 0 ) {
+                $mgr_user = get_user_by( 'id', $mgr_uid );
+                if ( $mgr_user && $mgr_user->user_email && ! in_array( $mgr_user->user_email, $sent_emails, true ) ) {
+                    Helpers::send_mail( $mgr_user->user_email, $dept_subject, $body );
+                }
+            }
+
+            // HR responsible
+            $hr_resp_uid = (int) $dept->hr_responsible_user_id;
+            if ( $hr_resp_uid > 0 && $hr_resp_uid !== $mgr_uid ) {
+                $hr_resp_user = get_user_by( 'id', $hr_resp_uid );
+                if ( $hr_resp_user && $hr_resp_user->user_email && ! in_array( $hr_resp_user->user_email, $sent_emails, true ) ) {
+                    Helpers::send_mail( $hr_resp_user->user_email, $dept_subject, $body );
+                }
+            }
         }
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -479,27 +487,58 @@ class Performance_Cron {
             }
         }
 
-        // --- B) Send to each Department Manager ---
+        // --- B) Send to each Department Manager & HR Responsible ---
+        // Collect company-level recipients to avoid duplicates at department level.
+        $sent_emails = [];
+        $gm_email_lc = ( $gm_user_id > 0 && isset( $gm_user ) && $gm_user && $gm_user->user_email )
+            ? strtolower( trim( $gm_user->user_email ) ) : '';
+        if ( $gm_email_lc !== '' ) {
+            $sent_emails[ $gm_email_lc ] = true;
+        }
+        foreach ( ( $hr_emails ?? [] ) as $hr_e ) {
+            if ( is_email( $hr_e ) ) {
+                $sent_emails[ strtolower( trim( $hr_e ) ) ] = true;
+            }
+        }
+
         $departments = $wpdb->get_results(
-            "SELECT id, name, manager_user_id FROM {$dept_t} WHERE active = 1 AND manager_user_id IS NOT NULL"
+            "SELECT id, name, manager_user_id, hr_responsible_user_id FROM {$dept_t} WHERE active = 1"
         );
 
         foreach ( $departments as $dept ) {
-            $mgr_uid = (int) $dept->manager_user_id;
-            if ( $mgr_uid <= 0 || empty( $by_dept[ (int) $dept->id ] ) ) {
+            if ( empty( $by_dept[ (int) $dept->id ] ) ) {
                 continue;
             }
-            $mgr_user = get_user_by( 'id', $mgr_uid );
-            if ( ! $mgr_user || ! $mgr_user->user_email ) {
-                continue;
-            }
+
             $title = sprintf( __( '%s Department Performance Report', 'sfs-hr' ), $dept->name );
             $body  = $this->build_report_table( $by_dept[ (int) $dept->id ], $period_label, $title );
-            Helpers::send_mail(
-                $mgr_user->user_email,
-                sprintf( __( '[Performance Report] %s – %s', 'sfs-hr' ), $dept->name, $period_label ),
-                $body
-            );
+            $dept_subject = sprintf( __( '[Performance Report] %s – %s', 'sfs-hr' ), $dept->name, $period_label );
+
+            // Department manager
+            $mgr_uid = (int) $dept->manager_user_id;
+            if ( $mgr_uid > 0 ) {
+                $mgr_user = get_user_by( 'id', $mgr_uid );
+                if ( $mgr_user && $mgr_user->user_email ) {
+                    $mgr_email_lc = strtolower( trim( $mgr_user->user_email ) );
+                    if ( empty( $sent_emails[ $mgr_email_lc ] ) ) {
+                        Helpers::send_mail( $mgr_user->user_email, $dept_subject, $body );
+                        $sent_emails[ $mgr_email_lc ] = true;
+                    }
+                }
+            }
+
+            // HR responsible
+            $hr_resp_uid = (int) $dept->hr_responsible_user_id;
+            if ( $hr_resp_uid > 0 && $hr_resp_uid !== $mgr_uid ) {
+                $hr_resp_user = get_user_by( 'id', $hr_resp_uid );
+                if ( $hr_resp_user && $hr_resp_user->user_email ) {
+                    $hr_resp_email_lc = strtolower( trim( $hr_resp_user->user_email ) );
+                    if ( empty( $sent_emails[ $hr_resp_email_lc ] ) ) {
+                        Helpers::send_mail( $hr_resp_user->user_email, $dept_subject, $body );
+                        $sent_emails[ $hr_resp_email_lc ] = true;
+                    }
+                }
+            }
         }
 
         // --- C) Send to each employee ---
@@ -513,50 +552,13 @@ class Performance_Cron {
 
             $commitment = (float) $entry['commitment'];
 
-            // Build the metrics block (shared across all tiers)
-            $metrics_block = sprintf( __( "Period: %s\n", 'sfs-hr' ), $period_label )
-                           . sprintf( __( "Commitment: %.1f%%\n", 'sfs-hr' ), $commitment )
-                           . sprintf( __( "Working Days: %d\n", 'sfs-hr' ), $entry['working_days'] )
-                           . sprintf( __( "Days Present: %d\n", 'sfs-hr' ), $entry['present'] )
-                           . sprintf( __( "Days Absent: %d\n", 'sfs-hr' ), $entry['absent'] )
-                           . sprintf( __( "Late Arrivals: %d\n", 'sfs-hr' ), $entry['late'] )
-                           . sprintf( __( "Early Leaves: %d\n", 'sfs-hr' ), $entry['early'] )
-                           . sprintf( __( "Incomplete Days: %d\n", 'sfs-hr' ), $entry['incomplete'] )
-                           . sprintf( __( "Break Delays: %d\n", 'sfs-hr' ), $entry['break_delay'] )
-                           . sprintf( __( "No Break Taken: %d\n", 'sfs-hr' ), $entry['no_break'] );
-
             if ( $commitment >= $excellent_threshold ) {
-                // --- Excellent performers: thank-you email ---
                 $subject = sprintf( __( 'Great Job! Your Performance Report – %s', 'sfs-hr' ), $period_label );
-                $greeting = sprintf(
-                    __( "Dear %s,\n\nThank you for your outstanding commitment this period! Your attendance commitment is %.1f%%, which is excellent.\n\nYour dedication and discipline set a great example for the team. Keep up the fantastic work — we truly appreciate your efforts.\n", 'sfs-hr' ),
-                    $entry['name'],
-                    $commitment
-                );
-            } elseif ( $commitment >= $good_threshold ) {
-                // --- Good performers: positive encouragement ---
-                $subject = sprintf( __( 'Your Performance Report – %s', 'sfs-hr' ), $period_label );
-                $greeting = sprintf(
-                    __( "Dear %s,\n\nThank you for your good commitment this period — your attendance commitment is %.1f%%.\n\nYou are very close to achieving an excellent rating! A small improvement in the areas below can help you reach the top. We believe you can do it.\n", 'sfs-hr' ),
-                    $entry['name'],
-                    $commitment
-                );
-                $greeting .= self::build_improvement_hints( $entry );
             } else {
-                // --- Needs improvement: encouraging + specific guidance ---
                 $subject = sprintf( __( 'Your Performance Report – %s', 'sfs-hr' ), $period_label );
-                $greeting = sprintf(
-                    __( "Dear %s,\n\nPlease find below your attendance commitment report for this period. Your commitment is %.1f%%.\n\nWe would like to encourage you to focus on improving the following areas. Every day counts, and consistent attendance has a direct positive impact on your performance record and career growth.\n", 'sfs-hr' ),
-                    $entry['name'],
-                    $commitment
-                );
-                $greeting .= self::build_improvement_hints( $entry );
-                $greeting .= __( "\nIf you are facing any challenges, please don't hesitate to reach out to your manager or HR. We are here to support you.\n", 'sfs-hr' );
             }
 
-            $body = $greeting . "\n"
-                  . $metrics_block
-                  . "\n---\n" . get_bloginfo( 'name' ) . "\n" . __( 'HR Management System', 'sfs-hr' ) . "\n";
+            $body = $this->build_employee_report_email( $entry, $period_label, $commitment, $excellent_threshold, $good_threshold );
 
             Helpers::send_mail( $entry['email'], $subject, $body );
         }
@@ -673,11 +675,184 @@ class Performance_Cron {
      * @return string Bullet-point hints for areas that need improvement.
      */
     private static function build_improvement_hints( array $entry ): string {
+        $hints = self::build_improvement_hints_array( $entry );
+
+        if ( empty( $hints ) ) {
+            return '';
+        }
+
+        $output = "\n" . __( 'Areas for improvement:', 'sfs-hr' ) . "\n";
+        foreach ( $hints as $hint ) {
+            $output .= '  • ' . $hint . "\n";
+        }
+
+        return $output;
+    }
+
+    /**
+     * Build styled HTML email for an individual employee's monthly report.
+     */
+    private function build_employee_report_email( array $entry, string $period_label, float $commitment, float $excellent_threshold, float $good_threshold ): string {
+        $site_name = get_bloginfo( 'name' );
+
+        // Determine tier
+        if ( $commitment >= $excellent_threshold ) {
+            $tier        = 'excellent';
+            $accent      = '#00a32a';
+            $accent_bg   = '#edfaef';
+            $badge_label = __( 'Excellent', 'sfs-hr' );
+        } elseif ( $commitment >= $good_threshold ) {
+            $tier        = 'good';
+            $accent      = '#0d6efd';
+            $accent_bg   = '#e8f0fe';
+            $badge_label = __( 'Good', 'sfs-hr' );
+        } elseif ( $commitment >= 70 ) {
+            $tier        = 'fair';
+            $accent      = '#996800';
+            $accent_bg   = '#fef8ee';
+            $badge_label = __( 'Needs Improvement', 'sfs-hr' );
+        } else {
+            $tier        = 'poor';
+            $accent      = '#d63638';
+            $accent_bg   = '#fce4e4';
+            $badge_label = __( 'Below Threshold', 'sfs-hr' );
+        }
+
+        // Metrics rows
+        $metrics = [
+            [ __( 'Working Days', 'sfs-hr' ),  $entry['working_days'], false ],
+            [ __( 'Days Present', 'sfs-hr' ),  $entry['present'],      false ],
+            [ __( 'Days Absent', 'sfs-hr' ),   $entry['absent'],       $entry['absent'] > 0 ],
+            [ __( 'Late Arrivals', 'sfs-hr' ), $entry['late'],         $entry['late'] > 0 ],
+            [ __( 'Early Leaves', 'sfs-hr' ),  $entry['early'],        $entry['early'] > 0 ],
+            [ __( 'Incomplete Days', 'sfs-hr' ), $entry['incomplete'],  $entry['incomplete'] > 0 ],
+            [ __( 'Break Delays', 'sfs-hr' ),  $entry['break_delay'],  $entry['break_delay'] > 0 ],
+            [ __( 'No Break Taken', 'sfs-hr' ), $entry['no_break'],    $entry['no_break'] > 0 ],
+        ];
+
+        // Improvement hints as array
+        $hints = [];
+        if ( $tier !== 'excellent' ) {
+            $hints = self::build_improvement_hints_array( $entry );
+        }
+
+        ob_start();
+        ?>
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen-Sans,Ubuntu,Cantarell,'Helvetica Neue',sans-serif;max-width:600px;margin:0 auto;background:#ffffff;">
+            <!-- Header -->
+            <div style="background:<?php echo $accent; ?>;padding:24px 30px;border-radius:8px 8px 0 0;">
+                <h1 style="margin:0;font-size:20px;font-weight:600;color:#ffffff;">
+                    <?php esc_html_e( 'Performance Report', 'sfs-hr' ); ?>
+                </h1>
+                <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.85);">
+                    <?php echo esc_html( $period_label ); ?>
+                </p>
+            </div>
+
+            <div style="padding:24px 30px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px;">
+                <!-- Greeting -->
+                <p style="font-size:15px;color:#1d2327;margin:0 0 6px;">
+                    <?php printf( esc_html__( 'Dear %s,', 'sfs-hr' ), '<strong>' . esc_html( $entry['name'] ) . '</strong>' ); ?>
+                </p>
+
+                <?php if ( $tier === 'excellent' ) : ?>
+                <p style="font-size:14px;color:#374151;line-height:1.6;margin:10px 0 20px;">
+                    <?php printf(
+                        esc_html__( 'Thank you for your outstanding commitment this period! Your attendance commitment is %s, which is excellent. Your dedication and discipline set a great example for the team. Keep up the fantastic work!', 'sfs-hr' ),
+                        '<strong>' . esc_html( number_format( $commitment, 1 ) ) . '%</strong>'
+                    ); ?>
+                </p>
+                <?php elseif ( $tier === 'good' ) : ?>
+                <p style="font-size:14px;color:#374151;line-height:1.6;margin:10px 0 20px;">
+                    <?php printf(
+                        esc_html__( 'Thank you for your good commitment this period — your attendance commitment is %s. You are very close to achieving an excellent rating! A small improvement in the areas highlighted below can help you reach the top.', 'sfs-hr' ),
+                        '<strong>' . esc_html( number_format( $commitment, 1 ) ) . '%</strong>'
+                    ); ?>
+                </p>
+                <?php else : ?>
+                <p style="font-size:14px;color:#374151;line-height:1.6;margin:10px 0 20px;">
+                    <?php printf(
+                        esc_html__( 'Please find below your attendance commitment report for this period. Your commitment is %s. We encourage you to focus on the areas highlighted below. Consistent attendance has a direct positive impact on your performance and career growth.', 'sfs-hr' ),
+                        '<strong>' . esc_html( number_format( $commitment, 1 ) ) . '%</strong>'
+                    ); ?>
+                </p>
+                <?php endif; ?>
+
+                <!-- Commitment Score Card -->
+                <div style="background:<?php echo $accent_bg; ?>;border:1px solid <?php echo $accent; ?>33;border-radius:8px;padding:16px 20px;margin:0 0 20px;text-align:center;">
+                    <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;color:#50575e;font-weight:600;">
+                        <?php esc_html_e( 'Commitment Score', 'sfs-hr' ); ?>
+                    </p>
+                    <p style="margin:0 0 6px;font-size:32px;font-weight:700;color:<?php echo $accent; ?>;">
+                        <?php echo esc_html( number_format( $commitment, 1 ) ); ?>%
+                    </p>
+                    <span style="display:inline-block;background:<?php echo $accent; ?>;color:#fff;padding:3px 12px;border-radius:12px;font-size:12px;font-weight:600;">
+                        <?php echo esc_html( $badge_label ); ?>
+                    </span>
+                </div>
+
+                <!-- Metrics Table -->
+                <h3 style="font-size:14px;color:#1d2327;margin:0 0 10px;font-weight:600;">
+                    <?php esc_html_e( 'Attendance Breakdown', 'sfs-hr' ); ?>
+                </h3>
+                <table style="width:100%;border-collapse:collapse;margin:0 0 20px;" cellpadding="0" cellspacing="0">
+                    <?php foreach ( $metrics as $i => $m ) :
+                        $bg       = $i % 2 ? '#f8fafc' : '#ffffff';
+                        $val_style = $m[2] ? 'color:' . ( (int) $m[1] >= 3 ? '#d63638' : '#996800' ) . ';font-weight:600;' : 'color:#1d2327;';
+                    ?>
+                    <tr style="background:<?php echo $bg; ?>;">
+                        <td style="padding:10px 12px;font-size:13px;color:#50575e;border-bottom:1px solid #f0f0f1;">
+                            <?php echo esc_html( $m[0] ); ?>
+                        </td>
+                        <td style="padding:10px 12px;font-size:14px;text-align:right;border-bottom:1px solid #f0f0f1;<?php echo $val_style; ?>">
+                            <?php echo (int) $m[1]; ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </table>
+
+                <?php if ( ! empty( $hints ) ) : ?>
+                <!-- Improvement Hints -->
+                <div style="background:#fef8ee;border:1px solid #f0d9a0;border-radius:8px;padding:16px 20px;margin:0 0 20px;">
+                    <h3 style="font-size:14px;color:#996800;margin:0 0 10px;font-weight:600;">
+                        <?php esc_html_e( 'Areas for Improvement', 'sfs-hr' ); ?>
+                    </h3>
+                    <?php foreach ( $hints as $hint ) : ?>
+                    <p style="font-size:13px;color:#374151;line-height:1.5;margin:0 0 8px;padding-left:16px;position:relative;">
+                        <span style="position:absolute;left:0;color:#996800;font-weight:bold;">&bull;</span>
+                        <?php echo esc_html( $hint ); ?>
+                    </p>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+
+                <?php if ( $tier === 'poor' || $tier === 'fair' ) : ?>
+                <p style="font-size:13px;color:#374151;line-height:1.5;margin:0 0 20px;padding:12px 16px;background:#f0f7ff;border-radius:6px;border:1px solid #bdd7f1;">
+                    <?php esc_html_e( 'If you are facing any challenges, please don\'t hesitate to reach out to your manager or HR. We are here to support you.', 'sfs-hr' ); ?>
+                </p>
+                <?php endif; ?>
+            </div>
+
+            <!-- Footer -->
+            <div style="padding:16px 30px;text-align:center;">
+                <p style="margin:0;font-size:12px;color:#9ca3af;">
+                    <?php echo esc_html( $site_name ); ?> &middot; <?php esc_html_e( 'HR Management System', 'sfs-hr' ); ?>
+                </p>
+            </div>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
+
+    /**
+     * Build improvement hints as an array (for use in HTML email).
+     */
+    private static function build_improvement_hints_array( array $entry ): array {
         $hints = [];
 
         if ( ( $entry['absent'] ?? 0 ) > 0 ) {
             $hints[] = sprintf(
-                __( 'Absences (%d days): Please ensure regular attendance. If you need to take a day off, submit a leave request in advance.', 'sfs-hr' ),
+                __( 'Absences (%d days): Please ensure regular attendance. If you need a day off, submit a leave request in advance.', 'sfs-hr' ),
                 $entry['absent']
             );
         }
@@ -717,16 +892,7 @@ class Performance_Cron {
             );
         }
 
-        if ( empty( $hints ) ) {
-            return '';
-        }
-
-        $output = "\n" . __( 'Areas for improvement:', 'sfs-hr' ) . "\n";
-        foreach ( $hints as $hint ) {
-            $output .= '  • ' . $hint . "\n";
-        }
-
-        return $output;
+        return $hints;
     }
 
     /**

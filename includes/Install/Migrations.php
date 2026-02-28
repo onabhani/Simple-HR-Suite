@@ -67,6 +67,8 @@ class Migrations {
         ) $charset");
         // Add color column for department cards/charts
         self::add_column_if_missing($dept, 'color', "VARCHAR(7) NULL");
+        // HR responsible person per department (for performance justification)
+        self::add_column_if_missing($dept, 'hr_responsible_user_id', "BIGINT(20) UNSIGNED NULL AFTER `manager_user_id`");
 
         /** LEAVE TYPES */
         $wpdb->query("CREATE TABLE IF NOT EXISTS `$types` (
@@ -476,6 +478,23 @@ class Migrations {
             KEY `status` (`status`),
             KEY `severity` (`severity`),
             KEY `created_at` (`created_at`)
+        ) $charset");
+
+        // Performance Justifications (per-period, by HR responsible)
+        $perf_justifications = $wpdb->prefix.'sfs_hr_performance_justifications';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$perf_justifications` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `employee_id` BIGINT(20) UNSIGNED NOT NULL,
+            `period_start` DATE NOT NULL,
+            `period_end` DATE NOT NULL,
+            `justification` TEXT NOT NULL,
+            `written_by` BIGINT(20) UNSIGNED NOT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uq_emp_period` (`employee_id`, `period_start`, `period_end`),
+            KEY `idx_employee` (`employee_id`),
+            KEY `idx_period` (`period_start`, `period_end`)
         ) $charset");
 
         /** ATTENDANCE POLICY TABLES */

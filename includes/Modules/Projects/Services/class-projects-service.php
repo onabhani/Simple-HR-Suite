@@ -52,6 +52,36 @@ class Projects_Service {
         return $result !== false;
     }
 
+    /**
+     * Delete a project and its related assignments and shift links.
+     */
+    public static function delete( int $id ): bool {
+        global $wpdb;
+        $wpdb->query( 'START TRANSACTION' );
+
+        // Remove employee assignments
+        $r1 = $wpdb->delete( $wpdb->prefix . 'sfs_hr_project_employees', [ 'project_id' => $id ] );
+        if ( $r1 === false ) {
+            $wpdb->query( 'ROLLBACK' );
+            return false;
+        }
+        // Remove shift links
+        $r2 = $wpdb->delete( $wpdb->prefix . 'sfs_hr_project_shifts', [ 'project_id' => $id ] );
+        if ( $r2 === false ) {
+            $wpdb->query( 'ROLLBACK' );
+            return false;
+        }
+        // Remove the project itself
+        $result = $wpdb->delete( $wpdb->prefix . 'sfs_hr_projects', [ 'id' => $id ] );
+        if ( $result === false || $result < 1 ) {
+            $wpdb->query( 'ROLLBACK' );
+            return false;
+        }
+
+        $wpdb->query( 'COMMIT' );
+        return true;
+    }
+
     /* ---- Employee assignments ---- */
 
     /**

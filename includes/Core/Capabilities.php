@@ -98,6 +98,10 @@ class Capabilities {
                     "SELECT COUNT(*) FROM `$dept_tbl` WHERE manager_user_id=%d AND active=1",
                     $uid
                 ) ) > 0,
+                'is_hr_responsible' => (int) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COUNT(*) FROM `$dept_tbl` WHERE hr_responsible_user_id=%d AND active=1",
+                    $uid
+                ) ) > 0,
             ];
         }
 
@@ -106,8 +110,14 @@ class Capabilities {
         }
 
         if ( $cache[ $uid ]['is_mgr'] ) {
-            $allcaps['sfs_hr.view']         = true;
-            $allcaps['sfs_hr.leave.review'] = true;
+            $allcaps['sfs_hr.view']                = true;
+            $allcaps['sfs_hr.leave.review']        = true;
+            $allcaps['sfs_hr_performance_view']     = true;
+        }
+
+        if ( $cache[ $uid ]['is_hr_responsible'] ) {
+            $allcaps['sfs_hr.view']                = true;
+            $allcaps['sfs_hr_performance_view']     = true;
         }
 
         return $allcaps;

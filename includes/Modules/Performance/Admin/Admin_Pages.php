@@ -31,6 +31,7 @@ class Admin_Pages {
         add_action( 'admin_post_sfs_hr_delete_goal', [ $this, 'handle_delete_goal' ] );
         add_action( 'admin_post_sfs_hr_acknowledge_alert', [ $this, 'handle_acknowledge_alert' ] );
         add_action( 'admin_post_sfs_hr_resolve_alert', [ $this, 'handle_resolve_alert' ] );
+        add_action( 'admin_post_sfs_hr_save_justification', [ $this, 'handle_save_justification' ] );
     }
 
     /**
@@ -609,9 +610,69 @@ class Admin_Pages {
 
         $employee_name = trim( $employee->first_name . ' ' . $employee->last_name );
         $grade_display = $score_data['overall_grade'] ? Performance_Calculator::get_grade_display( $score_data['overall_grade'] ) : null;
+        $profile_url = admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . (int) $employee_id );
+
+        // Justification logic
+        $settings            = PerformanceModule::get_settings();
+        $commit_threshold    = (float) ( $settings['alerts']['commitment_threshold'] ?? 80 );
+        $is_below_threshold  = $score_data['overall_score'] !== null && $score_data['overall_score'] < $commit_threshold;
+
+        $justification_record = null;
+        $can_write_justification = false;
+        $justification_locked    = false;
+
+        if ( $is_below_threshold ) {
+            // Load existing justification for this period
+            $justification_record = $wpdb->get_row( $wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}sfs_hr_performance_justifications
+                 WHERE employee_id = %d AND period_start = %s AND period_end = %s",
+                $employee_id,
+                $start_date,
+                $end_date
+            ) );
+
+            // Check if current user is the department's HR responsible
+            $hr_responsible_user_id = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT hr_responsible_user_id FROM {$wpdb->prefix}sfs_hr_departments WHERE id = %d",
+                $employee->dept_id
+            ) );
+            $is_hr_responsible = $hr_responsible_user_id && (int) get_current_user_id() === $hr_responsible_user_id;
+
+            // Check deadline: period_end + 1 day
+            $tz       = wp_timezone();
+            $today    = new \DateTimeImmutable( 'now', $tz );
+            $parsed_end = \DateTime::createFromFormat( 'Y-m-d', $end_date );
+            if ( ! $parsed_end || $parsed_end->format( 'Y-m-d' ) !== $end_date ) {
+                $within_deadline = false;
+            } else {
+                $deadline = ( new \DateTimeImmutable( $end_date, $tz ) )->modify( '+1 day' );
+                $within_deadline = $today->format( 'Y-m-d' ) <= $deadline->format( 'Y-m-d' );
+            }
+
+            $can_write_justification = $is_hr_responsible && $within_deadline;
+            $justification_locked    = ! $within_deadline;
+
+            // Determine read access: HR responsible, dept manager, or GM/admin
+            $manager_user_id = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT manager_user_id FROM {$wpdb->prefix}sfs_hr_departments WHERE id = %d",
+                $employee->dept_id
+            ) );
+            $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+            $current_uid = (int) get_current_user_id();
+
+            $can_read_justification = $is_hr_responsible
+                || ( $manager_user_id && $current_uid === $manager_user_id )
+                || ( $gm_user_id && $current_uid === $gm_user_id )
+                || current_user_can( 'manage_options' );
+        } else {
+            $can_read_justification = false;
+        }
 
         ?>
         <div class="wrap sfs-hr-wrap sfs-perf-wrap">
+            <h1 class="wp-heading-inline"><?php echo esc_html( $employee_name ); ?></h1>
+            <hr class="wp-header-end">
+
             <p>
                 <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-performance-employees' ) ); ?>">
                     ← <?php esc_html_e( 'Back to Employees', 'sfs-hr' ); ?>
@@ -620,7 +681,12 @@ class Admin_Pages {
 
             <div class="sfs-perf-header">
                 <div>
-                    <h1><?php echo esc_html( $employee_name ); ?></h1>
+                    <h2 style="margin:0;font-size:1.5em;">
+                        <?php echo esc_html( $employee_name ); ?>
+                        <a href="<?php echo esc_url( $profile_url ); ?>" title="<?php esc_attr_e( 'View employee profile', 'sfs-hr' ); ?>" aria-label="<?php echo esc_attr__( 'View employee profile', 'sfs-hr' ); ?>" style="margin-left:4px;color:#0284c7;text-decoration:none;font-size:18px;">
+                            <span class="dashicons dashicons-id-alt" style="font-size:18px;width:18px;height:18px;vertical-align:middle;"></span>
+                        </a>
+                    </h2>
                     <p style="color: #666; margin: 5px 0;">
                         <?php echo esc_html( $employee->employee_code ); ?> •
                         <?php echo esc_html( $employee->dept_name ?? __( 'General', 'sfs-hr' ) ); ?>
@@ -812,6 +878,81 @@ class Admin_Pages {
                     <?php endif; ?>
                 </div>
             </div>
+
+            <?php if ( $is_below_threshold && $can_read_justification ) : ?>
+            <!-- HR Justification -->
+            <div class="sfs-perf-section" style="margin-top: 20px;">
+                <h2 style="color: #d63638;">
+                    <span class="dashicons dashicons-warning" style="vertical-align: middle;"></span>
+                    <?php esc_html_e( 'HR Justification', 'sfs-hr' ); ?>
+                    <?php if ( $justification_locked ) : ?>
+                        <span style="font-size: 12px; font-weight: normal; color: #666; margin-left: 8px;">
+                            <span class="dashicons dashicons-lock" style="font-size: 14px; width: 14px; height: 14px; vertical-align: middle;"></span>
+                            <?php esc_html_e( 'Locked', 'sfs-hr' ); ?>
+                        </span>
+                    <?php endif; ?>
+                </h2>
+                <p style="color: #666; margin-bottom: 12px; font-size: 13px;">
+                    <?php printf(
+                        esc_html__( 'This employee\'s overall score (%.1f%%) is below the %s%% threshold. A justification is required from the department HR Responsible.', 'sfs-hr' ),
+                        $score_data['overall_score'],
+                        number_format( $commit_threshold, 0 )
+                    ); ?>
+                    <?php if ( ! $justification_locked ) : ?>
+                        <br>
+                        <?php printf(
+                            esc_html__( 'Deadline: %s', 'sfs-hr' ),
+                            '<strong>' . esc_html( wp_date( 'M j, Y', strtotime( $end_date . ' +1 day' ) ) ) . '</strong>'
+                        ); ?>
+                    <?php endif; ?>
+                </p>
+
+                <?php if ( $can_write_justification ) : ?>
+                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                        <input type="hidden" name="action" value="sfs_hr_save_justification" />
+                        <?php wp_nonce_field( 'sfs_hr_save_justification_' . $employee_id ); ?>
+                        <input type="hidden" name="employee_id" value="<?php echo (int) $employee_id; ?>" />
+                        <input type="hidden" name="period_start" value="<?php echo esc_attr( $start_date ); ?>" />
+                        <input type="hidden" name="period_end" value="<?php echo esc_attr( $end_date ); ?>" />
+                        <textarea name="justification" rows="4" required style="width: 100%; border: 1px solid #c3c4c7; border-radius: 4px; padding: 10px; font-size: 14px;" placeholder="<?php esc_attr_e( 'Provide justification for this employee\'s below-threshold performance...', 'sfs-hr' ); ?>"><?php echo esc_textarea( $justification_record->justification ?? '' ); ?></textarea>
+                        <div style="margin-top: 10px;">
+                            <button type="submit" class="button button-primary">
+                                <?php echo $justification_record ? esc_html__( 'Update Justification', 'sfs-hr' ) : esc_html__( 'Save Justification', 'sfs-hr' ); ?>
+                            </button>
+                            <?php if ( $justification_record ) : ?>
+                                <span style="color: #666; font-size: 12px; margin-left: 10px;">
+                                    <?php printf(
+                                        esc_html__( 'Last updated: %s by %s', 'sfs-hr' ),
+                                        esc_html( wp_date( 'M j, Y g:i A', strtotime( $justification_record->updated_at ) ) ),
+                                        esc_html( get_userdata( $justification_record->written_by )->display_name ?? __( 'Unknown', 'sfs-hr' ) )
+                                    ); ?>
+                                </span>
+                            <?php endif; ?>
+                        </div>
+                    </form>
+                <?php elseif ( $justification_record ) : ?>
+                    <div style="background: #f9fafb; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px 16px;">
+                        <p style="margin: 0 0 8px; font-size: 14px; color: #1d2327; white-space: pre-wrap;"><?php echo esc_html( $justification_record->justification ); ?></p>
+                        <p style="margin: 0; font-size: 12px; color: #666;">
+                            <?php printf(
+                                esc_html__( 'Written by %s on %s', 'sfs-hr' ),
+                                '<strong>' . esc_html( get_userdata( $justification_record->written_by )->display_name ?? __( 'Unknown', 'sfs-hr' ) ) . '</strong>',
+                                esc_html( wp_date( 'M j, Y g:i A', strtotime( $justification_record->updated_at ) ) )
+                            ); ?>
+                        </p>
+                    </div>
+                <?php else : ?>
+                    <p style="color: #996800; font-style: italic;">
+                        <span class="dashicons dashicons-info" style="font-size: 16px; width: 16px; height: 16px; vertical-align: middle;"></span>
+                        <?php if ( $justification_locked ) : ?>
+                            <?php esc_html_e( 'No justification was provided for this period.', 'sfs-hr' ); ?>
+                        <?php else : ?>
+                            <?php esc_html_e( 'Awaiting justification from the department HR Responsible.', 'sfs-hr' ); ?>
+                        <?php endif; ?>
+                    </p>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
         </div>
         <?php
     }
@@ -1382,6 +1523,113 @@ class Admin_Pages {
         Alerts_Service::resolve_alert( $alert_id );
 
         wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-performance-alerts' ) );
+        exit;
+    }
+
+    /**
+     * Handle saving a performance justification.
+     *
+     * Only the department's HR Responsible can write, only for below-threshold
+     * employees, and only until 1 day after the period end (the 26th).
+     */
+    public function handle_save_justification(): void {
+        global $wpdb;
+
+        $employee_id  = isset( $_POST['employee_id'] ) ? (int) $_POST['employee_id'] : 0;
+        $start_date   = isset( $_POST['period_start'] ) ? sanitize_text_field( $_POST['period_start'] ) : '';
+        $end_date     = isset( $_POST['period_end'] ) ? sanitize_text_field( $_POST['period_end'] ) : '';
+        $justification = isset( $_POST['justification'] ) ? sanitize_textarea_field( $_POST['justification'] ) : '';
+
+        check_admin_referer( 'sfs_hr_save_justification_' . $employee_id );
+
+        $redirect_url = add_query_arg( [
+            'page'        => 'sfs-hr-performance-employees',
+            'employee_id' => $employee_id,
+            'start_date'  => $start_date,
+            'end_date'    => $end_date,
+        ], admin_url( 'admin.php' ) );
+
+        if ( $justification === '' ) {
+            wp_die( __( 'Justification text is required.', 'sfs-hr' ), '', 400 );
+        }
+
+        // Validate employee exists and get their department
+        $employee = $wpdb->get_row( $wpdb->prepare(
+            "SELECT id, dept_id FROM {$wpdb->prefix}sfs_hr_employees WHERE id = %d",
+            $employee_id
+        ) );
+
+        if ( ! $employee ) {
+            wp_safe_redirect( $redirect_url );
+            exit;
+        }
+
+        // Check: current user must be the department's HR responsible
+        $hr_responsible_user_id = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT hr_responsible_user_id FROM {$wpdb->prefix}sfs_hr_departments WHERE id = %d",
+            $employee->dept_id
+        ) );
+
+        if ( ! $hr_responsible_user_id || (int) get_current_user_id() !== $hr_responsible_user_id ) {
+            wp_die( __( 'Only the department HR Responsible can write justifications.', 'sfs-hr' ), '', 403 );
+        }
+
+        // Check: deadline is period_end + 1 day
+        $tz       = wp_timezone();
+        $today    = new \DateTimeImmutable( 'now', $tz );
+        $parsed_end = \DateTime::createFromFormat( 'Y-m-d', $end_date );
+        if ( ! $parsed_end || $parsed_end->format( 'Y-m-d' ) !== $end_date ) {
+            wp_die( __( 'Invalid period end date.', 'sfs-hr' ), '', 400 );
+        }
+        $deadline = ( new \DateTimeImmutable( $end_date, $tz ) )->modify( '+1 day' );
+
+        if ( $today->format( 'Y-m-d' ) > $deadline->format( 'Y-m-d' ) ) {
+            wp_die( __( 'The justification deadline for this period has passed.', 'sfs-hr' ), '', 403 );
+        }
+
+        // Check: employee must be below threshold
+        $settings  = PerformanceModule::get_settings();
+        $threshold = (float) ( $settings['alerts']['commitment_threshold'] ?? 80 );
+        $score     = Performance_Calculator::calculate_overall_score( $employee_id, $start_date, $end_date );
+
+        if ( $score['overall_score'] === null || $score['overall_score'] >= $threshold ) {
+            wp_die( __( 'Justification is only required for employees below the performance threshold.', 'sfs-hr' ), '', 403 );
+        }
+
+        // Upsert justification
+        $table = $wpdb->prefix . 'sfs_hr_performance_justifications';
+        $now   = current_time( 'mysql' );
+
+        $existing = $wpdb->get_var( $wpdb->prepare(
+            "SELECT id FROM {$table} WHERE employee_id = %d AND period_start = %s AND period_end = %s",
+            $employee_id,
+            $start_date,
+            $end_date
+        ) );
+
+        if ( $existing ) {
+            $wpdb->update(
+                $table,
+                [
+                    'justification' => $justification,
+                    'written_by'    => get_current_user_id(),
+                    'updated_at'    => $now,
+                ],
+                [ 'id' => $existing ]
+            );
+        } else {
+            $wpdb->insert( $table, [
+                'employee_id'   => $employee_id,
+                'period_start'  => $start_date,
+                'period_end'    => $end_date,
+                'justification' => $justification,
+                'written_by'    => get_current_user_id(),
+                'created_at'    => $now,
+                'updated_at'    => $now,
+            ] );
+        }
+
+        wp_safe_redirect( add_query_arg( 'justification_saved', '1', $redirect_url ) );
         exit;
     }
 }

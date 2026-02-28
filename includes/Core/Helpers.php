@@ -196,7 +196,41 @@ class Helpers {
                 'url'    => add_query_arg( 'page', 'sfs-hr-payroll', $base ),
                 'parent' => 'sfs-hr',
             ],
-            // Add more here if you have extra HR pages.
+            'sfs-hr-performance' => [
+                'label'  => __( 'Performance', 'sfs-hr' ),
+                'url'    => add_query_arg( 'page', 'sfs-hr-performance', $base ),
+                'parent' => 'sfs-hr',
+            ],
+            'sfs-hr-performance-employees' => [
+                'label'  => __( 'Employees', 'sfs-hr' ),
+                'url'    => add_query_arg( 'page', 'sfs-hr-performance-employees', $base ),
+                'parent' => 'sfs-hr-performance',
+            ],
+            'sfs-hr-performance-goals' => [
+                'label'  => __( 'Goals', 'sfs-hr' ),
+                'url'    => add_query_arg( 'page', 'sfs-hr-performance-goals', $base ),
+                'parent' => 'sfs-hr-performance',
+            ],
+            'sfs-hr-performance-reviews' => [
+                'label'  => __( 'Reviews', 'sfs-hr' ),
+                'url'    => add_query_arg( 'page', 'sfs-hr-performance-reviews', $base ),
+                'parent' => 'sfs-hr-performance',
+            ],
+            'sfs-hr-performance-alerts' => [
+                'label'  => __( 'Alerts', 'sfs-hr' ),
+                'url'    => add_query_arg( 'page', 'sfs-hr-performance-alerts', $base ),
+                'parent' => 'sfs-hr-performance',
+            ],
+            'sfs-hr-performance-settings' => [
+                'label'  => __( 'Settings', 'sfs-hr' ),
+                'url'    => add_query_arg( 'page', 'sfs-hr-performance-settings', $base ),
+                'parent' => 'sfs-hr-performance',
+            ],
+            'sfs-hr-surveys' => [
+                'label'  => __( 'Surveys', 'sfs-hr' ),
+                'url'    => add_query_arg( 'page', 'sfs-hr-surveys', $base ),
+                'parent' => 'sfs-hr-performance',
+            ],
         ];
     }
 

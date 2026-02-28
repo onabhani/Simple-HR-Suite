@@ -305,6 +305,21 @@ class DepartmentsModule {
                             </div>
 
                             <div class="sfs-hr-field">
+                              <label for="sfs-hr-dept-hr-responsible-<?php echo (int) $r['id']; ?>"><?php esc_html_e( 'HR Responsible', 'sfs-hr' ); ?></label>
+                              <?php
+                              wp_dropdown_users( [
+                                'name'             => 'hr_responsible_user_id',
+                                'id'               => 'sfs-hr-dept-hr-responsible-' . (int) $r['id'],
+                                'selected'         => (int) ( $r['hr_responsible_user_id'] ?? 0 ),
+                                'show'             => 'display_name',
+                                'include_selected' => true,
+                                'show_option_none' => __( '— None —', 'sfs-hr' ),
+                              ] );
+                              ?>
+                              <p class="description"><?php esc_html_e( 'Responsible for performance justification when employees are below threshold.', 'sfs-hr' ); ?></p>
+                            </div>
+
+                            <div class="sfs-hr-field">
                               <label for="sfs-hr-dept-auto-<?php echo (int) $r['id']; ?>"><?php esc_html_e( 'Auto-membership Roles', 'sfs-hr' ); ?></label>
                               <select name="auto_role[]" id="sfs-hr-dept-auto-<?php echo (int) $r['id']; ?>" multiple="multiple">
                                 <?php foreach ( $roles as $slug => $label ) : ?>
@@ -408,6 +423,21 @@ class DepartmentsModule {
               </div>
 
               <div class="sfs-hr-field">
+                <label for="sfs-hr-dept-new-hr-responsible"><?php esc_html_e( 'HR Responsible', 'sfs-hr' ); ?></label>
+                <?php
+                wp_dropdown_users( [
+                  'name'             => 'hr_responsible_user_id',
+                  'id'               => 'sfs-hr-dept-new-hr-responsible',
+                  'selected'         => 0,
+                  'show'             => 'display_name',
+                  'include_selected' => true,
+                  'show_option_none' => __( '— None —', 'sfs-hr' ),
+                ] );
+                ?>
+                <p class="description"><?php esc_html_e( 'Responsible for performance justification when employees are below threshold.', 'sfs-hr' ); ?></p>
+              </div>
+
+              <div class="sfs-hr-field">
                 <label for="sfs-hr-dept-new-auto"><?php esc_html_e( 'Auto-membership Roles', 'sfs-hr' ); ?></label>
                 <select name="auto_role[]" id="sfs-hr-dept-new-auto" multiple="multiple">
                   <?php foreach ( $roles as $slug => $label ) : ?>
@@ -474,6 +504,13 @@ class DepartmentsModule {
     $id   = isset( $_POST['id'] ) ? (int) $_POST['id'] : 0;
     $name = isset( $_POST['name'] ) ? sanitize_text_field( $_POST['name'] ) : '';
     $mgr  = isset( $_POST['manager_user_id'] ) ? (int) $_POST['manager_user_id'] : 0;
+    if ( $mgr > 0 && ! get_user_by( 'id', $mgr ) ) {
+        $mgr = 0;
+    }
+    $hr_responsible = isset( $_POST['hr_responsible_user_id'] ) ? (int) $_POST['hr_responsible_user_id'] : 0;
+    if ( $hr_responsible > 0 && ! get_user_by( 'id', $hr_responsible ) ) {
+        $hr_responsible = 0;
+    }
     $auto_raw = $_POST['auto_role'] ?? '';
     $auto     = self::stringify_role_list( $auto_raw );
     $appr = isset( $_POST['approver_role'] ) ? sanitize_text_field( $_POST['approver_role'] ) : '';
@@ -493,12 +530,13 @@ class DepartmentsModule {
     $now = current_time( 'mysql' );
 
     $data = [
-        'name'            => $name,
-        'manager_user_id' => ( $mgr ?: null ),
-        'auto_role'       => ( $auto ?: null ),
-        'approver_role'   => ( $appr ?: null ),
-        'active'          => $act,
-        'color'           => ( $color ?: '#1e3a5f' ),
+        'name'                  => $name,
+        'manager_user_id'       => ( $mgr ?: null ),
+        'hr_responsible_user_id' => ( $hr_responsible ?: null ),
+        'auto_role'             => ( $auto ?: null ),
+        'approver_role'         => ( $appr ?: null ),
+        'active'                => $act,
+        'color'                 => ( $color ?: '#1e3a5f' ),
     ];
 
     if ( $id > 0 ) {
