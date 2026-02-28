@@ -60,13 +60,20 @@ class Projects_Service {
         $wpdb->query( 'START TRANSACTION' );
 
         // Remove employee assignments
-        $wpdb->delete( $wpdb->prefix . 'sfs_hr_project_employees', [ 'project_id' => $id ] );
+        $r1 = $wpdb->delete( $wpdb->prefix . 'sfs_hr_project_employees', [ 'project_id' => $id ] );
+        if ( $r1 === false ) {
+            $wpdb->query( 'ROLLBACK' );
+            return false;
+        }
         // Remove shift links
-        $wpdb->delete( $wpdb->prefix . 'sfs_hr_project_shifts', [ 'project_id' => $id ] );
+        $r2 = $wpdb->delete( $wpdb->prefix . 'sfs_hr_project_shifts', [ 'project_id' => $id ] );
+        if ( $r2 === false ) {
+            $wpdb->query( 'ROLLBACK' );
+            return false;
+        }
         // Remove the project itself
         $result = $wpdb->delete( $wpdb->prefix . 'sfs_hr_projects', [ 'id' => $id ] );
-
-        if ( $result === false ) {
+        if ( $result === false || $result < 1 ) {
             $wpdb->query( 'ROLLBACK' );
             return false;
         }

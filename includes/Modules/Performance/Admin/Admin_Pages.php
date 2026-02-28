@@ -641,8 +641,13 @@ class Admin_Pages {
             // Check deadline: period_end + 1 day
             $tz       = wp_timezone();
             $today    = new \DateTimeImmutable( 'now', $tz );
-            $deadline = ( new \DateTimeImmutable( $end_date, $tz ) )->modify( '+1 day' );
-            $within_deadline = $today->format( 'Y-m-d' ) <= $deadline->format( 'Y-m-d' );
+            $parsed_end = \DateTime::createFromFormat( 'Y-m-d', $end_date );
+            if ( ! $parsed_end || $parsed_end->format( 'Y-m-d' ) !== $end_date ) {
+                $within_deadline = false;
+            } else {
+                $deadline = ( new \DateTimeImmutable( $end_date, $tz ) )->modify( '+1 day' );
+                $within_deadline = $today->format( 'Y-m-d' ) <= $deadline->format( 'Y-m-d' );
+            }
 
             $can_write_justification = $is_hr_responsible && $within_deadline;
             $justification_locked    = ! $within_deadline;
@@ -678,7 +683,7 @@ class Admin_Pages {
                 <div>
                     <h2 style="margin:0;font-size:1.5em;">
                         <?php echo esc_html( $employee_name ); ?>
-                        <a href="<?php echo esc_url( $profile_url ); ?>" title="<?php esc_attr_e( 'View employee profile', 'sfs-hr' ); ?>" style="margin-left:4px;color:#0284c7;text-decoration:none;font-size:18px;">
+                        <a href="<?php echo esc_url( $profile_url ); ?>" title="<?php esc_attr_e( 'View employee profile', 'sfs-hr' ); ?>" aria-label="<?php echo esc_attr__( 'View employee profile', 'sfs-hr' ); ?>" style="margin-left:4px;color:#0284c7;text-decoration:none;font-size:18px;">
                             <span class="dashicons dashicons-id-alt" style="font-size:18px;width:18px;height:18px;vertical-align:middle;"></span>
                         </a>
                     </h2>
@@ -909,7 +914,7 @@ class Admin_Pages {
                         <input type="hidden" name="employee_id" value="<?php echo (int) $employee_id; ?>" />
                         <input type="hidden" name="period_start" value="<?php echo esc_attr( $start_date ); ?>" />
                         <input type="hidden" name="period_end" value="<?php echo esc_attr( $end_date ); ?>" />
-                        <textarea name="justification" rows="4" style="width: 100%; border: 1px solid #c3c4c7; border-radius: 4px; padding: 10px; font-size: 14px;" placeholder="<?php esc_attr_e( 'Provide justification for this employee\'s below-threshold performance...', 'sfs-hr' ); ?>"><?php echo esc_textarea( $justification_record->justification ?? '' ); ?></textarea>
+                        <textarea name="justification" rows="4" required style="width: 100%; border: 1px solid #c3c4c7; border-radius: 4px; padding: 10px; font-size: 14px;" placeholder="<?php esc_attr_e( 'Provide justification for this employee\'s below-threshold performance...', 'sfs-hr' ); ?>"><?php echo esc_textarea( $justification_record->justification ?? '' ); ?></textarea>
                         <div style="margin-top: 10px;">
                             <button type="submit" class="button button-primary">
                                 <?php echo $justification_record ? esc_html__( 'Update Justification', 'sfs-hr' ) : esc_html__( 'Save Justification', 'sfs-hr' ); ?>
@@ -1544,6 +1549,10 @@ class Admin_Pages {
             'end_date'    => $end_date,
         ], admin_url( 'admin.php' ) );
 
+        if ( $justification === '' ) {
+            wp_die( __( 'Justification text is required.', 'sfs-hr' ), '', 400 );
+        }
+
         // Validate employee exists and get their department
         $employee = $wpdb->get_row( $wpdb->prepare(
             "SELECT id, dept_id FROM {$wpdb->prefix}sfs_hr_employees WHERE id = %d",
@@ -1568,6 +1577,10 @@ class Admin_Pages {
         // Check: deadline is period_end + 1 day
         $tz       = wp_timezone();
         $today    = new \DateTimeImmutable( 'now', $tz );
+        $parsed_end = \DateTime::createFromFormat( 'Y-m-d', $end_date );
+        if ( ! $parsed_end || $parsed_end->format( 'Y-m-d' ) !== $end_date ) {
+            wp_die( __( 'Invalid period end date.', 'sfs-hr' ), '', 400 );
+        }
         $deadline = ( new \DateTimeImmutable( $end_date, $tz ) )->modify( '+1 day' );
 
         if ( $today->format( 'Y-m-d' ) > $deadline->format( 'Y-m-d' ) ) {
@@ -1579,7 +1592,7 @@ class Admin_Pages {
         $threshold = (float) ( $settings['alerts']['commitment_threshold'] ?? 80 );
         $score     = Performance_Calculator::calculate_overall_score( $employee_id, $start_date, $end_date );
 
-        if ( $score['overall_score'] !== null && $score['overall_score'] >= $threshold ) {
+        if ( $score['overall_score'] === null || $score['overall_score'] >= $threshold ) {
             wp_die( __( 'Justification is only required for employees below the performance threshold.', 'sfs-hr' ), '', 403 );
         }
 

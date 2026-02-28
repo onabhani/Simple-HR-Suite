@@ -559,12 +559,11 @@ class Alerts_Service {
             }
         };
 
-        // Notify the employee (if enabled).
+        // Collect unique recipients.
+        $recipients = [];
         if ( ! empty( $settings['alerts']['notify_employee'] ) && ! empty( $alert->email ) ) {
-            $send( $alert->email );
+            $recipients[] = $alert->email;
         }
-
-        // Notify the department's HR responsible person.
         if ( ! empty( $alert->dept_id ) ) {
             $hr_user_id = (int) $wpdb->get_var( $wpdb->prepare(
                 "SELECT hr_responsible_user_id FROM {$wpdb->prefix}sfs_hr_departments WHERE id = %d",
@@ -573,9 +572,13 @@ class Alerts_Service {
             if ( $hr_user_id ) {
                 $hr_user = get_userdata( $hr_user_id );
                 if ( $hr_user && ! empty( $hr_user->user_email ) ) {
-                    $send( $hr_user->user_email );
+                    $recipients[] = $hr_user->user_email;
                 }
             }
+        }
+        $recipients = array_unique( array_filter( $recipients ) );
+        foreach ( $recipients as $recipient ) {
+            $send( $recipient );
         }
     }
 

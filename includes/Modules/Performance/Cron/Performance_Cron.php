@@ -488,6 +488,19 @@ class Performance_Cron {
         }
 
         // --- B) Send to each Department Manager & HR Responsible ---
+        // Collect company-level recipients to avoid duplicates at department level.
+        $sent_emails = [];
+        $gm_email_lc = ( $gm_user_id > 0 && isset( $gm_user ) && $gm_user && $gm_user->user_email )
+            ? strtolower( trim( $gm_user->user_email ) ) : '';
+        if ( $gm_email_lc !== '' ) {
+            $sent_emails[ $gm_email_lc ] = true;
+        }
+        foreach ( ( $hr_emails ?? [] ) as $hr_e ) {
+            if ( is_email( $hr_e ) ) {
+                $sent_emails[ strtolower( trim( $hr_e ) ) ] = true;
+            }
+        }
+
         $departments = $wpdb->get_results(
             "SELECT id, name, manager_user_id, hr_responsible_user_id FROM {$dept_t} WHERE active = 1"
         );
@@ -506,7 +519,11 @@ class Performance_Cron {
             if ( $mgr_uid > 0 ) {
                 $mgr_user = get_user_by( 'id', $mgr_uid );
                 if ( $mgr_user && $mgr_user->user_email ) {
-                    Helpers::send_mail( $mgr_user->user_email, $dept_subject, $body );
+                    $mgr_email_lc = strtolower( trim( $mgr_user->user_email ) );
+                    if ( empty( $sent_emails[ $mgr_email_lc ] ) ) {
+                        Helpers::send_mail( $mgr_user->user_email, $dept_subject, $body );
+                        $sent_emails[ $mgr_email_lc ] = true;
+                    }
                 }
             }
 
@@ -515,7 +532,11 @@ class Performance_Cron {
             if ( $hr_resp_uid > 0 && $hr_resp_uid !== $mgr_uid ) {
                 $hr_resp_user = get_user_by( 'id', $hr_resp_uid );
                 if ( $hr_resp_user && $hr_resp_user->user_email ) {
-                    Helpers::send_mail( $hr_resp_user->user_email, $dept_subject, $body );
+                    $hr_resp_email_lc = strtolower( trim( $hr_resp_user->user_email ) );
+                    if ( empty( $sent_emails[ $hr_resp_email_lc ] ) ) {
+                        Helpers::send_mail( $hr_resp_user->user_email, $dept_subject, $body );
+                        $sent_emails[ $hr_resp_email_lc ] = true;
+                    }
                 }
             }
         }
@@ -654,49 +675,7 @@ class Performance_Cron {
      * @return string Bullet-point hints for areas that need improvement.
      */
     private static function build_improvement_hints( array $entry ): string {
-        $hints = [];
-
-        if ( ( $entry['absent'] ?? 0 ) > 0 ) {
-            $hints[] = sprintf(
-                __( 'Absences (%d days): Please ensure regular attendance. If you need to take a day off, submit a leave request in advance.', 'sfs-hr' ),
-                $entry['absent']
-            );
-        }
-
-        if ( ( $entry['late'] ?? 0 ) > 0 ) {
-            $hints[] = sprintf(
-                __( 'Late arrivals (%d times): Try to arrive on time for your scheduled shift. Punctuality directly impacts your commitment score.', 'sfs-hr' ),
-                $entry['late']
-            );
-        }
-
-        if ( ( $entry['early'] ?? 0 ) > 0 ) {
-            $hints[] = sprintf(
-                __( 'Early leaves (%d times): Please complete your full shift hours before leaving.', 'sfs-hr' ),
-                $entry['early']
-            );
-        }
-
-        if ( ( $entry['incomplete'] ?? 0 ) > 0 ) {
-            $hints[] = sprintf(
-                __( 'Incomplete days (%d): Ensure you clock both in and out to avoid incomplete records.', 'sfs-hr' ),
-                $entry['incomplete']
-            );
-        }
-
-        if ( ( $entry['break_delay'] ?? 0 ) > 0 ) {
-            $hints[] = sprintf(
-                __( 'Break delays (%d times): Please return from breaks on time.', 'sfs-hr' ),
-                $entry['break_delay']
-            );
-        }
-
-        if ( ( $entry['no_break'] ?? 0 ) > 0 ) {
-            $hints[] = sprintf(
-                __( 'Missed breaks (%d times): Remember to record your break — unrecorded breaks are automatically deducted.', 'sfs-hr' ),
-                $entry['no_break']
-            );
-        }
+        $hints = self::build_improvement_hints_array( $entry );
 
         if ( empty( $hints ) ) {
             return '';
