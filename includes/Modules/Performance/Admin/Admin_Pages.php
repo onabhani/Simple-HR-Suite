@@ -613,6 +613,9 @@ class Admin_Pages {
 
         ?>
         <div class="wrap sfs-hr-wrap sfs-perf-wrap">
+            <h1 class="wp-heading-inline"><?php echo esc_html( $employee_name ); ?></h1>
+            <hr class="wp-header-end">
+
             <p>
                 <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-performance-employees' ) ); ?>">
                     ← <?php esc_html_e( 'Back to Employees', 'sfs-hr' ); ?>
@@ -621,12 +624,12 @@ class Admin_Pages {
 
             <div class="sfs-perf-header">
                 <div>
-                    <h1>
+                    <h2 style="margin:0;font-size:1.5em;">
                         <?php echo esc_html( $employee_name ); ?>
                         <a href="<?php echo esc_url( $profile_url ); ?>" title="<?php esc_attr_e( 'View employee profile', 'sfs-hr' ); ?>" style="margin-left:4px;color:#0284c7;text-decoration:none;font-size:18px;">
                             <span class="dashicons dashicons-id-alt" style="font-size:18px;width:18px;height:18px;vertical-align:middle;"></span>
                         </a>
-                    </h1>
+                    </h2>
                     <p style="color: #666; margin: 5px 0;">
                         <?php echo esc_html( $employee->employee_code ); ?> •
                         <?php echo esc_html( $employee->dept_name ?? __( 'General', 'sfs-hr' ) ); ?>
