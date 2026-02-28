@@ -22,6 +22,7 @@ class Admin_Pages {
         add_action( 'admin_post_sfs_hr_remove_project_employee', [ $this, 'handle_remove_employee' ] );
         add_action( 'admin_post_sfs_hr_add_project_shift',      [ $this, 'handle_add_shift' ] );
         add_action( 'admin_post_sfs_hr_remove_project_shift',   [ $this, 'handle_remove_shift' ] );
+        add_action( 'admin_post_sfs_hr_delete_project',         [ $this, 'handle_delete_project' ] );
     }
 
     /**
@@ -66,6 +67,9 @@ class Admin_Pages {
 
         <?php if ( ! empty( $_GET['saved'] ) ) : ?>
             <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Project saved.', 'sfs-hr' ); ?></p></div>
+        <?php endif; ?>
+        <?php if ( ! empty( $_GET['deleted'] ) ) : ?>
+            <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Project deleted.', 'sfs-hr' ); ?></p></div>
         <?php endif; ?>
 
         <table class="wp-list-table widefat fixed striped" style="margin-top:16px;">
@@ -238,6 +242,20 @@ class Admin_Pages {
                 <?php esc_html_e( 'Back to List', 'sfs-hr' ); ?>
             </a>
         </h1>
+
+        <?php if ( ! empty( $_GET['deleted_error'] ) ) : ?>
+            <div class="notice notice-error is-dismissible"><p><?php esc_html_e( 'Failed to delete project.', 'sfs-hr' ); ?></p></div>
+        <?php endif; ?>
+
+        <!-- Delete project form -->
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline; float:right; margin-top:-36px;">
+            <?php wp_nonce_field( 'sfs_hr_delete_project' ); ?>
+            <input type="hidden" name="action" value="sfs_hr_delete_project"/>
+            <input type="hidden" name="project_id" value="<?php echo $id; ?>"/>
+            <button type="submit" class="button button-link-delete" onclick="return confirm('<?php esc_attr_e( 'Are you sure you want to delete this project? All employee assignments and shift links will be removed. This cannot be undone.', 'sfs-hr' ); ?>');">
+                <?php esc_html_e( 'Delete Project', 'sfs-hr' ); ?>
+            </button>
+        </form>
 
         <nav class="nav-tab-wrapper" style="margin-bottom:20px;">
             <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-projects&action=view&id=' . $id . '&vtab=manage' ) ); ?>"
@@ -699,6 +717,20 @@ class Admin_Pages {
 
         $flag = $success ? 'shift_removed=1' : 'shift_remove_error=1';
         wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-projects&action=view&id=' . $project_id . '&' . $flag ) );
+        exit;
+    }
+
+    public function handle_delete_project(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) { wp_die( 'Access denied.' ); }
+        check_admin_referer( 'sfs_hr_delete_project' );
+
+        $project_id = (int) ( $_POST['project_id'] ?? 0 );
+
+        if ( $project_id && Projects_Service::delete( $project_id ) ) {
+            wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-projects&deleted=1' ) );
+        } else {
+            wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-projects&action=view&id=' . $project_id . '&deleted_error=1' ) );
+        }
         exit;
     }
 
