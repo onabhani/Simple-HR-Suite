@@ -609,12 +609,7 @@ class Admin_Pages {
 
         $employee_name = trim( $employee->first_name . ' ' . $employee->last_name );
         $grade_display = $score_data['overall_grade'] ? Performance_Calculator::get_grade_display( $score_data['overall_grade'] ) : null;
-
-        // Look up the employee's current project assignment
-        $emp_project = \SFS\HR\Modules\Projects\Services\Projects_Service::get_employee_project_on_date(
-            $employee_id,
-            wp_date( 'Y-m-d' )
-        );
+        $profile_url = admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . (int) $employee_id );
 
         ?>
         <div class="wrap sfs-hr-wrap sfs-perf-wrap">
@@ -626,15 +621,15 @@ class Admin_Pages {
 
             <div class="sfs-perf-header">
                 <div>
-                    <h1><?php echo esc_html( $employee_name ); ?></h1>
+                    <h1>
+                        <?php echo esc_html( $employee_name ); ?>
+                        <a href="<?php echo esc_url( $profile_url ); ?>" title="<?php esc_attr_e( 'View employee profile', 'sfs-hr' ); ?>" style="margin-left:4px;color:#0284c7;text-decoration:none;font-size:18px;">
+                            <span class="dashicons dashicons-id-alt" style="font-size:18px;width:18px;height:18px;vertical-align:middle;"></span>
+                        </a>
+                    </h1>
                     <p style="color: #666; margin: 5px 0;">
                         <?php echo esc_html( $employee->employee_code ); ?> •
                         <?php echo esc_html( $employee->dept_name ?? __( 'General', 'sfs-hr' ) ); ?>
-                        <?php if ( $emp_project ) : ?>
-                            • <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-projects&action=view&id=' . (int) $emp_project->id ) ); ?>" style="color:#1565c0; text-decoration:none;">
-                                <?php echo esc_html( $emp_project->name ); ?>
-                            </a>
-                        <?php endif; ?>
                     </p>
                 </div>
                 <?php if ( $grade_display ) : ?>
