@@ -19,6 +19,7 @@ require_once __DIR__ . '/Admin/class-admin-pages.php';
 require_once __DIR__ . '/Rest/class-attendance-admin-rest.php';
 require_once __DIR__ . '/Rest/class-attendance-rest.php';
 require_once __DIR__ . '/Rest/class-early-leave-rest.php';
+require_once __DIR__ . '/Cron/Daily_Session_Builder.php';
 
 class AttendanceModule {
 
@@ -145,6 +146,9 @@ add_action('rest_api_init', function () {
 
         // Auto-reject early leave requests after 72 hours of no action
         ( new \SFS\HR\Modules\Attendance\Cron\Early_Leave_Auto_Reject() )->hooks();
+
+        // Daily session builder — ensures sessions exist for yesterday/today
+        ( new \SFS\HR\Modules\Attendance\Cron\Daily_Session_Builder() )->hooks();
     }
 
     /**
@@ -574,6 +578,11 @@ add_action('rest_api_init', function () {
       #<?php echo esc_attr( $root_id ); ?> .sfs-att-statusline[data-mode="break_end"]{
         color:#1e40af; background:#dbeafe; border:1px solid #bfdbfe;
         border-radius:10px; padding:10px 14px; font-weight:600;
+      }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-statusline[data-mode="off_day"]{
+        color:#4338ca; background:#eef2ff; border:1px solid #c7d2fe;
+        border-radius:10px; padding:12px 18px; font-weight:600; font-size:15px;
+        text-align:center;
       }
 
       /* ===== Action buttons ===== */
@@ -1215,6 +1224,7 @@ setInterval(tickClock, 1000);
         var progressBar = document.getElementById('sfs-att-progress-bar-<?php echo $inst; ?>');
         var workedEl    = document.getElementById('sfs-att-worked-<?php echo $inst; ?>');
         var targetEl    = document.getElementById('sfs-att-target-<?php echo $inst; ?>');
+        var progressWrap = document.getElementById('sfs-att-progress-<?php echo $inst; ?>');
         var CIRCUMFERENCE = 2 * Math.PI * 52; // ~326.7
 
         function formatHM(seconds) {
@@ -1436,8 +1446,9 @@ setInterval(tickClock, 1000);
 
                 // --- Off-day / stale session messaging ---
                 if (j.is_off_day) {
-                    setStat(i18n.day_off || 'Day Off', 'idle');
+                    setStat(i18n.day_off || 'Day Off', 'off_day');
                     hint && (hint.textContent = '');
+                    if (progressWrap) progressWrap.style.display = 'none';
                 } else if (j.stale_session_msg) {
                     // Show the stale session warning but enable Clock Out so
                     // the employee can close the stuck session themselves.
@@ -1451,6 +1462,7 @@ setInterval(tickClock, 1000);
                     delete methodBlocked['out'];
                     syncButtons();
                     hint && (hint.textContent = '');
+                    if (progressWrap) progressWrap.style.display = '';
                 } else {
                     // If ALL state-allowed actions are method-blocked, show why
                     var blockedMsg = null;
@@ -1477,6 +1489,7 @@ setInterval(tickClock, 1000);
                     } else {
                         hint && (hint.textContent = i18n.location_hint);
                     }
+                    if (progressWrap) progressWrap.style.display = '';
                 }
 
                 // Update progress timer.
@@ -4058,6 +4071,9 @@ private static function maybe_create_early_leave_request(
             '[SFS HR] Failed to auto-create early leave request for employee %d on %s: %s',
             $employee_id, $ymd, $wpdb->last_error
         ) );
+    } else {
+        $new_el_id = (int) $wpdb->insert_id;
+        do_action( 'sfs_hr_early_leave_requested', $new_el_id, $employee_id, $mgr_id );
     }
 }
 
@@ -4850,6 +4866,22 @@ if ( ! empty( $leadingOuts ) ) {
             $prevFlags[] = 'left_early';
         }
 
+        // Suppress left_early if the previous day has an approved early leave request.
+        $elr_prev_table  = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+        $prev_approved_elr_id = $prevIsEarly ? $wpdb->get_var( $wpdb->prepare(
+            "SELECT id FROM {$elr_prev_table}
+             WHERE employee_id = %d AND request_date = %s AND status = 'approved'
+             LIMIT 1",
+            $employee_id, $prevDate
+        ) ) : null;
+        if ( $prev_approved_elr_id ) {
+            $prevIsEarly = false;
+            $prevFlags   = array_values( array_diff( $prevFlags, [ 'left_early' ] ) );
+            if ( ! in_array( 'early_leave', $prevFlags, true ) ) {
+                $prevFlags[] = 'early_leave';
+            }
+        }
+
         $prevStatus = 'present';
         if ( in_array( 'late', $prevFlags, true ) && in_array( 'left_early', $prevFlags, true ) ) {
             $prevStatus = 'late';
@@ -4859,18 +4891,23 @@ if ( ! empty( $leadingOuts ) ) {
             $prevStatus = 'left_early';
         }
 
-        $wpdb->update(
-            $sT,
-            [
-                'out_time'            => $closingOut,
-                'net_minutes'         => $netMinutes,
-                'rounded_net_minutes' => $roundedNet,
-                'status'              => $prevStatus,
-                'flags_json'          => wp_json_encode( $prevFlags ),
-                'last_recalc_at'      => current_time( 'mysql', true ),
-            ],
-            [ 'id' => (int) $prevSess->id ]
-        );
+        $prev_session_data = [
+            'out_time'            => $closingOut,
+            'net_minutes'         => $netMinutes,
+            'rounded_net_minutes' => $roundedNet,
+            'status'              => $prevStatus,
+            'flags_json'          => wp_json_encode( $prevFlags ),
+            'last_recalc_at'      => current_time( 'mysql', true ),
+        ];
+        if ( $prev_approved_elr_id ) {
+            $prev_session_data['early_leave_approved']   = 1;
+            $prev_session_data['early_leave_request_id'] = (int) $prev_approved_elr_id;
+        } else {
+            $prev_session_data['early_leave_approved']   = 0;
+            $prev_session_data['early_leave_request_id'] = null;
+        }
+
+        $wpdb->update( $sT, $prev_session_data, [ 'id' => (int) $prevSess->id ] );
 
         // Auto-create early leave request for the retro-closed session.
         if ( $prevIsEarly && $prevEarlyMin > 0 ) {
@@ -5159,6 +5196,30 @@ if ( ! empty( $leadingOuts ) ) {
         $flags[] = 'holiday_work';
     }
 
+    // Suppress left_early when the employee has an approved early leave request
+    // for this date. The departure was authorized by a manager so the session
+    // should not be penalized. Replace the left_early flag with early_leave
+    // to indicate an approved early departure occurred.
+    $approved_el_id = null;
+    if ( $status === 'left_early' || in_array( 'left_early', $flags, true ) ) {
+        $elr_table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+        $approved_el_id = $wpdb->get_var( $wpdb->prepare(
+            "SELECT id FROM {$elr_table}
+             WHERE employee_id = %d AND request_date = %s AND status = 'approved'
+             LIMIT 1",
+            $employee_id, $ymd
+        ) );
+        if ( $approved_el_id ) {
+            if ( $status === 'left_early' ) {
+                $status = 'present';
+            }
+            $flags = array_values( array_diff( $flags, [ 'left_early' ] ) );
+            if ( ! in_array( 'early_leave', $flags, true ) ) {
+                $flags[] = 'early_leave';
+            }
+        }
+    }
+
     if ($outside_geo > 0) $flags[] = 'outside_geofence';
     if ($no_selfie > 0)   $flags[] = 'no_selfie';
     if ($no_break_taken)          $flags[] = 'no_break_taken';
@@ -5213,6 +5274,15 @@ if ( ! empty( $leadingOuts ) ) {
         'calc_meta_json'      => wp_json_encode($calcMeta),
         'last_recalc_at'      => current_time('mysql', true),
     ];
+
+    // Keep session early_leave_approved flag in sync with the requests table.
+    if ( ! empty( $approved_el_id ) ) {
+        $data['early_leave_approved']   = 1;
+        $data['early_leave_request_id'] = (int) $approved_el_id;
+    } else {
+        $data['early_leave_approved']   = 0;
+        $data['early_leave_request_id'] = null;
+    }
 
     // Check if this is a new late/early detection (to avoid duplicate notifications)
     $existing_flags = [];
@@ -5782,6 +5852,28 @@ public static function resolve_shift_for_date(
         error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=1.5_emp_shift shift_id=%d wo=%s', $employee_id, $ymd, $emp_shift->id ?? 0, $emp_shift->weekly_overrides ?? '(empty)' ) );
         $emp_shift = self::apply_weekly_override( $emp_shift, $ymd, $wpdb );
         return self::apply_period_override( $emp_shift, $ymd );
+    }
+
+    // --- 1.7) Project shift — if employee is assigned to an active project on this date
+    if ( class_exists( '\SFS\HR\Modules\Projects\Services\Projects_Service' ) ) {
+        $prj = \SFS\HR\Modules\Projects\Services\Projects_Service::get_employee_project_on_date( $employee_id, $ymd );
+        if ( $prj && $prj->default_shift_id ) {
+            $psh = $wpdb->get_row(
+                $wpdb->prepare(
+                    "SELECT * FROM {$shiftT} WHERE id = %d AND active = 1 LIMIT 1",
+                    $prj->default_shift_id
+                )
+            );
+            if ( $psh ) {
+                $emp_row      = $wpdb->get_row( $wpdb->prepare( "SELECT dept_id FROM {$empT} WHERE id=%d", $employee_id ) );
+                $psh->dept_id    = $emp_row && ! empty( $emp_row->dept_id ) ? (int) $emp_row->dept_id : null;
+                $psh->__virtual  = 0;
+                $psh->is_holiday = 0;
+                error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=1.7_project project=%d shift_id=%d', $employee_id, $ymd, $prj->id, $psh->id ?? 0 ) );
+                $psh = self::apply_weekly_override( $psh, $ymd, $wpdb );
+                return self::apply_period_override( $psh, $ymd );
+            }
+        }
     }
 
     // --- 2) Dept identity (id, slug, name) for automation

@@ -2,6 +2,63 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [1.6.4] — 2026-02-28
+
+### Fixed
+- **CSV export recalc permission** — the on-demand rebuild now requires
+  `sfs_hr_attendance_admin` (previously `sfs_hr_attendance_view_team` allowed
+  view-only users to trigger writes) and is capped at 31 days per request.
+- **Previous-day early leave session linkage** — when suppressing `left_early`
+  for an approved overnight early leave request, the session row now persists
+  `early_leave_approved = 1` and `early_leave_request_id`.
+- **Early leave review DB error handling** — `$wpdb->update()` returning
+  `false` (DB error) is now distinguished from `0` (race condition / already
+  reviewed) with separate error responses.
+- **Projects: `update()` false positive** — `Projects_Service::update()` no
+  longer treats a 0-rows-changed result as failure (was `(bool)` cast, now
+  `!== false`).
+- **Projects: `add_shift` race condition** — the clear-default + insert is now
+  wrapped in a DB transaction so failures roll back atomically.
+- **Projects: ownership checks on delete** — removing an employee assignment or
+  shift link now verifies the record belongs to the posted project ID before
+  deleting.
+- **Projects: success flag honesty** — handler redirects now only include
+  success query flags when the underlying write actually succeeded.
+- **Projects: date interval validation** — assigning an employee now rejects
+  `assigned_to` earlier than `assigned_from` server-side.
+- **Projects: dashboard date validation** — `dash_from`/`dash_to` are now
+  validated as Y-m-d with start <= end enforcement and safe fallbacks.
+
+### Improved
+- **Projects: N+1 query elimination** — project list page now fetches employee
+  counts in a single grouped query via `get_employee_counts()`.
+- **Projects: `information_schema` cache** — `get_employee_project_on_date()`
+  caches the table-existence check in a static variable.
+- **ProjectsModule singleton** — added private constructor/clone/wakeup and
+  switched `hr-suite.php` to use `::instance()`.
+- **Attendance_Metrics option cache** — `get_option(OPT_SETTINGS)` is now
+  cached in a static variable to avoid repeated DB lookups per employee.
+- **Daily_Session_Builder require** — moved `require_once` from `hooks()` to
+  file scope for consistency with other submodule includes.
+
+## [1.6.3] — 2026-02-28
+
+### Fixed
+- **Early leave approval now suppresses `left_early` session status** —
+  `recalc_session_for()` checks the early leave requests table for approved
+  requests and changes status to `present` with an `early_leave` flag instead
+  of penalizing the employee. Previously the `early_leave_approved` session
+  flag was set but never read.
+- **Race condition on early leave review** — the UPDATE now atomically checks
+  `WHERE status = 'pending'`, preventing two managers from approving the same
+  request simultaneously.
+- **Approval with missing session link** — when a request's `session_id` is
+  NULL at approval time (session created after request), the review endpoint
+  now looks up and back-links the session before recalculating.
+- **Auto-created early leave requests** now fire the
+  `sfs_hr_early_leave_requested` hook for notification consistency with
+  manually submitted requests.
+
 ## [1.6.1] — 2026-02-26
 
 ### Changed

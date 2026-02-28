@@ -234,6 +234,7 @@ private function get_table_columns( $table ): array {
         $monthly_ot  = isset($opt['monthly_ot_threshold']) ? (int)$opt['monthly_ot_threshold'] : 2400; // minutes (40 hours default)
         $period_type = $opt['period_type'] ?? 'full_month';
         $period_day  = isset($opt['period_start_day']) ? (int)$opt['period_start_day'] : 1;
+        $no_break_penalty = ! empty( $opt['no_break_penalty_enabled'] );
 
         ?>
             <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>">
@@ -321,6 +322,15 @@ private function get_table_columns( $table ): array {
                             <?php esc_html_e( 'minutes', 'sfs-hr' ); ?>
                             (<?php echo esc_html( number_format($monthly_ot / 60, 1) ); ?> <?php esc_html_e( 'hours', 'sfs-hr' ); ?>)
                         </span>
+                    </div>
+
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-toggle">
+                            <input type="checkbox" name="no_break_penalty_enabled" value="1" <?php checked( $no_break_penalty ); ?>/>
+                            <span class="sfs-hr-toggle__track"></span>
+                            <span class="sfs-hr-toggle__label"><?php esc_html_e( 'Penalize "no break taken" in commitment score', 'sfs-hr' ); ?></span>
+                        </label>
+                        <span class="sfs-hr-form-hint"><?php esc_html_e( 'When enabled, days where an employee skips their break will reduce their attendance commitment score by 15%.', 'sfs-hr' ); ?></span>
                     </div>
                 </div>
 
@@ -486,6 +496,7 @@ public function render_attendance_hub(): void {
             'monthly_ot_threshold'       => max( 0, (int) ( $_POST['monthly_ot_threshold'] ?? 2400 ) ),
             'period_type'                => $period_type,
             'period_start_day'           => $period_start_day,
+            'no_break_penalty_enabled'   => ! empty( $_POST['no_break_penalty_enabled'] ),
         ];
 
         $existing = get_option( AttendanceModule::OPT_SETTINGS, [] );
@@ -4154,14 +4165,18 @@ public function render_exceptions(): void {
         wp_die( esc_html__( 'Invalid date range', 'sfs-hr' ) );
     }
 
-    // Optional on-demand rebuild
-    if ( !empty($_GET['recalc']) ) {
-        // Iterate each local date in range and rebuild its session
+    // Optional on-demand rebuild — requires admin-level capability (view-only
+    // users must not trigger write operations) and is capped at 31 days to
+    // prevent excessively long blocking requests.
+    if ( !empty($_GET['recalc']) && current_user_can('sfs_hr_attendance_admin') ) {
         $day = new \DateTimeImmutable($from);
         $end = new \DateTimeImmutable($to);
-        while ($day <= $end) {
-            $this->rebuild_sessions_for_date($day->format('Y-m-d'));
+        $max_days = 31;
+        $count    = 0;
+        while ($day <= $end && $count < $max_days) {
+            $this->rebuild_all_sessions_for_date($day->format('Y-m-d'));
             $day = $day->modify('+1 day');
+            $count++;
         }
     }
 
@@ -5895,7 +5910,7 @@ public function handle_rebuild_sessions_period(): void {
     $day = new \DateTimeImmutable($from);
     $end = new \DateTimeImmutable($to);
     while ($day <= $end) {
-        $this->rebuild_sessions_for_date( $day->format('Y-m-d') );
+        $this->rebuild_all_sessions_for_date( $day->format('Y-m-d') );
         $day = $day->modify('+1 day');
     }
 
