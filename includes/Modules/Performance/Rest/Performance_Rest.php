@@ -158,7 +158,7 @@ class Performance_Rest {
         register_rest_route( self::NAMESPACE, '/performance/reviews/(?P<id>\d+)/acknowledge', [
             'methods'             => 'POST',
             'callback'            => [ $this, 'acknowledge_review' ],
-            'permission_callback' => [ $this, 'check_read_permission' ],
+            'permission_callback' => [ $this, 'check_acknowledge_permission' ],
             'args'                => [
                 'comments' => [ 'type' => 'string' ],
             ],
@@ -285,6 +285,31 @@ class Performance_Rest {
 
     public function check_admin_permission(): bool {
         return current_user_can( 'sfs_hr.manage' );
+    }
+
+    /**
+     * Permission check for the review acknowledge route.
+     *
+     * Allows access if the user has sfs_hr.manage OR is the review subject.
+     */
+    public function check_acknowledge_permission( \WP_REST_Request $request ): bool {
+        if ( current_user_can( 'sfs_hr.manage' ) ) {
+            return true;
+        }
+
+        $review_id = (int) $request->get_param( 'id' );
+        $review    = Reviews_Service::get_review( $review_id );
+        if ( ! $review ) {
+            return false;
+        }
+
+        global $wpdb;
+        $employee_id = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}sfs_hr_employees WHERE user_id = %d",
+            get_current_user_id()
+        ) );
+
+        return $employee_id > 0 && $employee_id === (int) $review->employee_id;
     }
 
     // =========================================================================

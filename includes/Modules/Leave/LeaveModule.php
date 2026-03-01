@@ -981,6 +981,24 @@ private function output_leave_requests_styles(): void {
     <?php
 }
 
+/**
+ * Guard: pure WP admin (no HR/GM/manager assignment) cannot approve or reject.
+ *
+ * Resolves the user's role via Role_Resolver; if 'admin', redirects with the
+ * given error message and exits. Call this early in approve/reject handlers.
+ */
+private function guard_admin_cannot_approve_or_reject( int $current_uid, string $redirect_base, string $message ): void {
+    if ( class_exists( \SFS\HR\Frontend\Role_Resolver::class ) ) {
+        $resolved_role = \SFS\HR\Frontend\Role_Resolver::resolve( $current_uid );
+        if ( $resolved_role === 'admin' ) {
+            wp_safe_redirect(
+                add_query_arg( 'err', rawurlencode( $message ), $redirect_base )
+            );
+            exit;
+        }
+    }
+}
+
 public function handle_approve(): void {
     check_admin_referer('sfs_hr_leave_approve');
 
@@ -1085,19 +1103,11 @@ public function handle_approve(): void {
     }
 
     // Pure WP admin (no HR/GM/manager assignment) cannot approve — can only cancel.
-    if ( class_exists( \SFS\HR\Frontend\Role_Resolver::class ) ) {
-        $resolved_role = \SFS\HR\Frontend\Role_Resolver::resolve( $current_uid );
-        if ( $resolved_role === 'admin' ) {
-            wp_safe_redirect(
-                add_query_arg(
-                    'err',
-                    rawurlencode( __( 'Administrators cannot approve leave requests. Use cancel instead.', 'sfs-hr' ) ),
-                    $redirect_base
-                )
-            );
-            exit;
-        }
-    }
+    $this->guard_admin_cannot_approve_or_reject(
+        $current_uid,
+        $redirect_base,
+        __( 'Administrators cannot approve leave requests. Use cancel instead.', 'sfs-hr' )
+    );
 
     // ==================== DEPARTMENT MANAGER LEAVE REQUEST ====================
     // Flow: Dept Manager → GM (level 1) → HR (level 2, final)
@@ -1606,12 +1616,11 @@ public function handle_reject(): void {
         wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending&err='.rawurlencode(__('You cannot reject your own request.','sfs-hr')))); exit;
     }
     // Pure WP admin (no HR/GM/manager assignment) cannot reject — can only cancel.
-    if ( class_exists( \SFS\HR\Frontend\Role_Resolver::class ) ) {
-        $resolved_role = \SFS\HR\Frontend\Role_Resolver::resolve( $current_uid );
-        if ( $resolved_role === 'admin' ) {
-            wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending&err='.rawurlencode(__('Administrators cannot reject leave requests. Use cancel instead.','sfs-hr')))); exit;
-        }
-    }
+    $this->guard_admin_cannot_approve_or_reject(
+        $current_uid,
+        admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending' ),
+        __( 'Administrators cannot reject leave requests. Use cancel instead.', 'sfs-hr' )
+    );
     // HR users or GM users can reject any request
     if ( ! current_user_can('sfs_hr.manage') && ! current_user_can('sfs_hr_loans_gm_approve') ) {
         $managed = $this->manager_dept_ids_for_user($current_uid);
