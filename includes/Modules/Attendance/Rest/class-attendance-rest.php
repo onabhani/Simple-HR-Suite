@@ -343,8 +343,11 @@ public static function kiosk_roster( \WP_REST_Request $req ) {
 public static function status( \WP_REST_Request $req ) {
     global $wpdb;
 
-    // Optional debug switch (?dbg=1) – only echoed in JSON, never as raw output
+    // Debug switch — only available to privileged users
     $dbg = (int) ($req->get_param('dbg') ?: 0);
+    if ( $dbg && ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
+        $dbg = 0;
+    }
     $debug = [];
 
     try {
@@ -360,7 +363,7 @@ public static function status( \WP_REST_Request $req ) {
 
             $wpdb->suppress_errors( true );
             $dev = $wpdb->get_row( $wpdb->prepare(
-                "SELECT id, label, allowed_dept, qr_enabled, selfie_mode,
+                "SELECT id, label, allowed_dept_id, qr_enabled, selfie_mode,
                         geo_lock_lat, geo_lock_lng, geo_lock_radius_m, active
                  FROM {$dT}
                  WHERE id=%d AND active=1",
@@ -375,7 +378,7 @@ public static function status( \WP_REST_Request $req ) {
                 $device_meta = [
                     'id'       => (int)$dev->id,
                     'label'    => (string)($dev->label ?? ''),
-                    'dept'     => (string)($dev->allowed_dept ?? 'any'),
+                    'dept'     => (string)($dev->allowed_dept_id ?? 'any'),
                     'geofence' => ($dev->geo_lock_lat !== null && $dev->geo_lock_lng !== null && $dev->geo_lock_radius_m !== null)
                         ? [ 'lat' => (float)$dev->geo_lock_lat, 'lng' => (float)$dev->geo_lock_lng, 'radius_m' => (int)$dev->geo_lock_radius_m ]
                         : null,
@@ -484,10 +487,10 @@ if ( $last_punch ) {
         // Never emit raw output; always return JSON
         $err = [
             'message' => 'Status error',
-            'detail'  => $e->getMessage(),
         ];
-        if ( $dbg ) {
-            $err['trace'] = $e->getTraceAsString();
+        if ( $dbg && current_user_can( 'sfs_hr_attendance_admin' ) ) {
+            $err['detail'] = $e->getMessage();
+            $err['trace']  = $e->getTraceAsString();
         }
         return new \WP_Error( 'status_error', wp_json_encode($err), [ 'status' => 500 ] );
     }

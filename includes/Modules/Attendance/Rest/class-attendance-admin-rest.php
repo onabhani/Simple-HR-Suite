@@ -111,7 +111,7 @@ class Admin_REST {
     public static function shifts_list( \WP_REST_Request $req ) {
         global $wpdb; $t = $wpdb->prefix . 'sfs_hr_attendance_shifts';
         $where = []; $args = [];
-        $dept_id = $req->get_param('dept_id');
+        $dept_id = $req->get_param('dept') ?: $req->get_param('dept_id');
         $act     = $req->get_param('active');
 
         if ( $dept_id && is_numeric( $dept_id ) ) {
@@ -217,7 +217,7 @@ class Admin_REST {
         if ( ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ) {
             return new \WP_Error('invalid','Bad date',[ 'status'=>400 ]);
         }
-        $dept_id = $req->get_param('dept_id');
+        $dept_id = $req->get_param('dept') ?: $req->get_param('dept_id');
 
         $sql = "SELECT sa.*, sh.name AS shift_name, sh.dept_id
                 FROM {$t} sa
@@ -294,8 +294,8 @@ class Admin_REST {
 
 // read raw booleans/strings from request
 $qr_enabled  = !empty($req['qr_enabled']);
-$selfie_mode = in_array((string)($req['selfie_mode'] ?? 'optional'), ['never','optional','required'], true)
-               ? (string)$req['selfie_mode'] : 'optional';
+$selfie_mode = in_array((string)($req['selfie_mode'] ?? 'inherit'), ['inherit','never','in_only','in_out','all'], true)
+               ? (string)$req['selfie_mode'] : 'inherit';
 
 // merge existing meta_json
 $meta = [];
@@ -305,9 +305,6 @@ if (!empty($id)) {
 }
 $meta['qr_enabled']  = $qr_enabled;
 $meta['selfie_mode'] = $selfie_mode;
-
-$data['meta_json'] = wp_json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
 
         if ( ! $label ) {
             return new \WP_Error('invalid','Label required',[ 'status'=>400 ]);
@@ -323,6 +320,8 @@ $data['meta_json'] = wp_json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_UNESCAP
             'geo_lock_radius_m' => $rad,
             'allowed_dept_id'   => $allowed_dept_id,
             'active'            => $active,
+            'selfie_mode'       => $selfie_mode,
+            'meta_json'         => wp_json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ];
         if ( $pin_raw !== '' ) { $data['kiosk_pin'] = wp_hash_password( $pin_raw ); }
 

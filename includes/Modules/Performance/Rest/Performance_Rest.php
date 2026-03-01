@@ -276,15 +276,15 @@ class Performance_Rest {
     // =========================================================================
 
     public function check_read_permission(): bool {
-        return current_user_can( 'read' );
+        return current_user_can( 'sfs_hr_performance_view' );
     }
 
     public function check_write_permission(): bool {
-        return current_user_can( 'edit_posts' );
+        return current_user_can( 'sfs_hr.manage' );
     }
 
     public function check_admin_permission(): bool {
-        return current_user_can( 'manage_options' );
+        return current_user_can( 'sfs_hr.manage' );
     }
 
     // =========================================================================
