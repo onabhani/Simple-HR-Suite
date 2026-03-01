@@ -449,7 +449,12 @@ class PayrollModule {
 
             switch ( $comp['calculation_type'] ) {
                 case 'fixed':
-                    $amount = (float) $use_amount;
+                    // BASE component uses the employee's base_salary, not the component default
+                    if ( $comp['code'] === 'BASE' ) {
+                        $amount = $base_salary;
+                    } else {
+                        $amount = (float) $use_amount;
+                    }
                     // Apply pro-rata to fixed earnings for mid-period hires
                     if ( $pro_rata < 1.0 ) {
                         $amount *= $pro_rata;
@@ -468,7 +473,8 @@ class PayrollModule {
                     break;
 
                 case 'formula':
-                    if ( $comp['code'] === 'OVERTIME' && $overtime_hours > 0 && $working_days > 0 ) {
+                    $include_overtime = $options['include_overtime'] ?? true;
+                    if ( $comp['code'] === 'OVERTIME' && $include_overtime && $overtime_hours > 0 && $working_days > 0 ) {
                         // OT multiplier: filterable, default 1.5x per Saudi Labor Law
                         $ot_multiplier = (float) apply_filters( 'sfs_hr_overtime_multiplier', 1.5, $employee_id, $period_id );
                         $hourly_rate = $base_salary / ( $working_days_full * 8 );
