@@ -542,13 +542,9 @@ class Admin_Pages {
                                     'start_date'  => $start_date,
                                     'end_date'    => $end_date,
                                 ], admin_url( 'admin.php' ) );
-                                $profile_url = admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . (int) $emp['employee_id'] );
                                 ?>
                                 <a href="<?php echo esc_url( $detail_url ); ?>" style="text-decoration: none; color: inherit;">
                                     <strong><?php echo esc_html( $emp['employee_name'] ); ?></strong>
-                                </a>
-                                <a href="<?php echo esc_url( $profile_url ); ?>" title="<?php esc_attr_e( 'View employee profile', 'sfs-hr' ); ?>" style="margin-left:4px;color:#0284c7;text-decoration:none;font-size:14px;">
-                                    <span class="dashicons dashicons-id-alt" style="font-size:14px;width:14px;height:14px;vertical-align:middle;"></span>
                                 </a><br>
                                 <small style="color: #666;"><?php echo esc_html( $emp['employee_code'] ); ?></small>
                             </td>
@@ -610,7 +606,7 @@ class Admin_Pages {
 
         $employee_name = trim( $employee->first_name . ' ' . $employee->last_name );
         $grade_display = $score_data['overall_grade'] ? Performance_Calculator::get_grade_display( $score_data['overall_grade'] ) : null;
-        $profile_url = admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . (int) $employee_id );
+        $profile_url = admin_url( 'admin.php?page=sfs-hr-employee-profile&employee_id=' . (int) $employee_id );
 
         // Justification logic
         $settings            = PerformanceModule::get_settings();
@@ -638,15 +634,17 @@ class Admin_Pages {
             ) );
             $is_hr_responsible = $hr_responsible_user_id && (int) get_current_user_id() === $hr_responsible_user_id;
 
-            // Check deadline: period_end + 1 day
+            // Justification window: opens 5 days before period end, closes at period end.
             $tz       = wp_timezone();
             $today    = new \DateTimeImmutable( 'now', $tz );
             $parsed_end = \DateTime::createFromFormat( 'Y-m-d', $end_date );
             if ( ! $parsed_end || $parsed_end->format( 'Y-m-d' ) !== $end_date ) {
                 $within_deadline = false;
             } else {
-                $deadline = ( new \DateTimeImmutable( $end_date, $tz ) )->modify( '+1 day' );
-                $within_deadline = $today->format( 'Y-m-d' ) <= $deadline->format( 'Y-m-d' );
+                $period_end_dt = new \DateTimeImmutable( $end_date, $tz );
+                $window_open   = $period_end_dt->modify( '-5 days' );
+                $today_str     = $today->format( 'Y-m-d' );
+                $within_deadline = $today_str >= $window_open->format( 'Y-m-d' ) && $today_str <= $period_end_dt->format( 'Y-m-d' );
             }
 
             $can_write_justification = $is_hr_responsible && $within_deadline;
@@ -670,7 +668,7 @@ class Admin_Pages {
 
         ?>
         <div class="wrap sfs-hr-wrap sfs-perf-wrap">
-            <h1 class="wp-heading-inline"><?php echo esc_html( $employee_name ); ?></h1>
+            <h1 class="wp-heading-inline"><?php esc_html_e( 'Performance Details', 'sfs-hr' ); ?></h1>
             <hr class="wp-header-end">
 
             <p>
@@ -902,7 +900,7 @@ class Admin_Pages {
                         <br>
                         <?php printf(
                             esc_html__( 'Deadline: %s', 'sfs-hr' ),
-                            '<strong>' . esc_html( wp_date( 'M j, Y', strtotime( $end_date . ' +1 day' ) ) ) . '</strong>'
+                            '<strong>' . esc_html( wp_date( 'M j, Y', strtotime( $end_date ) ) ) . '</strong>'
                         ); ?>
                     <?php endif; ?>
                 </p>
@@ -1574,16 +1572,21 @@ class Admin_Pages {
             wp_die( __( 'Only the department HR Responsible can write justifications.', 'sfs-hr' ), '', 403 );
         }
 
-        // Check: deadline is period_end + 1 day
+        // Justification window: opens 5 days before period end, closes at period end.
         $tz       = wp_timezone();
         $today    = new \DateTimeImmutable( 'now', $tz );
         $parsed_end = \DateTime::createFromFormat( 'Y-m-d', $end_date );
         if ( ! $parsed_end || $parsed_end->format( 'Y-m-d' ) !== $end_date ) {
             wp_die( __( 'Invalid period end date.', 'sfs-hr' ), '', 400 );
         }
-        $deadline = ( new \DateTimeImmutable( $end_date, $tz ) )->modify( '+1 day' );
+        $period_end_dt = new \DateTimeImmutable( $end_date, $tz );
+        $window_open   = $period_end_dt->modify( '-5 days' );
+        $today_str     = $today->format( 'Y-m-d' );
 
-        if ( $today->format( 'Y-m-d' ) > $deadline->format( 'Y-m-d' ) ) {
+        if ( $today_str < $window_open->format( 'Y-m-d' ) ) {
+            wp_die( __( 'The justification window is not open yet.', 'sfs-hr' ), '', 403 );
+        }
+        if ( $today_str > $period_end_dt->format( 'Y-m-d' ) ) {
             wp_die( __( 'The justification deadline for this period has passed.', 'sfs-hr' ), '', 403 );
         }
 
