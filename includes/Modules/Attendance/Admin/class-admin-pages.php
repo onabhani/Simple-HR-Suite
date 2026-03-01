@@ -6496,7 +6496,6 @@ private function render_early_leave(): void {
                 </div>
             </div>
         </div>
-    </div>
 
     <script>
     function sfsElEsc(s){if(typeof s!=='string')return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
