@@ -202,6 +202,8 @@ class AdminPages {
         <div class="sfs-hr-loans-tabs">
             <?php foreach ( $status_tabs as $key => $label ) : ?>
                 <?php
+                // Hide tabs with zero count (except "All")
+                if ( $key !== '' && ( $counts[ $key ] ?? 0 ) === 0 ) { continue; }
                 $url = add_query_arg( [
                     'page'          => 'sfs-hr-loans',
                     'filter_status' => $key !== '' ? $key : null,
@@ -977,6 +979,8 @@ class AdminPages {
         <div class="sfs-hr-loans-tabs">
             <?php foreach ( $status_tabs as $key => $label ) : ?>
                 <?php
+                // Hide tabs with zero count (except "All")
+                if ( $key !== '' && ( $counts[ $key ] ?? 0 ) === 0 ) { continue; }
                 $url = add_query_arg( [
                     'page'          => 'sfs-hr-loans',
                     'tab'           => 'installments',

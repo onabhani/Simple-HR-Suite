@@ -290,6 +290,8 @@ public function render_requests(): void {
     <!-- Status Tabs -->
     <div class="sfs-hr-leave-tabs">
         <?php foreach ( $status_tabs as $k => $lbl ) :
+            // Hide tabs with zero count (except "All")
+            if ( $k !== 'all' && ( $counts[$k] ?? 0 ) === 0 ) { continue; }
             $url = add_query_arg([
                 'page'   => 'sfs-hr-leave-requests',
                 'tab'    => 'requests',
@@ -1099,6 +1101,9 @@ public function handle_approve(): void {
     $current_uid     = get_current_user_id();
     $approval_level  = (int) ( $row['approval_level'] ?? 1 );
 
+    // Whether HR approval is required after manager/GM approval
+    $require_hr_approval = get_option( 'sfs_hr_leave_require_hr_approval', '0' ) === '1';
+
     // Position-based approval checks (not capability-based)
     // GM: Check if user is the assigned GM
     $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
@@ -1169,7 +1174,7 @@ public function handle_approve(): void {
                 exit;
             }
 
-            // GM approves → escalate to HR
+            // GM approves
             $new_chain = $this->append_approval_chain(
                 $row['approval_chain'] ?? null,
                 [
@@ -1192,31 +1197,38 @@ public function handle_approve(): void {
                 ['id' => $id]
             );
 
-            do_action('sfs_hr_leave_request_status_changed', $id, 'pending', 'pending_hr');
+            if ( $require_hr_approval ) {
+                // Escalate to HR
+                do_action('sfs_hr_leave_request_status_changed', $id, 'pending', 'pending_hr');
+                self::log_event( $id, 'gm_approved', [
+                    'note' => __('GM approved, escalated to HR', 'sfs-hr'),
+                ]);
+
+                $this->notify_hr_users(
+                    sprintf(__('[Leave Request] %s - Waiting HR Approval', 'sfs-hr'), $emp_name),
+                    sprintf(
+                        __("GM approved department manager leave request. Please review for final approval.\n\nEmployee: %s\nLeave Type: %s\nDates: %s → %s\nDuration: %d day(s)\n\nReview this request:\n%s", 'sfs-hr'),
+                        $emp_name,
+                        $leave_type_name,
+                        $row['start_date'],
+                        $row['end_date'],
+                        (int) $row['days'],
+                        $leave_review_url
+                    )
+                );
+
+                wp_safe_redirect( add_query_arg( 'ok', 1, $redirect_base ) );
+                exit;
+            }
+
+            // HR not required — GM approval is final, fall through to final approval
             self::log_event( $id, 'gm_approved', [
-                'note' => __('GM approved, escalated to HR', 'sfs-hr'),
+                'note' => __('GM approved (final)', 'sfs-hr'),
             ]);
-
-            // Notify HR
-            $this->notify_hr_users(
-                sprintf(__('[Leave Request] %s - Waiting HR Approval', 'sfs-hr'), $emp_name),
-                sprintf(
-                    __("GM approved department manager leave request. Please review for final approval.\n\nEmployee: %s\nLeave Type: %s\nDates: %s → %s\nDuration: %d day(s)\n\nReview this request:\n%s", 'sfs-hr'),
-                    $emp_name,
-                    $leave_type_name,
-                    $row['start_date'],
-                    $row['end_date'],
-                    (int) $row['days'],
-                    $leave_review_url
-                )
-            );
-
-            wp_safe_redirect( add_query_arg( 'ok', 1, $redirect_base ) );
-            exit;
         }
 
-        // Level 2: HR final approval
-        if ( ! $is_hr ) {
+        // Level 2: HR final approval (only when HR approval is required)
+        if ( $require_hr_approval && ! $is_hr ) {
             wp_safe_redirect(
                 add_query_arg(
                     'err',
@@ -1247,7 +1259,7 @@ public function handle_approve(): void {
             }
         }
 
-        // Manager stage (first approval) → escalate to HR
+        // Manager stage (first approval)
         if ( ! $is_hr_or_gm ) {
             if ( $approval_level >= 2 ) {
                 wp_safe_redirect(
@@ -1282,26 +1294,34 @@ public function handle_approve(): void {
                 ['id' => $id]
             );
 
-            do_action('sfs_hr_leave_request_status_changed', $id, 'pending', 'pending_hr');
+            if ( $require_hr_approval ) {
+                // Escalate to HR
+                do_action('sfs_hr_leave_request_status_changed', $id, 'pending', 'pending_hr');
+                self::log_event( $id, 'manager_approved', [
+                    'note' => __('Manager approved, escalated to HR', 'sfs-hr'),
+                ]);
+
+                $this->notify_hr_users(
+                    sprintf(__('[Leave Request] %s - Waiting HR Approval', 'sfs-hr'), $emp_name),
+                    sprintf(
+                        __("Manager approved leave request. Please review.\n\nEmployee: %s\nLeave Type: %s\nDates: %s → %s\nDuration: %d day(s)\n\nReview this request:\n%s", 'sfs-hr'),
+                        $emp_name,
+                        $leave_type_name,
+                        $row['start_date'],
+                        $row['end_date'],
+                        (int) $row['days'],
+                        $leave_review_url
+                    )
+                );
+
+                wp_safe_redirect( add_query_arg( 'ok', 1, $redirect_base ) );
+                exit;
+            }
+
+            // HR not required — manager approval is final, fall through to final approval
             self::log_event( $id, 'manager_approved', [
-                'note' => __('Manager approved, escalated to HR', 'sfs-hr'),
+                'note' => __('Manager approved (final)', 'sfs-hr'),
             ]);
-
-            $this->notify_hr_users(
-                sprintf(__('[Leave Request] %s - Waiting HR Approval', 'sfs-hr'), $emp_name),
-                sprintf(
-                    __("Manager approved leave request. Please review.\n\nEmployee: %s\nLeave Type: %s\nDates: %s → %s\nDuration: %d day(s)\n\nReview this request:\n%s", 'sfs-hr'),
-                    $emp_name,
-                    $leave_type_name,
-                    $row['start_date'],
-                    $row['end_date'],
-                    (int) $row['days'],
-                    $leave_review_url
-                )
-            );
-
-            wp_safe_redirect( add_query_arg( 'ok', 1, $redirect_base ) );
-            exit;
         }
 
         // HR/GM stage (final) - enforce manager-first if applicable
@@ -1347,26 +1367,34 @@ public function handle_approve(): void {
                 ['id' => $id]
             );
 
-            do_action('sfs_hr_leave_request_status_changed', $id, 'pending', 'pending_hr');
+            if ( $require_hr_approval ) {
+                // Escalate to HR
+                do_action('sfs_hr_leave_request_status_changed', $id, 'pending', 'pending_hr');
+                self::log_event( $id, 'manager_approved', [
+                    'note' => __('Manager approved, escalated to HR', 'sfs-hr'),
+                ]);
+
+                $this->notify_hr_users(
+                    sprintf(__('[Leave Request] %s - Waiting HR Approval', 'sfs-hr'), $emp_name),
+                    sprintf(
+                        __("Manager approved leave request. Please review.\n\nEmployee: %s\nLeave Type: %s\nDates: %s → %s\nDuration: %d day(s)\n\nReview this request:\n%s", 'sfs-hr'),
+                        $emp_name,
+                        $leave_type_name,
+                        $row['start_date'],
+                        $row['end_date'],
+                        (int) $row['days'],
+                        $leave_review_url
+                    )
+                );
+
+                wp_safe_redirect( add_query_arg( 'ok', 1, $redirect_base ) );
+                exit;
+            }
+
+            // HR not required — manager approval is final, fall through to final approval
             self::log_event( $id, 'manager_approved', [
-                'note' => __('Manager approved, escalated to HR', 'sfs-hr'),
+                'note' => __('Manager approved (final)', 'sfs-hr'),
             ]);
-
-            $this->notify_hr_users(
-                sprintf(__('[Leave Request] %s - Waiting HR Approval', 'sfs-hr'), $emp_name),
-                sprintf(
-                    __("Manager approved leave request. Please review.\n\nEmployee: %s\nLeave Type: %s\nDates: %s → %s\nDuration: %d day(s)\n\nReview this request:\n%s", 'sfs-hr'),
-                    $emp_name,
-                    $leave_type_name,
-                    $row['start_date'],
-                    $row['end_date'],
-                    (int) $row['days'],
-                    $leave_review_url
-                )
-            );
-
-            wp_safe_redirect( add_query_arg( 'ok', 1, $redirect_base ) );
-            exit;
         }
 
         // HR can only approve at level 2+ (after department manager approved)
@@ -1498,7 +1526,13 @@ public function handle_approve(): void {
     }
 
     // Finalize: mark approved
-    $final_role = ( $approval_level >= 3 ) ? 'finance' : 'hr';
+    if ( $approval_level >= 3 ) {
+        $final_role = 'finance';
+    } elseif ( ! $require_hr_approval ) {
+        $final_role = 'manager';
+    } else {
+        $final_role = 'hr';
+    }
     $new_chain = $this->append_approval_chain(
         $row['approval_chain'] ?? null,
         [
@@ -2280,8 +2314,12 @@ public function render_cancellations(): void {
             'approved' => __( 'Approved', 'sfs-hr' ),
             'rejected' => __( 'Rejected', 'sfs-hr' ),
         ];
-        $last = array_key_last( $statuses );
-        foreach ( $statuses as $key => $label ) :
+        // Filter out zero-count tabs (except "All")
+        $visible = array_filter( $statuses, function( $label, $key ) use ( $counts ) {
+            return $key === 'all' || ( $counts[ $key ] ?? 0 ) > 0;
+        }, ARRAY_FILTER_USE_BOTH );
+        $last = array_key_last( $visible );
+        foreach ( $visible as $key => $label ) :
             $url   = add_query_arg( 'cancel_status', $key, $base_url );
             $class = $status_filter === $key ? 'current' : '';
             $count = $counts[ $key ];
@@ -3141,6 +3179,9 @@ private function render_cancellation_detail( int $cancel_id ): void {
         // Finance approver for employees with active loans
         $finance_approver_id = (int)get_option('sfs_hr_leave_finance_approver', 0);
 
+        // Require HR approval after manager approval
+        $require_hr_approval = get_option('sfs_hr_leave_require_hr_approval', '0') === '1';
+
         // Holiday notifications
         $notify_on_add   = get_option('sfs_hr_holiday_notify_on_add','0') === '1';
         $reminder_enable = get_option('sfs_hr_holiday_reminder_enabled','0') === '1';
@@ -3244,6 +3285,13 @@ private function render_cancellation_detail( int $cancel_id ): void {
                     <?php endforeach; ?>
                   </select>
                   <p class="description"><?php esc_html_e('The General Manager approves leave requests from Department Managers. This is also used for loan approvals.','sfs-hr'); ?></p>
+                </td>
+              </tr>
+              <tr>
+                <th><?php esc_html_e('Require HR Approval','sfs-hr'); ?></th>
+                <td>
+                  <label><input type="checkbox" name="require_hr_approval" value="1" <?php checked($require_hr_approval, true); ?>/> <?php esc_html_e('Require HR approval after manager/GM approval','sfs-hr'); ?></label>
+                  <p class="description"><?php esc_html_e('When disabled, manager approval is the final step. When enabled, leave requests go to HR after manager approval.','sfs-hr'); ?></p>
                 </td>
               </tr>
               <tr>
@@ -3370,6 +3418,10 @@ private function render_cancellation_detail( int $cancel_id ): void {
         $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
         $loan_settings['gm_user_ids'] = $gm_approver ? [ $gm_approver ] : [];
         update_option( 'sfs_hr_loans_settings', $loan_settings );
+
+        // Require HR approval after manager/GM approval
+        $require_hr = ! empty( $_POST['require_hr_approval'] ) ? '1' : '0';
+        update_option( 'sfs_hr_leave_require_hr_approval', $require_hr );
 
         // HR approvers (users who can approve at HR stage)
         $hr_approvers = isset($_POST['leave_hr_approvers']) ? array_map('intval', (array)$_POST['leave_hr_approvers']) : [];

@@ -19,8 +19,11 @@ class MyProfileLoans {
         // Render loans tab content
         add_action( 'sfs_hr_employee_tab_content', [ $this, 'render_loans_content' ], 10, 2 );
 
-        // Handle loan request submission
+        // Handle loan request submission (traditional POST fallback)
         add_action( 'admin_post_sfs_hr_submit_loan_request', [ $this, 'handle_loan_request' ] );
+
+        // AJAX loan request submission
+        add_action( 'wp_ajax_sfs_hr_submit_loan_ajax', [ $this, 'handle_loan_request_ajax' ] );
     }
 
     /**
@@ -232,10 +235,30 @@ class MyProfileLoans {
     private function render_loan_request_form( \stdClass $employee ): void {
         $settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
 
-        echo '<div id="sfs-loan-request-form" style="display:none;background:#fff;padding:20px;border:1px solid #ccc;border-radius:4px;margin-bottom:20px;max-width:600px;">';
-        echo '<h3>' . esc_html__( 'Request New Loan', 'sfs-hr' ) . ' <span style="color:#999;font-size:11px;font-weight:normal;">(v2.0 - Monthly Amount)</span></h3>';
+        // Pre-calculate limits for client-side hints
+        $base_salary = (float) ( $employee->base_salary ?? 0 );
+        $limits = [
+            'max_amount'          => (float) $settings['max_loan_amount'],
+            'max_months'          => (int) ( $settings['max_installment_months'] ?? 60 ),
+            'max_by_salary'       => 0,
+            'salary_multiplier'   => (float) ( $settings['max_loan_multiplier'] ?? 0 ),
+            'max_installment'     => 0,
+            'max_installment_pct' => (int) ( $settings['max_installment_percent'] ?? 0 ),
+        ];
+        if ( $limits['salary_multiplier'] > 0 && $base_salary > 0 ) {
+            $limits['max_by_salary'] = round( $base_salary * $limits['salary_multiplier'], 2 );
+        }
+        if ( $limits['max_installment_pct'] > 0 && $base_salary > 0 ) {
+            $limits['max_installment'] = round( $base_salary * $limits['max_installment_pct'] / 100, 2 );
+        }
 
-        echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+        echo '<div id="sfs-loan-request-form" style="display:none;background:#fff;padding:20px;border:1px solid #ccc;border-radius:4px;margin-bottom:20px;max-width:600px;">';
+        echo '<h3>' . esc_html__( 'Request New Loan', 'sfs-hr' ) . '</h3>';
+
+        // In-form message area
+        echo '<div id="sfs-legacy-loan-msg" style="display:none;padding:10px 14px;border-radius:4px;margin-bottom:12px;font-size:13px;"></div>';
+
+        echo '<form id="sfs-legacy-loan-form" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
         wp_nonce_field( 'sfs_hr_submit_loan_request_' . $employee->id );
         echo '<input type="hidden" name="action" value="sfs_hr_submit_loan_request" />';
         echo '<input type="hidden" name="employee_id" value="' . (int) $employee->id . '" />';
@@ -247,11 +270,17 @@ class MyProfileLoans {
         echo '<th scope="row"><label for="principal_amount">' . esc_html__( 'Loan Amount (SAR)', 'sfs-hr' ) . ' <span style="color:red;">*</span></label></th>';
         echo '<td>';
         echo '<input type="number" name="principal_amount" id="principal_amount" step="0.01" min="1" required style="width:200px;" />';
+        $hints = [];
         if ( $settings['max_loan_amount'] > 0 ) {
-            echo '<p class="description">' .
-                 sprintf( esc_html__( 'Maximum: %s SAR', 'sfs-hr' ), number_format( $settings['max_loan_amount'], 2 ) ) .
-                 '</p>';
+            $hints[] = sprintf( esc_html__( 'Max: %s SAR', 'sfs-hr' ), number_format( $settings['max_loan_amount'], 2 ) );
         }
+        if ( $limits['max_by_salary'] > 0 ) {
+            $hints[] = sprintf( esc_html__( 'Salary limit: %s SAR (%s×)', 'sfs-hr' ), number_format( $limits['max_by_salary'], 2 ), $limits['salary_multiplier'] );
+        }
+        if ( ! empty( $hints ) ) {
+            echo '<p class="description">' . implode( ' · ', $hints ) . '</p>';
+        }
+        echo '<p id="legacy_loan_amount_warn" style="display:none;margin:4px 0 0;font-size:12px;color:#dc3545;font-weight:bold;"></p>';
         echo '</td>';
         echo '</tr>';
 
@@ -259,47 +288,50 @@ class MyProfileLoans {
         echo '<tr>';
         echo '<th scope="row"><label for="monthly_amount">' . esc_html__( 'Monthly Installment Amount (SAR)', 'sfs-hr' ) . ' <span style="color:red;">*</span></label></th>';
         echo '<td>';
-        echo '<input type="number" name="monthly_amount" id="monthly_amount" step="0.01" min="1" required style="width:200px;" oninput="calculateMonths()" />';
-        echo '<p class="description">' . esc_html__( 'How much you can pay each month', 'sfs-hr' ) . '</p>';
+        echo '<input type="number" name="monthly_amount" id="monthly_amount" step="0.01" min="1" required style="width:200px;" />';
+        $inst_hint = esc_html__( 'How much you can pay each month', 'sfs-hr' );
+        if ( $limits['max_installment'] > 0 ) {
+            $inst_hint .= ' · ' . sprintf( esc_html__( 'Max: %s SAR (%d%% of salary)', 'sfs-hr' ), number_format( $limits['max_installment'], 2 ), $limits['max_installment_pct'] );
+        }
+        echo '<p class="description">' . $inst_hint . '</p>';
         echo '<p id="calculated_months" style="margin-top:8px;font-weight:bold;color:#0073aa;"></p>';
         echo '</td>';
         echo '</tr>';
 
-        // Add JavaScript calculator
-        $i18n_would_require = esc_js( __( 'Would require', 'sfs-hr' ) );
-        $i18n_months_max    = esc_js( __( 'months (maximum is 60). Please increase monthly amount.', 'sfs-hr' ) );
-        $i18n_monthly_of    = esc_js( __( 'monthly payments of', 'sfs-hr' ) );
-        $i18n_sar_total     = esc_js( __( 'SAR total', 'sfs-hr' ) );
-        echo '<script>
-        var _li18n = {
-            would_require: "' . $i18n_would_require . '",
-            months_max: "' . $i18n_months_max . '",
-            monthly_of: "' . $i18n_monthly_of . '",
-            sar_total: "' . $i18n_sar_total . '"
-        };
-        function calculateMonths() {
-            var principal = parseFloat(document.getElementById("principal_amount").value) || 0;
-            var monthly = parseFloat(document.getElementById("monthly_amount").value) || 0;
-            var display = document.getElementById("calculated_months");
-
-            if (principal > 0 && monthly > 0) {
-                var months = Math.ceil(principal / monthly);
-                if (months > 60) {
-                    display.textContent = "⚠️ " + _li18n.would_require + " " + months + " " + _li18n.months_max;
-                    display.style.color = "#dc3545";
-                } else {
-                    var total = (monthly * months).toFixed(2);
-                    display.textContent = months + " " + _li18n.monthly_of + " " + monthly.toFixed(2) + " SAR = " + total + " " + _li18n.sar_total;
-                    display.style.color = "#0073aa";
-                }
-            } else {
-                display.textContent = "";
-            }
-        }
-
-        // Also trigger on principal amount change
-        document.getElementById("principal_amount").addEventListener("input", calculateMonths);
-        </script>';
+        // JavaScript calculator with client-side validation
+        $ajax_url = esc_url( admin_url( 'admin-ajax.php' ) );
+        $max_months = $limits['max_months'] ?: 60;
+        echo '<script>';
+        echo 'var _legacyLimits=' . wp_json_encode( $limits ) . ';';
+        echo 'function calculateMonths(){';
+        echo 'var p=parseFloat(document.getElementById("principal_amount").value)||0,';
+        echo 'm=parseFloat(document.getElementById("monthly_amount").value)||0,';
+        echo 'd=document.getElementById("calculated_months"),';
+        echo 'w=document.getElementById("legacy_loan_amount_warn"),warns=[];';
+        echo 'if(p>0){if(_legacyLimits.max_amount>0&&p>_legacyLimits.max_amount)warns.push("Exceeds max ("+_legacyLimits.max_amount.toLocaleString()+" SAR)");';
+        echo 'if(_legacyLimits.max_by_salary>0&&p>_legacyLimits.max_by_salary)warns.push("Exceeds salary limit ("+_legacyLimits.max_by_salary.toLocaleString()+" SAR)");}';
+        echo 'if(m>0&&_legacyLimits.max_installment>0&&m>_legacyLimits.max_installment)warns.push("Installment exceeds salary limit ("+_legacyLimits.max_installment.toLocaleString()+" SAR)");';
+        echo 'if(w){if(warns.length){w.textContent=warns.join(". ");w.style.display="block";}else{w.textContent="";w.style.display="none";}}';
+        echo 'if(p>0&&m>0){var months=Math.ceil(p/m);';
+        echo 'if(months>' . $max_months . '){d.textContent="⚠️ Would require "+months+" months (max ' . $max_months . '). Increase monthly amount.";d.style.color="#dc3545";}';
+        echo 'else{d.textContent=months+" monthly payments of "+m.toFixed(2)+" SAR = "+(m*months).toFixed(2)+" SAR total";d.style.color="#0073aa";}}';
+        echo 'else{d.textContent="";}}';
+        echo 'document.getElementById("principal_amount").addEventListener("input",calculateMonths);';
+        echo 'document.getElementById("monthly_amount").addEventListener("input",calculateMonths);';
+        // AJAX submit for legacy form
+        echo '(function(){var f=document.getElementById("sfs-legacy-loan-form");if(!f)return;';
+        echo 'f.addEventListener("submit",function(e){e.preventDefault();';
+        echo 'var btn=f.querySelector("button[type=submit]"),msg=document.getElementById("sfs-legacy-loan-msg"),origText=btn.textContent;';
+        echo 'btn.disabled=true;btn.textContent="' . esc_js( __( 'Submitting...', 'sfs-hr' ) ) . '";msg.style.display="none";';
+        echo 'var fd=new FormData(f);fd.set("action","sfs_hr_submit_loan_ajax");';
+        echo 'fetch("' . $ajax_url . '",{method:"POST",credentials:"same-origin",body:fd})';
+        echo '.then(function(r){return r.json();})';
+        echo '.then(function(r){btn.disabled=false;btn.textContent=origText;';
+        echo 'msg.style.display="block";';
+        echo 'if(r.success){msg.style.background="#d1e7dd";msg.style.color="#0f5132";msg.style.border="1px solid #badbcc";msg.textContent=r.data.message;f.reset();document.getElementById("calculated_months").textContent="";var aw=document.getElementById("legacy_loan_amount_warn");if(aw)aw.style.display="none";setTimeout(function(){location.reload();},1500);}';
+        echo 'else{msg.style.background="#f8d7da";msg.style.color="#842029";msg.style.border="1px solid #f5c2c7";msg.textContent=r.data&&r.data.message?r.data.message:"' . esc_js( __( 'An error occurred. Please try again.', 'sfs-hr' ) ) . '";msg.scrollIntoView({behavior:"smooth",block:"nearest"});}';
+        echo '}).catch(function(){btn.disabled=false;btn.textContent=origText;msg.style.display="block";msg.style.background="#f8d7da";msg.style.color="#842029";msg.textContent="' . esc_js( __( 'An error occurred. Please try again.', 'sfs-hr' ) ) . '";});});})();';
+        echo '</script>';
 
         // Reason
         echo '<tr>';
@@ -612,5 +644,230 @@ class MyProfileLoans {
             'loan_request' => 'success',
         ], $redirect_url ) );
         exit;
+    }
+
+    /**
+     * AJAX handler for loan request submission with all policy checks.
+     */
+    public function handle_loan_request_ajax(): void {
+        // Verify nonce
+        $employee_id = isset( $_POST['employee_id'] ) ? (int) $_POST['employee_id'] : 0;
+        if ( ! wp_verify_nonce( $_POST['_wpnonce'] ?? '', 'sfs_hr_submit_loan_request_' . $employee_id ) ) {
+            wp_send_json_error( [ 'message' => __( 'Security check failed. Please refresh and try again.', 'sfs-hr' ) ] );
+        }
+
+        if ( ! is_user_logged_in() ) {
+            wp_send_json_error( [ 'message' => __( 'You must be logged in.', 'sfs-hr' ) ] );
+        }
+
+        $settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+
+        if ( ! $settings['enabled'] || ! $settings['allow_employee_requests'] ) {
+            wp_send_json_error( [ 'message' => __( 'Loan requests are currently disabled.', 'sfs-hr' ) ] );
+        }
+
+        // Verify employee ownership
+        global $wpdb;
+        $emp_table  = $wpdb->prefix . 'sfs_hr_employees';
+        $dept_table = $wpdb->prefix . 'sfs_hr_departments';
+
+        $employee = $wpdb->get_row( $wpdb->prepare(
+            "SELECT e.*, d.name as department_name
+             FROM {$emp_table} e
+             LEFT JOIN {$dept_table} d ON e.dept_id = d.id
+             WHERE e.id = %d AND e.user_id = %d AND e.status = 'active'",
+            $employee_id,
+            get_current_user_id()
+        ) );
+
+        if ( ! $employee ) {
+            wp_send_json_error( [ 'message' => __( 'Invalid employee record.', 'sfs-hr' ) ] );
+        }
+
+        // Extract form data
+        $principal      = isset( $_POST['principal_amount'] ) ? (float) $_POST['principal_amount'] : 0;
+        $monthly_amount = isset( $_POST['monthly_amount'] ) ? (float) $_POST['monthly_amount'] : 0;
+        $reason         = sanitize_textarea_field( $_POST['reason'] ?? '' );
+
+        // Calculate installments
+        $full_months  = $monthly_amount > 0 ? (int) floor( $principal / $monthly_amount ) : 0;
+        $last_payment = $principal - ( $full_months * $monthly_amount );
+        $installments = $last_payment > 0 ? $full_months + 1 : $full_months;
+
+        // ── Basic validation ──
+        if ( $principal <= 0 || $monthly_amount <= 0 || $installments <= 0 || ! $reason ) {
+            wp_send_json_error( [ 'message' => __( 'Invalid input. Please check all fields.', 'sfs-hr' ) ] );
+        }
+
+        // ── Max installment months ──
+        $max_months = (int) ( $settings['max_installment_months'] ?? 60 );
+        if ( $max_months > 0 && $installments > $max_months ) {
+            wp_send_json_error( [ 'message' => sprintf(
+                __( 'Repayment period (%d months) exceeds maximum of %d months. Increase your monthly installment.', 'sfs-hr' ),
+                $installments, $max_months
+            ) ] );
+        }
+
+        // ── Max loan amount ──
+        if ( $settings['max_loan_amount'] > 0 && $principal > $settings['max_loan_amount'] ) {
+            wp_send_json_error( [ 'message' => sprintf(
+                __( 'Maximum loan amount is %s SAR.', 'sfs-hr' ),
+                number_format( $settings['max_loan_amount'], 2 )
+            ) ] );
+        }
+
+        // ── Salary multiplier limit ──
+        $multiplier = (float) ( $settings['max_loan_multiplier'] ?? 0 );
+        if ( $multiplier > 0 ) {
+            $base_salary = (float) ( $employee->base_salary ?? 0 );
+            if ( $base_salary <= 0 ) {
+                wp_send_json_error( [ 'message' => __( 'Your base salary is not set. Cannot apply salary multiplier limit. Please contact HR.', 'sfs-hr' ) ] );
+            }
+            $max_by_salary = $base_salary * $multiplier;
+            if ( $principal > $max_by_salary ) {
+                wp_send_json_error( [ 'message' => sprintf(
+                    __( 'Maximum loan amount is %s SAR (%s× your salary).', 'sfs-hr' ),
+                    number_format( $max_by_salary, 2 ), $multiplier
+                ) ] );
+            }
+        }
+
+        // ── Max installment percentage of salary ──
+        $max_inst_pct = (int) ( $settings['max_installment_percent'] ?? 0 );
+        if ( $max_inst_pct > 0 ) {
+            $base_salary = (float) ( $employee->base_salary ?? 0 );
+            if ( $base_salary <= 0 ) {
+                wp_send_json_error( [ 'message' => __( 'Your base salary is not set. Cannot apply installment percentage limit. Please contact HR.', 'sfs-hr' ) ] );
+            }
+            $max_allowed = round( $base_salary * $max_inst_pct / 100, 2 );
+            if ( $monthly_amount > $max_allowed ) {
+                wp_send_json_error( [ 'message' => sprintf(
+                    __( 'Monthly installment (%s SAR) exceeds maximum (%s SAR = %d%% of salary).', 'sfs-hr' ),
+                    number_format( $monthly_amount, 2 ), number_format( $max_allowed, 2 ), $max_inst_pct
+                ) ] );
+            }
+        }
+
+        // ── Minimum service period ──
+        $min_service = (int) ( $settings['min_service_months'] ?? 0 );
+        if ( $min_service > 0 ) {
+            $hired_at = $employee->hired_at ?? $employee->hire_date ?? null;
+            if ( ! $hired_at ) {
+                wp_send_json_error( [ 'message' => __( 'Your hire date is not set. Please contact HR.', 'sfs-hr' ) ] );
+            }
+            $hire_dt    = new \DateTime( $hired_at );
+            $now_dt     = new \DateTime( current_time( 'mysql' ) );
+            $diff       = $hire_dt->diff( $now_dt );
+            $months_svc = $diff->y * 12 + $diff->m;
+            if ( $months_svc < $min_service ) {
+                wp_send_json_error( [ 'message' => sprintf(
+                    __( 'You must have at least %d months of service. Current: %d months.', 'sfs-hr' ),
+                    $min_service, $months_svc
+                ) ] );
+            }
+        }
+
+        // ── One loan per fiscal year ──
+        if ( ! empty( $settings['one_loan_per_fiscal_year'] ) ) {
+            $loans_table = $wpdb->prefix . 'sfs_hr_loans';
+            $fy_type     = $settings['fiscal_year_type'] ?? 'calendar';
+            $now         = current_time( 'mysql' );
+            $year        = (int) date( 'Y', strtotime( $now ) );
+            $month       = (int) date( 'n', strtotime( $now ) );
+
+            if ( $fy_type === 'custom' ) {
+                $fy_start_month = (int) ( $settings['fiscal_year_start_month'] ?? 1 );
+                $fy_year = $month >= $fy_start_month ? $year : $year - 1;
+                $fy_start = sprintf( '%04d-%02d-01', $fy_year, $fy_start_month );
+                $fy_end_year = $fy_year + 1;
+                $fy_end = sprintf( '%04d-%02d-01', $fy_end_year, $fy_start_month );
+            } else {
+                $fy_start = sprintf( '%04d-01-01', $year );
+                $fy_end   = sprintf( '%04d-01-01', $year + 1 );
+            }
+
+            $existing = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$loans_table}
+                 WHERE employee_id = %d
+                   AND status NOT IN ('rejected','cancelled')
+                   AND created_at >= %s AND created_at < %s",
+                $employee_id, $fy_start, $fy_end
+            ) );
+
+            if ( $existing > 0 ) {
+                wp_send_json_error( [ 'message' => sprintf(
+                    __( 'You already have a loan in the current fiscal year (%s to %s).', 'sfs-hr' ),
+                    wp_date( 'M Y', strtotime( $fy_start ) ),
+                    wp_date( 'M Y', strtotime( $fy_end . ' -1 day' ) )
+                ) ] );
+            }
+        }
+
+        // ── Max active loans ──
+        if ( empty( $settings['allow_multiple_active_loans'] ) ) {
+            $loans_table = $wpdb->prefix . 'sfs_hr_loans';
+            $max_active  = (int) ( $settings['max_active_loans_per_employee'] ?? 1 );
+            $active_count = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$loans_table}
+                 WHERE employee_id = %d AND status IN ('active','pending_gm','pending_finance')",
+                $employee_id
+            ) );
+            if ( $active_count >= $max_active ) {
+                wp_send_json_error( [ 'message' => sprintf(
+                    __( 'You already have %d active/pending loan(s). Maximum allowed: %d.', 'sfs-hr' ),
+                    $active_count, $max_active
+                ) ] );
+            }
+        }
+
+        // ── All checks passed — insert loan ──
+        $loan_number      = \SFS\HR\Modules\Loans\LoansModule::generate_loan_number();
+        $installment_amt  = round( $monthly_amount, 2 );
+        $loans_table      = $wpdb->prefix . 'sfs_hr_loans';
+
+        $result = $wpdb->insert( $loans_table, [
+            'loan_number'        => $loan_number,
+            'employee_id'        => $employee_id,
+            'department'         => $employee->department_name ?: 'N/A',
+            'principal_amount'   => $principal,
+            'currency'           => 'SAR',
+            'installments_count' => $installments,
+            'installment_amount' => $installment_amt,
+            'remaining_balance'  => 0,
+            'status'             => 'pending_gm',
+            'reason'             => $reason,
+            'request_source'     => 'employee_portal',
+            'created_by'         => $employee_id,
+            'created_at'         => current_time( 'mysql' ),
+            'updated_at'         => current_time( 'mysql' ),
+        ] );
+
+        if ( $result === false ) {
+            error_log( 'SFS HR Loans: Failed to insert loan request. Error: ' . $wpdb->last_error );
+            wp_send_json_error( [ 'message' => __( 'Failed to submit request. Please try again.', 'sfs-hr' ) ] );
+        }
+
+        $loan_id = $wpdb->insert_id;
+
+        \SFS\HR\Modules\Loans\LoansModule::log_event( $loan_id, 'loan_created', [
+            'created_by'     => 'employee',
+            'principal'      => $principal,
+            'installments'   => $installments,
+            'request_source' => 'employee_portal',
+        ] );
+
+        do_action( 'sfs_hr_loan_created', $loan_id, [
+            'employee_id'  => $employee_id,
+            'amount'       => $principal,
+            'installments' => $installments,
+            'source'       => 'employee_portal',
+        ] );
+
+        \SFS\HR\Modules\Loans\Notifications::notify_new_loan_request( $loan_id );
+
+        wp_send_json_success( [
+            'message'     => __( 'Loan request submitted successfully!', 'sfs-hr' ),
+            'loan_number' => $loan_number,
+        ] );
     }
 }
