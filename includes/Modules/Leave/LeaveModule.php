@@ -4501,31 +4501,20 @@ private function email_approvers_for_employee(int $employee_id, string $subject,
     }
 
     /**
-     * Notify HR users (those with sfs_hr.manage capability)
+     * Notify assigned HR approvers only (not all administrators).
      */
     private function notify_hr_users(string $subject, string $msg): void {
         if (get_option('sfs_hr_leave_email','1')!=='1') return;
         $emails = [];
 
-        // Find all roles that have sfs_hr.manage capability
-        $roles_to_check = [];
-        $all_roles = wp_roles()->roles;
-        foreach ($all_roles as $role_slug => $role_data) {
-            if (!empty($role_data['capabilities']['sfs_hr.manage'])) {
-                $roles_to_check[] = $role_slug;
-            }
-        }
-        // Always include these as fallback
-        $hr_role = get_option('sfs_hr_global_approver_role', 'sfs_hr_manager');
-        $roles_to_check = array_unique(array_merge($roles_to_check, ['administrator', $hr_role, 'sfs_hr_manager']));
+        // Only email explicitly assigned HR approvers
+        $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
+        $hr_user_ids = array_filter( array_map( 'intval', $hr_user_ids ) );
 
-        // Get users from all roles with HR capabilities
-        foreach ($roles_to_check as $role) {
-            $users = get_users(['role' => $role, 'fields' => ['user_email']]);
-            foreach ($users as $u) {
-                if ($u->user_email) {
-                    $emails[] = $u->user_email;
-                }
+        foreach ( $hr_user_ids as $uid ) {
+            $user = get_userdata( $uid );
+            if ( $user && $user->user_email ) {
+                $emails[] = $user->user_email;
             }
         }
 
@@ -4534,16 +4523,6 @@ private function email_approvers_for_employee(int $employee_id, string $subject,
         if ($hr_emails) {
             $configured = array_filter(array_map('trim', explode(',', $hr_emails)));
             $emails = array_merge($emails, $configured);
-        }
-
-        // Also include HR emails from Core Notification settings
-        $core_settings = CoreNotifications::get_settings();
-        if (($core_settings['hr_notification'] ?? true) && !empty($core_settings['hr_emails'])) {
-            foreach ($core_settings['hr_emails'] as $hr_email) {
-                if (is_email($hr_email)) {
-                    $emails[] = $hr_email;
-                }
-            }
         }
 
         $emails = array_unique(array_filter($emails));
