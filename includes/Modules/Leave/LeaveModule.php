@@ -93,7 +93,7 @@ public function render_leave_page(): void {
     }
 
     if ( empty($available) ) {
-        echo '<div class="wrap sfs-hr-wrap"><h1>' . esc_html__('Leave', 'sfs-hr') . '</h1>';
+        echo '<div class="wrap sfs-hr-wrap"><h1>' . esc_html__('Leave Management', 'sfs-hr') . '</h1>';
         echo '<p>' . esc_html__('You do not have access to Leave admin.', 'sfs-hr') . '</p></div>';
         return;
     }
@@ -103,21 +103,48 @@ public function render_leave_page(): void {
         $tab = $available[0]; // default to first allowed tab
     }
 
-    switch ($tab) {
-        case 'types':
-            $this->render_types();
-            break;
-        case 'balances':
-            $this->render_balances();
-            break;
-        case 'settings':
-            $this->render_settings();
-            break;
-        case 'requests':
-        default:
-            $this->render_requests();
-            break;
-    }
+    $tab_labels = [
+        'requests' => __( 'Leave Requests', 'sfs-hr' ),
+        'types'    => __( 'Leave Types', 'sfs-hr' ),
+        'balances' => __( 'Balances', 'sfs-hr' ),
+        'settings' => __( 'Settings', 'sfs-hr' ),
+    ];
+
+    ?>
+    <div class="wrap sfs-hr-wrap">
+        <h1><?php esc_html_e( 'Leave Management', 'sfs-hr' ); ?></h1>
+        <?php Helpers::render_admin_nav(); ?>
+
+        <nav class="nav-tab-wrapper">
+            <?php foreach ( $available as $slug ) : ?>
+                <a href="?page=sfs-hr-leave-requests&tab=<?php echo esc_attr( $slug ); ?>"
+                   class="nav-tab <?php echo $tab === $slug ? 'nav-tab-active' : ''; ?>">
+                    <?php echo esc_html( $tab_labels[ $slug ] ?? ucfirst( $slug ) ); ?>
+                </a>
+            <?php endforeach; ?>
+        </nav>
+
+        <div class="tab-content" style="margin-top: 20px;">
+            <?php
+            switch ($tab) {
+                case 'types':
+                    $this->render_types();
+                    break;
+                case 'balances':
+                    $this->render_balances();
+                    break;
+                case 'settings':
+                    $this->render_settings();
+                    break;
+                case 'requests':
+                default:
+                    $this->render_requests();
+                    break;
+            }
+            ?>
+        </div>
+    </div>
+    <?php
 }
 
 
@@ -138,14 +165,32 @@ public function render_requests(): void {
     $emp_t = $wpdb->prefix.'sfs_hr_employees';
     $typ_t = $wpdb->prefix.'sfs_hr_leave_types';
 
+    // All filterable statuses (matching Leave_UI labels)
+    $status_tabs = [
+        'all'               => __( 'All', 'sfs-hr' ),
+        'pending'           => __( 'Pending', 'sfs-hr' ),
+        'pending_manager'   => __( 'Pending Manager', 'sfs-hr' ),
+        'pending_hr'        => __( 'Pending HR', 'sfs-hr' ),
+        'pending_gm'        => __( 'Pending GM', 'sfs-hr' ),
+        'pending_finance'   => __( 'Pending Finance', 'sfs-hr' ),
+        'approved'          => __( 'Approved', 'sfs-hr' ),
+        'on_leave'          => __( 'On Leave', 'sfs-hr' ),
+        'rejected'          => __( 'Rejected', 'sfs-hr' ),
+        'cancelled'         => __( 'Cancelled', 'sfs-hr' ),
+    ];
+
+    $valid_statuses = array_keys( $status_tabs );
+    if ( ! in_array( $status, $valid_statuses, true ) ) {
+        $status = 'all';
+    }
+
     $where  = '1=1';
     $params = [];
 
-    if (in_array($status, ['pending','approved','rejected'], true)) {
+    if ( $status !== 'all' ) {
         $where   .= " AND r.status = %s";
         $params[] = $status;
     }
-    // 'all' status shows all records, no status filter needed
 
     // Search filter
     if ( $search !== '' ) {
@@ -188,7 +233,7 @@ public function render_requests(): void {
     }
 
     // Count by status for tabs
-    $counts = ['all' => 0, 'pending' => 0, 'approved' => 0, 'rejected' => 0];
+    $counts = [];
     $count_where = '1=1';
     $count_params = [];
     if ( ! $is_hr_or_gm_for_view && ! empty($managed_depts) ) {
@@ -196,13 +241,16 @@ public function render_requests(): void {
         $count_where = "e.dept_id IN ($placeholders)";
         $count_params = array_map('intval', $managed_depts);
     }
-    foreach (['pending', 'approved', 'rejected'] as $s) {
-        $sql_count = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id WHERE r.status = %s" . ($count_where !== '1=1' ? " AND $count_where" : "");
-        $c_params = array_merge([$s], $count_params);
-        $counts[$s] = (int) $wpdb->get_var($wpdb->prepare($sql_count, ...$c_params));
+    foreach ( array_keys( $status_tabs ) as $s ) {
+        if ( $s === 'all' ) {
+            $sql_count = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id" . ($count_where !== '1=1' ? " WHERE $count_where" : "");
+            $counts['all'] = $count_params ? (int) $wpdb->get_var($wpdb->prepare($sql_count, ...$count_params)) : (int) $wpdb->get_var($sql_count);
+        } else {
+            $sql_count = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id WHERE r.status = %s" . ($count_where !== '1=1' ? " AND $count_where" : "");
+            $c_params = array_merge([$s], $count_params);
+            $counts[$s] = (int) $wpdb->get_var($wpdb->prepare($sql_count, ...$c_params));
+        }
     }
-    // Calculate 'all' count
-    $counts['all'] = $counts['pending'] + $counts['approved'] + $counts['rejected'];
 
     $sql_total = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id WHERE $where";
     $total = $params ? (int)$wpdb->get_var($wpdb->prepare($sql_total, ...$params)) : (int)$wpdb->get_var($sql_total);
@@ -241,27 +289,21 @@ public function render_requests(): void {
 
     <!-- Status Tabs -->
     <div class="sfs-hr-leave-tabs">
-        <?php
-        $tabs = [
-            'all'      => __('All', 'sfs-hr'),
-            'pending'  => __('Pending', 'sfs-hr'),
-            'approved' => __('Approved', 'sfs-hr'),
-            'rejected' => __('Rejected', 'sfs-hr'),
-        ];
-        foreach ($tabs as $k => $lbl) {
+        <?php foreach ( $status_tabs as $k => $lbl ) :
             $url = add_query_arg([
                 'page'   => 'sfs-hr-leave-requests',
                 'tab'    => 'requests',
                 'status' => $k,
                 'paged'  => 1,
+                's'      => $search !== '' ? $search : null,
             ], admin_url('admin.php'));
             $active = ($status === $k) ? ' active' : '';
-            echo '<a href="' . esc_url($url) . '" class="sfs-tab' . $active . '">';
-            echo esc_html($lbl);
-            echo '<span class="count">' . esc_html($counts[$k]) . '</span>';
-            echo '</a>';
-        }
         ?>
+            <a href="<?php echo esc_url($url); ?>" class="sfs-tab<?php echo $active; ?>">
+                <?php echo esc_html($lbl); ?>
+                <span class="count"><?php echo esc_html($counts[$k]); ?></span>
+            </a>
+        <?php endforeach; ?>
     </div>
 
     <?php if (!empty($_GET['ok'])): ?>
@@ -273,7 +315,7 @@ public function render_requests(): void {
     <!-- Table Card -->
     <div class="sfs-hr-leave-table-wrap">
         <div class="table-header">
-            <h3><?php echo esc_html($tabs[$status] ?? ''); ?> (<?php echo esc_html($total); ?>)</h3>
+            <h3><?php echo esc_html($status_tabs[$status] ?? ''); ?> (<?php echo esc_html($total); ?>)</h3>
         </div>
 
         <table class="sfs-hr-leave-table">
@@ -981,6 +1023,24 @@ private function output_leave_requests_styles(): void {
     <?php
 }
 
+/**
+ * Guard: pure WP admin (no HR/GM/manager assignment) cannot approve or reject.
+ *
+ * Resolves the user's role via Role_Resolver; if 'admin', redirects with the
+ * given error message and exits. Call this early in approve/reject handlers.
+ */
+private function guard_admin_cannot_approve_or_reject( int $current_uid, string $redirect_base, string $message ): void {
+    // Fail-closed: deny if Role_Resolver is unavailable or resolves to 'admin'.
+    if ( ! class_exists( \SFS\HR\Frontend\Role_Resolver::class )
+        || \SFS\HR\Frontend\Role_Resolver::resolve( $current_uid ) === 'admin'
+    ) {
+        wp_safe_redirect(
+            add_query_arg( 'err', rawurlencode( $message ), $redirect_base )
+        );
+        exit;
+    }
+}
+
 public function handle_approve(): void {
     check_admin_referer('sfs_hr_leave_approve');
 
@@ -1083,6 +1143,13 @@ public function handle_approve(): void {
         );
         exit;
     }
+
+    // Pure WP admin (no HR/GM/manager assignment) cannot approve — can only cancel.
+    $this->guard_admin_cannot_approve_or_reject(
+        $current_uid,
+        $redirect_base,
+        __( 'Administrators cannot approve leave requests. Use cancel instead.', 'sfs-hr' )
+    );
 
     // ==================== DEPARTMENT MANAGER LEAVE REQUEST ====================
     // Flow: Dept Manager → GM (level 1) → HR (level 2, final)
@@ -1590,6 +1657,12 @@ public function handle_reject(): void {
     if ((int)($empInfo['user_id'] ?? 0) === (int)$current_uid) {
         wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending&err='.rawurlencode(__('You cannot reject your own request.','sfs-hr')))); exit;
     }
+    // Pure WP admin (no HR/GM/manager assignment) cannot reject — can only cancel.
+    $this->guard_admin_cannot_approve_or_reject(
+        $current_uid,
+        admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending' ),
+        __( 'Administrators cannot reject leave requests. Use cancel instead.', 'sfs-hr' )
+    );
     // HR users or GM users can reject any request
     if ( ! current_user_can('sfs_hr.manage') && ! current_user_can('sfs_hr_loans_gm_approve') ) {
         $managed = $this->manager_dept_ids_for_user($current_uid);
@@ -2665,10 +2738,6 @@ private function render_cancellation_detail( int $cancel_id ): void {
         $nonce_del = wp_create_nonce('sfs_hr_leave_deltype');
         $nonce_mark = wp_create_nonce('sfs_hr_leave_markannual');
         ?>
-                        
-        <div class="wrap sfs-hr-wrap">
-          <h2 class="title"><?php esc_html_e('Leave Types','sfs-hr'); ?></h2>
-
 
           <?php if(!empty($_GET['err'])): ?>
             <div class="notice notice-error"><p><?php echo esc_html( sanitize_text_field( wp_unslash( $_GET['err'] ) ) );?></p></div>
@@ -2810,7 +2879,6 @@ private function render_cancellation_detail( int $cancel_id ): void {
             </table>
             <?php submit_button($is_editing ? __('Update','sfs-hr') : __('Save','sfs-hr')); ?>
           </form>
-        </div>
         <?php
     }
 
@@ -2844,9 +2912,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
         ), ARRAY_A);
 
         ?>
-        
-        <div class="wrap sfs-hr-wrap">
-          <h2 class="title"><?php esc_html_e('Leave Balances','sfs-hr'); ?></h2>
+
           <?php if(!empty($_GET['ok'])): ?>
             <div class="notice notice-success"><p><?php esc_html_e('Balance updated.','sfs-hr'); ?></p></div>
           <?php endif; if(!empty($_GET['err'])): ?>
@@ -2902,7 +2968,6 @@ private function render_cancellation_detail( int $cancel_id ): void {
               <?php endforeach; endif; ?>
             </tbody>
           </table>
-        </div>
         <?php
     }
 
@@ -3087,8 +3152,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
         $nonce_add = wp_create_nonce('sfs_hr_holiday_add');
         $nonce_del = wp_create_nonce('sfs_hr_holiday_del');
         ?>
-        <div class="wrap sfs-hr-wrap">
-          <h2 class="title"><?php esc_html_e('Leave Settings','sfs-hr'); ?></h2>
+
           <?php if(!empty($_GET['ok'])): ?>
             <div class="notice notice-success"><p><?php esc_html_e('Settings saved.','sfs-hr'); ?></p></div>
           <?php endif; if(!empty($_GET['err'])): ?>
@@ -3281,7 +3345,6 @@ private function render_cancellation_detail( int $cancel_id ): void {
             </table>
             <?php submit_button(__('Add','sfs-hr')); ?>
           </form>
-        </div>
         <?php
     }
 
@@ -4081,15 +4144,20 @@ if ($special === 'MATERNITY') {
                 'days'       => $days,
             ]);
             if (get_option('sfs_hr_leave_email', '1') === '1') {
-$this->email_approvers_for_employee(
-    (int)$emp['id'],
-    __('New Leave Request','sfs-hr'),
-    sprintf(
-        __('Employee %s requested leave (%s → %s), %d days.','sfs-hr'),
-        trim(($emp['first_name']??'').' '.($emp['last_name']??'')) ?: $emp['employee_code'],
-        $start, $end, $days
-    )
-);
+                $this->email_approvers_for_employee(
+                    (int)$emp['id'],
+                    __('New Leave Request','sfs-hr'),
+                    $this->build_leave_request_email_body([
+                        'employee_name' => trim(($emp['first_name']??'').' '.($emp['last_name']??'')) ?: ($emp['employee_code'] ?? ''),
+                        'employee_code' => $emp['employee_code'] ?? '',
+                        'department'    => $emp['department_name'] ?? '',
+                        'leave_type'    => $type['name'] ?? '',
+                        'start_date'    => $start,
+                        'end_date'      => $end,
+                        'days'          => $days,
+                        'reason'        => $reason ?? '',
+                    ])
+                );
             }
             $target = add_query_arg('sfs_hr_ok', '1', $target);
         }
@@ -4215,6 +4283,80 @@ $types = array_values(array_filter($types, function($t) use ($gender) {
     private function manager_dept_ids_for_user(int $uid): array {
         return LeaveCalculationService::manager_dept_ids_for_user($uid);
     }
+
+/**
+ * Build an HTML email body for a new leave request notification.
+ */
+private function build_leave_request_email_body( array $data ): string {
+    $site_name = esc_html( get_bloginfo( 'name' ) );
+
+    $employee_name = esc_html( $data['employee_name'] );
+    $employee_code = esc_html( $data['employee_code'] ?? '' );
+    $department    = esc_html( $data['department'] ?? '' );
+    $leave_type    = esc_html( $data['leave_type'] ?? '' );
+    $start_date    = esc_html( $data['start_date'] );
+    $end_date      = esc_html( $data['end_date'] );
+    $days          = (int) $data['days'];
+    $reason        = esc_html( $data['reason'] ?? '' );
+    $review_url    = esc_url( $data['review_url'] ?? admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending' ) );
+
+    $lbl_leave_type = esc_html__( 'Leave Type', 'sfs-hr' );
+    $lbl_employee   = esc_html__( 'Employee', 'sfs-hr' );
+    $lbl_department = esc_html__( 'Department', 'sfs-hr' );
+    $lbl_start      = esc_html__( 'Start Date', 'sfs-hr' );
+    $lbl_end        = esc_html__( 'End Date', 'sfs-hr' );
+    $lbl_duration   = esc_html__( 'Duration', 'sfs-hr' );
+    $lbl_reason     = esc_html__( 'Reason', 'sfs-hr' );
+    /* translators: %d: number of days */
+    $days_text      = sprintf( _n( '%d day', '%d days', $days, 'sfs-hr' ), $days );
+    $heading        = esc_html__( 'New Leave Request', 'sfs-hr' );
+    $intro          = esc_html__( 'A new leave request has been submitted and requires your review.', 'sfs-hr' );
+    $cta_label      = esc_html__( 'Review Request', 'sfs-hr' );
+
+    $employee_display = $employee_name;
+    if ( $employee_code ) {
+        $employee_display .= ' (' . $employee_code . ')';
+    }
+
+    // Row helper
+    $row = static function ( string $label, string $value ) : string {
+        if ( $value === '' ) {
+            return '';
+        }
+        return '<tr><td style="padding:8px 12px;color:#64748b;font-size:13px;white-space:nowrap;vertical-align:top;">' . $label . '</td>'
+             . '<td style="padding:8px 12px;color:#1e293b;font-size:13px;">' . $value . '</td></tr>';
+    };
+
+    $rows  = $row( $lbl_employee, $employee_display );
+    if ( $department ) {
+        $rows .= $row( $lbl_department, $department );
+    }
+    $rows .= $row( $lbl_leave_type, $leave_type );
+    $rows .= $row( $lbl_start, $start_date );
+    $rows .= $row( $lbl_end, $end_date );
+    $rows .= $row( $lbl_duration, $days_text );
+    if ( $reason ) {
+        $rows .= $row( $lbl_reason, nl2br( $reason ) );
+    }
+
+    return <<<HTML
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;">
+  <div style="background:#2563eb;padding:20px 24px;border-radius:8px 8px 0 0;">
+    <h2 style="margin:0;color:#fff;font-size:18px;font-weight:600;">{$heading}</h2>
+  </div>
+  <div style="background:#ffffff;border:1px solid #e2e8f0;border-top:none;padding:24px;border-radius:0 0 8px 8px;">
+    <p style="margin:0 0 16px;color:#475569;font-size:14px;line-height:1.5;">{$intro}</p>
+    <table style="width:100%;border-collapse:collapse;background:#f8fafc;border-radius:6px;overflow:hidden;" cellpadding="0" cellspacing="0">
+      {$rows}
+    </table>
+    <div style="text-align:center;margin:24px 0 8px;">
+      <a href="{$review_url}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:10px 28px;border-radius:6px;font-size:14px;font-weight:600;">{$cta_label}</a>
+    </div>
+  </div>
+  <p style="text-align:center;margin:16px 0 0;color:#94a3b8;font-size:12px;">{$site_name} &middot; HR Management System</p>
+</div>
+HTML;
+}
 
 /** Email approvers for a given employee: dept manager if set, else HR managers/admins as fallback, plus configured HR emails */
 private function email_approvers_for_employee(int $employee_id, string $subject, string $msg): void {
@@ -4755,7 +4897,7 @@ if (!$has_idx) {
     }
 
     echo '<div class="wrap sfs-hr-wrap">';
-    echo '<h1 class="wp-heading-inline">' . esc_html__( 'Leave', 'sfs-hr' ) . '</h1>';
+    echo '<h1 class="wp-heading-inline">' . esc_html__( 'Leave Management', 'sfs-hr' ) . '</h1>';
 
     // 🔹 Global HR nav + breadcrumbs
     \SFS\HR\Core\Helpers::render_admin_nav();
@@ -5415,15 +5557,29 @@ public function handle_self_request(): void {
 
     // Optional: email approvers
     if ( get_option( 'sfs_hr_leave_email', '1' ) === '1' ) {
+        $emp_row = $wpdb->get_row( $wpdb->prepare(
+            "SELECT e.first_name, e.last_name, e.employee_code, COALESCE(d.name,'') as department_name
+             FROM {$emp_table} e LEFT JOIN {$wpdb->prefix}sfs_hr_departments d ON e.dept_id = d.id
+             WHERE e.id = %d",
+            $employee_id
+        ) );
+        $type_name = (string) $wpdb->get_var( $wpdb->prepare(
+            "SELECT name FROM {$type_table} WHERE id = %d", $type_id
+        ) );
+
         $this->email_approvers_for_employee(
             $employee_id,
             __( 'New Leave Request', 'sfs-hr' ),
-            sprintf(
-                __( 'Employee requested leave: %s → %s (%d days).', 'sfs-hr' ),
-                $start,
-                $end,
-                $days
-            )
+            $this->build_leave_request_email_body([
+                'employee_name' => $emp_row ? trim( $emp_row->first_name . ' ' . $emp_row->last_name ) : '',
+                'employee_code' => $emp_row->employee_code ?? '',
+                'department'    => $emp_row->department_name ?? '',
+                'leave_type'    => $type_name,
+                'start_date'    => $start,
+                'end_date'      => $end,
+                'days'          => $days,
+                'reason'        => $reason,
+            ])
         );
     }
 

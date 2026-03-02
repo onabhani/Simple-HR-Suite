@@ -448,6 +448,9 @@ class OverviewTab implements TabInterface {
             echo '})();</script>';
         }
 
+        // ── Sick leave reminder (uncovered absences) ─────────────
+        \SFS\HR\Frontend\SickLeaveReminder::render( $emp_id, get_current_user_id(), $leave_url );
+
         // ── 2. Action Required ──────────────────────────────────
         if ( ! empty( $action_items ) ) {
             echo '<div class="sfs-overview-block">';

@@ -158,7 +158,7 @@ class Performance_Rest {
         register_rest_route( self::NAMESPACE, '/performance/reviews/(?P<id>\d+)/acknowledge', [
             'methods'             => 'POST',
             'callback'            => [ $this, 'acknowledge_review' ],
-            'permission_callback' => [ $this, 'check_read_permission' ],
+            'permission_callback' => [ $this, 'check_acknowledge_permission' ],
             'args'                => [
                 'comments' => [ 'type' => 'string' ],
             ],
@@ -276,15 +276,40 @@ class Performance_Rest {
     // =========================================================================
 
     public function check_read_permission(): bool {
-        return current_user_can( 'read' );
+        return current_user_can( 'sfs_hr_performance_view' );
     }
 
     public function check_write_permission(): bool {
-        return current_user_can( 'edit_posts' );
+        return current_user_can( 'sfs_hr.manage' );
     }
 
     public function check_admin_permission(): bool {
-        return current_user_can( 'manage_options' );
+        return current_user_can( 'sfs_hr.manage' );
+    }
+
+    /**
+     * Permission check for the review acknowledge route.
+     *
+     * Allows access if the user has sfs_hr.manage OR is the review subject.
+     */
+    public function check_acknowledge_permission( \WP_REST_Request $request ): bool {
+        if ( current_user_can( 'sfs_hr.manage' ) ) {
+            return true;
+        }
+
+        $review_id = (int) $request->get_param( 'id' );
+        $review    = Reviews_Service::get_review( $review_id );
+        if ( ! $review ) {
+            return false;
+        }
+
+        global $wpdb;
+        $employee_id = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}sfs_hr_employees WHERE user_id = %d",
+            get_current_user_id()
+        ) );
+
+        return $employee_id > 0 && $employee_id === (int) $review->employee_id;
     }
 
     // =========================================================================
@@ -527,18 +552,30 @@ class Performance_Rest {
         $review_id = (int) $request->get_param( 'id' );
         $comments  = $request->get_param( 'comments' ) ?: '';
 
-        // Get employee ID from current user
+        // Privileged users (sfs_hr.manage) can acknowledge on behalf of the review subject.
         global $wpdb;
-        $employee_id = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT id FROM {$wpdb->prefix}sfs_hr_employees WHERE user_id = %d",
-            get_current_user_id()
-        ) );
+        if ( current_user_can( 'sfs_hr.manage' ) ) {
+            $review = Reviews_Service::get_review( $review_id );
+            if ( ! $review ) {
+                return new \WP_REST_Response( [
+                    'error'   => true,
+                    'message' => __( 'Review not found', 'sfs-hr' ),
+                ], 404 );
+            }
+            $employee_id = (int) $review->employee_id;
+        } else {
+            // Regular user: must have an employee record matching the review.
+            $employee_id = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT id FROM {$wpdb->prefix}sfs_hr_employees WHERE user_id = %d",
+                get_current_user_id()
+            ) );
 
-        if ( ! $employee_id ) {
-            return new \WP_REST_Response( [
-                'error'   => true,
-                'message' => __( 'Employee record not found', 'sfs-hr' ),
-            ], 403 );
+            if ( ! $employee_id ) {
+                return new \WP_REST_Response( [
+                    'error'   => true,
+                    'message' => __( 'Employee record not found', 'sfs-hr' ),
+                ], 403 );
+            }
         }
 
         $result = Reviews_Service::acknowledge_review( $review_id, $employee_id, $comments );

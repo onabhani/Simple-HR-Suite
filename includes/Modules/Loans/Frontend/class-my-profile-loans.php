@@ -156,8 +156,10 @@ class MyProfileLoans {
         $total_remaining = 0;
         $active_count    = 0;
         foreach ( $loans as $loan ) {
-            $total_principal += (float) $loan->principal_amount;
-            $total_remaining += (float) $loan->remaining_balance;
+            if ( in_array( $loan->status, [ 'active', 'completed' ], true ) ) {
+                $total_principal += (float) $loan->principal_amount;
+                $total_remaining += (float) $loan->remaining_balance;
+            }
             if ( $loan->status === 'active' ) {
                 $active_count++;
             }
@@ -525,6 +527,27 @@ class MyProfileLoans {
                 'error' => urlencode( sprintf( __( 'Maximum loan amount is %s SAR', 'sfs-hr' ), number_format( $settings['max_loan_amount'], 2 ) ) ),
             ], $redirect_url ) );
             exit;
+        }
+
+        // Check salary multiplier limit
+        $multiplier = (float) ( $settings['max_loan_multiplier'] ?? 0 );
+        if ( $multiplier > 0 ) {
+            $base_salary = (float) ( $employee->base_salary ?? 0 );
+            if ( $base_salary <= 0 ) {
+                wp_safe_redirect( add_query_arg( [
+                    'loan_request' => 'error',
+                    'error' => urlencode( __( 'Your base salary is not set. Cannot apply salary multiplier limit. Please contact HR.', 'sfs-hr' ) ),
+                ], $redirect_url ) );
+                exit;
+            }
+            $max_by_salary = $base_salary * $multiplier;
+            if ( $principal > $max_by_salary ) {
+                wp_safe_redirect( add_query_arg( [
+                    'loan_request' => 'error',
+                    'error' => urlencode( sprintf( __( 'Maximum loan amount is %s SAR (%s× your salary).', 'sfs-hr' ), number_format( $max_by_salary, 2 ), $multiplier ) ),
+                ], $redirect_url ) );
+                exit;
+            }
         }
 
         // Generate loan number

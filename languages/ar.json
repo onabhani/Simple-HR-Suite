@@ -240,6 +240,8 @@
     "on_leave": "في إجازة",
     "not_clocked_in": "لم يسجل الحضور",
     "absent": "غائب",
+    "unexcused_absence": "غياب بدون عذر",
+    "yes_submit_sick_leave": "نعم، تقديم إجازة مرضية",
     "status_counts": "إحصائيات الحالة",
     "total_days_with_records": "إجمالي الأيام المسجلة",
     "daily_history": "السجل اليومي",

@@ -203,6 +203,12 @@ class Admin_Pages {
                     <?php wp_nonce_field( 'sfs_hr_payroll_run_payroll' ); ?>
                     <input type="hidden" name="action" value="sfs_hr_payroll_run_payroll" />
                     <input type="hidden" name="period_id" value="<?php echo intval( $current_period->id ); ?>" />
+                    <p>
+                        <label>
+                            <input type="checkbox" name="include_overtime" value="1" checked="checked" />
+                            <?php esc_html_e( 'Include overtime in payroll', 'sfs-hr' ); ?>
+                        </label>
+                    </p>
                     <button type="submit" class="button button-primary button-hero">
                         <?php esc_html_e( 'Run Payroll', 'sfs-hr' ); ?>
                     </button>
@@ -308,6 +314,10 @@ class Admin_Pages {
                                 <?php wp_nonce_field( 'sfs_hr_payroll_run_payroll' ); ?>
                                 <input type="hidden" name="action" value="sfs_hr_payroll_run_payroll" />
                                 <input type="hidden" name="period_id" value="<?php echo intval( $period->id ); ?>" />
+                                <label style="margin-right:6px;">
+                                    <input type="checkbox" name="include_overtime" value="1" checked="checked" />
+                                    <?php esc_html_e( 'OT', 'sfs-hr' ); ?>
+                                </label>
                                 <button type="submit" class="button button-small"><?php esc_html_e( 'Run', 'sfs-hr' ); ?></button>
                             </form>
                             <?php endif; ?>
@@ -558,6 +568,12 @@ class Admin_Pages {
                     <div style="font-size:18px; font-weight:600; color:#00a32a;"><?php echo esc_html( number_format( (float) $run->total_net, 2 ) ); ?></div>
                 </div>
             </div>
+
+            <?php if ( ! empty( $run->notes ) ): ?>
+            <div class="notice notice-info" style="margin:0 0 20px;">
+                <p><?php echo nl2br( esc_html( $run->notes ) ); ?></p>
+            </div>
+            <?php endif; ?>
 
             <?php if ( $run->status === 'review' && ( current_user_can( 'sfs_hr_payroll_admin' ) || current_user_can( 'sfs_hr.manage' ) || current_user_can( 'manage_options' ) ) ): ?>
             <div style="margin-bottom:20px;">
@@ -854,6 +870,7 @@ class Admin_Pages {
         global $wpdb;
 
         $period_id = intval( $_POST['period_id'] ?? 0 );
+        $include_overtime = ! empty( $_POST['include_overtime'] );
         if ( ! $period_id ) {
             wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&error=no_period' ) );
             exit;
@@ -923,7 +940,9 @@ class Admin_Pages {
             $errors = [];
 
             foreach ( $employees as $emp_id ) {
-                $calc = PayrollModule::calculate_employee_payroll( (int) $emp_id, $period_id );
+                $calc = PayrollModule::calculate_employee_payroll( (int) $emp_id, $period_id, [
+                    'include_overtime' => $include_overtime,
+                ] );
 
                 if ( isset( $calc['error'] ) ) {
                     $errors[] = sprintf( 'Employee #%d: %s', $emp_id, $calc['error'] );
@@ -976,7 +995,10 @@ class Admin_Pages {
                 'employee_count'  => $employee_count,
                 'calculated_at'   => $now,
                 'calculated_by'   => $user_id,
-                'notes'           => $errors ? implode( "\n", $errors ) : null,
+                'notes'           => implode( "\n", array_filter( [
+                    $include_overtime ? null : __( 'Overtime excluded from this run.', 'sfs-hr' ),
+                    $errors ? implode( "\n", $errors ) : null,
+                ] ) ) ?: null,
                 'updated_at'      => $now,
             ], [ 'id' => $run_id ] );
 

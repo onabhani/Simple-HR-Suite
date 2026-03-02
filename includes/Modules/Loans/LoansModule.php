@@ -348,6 +348,11 @@ class LoansModule {
             'max_loan_multiplier'              => 0, // 0 = disabled, e.g., 2.0 = 2x basic salary
             'max_installment_amount'           => 0,
             'max_installment_percent'          => 0, // e.g., 30 = 30% of basic salary
+            'max_installment_months'           => 60, // Maximum number of installment months
+            'min_service_months'               => 6, // Minimum months of service before loan eligibility
+            'one_loan_per_fiscal_year'         => true, // Only one approved loan per fiscal year
+            'fiscal_year_type'                 => 'calendar', // 'calendar' (Jan-Dec) or 'custom'
+            'fiscal_year_start_month'          => 1, // 1-12, used when fiscal_year_type = 'custom'
             'loan_start_offset_months'         => 2, // Start deductions N months after request
             'allow_multiple_active_loans'      => false,
             'max_active_loans_per_employee'    => 1,

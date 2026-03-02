@@ -296,13 +296,13 @@ class Admin_Pages {
         $company_delta = ( $prev_company_avg > 0 ) ? round( $company_avg - $prev_company_avg, 1 ) : null;
         ?>
         <div class="wrap sfs-hr-wrap sfs-perf-wrap">
+            <h1><?php esc_html_e( 'Performance Dashboard', 'sfs-hr' ); ?></h1>
+            <hr class="wp-header-end">
+
             <div class="sfs-perf-header">
-                <div>
-                    <h1><?php esc_html_e( 'Performance Dashboard', 'sfs-hr' ); ?></h1>
-                    <p class="sfs-perf-period-label">
-                        <?php echo esc_html( $current_label ); ?>
-                    </p>
-                </div>
+                <p class="sfs-perf-period-label">
+                    <?php echo esc_html( $current_label ); ?>
+                </p>
                 <form method="get" class="sfs-perf-filters">
                     <input type="hidden" name="page" value="sfs-hr-performance">
                     <label>

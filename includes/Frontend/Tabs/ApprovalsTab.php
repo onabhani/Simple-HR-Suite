@@ -122,8 +122,8 @@ class ApprovalsTab implements TabInterface {
         // Category filter tabs.
         $this->render_filter_tabs( count( $pending_leaves ), count( $pending_loans ) );
 
-        // Bulk approve button.
-        if ( $total_pending > 0 ) {
+        // Bulk approve button (not for pure admin — admin can only cancel).
+        if ( $total_pending > 0 && $role !== 'admin' ) {
             $this->render_bulk_actions();
         }
 
@@ -241,30 +241,45 @@ class ApprovalsTab implements TabInterface {
             // Action buttons.
             echo '<div class="sfs-approval-actions">';
 
-            // Approve form.
-            echo '<form method="post" action="' . esc_url( $action_url ) . '" style="display:inline;">';
-            wp_nonce_field( 'sfs_hr_leave_approve_' . $req_id, '_wpnonce', false );
-            echo '<input type="hidden" name="action" value="sfs_hr_leave_approve" />';
-            echo '<input type="hidden" name="request_id" value="' . $req_id . '" />';
-            echo '<input type="hidden" name="_wp_http_referer" value="' . esc_attr( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) . '" />';
-            echo '<button type="submit" class="sfs-btn sfs-btn--success sfs-btn--sm">';
-            echo '<svg viewBox="0 0 24 24" style="width:14px;height:14px;margin-right:4px;"><polyline points="20 6 9 17 4 12" stroke="currentColor" fill="none" stroke-width="2.5"/></svg>';
-            echo '<span data-i18n-key="approve">' . esc_html__( 'Approve', 'sfs-hr' ) . '</span>';
-            echo '</button>';
-            echo '</form>';
+            if ( $role === 'admin' ) {
+                // Pure admin: cancel only (no approve/reject).
+                echo '<form method="post" action="' . esc_url( $action_url ) . '" style="display:inline;">';
+                wp_nonce_field( 'sfs_hr_leave_cancel_' . $req_id, '_wpnonce', false );
+                echo '<input type="hidden" name="action" value="sfs_hr_leave_cancel" />';
+                echo '<input type="hidden" name="id" value="' . $req_id . '" />';
+                echo '<input type="hidden" name="_wp_http_referer" value="' . esc_attr( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) . '" />';
+                echo '<button type="submit" class="sfs-btn sfs-btn--sm" style="background:var(--sfs-surface,#f3f4f6);color:var(--sfs-text);border:1px solid var(--sfs-border,#d1d5db);"'
+                    . ' onclick="return confirm(\'' . esc_js( __( 'Cancel this leave request?', 'sfs-hr' ) ) . '\')">';
+                echo '<svg viewBox="0 0 24 24" style="width:14px;height:14px;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/></svg>';
+                echo '<span data-i18n-key="cancel">' . esc_html__( 'Cancel', 'sfs-hr' ) . '</span>';
+                echo '</button>';
+                echo '</form>';
+            } else {
+                // Approve form.
+                echo '<form method="post" action="' . esc_url( $action_url ) . '" style="display:inline;">';
+                wp_nonce_field( 'sfs_hr_leave_approve_' . $req_id, '_wpnonce', false );
+                echo '<input type="hidden" name="action" value="sfs_hr_leave_approve" />';
+                echo '<input type="hidden" name="request_id" value="' . $req_id . '" />';
+                echo '<input type="hidden" name="_wp_http_referer" value="' . esc_attr( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) . '" />';
+                echo '<button type="submit" class="sfs-btn sfs-btn--success sfs-btn--sm">';
+                echo '<svg viewBox="0 0 24 24" style="width:14px;height:14px;margin-right:4px;"><polyline points="20 6 9 17 4 12" stroke="currentColor" fill="none" stroke-width="2.5"/></svg>';
+                echo '<span data-i18n-key="approve">' . esc_html__( 'Approve', 'sfs-hr' ) . '</span>';
+                echo '</button>';
+                echo '</form>';
 
-            // Reject form.
-            echo '<form method="post" action="' . esc_url( $action_url ) . '" style="display:inline;" class="sfs-reject-form">';
-            wp_nonce_field( 'sfs_hr_leave_reject_' . $req_id, '_wpnonce', false );
-            echo '<input type="hidden" name="action" value="sfs_hr_leave_reject" />';
-            echo '<input type="hidden" name="request_id" value="' . $req_id . '" />';
-            echo '<input type="hidden" name="_wp_http_referer" value="' . esc_attr( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) . '" />';
-            echo '<input type="hidden" name="rejection_reason" value="" class="sfs-reject-reason-input" />';
-            echo '<button type="button" class="sfs-btn sfs-btn--danger sfs-btn--sm sfs-reject-btn">';
-            echo '<svg viewBox="0 0 24 24" style="width:14px;height:14px;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2.5"/><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2.5"/></svg>';
-            echo '<span data-i18n-key="reject">' . esc_html__( 'Reject', 'sfs-hr' ) . '</span>';
-            echo '</button>';
-            echo '</form>';
+                // Reject form.
+                echo '<form method="post" action="' . esc_url( $action_url ) . '" style="display:inline;" class="sfs-reject-form">';
+                wp_nonce_field( 'sfs_hr_leave_reject_' . $req_id, '_wpnonce', false );
+                echo '<input type="hidden" name="action" value="sfs_hr_leave_reject" />';
+                echo '<input type="hidden" name="request_id" value="' . $req_id . '" />';
+                echo '<input type="hidden" name="_wp_http_referer" value="' . esc_attr( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) . '" />';
+                echo '<input type="hidden" name="rejection_reason" value="" class="sfs-reject-reason-input" />';
+                echo '<button type="button" class="sfs-btn sfs-btn--danger sfs-btn--sm sfs-reject-btn">';
+                echo '<svg viewBox="0 0 24 24" style="width:14px;height:14px;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2.5"/><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2.5"/></svg>';
+                echo '<span data-i18n-key="reject">' . esc_html__( 'Reject', 'sfs-hr' ) . '</span>';
+                echo '</button>';
+                echo '</form>';
+            }
 
             echo '</div>'; // .sfs-approval-actions
 
@@ -334,11 +349,14 @@ class ApprovalsTab implements TabInterface {
             echo '</div>';
 
             // Actions — only show if user has the right role for this stage.
+            // Pure admin can view but not approve/reject loans.
             $can_act = false;
-            if ( $is_gm_stage && in_array( $role, [ 'gm', 'admin' ], true ) ) {
-                $can_act = true;
-            } elseif ( ! $is_gm_stage && in_array( $role, [ 'hr', 'gm', 'admin' ], true ) ) {
-                $can_act = true;
+            if ( $role !== 'admin' ) {
+                if ( $is_gm_stage && in_array( $role, [ 'gm' ], true ) ) {
+                    $can_act = true;
+                } elseif ( ! $is_gm_stage && in_array( $role, [ 'hr', 'gm' ], true ) ) {
+                    $can_act = true;
+                }
             }
 
             if ( $can_act ) {

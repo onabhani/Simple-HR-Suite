@@ -365,7 +365,7 @@ class Absent_Notifications {
 
         $sent_count     = 0;
         $formatted_date = wp_date( 'l, F j, Y', strtotime( $date ) );
-        $leave_url      = home_url( '/my-profile/?tab=leave' );
+        $leave_url      = home_url( '/my-profile/?sfs_hr_tab=leave' );
         $site_name      = get_bloginfo( 'name' );
 
         foreach ( $absent_by_dept as $dept ) {

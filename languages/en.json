@@ -240,6 +240,8 @@
     "on_leave": "On leave",
     "not_clocked_in": "Not Clocked-IN",
     "absent": "Absent",
+    "unexcused_absence": "Unexcused Absence",
+    "yes_submit_sick_leave": "Yes, submit sick leave",
     "status_counts": "Status counts",
     "total_days_with_records": "Total days with records",
     "daily_history": "Daily history",

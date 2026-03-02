@@ -1244,6 +1244,64 @@ class AdminPages {
                     </td>
                 </tr>
                 <tr>
+                    <th><?php esc_html_e( 'Maximum Installment Months', 'sfs-hr' ); ?></th>
+                    <td>
+                        <input type="number" name="max_installment_months" value="<?php echo esc_attr( $settings['max_installment_months'] ?? 60 ); ?>" min="1" max="120" style="width: 80px;" />
+                        <p class="description"><?php esc_html_e( 'Maximum number of months allowed for loan repayment installments.', 'sfs-hr' ); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e( 'Minimum Service Period', 'sfs-hr' ); ?></th>
+                    <td>
+                        <input type="number" name="min_service_months" value="<?php echo esc_attr( $settings['min_service_months'] ?? 6 ); ?>" min="0" max="120" style="width: 80px;" />
+                        <?php esc_html_e( 'months', 'sfs-hr' ); ?>
+                        <p class="description"><?php esc_html_e( 'Minimum months of service before an employee can request a loan. Set to 0 to disable.', 'sfs-hr' ); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e( 'One Loan per Fiscal Year', 'sfs-hr' ); ?></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="one_loan_per_fiscal_year" value="1" <?php checked( $settings['one_loan_per_fiscal_year'] ?? true, true ); ?> />
+                            <?php esc_html_e( 'Limit employees to one approved loan per fiscal year', 'sfs-hr' ); ?>
+                        </label>
+                        <div style="margin-top: 10px;">
+                            <label>
+                                <?php esc_html_e( 'Fiscal year type:', 'sfs-hr' ); ?>
+                                <select name="fiscal_year_type" id="sfs_fiscal_year_type" style="margin-left: 5px;">
+                                    <option value="calendar" <?php selected( $settings['fiscal_year_type'] ?? 'calendar', 'calendar' ); ?>><?php esc_html_e( 'Calendar Year (Jan–Dec)', 'sfs-hr' ); ?></option>
+                                    <option value="custom" <?php selected( $settings['fiscal_year_type'] ?? 'calendar', 'custom' ); ?>><?php esc_html_e( 'Custom Start Month', 'sfs-hr' ); ?></option>
+                                </select>
+                            </label>
+                        </div>
+                        <div id="sfs_fiscal_year_custom_wrap" style="margin-top: 8px;<?php echo ( $settings['fiscal_year_type'] ?? 'calendar' ) !== 'custom' ? ' display:none;' : ''; ?>">
+                            <label>
+                                <?php esc_html_e( 'Fiscal year starts in:', 'sfs-hr' ); ?>
+                                <select name="fiscal_year_start_month">
+                                    <?php
+                                    $months = [
+                                        1  => __( 'January', 'sfs-hr' ),   2  => __( 'February', 'sfs-hr' ),
+                                        3  => __( 'March', 'sfs-hr' ),     4  => __( 'April', 'sfs-hr' ),
+                                        5  => __( 'May', 'sfs-hr' ),       6  => __( 'June', 'sfs-hr' ),
+                                        7  => __( 'July', 'sfs-hr' ),      8  => __( 'August', 'sfs-hr' ),
+                                        9  => __( 'September', 'sfs-hr' ), 10 => __( 'October', 'sfs-hr' ),
+                                        11 => __( 'November', 'sfs-hr' ),  12 => __( 'December', 'sfs-hr' ),
+                                    ];
+                                    foreach ( $months as $num => $name ) :
+                                    ?>
+                                        <option value="<?php echo (int) $num; ?>" <?php selected( $settings['fiscal_year_start_month'] ?? 1, $num ); ?>><?php echo esc_html( $name ); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+                        </div>
+                        <script>
+                        document.getElementById('sfs_fiscal_year_type').addEventListener('change', function() {
+                            document.getElementById('sfs_fiscal_year_custom_wrap').style.display = this.value === 'custom' ? '' : 'none';
+                        });
+                        </script>
+                    </td>
+                </tr>
+                <tr>
                     <th><?php esc_html_e( 'Deduction Start Offset', 'sfs-hr' ); ?></th>
                     <td>
                         <input type="number" name="loan_start_offset_months" value="<?php echo esc_attr( $settings['loan_start_offset_months'] ); ?>" min="1" />
@@ -1468,6 +1526,11 @@ class AdminPages {
             'max_loan_multiplier'              => (float) ( $_POST['max_loan_multiplier'] ?? 0 ),
             'max_installment_amount'           => (float) ( $_POST['max_installment_amount'] ?? 0 ),
             'max_installment_percent'          => (int) ( $_POST['max_installment_percent'] ?? 0 ),
+            'max_installment_months'           => max( 1, (int) ( $_POST['max_installment_months'] ?? 60 ) ),
+            'min_service_months'               => max( 0, (int) ( $_POST['min_service_months'] ?? 6 ) ),
+            'one_loan_per_fiscal_year'         => isset( $_POST['one_loan_per_fiscal_year'] ),
+            'fiscal_year_type'                 => in_array( $_POST['fiscal_year_type'] ?? 'calendar', [ 'calendar', 'custom' ], true ) ? sanitize_key( $_POST['fiscal_year_type'] ) : 'calendar',
+            'fiscal_year_start_month'          => max( 1, min( 12, (int) ( $_POST['fiscal_year_start_month'] ?? 1 ) ) ),
             'loan_start_offset_months'         => (int) ( $_POST['loan_start_offset_months'] ?? 2 ),
             'allow_multiple_active_loans'      => isset( $_POST['allow_multiple_active_loans'] ),
             'max_active_loans_per_employee'    => (int) ( $_POST['max_active_loans_per_employee'] ?? 1 ),
@@ -2369,20 +2432,27 @@ class AdminPages {
                     exit;
                 }
 
-                if ( $principal <= 0 || $installments <= 0 || $installments > 60 ) {
+                // Load settings for validation
+                $settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+                $max_inst_months = (int) ( $settings['max_installment_months'] ?? 60 );
+
+                if ( $principal <= 0 || $installments <= 0 || $installments > $max_inst_months ) {
                     wp_safe_redirect( add_query_arg( [
                         'page' => 'sfs-hr-loans',
                         'action' => 'create',
-                        'error' => urlencode( __( 'Invalid amount or installments.', 'sfs-hr' ) ),
+                        'error' => urlencode( sprintf(
+                            __( 'Invalid amount or installments. Maximum installment period is %d months.', 'sfs-hr' ),
+                            $max_inst_months
+                        ) ),
                     ], admin_url( 'admin.php' ) ) );
                     exit;
                 }
 
-                // Get employee details
+                // Get employee details (include hired_at for service period check)
                 $emp_table = $wpdb->prefix . 'sfs_hr_employees';
                 $dept_table = $wpdb->prefix . 'sfs_hr_departments';
                 $employee = $wpdb->get_row( $wpdb->prepare(
-                    "SELECT COALESCE(d.name, 'N/A') as department
+                    "SELECT e.base_salary, e.hired_at, COALESCE(d.name, 'N/A') as department
                      FROM {$emp_table} e
                      LEFT JOIN {$dept_table} d ON e.dept_id = d.id
                      WHERE e.id = %d AND e.status = 'active'",
@@ -2396,6 +2466,142 @@ class AdminPages {
                         'error' => urlencode( __( 'Employee not found or inactive.', 'sfs-hr' ) ),
                     ], admin_url( 'admin.php' ) ) );
                     exit;
+                }
+
+                // Check minimum service period
+                $min_service = (int) ( $settings['min_service_months'] ?? 6 );
+                if ( $min_service > 0 ) {
+                    $hired_at = $employee->hired_at ?? null;
+                    if ( ! $hired_at ) {
+                        wp_safe_redirect( add_query_arg( [
+                            'page' => 'sfs-hr-loans',
+                            'action' => 'create',
+                            'error' => urlencode( __( 'Employee hire date is not set. Cannot verify minimum service period.', 'sfs-hr' ) ),
+                        ], admin_url( 'admin.php' ) ) );
+                        exit;
+                    }
+                    $hired_date = new \DateTime( $hired_at );
+                    $now = new \DateTime( current_time( 'Y-m-d' ) );
+                    $diff_months = ( (int) $now->format( 'Y' ) - (int) $hired_date->format( 'Y' ) ) * 12
+                                 + ( (int) $now->format( 'm' ) - (int) $hired_date->format( 'm' ) );
+                    if ( $diff_months < $min_service ) {
+                        wp_safe_redirect( add_query_arg( [
+                            'page' => 'sfs-hr-loans',
+                            'action' => 'create',
+                            'error' => urlencode( sprintf(
+                                __( 'Employee must have at least %d months of service to request a loan. Current service: %d months.', 'sfs-hr' ),
+                                $min_service,
+                                $diff_months
+                            ) ),
+                        ], admin_url( 'admin.php' ) ) );
+                        exit;
+                    }
+                }
+
+                // Check one loan per fiscal year
+                if ( ! empty( $settings['one_loan_per_fiscal_year'] ) ) {
+                    $fy_type = $settings['fiscal_year_type'] ?? 'calendar';
+                    $fy_start_month = (int) ( $settings['fiscal_year_start_month'] ?? 1 );
+                    if ( $fy_type === 'calendar' ) {
+                        $fy_start_month = 1;
+                    }
+
+                    // Determine fiscal year boundaries
+                    $today = new \DateTime( current_time( 'Y-m-d' ) );
+                    $current_year  = (int) $today->format( 'Y' );
+                    $current_month = (int) $today->format( 'm' );
+
+                    if ( $current_month >= $fy_start_month ) {
+                        $fy_start = sprintf( '%04d-%02d-01', $current_year, $fy_start_month );
+                    } else {
+                        $fy_start = sprintf( '%04d-%02d-01', $current_year - 1, $fy_start_month );
+                    }
+
+                    if ( $fy_start_month === 1 ) {
+                        $fy_end = sprintf( '%04d-12-31', $current_year );
+                    } else {
+                        $end_month = $fy_start_month - 1;
+                        $end_year  = ( $current_month >= $fy_start_month ) ? $current_year + 1 : $current_year;
+                        // Last day of the end month
+                        $fy_end_date = new \DateTime( sprintf( '%04d-%02d-01', $end_year, $end_month ) );
+                        $fy_end = $fy_end_date->format( 'Y-m-t' );
+                    }
+
+                    $existing_loan = $wpdb->get_var( $wpdb->prepare(
+                        "SELECT COUNT(*) FROM {$loans_table}
+                         WHERE employee_id = %d
+                           AND status NOT IN ('rejected', 'cancelled')
+                           AND created_at >= %s
+                           AND created_at <= %s",
+                        $employee_id,
+                        $fy_start . ' 00:00:00',
+                        $fy_end . ' 23:59:59'
+                    ) );
+
+                    if ( (int) $existing_loan > 0 ) {
+                        wp_safe_redirect( add_query_arg( [
+                            'page' => 'sfs-hr-loans',
+                            'action' => 'create',
+                            'error' => urlencode( sprintf(
+                                __( 'Employee already has a loan request in the current fiscal year (%s to %s). Only one loan per fiscal year is allowed.', 'sfs-hr' ),
+                                $fy_start,
+                                $fy_end
+                            ) ),
+                        ], admin_url( 'admin.php' ) ) );
+                        exit;
+                    }
+                }
+
+                // Check salary multiplier limit
+                $multiplier = (float) ( $settings['max_loan_multiplier'] ?? 0 );
+                if ( $multiplier > 0 ) {
+                    $base_salary = (float) ( $employee->base_salary ?? 0 );
+                    if ( $base_salary <= 0 ) {
+                        wp_safe_redirect( add_query_arg( [
+                            'page' => 'sfs-hr-loans',
+                            'action' => 'create',
+                            'error' => urlencode( __( 'Employee base salary is missing or zero. Cannot apply salary multiplier limit.', 'sfs-hr' ) ),
+                        ], admin_url( 'admin.php' ) ) );
+                        exit;
+                    }
+                    $max_by_salary = $base_salary * $multiplier;
+                    if ( $principal > $max_by_salary ) {
+                        wp_safe_redirect( add_query_arg( [
+                            'page' => 'sfs-hr-loans',
+                            'action' => 'create',
+                            'error' => urlencode( sprintf( __( 'Maximum loan amount is %s SAR (%s× employee salary).', 'sfs-hr' ), number_format( $max_by_salary, 2 ), $multiplier ) ),
+                        ], admin_url( 'admin.php' ) ) );
+                        exit;
+                    }
+                }
+
+                // Check max installment as percentage of salary
+                $max_inst_pct = (int) ( $settings['max_installment_percent'] ?? 0 );
+                if ( $max_inst_pct > 0 ) {
+                    $base_salary = (float) ( $employee->base_salary ?? 0 );
+                    if ( $base_salary <= 0 ) {
+                        wp_safe_redirect( add_query_arg( [
+                            'page' => 'sfs-hr-loans',
+                            'action' => 'create',
+                            'error' => urlencode( __( 'Employee base salary is missing or zero. Cannot apply installment percentage limit.', 'sfs-hr' ) ),
+                        ], admin_url( 'admin.php' ) ) );
+                        exit;
+                    }
+                    $installment_amount_check = round( $principal / $installments, 2 );
+                    $max_installment_by_salary = round( $base_salary * $max_inst_pct / 100, 2 );
+                    if ( $installment_amount_check > $max_installment_by_salary ) {
+                        wp_safe_redirect( add_query_arg( [
+                            'page' => 'sfs-hr-loans',
+                            'action' => 'create',
+                            'error' => urlencode( sprintf(
+                                __( 'Monthly installment (%s SAR) exceeds maximum allowed (%s SAR = %d%% of base salary).', 'sfs-hr' ),
+                                number_format( $installment_amount_check, 2 ),
+                                number_format( $max_installment_by_salary, 2 ),
+                                $max_inst_pct
+                            ) ),
+                        ], admin_url( 'admin.php' ) ) );
+                        exit;
+                    }
                 }
 
                 // Generate loan number
