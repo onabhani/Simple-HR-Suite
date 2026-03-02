@@ -315,7 +315,7 @@ public function render_requests(): void {
     <!-- Table Card -->
     <div class="sfs-hr-leave-table-wrap">
         <div class="table-header">
-            <h3><?php echo esc_html($tabs[$status] ?? ''); ?> (<?php echo esc_html($total); ?>)</h3>
+            <h3><?php echo esc_html($status_tabs[$status] ?? ''); ?> (<?php echo esc_html($total); ?>)</h3>
         </div>
 
         <table class="sfs-hr-leave-table">
@@ -1030,14 +1030,14 @@ private function output_leave_requests_styles(): void {
  * given error message and exits. Call this early in approve/reject handlers.
  */
 private function guard_admin_cannot_approve_or_reject( int $current_uid, string $redirect_base, string $message ): void {
-    if ( class_exists( \SFS\HR\Frontend\Role_Resolver::class ) ) {
-        $resolved_role = \SFS\HR\Frontend\Role_Resolver::resolve( $current_uid );
-        if ( $resolved_role === 'admin' ) {
-            wp_safe_redirect(
-                add_query_arg( 'err', rawurlencode( $message ), $redirect_base )
-            );
-            exit;
-        }
+    // Fail-closed: deny if Role_Resolver is unavailable or resolves to 'admin'.
+    if ( ! class_exists( \SFS\HR\Frontend\Role_Resolver::class )
+        || \SFS\HR\Frontend\Role_Resolver::resolve( $current_uid ) === 'admin'
+    ) {
+        wp_safe_redirect(
+            add_query_arg( 'err', rawurlencode( $message ), $redirect_base )
+        );
+        exit;
     }
 }
 

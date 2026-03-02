@@ -43,9 +43,9 @@ class SickLeaveReminder {
         $sess_table = $wpdb->prefix . 'sfs_hr_attendance_sessions';
         $req_table  = $wpdb->prefix . 'sfs_hr_leave_requests';
 
-        // Only look back 3 calendar days (today included).
+        // Only look back 3 calendar days (today included): today, yesterday, day before.
         $today     = current_time( 'Y-m-d' );
-        $three_ago = wp_date( 'Y-m-d', strtotime( '-3 days', strtotime( $today ) ) );
+        $three_ago = wp_date( 'Y-m-d', strtotime( '-2 days', strtotime( $today ) ) );
 
         // Absent dates in the window.
         $absent_dates = $wpdb->get_col( $wpdb->prepare(
@@ -69,15 +69,16 @@ class SickLeaveReminder {
             "SELECT start_date, end_date FROM {$req_table}
              WHERE employee_id = %d
                AND status IN ('pending','approved')
-               AND end_date >= %s AND start_date <= %s",
+               AND COALESCE(end_date, start_date) >= %s AND start_date <= %s",
             $emp_id,
             $three_ago,
             $today
         ) );
 
         foreach ( $leave_rows as $lr ) {
+            $end = ! empty( $lr->end_date ) ? $lr->end_date : $lr->start_date;
             $cur = $lr->start_date;
-            while ( $cur <= $lr->end_date ) {
+            while ( $cur <= $end ) {
                 $covered[ $cur ] = true;
                 $cur = wp_date( 'Y-m-d', strtotime( $cur . ' +1 day' ) );
             }

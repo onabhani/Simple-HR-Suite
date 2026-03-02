@@ -533,8 +533,15 @@ class MyProfileLoans {
         $multiplier = (float) ( $settings['max_loan_multiplier'] ?? 0 );
         if ( $multiplier > 0 ) {
             $base_salary = (float) ( $employee->base_salary ?? 0 );
+            if ( $base_salary <= 0 ) {
+                wp_safe_redirect( add_query_arg( [
+                    'loan_request' => 'error',
+                    'error' => urlencode( __( 'Your base salary is not set. Cannot apply salary multiplier limit. Please contact HR.', 'sfs-hr' ) ),
+                ], $redirect_url ) );
+                exit;
+            }
             $max_by_salary = $base_salary * $multiplier;
-            if ( $base_salary > 0 && $principal > $max_by_salary ) {
+            if ( $principal > $max_by_salary ) {
                 wp_safe_redirect( add_query_arg( [
                     'loan_request' => 'error',
                     'error' => urlencode( sprintf( __( 'Maximum loan amount is %s SAR (%s× your salary).', 'sfs-hr' ), number_format( $max_by_salary, 2 ), $multiplier ) ),

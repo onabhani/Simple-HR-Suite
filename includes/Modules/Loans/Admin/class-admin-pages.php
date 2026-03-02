@@ -2556,8 +2556,16 @@ class AdminPages {
                 $multiplier = (float) ( $settings['max_loan_multiplier'] ?? 0 );
                 if ( $multiplier > 0 ) {
                     $base_salary = (float) ( $employee->base_salary ?? 0 );
+                    if ( $base_salary <= 0 ) {
+                        wp_safe_redirect( add_query_arg( [
+                            'page' => 'sfs-hr-loans',
+                            'action' => 'create',
+                            'error' => urlencode( __( 'Employee base salary is missing or zero. Cannot apply salary multiplier limit.', 'sfs-hr' ) ),
+                        ], admin_url( 'admin.php' ) ) );
+                        exit;
+                    }
                     $max_by_salary = $base_salary * $multiplier;
-                    if ( $base_salary > 0 && $principal > $max_by_salary ) {
+                    if ( $principal > $max_by_salary ) {
                         wp_safe_redirect( add_query_arg( [
                             'page' => 'sfs-hr-loans',
                             'action' => 'create',
@@ -2571,22 +2579,28 @@ class AdminPages {
                 $max_inst_pct = (int) ( $settings['max_installment_percent'] ?? 0 );
                 if ( $max_inst_pct > 0 ) {
                     $base_salary = (float) ( $employee->base_salary ?? 0 );
-                    if ( $base_salary > 0 ) {
-                        $installment_amount_check = round( $principal / $installments, 2 );
-                        $max_installment_by_salary = round( $base_salary * $max_inst_pct / 100, 2 );
-                        if ( $installment_amount_check > $max_installment_by_salary ) {
-                            wp_safe_redirect( add_query_arg( [
-                                'page' => 'sfs-hr-loans',
-                                'action' => 'create',
-                                'error' => urlencode( sprintf(
-                                    __( 'Monthly installment (%s SAR) exceeds maximum allowed (%s SAR = %d%% of base salary).', 'sfs-hr' ),
-                                    number_format( $installment_amount_check, 2 ),
-                                    number_format( $max_installment_by_salary, 2 ),
-                                    $max_inst_pct
-                                ) ),
-                            ], admin_url( 'admin.php' ) ) );
-                            exit;
-                        }
+                    if ( $base_salary <= 0 ) {
+                        wp_safe_redirect( add_query_arg( [
+                            'page' => 'sfs-hr-loans',
+                            'action' => 'create',
+                            'error' => urlencode( __( 'Employee base salary is missing or zero. Cannot apply installment percentage limit.', 'sfs-hr' ) ),
+                        ], admin_url( 'admin.php' ) ) );
+                        exit;
+                    }
+                    $installment_amount_check = round( $principal / $installments, 2 );
+                    $max_installment_by_salary = round( $base_salary * $max_inst_pct / 100, 2 );
+                    if ( $installment_amount_check > $max_installment_by_salary ) {
+                        wp_safe_redirect( add_query_arg( [
+                            'page' => 'sfs-hr-loans',
+                            'action' => 'create',
+                            'error' => urlencode( sprintf(
+                                __( 'Monthly installment (%s SAR) exceeds maximum allowed (%s SAR = %d%% of base salary).', 'sfs-hr' ),
+                                number_format( $installment_amount_check, 2 ),
+                                number_format( $max_installment_by_salary, 2 ),
+                                $max_inst_pct
+                            ) ),
+                        ], admin_url( 'admin.php' ) ) );
+                        exit;
                     }
                 }
 
