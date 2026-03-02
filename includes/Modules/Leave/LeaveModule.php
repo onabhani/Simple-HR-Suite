@@ -165,14 +165,32 @@ public function render_requests(): void {
     $emp_t = $wpdb->prefix.'sfs_hr_employees';
     $typ_t = $wpdb->prefix.'sfs_hr_leave_types';
 
+    // All filterable statuses (matching Leave_UI labels)
+    $status_tabs = [
+        'all'               => __( 'All', 'sfs-hr' ),
+        'pending'           => __( 'Pending', 'sfs-hr' ),
+        'pending_manager'   => __( 'Pending Manager', 'sfs-hr' ),
+        'pending_hr'        => __( 'Pending HR', 'sfs-hr' ),
+        'pending_gm'        => __( 'Pending GM', 'sfs-hr' ),
+        'pending_finance'   => __( 'Pending Finance', 'sfs-hr' ),
+        'approved'          => __( 'Approved', 'sfs-hr' ),
+        'on_leave'          => __( 'On Leave', 'sfs-hr' ),
+        'rejected'          => __( 'Rejected', 'sfs-hr' ),
+        'cancelled'         => __( 'Cancelled', 'sfs-hr' ),
+    ];
+
+    $valid_statuses = array_keys( $status_tabs );
+    if ( ! in_array( $status, $valid_statuses, true ) ) {
+        $status = 'all';
+    }
+
     $where  = '1=1';
     $params = [];
 
-    if (in_array($status, ['pending','approved','rejected'], true)) {
+    if ( $status !== 'all' ) {
         $where   .= " AND r.status = %s";
         $params[] = $status;
     }
-    // 'all' status shows all records, no status filter needed
 
     // Search filter
     if ( $search !== '' ) {
@@ -215,7 +233,7 @@ public function render_requests(): void {
     }
 
     // Count by status for tabs
-    $counts = ['all' => 0, 'pending' => 0, 'approved' => 0, 'rejected' => 0];
+    $counts = [];
     $count_where = '1=1';
     $count_params = [];
     if ( ! $is_hr_or_gm_for_view && ! empty($managed_depts) ) {
@@ -223,13 +241,16 @@ public function render_requests(): void {
         $count_where = "e.dept_id IN ($placeholders)";
         $count_params = array_map('intval', $managed_depts);
     }
-    foreach (['pending', 'approved', 'rejected'] as $s) {
-        $sql_count = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id WHERE r.status = %s" . ($count_where !== '1=1' ? " AND $count_where" : "");
-        $c_params = array_merge([$s], $count_params);
-        $counts[$s] = (int) $wpdb->get_var($wpdb->prepare($sql_count, ...$c_params));
+    foreach ( array_keys( $status_tabs ) as $s ) {
+        if ( $s === 'all' ) {
+            $sql_count = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id" . ($count_where !== '1=1' ? " WHERE $count_where" : "");
+            $counts['all'] = $count_params ? (int) $wpdb->get_var($wpdb->prepare($sql_count, ...$count_params)) : (int) $wpdb->get_var($sql_count);
+        } else {
+            $sql_count = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id WHERE r.status = %s" . ($count_where !== '1=1' ? " AND $count_where" : "");
+            $c_params = array_merge([$s], $count_params);
+            $counts[$s] = (int) $wpdb->get_var($wpdb->prepare($sql_count, ...$c_params));
+        }
     }
-    // Calculate 'all' count
-    $counts['all'] = $counts['pending'] + $counts['approved'] + $counts['rejected'];
 
     $sql_total = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id WHERE $where";
     $total = $params ? (int)$wpdb->get_var($wpdb->prepare($sql_total, ...$params)) : (int)$wpdb->get_var($sql_total);
@@ -268,27 +289,21 @@ public function render_requests(): void {
 
     <!-- Status Tabs -->
     <div class="sfs-hr-leave-tabs">
-        <?php
-        $tabs = [
-            'all'      => __('All', 'sfs-hr'),
-            'pending'  => __('Pending', 'sfs-hr'),
-            'approved' => __('Approved', 'sfs-hr'),
-            'rejected' => __('Rejected', 'sfs-hr'),
-        ];
-        foreach ($tabs as $k => $lbl) {
+        <?php foreach ( $status_tabs as $k => $lbl ) :
             $url = add_query_arg([
                 'page'   => 'sfs-hr-leave-requests',
                 'tab'    => 'requests',
                 'status' => $k,
                 'paged'  => 1,
+                's'      => $search !== '' ? $search : null,
             ], admin_url('admin.php'));
             $active = ($status === $k) ? ' active' : '';
-            echo '<a href="' . esc_url($url) . '" class="sfs-tab' . $active . '">';
-            echo esc_html($lbl);
-            echo '<span class="count">' . esc_html($counts[$k]) . '</span>';
-            echo '</a>';
-        }
         ?>
+            <a href="<?php echo esc_url($url); ?>" class="sfs-tab<?php echo $active; ?>">
+                <?php echo esc_html($lbl); ?>
+                <span class="count"><?php echo esc_html($counts[$k]); ?></span>
+            </a>
+        <?php endforeach; ?>
     </div>
 
     <?php if (!empty($_GET['ok'])): ?>
