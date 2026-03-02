@@ -459,6 +459,7 @@ add_action('plugins_loaded', function(){
 
     // Frontend shortcodes (employee self-service)
     (new \SFS\HR\Frontend\Shortcodes())->hooks();
+    \SFS\HR\Frontend\SickLeaveReminder::init();
 
     // HR modules
     (new \SFS\HR\Modules\Departments\DepartmentsModule())->hooks(); // departments UI + role mapping

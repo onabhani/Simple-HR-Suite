@@ -122,6 +122,9 @@ class LeaveTab implements TabInterface {
         // ─── Render ────────────────────────────────────────────
         $this->render_flash_messages();
 
+        // Sick leave reminder (uncovered absences)
+        \SFS\HR\Frontend\SickLeaveReminder::render( $emp_id, get_current_user_id(), $leave_url );
+
         echo '<div class="sfs-section" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">';
         echo '<div>';
         echo '<h2 class="sfs-section-title" data-i18n-key="my_leave_dashboard" style="margin:0;">' . esc_html__( 'My Leave Dashboard', 'sfs-hr' ) . '</h2>';
@@ -357,13 +360,18 @@ class LeaveTab implements TabInterface {
         echo '</div>'; // .sfs-form-modal
         echo '</div>'; // .sfs-form-modal-overlay
 
-        // JS: pre-select leave type from balance card link + Escape key close
+        // JS: pre-select leave type from balance card link, pre-fill sick leave dates, Escape key close
         echo '<script>';
         echo '(function(){';
         echo 'var m=document.getElementById("sfs-leave-modal");if(!m)return;';
         echo 'document.addEventListener("keydown",function(e){if(e.key==="Escape")m.classList.remove("sfs-modal-active");});';
         echo 'var u=new URLSearchParams(window.location.search),t=u.get("leave_type"),s=document.getElementById("sfs-leave-type-select");';
         echo 'if(t&&s){s.value=t;m.classList.add("sfs-modal-active");}';
+        // Pre-fill dates from sick leave reminder and auto-open modal.
+        echo 'var ss=u.get("sick_start"),se=u.get("sick_end"),om=u.get("open_modal");';
+        echo 'if(om==="1")m.classList.add("sfs-modal-active");';
+        echo 'if(ss){var si=m.querySelector("input[name=start_date]");if(si)si.value=ss;}';
+        echo 'if(se){var ei=m.querySelector("input[name=end_date]");if(ei)ei.value=se;}';
         echo '})();</script>';
     }
 
