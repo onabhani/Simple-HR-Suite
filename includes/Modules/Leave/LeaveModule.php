@@ -3300,9 +3300,9 @@ private function render_cancellation_detail( int $cancel_id ): void {
                   <?php
                   // Get current HR approvers
                   $hr_approvers = (array) get_option('sfs_hr_leave_hr_approvers', []);
-                  // Get users who can be HR approvers
+                  // Get users who can be HR approvers (HR Managers + any user with sfs_hr.leave.manage)
                   $hr_users = get_users([
-                      'role__in' => ['administrator', 'sfs_hr_manager'],
+                      'role__in' => ['sfs_hr_manager'],
                       'orderby'  => 'display_name',
                       'order'    => 'ASC',
                   ]);
@@ -4501,13 +4501,14 @@ private function email_approvers_for_employee(int $employee_id, string $subject,
     }
 
     /**
-     * Notify assigned HR approvers only (not all administrators).
+     * Notify HR approvers: explicitly assigned list + all sfs_hr_manager users.
+     * Administrators are excluded unless explicitly in the HR Approvers list.
      */
     private function notify_hr_users(string $subject, string $msg): void {
         if (get_option('sfs_hr_leave_email','1')!=='1') return;
         $emails = [];
 
-        // Only email explicitly assigned HR approvers
+        // 1. Explicitly assigned HR approvers from Leave settings
         $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
         $hr_user_ids = array_filter( array_map( 'intval', $hr_user_ids ) );
 
@@ -4518,7 +4519,15 @@ private function email_approvers_for_employee(int $employee_id, string $subject,
             }
         }
 
-        // Also check configured HR emails from Leave settings
+        // 2. All sfs_hr_manager role users (they can approve via capability)
+        $hr_managers = get_users( [ 'role' => 'sfs_hr_manager', 'fields' => [ 'user_email' ] ] );
+        foreach ( $hr_managers as $u ) {
+            if ( $u->user_email ) {
+                $emails[] = $u->user_email;
+            }
+        }
+
+        // 3. Configured HR emails from Leave settings
         $hr_emails = get_option('sfs_hr_leave_emails', '');
         if ($hr_emails) {
             $configured = array_filter(array_map('trim', explode(',', $hr_emails)));
