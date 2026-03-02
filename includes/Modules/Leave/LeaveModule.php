@@ -93,7 +93,7 @@ public function render_leave_page(): void {
     }
 
     if ( empty($available) ) {
-        echo '<div class="wrap sfs-hr-wrap"><h1>' . esc_html__('Leave', 'sfs-hr') . '</h1>';
+        echo '<div class="wrap sfs-hr-wrap"><h1>' . esc_html__('Leave Management', 'sfs-hr') . '</h1>';
         echo '<p>' . esc_html__('You do not have access to Leave admin.', 'sfs-hr') . '</p></div>';
         return;
     }
@@ -103,21 +103,48 @@ public function render_leave_page(): void {
         $tab = $available[0]; // default to first allowed tab
     }
 
-    switch ($tab) {
-        case 'types':
-            $this->render_types();
-            break;
-        case 'balances':
-            $this->render_balances();
-            break;
-        case 'settings':
-            $this->render_settings();
-            break;
-        case 'requests':
-        default:
-            $this->render_requests();
-            break;
-    }
+    $tab_labels = [
+        'requests' => __( 'Leave Requests', 'sfs-hr' ),
+        'types'    => __( 'Leave Types', 'sfs-hr' ),
+        'balances' => __( 'Balances', 'sfs-hr' ),
+        'settings' => __( 'Settings', 'sfs-hr' ),
+    ];
+
+    ?>
+    <div class="wrap sfs-hr-wrap">
+        <h1><?php esc_html_e( 'Leave Management', 'sfs-hr' ); ?></h1>
+        <?php Helpers::render_admin_nav(); ?>
+
+        <nav class="nav-tab-wrapper">
+            <?php foreach ( $available as $slug ) : ?>
+                <a href="?page=sfs-hr-leave-requests&tab=<?php echo esc_attr( $slug ); ?>"
+                   class="nav-tab <?php echo $tab === $slug ? 'nav-tab-active' : ''; ?>">
+                    <?php echo esc_html( $tab_labels[ $slug ] ?? ucfirst( $slug ) ); ?>
+                </a>
+            <?php endforeach; ?>
+        </nav>
+
+        <div class="tab-content" style="margin-top: 20px;">
+            <?php
+            switch ($tab) {
+                case 'types':
+                    $this->render_types();
+                    break;
+                case 'balances':
+                    $this->render_balances();
+                    break;
+                case 'settings':
+                    $this->render_settings();
+                    break;
+                case 'requests':
+                default:
+                    $this->render_requests();
+                    break;
+            }
+            ?>
+        </div>
+    </div>
+    <?php
 }
 
 
@@ -2696,10 +2723,6 @@ private function render_cancellation_detail( int $cancel_id ): void {
         $nonce_del = wp_create_nonce('sfs_hr_leave_deltype');
         $nonce_mark = wp_create_nonce('sfs_hr_leave_markannual');
         ?>
-                        
-        <div class="wrap sfs-hr-wrap">
-          <h2 class="title"><?php esc_html_e('Leave Types','sfs-hr'); ?></h2>
-
 
           <?php if(!empty($_GET['err'])): ?>
             <div class="notice notice-error"><p><?php echo esc_html( sanitize_text_field( wp_unslash( $_GET['err'] ) ) );?></p></div>
@@ -2841,7 +2864,6 @@ private function render_cancellation_detail( int $cancel_id ): void {
             </table>
             <?php submit_button($is_editing ? __('Update','sfs-hr') : __('Save','sfs-hr')); ?>
           </form>
-        </div>
         <?php
     }
 
@@ -2875,9 +2897,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
         ), ARRAY_A);
 
         ?>
-        
-        <div class="wrap sfs-hr-wrap">
-          <h2 class="title"><?php esc_html_e('Leave Balances','sfs-hr'); ?></h2>
+
           <?php if(!empty($_GET['ok'])): ?>
             <div class="notice notice-success"><p><?php esc_html_e('Balance updated.','sfs-hr'); ?></p></div>
           <?php endif; if(!empty($_GET['err'])): ?>
@@ -2933,7 +2953,6 @@ private function render_cancellation_detail( int $cancel_id ): void {
               <?php endforeach; endif; ?>
             </tbody>
           </table>
-        </div>
         <?php
     }
 
@@ -3118,8 +3137,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
         $nonce_add = wp_create_nonce('sfs_hr_holiday_add');
         $nonce_del = wp_create_nonce('sfs_hr_holiday_del');
         ?>
-        <div class="wrap sfs-hr-wrap">
-          <h2 class="title"><?php esc_html_e('Leave Settings','sfs-hr'); ?></h2>
+
           <?php if(!empty($_GET['ok'])): ?>
             <div class="notice notice-success"><p><?php esc_html_e('Settings saved.','sfs-hr'); ?></p></div>
           <?php endif; if(!empty($_GET['err'])): ?>
@@ -3312,7 +3330,6 @@ private function render_cancellation_detail( int $cancel_id ): void {
             </table>
             <?php submit_button(__('Add','sfs-hr')); ?>
           </form>
-        </div>
         <?php
     }
 
@@ -4865,7 +4882,7 @@ if (!$has_idx) {
     }
 
     echo '<div class="wrap sfs-hr-wrap">';
-    echo '<h1 class="wp-heading-inline">' . esc_html__( 'Leave', 'sfs-hr' ) . '</h1>';
+    echo '<h1 class="wp-heading-inline">' . esc_html__( 'Leave Management', 'sfs-hr' ) . '</h1>';
 
     // 🔹 Global HR nav + breadcrumbs
     \SFS\HR\Core\Helpers::render_admin_nav();
