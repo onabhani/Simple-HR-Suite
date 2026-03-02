@@ -2347,7 +2347,7 @@ class Shortcodes {
                     if (!key) {
                         var text = el.childNodes[0]?.textContent?.trim() || el.textContent.trim();
                         key = textMap[text];
-                        if (key) {
+                        if (key && !el.querySelector('[data-i18n-key="' + key + '"]')) {
                             el.dataset.i18nKey = key; // Store for future translations
                         }
                     }
@@ -2367,7 +2367,7 @@ class Shortcodes {
                     if (!key) {
                         var text = el.textContent.trim();
                         key = textMap[text];
-                        if (key) {
+                        if (key && !el.querySelector('[data-i18n-key="' + key + '"]')) {
                             el.dataset.i18nKey = key; // Store for future translations
                         }
                     }

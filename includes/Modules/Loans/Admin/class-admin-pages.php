@@ -2382,7 +2382,7 @@ class AdminPages {
                 $emp_table = $wpdb->prefix . 'sfs_hr_employees';
                 $dept_table = $wpdb->prefix . 'sfs_hr_departments';
                 $employee = $wpdb->get_row( $wpdb->prepare(
-                    "SELECT COALESCE(d.name, 'N/A') as department
+                    "SELECT e.base_salary, COALESCE(d.name, 'N/A') as department
                      FROM {$emp_table} e
                      LEFT JOIN {$dept_table} d ON e.dept_id = d.id
                      WHERE e.id = %d AND e.status = 'active'",
@@ -2396,6 +2396,22 @@ class AdminPages {
                         'error' => urlencode( __( 'Employee not found or inactive.', 'sfs-hr' ) ),
                     ], admin_url( 'admin.php' ) ) );
                     exit;
+                }
+
+                // Check salary multiplier limit
+                $settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+                $multiplier = (float) ( $settings['max_loan_multiplier'] ?? 0 );
+                if ( $multiplier > 0 ) {
+                    $base_salary = (float) ( $employee->base_salary ?? 0 );
+                    $max_by_salary = $base_salary * $multiplier;
+                    if ( $base_salary > 0 && $principal > $max_by_salary ) {
+                        wp_safe_redirect( add_query_arg( [
+                            'page' => 'sfs-hr-loans',
+                            'action' => 'create',
+                            'error' => urlencode( sprintf( __( 'Maximum loan amount is %s SAR (%s× employee salary).', 'sfs-hr' ), number_format( $max_by_salary, 2 ), $multiplier ) ),
+                        ], admin_url( 'admin.php' ) ) );
+                        exit;
+                    }
                 }
 
                 // Generate loan number

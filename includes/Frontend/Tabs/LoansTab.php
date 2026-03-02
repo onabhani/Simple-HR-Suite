@@ -46,8 +46,10 @@ class LoansTab implements TabInterface {
         $total_remaining  = 0;
         $total_paid_count = 0;
         foreach ( $loans as $loan ) {
-            $total_borrowed += (float) $loan->principal_amount;
-            $total_remaining += (float) $loan->remaining_balance;
+            if ( in_array( $loan->status, [ 'active', 'completed' ], true ) ) {
+                $total_borrowed += (float) $loan->principal_amount;
+                $total_remaining += (float) $loan->remaining_balance;
+            }
             if ( $loan->status === 'active' ) {
                 $active_count++;
             }
@@ -92,7 +94,7 @@ class LoansTab implements TabInterface {
         if ( $_GET['loan_request'] === 'success' ) {
             echo '<div class="sfs-alert sfs-alert--success">';
             echo '<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" fill="none" stroke-width="2"/><polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" fill="none" stroke-width="2"/></svg>';
-            echo '<span>' . esc_html__( 'Loan request submitted successfully!', 'sfs-hr' ) . '</span></div>';
+            echo '<span data-i18n-key="loan_request_submitted">' . esc_html__( 'Loan request submitted successfully!', 'sfs-hr' ) . '</span></div>';
         } elseif ( $_GET['loan_request'] === 'error' ) {
             $error = isset( $_GET['error'] ) ? urldecode( $_GET['error'] ) : __( 'Failed to submit request.', 'sfs-hr' );
             echo '<div class="sfs-alert sfs-alert--error">';
