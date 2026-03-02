@@ -4112,15 +4112,20 @@ if ($special === 'MATERNITY') {
                 'days'       => $days,
             ]);
             if (get_option('sfs_hr_leave_email', '1') === '1') {
-$this->email_approvers_for_employee(
-    (int)$emp['id'],
-    __('New Leave Request','sfs-hr'),
-    sprintf(
-        __('Employee %s requested leave (%s → %s), %d days.','sfs-hr'),
-        trim(($emp['first_name']??'').' '.($emp['last_name']??'')) ?: $emp['employee_code'],
-        $start, $end, $days
-    )
-);
+                $this->email_approvers_for_employee(
+                    (int)$emp['id'],
+                    __('New Leave Request','sfs-hr'),
+                    $this->build_leave_request_email_body([
+                        'employee_name' => trim(($emp['first_name']??'').' '.($emp['last_name']??'')) ?: ($emp['employee_code'] ?? ''),
+                        'employee_code' => $emp['employee_code'] ?? '',
+                        'department'    => $emp['department_name'] ?? '',
+                        'leave_type'    => $type['name'] ?? '',
+                        'start_date'    => $start,
+                        'end_date'      => $end,
+                        'days'          => $days,
+                        'reason'        => $reason ?? '',
+                    ])
+                );
             }
             $target = add_query_arg('sfs_hr_ok', '1', $target);
         }
@@ -4246,6 +4251,80 @@ $types = array_values(array_filter($types, function($t) use ($gender) {
     private function manager_dept_ids_for_user(int $uid): array {
         return LeaveCalculationService::manager_dept_ids_for_user($uid);
     }
+
+/**
+ * Build an HTML email body for a new leave request notification.
+ */
+private function build_leave_request_email_body( array $data ): string {
+    $site_name = esc_html( get_bloginfo( 'name' ) );
+
+    $employee_name = esc_html( $data['employee_name'] );
+    $employee_code = esc_html( $data['employee_code'] ?? '' );
+    $department    = esc_html( $data['department'] ?? '' );
+    $leave_type    = esc_html( $data['leave_type'] ?? '' );
+    $start_date    = esc_html( $data['start_date'] );
+    $end_date      = esc_html( $data['end_date'] );
+    $days          = (int) $data['days'];
+    $reason        = esc_html( $data['reason'] ?? '' );
+    $review_url    = esc_url( $data['review_url'] ?? admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending' ) );
+
+    $lbl_leave_type = esc_html__( 'Leave Type', 'sfs-hr' );
+    $lbl_employee   = esc_html__( 'Employee', 'sfs-hr' );
+    $lbl_department = esc_html__( 'Department', 'sfs-hr' );
+    $lbl_start      = esc_html__( 'Start Date', 'sfs-hr' );
+    $lbl_end        = esc_html__( 'End Date', 'sfs-hr' );
+    $lbl_duration   = esc_html__( 'Duration', 'sfs-hr' );
+    $lbl_reason     = esc_html__( 'Reason', 'sfs-hr' );
+    /* translators: %d: number of days */
+    $days_text      = sprintf( _n( '%d day', '%d days', $days, 'sfs-hr' ), $days );
+    $heading        = esc_html__( 'New Leave Request', 'sfs-hr' );
+    $intro          = esc_html__( 'A new leave request has been submitted and requires your review.', 'sfs-hr' );
+    $cta_label      = esc_html__( 'Review Request', 'sfs-hr' );
+
+    $employee_display = $employee_name;
+    if ( $employee_code ) {
+        $employee_display .= ' (' . $employee_code . ')';
+    }
+
+    // Row helper
+    $row = static function ( string $label, string $value ) : string {
+        if ( $value === '' ) {
+            return '';
+        }
+        return '<tr><td style="padding:8px 12px;color:#64748b;font-size:13px;white-space:nowrap;vertical-align:top;">' . $label . '</td>'
+             . '<td style="padding:8px 12px;color:#1e293b;font-size:13px;">' . $value . '</td></tr>';
+    };
+
+    $rows  = $row( $lbl_employee, $employee_display );
+    if ( $department ) {
+        $rows .= $row( $lbl_department, $department );
+    }
+    $rows .= $row( $lbl_leave_type, $leave_type );
+    $rows .= $row( $lbl_start, $start_date );
+    $rows .= $row( $lbl_end, $end_date );
+    $rows .= $row( $lbl_duration, $days_text );
+    if ( $reason ) {
+        $rows .= $row( $lbl_reason, nl2br( $reason ) );
+    }
+
+    return <<<HTML
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;">
+  <div style="background:#2563eb;padding:20px 24px;border-radius:8px 8px 0 0;">
+    <h2 style="margin:0;color:#fff;font-size:18px;font-weight:600;">{$heading}</h2>
+  </div>
+  <div style="background:#ffffff;border:1px solid #e2e8f0;border-top:none;padding:24px;border-radius:0 0 8px 8px;">
+    <p style="margin:0 0 16px;color:#475569;font-size:14px;line-height:1.5;">{$intro}</p>
+    <table style="width:100%;border-collapse:collapse;background:#f8fafc;border-radius:6px;overflow:hidden;" cellpadding="0" cellspacing="0">
+      {$rows}
+    </table>
+    <div style="text-align:center;margin:24px 0 8px;">
+      <a href="{$review_url}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:10px 28px;border-radius:6px;font-size:14px;font-weight:600;">{$cta_label}</a>
+    </div>
+  </div>
+  <p style="text-align:center;margin:16px 0 0;color:#94a3b8;font-size:12px;">{$site_name} &middot; HR Management System</p>
+</div>
+HTML;
+}
 
 /** Email approvers for a given employee: dept manager if set, else HR managers/admins as fallback, plus configured HR emails */
 private function email_approvers_for_employee(int $employee_id, string $subject, string $msg): void {
@@ -5446,15 +5525,29 @@ public function handle_self_request(): void {
 
     // Optional: email approvers
     if ( get_option( 'sfs_hr_leave_email', '1' ) === '1' ) {
+        $emp_row = $wpdb->get_row( $wpdb->prepare(
+            "SELECT e.first_name, e.last_name, e.employee_code, COALESCE(d.name,'') as department_name
+             FROM {$emp_table} e LEFT JOIN {$wpdb->prefix}sfs_hr_departments d ON e.dept_id = d.id
+             WHERE e.id = %d",
+            $employee_id
+        ) );
+        $type_name = (string) $wpdb->get_var( $wpdb->prepare(
+            "SELECT name FROM {$type_table} WHERE id = %d", $type_id
+        ) );
+
         $this->email_approvers_for_employee(
             $employee_id,
             __( 'New Leave Request', 'sfs-hr' ),
-            sprintf(
-                __( 'Employee requested leave: %s → %s (%d days).', 'sfs-hr' ),
-                $start,
-                $end,
-                $days
-            )
+            $this->build_leave_request_email_body([
+                'employee_name' => $emp_row ? trim( $emp_row->first_name . ' ' . $emp_row->last_name ) : '',
+                'employee_code' => $emp_row->employee_code ?? '',
+                'department'    => $emp_row->department_name ?? '',
+                'leave_type'    => $type_name,
+                'start_date'    => $start,
+                'end_date'      => $end,
+                'days'          => $days,
+                'reason'        => $reason,
+            ])
         );
     }
 
