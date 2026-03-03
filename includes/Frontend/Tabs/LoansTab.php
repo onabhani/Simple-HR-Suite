@@ -217,9 +217,9 @@ class LoansTab implements TabInterface {
         echo '</div>';
 
         // Submit
-        echo '<button type="submit" id="sfs-loan-submit" class="sfs-btn sfs-btn--primary sfs-btn--full" data-i18n-key="submit_loan_request">';
+        echo '<button type="submit" id="sfs-loan-submit" class="sfs-btn sfs-btn--primary sfs-btn--full">';
         echo '<svg viewBox="0 0 24 24" class="sfs-loan-submit-icon"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
-        echo '<span class="sfs-loan-submit-text">' . esc_html__( 'Submit Loan Request', 'sfs-hr' ) . '</span>';
+        echo '<span class="sfs-loan-submit-text" data-i18n-key="submit_loan_request">' . esc_html__( 'Submit Loan Request', 'sfs-hr' ) . '</span>';
         echo '</button>';
 
         echo '</div>'; // .sfs-form-fields
@@ -246,6 +246,8 @@ class LoansTab implements TabInterface {
         ];
         echo '<script>var _li=' . wp_json_encode( $i18n ) . ';';
         echo 'var _ll=' . wp_json_encode( $limits ) . ';';
+        // Helper: prefer JSON translations (set by Shortcodes.php applyLanguage) over PHP fallback
+        echo 'function _lt(k){return window._sfsStrings&&window._sfsStrings[k]||_li[k]||k;}';
         echo 'function sfsCalcLoan(){';
         echo 'var p=parseFloat(document.querySelector(\'input[name="principal_amount"]\').value)||0,';
         echo 'm=parseFloat(document.getElementById("sfs_loan_monthly").value)||0,';
@@ -254,16 +256,16 @@ class LoansTab implements TabInterface {
         echo 'warns=[];';
         // Client-side amount warnings
         echo 'if(p>0){';
-        echo 'if(_ll.max_amount>0&&p>_ll.max_amount)warns.push(_li.exceeds_max+" ("+_ll.max_amount.toLocaleString()+" SAR)");';
-        echo 'if(_ll.max_by_salary>0&&p>_ll.max_by_salary)warns.push(_li.exceeds_salary+" ("+_ll.max_by_salary.toLocaleString()+" SAR)");';
+        echo 'if(_ll.max_amount>0&&p>_ll.max_amount)warns.push(_lt("exceeds_max")+" ("+_ll.max_amount.toLocaleString()+" SAR)");';
+        echo 'if(_ll.max_by_salary>0&&p>_ll.max_by_salary)warns.push(_lt("exceeds_salary")+" ("+_ll.max_by_salary.toLocaleString()+" SAR)");';
         echo '}';
-        echo 'if(m>0&&_ll.max_installment>0&&m>_ll.max_installment)warns.push(_li.exceeds_inst+" ("+_ll.max_installment.toLocaleString()+" SAR)");';
+        echo 'if(m>0&&_ll.max_installment>0&&m>_ll.max_installment)warns.push(_lt("exceeds_inst")+" ("+_ll.max_installment.toLocaleString()+" SAR)");';
         echo 'if(w){if(warns.length){w.textContent=warns.join(". ");w.style.display="block";}else{w.textContent="";w.style.display="none";}}';
         // Calculate months
         echo 'if(p>0&&m>0){var f=Math.floor(p/m),r=p-(f*m),t=r>0?f+1:f,mx=_ll.max_months||60;';
-        echo 'if(t>mx){d.textContent="⚠️ "+_li.would_require+" "+t+" "+_li.months_max;d.style.color="var(--sfs-danger)";}';
-        echo 'else if(r>0){d.textContent=f+" × "+m.toFixed(2)+" SAR + "+_li.final_payment+" "+r.toFixed(2)+" SAR = "+p.toFixed(2)+" "+_li.sar_total+" ("+t+" "+_li.months+")";d.style.color="var(--sfs-primary)";}';
-        echo 'else{d.textContent=f+" "+_li.monthly_of+" "+m.toFixed(2)+" SAR = "+p.toFixed(2)+" "+_li.sar_total;d.style.color="var(--sfs-primary)";}}';
+        echo 'if(t>mx){d.textContent="⚠️ "+_lt("would_require")+" "+t+" "+_lt("months_max");d.style.color="var(--sfs-danger)";}';
+        echo 'else if(r>0){d.textContent=f+" × "+m.toFixed(2)+" SAR + "+_lt("final_payment")+" "+r.toFixed(2)+" SAR = "+p.toFixed(2)+" "+_lt("sar_total")+" ("+t+" "+_lt("months")+")";d.style.color="var(--sfs-primary)";}';
+        echo 'else{d.textContent=f+" "+_lt("monthly_of")+" "+m.toFixed(2)+" SAR = "+p.toFixed(2)+" "+_lt("sar_total");d.style.color="var(--sfs-primary)";}}';
         echo 'else{d.textContent="";}';
         echo '}';
         echo 'document.addEventListener("DOMContentLoaded",function(){';
@@ -277,12 +279,16 @@ class LoansTab implements TabInterface {
     ────────────────────────────────────────────────────────── */
     private function render_ajax_script(): void {
         $ajax_url = esc_url( admin_url( 'admin-ajax.php' ) );
+        // PHP fallbacks (used when JSON translations haven't loaded yet)
         $i18n = [
-            'submitting' => esc_js( __( 'Submitting...', 'sfs-hr' ) ),
-            'submit'     => esc_js( __( 'Submit Loan Request', 'sfs-hr' ) ),
-            'error'      => esc_js( __( 'An error occurred. Please try again.', 'sfs-hr' ) ),
+            'submitting'         => esc_js( __( 'Submitting...', 'sfs-hr' ) ),
+            'submit_loan_request'=> esc_js( __( 'Submit Loan Request', 'sfs-hr' ) ),
+            'an_error_occurred'  => esc_js( __( 'An error occurred. Please try again.', 'sfs-hr' ) ),
         ];
         echo '<script>(function(){';
+        echo 'var _ai=' . wp_json_encode( $i18n ) . ';';
+        // Helper: prefer JSON translations over PHP fallback
+        echo 'function _at(k){return window._sfsStrings&&window._sfsStrings[k]||_ai[k]||k;}';
         echo 'var m=document.getElementById("sfs-loan-modal");if(!m)return;';
         // Escape key
         echo 'document.addEventListener("keydown",function(e){if(e.key==="Escape")m.classList.remove("sfs-modal-active");});';
@@ -290,14 +296,14 @@ class LoansTab implements TabInterface {
         echo 'var f=document.getElementById("sfs-loan-form");if(!f)return;';
         echo 'f.addEventListener("submit",function(e){e.preventDefault();';
         echo 'var btn=document.getElementById("sfs-loan-submit"),msg=document.getElementById("sfs-loan-msg"),txt=btn.querySelector(".sfs-loan-submit-text");';
-        echo 'btn.disabled=true;txt.textContent="' . $i18n['submitting'] . '";';
+        echo 'btn.disabled=true;txt.textContent=_at("submitting");';
         echo 'msg.style.display="none";';
         echo 'var fd=new FormData(f);';
         echo 'fd.set("action","sfs_hr_submit_loan_ajax");';
         echo 'fetch("' . $ajax_url . '",{method:"POST",credentials:"same-origin",body:fd})';
         echo '.then(function(r){return r.json();})';
         echo '.then(function(r){';
-        echo 'btn.disabled=false;txt.textContent="' . $i18n['submit'] . '";';
+        echo 'btn.disabled=false;txt.textContent=_at("submit_loan_request");';
         echo 'if(r.success){';
         echo 'msg.style.display="block";msg.style.background="var(--sfs-success-bg,#d1e7dd)";msg.style.color="var(--sfs-success,#0f5132)";msg.style.border="1px solid var(--sfs-success,#badbcc)";';
         echo 'msg.textContent=r.data.message;f.reset();';
@@ -306,13 +312,13 @@ class LoansTab implements TabInterface {
         echo 'setTimeout(function(){location.reload();},1500);';
         echo '}else{';
         echo 'msg.style.display="block";msg.style.background="var(--sfs-danger-bg,#f8d7da)";msg.style.color="var(--sfs-danger,#842029)";msg.style.border="1px solid var(--sfs-danger,#f5c2c7)";';
-        echo 'msg.textContent=r.data&&r.data.message?r.data.message:"' . $i18n['error'] . '";';
+        echo 'msg.textContent=r.data&&r.data.message?r.data.message:_at("an_error_occurred");';
         echo 'msg.scrollIntoView({behavior:"smooth",block:"nearest"});';
         echo '}';
         echo '}).catch(function(){';
-        echo 'btn.disabled=false;txt.textContent="' . $i18n['submit'] . '";';
+        echo 'btn.disabled=false;txt.textContent=_at("submit_loan_request");';
         echo 'msg.style.display="block";msg.style.background="#f8d7da";msg.style.color="#842029";msg.style.border="1px solid #f5c2c7";';
-        echo 'msg.textContent="' . $i18n['error'] . '";';
+        echo 'msg.textContent=_at("an_error_occurred");';
         echo '});});';
         echo '})();</script>';
     }

@@ -3232,6 +3232,9 @@
     "final_payment": "final payment",
     "sar_total": "SAR total",
     "monthly_of": "monthly payments of",
+    "exceeds_max": "Exceeds maximum loan amount",
+    "exceeds_salary": "Exceeds salary-based limit",
+    "exceeds_inst": "Installment exceeds salary limit",
     "unknown_period": "Unknown Period",
     "please_allow_popups": "Please allow popups.",
 

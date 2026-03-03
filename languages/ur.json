@@ -3240,6 +3240,9 @@
     "final_payment": "آخری ادائیگی",
     "sar_total": "ریال کل",
     "monthly_of": "ماہانہ قسطیں",
+    "exceeds_max": "زیادہ سے زیادہ قرض کی رقم سے تجاوز",
+    "exceeds_salary": "تنخواہ کی حد سے تجاوز",
+    "exceeds_inst": "قسط تنخواہ کی حد سے تجاوز",
     "unknown_period": "نامعلوم مدت",
     "please_allow_popups": "پاپ اپ کی اجازت دیں۔",
 

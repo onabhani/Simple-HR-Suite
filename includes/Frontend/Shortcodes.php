@@ -2275,6 +2275,9 @@ class Shortcodes {
 
                 // Translate form labels and buttons
                 translateFormElements(pwaApp, langStrings);
+
+                // Expose current translations globally for inline JS (calculator, AJAX scripts)
+                window._sfsStrings = langStrings;
             }
 
             function translateFormElements(container, strings) {
