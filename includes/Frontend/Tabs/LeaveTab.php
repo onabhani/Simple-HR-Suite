@@ -41,10 +41,19 @@ class LeaveTab implements TabInterface {
         $year  = (int) current_time( 'Y' );
         $today = current_time( 'Y-m-d' );
 
-        // Active leave types
+        // Employee gender for filtering gender-specific leave types
+        $emp_gender = strtolower( (string) ( $emp['gender'] ?? '' ) );
+
+        // Active leave types (filtered by gender)
         $types = $wpdb->get_results(
-            "SELECT id, name FROM {$type_table} WHERE active = 1 ORDER BY name ASC"
+            "SELECT id, name, gender_required FROM {$type_table} WHERE active = 1 ORDER BY name ASC"
         );
+        if ( $types ) {
+            $types = array_values( array_filter( $types, function( $t ) use ( $emp_gender ) {
+                $gr = strtolower( trim( (string) ( $t->gender_required ?? 'any' ) ) );
+                return $gr === 'any' || $gr === $emp_gender;
+            } ) );
+        }
 
         // Leave history
         $rows = $wpdb->get_results(
@@ -70,7 +79,7 @@ class LeaveTab implements TabInterface {
 
         $balances = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT b.*, t.name, t.is_annual
+                "SELECT b.*, t.name, t.is_annual, t.gender_required
                  FROM {$bal_table} b
                  JOIN {$type_table} t ON t.id = b.type_id
                  WHERE b.employee_id = %d AND b.year = %d
@@ -80,6 +89,12 @@ class LeaveTab implements TabInterface {
             ),
             ARRAY_A
         );
+
+        // Filter out balances for gender-restricted leave types that don't match
+        $balances = array_values( array_filter( $balances, function( $b ) use ( $emp_gender ) {
+            $gr = strtolower( trim( (string) ( $b['gender_required'] ?? 'any' ) ) );
+            return $gr === 'any' || $gr === $emp_gender;
+        } ) );
 
         $total_used       = 0;
         $annual_available = 0;
@@ -156,13 +171,15 @@ class LeaveTab implements TabInterface {
         if ( ! empty( $_GET['leave_err'] ) ) {
             $code = sanitize_key( $_GET['leave_err'] );
             $msgs = [
-                'no_employee'    => __( 'Your account is not linked to an employee record.', 'sfs-hr' ),
-                'missing_fields' => __( 'Please fill in all required fields.', 'sfs-hr' ),
-                'invalid_dates'  => __( 'Invalid dates. End date must be on or after the start date.', 'sfs-hr' ),
-                'overlap'        => __( 'You already have a pending or approved request overlapping these dates.', 'sfs-hr' ),
-                'doc_upload'     => __( 'Supporting document upload failed. Please try again.', 'sfs-hr' ),
-                'doc_required'   => __( 'A supporting document is required for sick leave.', 'sfs-hr' ),
-                'db_error'       => __( 'Something went wrong saving your request. Please try again.', 'sfs-hr' ),
+                'no_employee'     => __( 'Your account is not linked to an employee record.', 'sfs-hr' ),
+                'missing_fields'  => __( 'Please fill in all required fields.', 'sfs-hr' ),
+                'invalid_dates'   => __( 'Invalid dates. End date must be on or after the start date.', 'sfs-hr' ),
+                'overlap'         => __( 'You already have a pending or approved request overlapping these dates.', 'sfs-hr' ),
+                'doc_upload'      => __( 'Supporting document upload failed. Please try again.', 'sfs-hr' ),
+                'doc_required'    => __( 'A supporting document is required for this leave type.', 'sfs-hr' ),
+                'gender_mismatch' => __( 'This leave type is not available for your gender.', 'sfs-hr' ),
+                'invalid_type'    => __( 'Invalid or inactive leave type.', 'sfs-hr' ),
+                'db_error'        => __( 'Something went wrong saving your request. Please try again.', 'sfs-hr' ),
             ];
             $msg = $msgs[ $code ] ?? __( 'An error occurred. Please try again.', 'sfs-hr' );
             echo '<div class="sfs-alert sfs-alert--error">';

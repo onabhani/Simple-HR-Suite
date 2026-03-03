@@ -19,6 +19,15 @@ All notable changes to Simple HR Suite will be documented in this file.
 - **Payroll `emp_number` key mismatch** — renamed to `employee_code` to match
   the actual data source.
 - **Filipino translation** — `exceeds_inst` string reworded to natural phrasing.
+- **Leave gender filtering missing** — leave type dropdowns, balance cards, and
+  request forms now filter by the `gender_required` setting on each leave type.
+  Previously only MATERNITY was hidden by special_code; leave types configured as
+  "Male Only" or "Female Only" were still shown to all employees.
+- **Leave attachment requirement ignored** — the `requires_attachment` flag on
+  leave types is now enforced during submission. Previously only hardcoded
+  SICK_SHORT/SICK_LONG special codes required a document; custom leave types with
+  the checkbox enabled could be submitted without any file. Also added the missing
+  file upload field to the admin self-service leave form.
 
 ### Improved
 - **Employee list action menu** — added three-dot menu with View, Edit, and
