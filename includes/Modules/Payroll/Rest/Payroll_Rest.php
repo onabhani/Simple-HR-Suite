@@ -144,7 +144,7 @@ class Payroll_Rest {
         }
 
         $items = $wpdb->get_results( $wpdb->prepare(
-            "SELECT i.*, e.first_name, e.last_name, e.emp_number, e.employee_code
+            "SELECT i.*, e.first_name, e.last_name, e.employee_code
              FROM {$items_table} i
              LEFT JOIN {$emp_table} e ON e.id = i.employee_id
              WHERE i.run_id = %d

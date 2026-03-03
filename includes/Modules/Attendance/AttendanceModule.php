@@ -4177,7 +4177,7 @@ private static function backfill_early_leave_request_numbers( \wpdb $wpdb ): voi
             start_time TIME NOT NULL,
             end_time TIME NOT NULL,
             unpaid_break_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-            break_start_time TIME NULL COMMENT 'Scheduled break start for delay calculation',
+            break_start_time TIME NULL,
             break_policy ENUM('auto','punch','none') NOT NULL DEFAULT 'auto',
             grace_late_minutes TINYINT UNSIGNED NOT NULL DEFAULT 5,
             grace_early_leave_minutes TINYINT UNSIGNED NOT NULL DEFAULT 5,
@@ -4185,11 +4185,11 @@ private static function backfill_early_leave_request_numbers( \wpdb $wpdb ): voi
             overtime_after_minutes SMALLINT UNSIGNED NULL,
             require_selfie TINYINT(1) NOT NULL DEFAULT 0,
             active TINYINT(1) NOT NULL DEFAULT 1,
-            dept_id BIGINT UNSIGNED NULL COMMENT 'References sfs_hr_departments.id',
+            dept_id BIGINT UNSIGNED NULL,
             notes TEXT NULL,
             weekly_overrides TEXT NULL,
-            period_overrides TEXT NULL COMMENT 'JSON array of date-range time overrides (Ramadan, etc.)',
-            dept_ids TEXT NULL COMMENT 'JSON array of department IDs for multi-department shifts',
+            period_overrides TEXT NULL,
+            dept_ids TEXT NULL,
             PRIMARY KEY (id),
             KEY active_dept_id (active, dept_id),
             KEY dept_id (dept_id)
@@ -4244,7 +4244,7 @@ private static function backfill_early_leave_request_numbers( \wpdb $wpdb ): voi
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             employee_id BIGINT UNSIGNED NOT NULL,
             shift_id BIGINT UNSIGNED NOT NULL,
-            schedule_id BIGINT UNSIGNED NULL COMMENT 'FK to shift_schedules; overrides shift_id when set',
+            schedule_id BIGINT UNSIGNED NULL,
             start_date DATE NOT NULL,
             created_at DATETIME NOT NULL,
             created_by BIGINT UNSIGNED NULL,
@@ -4269,9 +4269,9 @@ private static function backfill_early_leave_request_numbers( \wpdb $wpdb ): voi
         dbDelta("CREATE TABLE {$p}sfs_hr_attendance_shift_schedules (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             name VARCHAR(100) NOT NULL,
-            cycle_days SMALLINT UNSIGNED NOT NULL COMMENT 'Total days in one full rotation cycle',
-            anchor_date DATE NOT NULL COMMENT 'Reference date for cycle calculation (day 1 of first cycle)',
-            entries TEXT NOT NULL COMMENT 'JSON: [{day:1,shift_id:3},{day:8,shift_id:7,day_off:true},...]',
+            cycle_days SMALLINT UNSIGNED NOT NULL,
+            anchor_date DATE NOT NULL,
+            entries TEXT NOT NULL,
             active TINYINT(1) NOT NULL DEFAULT 1,
             created_at DATETIME NOT NULL,
             created_by BIGINT UNSIGNED NULL,
@@ -4291,7 +4291,7 @@ private static function backfill_early_leave_request_numbers( \wpdb $wpdb ): voi
             geo_lock_lat DECIMAL(10,7) NULL,
             geo_lock_lng DECIMAL(10,7) NULL,
             geo_lock_radius_m SMALLINT UNSIGNED NULL,
-            allowed_dept_id BIGINT UNSIGNED NULL COMMENT 'References sfs_hr_departments.id, NULL means all departments',
+            allowed_dept_id BIGINT UNSIGNED NULL,
             fingerprint_hash VARCHAR(64) NULL,
             active TINYINT(1) NOT NULL DEFAULT 1,
             meta_json LONGTEXT NULL,
@@ -4359,19 +4359,19 @@ self::add_column_if_missing($wpdb, $t, 'suggest_out_time',        "suggest_out_t
         dbDelta("CREATE TABLE {$p}sfs_hr_early_leave_requests (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             employee_id BIGINT UNSIGNED NOT NULL,
-            session_id BIGINT UNSIGNED NULL COMMENT 'Links to attendance session if exists',
+            session_id BIGINT UNSIGNED NULL,
             request_date DATE NOT NULL,
-            scheduled_end_time TIME NULL COMMENT 'Original shift end time',
-            requested_leave_time TIME NOT NULL COMMENT 'Time employee wants to leave',
-            actual_leave_time TIME NULL COMMENT 'Actual punch out time',
+            scheduled_end_time TIME NULL,
+            requested_leave_time TIME NOT NULL,
+            actual_leave_time TIME NULL,
             reason_type ENUM('sick','external_task','personal','emergency','other') NOT NULL DEFAULT 'other',
-            reason_note TEXT NULL COMMENT 'Employee explanation',
+            reason_note TEXT NULL,
             status ENUM('pending','approved','rejected','cancelled') NOT NULL DEFAULT 'pending',
-            manager_id BIGINT UNSIGNED NULL COMMENT 'Department manager to approve',
-            reviewed_by BIGINT UNSIGNED NULL COMMENT 'Who actually reviewed',
+            manager_id BIGINT UNSIGNED NULL,
+            reviewed_by BIGINT UNSIGNED NULL,
             reviewed_at DATETIME NULL,
-            manager_note TEXT NULL COMMENT 'Manager response/comment',
-            affects_salary TINYINT(1) NOT NULL DEFAULT 0 COMMENT '0=no deduction, 1=normal deduction',
+            manager_note TEXT NULL,
+            affects_salary TINYINT(1) NOT NULL DEFAULT 0,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
             PRIMARY KEY (id),
@@ -4391,7 +4391,7 @@ self::add_column_if_missing($wpdb, $t, 'suggest_out_time',        "suggest_out_t
         self::add_column_if_missing($wpdb, $sessions_table, 'no_break_taken', "no_break_taken TINYINT(1) NOT NULL DEFAULT 0");
 
         // Scheduled break start time on shifts
-        self::add_column_if_missing($wpdb, $shifts_table, 'break_start_time', "break_start_time TIME NULL COMMENT 'Scheduled break start for delay calculation'");
+        self::add_column_if_missing($wpdb, $shifts_table, 'break_start_time', "break_start_time TIME NULL");
 
         // Add request_number column for early leave requests
         $early_leave_table = "{$p}sfs_hr_early_leave_requests";

@@ -535,7 +535,7 @@ class Admin_Pages {
         }
 
         $items = $wpdb->get_results( $wpdb->prepare(
-            "SELECT i.*, e.first_name, e.last_name, e.emp_number, e.employee_code
+            "SELECT i.*, e.first_name, e.last_name, e.employee_code
              FROM {$items_table} i
              LEFT JOIN {$emp_table} e ON e.id = i.employee_id
              WHERE i.run_id = %d
@@ -610,7 +610,7 @@ class Admin_Pages {
                 <tbody>
                     <?php foreach ( $items as $idx => $item ):
                         $emp_name = trim( ( $item->first_name ?? '' ) . ' ' . ( $item->last_name ?? '' ) );
-                        $emp_code = $item->emp_number ?: $item->employee_code;
+                        $emp_code = $item->employee_code ?? '';
                         $components = ! empty( $item->components_json ) ? json_decode( $item->components_json, true ) : [];
                         $earnings   = is_array( $components ) ? array_filter( $components, fn( $c ) => ( $c['type'] ?? '' ) === 'earning' ) : [];
                         $deductions = is_array( $components ) ? array_filter( $components, fn( $c ) => ( $c['type'] ?? '' ) === 'deduction' ) : [];
@@ -1088,7 +1088,7 @@ class Admin_Pages {
 
         if ( $is_admin ) {
             $payslips = $wpdb->get_results(
-                "SELECT ps.*, p.name as period_name, e.first_name, e.last_name, e.emp_number,
+                "SELECT ps.*, p.name as period_name, e.first_name, e.last_name, e.employee_code,
                         i.net_salary
                  FROM {$payslips_table} ps
                  LEFT JOIN {$periods_table} p ON p.id = ps.period_id
@@ -1110,7 +1110,7 @@ class Admin_Pages {
             }
 
             $payslips = $wpdb->get_results( $wpdb->prepare(
-                "SELECT ps.*, p.name as period_name, e.first_name, e.last_name, e.emp_number,
+                "SELECT ps.*, p.name as period_name, e.first_name, e.last_name, e.employee_code,
                         i.net_salary
                  FROM {$payslips_table} ps
                  LEFT JOIN {$periods_table} p ON p.id = ps.period_id
@@ -1817,7 +1817,7 @@ class Admin_Pages {
                 e.employee_code,
                 CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
                 d.name AS department,
-                e.job_title,
+                e.position AS job_title,
                 COUNT(s.id) AS total_days,
                 SUM(CASE WHEN s.status = 'present' THEN 1 ELSE 0 END) AS present_days,
                 SUM(CASE WHEN s.status = 'late' THEN 1 ELSE 0 END) AS late_days,
@@ -1830,7 +1830,7 @@ class Admin_Pages {
             FROM {$emp_table} e
             LEFT JOIN {$sessions_table} s ON s.employee_id = e.id
                 AND s.work_date BETWEEN %s AND %s
-            LEFT JOIN {$dept_table} d ON e.department_id = d.id
+            LEFT JOIN {$dept_table} d ON e.dept_id = d.id
             WHERE e.status = 'active'
             GROUP BY e.id
             ORDER BY e.first_name, e.last_name",
@@ -1924,9 +1924,9 @@ class Admin_Pages {
 
         $items = $wpdb->get_results( $wpdb->prepare(
             "SELECT i.*, i.components_json,
-                    e.first_name, e.last_name, e.emp_number, e.employee_code,
-                    e.national_id, e.iqama_number, e.passport_number,
-                    e.iban, e.bank_name, e.bank_account
+                    e.first_name, e.last_name, e.employee_code,
+                    e.national_id, e.passport_no,
+                    e.base_salary
              FROM {$items_table} i
              LEFT JOIN {$emp_table} e ON e.id = i.employee_id
              WHERE i.run_id = %d
@@ -1978,7 +1978,7 @@ class Admin_Pages {
 
         // Employee Records (EDR)
         foreach ( $items as $item ) {
-            $emp_id = $item->iqama_number ?: $item->national_id ?: $item->emp_number;
+            $emp_id = $item->national_id ?: $item->employee_code ?: '';
 
             // Extract housing and other allowances from components_json
             $housing_allowance = 0;
@@ -2036,7 +2036,7 @@ class Admin_Pages {
 
         foreach ( $items as $item ) {
             $emp_name = trim( ( $item->first_name ?? '' ) . ' ' . ( $item->last_name ?? '' ) );
-            $emp_id = $item->iqama_number ?: $item->national_id ?: $item->emp_number;
+            $emp_id = $item->national_id ?: $item->employee_code ?: '';
 
             // Extract housing and other allowances from components_json
             $housing_allowance = 0;
@@ -2111,11 +2111,11 @@ class Admin_Pages {
 
         // Get payroll items with employee details
         $items = $wpdb->get_results( $wpdb->prepare(
-            "SELECT i.*, e.first_name, e.last_name, e.emp_number, e.employee_code,
-                    e.job_title, d.name as department
+            "SELECT i.*, e.first_name, e.last_name, e.employee_code,
+                    e.position, d.name as department
              FROM {$items_table} i
              LEFT JOIN {$emp_table} e ON e.id = i.employee_id
-             LEFT JOIN {$dept_table} d ON e.department_id = d.id
+             LEFT JOIN {$dept_table} d ON e.dept_id = d.id
              WHERE i.run_id = %d
              ORDER BY d.name, e.first_name",
             $run_id
@@ -2189,7 +2189,7 @@ class Admin_Pages {
                 $item->employee_code ?: $item->employee_id,
                 $emp_name,
                 $item->department ?: '-',
-                $item->job_title ?: '-',
+                $item->position ?: '-',
                 number_format( (float) $item->base_salary, 2, '.', '' ),
                 number_format( $housing_allowance, 2, '.', '' ),
                 number_format( $transport_allowance, 2, '.', '' ),
@@ -2355,7 +2355,7 @@ class Admin_Pages {
         }
 
         $items = $wpdb->get_results( $wpdb->prepare(
-            "SELECT i.*, e.first_name, e.last_name, e.emp_number, e.employee_code
+            "SELECT i.*, e.first_name, e.last_name, e.employee_code
              FROM {$items_table} i
              LEFT JOIN {$emp_table} e ON e.id = i.employee_id
              WHERE i.run_id = %d
@@ -2389,7 +2389,7 @@ class Admin_Pages {
 
         foreach ( $items as $item ) {
             $emp_name = trim( ( $item->first_name ?? '' ) . ' ' . ( $item->last_name ?? '' ) );
-            $emp_code = $item->emp_number ?: $item->employee_code;
+            $emp_code = $item->employee_code ?? '';
 
             fputcsv( $output, [
                 $emp_code ?: $item->employee_id,
