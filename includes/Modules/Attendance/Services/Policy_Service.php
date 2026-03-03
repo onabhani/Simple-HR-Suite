@@ -24,6 +24,14 @@ class Policy_Service {
      */
     private static array $cache = [];
 
+    /**
+     * Runtime cache: effective policy (employee+shift merged).
+     * Key: "employee_id:shift_id" → resolved policy object.
+     *
+     * @var array<string, object|null>
+     */
+    private static array $effective_cache = [];
+
     // =========================================================================
     // Core resolver
     // =========================================================================
@@ -42,9 +50,18 @@ class Policy_Service {
      * @return object|null  Policy-like object, or null when nothing applies.
      */
     public static function resolve_effective_policy( int $employee_id, ?object $shift = null ): ?object {
+        // Per-request cache: same employee + shift → same result.
+        // Distinguish null shift, shift with no id, and shift with an id.
+        $shift_id  = $shift === null ? 'NULL' : (string) ( $shift->id ?? 'S0' );
+        $cache_key = $employee_id . ':' . $shift_id;
+        if ( isset( self::$effective_cache[ $cache_key ] ) ) {
+            return self::$effective_cache[ $cache_key ];
+        }
+
         $role_policy = self::get_policy_for_employee( $employee_id );
 
         if ( ! $shift ) {
+            self::$effective_cache[ $cache_key ] = $role_policy;
             return $role_policy;
         }
 
@@ -71,6 +88,7 @@ class Policy_Service {
         );
 
         if ( ! $has_override ) {
+            self::$effective_cache[ $cache_key ] = $role_policy;
             return $role_policy;
         }
 
@@ -147,6 +165,7 @@ class Policy_Service {
         $p->breaks_enabled        = ( ( $shift->break_policy ?? 'none' ) !== 'none' ) ? 1 : 0;
         $p->break_duration_minutes = (int) ( $shift->unpaid_break_minutes ?? 0 );
 
+        self::$effective_cache[ $cache_key ] = $p;
         return $p;
     }
 
@@ -503,6 +522,7 @@ class Policy_Service {
 
         // Clear runtime cache
         self::$cache = [];
+        self::$effective_cache = [];
 
         return $id;
     }
@@ -520,6 +540,7 @@ class Policy_Service {
         $deleted = $wpdb->delete( $wpdb->prefix . 'sfs_hr_attendance_policies', [ 'id' => $policy_id ] );
 
         self::$cache = [];
+        self::$effective_cache = [];
 
         return (bool) $deleted;
     }

@@ -280,4 +280,20 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 
 ---
 
+## 12. Future Ideas
+
+> Ideas for future consideration. Not yet prioritized or scheduled.
+
+### 12.1 Selfie Face Detection / Recognition
+- [ ] **Integrate** client-side face detection (e.g., `face-api.js` or TensorFlow.js `blazeface`) to verify that the selfie contains a human face before accepting the punch — prevents blank/ceiling/floor photos
+- [ ] **Evaluate** server-side face matching: compare the punch selfie against the employee's profile photo to verify identity (prevents buddy-punching)
+- [ ] **Consider** liveness detection to prevent photo-of-photo attacks (blink detection, head movement)
+- [ ] **Research** privacy implications and legal requirements (GDPR, local labor law) for biometric data storage
+- [ ] **Define** graceful fallback when face detection fails (low light, camera quality) — allow punch with a flag for HR review rather than blocking the employee
+- [ ] **Benchmark** client-side model loading time (~2–5 MB) and impact on low-speed connections (see Section 9.1)
+
+> **Current state:** Selfies are captured and stored as evidence/audit trail only. No face detection or recognition is performed. Adding face detection would strengthen anti-fraud controls while keeping the system usable.
+
+---
+
 *This file is the single source of truth for enhancement work. Update checkboxes as tasks are completed.*

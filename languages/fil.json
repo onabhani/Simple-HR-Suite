@@ -3240,6 +3240,9 @@
     "final_payment": "huling bayad",
     "sar_total": "SAR kabuuan",
     "monthly_of": "buwanang bayad ng",
+    "exceeds_max": "Lumampas sa maximum na halaga ng loan",
+    "exceeds_salary": "Lumampas sa limitasyon batay sa suweldo",
+    "exceeds_inst": "Ang installment ay lumampas sa limitasyon ng suweldo",
     "unknown_period": "Hindi Alam na Panahon",
     "please_allow_popups": "Mangyaring payagan ang popups.",
 

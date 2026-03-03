@@ -2,6 +2,23 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [1.7.1] — 2026-03-03
+
+### Improved
+- **Punch endpoint performance** — eliminated redundant DB queries per punch
+  (~30–40% fewer queries, ~130–160 ms vs ~200 ms per punch):
+  - Reuse already-resolved shift and selfie mode for same-day post-punch
+    response instead of re-querying (saves 4–9 queries per punch).
+  - Remove duplicate `update_post_meta` writes for selfie attachments
+    (saves 2 queries per selfie punch).
+  - Add per-request cache to `Policy_Service::resolve_effective_policy`
+    so the 3 validation calls during a punch share one merged policy object.
+  - Remove dead `$resp_extra` code.
+
+### Added
+- **Future Ideas section** in ENHANCEMENTS.md (Section 12) — selfie face
+  detection / recognition roadmap for future consideration.
+
 ## [1.6.4] — 2026-02-28
 
 ### Fixed

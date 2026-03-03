@@ -866,9 +866,7 @@ if ( ! empty( $_FILES['selfie']['tmp_name'] ) ) {
         wp_update_attachment_metadata( $attach_id, $meta );
         $selfie_media_id = (int) $attach_id;
         $valid_selfie    = 1;
-
-        update_post_meta( $attach_id, '_sfs_att_employee_id', (int) $emp );
-        update_post_meta( $attach_id, '_sfs_att_source', $source );
+        // post_meta written after punch insert (lines below) where punch_id is known
     }
 
 // Option 2) Reuse existing attachment id
@@ -995,13 +993,6 @@ if ( $selfie_media_id ) {
 }
 
 
-$resp_extra = [];
-if ( $selfie_media_id ) {
-    $resp_extra['selfie_media_id'] = $selfie_media_id;
-    $resp_extra['selfie_url']      = wp_get_attachment_url( $selfie_media_id );
-}
-
-
     // ---- Audit
     $auditT = $wpdb->prefix . 'sfs_hr_attendance_audit';
     $wpdb->insert( $auditT, [
@@ -1025,28 +1016,36 @@ if ( $selfie_media_id ) {
     // ---- Recalculate the session for the work date (may be yesterday for overnight shifts)
         \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( (int) $emp, $dateYmd );
 
-    // Snapshot جديد بعد التسجيل
+    // Post-punch snapshot (must re-query — DB now includes the new punch)
     $snap  = self::snapshot_for_today( (int) $emp );
     $today = wp_date( 'Y-m-d' );
-    $shift = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $emp, $today );
-    $dept_id = $shift && ! empty( $shift->dept_id ) ? (int) $shift->dept_id : 0;
 
-    // Compute selfie mode for next punch (same logic as /status endpoint)
-    $shift_requires_next = $shift && ! empty( $shift->require_selfie );
-    $mode_next = \SFS\HR\Modules\Attendance\AttendanceModule::selfie_mode_for(
-        (int) $emp,
-        $dept_id,
-        [
-            'device_id'      => $device_id ?: null,
-            'shift_requires' => $shift_requires_next,
-        ]
-    );
+    // Selfie mode & dept for the NEXT punch response.
+    // Reuse already-resolved $assign and $mode when the punch is for today
+    // (common path ~95% of punches) — saves 4–9 DB queries.
+    // Only re-resolve for overnight shifts where today differs from $dateYmd.
+    if ( $dateYmd === $today ) {
+        $mode_next    = $mode;
+        $dept_id_resp = $dept_id;
+    } else {
+        $shift_today         = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $emp, $today );
+        $dept_id_resp        = $shift_today && ! empty( $shift_today->dept_id ) ? (int) $shift_today->dept_id : 0;
+        $shift_requires_next = $shift_today && ! empty( $shift_today->require_selfie );
+        $mode_next = \SFS\HR\Modules\Attendance\AttendanceModule::selfie_mode_for(
+            (int) $emp,
+            $dept_id_resp,
+            [
+                'device_id'      => $device_id ?: null,
+                'shift_requires' => $shift_requires_next,
+            ]
+        );
+    }
     $requires_selfie_next = in_array( $mode_next, [ 'in_only', 'in_out', 'all' ], true );
 
     $resp = array_merge( $snap, [
         'selfie_mode'     => $mode_next,
         'requires_selfie' => (bool) $requires_selfie_next,
-        'dept_id'         => $dept_id,
+        'dept_id'         => $dept_id_resp,
     ] );
 
     if ( $selfie_media_id ) {
