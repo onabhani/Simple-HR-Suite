@@ -1224,38 +1224,9 @@ private static function save_selfie_attachment( array $src ): int {
                 $start_utc     = $work_local->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' );
                 $overnight_ymd = $work_date;
             } else {
-                // Buffer expired — auto-close the stale session now so the
-                // employee is not blocked.  The hourly cron also does this,
-                // but we handle it inline as a safety net.
-                $auto_close_utc = gmdate( 'Y-m-d H:i:s', $deadlineTs );
-
-                // Guard: only insert if no auto-close punch already exists
-                // (the cron job may have already handled this).
-                $already_closed = $wpdb->get_var( $wpdb->prepare(
-                    "SELECT COUNT(*) FROM {$pT}
-                     WHERE employee_id = %d AND punch_type = 'out'
-                       AND punch_time = %s AND note LIKE '%%[auto-close]%%'",
-                    $employee_id, $auto_close_utc
-                ) );
-
-                if ( ! $already_closed ) {
-                    $now_utc_str = gmdate( 'Y-m-d H:i:s', $nowTs );
-                    $wpdb->insert( $pT, [
-                        'employee_id' => $employee_id,
-                        'punch_type'  => 'out',
-                        'punch_time'  => $auto_close_utc,
-                        'source'      => 'manager_adjust',
-                        'note'        => '[auto-close] Shift auto-closed — employee did not clock out.',
-                        'created_at'  => $now_utc_str,
-                        'created_by'  => null,
-                    ] );
-
-                    if ( $wpdb->insert_id ) {
-                        \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( $employee_id, $work_date, $wpdb );
-                        \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( $employee_id, $today, $wpdb );
-                    }
-                }
-                // Session is now closed — no stale_open_session flag needed.
+                // Buffer expired — stale open session (forgot to clock out).
+                // Surface this to the UI so the employee knows why they can't act.
+                $stale_open_session = $work_date;
             }
         }
     }
