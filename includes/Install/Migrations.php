@@ -48,6 +48,9 @@ class Migrations {
         self::add_column_if_missing($emp, 'passport_expiry',          "DATE NULL");
         self::add_column_if_missing($emp, 'emergency_contact_name',   "VARCHAR(191) NULL");
         self::add_column_if_missing($emp, 'emergency_contact_phone',  "VARCHAR(191) NULL");
+        self::add_column_if_missing($emp, 'bank_name',               "VARCHAR(100) NULL");
+        self::add_column_if_missing($emp, 'bank_account',            "VARCHAR(50) NULL");
+        self::add_column_if_missing($emp, 'iban',                    "VARCHAR(50) NULL");
         // If some older install created user_id as NOT NULL, make it NULL-able
         self::make_column_nullable_if_exists($emp, 'user_id', "BIGINT(20) UNSIGNED");
 

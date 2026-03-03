@@ -4009,7 +4009,7 @@ public function shortcode_request($atts = []): string {
 
         $type = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT id, annual_quota, allow_negative, is_annual, special_code FROM $types_t WHERE id=%d AND active=1",
+                "SELECT id, annual_quota, allow_negative, is_annual, special_code, gender_required, requires_attachment FROM $types_t WHERE id=%d AND active=1",
                 $type_id
             ),
             ARRAY_A
@@ -4018,6 +4018,17 @@ public function shortcode_request($atts = []): string {
             return $out . '<div class="notice notice-error"><p>' .
                    esc_html__('Invalid leave type.', 'sfs-hr') .
                    '</p></div>' . $this->render_request_form($emp);
+        }
+
+        // Gender check using the leave type's gender_required field
+        $type_gender = strtolower(trim((string)($type['gender_required'] ?? 'any')));
+        if ($type_gender !== 'any') {
+            $emp_gender = strtolower((string)($emp['gender'] ?? ''));
+            if ($type_gender !== $emp_gender) {
+                return $out . '<div class="notice notice-error"><p>' .
+                       esc_html__('This leave type is not available for your gender.', 'sfs-hr') .
+                       '</p></div>' . $this->render_request_form($emp);
+            }
         }
 
         $special_code = isset($type['special_code']) ? strtoupper(trim($type['special_code'])) : '';
@@ -4055,12 +4066,10 @@ $cal_days = (int) floor( (strtotime($end) - strtotime($start)) / DAY_IN_SECONDS 
 
 // ---- Sick: require document upload
 $attach_id = 0;
-if (in_array($special, ['SICK_SHORT','SICK_LONG'], true)) {
-    if (empty($_FILES['supporting_doc']['name'])) {
-        return $out.'<div class="notice notice-error"><p>'.
-            esc_html__('A medical document is required for Sick leave.','sfs-hr').
-            '</p></div>'.$this->render_request_form($emp);
-    }
+$needs_doc = ! empty( $type['requires_attachment'] )
+          || in_array( $special, ['SICK_SHORT','SICK_LONG'], true );
+
+if ( ! empty( $_FILES['supporting_doc']['name'] ) ) {
     require_once ABSPATH.'wp-admin/includes/file.php';
     require_once ABSPATH.'wp-admin/includes/media.php';
     require_once ABSPATH.'wp-admin/includes/image.php';
@@ -4070,6 +4079,10 @@ if (in_array($special, ['SICK_SHORT','SICK_LONG'], true)) {
             esc_html__('Failed to upload the document.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
     }
+} elseif ( $needs_doc ) {
+    return $out.'<div class="notice notice-error"><p>'.
+        esc_html__('A supporting document is required for this leave type.','sfs-hr').
+        '</p></div>'.$this->render_request_form($emp);
 }
 
 // ---- Marriage: up to 5 business days
@@ -4245,18 +4258,18 @@ if ($special === 'MATERNITY') {
     private function render_request_form(array $emp): string {
         global $wpdb;
         $types = $wpdb->get_results(
-    "SELECT id, name, special_code
+    "SELECT id, name, special_code, gender_required
      FROM {$wpdb->prefix}sfs_hr_leave_types
      WHERE active=1
      ORDER BY name ASC",
     ARRAY_A
 );
 
-// Hide Maternity for non-female employees
+// Hide leave types that don't match the employee's gender
 $gender = strtolower((string)($emp['gender'] ?? ''));
 $types = array_values(array_filter($types, function($t) use ($gender) {
-    $special = strtoupper(trim((string)($t['special_code'] ?? '')));
-    if ($special === 'MATERNITY' && $gender !== 'female') return false;
+    $gr = strtolower(trim((string)($t['gender_required'] ?? 'any')));
+    if ($gr !== 'any' && $gr !== $gender) return false;
     return true;
 }));
 
@@ -5321,13 +5334,15 @@ if ($new_days <= 0) {
     if ( ! empty( $_GET['leave_err'] ) ) {
         $err_code = sanitize_key( $_GET['leave_err'] );
         $err_messages = [
-            'no_employee'    => __( 'Your account is not linked to an employee record.', 'sfs-hr' ),
-            'missing_fields' => __( 'Please fill in all required fields.', 'sfs-hr' ),
-            'invalid_dates'  => __( 'Invalid dates. End date must be on or after the start date.', 'sfs-hr' ),
-            'overlap'        => __( 'You already have a pending or approved request overlapping these dates.', 'sfs-hr' ),
-            'doc_upload'     => __( 'Supporting document upload failed. Please try again.', 'sfs-hr' ),
-            'doc_required'   => __( 'A supporting document is required for sick leave.', 'sfs-hr' ),
-            'db_error'       => __( 'Something went wrong saving your request. Please try again.', 'sfs-hr' ),
+            'no_employee'     => __( 'Your account is not linked to an employee record.', 'sfs-hr' ),
+            'missing_fields'  => __( 'Please fill in all required fields.', 'sfs-hr' ),
+            'invalid_dates'   => __( 'Invalid dates. End date must be on or after the start date.', 'sfs-hr' ),
+            'overlap'         => __( 'You already have a pending or approved request overlapping these dates.', 'sfs-hr' ),
+            'doc_upload'      => __( 'Supporting document upload failed. Please try again.', 'sfs-hr' ),
+            'doc_required'    => __( 'A supporting document is required for this leave type.', 'sfs-hr' ),
+            'gender_mismatch' => __( 'This leave type is not available for your gender.', 'sfs-hr' ),
+            'invalid_type'    => __( 'Invalid or inactive leave type.', 'sfs-hr' ),
+            'db_error'        => __( 'Something went wrong saving your request. Please try again.', 'sfs-hr' ),
         ];
         $msg = $err_messages[ $err_code ] ?? __( 'An error occurred. Please try again.', 'sfs-hr' );
         echo '<div class="notice notice-error"><p>' . esc_html( $msg ) . '</p></div>';
@@ -5400,13 +5415,28 @@ private function render_self_request_form( \stdClass $employee ): void {
     global $wpdb;
 
     $type_table = $wpdb->prefix . 'sfs_hr_leave_types';
+    $emp_table  = $wpdb->prefix . 'sfs_hr_employees';
+
+    // Get employee gender for filtering
+    $emp_gender = strtolower((string) $wpdb->get_var( $wpdb->prepare(
+        "SELECT gender FROM {$emp_table} WHERE id = %d",
+        (int) $employee->id
+    ) ));
 
     $types = $wpdb->get_results(
-        "SELECT id, name 
+        "SELECT id, name, gender_required
          FROM {$type_table}
          WHERE active = 1
          ORDER BY name ASC"
     );
+
+    // Filter out leave types that don't match the employee's gender
+    if ( $types ) {
+        $types = array_values( array_filter( $types, function( $t ) use ( $emp_gender ) {
+            $gr = strtolower( trim( (string) ( $t->gender_required ?? 'any' ) ) );
+            return $gr === 'any' || $gr === $emp_gender;
+        } ) );
+    }
 
     echo '<div class="sfs-hr-leave-self-form-wrap" style="margin-top:12px;margin-bottom:20px;">';
     echo '<h3>' . esc_html__( 'Request new leave', 'sfs-hr' ) . '</h3>';
@@ -5440,7 +5470,7 @@ private function render_self_request_form( \stdClass $employee ): void {
 
     $action_url = admin_url( 'admin-post.php' );
 
-    echo '<form method="post" action="' . esc_url( $action_url ) . '" class="sfs-hr-leave-self-form">';
+    echo '<form method="post" action="' . esc_url( $action_url ) . '" enctype="multipart/form-data" class="sfs-hr-leave-self-form">';
     wp_nonce_field( 'sfs_hr_leave_request_self' );
 
     echo '<input type="hidden" name="action" value="sfs_hr_leave_request_self" />';
@@ -5482,6 +5512,15 @@ private function render_self_request_form( \stdClass $employee ): void {
     echo '<th scope="row"><label for="sfs-hr-leave-reason">' . esc_html__( 'Reason / note', 'sfs-hr' ) . '</label></th>';
     echo '<td>';
     echo '<textarea name="reason" id="sfs-hr-leave-reason" class="large-text" rows="3"></textarea>';
+    echo '</td>';
+    echo '</tr>';
+
+    // Supporting document
+    echo '<tr>';
+    echo '<th scope="row"><label for="sfs-hr-leave-doc">' . esc_html__( 'Supporting document', 'sfs-hr' ) . '</label></th>';
+    echo '<td>';
+    echo '<input type="file" name="supporting_doc" id="sfs-hr-leave-doc" accept=".pdf,image/*" />';
+    echo '<p class="description">' . esc_html__( 'PDF or image. Required for some leave types.', 'sfs-hr' ) . '</p>';
     echo '</td>';
     echo '</tr>';
 
@@ -5555,18 +5594,34 @@ public function handle_self_request(): void {
         $this->redirect_back_with_msg( 'leave_err', 'overlap' );
     }
 
-    // Get leave type special_code to know if this is sick leave
+    // Get leave type details for validation
     $type_row = $wpdb->get_row(
         $wpdb->prepare(
-            "SELECT special_code FROM {$type_table} WHERE id = %d",
+            "SELECT special_code, gender_required, requires_attachment FROM {$type_table} WHERE id = %d AND active = 1",
             $type_id
         )
     );
-    $special = $type_row && isset( $type_row->special_code )
-        ? (string) $type_row->special_code
-        : '';
 
-    $requires_doc = in_array( $special, [ 'SICK_SHORT', 'SICK_LONG' ], true );
+    if ( ! $type_row ) {
+        $this->redirect_back_with_msg( 'leave_err', 'invalid_type' );
+    }
+
+    $special = (string) ( $type_row->special_code ?? '' );
+
+    // Validate gender restriction
+    $type_gender = strtolower( trim( (string) ( $type_row->gender_required ?? 'any' ) ) );
+    if ( $type_gender !== 'any' ) {
+        $emp_gender = strtolower( (string) $wpdb->get_var( $wpdb->prepare(
+            "SELECT gender FROM {$wpdb->prefix}sfs_hr_employees WHERE id = %d",
+            $employee_id
+        ) ) );
+        if ( $type_gender !== $emp_gender ) {
+            $this->redirect_back_with_msg( 'leave_err', 'gender_mismatch' );
+        }
+    }
+
+    $requires_doc = ! empty( $type_row->requires_attachment )
+                 || in_array( $special, [ 'SICK_SHORT', 'SICK_LONG' ], true );
 
     // Handle supporting document upload (only if provided; required for sick leave)
     $attach_id = 0;
