@@ -20,6 +20,7 @@ require_once __DIR__ . '/Rest/class-attendance-admin-rest.php';
 require_once __DIR__ . '/Rest/class-attendance-rest.php';
 require_once __DIR__ . '/Rest/class-early-leave-rest.php';
 require_once __DIR__ . '/Cron/Daily_Session_Builder.php';
+require_once __DIR__ . '/Cron/Stale_Session_Closer.php';
 
 class AttendanceModule {
 
@@ -149,6 +150,9 @@ add_action('rest_api_init', function () {
 
         // Daily session builder — ensures sessions exist for yesterday/today
         ( new \SFS\HR\Modules\Attendance\Cron\Daily_Session_Builder() )->hooks();
+
+        // Auto-close stale sessions (forgot to clock out) hourly
+        ( new \SFS\HR\Modules\Attendance\Cron\Stale_Session_Closer() )->hooks();
     }
 
     /**
