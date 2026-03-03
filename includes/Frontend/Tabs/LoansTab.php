@@ -244,11 +244,11 @@ class LoansTab implements TabInterface {
             'exceeds_salary'   => esc_js( __( 'Exceeds salary-based limit', 'sfs-hr' ) ),
             'exceeds_inst'     => esc_js( __( 'Installment exceeds salary limit', 'sfs-hr' ) ),
         ];
-        echo '<script>var _li=' . wp_json_encode( $i18n ) . ';';
+        echo '<script>(function(){var _li=' . wp_json_encode( $i18n ) . ';';
         echo 'var _ll=' . wp_json_encode( $limits ) . ';';
         // Helper: prefer JSON translations (set by Shortcodes.php applyLanguage) over PHP fallback
         echo 'function _lt(k){return window._sfsStrings&&window._sfsStrings[k]||_li[k]||k;}';
-        echo 'function sfsCalcLoan(){';
+        echo 'window.sfsCalcLoan=function(){';
         echo 'var p=parseFloat(document.querySelector(\'input[name="principal_amount"]\').value)||0,';
         echo 'm=parseFloat(document.getElementById("sfs_loan_monthly").value)||0,';
         echo 'd=document.getElementById("sfs_loan_plan"),';
@@ -267,11 +267,11 @@ class LoansTab implements TabInterface {
         echo 'else if(r>0){d.textContent=f+" × "+m.toFixed(2)+" SAR + "+_lt("final_payment")+" "+r.toFixed(2)+" SAR = "+p.toFixed(2)+" "+_lt("sar_total")+" ("+t+" "+_lt("months")+")";d.style.color="var(--sfs-primary)";}';
         echo 'else{d.textContent=f+" "+_lt("monthly_of")+" "+m.toFixed(2)+" SAR = "+p.toFixed(2)+" "+_lt("sar_total");d.style.color="var(--sfs-primary)";}}';
         echo 'else{d.textContent="";}';
-        echo '}';
+        echo '};';
         echo 'document.addEventListener("DOMContentLoaded",function(){';
-        echo 'var i=document.querySelector(\'input[name="principal_amount"]\');if(i){i.addEventListener("input",sfsCalcLoan);}';
-        echo 'var j=document.getElementById("sfs_loan_monthly");if(j){j.addEventListener("input",sfsCalcLoan);}';
-        echo '});</script>';
+        echo 'var i=document.querySelector(\'input[name="principal_amount"]\');if(i){i.addEventListener("input",window.sfsCalcLoan);}';
+        echo 'var j=document.getElementById("sfs_loan_monthly");if(j){j.addEventListener("input",window.sfsCalcLoan);}';
+        echo '});})();</script>';
     }
 
     /* ──────────────────────────────────────────────────────────

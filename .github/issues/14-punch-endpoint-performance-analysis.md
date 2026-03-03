@@ -112,10 +112,14 @@ Already has `$cache` but only for the role-based lookup. The full `resolve_effec
 with shift merging is computed fresh each time. A per-request cache keyed on
 `employee_id + shift_id` would eliminate redundant work.
 
-#### 5. Batch `update_post_meta` calls for selfie (~3–5 ms saved)
-Three separate `update_post_meta` calls can be replaced with a single
-`$wpdb->insert` for `_sfs_att_punch_id`, `_sfs_att_employee_id`, and
-`_sfs_att_source`.
+#### 5. Remove duplicate `update_post_meta` calls for selfie (~3–5 ms saved)
+Two `update_post_meta` calls were made before the punch insert (setting
+`_sfs_att_employee_id` and `_sfs_att_source`), then overwritten by three calls
+after the insert (adding `_sfs_att_punch_id`). Removing the redundant pre-insert
+pair saves 2 queries per selfie punch. The remaining three `update_post_meta`
+calls should stay — replacing them with direct `$wpdb->insert` into `wp_postmeta`
+would bypass WP's metadata cache invalidation, hooks (`updated_post_meta`), and
+sanitization, which could break plugins that rely on meta change events.
 
 #### 6. Skip `wp_generate_attachment_metadata` — already done
 The code already skips thumbnail generation (saves ~2–5 seconds per selfie).

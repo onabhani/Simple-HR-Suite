@@ -51,7 +51,8 @@ class Policy_Service {
      */
     public static function resolve_effective_policy( int $employee_id, ?object $shift = null ): ?object {
         // Per-request cache: same employee + shift → same result.
-        $shift_id  = $shift->id ?? 0;
+        // Distinguish null shift, shift with no id, and shift with an id.
+        $shift_id  = $shift === null ? 'NULL' : (string) ( $shift->id ?? 'S0' );
         $cache_key = $employee_id . ':' . $shift_id;
         if ( isset( self::$effective_cache[ $cache_key ] ) ) {
             return self::$effective_cache[ $cache_key ];

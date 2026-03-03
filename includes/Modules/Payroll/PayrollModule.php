@@ -632,7 +632,7 @@ class PayrollModule {
         return [
             'employee_id'         => $employee_id,
             'employee_name'       => trim( ( $employee->first_name ?? '' ) . ' ' . ( $employee->last_name ?? '' ) ),
-            'emp_number'          => $employee->employee_code ?? '',
+            'employee_code'       => $employee->employee_code ?? '',
             'base_salary'         => round( $base_salary, 2 ),
             'gross_salary'        => $gross_salary,
             'total_earnings'      => $total_earnings,
