@@ -1205,7 +1205,10 @@ class Admin_Pages {
         // Fetch payslip with joined data
         $ps = $wpdb->get_row( $wpdb->prepare(
             "SELECT ps.*, p.name AS period_name, p.start_date, p.end_date, p.pay_date,
-                    e.first_name, e.last_name, e.employee_code, e.bank_name, e.bank_account, e.iban,
+                    e.first_name, e.last_name, e.employee_code,
+                    COALESCE(i.bank_name, e.bank_name) AS bank_name,
+                    COALESCE(i.bank_account, e.bank_account) AS bank_account,
+                    COALESCE(i.iban, e.iban) AS iban,
                     i.base_salary, i.gross_salary, i.total_deductions, i.net_salary,
                     i.working_days, i.days_worked, i.days_absent, i.days_late, i.days_leave,
                     i.overtime_hours, i.components_json
@@ -1336,7 +1339,7 @@ class Admin_Pages {
 
             <?php if ( $ps->pdf_attachment_id ): ?>
             <p>
-                <a href="<?php echo esc_url( wp_get_attachment_url( $ps->pdf_attachment_id ) ); ?>" class="button button-primary" target="_blank">
+                <a href="<?php echo esc_url( wp_get_attachment_url( $ps->pdf_attachment_id ) ); ?>" class="button button-primary" target="_blank" rel="noopener noreferrer">
                     <?php esc_html_e( 'Download PDF', 'sfs-hr' ); ?>
                 </a>
             </p>

@@ -17,6 +17,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class EmployeesTab implements TabInterface {
 
+    private static bool $assets_printed = false;
+
     public function render( array $emp, int $emp_id ): void {
         $user_id = get_current_user_id();
         $role    = Role_Resolver::resolve( $user_id );
@@ -226,9 +228,10 @@ class EmployeesTab implements TabInterface {
             $status = $e['status'] ?? 'active';
             $badge_class = $status === 'active' ? 'approved' : ( $status === 'terminated' ? 'rejected' : 'pending' );
 
-            $view_url   = esc_url( admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . $eid ) );
-            $edit_url   = esc_url( admin_url( 'admin.php?page=sfs-hr-employee-profile&employee_id=' . $eid . '&mode=edit' ) );
-            $delete_url = esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=sfs_hr_delete_employee&id=' . $eid ), 'sfs_hr_del_' . $eid ) );
+            $urls = $this->get_employee_urls( $eid );
+            $view_url   = $urls['view'];
+            $edit_url   = $urls['edit'];
+            $delete_url = $urls['delete'];
 
             echo '<tr>';
             echo '<td><strong>' . $code . '</strong></td>';
@@ -247,7 +250,7 @@ class EmployeesTab implements TabInterface {
             $status_label = $this->translate_status( $status );
             echo '<td><span class="sfs-badge sfs-badge--' . esc_attr( $badge_class ) . '" data-i18n-key="' . esc_attr( $status_key ) . '">' . esc_html( $status_label ) . '</span></td>';
             echo '<td style="position:relative;">';
-            echo '<button type="button" class="sfs-emp-action-btn" onclick="sfsToggleEmpMenu(this)" aria-label="' . esc_attr__( 'Actions', 'sfs-hr' ) . '">';
+            echo '<button type="button" class="sfs-emp-action-btn" onclick="sfsHR.toggleEmpMenu(this)" aria-label="' . esc_attr__( 'Actions', 'sfs-hr' ) . '">';
             echo '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>';
             echo '</button>';
             echo '<div class="sfs-emp-action-menu">';
@@ -274,9 +277,10 @@ class EmployeesTab implements TabInterface {
             $badge_class = $status === 'active' ? 'approved' : ( $status === 'terminated' ? 'rejected' : 'pending' );
             $status_label = $this->translate_status( $status );
 
-            $view_url   = esc_url( admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . $eid ) );
-            $edit_url   = esc_url( admin_url( 'admin.php?page=sfs-hr-employee-profile&employee_id=' . $eid . '&mode=edit' ) );
-            $delete_url = esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=sfs_hr_delete_employee&id=' . $eid ), 'sfs_hr_del_' . $eid ) );
+            $urls = $this->get_employee_urls( $eid );
+            $view_url   = $urls['view'];
+            $edit_url   = $urls['edit'];
+            $delete_url = $urls['delete'];
 
             echo '<div class="sfs-card" style="margin-bottom:8px;">';
             echo '<div class="sfs-card-body" style="padding:12px 16px;">';
@@ -291,7 +295,7 @@ class EmployeesTab implements TabInterface {
             echo '<div style="display:flex;align-items:center;gap:8px;">';
             echo '<span class="sfs-badge sfs-badge--' . esc_attr( $badge_class ) . '" data-i18n-key="' . esc_attr( $status ) . '">' . esc_html( $status_label ) . '</span>';
             echo '<div style="position:relative;">';
-            echo '<button type="button" class="sfs-emp-action-btn" onclick="sfsToggleEmpMenu(this)" aria-label="' . esc_attr__( 'Actions', 'sfs-hr' ) . '">';
+            echo '<button type="button" class="sfs-emp-action-btn" onclick="sfsHR.toggleEmpMenu(this)" aria-label="' . esc_attr__( 'Actions', 'sfs-hr' ) . '">';
             echo '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>';
             echo '</button>';
             echo '<div class="sfs-emp-action-menu">';
@@ -307,7 +311,15 @@ class EmployeesTab implements TabInterface {
         }
         echo '</div>';
 
-        // Action menu styles + toggle script.
+        $this->render_assets_once();
+    }
+
+    private function render_assets_once(): void {
+        if ( self::$assets_printed ) {
+            return;
+        }
+        self::$assets_printed = true;
+
         echo '<style>
 .sfs-emp-action-btn{background:none;border:1px solid var(--sfs-border,#e5e7eb);border-radius:6px;cursor:pointer;padding:4px 6px;color:var(--sfs-text-muted,#6b7280);display:inline-flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s;}
 .sfs-emp-action-btn:hover{background:var(--sfs-hover-bg,#f9fafb);border-color:var(--sfs-primary,#3b82f6);color:var(--sfs-primary,#3b82f6);}
@@ -318,7 +330,15 @@ class EmployeesTab implements TabInterface {
 .sfs-emp-action-item--danger{color:var(--sfs-danger,#dc2626);}
 .sfs-emp-action-item--danger:hover{background:#fef2f2;}
 </style>';
-        echo '<script>function sfsToggleEmpMenu(b){var m=b.nextElementSibling,open=m.classList.contains("sfs-menu-open");document.querySelectorAll(".sfs-emp-action-menu.sfs-menu-open").forEach(function(el){el.classList.remove("sfs-menu-open");});if(!open)m.classList.add("sfs-menu-open");}document.addEventListener("click",function(e){if(!e.target.closest(".sfs-emp-action-btn")&&!e.target.closest(".sfs-emp-action-menu")){document.querySelectorAll(".sfs-emp-action-menu.sfs-menu-open").forEach(function(el){el.classList.remove("sfs-menu-open");});}});</script>';
+        echo '<script>window.sfsHR=window.sfsHR||{};sfsHR.toggleEmpMenu=function(b){var m=b.nextElementSibling,open=m.classList.contains("sfs-menu-open");document.querySelectorAll(".sfs-emp-action-menu.sfs-menu-open").forEach(function(el){el.classList.remove("sfs-menu-open");});if(!open)m.classList.add("sfs-menu-open");};document.addEventListener("click",function(e){if(!e.target.closest(".sfs-emp-action-btn")&&!e.target.closest(".sfs-emp-action-menu")){document.querySelectorAll(".sfs-emp-action-menu.sfs-menu-open").forEach(function(el){el.classList.remove("sfs-menu-open");});}});</script>';
+    }
+
+    private function get_employee_urls( int $eid ): array {
+        return [
+            'view'   => esc_url( admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . $eid ) ),
+            'edit'   => esc_url( admin_url( 'admin.php?page=sfs-hr-employee-profile&employee_id=' . $eid . '&mode=edit' ) ),
+            'delete' => esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=sfs_hr_delete_employee&id=' . $eid ), 'sfs_hr_del_' . $eid ) ),
+        ];
     }
 
     private function translate_status( string $status ): string {
