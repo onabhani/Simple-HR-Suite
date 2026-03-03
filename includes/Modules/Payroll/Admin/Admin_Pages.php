@@ -21,6 +21,7 @@ class Admin_Pages {
         add_action( 'admin_post_sfs_hr_payroll_run_payroll', [ $this, 'handle_run_payroll' ] );
         add_action( 'admin_post_sfs_hr_payroll_approve_run', [ $this, 'handle_approve_run' ] );
         add_action( 'admin_post_sfs_hr_payroll_save_component', [ $this, 'handle_save_component' ] );
+        add_action( 'admin_post_sfs_hr_payroll_toggle_component', [ $this, 'handle_toggle_component' ] );
         add_action( 'admin_post_sfs_hr_payroll_export_bank', [ $this, 'handle_export_bank' ] );
         add_action( 'admin_post_sfs_hr_payroll_export_attendance', [ $this, 'handle_export_attendance' ] );
         add_action( 'admin_post_sfs_hr_payroll_export_wps', [ $this, 'handle_export_wps' ] );
@@ -586,12 +587,16 @@ class Admin_Pages {
             </div>
             <?php endif; ?>
 
-            <h3><?php esc_html_e( 'Employee Payroll Details', 'sfs-hr' ); ?></h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h3 style="margin:0;"><?php esc_html_e( 'Employee Payroll Details', 'sfs-hr' ); ?></h3>
+                <button type="button" class="button button-small" id="sfs-toggle-all-details"><?php esc_html_e( 'Expand All', 'sfs-hr' ); ?></button>
+            </div>
 
             <div class="sfs-hr-table-responsive">
-            <table class="wp-list-table widefat striped">
+            <table class="wp-list-table widefat striped" id="sfs-payroll-detail-table">
                 <thead>
                     <tr>
+                        <th style="width:40px;"></th>
                         <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
                         <th><?php esc_html_e( 'Base Salary', 'sfs-hr' ); ?></th>
                         <th><?php esc_html_e( 'Gross', 'sfs-hr' ); ?></th>
@@ -603,11 +608,18 @@ class Admin_Pages {
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ( $items as $item ):
+                    <?php foreach ( $items as $idx => $item ):
                         $emp_name = trim( ( $item->first_name ?? '' ) . ' ' . ( $item->last_name ?? '' ) );
                         $emp_code = $item->emp_number ?: $item->employee_code;
+                        $components = ! empty( $item->components_json ) ? json_decode( $item->components_json, true ) : [];
+                        $earnings   = is_array( $components ) ? array_filter( $components, fn( $c ) => ( $c['type'] ?? '' ) === 'earning' ) : [];
+                        $deductions = is_array( $components ) ? array_filter( $components, fn( $c ) => ( $c['type'] ?? '' ) === 'deduction' ) : [];
+                        $benefits   = is_array( $components ) ? array_filter( $components, fn( $c ) => ( $c['type'] ?? '' ) === 'benefit' ) : [];
                     ?>
-                    <tr>
+                    <tr class="sfs-row-toggle" data-detail="sfs-detail-<?php echo intval( $idx ); ?>" style="cursor:pointer;">
+                        <td style="text-align:center;">
+                            <span class="dashicons dashicons-arrow-right-alt2 sfs-detail-arrow" style="transition:transform .2s;"></span>
+                        </td>
                         <td>
                             <strong><?php echo esc_html( $emp_name ?: '#' . $item->employee_id ); ?></strong>
                             <?php if ( $emp_code ): ?>
@@ -622,10 +634,132 @@ class Admin_Pages {
                         <td><?php echo intval( $item->days_absent ); ?></td>
                         <td><?php echo esc_html( $item->overtime_hours ); ?></td>
                     </tr>
+                    <tr id="sfs-detail-<?php echo intval( $idx ); ?>" class="sfs-detail-row" style="display:none;">
+                        <td colspan="9" style="padding:0;">
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0; border-top:2px solid #2271b1;">
+
+                                <!-- Earnings -->
+                                <div style="padding:15px; border-right:1px solid #dcdcde;">
+                                    <h4 style="margin:0 0 10px; color:#00a32a; font-size:13px; text-transform:uppercase; letter-spacing:.5px;">
+                                        <?php esc_html_e( 'Earnings', 'sfs-hr' ); ?>
+                                    </h4>
+                                    <table style="width:100%; font-size:13px; border-collapse:collapse;">
+                                        <?php foreach ( $earnings as $c ):
+                                            $c_name = $c['name'] ?? $c['code'] ?? __( 'Item', 'sfs-hr' );
+                                            $c_amt  = (float) ( $c['amount'] ?? 0 );
+                                        ?>
+                                        <tr>
+                                            <td style="padding:3px 0;"><?php echo esc_html( $c_name ); ?></td>
+                                            <td style="padding:3px 0; text-align:right; font-weight:500; color:#00a32a;"><?php echo esc_html( number_format( $c_amt, 2 ) ); ?></td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                        <?php if ( (float) ( $item->overtime_amount ?? 0 ) > 0 && empty( array_filter( $earnings, fn( $c ) => ( $c['code'] ?? '' ) === 'OVERTIME' ) ) ): ?>
+                                        <tr>
+                                            <td style="padding:3px 0;"><?php esc_html_e( 'Overtime', 'sfs-hr' ); ?></td>
+                                            <td style="padding:3px 0; text-align:right; font-weight:500; color:#00a32a;"><?php echo esc_html( number_format( (float) $item->overtime_amount, 2 ) ); ?></td>
+                                        </tr>
+                                        <?php endif; ?>
+                                        <tr style="border-top:1px solid #dcdcde; font-weight:700;">
+                                            <td style="padding:6px 0;"><?php esc_html_e( 'Total Gross', 'sfs-hr' ); ?></td>
+                                            <td style="padding:6px 0; text-align:right; color:#00a32a;"><?php echo esc_html( number_format( (float) $item->gross_salary, 2 ) ); ?></td>
+                                        </tr>
+                                    </table>
+
+                                    <?php if ( ! empty( $benefits ) ): ?>
+                                    <h4 style="margin:12px 0 8px; color:#0073aa; font-size:13px; text-transform:uppercase; letter-spacing:.5px;">
+                                        <?php esc_html_e( 'Benefits (Company)', 'sfs-hr' ); ?>
+                                    </h4>
+                                    <table style="width:100%; font-size:13px; border-collapse:collapse;">
+                                        <?php foreach ( $benefits as $c ): ?>
+                                        <tr>
+                                            <td style="padding:3px 0;"><?php echo esc_html( $c['name'] ?? $c['code'] ?? '' ); ?></td>
+                                            <td style="padding:3px 0; text-align:right; color:#0073aa;"><?php echo esc_html( number_format( (float) ( $c['amount'] ?? 0 ), 2 ) ); ?></td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    </table>
+                                    <?php endif; ?>
+                                </div>
+
+                                <!-- Deductions -->
+                                <div style="padding:15px;">
+                                    <h4 style="margin:0 0 10px; color:#d9534f; font-size:13px; text-transform:uppercase; letter-spacing:.5px;">
+                                        <?php esc_html_e( 'Deductions', 'sfs-hr' ); ?>
+                                    </h4>
+                                    <table style="width:100%; font-size:13px; border-collapse:collapse;">
+                                        <?php foreach ( $deductions as $c ):
+                                            $c_name = $c['name'] ?? $c['code'] ?? __( 'Item', 'sfs-hr' );
+                                            $c_amt  = (float) ( $c['amount'] ?? 0 );
+                                        ?>
+                                        <tr>
+                                            <td style="padding:3px 0;"><?php echo esc_html( $c_name ); ?></td>
+                                            <td style="padding:3px 0; text-align:right; font-weight:500; color:#d9534f;"><?php echo esc_html( number_format( $c_amt, 2 ) ); ?></td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                        <?php if ( (float) ( $item->attendance_deduction ?? 0 ) > 0 && empty( array_filter( $deductions, fn( $c ) => in_array( $c['code'] ?? '', [ 'ABSENCE', 'LATE' ], true ) ) ) ): ?>
+                                        <tr>
+                                            <td style="padding:3px 0;"><?php esc_html_e( 'Attendance Deduction', 'sfs-hr' ); ?></td>
+                                            <td style="padding:3px 0; text-align:right; font-weight:500; color:#d9534f;"><?php echo esc_html( number_format( (float) $item->attendance_deduction, 2 ) ); ?></td>
+                                        </tr>
+                                        <?php endif; ?>
+                                        <?php if ( (float) ( $item->loan_deduction ?? 0 ) > 0 && empty( array_filter( $deductions, fn( $c ) => ( $c['code'] ?? '' ) === 'LOAN' ) ) ): ?>
+                                        <tr>
+                                            <td style="padding:3px 0;"><?php esc_html_e( 'Loan Installment', 'sfs-hr' ); ?></td>
+                                            <td style="padding:3px 0; text-align:right; font-weight:500; color:#d9534f;"><?php echo esc_html( number_format( (float) $item->loan_deduction, 2 ) ); ?></td>
+                                        </tr>
+                                        <?php endif; ?>
+                                        <tr style="border-top:1px solid #dcdcde; font-weight:700;">
+                                            <td style="padding:6px 0;"><?php esc_html_e( 'Total Deductions', 'sfs-hr' ); ?></td>
+                                            <td style="padding:6px 0; text-align:right; color:#d9534f;"><?php echo esc_html( number_format( (float) $item->total_deductions, 2 ) ); ?></td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- Attendance Summary -->
+                                    <h4 style="margin:12px 0 8px; color:#646970; font-size:13px; text-transform:uppercase; letter-spacing:.5px;">
+                                        <?php esc_html_e( 'Attendance', 'sfs-hr' ); ?>
+                                    </h4>
+                                    <table style="width:100%; font-size:13px; border-collapse:collapse;">
+                                        <tr>
+                                            <td style="padding:3px 0;"><?php esc_html_e( 'Working Days', 'sfs-hr' ); ?></td>
+                                            <td style="padding:3px 0; text-align:right;"><?php echo intval( $item->days_worked ); ?>/<?php echo intval( $item->working_days ); ?></td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding:3px 0;"><?php esc_html_e( 'Days Absent', 'sfs-hr' ); ?></td>
+                                            <td style="padding:3px 0; text-align:right;"><?php echo intval( $item->days_absent ); ?></td>
+                                        </tr>
+                                        <?php if ( (int) ( $item->days_late ?? 0 ) > 0 ): ?>
+                                        <tr>
+                                            <td style="padding:3px 0;"><?php esc_html_e( 'Days Late', 'sfs-hr' ); ?></td>
+                                            <td style="padding:3px 0; text-align:right;"><?php echo intval( $item->days_late ); ?></td>
+                                        </tr>
+                                        <?php endif; ?>
+                                        <?php if ( (int) ( $item->days_leave ?? 0 ) > 0 ): ?>
+                                        <tr>
+                                            <td style="padding:3px 0;"><?php esc_html_e( 'Days on Leave', 'sfs-hr' ); ?></td>
+                                            <td style="padding:3px 0; text-align:right;"><?php echo intval( $item->days_leave ); ?></td>
+                                        </tr>
+                                        <?php endif; ?>
+                                        <?php if ( (float) ( $item->overtime_hours ?? 0 ) > 0 ): ?>
+                                        <tr>
+                                            <td style="padding:3px 0;"><?php esc_html_e( 'Overtime Hours', 'sfs-hr' ); ?></td>
+                                            <td style="padding:3px 0; text-align:right;"><?php echo esc_html( $item->overtime_hours ); ?></td>
+                                        </tr>
+                                        <?php endif; ?>
+                                    </table>
+                                </div>
+
+                            </div>
+                            <!-- Net pay bar -->
+                            <div style="padding:10px 15px; background:#f0f6fc; border-top:1px solid #dcdcde; display:flex; justify-content:space-between; align-items:center; font-weight:700;">
+                                <span><?php esc_html_e( 'Net Salary', 'sfs-hr' ); ?></span>
+                                <span style="font-size:16px; color:#00a32a;"><?php echo esc_html( number_format( (float) $item->net_salary, 2 ) ); ?></span>
+                            </div>
+                        </td>
+                    </tr>
                     <?php endforeach; ?>
                 </tbody>
                 <tfoot>
                     <tr>
+                        <th></th>
                         <th><?php esc_html_e( 'Totals', 'sfs-hr' ); ?></th>
                         <th></th>
                         <th><?php echo esc_html( number_format( (float) $run->total_gross, 2 ) ); ?></th>
@@ -637,11 +771,48 @@ class Admin_Pages {
             </table>
             </div><!-- .sfs-hr-table-responsive -->
         </div>
+
+        <script>
+        (function(){
+            // Toggle individual detail row
+            document.querySelectorAll('.sfs-row-toggle').forEach(function(row){
+                row.addEventListener('click', function(){
+                    var detailId = this.getAttribute('data-detail');
+                    var detail = document.getElementById(detailId);
+                    var arrow = this.querySelector('.sfs-detail-arrow');
+                    if(!detail) return;
+                    var visible = detail.style.display !== 'none';
+                    detail.style.display = visible ? 'none' : 'table-row';
+                    if(arrow) arrow.style.transform = visible ? '' : 'rotate(90deg)';
+                });
+            });
+
+            // Expand/Collapse all
+            var allBtn = document.getElementById('sfs-toggle-all-details');
+            if(allBtn){
+                var expanded = false;
+                allBtn.addEventListener('click', function(){
+                    expanded = !expanded;
+                    document.querySelectorAll('.sfs-detail-row').forEach(function(r){ r.style.display = expanded ? 'table-row' : 'none'; });
+                    document.querySelectorAll('.sfs-detail-arrow').forEach(function(a){ a.style.transform = expanded ? 'rotate(90deg)' : ''; });
+                    allBtn.textContent = expanded ? '<?php echo esc_js( __( 'Collapse All', 'sfs-hr' ) ); ?>' : '<?php echo esc_js( __( 'Expand All', 'sfs-hr' ) ); ?>';
+                });
+            }
+        })();
+        </script>
         <?php
     }
 
     private function render_components(): void {
         global $wpdb;
+
+        $action  = isset( $_GET['action'] ) ? sanitize_key( $_GET['action'] ) : '';
+        $comp_id = isset( $_GET['comp_id'] ) ? intval( $_GET['comp_id'] ) : 0;
+
+        if ( $action === 'new' || ( $action === 'edit' && $comp_id ) ) {
+            $this->render_component_form( $comp_id );
+            return;
+        }
 
         $table = $wpdb->prefix . 'sfs_hr_salary_components';
         $components = $wpdb->get_results( "SELECT * FROM {$table} ORDER BY type, display_order ASC" );
@@ -654,8 +825,25 @@ class Admin_Pages {
 
         ?>
         <div class="sfs-hr-salary-components">
-            <h2><?php esc_html_e( 'Salary Components', 'sfs-hr' ); ?></h2>
-            <p class="description"><?php esc_html_e( 'Define salary components like allowances, deductions, and benefits.', 'sfs-hr' ); ?></p>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <div>
+                    <h2 style="margin:0;"><?php esc_html_e( 'Salary Components', 'sfs-hr' ); ?></h2>
+                    <p class="description" style="margin-top:5px;"><?php esc_html_e( 'Define salary components like allowances, deductions, and benefits.', 'sfs-hr' ); ?></p>
+                </div>
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=components&action=new' ) ); ?>" class="button button-primary">
+                    <?php esc_html_e( 'Add New Component', 'sfs-hr' ); ?>
+                </a>
+            </div>
+
+            <?php if ( ! empty( $_GET['saved'] ) ): ?>
+            <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Component saved.', 'sfs-hr' ); ?></p></div>
+            <?php endif; ?>
+            <?php if ( ! empty( $_GET['toggled'] ) ): ?>
+            <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Component status updated.', 'sfs-hr' ); ?></p></div>
+            <?php endif; ?>
+            <?php if ( ! empty( $_GET['comp_error'] ) ): ?>
+            <div class="notice notice-error is-dismissible"><p><?php echo esc_html( urldecode( $_GET['comp_error'] ) ); ?></p></div>
+            <?php endif; ?>
 
             <?php foreach ( $type_labels as $type => $label ):
                 $type_components = array_filter( $components, fn( $c ) => $c->type === $type );
@@ -670,13 +858,22 @@ class Admin_Pages {
                         <th><?php esc_html_e( 'Calculation', 'sfs-hr' ); ?></th>
                         <th><?php esc_html_e( 'Default Value', 'sfs-hr' ); ?></th>
                         <th style="width:80px;"><?php esc_html_e( 'Active', 'sfs-hr' ); ?></th>
+                        <th style="width:140px;"><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
                     </tr>
                 </thead>
                 <tbody>
+                    <?php if ( empty( $type_components ) ): ?>
+                    <tr><td colspan="6" style="text-align:center; color:#646970;"><?php esc_html_e( 'No components.', 'sfs-hr' ); ?></td></tr>
+                    <?php endif; ?>
                     <?php foreach ( $type_components as $comp ): ?>
-                    <tr>
+                    <tr<?php echo ! $comp->is_active ? ' style="opacity:.6;"' : ''; ?>>
                         <td><code><?php echo esc_html( $comp->code ); ?></code></td>
-                        <td><strong><?php echo esc_html( __( $comp->name, 'sfs-hr' ) ); ?></strong></td>
+                        <td>
+                            <strong><?php echo esc_html( __( $comp->name, 'sfs-hr' ) ); ?></strong>
+                            <?php if ( ! empty( $comp->description ) ): ?>
+                            <br><small class="description"><?php echo esc_html( $comp->description ); ?></small>
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <?php
                             switch ( $comp->calculation_type ) {
@@ -687,7 +884,7 @@ class Admin_Pages {
                                     printf(
                                         esc_html__( '%s%% of %s', 'sfs-hr' ),
                                         esc_html( $comp->default_amount ),
-                                        esc_html( str_replace( '_', ' ', $comp->percentage_of ?? '' ) )
+                                        esc_html( ucwords( str_replace( '_', ' ', $comp->percentage_of ?? '' ) ) )
                                     );
                                     break;
                                 case 'formula':
@@ -708,6 +905,19 @@ class Admin_Pages {
                             <span style="color:#d9534f;">&#10007;</span>
                             <?php endif; ?>
                         </td>
+                        <td>
+                            <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=components&action=edit&comp_id=' . intval( $comp->id ) ) ); ?>" class="button button-small">
+                                <?php esc_html_e( 'Edit', 'sfs-hr' ); ?>
+                            </a>
+                            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+                                <?php wp_nonce_field( 'sfs_hr_payroll_toggle_component' ); ?>
+                                <input type="hidden" name="action" value="sfs_hr_payroll_toggle_component" />
+                                <input type="hidden" name="comp_id" value="<?php echo intval( $comp->id ); ?>" />
+                                <button type="submit" class="button button-small" title="<?php echo $comp->is_active ? esc_attr__( 'Deactivate', 'sfs-hr' ) : esc_attr__( 'Activate', 'sfs-hr' ); ?>">
+                                    <?php echo $comp->is_active ? esc_html__( 'Deactivate', 'sfs-hr' ) : esc_html__( 'Activate', 'sfs-hr' ); ?>
+                                </button>
+                            </form>
+                        </td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -715,6 +925,143 @@ class Admin_Pages {
             </div><!-- .sfs-hr-table-responsive -->
             <?php endforeach; ?>
         </div>
+        <?php
+    }
+
+    private function render_component_form( int $comp_id = 0 ): void {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'sfs_hr_salary_components';
+        $comp  = null;
+
+        if ( $comp_id ) {
+            $comp = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $comp_id ) );
+            if ( ! $comp ) {
+                echo '<div class="notice notice-error"><p>' . esc_html__( 'Component not found.', 'sfs-hr' ) . '</p></div>';
+                return;
+            }
+        }
+
+        $is_edit = (bool) $comp;
+        ?>
+        <div class="sfs-hr-component-form" style="max-width:700px;">
+            <p>
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=components' ) ); ?>">&larr; <?php esc_html_e( 'Back to Components', 'sfs-hr' ); ?></a>
+            </p>
+            <h2><?php echo $is_edit ? esc_html__( 'Edit Component', 'sfs-hr' ) : esc_html__( 'Add New Component', 'sfs-hr' ); ?></h2>
+
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                <?php wp_nonce_field( 'sfs_hr_payroll_save_component' ); ?>
+                <input type="hidden" name="action" value="sfs_hr_payroll_save_component" />
+                <?php if ( $is_edit ): ?>
+                <input type="hidden" name="comp_id" value="<?php echo intval( $comp->id ); ?>" />
+                <?php endif; ?>
+
+                <table class="form-table">
+                    <tr>
+                        <th><label for="comp_code"><?php esc_html_e( 'Code', 'sfs-hr' ); ?> <span style="color:red;">*</span></label></th>
+                        <td>
+                            <input type="text" name="code" id="comp_code" value="<?php echo esc_attr( $comp->code ?? '' ); ?>"
+                                   class="regular-text" required pattern="[A-Z0-9_]+" style="text-transform:uppercase;"
+                                   <?php echo $is_edit ? 'readonly' : ''; ?> />
+                            <p class="description"><?php esc_html_e( 'Unique code (uppercase letters, numbers, underscores). Cannot be changed after creation.', 'sfs-hr' ); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="comp_name"><?php esc_html_e( 'Name (English)', 'sfs-hr' ); ?> <span style="color:red;">*</span></label></th>
+                        <td>
+                            <input type="text" name="name" id="comp_name" value="<?php echo esc_attr( $comp->name ?? '' ); ?>" class="regular-text" required />
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="comp_name_ar"><?php esc_html_e( 'Name (Arabic)', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <input type="text" name="name_ar" id="comp_name_ar" value="<?php echo esc_attr( $comp->name_ar ?? '' ); ?>" class="regular-text" dir="rtl" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="comp_type"><?php esc_html_e( 'Type', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <select name="type" id="comp_type" class="regular-text">
+                                <option value="earning" <?php selected( $comp->type ?? '', 'earning' ); ?>><?php esc_html_e( 'Earning', 'sfs-hr' ); ?></option>
+                                <option value="deduction" <?php selected( $comp->type ?? '', 'deduction' ); ?>><?php esc_html_e( 'Deduction', 'sfs-hr' ); ?></option>
+                                <option value="benefit" <?php selected( $comp->type ?? '', 'benefit' ); ?>><?php esc_html_e( 'Benefit', 'sfs-hr' ); ?></option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="comp_calc"><?php esc_html_e( 'Calculation Type', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <select name="calculation_type" id="comp_calc" class="regular-text">
+                                <option value="fixed" <?php selected( $comp->calculation_type ?? '', 'fixed' ); ?>><?php esc_html_e( 'Fixed Amount', 'sfs-hr' ); ?></option>
+                                <option value="percentage" <?php selected( $comp->calculation_type ?? '', 'percentage' ); ?>><?php esc_html_e( 'Percentage', 'sfs-hr' ); ?></option>
+                                <option value="formula" <?php selected( $comp->calculation_type ?? '', 'formula' ); ?>><?php esc_html_e( 'Formula', 'sfs-hr' ); ?></option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="comp_amount"><?php esc_html_e( 'Default Amount / Percentage', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <input type="number" name="default_amount" id="comp_amount" value="<?php echo esc_attr( $comp->default_amount ?? '0' ); ?>" step="0.01" min="0" class="regular-text" />
+                            <p class="description"><?php esc_html_e( 'For fixed: the default amount. For percentage: the percentage value (e.g. 25 for 25%).', 'sfs-hr' ); ?></p>
+                        </td>
+                    </tr>
+                    <tr id="percentage_of_row" style="<?php echo ( $comp->calculation_type ?? '' ) !== 'percentage' ? 'display:none;' : ''; ?>">
+                        <th><label for="comp_pct_of"><?php esc_html_e( 'Percentage Of', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <select name="percentage_of" id="comp_pct_of" class="regular-text">
+                                <option value="base_salary" <?php selected( $comp->percentage_of ?? '', 'base_salary' ); ?>><?php esc_html_e( 'Base Salary', 'sfs-hr' ); ?></option>
+                                <option value="gross_salary" <?php selected( $comp->percentage_of ?? '', 'gross_salary' ); ?>><?php esc_html_e( 'Gross Salary', 'sfs-hr' ); ?></option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="comp_taxable"><?php esc_html_e( 'Taxable', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="is_taxable" id="comp_taxable" value="1" <?php checked( $comp->is_taxable ?? 0, 1 ); ?> />
+                                <?php esc_html_e( 'This component is subject to tax', 'sfs-hr' ); ?>
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="comp_active"><?php esc_html_e( 'Active', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="is_active" id="comp_active" value="1" <?php checked( $is_edit ? ( $comp->is_active ?? 1 ) : 1, 1 ); ?> />
+                                <?php esc_html_e( 'Include in payroll calculations', 'sfs-hr' ); ?>
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="comp_order"><?php esc_html_e( 'Display Order', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <input type="number" name="display_order" id="comp_order" value="<?php echo intval( $comp->display_order ?? 10 ); ?>" min="0" step="1" style="width:80px;" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="comp_desc"><?php esc_html_e( 'Description', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <textarea name="description" id="comp_desc" rows="3" class="large-text"><?php echo esc_textarea( $comp->description ?? '' ); ?></textarea>
+                        </td>
+                    </tr>
+                </table>
+
+                <p class="submit">
+                    <button type="submit" class="button button-primary"><?php echo $is_edit ? esc_html__( 'Update Component', 'sfs-hr' ) : esc_html__( 'Create Component', 'sfs-hr' ); ?></button>
+                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=components' ) ); ?>" class="button"><?php esc_html_e( 'Cancel', 'sfs-hr' ); ?></a>
+                </p>
+            </form>
+        </div>
+
+        <script>
+        document.getElementById('comp_calc').addEventListener('change', function(){
+            document.getElementById('percentage_of_row').style.display = this.value === 'percentage' ? '' : 'none';
+        });
+        document.getElementById('comp_code').addEventListener('input', function(){
+            this.value = this.value.toUpperCase().replace(/[^A-Z0-9_]/g, '');
+        });
+        </script>
         <?php
     }
 
@@ -729,7 +1076,9 @@ class Admin_Pages {
         // For admin: show all payslips
         // For employees: show only their payslips
         $user_id = get_current_user_id();
-        $is_admin = current_user_can( 'sfs_hr_payroll_admin' );
+        $is_admin = current_user_can( 'sfs_hr_payroll_admin' )
+                 || current_user_can( 'sfs_hr.manage' )
+                 || current_user_can( 'manage_options' );
 
         if ( $is_admin ) {
             $payslips = $wpdb->get_results(
@@ -774,7 +1123,12 @@ class Admin_Pages {
 
             <?php if ( empty( $payslips ) ): ?>
             <div class="notice notice-info">
-                <p><?php esc_html_e( 'No payslips found.', 'sfs-hr' ); ?></p>
+                <p><?php esc_html_e( 'No payslips found. Payslips are automatically generated when a payroll run is approved.', 'sfs-hr' ); ?></p>
+                <p>
+                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=runs' ) ); ?>" class="button button-small">
+                        <?php esc_html_e( 'View Payroll Runs', 'sfs-hr' ); ?>
+                    </a>
+                </p>
             </div>
             <?php else: ?>
             <table class="wp-list-table widefat fixed striped">
@@ -1099,11 +1453,88 @@ class Admin_Pages {
     }
 
     public function handle_save_component(): void {
-        wp_die(
-            __( 'Payroll component editing is not yet available.', 'sfs-hr' ),
-            __( 'Feature Not Implemented', 'sfs-hr' ),
-            [ 'response' => 501, 'back_link' => true ]
-        );
+        if ( ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
+        }
+        check_admin_referer( 'sfs_hr_payroll_save_component' );
+
+        global $wpdb;
+        $table   = $wpdb->prefix . 'sfs_hr_salary_components';
+        $comp_id = intval( $_POST['comp_id'] ?? 0 );
+        $redirect = admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=components' );
+
+        $code             = strtoupper( preg_replace( '/[^A-Z0-9_]/', '', sanitize_text_field( $_POST['code'] ?? '' ) ) );
+        $name             = sanitize_text_field( $_POST['name'] ?? '' );
+        $name_ar          = sanitize_text_field( $_POST['name_ar'] ?? '' );
+        $type             = sanitize_key( $_POST['type'] ?? 'earning' );
+        $calculation_type = sanitize_key( $_POST['calculation_type'] ?? 'fixed' );
+        $default_amount   = floatval( $_POST['default_amount'] ?? 0 );
+        $percentage_of    = $calculation_type === 'percentage' ? sanitize_key( $_POST['percentage_of'] ?? 'base_salary' ) : null;
+        $is_taxable       = ! empty( $_POST['is_taxable'] ) ? 1 : 0;
+        $is_active        = ! empty( $_POST['is_active'] ) ? 1 : 0;
+        $display_order    = intval( $_POST['display_order'] ?? 10 );
+        $description      = sanitize_textarea_field( $_POST['description'] ?? '' );
+
+        if ( ! $code || ! $name ) {
+            wp_safe_redirect( add_query_arg( 'comp_error', rawurlencode( __( 'Code and Name are required.', 'sfs-hr' ) ), $redirect ) );
+            exit;
+        }
+
+        if ( ! in_array( $type, [ 'earning', 'deduction', 'benefit' ], true ) ) {
+            $type = 'earning';
+        }
+        if ( ! in_array( $calculation_type, [ 'fixed', 'percentage', 'formula' ], true ) ) {
+            $calculation_type = 'fixed';
+        }
+
+        $data = [
+            'name'             => $name,
+            'name_ar'          => $name_ar,
+            'type'             => $type,
+            'calculation_type' => $calculation_type,
+            'default_amount'   => $default_amount,
+            'percentage_of'    => $percentage_of,
+            'is_taxable'       => $is_taxable,
+            'is_active'        => $is_active,
+            'display_order'    => $display_order,
+            'description'      => $description,
+        ];
+
+        if ( $comp_id ) {
+            // Update existing
+            $wpdb->update( $table, $data, [ 'id' => $comp_id ] );
+        } else {
+            // Check code uniqueness
+            $existing = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE code = %s", $code ) );
+            if ( $existing ) {
+                wp_safe_redirect( add_query_arg( 'comp_error', rawurlencode( sprintf( __( 'Code "%s" already exists.', 'sfs-hr' ), $code ) ), $redirect ) );
+                exit;
+            }
+            $data['code'] = $code;
+            $wpdb->insert( $table, $data );
+        }
+
+        wp_safe_redirect( add_query_arg( 'saved', '1', $redirect ) );
+        exit;
+    }
+
+    public function handle_toggle_component(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
+        }
+        check_admin_referer( 'sfs_hr_payroll_toggle_component' );
+
+        global $wpdb;
+        $table   = $wpdb->prefix . 'sfs_hr_salary_components';
+        $comp_id = intval( $_POST['comp_id'] ?? 0 );
+
+        if ( $comp_id ) {
+            $current = (int) $wpdb->get_var( $wpdb->prepare( "SELECT is_active FROM {$table} WHERE id = %d", $comp_id ) );
+            $wpdb->update( $table, [ 'is_active' => $current ? 0 : 1 ], [ 'id' => $comp_id ] );
+        }
+
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=components&toggled=1' ) );
+        exit;
     }
 
     /**
