@@ -2,6 +2,37 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [1.7.2] — 2026-03-03
+
+### Fixed
+- **Payslip "View" button non-functional** — replaced placeholder button with a
+  working detail page showing employee info, earnings/deductions breakdown, bank
+  snapshot, and PDF download link.
+- **Payslip bank data stale** — payslip detail query now uses
+  `COALESCE(payroll_item.bank_name, employee.bank_name)` so the payroll-run
+  snapshot is preferred over current employee data.
+- **Loan calculator max months hardcoded to 60** — language files now use `%d`
+  placeholder replaced at runtime with the configured maximum.
+- **Policy cache key conflation** — `resolve_effective_policy()` cache key now
+  distinguishes null shift, shift without id, and shift with id (prevents
+  incorrect cache reuse and PHP 8 null property access deprecation).
+- **Payroll `emp_number` key mismatch** — renamed to `employee_code` to match
+  the actual data source.
+- **Filipino translation** — `exceeds_inst` string reworded to natural phrasing.
+
+### Improved
+- **Employee list action menu** — added three-dot menu with View, Edit, and
+  Delete actions on both desktop table rows and mobile cards.
+- **EmployeesTab code quality** — extracted `get_employee_urls()` helper,
+  moved inline CSS/JS into `render_assets_once()` with static guard, namespaced
+  global `sfsToggleEmpMenu` as `sfsHR.toggleEmpMenu`.
+- **Loan calculator JS scoping** — wrapped in IIFE to prevent global scope
+  pollution.
+- **Payslip PDF link** — added `rel="noopener noreferrer"` to `target="_blank"`
+  download link.
+- **Loan warnings** — installment-exceeds-salary warning moved below months
+  warning with warning prefix on all amount warnings.
+
 ## [1.7.1] — 2026-03-03
 
 ### Improved
