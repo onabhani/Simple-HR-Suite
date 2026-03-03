@@ -830,9 +830,11 @@ class Admin_Pages {
                     <h2 style="margin:0;"><?php esc_html_e( 'Salary Components', 'sfs-hr' ); ?></h2>
                     <p class="description" style="margin-top:5px;"><?php esc_html_e( 'Define salary components like allowances, deductions, and benefits.', 'sfs-hr' ); ?></p>
                 </div>
+                <?php if ( current_user_can( 'sfs_hr.manage' ) || current_user_can( 'manage_options' ) ): ?>
                 <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=components&action=new' ) ); ?>" class="button button-primary">
                     <?php esc_html_e( 'Add New Component', 'sfs-hr' ); ?>
                 </a>
+                <?php endif; ?>
             </div>
 
             <?php if ( ! empty( $_GET['saved'] ) ): ?>
@@ -858,12 +860,14 @@ class Admin_Pages {
                         <th><?php esc_html_e( 'Calculation', 'sfs-hr' ); ?></th>
                         <th><?php esc_html_e( 'Default Value', 'sfs-hr' ); ?></th>
                         <th style="width:80px;"><?php esc_html_e( 'Active', 'sfs-hr' ); ?></th>
+                        <?php if ( current_user_can( 'sfs_hr.manage' ) || current_user_can( 'manage_options' ) ): ?>
                         <th style="width:140px;"><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
+                        <?php endif; ?>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if ( empty( $type_components ) ): ?>
-                    <tr><td colspan="6" style="text-align:center; color:#646970;"><?php esc_html_e( 'No components.', 'sfs-hr' ); ?></td></tr>
+                    <tr><td colspan="<?php echo ( current_user_can( 'sfs_hr.manage' ) || current_user_can( 'manage_options' ) ) ? 6 : 5; ?>" style="text-align:center; color:#646970;"><?php esc_html_e( 'No components.', 'sfs-hr' ); ?></td></tr>
                     <?php endif; ?>
                     <?php foreach ( $type_components as $comp ): ?>
                     <tr<?php echo ! $comp->is_active ? ' style="opacity:.6;"' : ''; ?>>
@@ -905,6 +909,7 @@ class Admin_Pages {
                             <span style="color:#d9534f;">&#10007;</span>
                             <?php endif; ?>
                         </td>
+                        <?php if ( current_user_can( 'sfs_hr.manage' ) || current_user_can( 'manage_options' ) ): ?>
                         <td>
                             <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=components&action=edit&comp_id=' . intval( $comp->id ) ) ); ?>" class="button button-small">
                                 <?php esc_html_e( 'Edit', 'sfs-hr' ); ?>
@@ -918,6 +923,7 @@ class Admin_Pages {
                                 </button>
                             </form>
                         </td>
+                        <?php endif; ?>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -1468,11 +1474,14 @@ class Admin_Pages {
         $name_ar          = sanitize_text_field( $_POST['name_ar'] ?? '' );
         $type             = sanitize_key( $_POST['type'] ?? 'earning' );
         $calculation_type = sanitize_key( $_POST['calculation_type'] ?? 'fixed' );
-        $default_amount   = floatval( $_POST['default_amount'] ?? 0 );
+        $default_amount   = max( 0.0, floatval( $_POST['default_amount'] ?? 0 ) );
         $percentage_of    = $calculation_type === 'percentage' ? sanitize_key( $_POST['percentage_of'] ?? 'base_salary' ) : null;
+        if ( $percentage_of !== null && ! in_array( $percentage_of, [ 'base_salary', 'gross_salary' ], true ) ) {
+            $percentage_of = 'base_salary';
+        }
         $is_taxable       = ! empty( $_POST['is_taxable'] ) ? 1 : 0;
         $is_active        = ! empty( $_POST['is_active'] ) ? 1 : 0;
-        $display_order    = intval( $_POST['display_order'] ?? 10 );
+        $display_order    = max( 0, min( 999, intval( $_POST['display_order'] ?? 10 ) ) );
         $description      = sanitize_textarea_field( $_POST['description'] ?? '' );
 
         if ( ! $code || ! $name ) {
@@ -1502,7 +1511,7 @@ class Admin_Pages {
 
         if ( $comp_id ) {
             // Update existing
-            $wpdb->update( $table, $data, [ 'id' => $comp_id ] );
+            $result = $wpdb->update( $table, $data, [ 'id' => $comp_id ] );
         } else {
             // Check code uniqueness
             $existing = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE code = %s", $code ) );
@@ -1511,7 +1520,12 @@ class Admin_Pages {
                 exit;
             }
             $data['code'] = $code;
-            $wpdb->insert( $table, $data );
+            $result = $wpdb->insert( $table, $data );
+        }
+
+        if ( false === $result ) {
+            wp_safe_redirect( add_query_arg( 'comp_error', rawurlencode( __( 'Failed to save component.', 'sfs-hr' ) . ' ' . $wpdb->last_error ), $redirect ) );
+            exit;
         }
 
         wp_safe_redirect( add_query_arg( 'saved', '1', $redirect ) );

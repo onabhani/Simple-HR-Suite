@@ -229,7 +229,7 @@ class LoansTab implements TabInterface {
         echo '</div>'; // .sfs-form-modal-overlay
 
         // AJAX submission + Escape key close
-        $this->render_ajax_script( $emp_id );
+        $this->render_ajax_script();
     }
 
     private function render_calculator_script( array $limits ): void {
@@ -275,7 +275,7 @@ class LoansTab implements TabInterface {
     /* ──────────────────────────────────────────────────────────
        AJAX Submit + Escape Key
     ────────────────────────────────────────────────────────── */
-    private function render_ajax_script( int $emp_id ): void {
+    private function render_ajax_script(): void {
         $ajax_url = esc_url( admin_url( 'admin-ajax.php' ) );
         $i18n = [
             'submitting' => esc_js( __( 'Submitting...', 'sfs-hr' ) ),

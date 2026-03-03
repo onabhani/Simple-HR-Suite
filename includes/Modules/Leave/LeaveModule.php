@@ -1102,7 +1102,7 @@ public function handle_approve(): void {
     $approval_level  = (int) ( $row['approval_level'] ?? 1 );
 
     // Whether HR approval is required after manager/GM approval
-    $require_hr_approval = get_option( 'sfs_hr_leave_require_hr_approval', '0' ) === '1';
+    $require_hr_approval = get_option( 'sfs_hr_leave_require_hr_approval', '1' ) === '1';
 
     // Position-based approval checks (not capability-based)
     // GM: Check if user is the assigned GM
@@ -1196,6 +1196,7 @@ public function handle_approve(): void {
                 ],
                 ['id' => $id]
             );
+            $approval_level = 2;
 
             if ( $require_hr_approval ) {
                 // Escalate to HR
@@ -1293,6 +1294,7 @@ public function handle_approve(): void {
                 ],
                 ['id' => $id]
             );
+            $approval_level = 2;
 
             if ( $require_hr_approval ) {
                 // Escalate to HR
@@ -1366,6 +1368,7 @@ public function handle_approve(): void {
                 ],
                 ['id' => $id]
             );
+            $approval_level = 2;
 
             if ( $require_hr_approval ) {
                 // Escalate to HR
@@ -1455,7 +1458,7 @@ public function handle_approve(): void {
     // route to finance for approval after HR approval (level 3)
     $finance_approver_id = (int) get_option('sfs_hr_leave_finance_approver', 0);
 
-    if ( $finance_approver_id > 0 && $approval_level < 3 ) {
+    if ( $require_hr_approval && $finance_approver_id > 0 && $approval_level < 3 ) {
         // Check if employee has active loans
         $loans_t = $wpdb->prefix . 'sfs_hr_loans';
         $has_active_loans = (int) $wpdb->get_var(
@@ -1528,10 +1531,12 @@ public function handle_approve(): void {
     // Finalize: mark approved
     if ( $approval_level >= 3 ) {
         $final_role = 'finance';
-    } elseif ( ! $require_hr_approval ) {
-        $final_role = 'manager';
-    } else {
+    } elseif ( $is_gm ) {
+        $final_role = 'gm';
+    } elseif ( $is_hr && $require_hr_approval ) {
         $final_role = 'hr';
+    } else {
+        $final_role = 'manager';
     }
     $new_chain = $this->append_approval_chain(
         $row['approval_chain'] ?? null,
@@ -3180,7 +3185,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
         $finance_approver_id = (int)get_option('sfs_hr_leave_finance_approver', 0);
 
         // Require HR approval after manager approval
-        $require_hr_approval = get_option('sfs_hr_leave_require_hr_approval', '0') === '1';
+        $require_hr_approval = get_option('sfs_hr_leave_require_hr_approval', '1') === '1';
 
         // Holiday notifications
         $notify_on_add   = get_option('sfs_hr_holiday_notify_on_add','0') === '1';
@@ -3306,6 +3311,23 @@ private function render_cancellation_detail( int $cancel_id ): void {
                       'orderby'  => 'display_name',
                       'order'    => 'ASC',
                   ]);
+                  // Also include users who have sfs_hr.leave.manage via other roles/grants
+                  $cap_users = get_users([
+                      'role__not_in' => ['administrator', 'sfs_hr_manager'],
+                      'capability'   => 'sfs_hr.leave.manage',
+                      'orderby'      => 'display_name',
+                      'order'        => 'ASC',
+                  ]);
+                  // Merge and deduplicate by user ID
+                  $seen_ids = [];
+                  $merged = [];
+                  foreach ( array_merge( $hr_users, $cap_users ) as $u ) {
+                      if ( ! isset( $seen_ids[ $u->ID ] ) ) {
+                          $seen_ids[ $u->ID ] = true;
+                          $merged[] = $u;
+                      }
+                  }
+                  $hr_users = $merged;
                   ?>
                   <select name="leave_hr_approvers[]" multiple style="width:400px;min-height:120px;">
                     <?php foreach ($hr_users as $user): ?>
