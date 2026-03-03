@@ -4266,12 +4266,16 @@ if ($special === 'MATERNITY') {
 );
 
 // Hide leave types that don't match the employee's gender
-$gender = strtolower((string)($emp['gender'] ?? ''));
+$gender = strtolower(trim((string)($emp['gender'] ?? '')));
 $types = array_values(array_filter($types, function($t) use ($gender) {
     $gr = strtolower(trim((string)($t['gender_required'] ?? 'any')));
     if ($gr !== 'any' && $gr !== $gender) return false;
     return true;
 }));
+
+if ( empty( $types ) ) {
+    return '<div class="notice notice-info"><p>' . esc_html__( 'No eligible leave types available for your profile.', 'sfs-hr' ) . '</p></div>';
+}
 
         ob_start(); ?>
         <form method="post" enctype="multipart/form-data" class="sfs-hr-leave-form">
@@ -5606,7 +5610,7 @@ public function handle_self_request(): void {
         $this->redirect_back_with_msg( 'leave_err', 'invalid_type' );
     }
 
-    $special = (string) ( $type_row->special_code ?? '' );
+    $special = strtoupper( trim( (string) ( $type_row->special_code ?? '' ) ) );
 
     // Validate gender restriction
     $type_gender = strtolower( trim( (string) ( $type_row->gender_required ?? 'any' ) ) );
@@ -5635,10 +5639,7 @@ public function handle_self_request(): void {
 
         if ( is_wp_error( $attach_id ) ) {
             error_log( '[SFS HR] Leave doc upload failed: ' . $attach_id->get_error_message() );
-            if ( $requires_doc ) {
-                $this->redirect_back_with_msg( 'leave_err', 'doc_upload' );
-            }
-            $attach_id = 0;
+            $this->redirect_back_with_msg( 'leave_err', 'doc_upload' );
         }
     } elseif ( $requires_doc ) {
         // Sick leave type but no file uploaded

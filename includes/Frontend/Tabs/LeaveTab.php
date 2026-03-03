@@ -42,7 +42,7 @@ class LeaveTab implements TabInterface {
         $today = current_time( 'Y-m-d' );
 
         // Employee gender for filtering gender-specific leave types
-        $emp_gender = strtolower( (string) ( $emp['gender'] ?? '' ) );
+        $emp_gender = strtolower( trim( (string) ( $emp['gender'] ?? '' ) ) );
 
         // Active leave types (filtered by gender)
         $types = $wpdb->get_results(
@@ -50,8 +50,7 @@ class LeaveTab implements TabInterface {
         );
         if ( $types ) {
             $types = array_values( array_filter( $types, function( $t ) use ( $emp_gender ) {
-                $gr = strtolower( trim( (string) ( $t->gender_required ?? 'any' ) ) );
-                return $gr === 'any' || $gr === $emp_gender;
+                return $this->is_gender_allowed( (string) ( $t->gender_required ?? 'any' ), $emp_gender );
             } ) );
         }
 
@@ -92,8 +91,7 @@ class LeaveTab implements TabInterface {
 
         // Filter out balances for gender-restricted leave types that don't match
         $balances = array_values( array_filter( $balances, function( $b ) use ( $emp_gender ) {
-            $gr = strtolower( trim( (string) ( $b['gender_required'] ?? 'any' ) ) );
-            return $gr === 'any' || $gr === $emp_gender;
+            return $this->is_gender_allowed( (string) ( $b['gender_required'] ?? 'any' ), $emp_gender );
         } ) );
 
         $total_used       = 0;
@@ -533,5 +531,10 @@ class LeaveTab implements TabInterface {
             ];
         }
         return $display;
+    }
+
+    private function is_gender_allowed( string $required, string $employee_gender ): bool {
+        $required = strtolower( trim( $required ) ) ?: 'any';
+        return $required === 'any' || $required === $employee_gender;
     }
 }
