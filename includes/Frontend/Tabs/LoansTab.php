@@ -83,7 +83,7 @@ class LoansTab implements TabInterface {
 
         // Request form modal
         if ( $settings['allow_employee_requests'] ) {
-            $this->render_request_modal( $emp_id, $settings );
+            $this->render_request_modal( $emp_id, $settings, $emp );
         }
     }
 
@@ -136,7 +136,24 @@ class LoansTab implements TabInterface {
     /* ──────────────────────────────────────────────────────────
        Request Form Modal
     ────────────────────────────────────────────────────────── */
-    private function render_request_modal( int $emp_id, array $settings ): void {
+    private function render_request_modal( int $emp_id, array $settings, array $emp ): void {
+        // Pre-calculate limits for client-side hints (don't expose raw salary)
+        $base_salary = (float) ( $emp['base_salary'] ?? 0 );
+        $limits = [
+            'max_amount'           => (float) $settings['max_loan_amount'],
+            'max_months'           => (int) ( $settings['max_installment_months'] ?? 60 ),
+            'max_by_salary'        => 0,
+            'salary_multiplier'    => (float) ( $settings['max_loan_multiplier'] ?? 0 ),
+            'max_installment'      => 0,
+            'max_installment_pct'  => (int) ( $settings['max_installment_percent'] ?? 0 ),
+        ];
+        if ( $limits['salary_multiplier'] > 0 && $base_salary > 0 ) {
+            $limits['max_by_salary'] = round( $base_salary * $limits['salary_multiplier'], 2 );
+        }
+        if ( $limits['max_installment_pct'] > 0 && $base_salary > 0 ) {
+            $limits['max_installment'] = round( $base_salary * $limits['max_installment_pct'] / 100, 2 );
+        }
+
         echo '<div id="sfs-loan-modal" class="sfs-form-modal-overlay">';
         echo '<div class="sfs-form-modal-backdrop" onclick="document.getElementById(\'sfs-loan-modal\').classList.remove(\'sfs-modal-active\')"></div>';
         echo '<div class="sfs-form-modal">';
@@ -148,7 +165,10 @@ class LoansTab implements TabInterface {
 
         echo '<div class="sfs-form-modal-body">';
 
-        echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+        // In-modal message area
+        echo '<div id="sfs-loan-msg" style="display:none;padding:10px 14px;border-radius:6px;margin-bottom:12px;font-size:13px;"></div>';
+
+        echo '<form id="sfs-loan-form" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
         wp_nonce_field( 'sfs_hr_submit_loan_request_' . $emp_id );
         echo '<input type="hidden" name="action" value="sfs_hr_submit_loan_request" />';
         echo '<input type="hidden" name="employee_id" value="' . (int) $emp_id . '" />';
@@ -159,20 +179,36 @@ class LoansTab implements TabInterface {
         echo '<div class="sfs-form-group">';
         echo '<label class="sfs-form-label"><span data-i18n-key="loan_amount_sar">' . esc_html__( 'Loan Amount (SAR)', 'sfs-hr' ) . '</span> <span class="sfs-required">*</span></label>';
         echo '<input type="number" name="principal_amount" step="0.01" min="1" required class="sfs-input" />';
+
+        // Show all applicable amount limits as hints
+        $hints = [];
         if ( $settings['max_loan_amount'] > 0 ) {
-            echo '<span class="sfs-form-hint">' . sprintf( esc_html__( 'Maximum: %s SAR', 'sfs-hr' ), number_format( $settings['max_loan_amount'], 2 ) ) . '</span>';
+            $hints[] = sprintf( esc_html__( 'Max: %s SAR', 'sfs-hr' ), number_format( $settings['max_loan_amount'], 2 ) );
         }
+        if ( $limits['max_by_salary'] > 0 ) {
+            $hints[] = sprintf( esc_html__( 'Salary limit: %s SAR (%s×)', 'sfs-hr' ), number_format( $limits['max_by_salary'], 2 ), $limits['salary_multiplier'] );
+        }
+        if ( ! empty( $hints ) ) {
+            echo '<span class="sfs-form-hint">' . implode( ' · ', $hints ) . '</span>';
+        }
+        echo '<p id="sfs_loan_amount_warn" style="display:none;margin:4px 0 0;font-size:12px;color:var(--sfs-danger,#dc3545);font-weight:600;"></p>';
         echo '</div>';
 
         // Monthly installment
         echo '<div class="sfs-form-group">';
         echo '<label class="sfs-form-label"><span data-i18n-key="monthly_installment_sar">' . esc_html__( 'Monthly Installment (SAR)', 'sfs-hr' ) . '</span> <span class="sfs-required">*</span></label>';
-        echo '<input type="number" name="monthly_amount" id="sfs_loan_monthly" step="0.01" min="1" required class="sfs-input" oninput="sfsCalcLoan()" />';
-        echo '<span class="sfs-form-hint" data-i18n-key="how_much_you_can_pay">' . esc_html__( 'How much you can pay each month', 'sfs-hr' ) . '</span>';
+        echo '<input type="number" name="monthly_amount" id="sfs_loan_monthly" step="0.01" min="1" required class="sfs-input" />';
+
+        $inst_hints = [];
+        $inst_hints[] = esc_html__( 'How much you can pay each month', 'sfs-hr' );
+        if ( $limits['max_installment'] > 0 ) {
+            $inst_hints[] = sprintf( esc_html__( 'Max: %s SAR (%d%% of salary)', 'sfs-hr' ), number_format( $limits['max_installment'], 2 ), $limits['max_installment_pct'] );
+        }
+        echo '<span class="sfs-form-hint">' . implode( ' · ', $inst_hints ) . '</span>';
         echo '<p id="sfs_loan_plan" style="margin:8px 0 0;font-weight:600;font-size:13px;color:var(--sfs-primary);"></p>';
         echo '</div>';
 
-        $this->render_calculator_script();
+        $this->render_calculator_script( $limits );
 
         // Reason
         echo '<div class="sfs-form-group">';
@@ -181,9 +217,9 @@ class LoansTab implements TabInterface {
         echo '</div>';
 
         // Submit
-        echo '<button type="submit" class="sfs-btn sfs-btn--primary sfs-btn--full" data-i18n-key="submit_loan_request">';
-        echo '<svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
-        esc_html_e( 'Submit Loan Request', 'sfs-hr' );
+        echo '<button type="submit" id="sfs-loan-submit" class="sfs-btn sfs-btn--primary sfs-btn--full" data-i18n-key="submit_loan_request">';
+        echo '<svg viewBox="0 0 24 24" class="sfs-loan-submit-icon"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
+        echo '<span class="sfs-loan-submit-text">' . esc_html__( 'Submit Loan Request', 'sfs-hr' ) . '</span>';
         echo '</button>';
 
         echo '</div>'; // .sfs-form-fields
@@ -192,29 +228,93 @@ class LoansTab implements TabInterface {
         echo '</div>'; // .sfs-form-modal
         echo '</div>'; // .sfs-form-modal-overlay
 
-        // Escape key close
-        echo '<script>';
-        echo '(function(){';
-        echo 'var m=document.getElementById("sfs-loan-modal");if(!m)return;';
-        echo 'document.addEventListener("keydown",function(e){if(e.key==="Escape")m.classList.remove("sfs-modal-active");});';
-        echo '})();</script>';
+        // AJAX submission + Escape key close
+        $this->render_ajax_script();
     }
 
-    private function render_calculator_script(): void {
+    private function render_calculator_script( array $limits ): void {
         $i18n = [
-            'would_require' => esc_js( __( 'Would require', 'sfs-hr' ) ),
-            'months_max'    => esc_js( __( 'months (max 60). Increase monthly amount.', 'sfs-hr' ) ),
-            'final_payment' => esc_js( __( 'final payment', 'sfs-hr' ) ),
-            'sar_total'     => esc_js( __( 'SAR total', 'sfs-hr' ) ),
-            'monthly_of'    => esc_js( __( 'monthly payments of', 'sfs-hr' ) ),
-            'months'        => esc_js( __( 'months', 'sfs-hr' ) ),
+            'would_require'    => esc_js( __( 'Would require', 'sfs-hr' ) ),
+            'months_max'       => esc_js( sprintf( __( 'months (max %d). Increase monthly amount.', 'sfs-hr' ), $limits['max_months'] ) ),
+            'final_payment'    => esc_js( __( 'final payment', 'sfs-hr' ) ),
+            'sar_total'        => esc_js( __( 'SAR total', 'sfs-hr' ) ),
+            'monthly_of'       => esc_js( __( 'monthly payments of', 'sfs-hr' ) ),
+            'months'           => esc_js( __( 'months', 'sfs-hr' ) ),
+            'exceeds_max'      => esc_js( __( 'Exceeds maximum loan amount', 'sfs-hr' ) ),
+            'exceeds_salary'   => esc_js( __( 'Exceeds salary-based limit', 'sfs-hr' ) ),
+            'exceeds_inst'     => esc_js( __( 'Installment exceeds salary limit', 'sfs-hr' ) ),
         ];
-        echo '<script>var _li={';
-        foreach ( $i18n as $k => $v ) {
-            echo $k . ':"' . $v . '",';
-        }
-        echo '};function sfsCalcLoan(){var p=parseFloat(document.querySelector(\'input[name="principal_amount"]\').value)||0,m=parseFloat(document.getElementById("sfs_loan_monthly").value)||0,d=document.getElementById("sfs_loan_plan");if(p>0&&m>0){var f=Math.floor(p/m),r=p-(f*m),t=r>0?f+1:f;if(t>60){d.textContent="⚠️ "+_li.would_require+" "+t+" "+_li.months_max;d.style.color="var(--sfs-danger)";}else if(r>0){d.textContent=f+" × "+m.toFixed(2)+" SAR + "+_li.final_payment+" "+r.toFixed(2)+" SAR = "+p.toFixed(2)+" "+_li.sar_total+" ("+t+" "+_li.months+")";d.style.color="var(--sfs-primary)";}else{d.textContent=f+" "+_li.monthly_of+" "+m.toFixed(2)+" SAR = "+p.toFixed(2)+" "+_li.sar_total;d.style.color="var(--sfs-primary)";}}else{d.textContent="";}}'
-           . 'document.addEventListener("DOMContentLoaded",function(){var i=document.querySelector(\'input[name="principal_amount"]\');if(i)i.addEventListener("input",sfsCalcLoan);});</script>';
+        echo '<script>var _li=' . wp_json_encode( $i18n ) . ';';
+        echo 'var _ll=' . wp_json_encode( $limits ) . ';';
+        echo 'function sfsCalcLoan(){';
+        echo 'var p=parseFloat(document.querySelector(\'input[name="principal_amount"]\').value)||0,';
+        echo 'm=parseFloat(document.getElementById("sfs_loan_monthly").value)||0,';
+        echo 'd=document.getElementById("sfs_loan_plan"),';
+        echo 'w=document.getElementById("sfs_loan_amount_warn"),';
+        echo 'warns=[];';
+        // Client-side amount warnings
+        echo 'if(p>0){';
+        echo 'if(_ll.max_amount>0&&p>_ll.max_amount)warns.push(_li.exceeds_max+" ("+_ll.max_amount.toLocaleString()+" SAR)");';
+        echo 'if(_ll.max_by_salary>0&&p>_ll.max_by_salary)warns.push(_li.exceeds_salary+" ("+_ll.max_by_salary.toLocaleString()+" SAR)");';
+        echo '}';
+        echo 'if(m>0&&_ll.max_installment>0&&m>_ll.max_installment)warns.push(_li.exceeds_inst+" ("+_ll.max_installment.toLocaleString()+" SAR)");';
+        echo 'if(w){if(warns.length){w.textContent=warns.join(". ");w.style.display="block";}else{w.textContent="";w.style.display="none";}}';
+        // Calculate months
+        echo 'if(p>0&&m>0){var f=Math.floor(p/m),r=p-(f*m),t=r>0?f+1:f,mx=_ll.max_months||60;';
+        echo 'if(t>mx){d.textContent="⚠️ "+_li.would_require+" "+t+" "+_li.months_max;d.style.color="var(--sfs-danger)";}';
+        echo 'else if(r>0){d.textContent=f+" × "+m.toFixed(2)+" SAR + "+_li.final_payment+" "+r.toFixed(2)+" SAR = "+p.toFixed(2)+" "+_li.sar_total+" ("+t+" "+_li.months+")";d.style.color="var(--sfs-primary)";}';
+        echo 'else{d.textContent=f+" "+_li.monthly_of+" "+m.toFixed(2)+" SAR = "+p.toFixed(2)+" "+_li.sar_total;d.style.color="var(--sfs-primary)";}}';
+        echo 'else{d.textContent="";}';
+        echo '}';
+        echo 'document.addEventListener("DOMContentLoaded",function(){';
+        echo 'var i=document.querySelector(\'input[name="principal_amount"]\');if(i){i.addEventListener("input",sfsCalcLoan);}';
+        echo 'var j=document.getElementById("sfs_loan_monthly");if(j){j.addEventListener("input",sfsCalcLoan);}';
+        echo '});</script>';
+    }
+
+    /* ──────────────────────────────────────────────────────────
+       AJAX Submit + Escape Key
+    ────────────────────────────────────────────────────────── */
+    private function render_ajax_script(): void {
+        $ajax_url = esc_url( admin_url( 'admin-ajax.php' ) );
+        $i18n = [
+            'submitting' => esc_js( __( 'Submitting...', 'sfs-hr' ) ),
+            'submit'     => esc_js( __( 'Submit Loan Request', 'sfs-hr' ) ),
+            'error'      => esc_js( __( 'An error occurred. Please try again.', 'sfs-hr' ) ),
+        ];
+        echo '<script>(function(){';
+        echo 'var m=document.getElementById("sfs-loan-modal");if(!m)return;';
+        // Escape key
+        echo 'document.addEventListener("keydown",function(e){if(e.key==="Escape")m.classList.remove("sfs-modal-active");});';
+        // AJAX submit
+        echo 'var f=document.getElementById("sfs-loan-form");if(!f)return;';
+        echo 'f.addEventListener("submit",function(e){e.preventDefault();';
+        echo 'var btn=document.getElementById("sfs-loan-submit"),msg=document.getElementById("sfs-loan-msg"),txt=btn.querySelector(".sfs-loan-submit-text");';
+        echo 'btn.disabled=true;txt.textContent="' . $i18n['submitting'] . '";';
+        echo 'msg.style.display="none";';
+        echo 'var fd=new FormData(f);';
+        echo 'fd.set("action","sfs_hr_submit_loan_ajax");';
+        echo 'fetch("' . $ajax_url . '",{method:"POST",credentials:"same-origin",body:fd})';
+        echo '.then(function(r){return r.json();})';
+        echo '.then(function(r){';
+        echo 'btn.disabled=false;txt.textContent="' . $i18n['submit'] . '";';
+        echo 'if(r.success){';
+        echo 'msg.style.display="block";msg.style.background="var(--sfs-success-bg,#d1e7dd)";msg.style.color="var(--sfs-success,#0f5132)";msg.style.border="1px solid var(--sfs-success,#badbcc)";';
+        echo 'msg.textContent=r.data.message;f.reset();';
+        echo 'document.getElementById("sfs_loan_plan").textContent="";';
+        echo 'var aw=document.getElementById("sfs_loan_amount_warn");if(aw){aw.style.display="none";}';
+        echo 'setTimeout(function(){location.reload();},1500);';
+        echo '}else{';
+        echo 'msg.style.display="block";msg.style.background="var(--sfs-danger-bg,#f8d7da)";msg.style.color="var(--sfs-danger,#842029)";msg.style.border="1px solid var(--sfs-danger,#f5c2c7)";';
+        echo 'msg.textContent=r.data&&r.data.message?r.data.message:"' . $i18n['error'] . '";';
+        echo 'msg.scrollIntoView({behavior:"smooth",block:"nearest"});';
+        echo '}';
+        echo '}).catch(function(){';
+        echo 'btn.disabled=false;txt.textContent="' . $i18n['submit'] . '";';
+        echo 'msg.style.display="block";msg.style.background="#f8d7da";msg.style.color="#842029";msg.style.border="1px solid #f5c2c7";';
+        echo 'msg.textContent="' . $i18n['error'] . '";';
+        echo '});});';
+        echo '})();</script>';
     }
 
     /* ──────────────────────────────────────────────────────────
