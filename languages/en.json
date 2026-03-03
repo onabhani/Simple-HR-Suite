@@ -3228,7 +3228,7 @@
     "approved_by_label": "Approved by",
     "note_label": "Note",
     "would_require": "Would require",
-    "months_max": "months (max 60). Increase monthly amount.",
+    "months_max": "months (max %d). Increase monthly amount.",
     "final_payment": "final payment",
     "sar_total": "SAR total",
     "monthly_of": "monthly payments of",

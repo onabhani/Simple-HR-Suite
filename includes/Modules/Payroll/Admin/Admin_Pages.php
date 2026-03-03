@@ -1079,6 +1079,15 @@ class Admin_Pages {
         $periods_table = $wpdb->prefix . 'sfs_hr_payroll_periods';
         $emp_table = $wpdb->prefix . 'sfs_hr_employees';
 
+        // Detail view routing (same pattern as render_runs)
+        $view       = isset( $_GET['view'] ) ? sanitize_key( $_GET['view'] ) : '';
+        $payslip_id = isset( $_GET['payslip_id'] ) ? intval( $_GET['payslip_id'] ) : 0;
+
+        if ( $view === 'detail' && $payslip_id ) {
+            $this->render_payslip_detail( $payslip_id );
+            return;
+        }
+
         // For admin: show all payslips
         // For employees: show only their payslips
         $user_id = get_current_user_id();
@@ -1163,7 +1172,7 @@ class Admin_Pages {
                         <td style="font-weight:600;"><?php echo esc_html( number_format( (float) $ps->net_salary, 2 ) ); ?></td>
                         <td><?php echo esc_html( date_i18n( 'M j, Y', strtotime( $ps->created_at ) ) ); ?></td>
                         <td>
-                            <button type="button" class="button button-small"><?php esc_html_e( 'View', 'sfs-hr' ); ?></button>
+                            <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=payslips&view=detail&payslip_id=' . intval( $ps->id ) ) ); ?>" class="button button-small"><?php esc_html_e( 'View', 'sfs-hr' ); ?></a>
                             <?php if ( $ps->pdf_attachment_id ): ?>
                             <a href="<?php echo esc_url( wp_get_attachment_url( $ps->pdf_attachment_id ) ); ?>" class="button button-small" target="_blank">
                                 <?php esc_html_e( 'Download PDF', 'sfs-hr' ); ?>
@@ -1180,6 +1189,161 @@ class Admin_Pages {
     }
 
     // Handler methods
+
+    private function render_payslip_detail( int $payslip_id ): void {
+        global $wpdb;
+
+        $payslips_table = $wpdb->prefix . 'sfs_hr_payslips';
+        $items_table    = $wpdb->prefix . 'sfs_hr_payroll_items';
+        $periods_table  = $wpdb->prefix . 'sfs_hr_payroll_periods';
+        $emp_table      = $wpdb->prefix . 'sfs_hr_employees';
+
+        $is_admin = current_user_can( 'sfs_hr_payroll_admin' )
+                 || current_user_can( 'sfs_hr.manage' )
+                 || current_user_can( 'manage_options' );
+
+        // Fetch payslip with joined data
+        $ps = $wpdb->get_row( $wpdb->prepare(
+            "SELECT ps.*, p.name AS period_name, p.start_date, p.end_date, p.pay_date,
+                    e.first_name, e.last_name, e.employee_code, e.bank_name, e.bank_account, e.iban,
+                    i.base_salary, i.gross_salary, i.total_deductions, i.net_salary,
+                    i.working_days, i.days_worked, i.days_absent, i.days_late, i.days_leave,
+                    i.overtime_hours, i.components_json
+             FROM {$payslips_table} ps
+             LEFT JOIN {$periods_table} p ON p.id = ps.period_id
+             LEFT JOIN {$emp_table} e ON e.id = ps.employee_id
+             LEFT JOIN {$items_table} i ON i.id = ps.payroll_item_id
+             WHERE ps.id = %d",
+            $payslip_id
+        ) );
+
+        if ( ! $ps ) {
+            echo '<div class="notice notice-error"><p>' . esc_html__( 'Payslip not found.', 'sfs-hr' ) . '</p></div>';
+            return;
+        }
+
+        // Non-admin: only allow viewing own payslips
+        if ( ! $is_admin ) {
+            $user_emp = $wpdb->get_var( $wpdb->prepare(
+                "SELECT id FROM {$emp_table} WHERE user_id = %d LIMIT 1",
+                get_current_user_id()
+            ) );
+            if ( (int) $ps->employee_id !== (int) $user_emp ) {
+                echo '<div class="notice notice-error"><p>' . esc_html__( 'Access denied.', 'sfs-hr' ) . '</p></div>';
+                return;
+            }
+        }
+
+        $emp_name   = trim( ( $ps->first_name ?? '' ) . ' ' . ( $ps->last_name ?? '' ) );
+        $components = ! empty( $ps->components_json ) ? json_decode( $ps->components_json, true ) : [];
+        $earnings   = is_array( $components ) ? array_filter( $components, fn( $c ) => ( $c['type'] ?? '' ) === 'earning' ) : [];
+        $deductions = is_array( $components ) ? array_filter( $components, fn( $c ) => ( $c['type'] ?? '' ) === 'deduction' ) : [];
+
+        ?>
+        <div class="sfs-hr-payslip-detail">
+            <p>
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=payslips' ) ); ?>">&larr; <?php esc_html_e( 'Back to Payslips', 'sfs-hr' ); ?></a>
+            </p>
+
+            <h2><?php esc_html_e( 'Payslip', 'sfs-hr' ); ?> #<?php echo esc_html( $ps->payslip_number ); ?></h2>
+
+            <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:20px;">
+                <div style="background:#f0f6fc; padding:15px; border-radius:6px; flex:1; min-width:150px;">
+                    <div style="font-size:12px; color:#646970;"><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></div>
+                    <div style="font-size:16px; font-weight:600;"><?php echo esc_html( $emp_name ); ?></div>
+                    <?php if ( ! empty( $ps->employee_code ) ): ?>
+                    <div style="font-size:12px; color:#646970;">#<?php echo esc_html( $ps->employee_code ); ?></div>
+                    <?php endif; ?>
+                </div>
+                <div style="background:#f0f6fc; padding:15px; border-radius:6px; flex:1; min-width:150px;">
+                    <div style="font-size:12px; color:#646970;"><?php esc_html_e( 'Period', 'sfs-hr' ); ?></div>
+                    <div style="font-size:16px; font-weight:600;"><?php echo esc_html( $ps->period_name ); ?></div>
+                    <?php if ( ! empty( $ps->pay_date ) ): ?>
+                    <div style="font-size:12px; color:#646970;"><?php esc_html_e( 'Pay Date:', 'sfs-hr' ); ?> <?php echo esc_html( date_i18n( 'M j, Y', strtotime( $ps->pay_date ) ) ); ?></div>
+                    <?php endif; ?>
+                </div>
+                <div style="background:#f0f6fc; padding:15px; border-radius:6px; flex:1; min-width:150px;">
+                    <div style="font-size:12px; color:#646970;"><?php esc_html_e( 'Base Salary', 'sfs-hr' ); ?></div>
+                    <div style="font-size:18px; font-weight:600;"><?php echo esc_html( number_format( (float) ( $ps->base_salary ?? 0 ), 2 ) ); ?></div>
+                </div>
+                <div style="background:#e7f5ea; padding:15px; border-radius:6px; flex:1; min-width:150px;">
+                    <div style="font-size:12px; color:#646970;"><?php esc_html_e( 'Net Salary', 'sfs-hr' ); ?></div>
+                    <div style="font-size:18px; font-weight:600; color:#00a32a;"><?php echo esc_html( number_format( (float) ( $ps->net_salary ?? 0 ), 2 ) ); ?></div>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:20px;">
+                <div style="background:#fff; border:1px solid #ddd; padding:15px; border-radius:6px; flex:1; min-width:250px;">
+                    <h3 style="margin:0 0 10px;"><?php esc_html_e( 'Attendance', 'sfs-hr' ); ?></h3>
+                    <table class="widefat" style="border:0;">
+                        <tr><td><?php esc_html_e( 'Working Days', 'sfs-hr' ); ?></td><td style="text-align:right; font-weight:600;"><?php echo esc_html( $ps->working_days ?? '—' ); ?></td></tr>
+                        <tr><td><?php esc_html_e( 'Days Worked', 'sfs-hr' ); ?></td><td style="text-align:right; font-weight:600;"><?php echo esc_html( $ps->days_worked ?? '—' ); ?></td></tr>
+                        <tr><td><?php esc_html_e( 'Days Absent', 'sfs-hr' ); ?></td><td style="text-align:right; font-weight:600;"><?php echo esc_html( $ps->days_absent ?? '0' ); ?></td></tr>
+                        <tr><td><?php esc_html_e( 'Days Late', 'sfs-hr' ); ?></td><td style="text-align:right; font-weight:600;"><?php echo esc_html( $ps->days_late ?? '0' ); ?></td></tr>
+                        <tr><td><?php esc_html_e( 'Days Leave', 'sfs-hr' ); ?></td><td style="text-align:right; font-weight:600;"><?php echo esc_html( $ps->days_leave ?? '0' ); ?></td></tr>
+                        <tr><td><?php esc_html_e( 'Overtime Hours', 'sfs-hr' ); ?></td><td style="text-align:right; font-weight:600;"><?php echo esc_html( $ps->overtime_hours ?? '0' ); ?></td></tr>
+                    </table>
+                </div>
+
+                <?php if ( ! empty( $ps->bank_name ) || ! empty( $ps->iban ) ): ?>
+                <div style="background:#fff; border:1px solid #ddd; padding:15px; border-radius:6px; flex:1; min-width:250px;">
+                    <h3 style="margin:0 0 10px;"><?php esc_html_e( 'Bank Details', 'sfs-hr' ); ?></h3>
+                    <table class="widefat" style="border:0;">
+                        <?php if ( ! empty( $ps->bank_name ) ): ?>
+                        <tr><td><?php esc_html_e( 'Bank', 'sfs-hr' ); ?></td><td style="text-align:right; font-weight:600;"><?php echo esc_html( $ps->bank_name ); ?></td></tr>
+                        <?php endif; ?>
+                        <?php if ( ! empty( $ps->bank_account ) ): ?>
+                        <tr><td><?php esc_html_e( 'Account', 'sfs-hr' ); ?></td><td style="text-align:right; font-weight:600;"><?php echo esc_html( $ps->bank_account ); ?></td></tr>
+                        <?php endif; ?>
+                        <?php if ( ! empty( $ps->iban ) ): ?>
+                        <tr><td><?php esc_html_e( 'IBAN', 'sfs-hr' ); ?></td><td style="text-align:right; font-weight:600;"><?php echo esc_html( $ps->iban ); ?></td></tr>
+                        <?php endif; ?>
+                    </table>
+                </div>
+                <?php endif; ?>
+            </div>
+
+            <?php if ( ! empty( $earnings ) ): ?>
+            <h3><?php esc_html_e( 'Earnings', 'sfs-hr' ); ?></h3>
+            <table class="wp-list-table widefat striped" style="margin-bottom:20px;">
+                <thead><tr><th><?php esc_html_e( 'Component', 'sfs-hr' ); ?></th><th style="text-align:right;"><?php esc_html_e( 'Amount', 'sfs-hr' ); ?></th></tr></thead>
+                <tbody>
+                <?php foreach ( $earnings as $c ): ?>
+                    <tr><td><?php echo esc_html( $c['name'] ?? $c['code'] ?? '—' ); ?></td><td style="text-align:right;"><?php echo esc_html( number_format( (float) ( $c['amount'] ?? 0 ), 2 ) ); ?></td></tr>
+                <?php endforeach; ?>
+                    <tr style="font-weight:700;"><td><?php esc_html_e( 'Total Gross', 'sfs-hr' ); ?></td><td style="text-align:right;"><?php echo esc_html( number_format( (float) ( $ps->gross_salary ?? 0 ), 2 ) ); ?></td></tr>
+                </tbody>
+            </table>
+            <?php endif; ?>
+
+            <?php if ( ! empty( $deductions ) ): ?>
+            <h3><?php esc_html_e( 'Deductions', 'sfs-hr' ); ?></h3>
+            <table class="wp-list-table widefat striped" style="margin-bottom:20px;">
+                <thead><tr><th><?php esc_html_e( 'Component', 'sfs-hr' ); ?></th><th style="text-align:right;"><?php esc_html_e( 'Amount', 'sfs-hr' ); ?></th></tr></thead>
+                <tbody>
+                <?php foreach ( $deductions as $c ): ?>
+                    <tr><td><?php echo esc_html( $c['name'] ?? $c['code'] ?? '—' ); ?></td><td style="text-align:right;"><?php echo esc_html( number_format( (float) ( $c['amount'] ?? 0 ), 2 ) ); ?></td></tr>
+                <?php endforeach; ?>
+                    <tr style="font-weight:700;"><td><?php esc_html_e( 'Total Deductions', 'sfs-hr' ); ?></td><td style="text-align:right;"><?php echo esc_html( number_format( (float) ( $ps->total_deductions ?? 0 ), 2 ) ); ?></td></tr>
+                </tbody>
+            </table>
+            <?php endif; ?>
+
+            <div style="text-align:right; padding:15px; background:#e7f5ea; border-radius:6px; margin-bottom:20px;">
+                <span style="font-size:14px; color:#646970;"><?php esc_html_e( 'Net Salary:', 'sfs-hr' ); ?></span>
+                <span style="font-size:22px; font-weight:700; color:#00a32a; margin-inline-start:10px;"><?php echo esc_html( number_format( (float) ( $ps->net_salary ?? 0 ), 2 ) ); ?></span>
+            </div>
+
+            <?php if ( $ps->pdf_attachment_id ): ?>
+            <p>
+                <a href="<?php echo esc_url( wp_get_attachment_url( $ps->pdf_attachment_id ) ); ?>" class="button button-primary" target="_blank">
+                    <?php esc_html_e( 'Download PDF', 'sfs-hr' ); ?>
+                </a>
+            </p>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
 
     public function handle_create_period(): void {
         if ( ! current_user_can( 'sfs_hr_payroll_admin' ) && ! current_user_can( 'sfs_hr.manage' ) ) {

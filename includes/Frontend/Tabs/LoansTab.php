@@ -206,6 +206,7 @@ class LoansTab implements TabInterface {
         }
         echo '<span class="sfs-form-hint">' . implode( ' · ', $inst_hints ) . '</span>';
         echo '<p id="sfs_loan_plan" style="margin:8px 0 0;font-weight:600;font-size:13px;color:var(--sfs-primary);"></p>';
+        echo '<p id="sfs_loan_inst_warn" style="display:none;margin:4px 0 0;font-size:12px;color:var(--sfs-danger,#dc3545);font-weight:600;"></p>';
         echo '</div>';
 
         $this->render_calculator_script( $limits );
@@ -235,7 +236,7 @@ class LoansTab implements TabInterface {
     private function render_calculator_script( array $limits ): void {
         $i18n = [
             'would_require'    => esc_js( __( 'Would require', 'sfs-hr' ) ),
-            'months_max'       => esc_js( sprintf( __( 'months (max %d). Increase monthly amount.', 'sfs-hr' ), $limits['max_months'] ) ),
+            'months_max'       => esc_js( __( 'months (max %d). Increase monthly amount.', 'sfs-hr' ) ),
             'final_payment'    => esc_js( __( 'final payment', 'sfs-hr' ) ),
             'sar_total'        => esc_js( __( 'SAR total', 'sfs-hr' ) ),
             'monthly_of'       => esc_js( __( 'monthly payments of', 'sfs-hr' ) ),
@@ -252,18 +253,20 @@ class LoansTab implements TabInterface {
         echo 'var p=parseFloat(document.querySelector(\'input[name="principal_amount"]\').value)||0,';
         echo 'm=parseFloat(document.getElementById("sfs_loan_monthly").value)||0,';
         echo 'd=document.getElementById("sfs_loan_plan"),';
+        echo 'iw=document.getElementById("sfs_loan_inst_warn"),';
         echo 'w=document.getElementById("sfs_loan_amount_warn"),';
         echo 'warns=[];';
         // Client-side amount warnings
         echo 'if(p>0){';
-        echo 'if(_ll.max_amount>0&&p>_ll.max_amount)warns.push(_lt("exceeds_max")+" ("+_ll.max_amount.toLocaleString()+" SAR)");';
-        echo 'if(_ll.max_by_salary>0&&p>_ll.max_by_salary)warns.push(_lt("exceeds_salary")+" ("+_ll.max_by_salary.toLocaleString()+" SAR)");';
+        echo 'if(_ll.max_amount>0&&p>_ll.max_amount)warns.push("⚠️ "+_lt("exceeds_max")+" ("+_ll.max_amount.toLocaleString()+" SAR)");';
+        echo 'if(_ll.max_by_salary>0&&p>_ll.max_by_salary)warns.push("⚠️ "+_lt("exceeds_salary")+" ("+_ll.max_by_salary.toLocaleString()+" SAR)");';
         echo '}';
-        echo 'if(m>0&&_ll.max_installment>0&&m>_ll.max_installment)warns.push(_lt("exceeds_inst")+" ("+_ll.max_installment.toLocaleString()+" SAR)");';
         echo 'if(w){if(warns.length){w.textContent=warns.join(". ");w.style.display="block";}else{w.textContent="";w.style.display="none";}}';
+        // Installment warning — shown below the months plan, not in amount warns
+        echo 'if(iw){if(m>0&&_ll.max_installment>0&&m>_ll.max_installment){iw.textContent="⚠️ "+_lt("exceeds_inst")+" ("+_ll.max_installment.toLocaleString()+" SAR)";iw.style.display="block";}else{iw.textContent="";iw.style.display="none";}}';
         // Calculate months
         echo 'if(p>0&&m>0){var f=Math.floor(p/m),r=p-(f*m),t=r>0?f+1:f,mx=_ll.max_months||60;';
-        echo 'if(t>mx){d.textContent="⚠️ "+_lt("would_require")+" "+t+" "+_lt("months_max");d.style.color="var(--sfs-danger)";}';
+        echo 'if(t>mx){d.textContent="⚠️ "+_lt("would_require")+" "+t+" "+_lt("months_max").replace("%d",mx);d.style.color="var(--sfs-danger)";}';
         echo 'else if(r>0){d.textContent=f+" × "+m.toFixed(2)+" SAR + "+_lt("final_payment")+" "+r.toFixed(2)+" SAR = "+p.toFixed(2)+" "+_lt("sar_total")+" ("+t+" "+_lt("months")+")";d.style.color="var(--sfs-primary)";}';
         echo 'else{d.textContent=f+" "+_lt("monthly_of")+" "+m.toFixed(2)+" SAR = "+p.toFixed(2)+" "+_lt("sar_total");d.style.color="var(--sfs-primary)";}}';
         echo 'else{d.textContent="";}';

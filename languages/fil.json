@@ -3236,7 +3236,7 @@
     "approved_by_label": "Inaprubahan ni",
     "note_label": "Tala",
     "would_require": "Mangangailangan ng",
-    "months_max": "buwan (max 60). Dagdagan ang buwanang halaga.",
+    "months_max": "buwan (max %d). Dagdagan ang buwanang halaga.",
     "final_payment": "huling bayad",
     "sar_total": "SAR kabuuan",
     "monthly_of": "buwanang bayad ng",

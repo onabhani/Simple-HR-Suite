@@ -210,9 +210,11 @@ class EmployeesTab implements TabInterface {
         echo '<th data-i18n-key="nationality">' . esc_html__( 'Nationality', 'sfs-hr' ) . '</th>';
         echo '<th data-i18n-key="hire_date">' . esc_html__( 'Hire Date', 'sfs-hr' ) . '</th>';
         echo '<th data-i18n-key="status">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+        echo '<th style="width:48px;"></th>';
         echo '</tr></thead><tbody>';
 
         foreach ( $employees as $e ) {
+            $eid    = (int) $e['id'];
             $name   = esc_html( trim( ( $e['first_name'] ?? '' ) . ' ' . ( $e['last_name'] ?? '' ) ) );
             $code   = esc_html( $e['employee_code'] ?? '' );
             $dept   = esc_html( $e['dept_name'] ?? '—' );
@@ -223,6 +225,10 @@ class EmployeesTab implements TabInterface {
             $hire   = $e['hire_date'] ? esc_html( wp_date( 'M j, Y', strtotime( $e['hire_date'] ) ) ) : '—';
             $status = $e['status'] ?? 'active';
             $badge_class = $status === 'active' ? 'approved' : ( $status === 'terminated' ? 'rejected' : 'pending' );
+
+            $view_url   = esc_url( admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . $eid ) );
+            $edit_url   = esc_url( admin_url( 'admin.php?page=sfs-hr-employee-profile&employee_id=' . $eid . '&mode=edit' ) );
+            $delete_url = esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=sfs_hr_delete_employee&id=' . $eid ), 'sfs_hr_del_' . $eid ) );
 
             echo '<tr>';
             echo '<td><strong>' . $code . '</strong></td>';
@@ -240,6 +246,17 @@ class EmployeesTab implements TabInterface {
             $status_key = $status;
             $status_label = $this->translate_status( $status );
             echo '<td><span class="sfs-badge sfs-badge--' . esc_attr( $badge_class ) . '" data-i18n-key="' . esc_attr( $status_key ) . '">' . esc_html( $status_label ) . '</span></td>';
+            echo '<td style="position:relative;">';
+            echo '<button type="button" class="sfs-emp-action-btn" onclick="sfsToggleEmpMenu(this)" aria-label="' . esc_attr__( 'Actions', 'sfs-hr' ) . '">';
+            echo '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>';
+            echo '</button>';
+            echo '<div class="sfs-emp-action-menu">';
+            echo '<a href="' . $view_url . '" class="sfs-emp-action-item"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> ' . esc_html__( 'View', 'sfs-hr' ) . '</a>';
+            echo '<a href="' . $edit_url . '" class="sfs-emp-action-item"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> ' . esc_html__( 'Edit', 'sfs-hr' ) . '</a>';
+            echo '<a href="' . $delete_url . '" class="sfs-emp-action-item sfs-emp-action-item--danger" onclick="return confirm(\'' . esc_js( __( 'Are you sure you want to delete this employee?', 'sfs-hr' ) ) . '\')">';
+            echo '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> ' . esc_html__( 'Delete', 'sfs-hr' ) . '</a>';
+            echo '</div>';
+            echo '</td>';
             echo '</tr>';
         }
 
@@ -248,6 +265,7 @@ class EmployeesTab implements TabInterface {
         // Mobile cards.
         echo '<div class="sfs-mobile-only sfs-emp-dir-list">';
         foreach ( $employees as $e ) {
+            $eid    = (int) $e['id'];
             $name   = esc_html( trim( ( $e['first_name'] ?? '' ) . ' ' . ( $e['last_name'] ?? '' ) ) );
             $code   = esc_html( $e['employee_code'] ?? '' );
             $dept   = esc_html( $e['dept_name'] ?? '—' );
@@ -256,21 +274,51 @@ class EmployeesTab implements TabInterface {
             $badge_class = $status === 'active' ? 'approved' : ( $status === 'terminated' ? 'rejected' : 'pending' );
             $status_label = $this->translate_status( $status );
 
+            $view_url   = esc_url( admin_url( 'admin.php?page=sfs-hr-employees&action=view&id=' . $eid ) );
+            $edit_url   = esc_url( admin_url( 'admin.php?page=sfs-hr-employee-profile&employee_id=' . $eid . '&mode=edit' ) );
+            $delete_url = esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=sfs_hr_delete_employee&id=' . $eid ), 'sfs_hr_del_' . $eid ) );
+
             echo '<div class="sfs-card" style="margin-bottom:8px;">';
             echo '<div class="sfs-card-body" style="padding:12px 16px;">';
             echo '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
-            echo '<div>';
+            echo '<div style="flex:1;min-width:0;">';
             echo '<strong style="font-size:15px;">' . $name . '</strong>';
             echo '<div style="font-size:13px;color:var(--sfs-text-muted);margin-top:2px;">' . $code . '</div>';
             echo '<div style="font-size:13px;color:var(--sfs-text-muted);">' . $dept;
             if ( $pos !== '—' ) echo ' &middot; ' . $pos;
             echo '</div>';
             echo '</div>';
+            echo '<div style="display:flex;align-items:center;gap:8px;">';
             echo '<span class="sfs-badge sfs-badge--' . esc_attr( $badge_class ) . '" data-i18n-key="' . esc_attr( $status ) . '">' . esc_html( $status_label ) . '</span>';
+            echo '<div style="position:relative;">';
+            echo '<button type="button" class="sfs-emp-action-btn" onclick="sfsToggleEmpMenu(this)" aria-label="' . esc_attr__( 'Actions', 'sfs-hr' ) . '">';
+            echo '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>';
+            echo '</button>';
+            echo '<div class="sfs-emp-action-menu">';
+            echo '<a href="' . $view_url . '" class="sfs-emp-action-item"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> ' . esc_html__( 'View', 'sfs-hr' ) . '</a>';
+            echo '<a href="' . $edit_url . '" class="sfs-emp-action-item"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> ' . esc_html__( 'Edit', 'sfs-hr' ) . '</a>';
+            echo '<a href="' . $delete_url . '" class="sfs-emp-action-item sfs-emp-action-item--danger" onclick="return confirm(\'' . esc_js( __( 'Are you sure you want to delete this employee?', 'sfs-hr' ) ) . '\')">';
+            echo '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> ' . esc_html__( 'Delete', 'sfs-hr' ) . '</a>';
+            echo '</div>';
+            echo '</div>';
+            echo '</div>';
             echo '</div>';
             echo '</div></div>';
         }
         echo '</div>';
+
+        // Action menu styles + toggle script.
+        echo '<style>
+.sfs-emp-action-btn{background:none;border:1px solid var(--sfs-border,#e5e7eb);border-radius:6px;cursor:pointer;padding:4px 6px;color:var(--sfs-text-muted,#6b7280);display:inline-flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s;}
+.sfs-emp-action-btn:hover{background:var(--sfs-hover-bg,#f9fafb);border-color:var(--sfs-primary,#3b82f6);color:var(--sfs-primary,#3b82f6);}
+.sfs-emp-action-menu{display:none;position:absolute;right:0;top:100%;margin-top:4px;min-width:140px;background:#fff;border:1px solid var(--sfs-border,#e5e7eb);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:100;padding:4px 0;}
+.sfs-emp-action-menu.sfs-menu-open{display:block;}
+.sfs-emp-action-item{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:13px;color:var(--sfs-text,#1f2937);text-decoration:none;white-space:nowrap;transition:background .15s;}
+.sfs-emp-action-item:hover{background:var(--sfs-hover-bg,#f9fafb);}
+.sfs-emp-action-item--danger{color:var(--sfs-danger,#dc2626);}
+.sfs-emp-action-item--danger:hover{background:#fef2f2;}
+</style>';
+        echo '<script>function sfsToggleEmpMenu(b){var m=b.nextElementSibling,open=m.classList.contains("sfs-menu-open");document.querySelectorAll(".sfs-emp-action-menu.sfs-menu-open").forEach(function(el){el.classList.remove("sfs-menu-open");});if(!open)m.classList.add("sfs-menu-open");}document.addEventListener("click",function(e){if(!e.target.closest(".sfs-emp-action-btn")&&!e.target.closest(".sfs-emp-action-menu")){document.querySelectorAll(".sfs-emp-action-menu.sfs-menu-open").forEach(function(el){el.classList.remove("sfs-menu-open");});}});</script>';
     }
 
     private function translate_status( string $status ): string {
