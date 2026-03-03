@@ -2317,157 +2317,66 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
     color: #50575e;
   }
 
-  /* Desktop action buttons */
-  .sfs-hr-actions {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-  }
-  .sfs-hr-actions .button {
-    font-size: 12px;
-    padding: 4px 10px;
-    height: auto;
-    line-height: 1.4;
-    border-radius: 4px;
-  }
-  .sfs-hr-actions .button-danger {
-    background: #d63638;
-    border-color: #d63638;
-    color: #fff;
-  }
-  .sfs-hr-actions .button-danger:hover {
-    background: #b32d2e;
-    border-color: #b32d2e;
-    color: #fff;
-  }
-
-  /* Mobile action button (single button that opens modal) */
-  .sfs-hr-action-mobile-btn {
-    display: none;
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    background: #f1f5f9;
-    border: none;
-    cursor: pointer;
-    padding: 0;
+  /* Kebab (3-dot) action button & dropdown */
+  .sfs-hr-kebab-wrap {
     position: relative;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    transition: all 0.2s ease;
+    display: inline-block;
   }
-  .sfs-hr-action-mobile-btn::before,
-  .sfs-hr-action-mobile-btn::after,
-  .sfs-hr-action-mobile-btn span {
-    content: '';
-    display: block;
-    width: 5px;
-    height: 5px;
-    background: #475569;
-    border-radius: 50%;
+  .sfs-hr-kebab-btn {
+    background: none;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 6px 8px;
+    color: #50575e;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .sfs-hr-kebab-btn:hover {
+    background: #f0f0f1;
+    border-color: #2271b1;
+    color: #2271b1;
+  }
+  .sfs-hr-kebab-menu {
+    display: none;
     position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
+    right: 0;
+    top: 100%;
+    margin-top: 4px;
+    min-width: 160px;
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 100;
+    padding: 4px 0;
   }
-  .sfs-hr-action-mobile-btn::before {
-    top: 11px;
+  .sfs-hr-kebab-menu.open {
+    display: block;
   }
-  .sfs-hr-action-mobile-btn span {
-    top: 50%;
-    transform: translate(-50%, -50%);
+  .sfs-hr-kebab-menu a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: #1d2327;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.15s;
   }
-  .sfs-hr-action-mobile-btn::after {
-    bottom: 11px;
+  .sfs-hr-kebab-menu a:hover {
+    background: #f0f0f1;
   }
-  .sfs-hr-action-mobile-btn:hover {
-    background: #e2e8f0;
+  .sfs-hr-kebab-menu a.danger {
+    color: #d63638;
   }
-  .sfs-hr-action-mobile-btn:active {
-    transform: scale(0.95);
+  .sfs-hr-kebab-menu a.danger:hover {
+    background: #fee2e2;
   }
 
-  /* Action Modal */
-  .sfs-hr-action-modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 100000;
-    background: rgba(0,0,0,0.5);
-    align-items: flex-end;
-    justify-content: center;
-  }
-  .sfs-hr-action-modal.active {
-    display: flex;
-  }
-  .sfs-hr-action-modal-content {
-    background: #fff;
-    width: 100%;
-    max-width: 400px;
-    border-radius: 16px 16px 0 0;
-    padding: 20px;
-    animation: slideUp 0.2s ease-out;
-  }
-  @keyframes slideUp {
-    from { transform: translateY(100%); }
-    to { transform: translateY(0); }
-  }
-  .sfs-hr-action-modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid #e5e5e5;
-  }
-  .sfs-hr-action-modal-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: #1d2327;
-    margin: 0;
-  }
-  .sfs-hr-action-modal-close {
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    color: #50575e;
-    padding: 0;
-    line-height: 1;
-  }
-  .sfs-hr-action-modal-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .sfs-hr-action-modal-buttons .button {
-    width: 100%;
-    padding: 14px 20px;
-    font-size: 15px;
-    border-radius: 8px;
-    text-align: center;
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-  .sfs-hr-action-modal-buttons .button-primary {
-    background: #2271b1;
-    border-color: #2271b1;
-    color: #fff;
-  }
-  .sfs-hr-action-modal-buttons .button-secondary {
-    background: #f0f0f1;
-    border-color: #dcdcde;
-    color: #50575e;
-  }
-  .sfs-hr-action-modal-buttons .button-danger {
-    background: #d63638;
-    border-color: #d63638;
-    color: #fff;
-  }
 
   /* Pagination */
   .sfs-hr-pagination {
@@ -2661,15 +2570,7 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
       padding-right: 12px;
     }
 
-    /* Hide desktop actions, show mobile action button */
-    .sfs-hr-actions {
-      display: none !important;
-    }
-    .sfs-hr-action-mobile-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
+    /* Kebab menu stays the same on mobile */
 
     /* Pagination mobile */
     .sfs-hr-pagination {
@@ -2678,42 +2579,24 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
   }
 </style>
 
-<!-- Action Modal HTML -->
-<div class="sfs-hr-action-modal" id="sfs-hr-action-modal">
-  <div class="sfs-hr-action-modal-content">
-    <div class="sfs-hr-action-modal-header">
-      <h3 class="sfs-hr-action-modal-title" id="sfs-hr-modal-emp-name"><?php esc_html_e( 'Employee Actions', 'sfs-hr' ); ?></h3>
-      <button type="button" class="sfs-hr-action-modal-close" onclick="sfsHrCloseModal()">&times;</button>
-    </div>
-    <div class="sfs-hr-action-modal-buttons">
-      <a href="#" class="button button-primary" id="sfs-hr-modal-edit">
-        <span class="dashicons dashicons-edit"></span> <?php esc_html_e('Edit Employee', 'sfs-hr'); ?>
-      </a>
-      <a href="#" class="button button-danger" id="sfs-hr-modal-delete" onclick="return confirm('<?php echo esc_js(__('Delete permanently? This cannot be undone.', 'sfs-hr')); ?>');">
-        <span class="dashicons dashicons-trash"></span> <?php esc_html_e('Delete Employee', 'sfs-hr'); ?>
-      </a>
-    </div>
-    <p class="description" style="margin-top:12px;text-align:center;font-size:12px;color:#666;">
-      <?php esc_html_e('To terminate an employee, use the Resignation workflow.', 'sfs-hr'); ?>
-    </p>
-  </div>
-</div>
-
 <script>
-function sfsHrOpenModal(name, editUrl, delUrl) {
-  document.getElementById('sfs-hr-modal-emp-name').textContent = name || 'Employee Actions';
-  document.getElementById('sfs-hr-modal-edit').href = editUrl;
-  document.getElementById('sfs-hr-modal-delete').href = delUrl;
-  document.getElementById('sfs-hr-action-modal').classList.add('active');
-  document.body.style.overflow = 'hidden';
+function sfsHrToggleKebab(btn) {
+  var menu = btn.nextElementSibling;
+  var isOpen = menu.classList.contains('open');
+  // Close all open menus first.
+  document.querySelectorAll('.sfs-hr-kebab-menu.open').forEach(function(el) {
+    el.classList.remove('open');
+  });
+  if (!isOpen) {
+    menu.classList.add('open');
+  }
 }
-function sfsHrCloseModal() {
-  document.getElementById('sfs-hr-action-modal').classList.remove('active');
-  document.body.style.overflow = '';
-}
-// Close modal when clicking outside
-document.getElementById('sfs-hr-action-modal').addEventListener('click', function(e) {
-  if (e.target === this) sfsHrCloseModal();
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.sfs-hr-kebab-btn') && !e.target.closest('.sfs-hr-kebab-menu')) {
+    document.querySelectorAll('.sfs-hr-kebab-menu.open').forEach(function(el) {
+      el.classList.remove('open');
+    });
+  }
 });
 </script>
 
@@ -3107,6 +2990,7 @@ document.getElementById('sfs-hr-action-modal').addEventListener('click', functio
                 foreach ($rows as $r):
                   $name     = trim(($r['first_name']??'').' '.($r['last_name']??''));
                   $status   = $r['status'];
+                  $view_url = esc_url( admin_url('admin.php?page=sfs-hr-employee-profile&employee_id='.(int)$r['id']) );
                   $edit_url = wp_nonce_url( admin_url('admin.php?page=sfs-hr-employees&action=edit&id='.(int)$r['id']), 'sfs_hr_edit_'.(int)$r['id'] );
                   $del_url  = wp_nonce_url( admin_url('admin-post.php?action=sfs_hr_delete_employee&id='.(int)$r['id']), 'sfs_hr_del_'.(int)$r['id'] );
                   $dept_name = empty($r['dept_id']) ? __('General','sfs-hr') : ($dept_map[(int)$r['dept_id']] ?? '#'.(int)$r['dept_id']);
@@ -3120,15 +3004,16 @@ document.getElementById('sfs-hr-action-modal').addEventListener('click', functio
                   <td class="hide-mobile"><?php echo esc_html($r['position']); ?></td>
                   <td><span class="sfs-hr-badge status-<?php echo esc_attr($status); ?>"><?php echo esc_html(__(ucfirst($status), 'sfs-hr')); ?></span></td>
                   <td>
-                    <!-- Desktop action buttons -->
-                    <div class="sfs-hr-actions">
-                      <a class="button button-small" href="<?php echo esc_url($edit_url); ?>"><?php esc_html_e('Edit','sfs-hr'); ?></a>
-                      <a class="button button-small button-danger" href="<?php echo esc_url($del_url); ?>" onclick="return confirm('<?php echo esc_js(__('Delete permanently? This cannot be undone.', 'sfs-hr')); ?>');"><?php esc_html_e('Delete','sfs-hr'); ?></a>
+                    <div class="sfs-hr-kebab-wrap">
+                      <button type="button" class="sfs-hr-kebab-btn" onclick="sfsHrToggleKebab(this)" aria-label="<?php esc_attr_e('Actions','sfs-hr'); ?>">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                      </button>
+                      <div class="sfs-hr-kebab-menu">
+                        <a href="<?php echo esc_url($view_url); ?>"><span class="dashicons dashicons-visibility" style="font-size:16px;width:16px;height:16px;line-height:16px;"></span> <?php esc_html_e('View','sfs-hr'); ?></a>
+                        <a href="<?php echo esc_url($edit_url); ?>"><span class="dashicons dashicons-edit" style="font-size:16px;width:16px;height:16px;line-height:16px;"></span> <?php esc_html_e('Edit','sfs-hr'); ?></a>
+                        <a href="<?php echo esc_url($del_url); ?>" class="danger" onclick="return confirm('<?php echo esc_js(__('Delete permanently? This cannot be undone.', 'sfs-hr')); ?>');"><span class="dashicons dashicons-trash" style="font-size:16px;width:16px;height:16px;line-height:16px;"></span> <?php esc_html_e('Delete','sfs-hr'); ?></a>
+                      </div>
                     </div>
-                    <!-- Mobile action button (vertical dots) -->
-                    <button type="button" class="sfs-hr-action-mobile-btn" onclick="sfsHrOpenModal('<?php echo esc_js($name ?: $r['employee_code']); ?>', '<?php echo esc_js($edit_url); ?>', '<?php echo esc_js($del_url); ?>')">
-                      <span></span>
-                    </button>
                   </td>
                 </tr>
               <?php endforeach; endif; ?>

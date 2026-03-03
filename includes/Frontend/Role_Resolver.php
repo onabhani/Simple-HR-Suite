@@ -2,8 +2,9 @@
 /**
  * Role Resolver — detects the effective HR portal role for a user.
  *
- * Evaluation order: gm → hr → manager → admin → employee → trainee → none
- * The first match wins, so a user who qualifies as both HR and admin is resolved as 'hr'.
+ * Evaluation order: admin → gm → hr → manager → employee → trainee → none
+ * The first match wins. WordPress administrators are always resolved as 'admin'
+ * (highest portal level) so they never lose Organization/System sidebar sections.
  *
  * @package SFS\HR\Frontend
  */
@@ -19,14 +20,24 @@ class Role_Resolver {
     /**
      * Resolve the effective HR portal role for a user.
      *
-     * Evaluation order (first match wins): gm → hr → manager → admin → employee → trainee → none.
+     * Evaluation order (first match wins): admin → gm → hr → manager → employee → trainee → none.
+     * WordPress administrators are checked first because admin has the highest portal
+     * level (60) and broadest access — without this, an admin who is also assigned as
+     * a department manager or HR responsible would lose Organization and System sections.
      *
      * @param int $user_id WordPress user ID.
-     * @return string One of: gm, hr, manager, admin, employee, trainee, none.
+     * @return string One of: admin, gm, hr, manager, employee, trainee, none.
      */
     public static function resolve( int $user_id ): string {
         if ( ! $user_id ) {
             return 'none';
+        }
+
+        // Admin: WordPress administrator — checked first because admin role (level 60)
+        // has the broadest portal access. Without this priority, an admin who is also
+        // a department manager would be resolved as 'manager' and lose Organization/System sections.
+        if ( user_can( $user_id, 'manage_options' ) ) {
+            return 'admin';
         }
 
         // GM: configured as the General Manager approver.
@@ -35,8 +46,7 @@ class Role_Resolver {
             return 'gm';
         }
 
-        // HR (evaluated after gm, before manager and admin):
-        // has the sfs_hr_manager role, is in HR approvers list, or is hr_responsible.
+        // HR: has the sfs_hr_manager role, is in HR approvers list, or is hr_responsible.
         // Note: checking role/assignment — NOT sfs_hr.manage capability (admins inherit that).
         global $wpdb;
         $dept_table = $wpdb->prefix . 'sfs_hr_departments';
@@ -63,11 +73,6 @@ class Role_Resolver {
         ) );
         if ( $is_mgr > 0 ) {
             return 'manager';
-        }
-
-        // Admin: WordPress administrator with no specific HR assignment (evaluated after gm, hr, manager).
-        if ( user_can( $user_id, 'manage_options' ) ) {
-            return 'admin';
         }
 
         // Employee: has an employee record (any status — terminated employees still get employee role).
