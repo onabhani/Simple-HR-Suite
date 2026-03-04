@@ -307,6 +307,9 @@ add_action('admin_init', function(){
             if (!$column_exists($types_table, 'color')) {
                 $wpdb->query("ALTER TABLE {$types_table} ADD COLUMN color VARCHAR(20) DEFAULT '#2271b1' AFTER requires_attachment");
             }
+            if (!$column_exists($types_table, 'skip_managers_gm')) {
+                $wpdb->query("ALTER TABLE {$types_table} ADD COLUMN skip_managers_gm TINYINT(1) NOT NULL DEFAULT 0 AFTER special_code");
+            }
         }
 
         // Migrate employees: birth_date column

@@ -2798,12 +2798,13 @@ private function render_cancellation_detail( int $cancel_id ): void {
               <th><?php esc_html_e('Quota','sfs-hr'); ?></th>
               <th><?php esc_html_e('Gender','sfs-hr'); ?></th>
               <th><?php esc_html_e('Attachment','sfs-hr'); ?></th>
+              <th><?php esc_html_e('Skip Mgr/GM','sfs-hr'); ?></th>
               <th><?php esc_html_e('Special','sfs-hr'); ?></th>
               <th><?php esc_html_e('Actions','sfs-hr'); ?></th>
             </tr></thead>
             <tbody>
               <?php if(!$rows): ?>
-                <tr><td colspan="9"><?php esc_html_e('No types.','sfs-hr'); ?></td></tr>
+                <tr><td colspan="10"><?php esc_html_e('No types.','sfs-hr'); ?></td></tr>
               <?php else: foreach($rows as $r):
                 $looks_annual = (stripos($r['name'],'annual') !== false);
                 $gender_label = ['any' => __('All','sfs-hr'), 'male' => __('Male','sfs-hr'), 'female' => __('Female','sfs-hr')];
@@ -2821,6 +2822,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
                   <td><?php printf('%d', (int)$r['annual_quota']); ?></td>
                   <td><?php echo esc_html($gender_label[$r['gender_required'] ?? 'any'] ?? __('All','sfs-hr')); ?></td>
                   <td><?php echo !empty($r['requires_attachment'])?'✔':'—'; ?></td>
+                  <td><?php echo !empty($r['skip_managers_gm'])?'✔':'—'; ?></td>
                   <td><?php echo esc_html($r['special_code'] ?: '—'); ?></td>
                   <td>
                     <div style="display:flex;gap:6px;">
@@ -2901,6 +2903,10 @@ private function render_cancellation_detail( int $cancel_id ): void {
               <tr>
                 <th><?php esc_html_e('Requires Attachment','sfs-hr'); ?></th>
                 <td><label><input type="checkbox" name="requires_attachment" value="1" <?php checked(!empty($e['requires_attachment'])); ?>/> <?php esc_html_e('Employee must upload supporting document','sfs-hr'); ?></label></td>
+              </tr>
+              <tr>
+                <th><?php esc_html_e('Skip Managers & GM','sfs-hr'); ?></th>
+                <td><label><input type="checkbox" name="skip_managers_gm" value="1" <?php checked(!empty($e['skip_managers_gm'])); ?>/> <?php esc_html_e('Exclude managers and General Manager from this leave type','sfs-hr'); ?></label></td>
               </tr>
               <tr>
   <th><?php esc_html_e('Special Policy','sfs-hr'); ?></th>
@@ -3030,6 +3036,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
     $special = isset($_POST['special_code']) ? sanitize_text_field($_POST['special_code']) : '';
     $gender_required = isset($_POST['gender_required']) ? sanitize_key($_POST['gender_required']) : 'any';
     $requires_attachment = !empty($_POST['requires_attachment']) ? 1 : 0;
+    $skip_managers_gm = !empty($_POST['skip_managers_gm']) ? 1 : 0;
     $color = isset($_POST['color']) ? sanitize_hex_color($_POST['color']) : '#2271b1';
 
     $allowed = ['', 'SICK_SHORT','SICK_LONG','HAJJ','MATERNITY','MARRIAGE','BEREAVEMENT','PATERNITY'];
@@ -3086,6 +3093,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
             'special_code'       => ($special ?: null),
             'gender_required'    => $gender_required,
             'requires_attachment'=> $requires_attachment,
+            'skip_managers_gm'   => $skip_managers_gm,
             'color'              => $color,
         ]
     );
@@ -3128,6 +3136,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
         $special  = isset($_POST['special_code']) ? sanitize_text_field(wp_unslash($_POST['special_code'])) : '';
         $gender_required = isset($_POST['gender_required']) ? sanitize_text_field(wp_unslash($_POST['gender_required'])) : 'any';
         $requires_attachment = !empty($_POST['requires_attachment']) ? 1 : 0;
+        $skip_managers_gm = !empty($_POST['skip_managers_gm']) ? 1 : 0;
 
         if (empty($name)) {
             wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=types&edit_id=' . $id . '&err=' . rawurlencode(__('Name is required', 'sfs-hr'))));
@@ -3146,6 +3155,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
                 'special_code'       => ($special ?: null),
                 'gender_required'    => $gender_required,
                 'requires_attachment'=> $requires_attachment,
+                'skip_managers_gm'   => $skip_managers_gm,
                 'color'              => $color,
                 'updated_at'         => current_time('mysql'),
             ],

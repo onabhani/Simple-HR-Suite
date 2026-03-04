@@ -44,12 +44,18 @@ class LeaveTab implements TabInterface {
         // Employee gender for filtering gender-specific leave types
         $emp_gender = strtolower( trim( (string) ( $emp['gender'] ?? '' ) ) );
 
-        // Active leave types (filtered by gender)
+        // Active leave types (filtered by gender and skip_managers_gm)
         $types = $wpdb->get_results(
-            "SELECT id, name, gender_required FROM {$type_table} WHERE active = 1 ORDER BY name ASC"
+            "SELECT id, name, gender_required, skip_managers_gm FROM {$type_table} WHERE active = 1 ORDER BY name ASC"
         );
+        // Determine if current user is a manager or GM
+        $user_role = \SFS\HR\Frontend\Role_Resolver::resolve( get_current_user_id() );
+        $is_mgr_or_gm = in_array( $user_role, [ 'manager', 'gm' ], true );
         if ( $types ) {
-            $types = array_values( array_filter( $types, function( $t ) use ( $emp_gender ) {
+            $types = array_values( array_filter( $types, function( $t ) use ( $emp_gender, $is_mgr_or_gm ) {
+                if ( $is_mgr_or_gm && ! empty( $t->skip_managers_gm ) ) {
+                    return false;
+                }
                 return $this->is_gender_allowed( (string) ( $t->gender_required ?? 'any' ), $emp_gender );
             } ) );
         }
@@ -78,7 +84,7 @@ class LeaveTab implements TabInterface {
 
         $balances = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT b.*, t.name, t.is_annual, t.gender_required
+                "SELECT b.*, t.name, t.is_annual, t.gender_required, t.skip_managers_gm
                  FROM {$bal_table} b
                  JOIN {$type_table} t ON t.id = b.type_id
                  WHERE b.employee_id = %d AND b.year = %d
@@ -89,8 +95,11 @@ class LeaveTab implements TabInterface {
             ARRAY_A
         );
 
-        // Filter out balances for gender-restricted leave types that don't match
-        $balances = array_values( array_filter( $balances, function( $b ) use ( $emp_gender ) {
+        // Filter out balances for gender-restricted or manager/GM-skipped leave types
+        $balances = array_values( array_filter( $balances, function( $b ) use ( $emp_gender, $is_mgr_or_gm ) {
+            if ( $is_mgr_or_gm && ! empty( $b['skip_managers_gm'] ) ) {
+                return false;
+            }
             return $this->is_gender_allowed( (string) ( $b['gender_required'] ?? 'any' ), $emp_gender );
         } ) );
 

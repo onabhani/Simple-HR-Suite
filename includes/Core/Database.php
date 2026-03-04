@@ -64,6 +64,7 @@ dbDelta($employees);
       is_annual TINYINT(1) NOT NULL DEFAULT 0,           -- NEW
       active TINYINT(1) NOT NULL DEFAULT 1,              -- NEW
       special_code VARCHAR(32) NULL,                     -- NEW (SICK_SHORT/SICK_LONG/HAJJ/MATERNITY)
+      skip_managers_gm TINYINT(1) NOT NULL DEFAULT 0,   -- NEW: skip managers & GM for this type
       created_at DATETIME NOT NULL,
       updated_at DATETIME NOT NULL,                      -- NEW
       PRIMARY KEY (id),
