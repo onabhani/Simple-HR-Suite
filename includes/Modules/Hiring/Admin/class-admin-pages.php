@@ -1,6 +1,7 @@
 <?php
 namespace SFS\HR\Modules\Hiring\Admin;
 
+use SFS\HR\Core\Helpers;
 use SFS\HR\Modules\Hiring\HiringModule;
 
 if (!defined('ABSPATH')) { exit; }
@@ -298,7 +299,7 @@ class AdminPages {
 
                         <div class="sfs-hr-form-row">
                             <label><?php esc_html_e('Nationality', 'sfs-hr'); ?></label>
-                            <input type="text" name="nationality" value="<?php echo esc_attr($candidate->nationality ?? ''); ?>" />
+                            <?php Helpers::render_nationality_select( (string) ( $candidate->nationality ?? '' ), 'nationality' ); ?>
                         </div>
                     </div>
 

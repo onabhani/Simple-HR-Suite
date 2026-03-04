@@ -2749,7 +2749,7 @@ document.addEventListener('keydown', function(e) {
 
                   <div class="sfs-hr-field">
                     <label for="sfs-hr-nationality"><?php esc_html_e( 'Nationality', 'sfs-hr' ); ?></label>
-                    <input id="sfs-hr-nationality" name="nationality" class="regular-text" />
+                    <?php Helpers::render_nationality_select( '', 'nationality', 'sfs-hr-nationality' ); ?>
                   </div>
 
                   <div class="sfs-hr-field">
