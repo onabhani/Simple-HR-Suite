@@ -31,6 +31,7 @@ class Admin {
     add_action( 'admin_post_sfs_hr_save_notification_settings', [ $this, 'handle_save_notification_settings' ] );
     add_action( 'admin_post_sfs_hr_document_settings_save', [ $this, 'handle_document_settings_save' ] );
     add_action( 'admin_post_sfs_hr_frontend_settings', [ $this, 'handle_frontend_settings' ] );
+    add_action( 'admin_post_sfs_hr_save_employees_settings', [ $this, 'handle_save_employees_settings' ] );
 
     // Role→Department sync
     add_action( 'admin_post_sfs_hr_sync_dept_members',  [ $this, 'handle_sync_dept_members' ] );
@@ -495,6 +496,9 @@ class Admin {
             }
         }
     </style>';
+
+    // === GOVERNMENT SUPPORT REMINDER BANNER ===
+    $this->render_gov_support_dashboard_banner( $emp_t );
 
     // === QUICK ACCESS NAVIGATION SECTION (at the top) ===
     echo '<div class="sfs-hr-quick-access-section">';
@@ -5670,6 +5674,10 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                    class="nav-tab <?php echo $tab === 'notifications' ? 'nav-tab-active' : ''; ?>">
                     <?php esc_html_e( 'Notifications', 'sfs-hr' ); ?>
                 </a>
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-settings&tab=employees' ) ); ?>"
+                   class="nav-tab <?php echo $tab === 'employees' ? 'nav-tab-active' : ''; ?>">
+                    <?php esc_html_e( 'Employees', 'sfs-hr' ); ?>
+                </a>
                 <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-settings&tab=documents' ) ); ?>"
                    class="nav-tab <?php echo $tab === 'documents' ? 'nav-tab-active' : ''; ?>">
                     <?php esc_html_e( 'Documents', 'sfs-hr' ); ?>
@@ -5688,6 +5696,8 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 <?php
                 if ( $tab === 'notifications' ) {
                     $this->render_notification_settings( $settings );
+                } elseif ( $tab === 'employees' ) {
+                    $this->render_employees_settings();
                 } elseif ( $tab === 'documents' ) {
                     $this->render_document_settings();
                 } elseif ( $tab === 'shortcodes' ) {
@@ -5698,6 +5708,183 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 ?>
             </div>
         </div>
+        <?php
+    }
+
+    /**
+     * Render government support reminder banner on the admin dashboard.
+     *
+     * Queries employees matching the configured nationality and threshold,
+     * then displays a blue info banner for each qualifying employee.
+     */
+    private function render_gov_support_dashboard_banner( string $emp_t ): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'manage_options' ) ) {
+            return;
+        }
+
+        $settings = get_option( 'sfs_hr_gov_support_settings', [] );
+        if ( empty( $settings['enabled'] ) ) {
+            return;
+        }
+
+        $nationality      = $settings['nationality'] ?? 'Saudi';
+        $threshold_months = (int) ( $settings['threshold_months'] ?? 3 );
+
+        global $wpdb;
+
+        $cutoff_date = wp_date( 'Y-m-d', strtotime( "-{$threshold_months} months" ) );
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $qualifying = $wpdb->get_results( $wpdb->prepare(
+            "SELECT id, first_name, last_name, employee_code, nationality, hired_at
+             FROM {$emp_t}
+             WHERE status = 'active'
+               AND LOWER(nationality) = LOWER(%s)
+               AND hired_at IS NOT NULL
+               AND hired_at <= %s
+             ORDER BY hired_at ASC",
+            $nationality,
+            $cutoff_date
+        ), ARRAY_A );
+
+        if ( empty( $qualifying ) ) {
+            return;
+        }
+
+        // Filter out dismissed employees.
+        $dismissed = get_option( 'sfs_hr_gov_support_dismissed', [] );
+        if ( ! is_array( $dismissed ) ) {
+            $dismissed = [];
+        }
+
+        $to_show = [];
+        foreach ( $qualifying as $emp ) {
+            $emp_id = (int) $emp['id'];
+            if ( ! in_array( $emp_id, $dismissed, true ) ) {
+                $to_show[] = $emp;
+                // Trigger email on first detection.
+                \SFS\HR\Frontend\GovSupportReminder::maybe_send_email( $emp_id, $emp );
+            }
+        }
+
+        if ( empty( $to_show ) ) {
+            return;
+        }
+
+        $nonce    = wp_create_nonce( 'sfs_hr_dismiss_gov_support' );
+        $ajax_url = admin_url( 'admin-ajax.php' );
+
+        foreach ( $to_show as $emp ) {
+            $emp_id    = (int) $emp['id'];
+            $name      = trim( ( $emp['first_name'] ?? '' ) . ' ' . ( $emp['last_name'] ?? '' ) );
+            $banner_id = 'sfs-gov-support-' . $emp_id;
+            $msg       = sprintf(
+                /* translators: 1: employee name, 2: nationality, 3: number of months */
+                esc_html__( '%1$s is a %2$s national and has been employed for more than %3$d months. Please check if government support registration is required.', 'sfs-hr' ),
+                '<strong>' . esc_html( $name ) . '</strong>',
+                esc_html( $nationality ),
+                $threshold_months
+            );
+
+            echo '<div id="' . esc_attr( $banner_id ) . '" class="notice notice-info" style="display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-left-color:#2271b1;margin:5px 0 15px;">';
+            echo '<div style="flex:1;">';
+            echo '<p style="margin:0 0 4px;"><strong>' . esc_html__( 'Government Support Reminder', 'sfs-hr' ) . '</strong></p>';
+            echo '<p style="margin:0 0 8px;">' . $msg . '</p>';
+            echo '<button type="button" class="button button-small sfs-dismiss-gov-support" data-emp-id="' . esc_attr( $emp_id ) . '">' . esc_html__( 'Dismiss', 'sfs-hr' ) . '</button>';
+            echo '</div>';
+            echo '</div>';
+        }
+
+        // Inline dismiss JS (once).
+        ?>
+        <script>
+        document.querySelectorAll('.sfs-dismiss-gov-support').forEach(function(btn){
+            btn.addEventListener('click', function(){
+                var empId = this.getAttribute('data-emp-id');
+                var banner = document.getElementById('sfs-gov-support-' + empId);
+                if(banner) banner.style.display = 'none';
+                var fd = new FormData();
+                fd.append('action', 'sfs_hr_dismiss_gov_support');
+                fd.append('_wpnonce', <?php echo wp_json_encode( $nonce ); ?>);
+                fd.append('emp_id', empId);
+                fetch(<?php echo wp_json_encode( $ajax_url ); ?>, {method:'POST', credentials:'same-origin', body:fd});
+            });
+        });
+        </script>
+        <?php
+    }
+
+    /**
+     * Render employees settings tab (Nationalities + Government Support Reminder).
+     */
+    private function render_employees_settings(): void {
+        $nationalities = get_option( 'sfs_hr_nationalities', [] );
+        if ( ! is_array( $nationalities ) ) {
+            $nationalities = [];
+        }
+        if ( empty( $nationalities ) ) {
+            $nationalities = Helpers::get_nationalities_for_select();
+        }
+        $nationalities_str = implode( "\n", $nationalities );
+
+        $gov_settings    = get_option( 'sfs_hr_gov_support_settings', [] );
+        $gov_enabled     = ! empty( $gov_settings['enabled'] );
+        $gov_months      = (int) ( $gov_settings['threshold_months'] ?? 3 );
+        $gov_nationality = $gov_settings['nationality'] ?? 'Saudi';
+
+        ?>
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+            <?php wp_nonce_field( 'sfs_hr_employees_settings', '_sfs_emp_nonce' ); ?>
+            <input type="hidden" name="action" value="sfs_hr_save_employees_settings" />
+
+            <div class="postbox" style="margin-bottom:20px;">
+                <div class="postbox-header"><h2 style="padding:8px 12px;"><?php esc_html_e( 'Nationality Settings', 'sfs-hr' ); ?></h2></div>
+                <div class="inside">
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row"><label for="emp-nationalities"><?php esc_html_e( 'Allowed Nationalities', 'sfs-hr' ); ?></label></th>
+                            <td>
+                                <textarea id="emp-nationalities" name="emp[nationalities]" rows="8" class="large-text" placeholder="<?php esc_attr_e( 'One nationality per line', 'sfs-hr' ); ?>"><?php echo esc_textarea( $nationalities_str ); ?></textarea>
+                                <p class="description"><?php esc_html_e( 'One nationality per line. These appear in the nationality dropdown when adding/editing employees.', 'sfs-hr' ); ?></p>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="postbox" style="margin-bottom:20px;">
+                <div class="postbox-header"><h2 style="padding:8px 12px;"><?php esc_html_e( 'Government Support Reminder', 'sfs-hr' ); ?></h2></div>
+                <div class="inside">
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row"><?php esc_html_e( 'Enable', 'sfs-hr' ); ?></th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="emp[gov_enabled]" value="1" <?php checked( $gov_enabled ); ?> />
+                                    <?php esc_html_e( 'Enable government support reminder', 'sfs-hr' ); ?>
+                                </label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><label for="gov-nationality"><?php esc_html_e( 'Nationality to Monitor', 'sfs-hr' ); ?></label></th>
+                            <td>
+                                <input type="text" id="gov-nationality" name="emp[gov_nationality]" value="<?php echo esc_attr( $gov_nationality ); ?>" class="regular-text" />
+                                <p class="description"><?php esc_html_e( 'Employees with this nationality will trigger the reminder. Must match the nationality value exactly.', 'sfs-hr' ); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><label for="gov-months"><?php esc_html_e( 'Threshold (Months)', 'sfs-hr' ); ?></label></th>
+                            <td>
+                                <input type="number" id="gov-months" name="emp[gov_months]" value="<?php echo esc_attr( $gov_months ); ?>" min="1" max="120" class="small-text" />
+                                <p class="description"><?php esc_html_e( 'Alert HR when an employee of the monitored nationality has been employed for this many months (based on hire date).', 'sfs-hr' ); ?></p>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <?php submit_button( __( 'Save Employees Settings', 'sfs-hr' ) ); ?>
+        </form>
         <?php
     }
 
@@ -6695,6 +6882,41 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             admin_url( 'admin.php?page=sfs-hr-settings&tab=documents' ),
             'success',
             __( 'Document settings saved successfully.', 'sfs-hr' )
+        );
+    }
+
+    /**
+     * Handle save for the admin Employees settings tab.
+     */
+    public function handle_save_employees_settings(): void {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'Permission denied', 'sfs-hr' ) );
+        }
+        check_admin_referer( 'sfs_hr_employees_settings', '_sfs_emp_nonce' );
+
+        $emp_input = isset( $_POST['emp'] ) && is_array( $_POST['emp'] ) ? $_POST['emp'] : [];
+
+        // Nationalities: one per line → array.
+        $raw_nat = isset( $emp_input['nationalities'] ) ? sanitize_textarea_field( wp_unslash( $emp_input['nationalities'] ) ) : '';
+        $lines   = array_filter( array_map( 'trim', explode( "\n", $raw_nat ) ), 'strlen' );
+        $lines   = array_values( array_unique( $lines ) );
+        sort( $lines );
+        update_option( 'sfs_hr_nationalities', $lines, false );
+
+        // Government support reminder settings.
+        $gov = get_option( 'sfs_hr_gov_support_settings', [] );
+        if ( ! is_array( $gov ) ) {
+            $gov = [];
+        }
+        $gov['enabled']          = ! empty( $emp_input['gov_enabled'] );
+        $gov['nationality']      = sanitize_text_field( $emp_input['gov_nationality'] ?? 'Saudi' );
+        $gov['threshold_months'] = max( 1, min( 120, (int) ( $emp_input['gov_months'] ?? 3 ) ) );
+        update_option( 'sfs_hr_gov_support_settings', $gov, false );
+
+        Helpers::redirect_with_notice(
+            admin_url( 'admin.php?page=sfs-hr-settings&tab=employees' ),
+            'success',
+            __( 'Employees settings saved successfully.', 'sfs-hr' )
         );
     }
 
