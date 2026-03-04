@@ -441,6 +441,24 @@ class Helpers {
             return $cache;
         }
 
+        // 1. Use admin-configured list if set.
+        $configured = get_option( 'sfs_hr_nationalities', [] );
+        if ( is_array( $configured ) && ! empty( $configured ) ) {
+            // Merge with any existing DB values not in the configured list.
+            global $wpdb;
+            $table   = $wpdb->prefix . 'sfs_hr_employees';
+            $db_rows = $wpdb->get_col(
+                "SELECT DISTINCT nationality FROM {$table}
+                 WHERE nationality IS NOT NULL AND nationality != ''
+                 ORDER BY nationality ASC"
+            );
+            $merged = array_unique( array_merge( $configured, $db_rows ?: [] ) );
+            sort( $merged );
+            $cache = $merged;
+            return $cache;
+        }
+
+        // 2. Fallback: auto-seed from existing employee data.
         global $wpdb;
         $table = $wpdb->prefix . 'sfs_hr_employees';
 

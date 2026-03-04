@@ -3272,5 +3272,16 @@
     "now_click_end_date": "الآن اضغط لاختيار تاريخ النهاية",
     "please_upload_supporting_document": "يرجى رفع مستند داعم قبل الإرسال.",
     "previous_month": "الشهر السابق",
-    "next_month": "الشهر التالي"
+    "next_month": "الشهر التالي",
+    "employees": "الموظفون",
+    "nationality_settings": "إعدادات الجنسية",
+    "allowed_nationalities": "الجنسيات المسموحة",
+    "nationalities_help": "جنسية واحدة في كل سطر. تظهر هذه في قائمة الجنسيات عند إضافة أو تعديل الموظفين.",
+    "gov_support_settings": "تذكير الدعم الحكومي",
+    "enable_gov_reminder": "تفعيل تذكير الدعم الحكومي",
+    "gov_nationality": "الجنسية المراقبة",
+    "gov_nationality_help": "سيتم تنبيه الموظفين من هذه الجنسية. يجب أن تتطابق قيمة الجنسية تماماً.",
+    "gov_threshold_months": "الحد الأدنى (أشهر)",
+    "gov_months_help": "تنبيه الموارد البشرية عندما يكون موظف من الجنسية المراقبة قد عمل لهذا العدد من الأشهر (بناءً على تاريخ التعيين).",
+    "gov_support_reminder": "تذكير الدعم الحكومي"
 }

@@ -3268,5 +3268,16 @@
     "now_click_end_date": "اب آخری تاریخ پر کلک کریں",
     "please_upload_supporting_document": "براہ کرم جمع کرانے سے پہلے معاون دستاویز اپ لوڈ کریں۔",
     "previous_month": "پچھلا مہینہ",
-    "next_month": "اگلا مہینہ"
+    "next_month": "اگلا مہینہ",
+    "employees": "ملازمین",
+    "nationality_settings": "قومیت کی ترتیبات",
+    "allowed_nationalities": "اجازت شدہ قومیتیں",
+    "nationalities_help": "ہر سطر میں ایک قومیت۔ یہ ملازمین کو شامل کرتے یا ترمیم کرتے وقت قومیت کی ڈراپ ڈاؤن میں ظاہر ہوتی ہیں۔",
+    "gov_support_settings": "حکومتی مدد کی یاد دہانی",
+    "enable_gov_reminder": "حکومتی مدد کی یاد دہانی فعال کریں",
+    "gov_nationality": "نگرانی کے لیے قومیت",
+    "gov_nationality_help": "اس قومیت کے ملازمین یاد دہانی کو متحرک کریں گے۔ قومیت کی قدر بالکل مماثل ہونی چاہیے۔",
+    "gov_threshold_months": "حد (مہینے)",
+    "gov_months_help": "ایچ آر کو خبردار کریں جب نگرانی شدہ قومیت کا ملازم اتنے مہینوں سے ملازم ہو (تاریخ تقرری کی بنیاد پر)۔",
+    "gov_support_reminder": "حکومتی مدد کی یاد دہانی"
 }

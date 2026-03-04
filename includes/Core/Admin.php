@@ -6752,6 +6752,27 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             update_option( 'sfs_hr_loans_settings', $loans_saved );
         }
 
+        // ── Employees settings ────────────────────────────────────
+        $emp_input = isset( $_POST['emp'] ) && is_array( $_POST['emp'] ) ? $_POST['emp'] : [];
+        if ( ! empty( $emp_input ) ) {
+            // Nationalities: one per line → array.
+            $raw_nat = isset( $emp_input['nationalities'] ) ? sanitize_textarea_field( wp_unslash( $emp_input['nationalities'] ) ) : '';
+            $lines   = array_filter( array_map( 'trim', explode( "\n", $raw_nat ) ), 'strlen' );
+            $lines   = array_values( array_unique( $lines ) );
+            sort( $lines );
+            update_option( 'sfs_hr_nationalities', $lines, false );
+
+            // Government support reminder settings.
+            $gov = get_option( 'sfs_hr_gov_support_settings', [] );
+            if ( ! is_array( $gov ) ) {
+                $gov = [];
+            }
+            $gov['enabled']          = ! empty( $emp_input['gov_enabled'] );
+            $gov['nationality']      = sanitize_text_field( $emp_input['gov_nationality'] ?? 'Saudi' );
+            $gov['threshold_months'] = max( 1, min( 120, (int) ( $emp_input['gov_months'] ?? 3 ) ) );
+            update_option( 'sfs_hr_gov_support_settings', $gov, false );
+        }
+
         // ── Notification settings ─────────────────────────────────
         $nf = isset( $_POST['notif'] ) && is_array( $_POST['notif'] ) ? $_POST['notif'] : [];
         if ( ! empty( $nf ) ) {
