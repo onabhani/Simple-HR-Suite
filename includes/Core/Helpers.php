@@ -475,31 +475,98 @@ class Helpers {
             sort( $nationalities );
         }
 
-        echo '<div class="sfs-hr-nationality-wrap" style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;">';
-        echo '<select id="' . esc_attr( $id ) . '" name="' . esc_attr( $name ) . '" class="' . esc_attr( $class ) . '" onchange="sfsNatSelectChange(this)">';
-        echo '<option value="">' . esc_html__( '— Select —', 'sfs-hr' ) . '</option>';
+        $sel_label = $selected !== '' ? esc_html( $selected ) : esc_html__( '— Select —', 'sfs-hr' );
+
+        echo '<div class="sfs-hr-nationality-wrap" style="display:flex;width:100%;gap:6px;align-items:center;flex-wrap:wrap;">';
+        // Hidden input holds the actual value.
+        echo '<input type="hidden" name="' . esc_attr( $name ) . '" id="' . esc_attr( $id ) . '" value="' . esc_attr( $selected ) . '" />';
+        // Custom searchable dropdown trigger.
+        echo '<div class="sfs-hr-nat-dropdown" style="position:relative;width:100%;">';
+        echo '<button type="button" class="sfs-hr-nat-trigger ' . esc_attr( $class ) . '" aria-haspopup="listbox" aria-expanded="false">';
+        echo '<span class="sfs-hr-nat-label">' . $sel_label . '</span>';
+        echo '<svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" style="flex-shrink:0;opacity:.5;"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>';
+        echo '</button>';
+        echo '<div class="sfs-hr-nat-panel" style="display:none;">';
+        echo '<input type="text" class="sfs-hr-nat-search" placeholder="' . esc_attr__( 'Search nationality…', 'sfs-hr' ) . '" autocomplete="off" />';
+        echo '<ul class="sfs-hr-nat-list" role="listbox">';
+        echo '<li class="sfs-hr-nat-opt" data-value="" role="option">' . esc_html__( '— Select —', 'sfs-hr' ) . '</li>';
         foreach ( $nationalities as $nat ) {
-            echo '<option value="' . esc_attr( $nat ) . '"' . selected( $selected, $nat, false ) . '>' . esc_html( $nat ) . '</option>';
+            $is_sel = ( $nat === $selected ) ? ' aria-selected="true"' : '';
+            echo '<li class="sfs-hr-nat-opt" data-value="' . esc_attr( $nat ) . '" role="option"' . $is_sel . '>' . esc_html( $nat ) . '</li>';
         }
-        echo '<option value="__add_new__">' . esc_html__( '+ Add new…', 'sfs-hr' ) . '</option>';
-        echo '</select>';
+        echo '<li class="sfs-hr-nat-opt sfs-hr-nat-opt--add" data-value="__add_new__" role="option">' . esc_html__( '+ Add new…', 'sfs-hr' ) . '</li>';
+        echo '</ul>';
+        echo '</div>';
+        echo '</div>';
         echo '<input type="text" class="' . esc_attr( $class ) . ' sfs-hr-nationality-new" placeholder="' . esc_attr__( 'New nationality', 'sfs-hr' ) . '" aria-label="' . esc_attr__( 'New nationality', 'sfs-hr' ) . '" style="display:none;" />';
         echo '</div>';
 
-        // Inline JS (output once per page).
+        // Inline CSS + JS (output once per page).
         static $js_done = false;
         if ( ! $js_done ) {
             $js_done = true;
+            echo '<style>';
+            echo '.sfs-hr-nat-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%!important;max-width:100%!important;box-sizing:border-box!important;cursor:pointer;background:#fff;border:1px solid #8c8f94;padding:0 8px;min-height:30px;text-align:start;font-size:inherit;line-height:inherit;border-radius:4px;}';
+            echo '.sfs-hr-nat-trigger:focus{outline:1px solid #2271b1;border-color:#2271b1;}';
+            echo '.sfs-hr-nat-panel{position:absolute;left:0;right:0;top:100%;margin-top:2px;background:#fff;border:1px solid #8c8f94;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,.12);z-index:200;max-height:260px;display:flex;flex-direction:column;}';
+            echo '.sfs-hr-nat-search{display:block;width:100%;box-sizing:border-box;border:none;border-bottom:1px solid #ddd;padding:8px 10px;font-size:13px;outline:none;}';
+            echo '.sfs-hr-nat-search:focus{box-shadow:none;}';
+            echo '.sfs-hr-nat-list{list-style:none;margin:0;padding:4px 0;overflow-y:auto;flex:1;}';
+            echo '.sfs-hr-nat-opt{padding:6px 10px;cursor:pointer;font-size:13px;}';
+            echo '.sfs-hr-nat-opt:hover,.sfs-hr-nat-opt.sfs-hr-nat-opt--highlighted{background:#f0f0f1;}';
+            echo '.sfs-hr-nat-opt[aria-selected="true"]{font-weight:600;background:#e8f0fe;}';
+            echo '.sfs-hr-nat-opt--add{border-top:1px solid #ddd;color:#2271b1;font-weight:500;}';
+            echo '.sfs-hr-nat-opt--hidden{display:none;}';
+            echo '</style>';
             echo '<script>';
-            echo 'function sfsNatSelectChange(sel){';
-            echo 'var wrap=sel.closest(".sfs-hr-nationality-wrap");';
-            echo 'var inp=wrap.querySelector(".sfs-hr-nationality-new");';
-            echo 'if(sel.value==="__add_new__"){';
-            echo 'var origName=sel.name;inp.style.display="";inp.name=origName;sel.removeAttribute("name");inp.focus();';
-            echo '}else{';
-            echo 'var preservedName=inp.name||sel.name||"nationality";inp.style.display="none";inp.value="";sel.name=preservedName;inp.removeAttribute("name");';
-            echo '}';
-            echo '}';
+            echo '(function(){';
+            echo 'document.addEventListener("click",function(e){';
+            echo '  var dd=e.target.closest(".sfs-hr-nat-dropdown");';
+            echo '  document.querySelectorAll(".sfs-hr-nat-panel").forEach(function(p){';
+            echo '    if(!dd||p!==dd.querySelector(".sfs-hr-nat-panel"))p.style.display="none";';
+            echo '  });';
+            echo '  if(!dd)return;';
+            echo '  var btn=dd.querySelector(".sfs-hr-nat-trigger");';
+            echo '  var panel=dd.querySelector(".sfs-hr-nat-panel");';
+            echo '  if(e.target.closest(".sfs-hr-nat-trigger")){';
+            echo '    var open=panel.style.display!=="none";';
+            echo '    panel.style.display=open?"none":"flex";';
+            echo '    if(!open){var si=panel.querySelector(".sfs-hr-nat-search");si.value="";si.dispatchEvent(new Event("input"));si.focus();}';
+            echo '  }';
+            echo '});';
+            echo 'document.addEventListener("input",function(e){';
+            echo '  if(!e.target.classList.contains("sfs-hr-nat-search"))return;';
+            echo '  var q=e.target.value.toLowerCase();';
+            echo '  e.target.closest(".sfs-hr-nat-panel").querySelectorAll(".sfs-hr-nat-opt").forEach(function(o){';
+            echo '    if(o.classList.contains("sfs-hr-nat-opt--add")){o.classList.remove("sfs-hr-nat-opt--hidden");return;}';
+            echo '    var match=o.textContent.toLowerCase().indexOf(q)!==-1;';
+            echo '    o.classList.toggle("sfs-hr-nat-opt--hidden",!match);';
+            echo '  });';
+            echo '});';
+            echo 'document.addEventListener("click",function(e){';
+            echo '  var opt=e.target.closest(".sfs-hr-nat-opt");';
+            echo '  if(!opt)return;';
+            echo '  var dd=opt.closest(".sfs-hr-nat-dropdown");';
+            echo '  var wrap=dd.closest(".sfs-hr-nationality-wrap");';
+            echo '  var hidden=wrap.querySelector("input[type=hidden]");';
+            echo '  var label=dd.querySelector(".sfs-hr-nat-label");';
+            echo '  var panel=dd.querySelector(".sfs-hr-nat-panel");';
+            echo '  var newInp=wrap.querySelector(".sfs-hr-nationality-new");';
+            echo '  var val=opt.getAttribute("data-value");';
+            echo '  dd.querySelectorAll(".sfs-hr-nat-opt").forEach(function(o){o.removeAttribute("aria-selected");});';
+            echo '  if(val==="__add_new__"){';
+            echo '    panel.style.display="none";';
+            echo '    hidden.disabled=true;';
+            echo '    newInp.style.display="";newInp.name=hidden.name;newInp.focus();';
+            echo '  }else{';
+            echo '    opt.setAttribute("aria-selected","true");';
+            echo '    hidden.disabled=false;hidden.value=val;';
+            echo '    label.textContent=opt.textContent;';
+            echo '    panel.style.display="none";';
+            echo '    newInp.style.display="none";newInp.value="";newInp.removeAttribute("name");';
+            echo '  }';
+            echo '});';
+            echo '})();';
             echo '</script>';
         }
     }
