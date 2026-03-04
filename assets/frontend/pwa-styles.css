@@ -4521,7 +4521,7 @@ body:has(.sfs-hr-pwa-app) #masthead {
     transition: background 0.12s, color 0.12s;
     padding: 0;
 }
-.sfs-hr-pwa-app .sfs-cal-day:hover:not(.sfs-cal-day--disabled):not(.sfs-cal-day--empty) {
+.sfs-hr-pwa-app .sfs-cal-day:hover:not(.sfs-cal-day--disabled, .sfs-cal-day--empty) {
     background: rgba(15, 76, 92, 0.1);
 }
 .sfs-hr-pwa-app .sfs-cal-day--empty {

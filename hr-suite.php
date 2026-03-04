@@ -243,6 +243,9 @@ add_action('admin_init', function(){
         if ($table_exists($shifts_table) && !$column_exists($shifts_table, 'weekly_overrides')) {
             $needs_columns = true;
         }
+        if ($table_exists($types_table) && !$column_exists($types_table, 'skip_managers_gm')) {
+            $needs_columns = true;
+        }
     }
 
     if ($needs_migration || $needs_tables || $needs_columns) {

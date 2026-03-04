@@ -483,7 +483,7 @@ class Helpers {
         }
         echo '<option value="__add_new__">' . esc_html__( '+ Add new…', 'sfs-hr' ) . '</option>';
         echo '</select>';
-        echo '<input type="text" class="' . esc_attr( $class ) . ' sfs-hr-nationality-new" placeholder="' . esc_attr__( 'New nationality', 'sfs-hr' ) . '" style="display:none;" />';
+        echo '<input type="text" class="' . esc_attr( $class ) . ' sfs-hr-nationality-new" placeholder="' . esc_attr__( 'New nationality', 'sfs-hr' ) . '" aria-label="' . esc_attr__( 'New nationality', 'sfs-hr' ) . '" style="display:none;" />';
         echo '</div>';
 
         // Inline JS (output once per page).
@@ -495,9 +495,9 @@ class Helpers {
             echo 'var wrap=sel.closest(".sfs-hr-nationality-wrap");';
             echo 'var inp=wrap.querySelector(".sfs-hr-nationality-new");';
             echo 'if(sel.value==="__add_new__"){';
-            echo 'inp.style.display="";inp.name=sel.name;sel.removeAttribute("name");inp.focus();';
+            echo 'var origName=sel.name;inp.style.display="";inp.name=origName;sel.removeAttribute("name");inp.focus();';
             echo '}else{';
-            echo 'inp.style.display="none";inp.value="";inp.removeAttribute("name");sel.name=sel.name||inp.name||"nationality";';
+            echo 'var preservedName=inp.name||sel.name||"nationality";inp.style.display="none";inp.value="";sel.name=preservedName;inp.removeAttribute("name");';
             echo '}';
             echo '}';
             echo '</script>';

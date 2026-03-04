@@ -46,7 +46,7 @@ class SickLeaveReminder {
      *
      * @return string[]
      */
-    public static function get_uncovered_absences( int $emp_id, int $user_id ): array {
+    public static function get_uncovered_absences( int $emp_id ): array {
         global $wpdb;
 
         $emp_table  = $wpdb->prefix . 'sfs_hr_employees';
@@ -128,8 +128,8 @@ class SickLeaveReminder {
             return;
         }
 
-        // Check which dates have already been emailed.
-        $emailed = (array) get_user_meta( $user_id, self::META_EMAILED, true );
+        // Check which dates have already been emailed (stored per employee, not per viewer).
+        $emailed = (array) get_user_meta( $emp_id, self::META_EMAILED, true );
         $new_dates = array_diff( $dates, $emailed );
 
         if ( empty( $new_dates ) ) {
@@ -184,9 +184,9 @@ class SickLeaveReminder {
             Helpers::send_mail( $hr_emails, $hr_subject, $hr_message );
         }
 
-        // Mark these dates as emailed.
+        // Mark these dates as emailed (stored per employee).
         $emailed = array_unique( array_merge( $emailed, array_values( $new_dates ) ) );
-        update_user_meta( $user_id, self::META_EMAILED, $emailed );
+        update_user_meta( $emp_id, self::META_EMAILED, $emailed );
     }
 
     /**
@@ -199,7 +199,7 @@ class SickLeaveReminder {
      * @param string $leave_url URL to the leave tab.
      */
     public static function render( int $emp_id, int $user_id, string $leave_url ): void {
-        $dates = self::get_uncovered_absences( $emp_id, $user_id );
+        $dates = self::get_uncovered_absences( $emp_id );
         if ( empty( $dates ) ) {
             return;
         }
@@ -247,7 +247,7 @@ class SickLeaveReminder {
             $dates_json = wp_json_encode( $dates );
             $dismiss_label = esc_html__( 'Dismiss', 'sfs-hr' );
 
-            echo '<button type="button" class="sfs-btn" style="font-size:13px;padding:6px 14px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;" data-i18n-key="dismiss" onclick="sfsDismissSickReminder(this,' . (int) $emp_id . ')">' . $dismiss_label . '</button>';
+            echo '<button type="button" class="sfs-btn" style="font-size:13px;padding:6px 14px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;" data-i18n-key="dismiss" data-dates="' . esc_attr( $dates_json ) . '" onclick="sfsDismissSickReminder(this,' . (int) $emp_id . ')">' . $dismiss_label . '</button>';
         }
 
         echo '</div>';
@@ -266,7 +266,7 @@ class SickLeaveReminder {
                 echo 'var fd=new FormData();';
                 echo 'fd.append("action","sfs_hr_dismiss_sick_reminder");';
                 echo 'fd.append("_wpnonce",' . wp_json_encode( $nonce ) . ');';
-                echo 'fd.append("dates",' . wp_json_encode( $dates_json ) . ');';
+                echo 'fd.append("dates",btn.getAttribute("data-dates")||"[]");';
                 echo 'fd.append("emp_id",empId);';
                 echo 'fetch(' . wp_json_encode( $ajax_url ) . ',{method:"POST",credentials:"same-origin",body:fd});';
                 echo '}</script>';

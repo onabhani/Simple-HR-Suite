@@ -48,9 +48,23 @@ class LeaveTab implements TabInterface {
         $types = $wpdb->get_results(
             "SELECT id, name, gender_required, skip_managers_gm FROM {$type_table} WHERE active = 1 ORDER BY name ASC"
         );
-        // Determine if current user is a manager or GM
-        $user_role = \SFS\HR\Frontend\Role_Resolver::resolve( get_current_user_id() );
-        $is_mgr_or_gm = in_array( $user_role, [ 'manager', 'gm' ], true );
+        // Determine if current user is a manager or GM (check membership explicitly
+        // so users who hold both manager/gm AND a higher-priority role like admin/hr
+        // are still correctly flagged for skip_managers_gm filtering).
+        $cur_uid = get_current_user_id();
+        $is_mgr_or_gm = false;
+        // Check if user is the configured GM approver.
+        $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+        if ( $gm_user_id > 0 && $gm_user_id === $cur_uid ) {
+            $is_mgr_or_gm = true;
+        }
+        // Check if user is a department manager.
+        if ( ! $is_mgr_or_gm ) {
+            $mgr_depts = \SFS\HR\Frontend\Role_Resolver::get_manager_dept_ids( $cur_uid );
+            if ( ! empty( $mgr_depts ) ) {
+                $is_mgr_or_gm = true;
+            }
+        }
         if ( $types ) {
             $types = array_values( array_filter( $types, function( $t ) use ( $emp_gender, $is_mgr_or_gm ) {
                 if ( $is_mgr_or_gm && ! empty( $t->skip_managers_gm ) ) {
@@ -495,12 +509,12 @@ class LeaveTab implements TabInterface {
         // Init
         echo 'renderWeekdays();renderCal();';
 
-        // Pre-fill dates from sick leave reminder
+        // Pre-fill dates from sick leave reminder (validate before using to avoid NaN/Invalid Date)
         echo 'var ss=u.get("sick_start"),se=u.get("sick_end");';
-        echo 'if(ss){selStart=new Date(ss+"T00:00:00");startInput.value=ss;';
-        echo 'if(se){selEnd=new Date(se+"T00:00:00");endInput.value=se;}';
+        echo 'if(ss&&ss.length){var _sd=new Date(ss+"T00:00:00");if(isFinite(_sd.getTime())){selStart=_sd;startInput.value=ss;';
+        echo 'if(se&&se.length){var _ed=new Date(se+"T00:00:00");if(isFinite(_ed.getTime())){selEnd=_ed;endInput.value=se;}}';
         echo 'curMonth=selStart.getMonth();curYear=selStart.getFullYear();';
-        echo 'updateRangeInfo();renderCal();}';
+        echo 'updateRangeInfo();renderCal();}}';
 
         // Form validation: require file upload before submit
         echo 'var form=document.getElementById("sfs-leave-request-form");';

@@ -3138,6 +3138,16 @@ private function render_cancellation_detail( int $cancel_id ): void {
         $requires_attachment = !empty($_POST['requires_attachment']) ? 1 : 0;
         $skip_managers_gm = !empty($_POST['skip_managers_gm']) ? 1 : 0;
 
+        // Validate special_code and gender_required against the same allowlists used in the add flow.
+        $allowed_specials = ['', 'SICK_SHORT','SICK_LONG','HAJJ','MATERNITY','MARRIAGE','BEREAVEMENT','PATERNITY'];
+        if ( ! in_array($special, $allowed_specials, true) ) {
+            $special = '';
+        }
+        $allowed_genders = ['any', 'male', 'female'];
+        if ( ! in_array($gender_required, $allowed_genders, true) ) {
+            $gender_required = 'any';
+        }
+
         if (empty($name)) {
             wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=types&edit_id=' . $id . '&err=' . rawurlencode(__('Name is required', 'sfs-hr'))));
             exit;
@@ -5611,7 +5621,7 @@ public function handle_self_request(): void {
     // Get leave type details for validation
     $type_row = $wpdb->get_row(
         $wpdb->prepare(
-            "SELECT special_code, gender_required, requires_attachment FROM {$type_table} WHERE id = %d AND active = 1",
+            "SELECT special_code, gender_required, requires_attachment, skip_managers_gm FROM {$type_table} WHERE id = %d AND active = 1",
             $type_id
         )
     );
@@ -5621,6 +5631,19 @@ public function handle_self_request(): void {
     }
 
     $special = strtoupper( trim( (string) ( $type_row->special_code ?? '' ) ) );
+
+    // Validate skip_managers_gm: reject if current user is a manager/GM and flag is set.
+    if ( ! empty( $type_row->skip_managers_gm ) ) {
+        $gm_approver = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+        $is_mgr_or_gm = ( $gm_approver > 0 && $gm_approver === $user_id );
+        if ( ! $is_mgr_or_gm ) {
+            $mgr_depts = \SFS\HR\Frontend\Role_Resolver::get_manager_dept_ids( $user_id );
+            $is_mgr_or_gm = ! empty( $mgr_depts );
+        }
+        if ( $is_mgr_or_gm ) {
+            $this->redirect_back_with_msg( 'leave_err', 'type_not_available' );
+        }
+    }
 
     // Validate gender restriction
     $type_gender = strtolower( trim( (string) ( $type_row->gender_required ?? 'any' ) ) );

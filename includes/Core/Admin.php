@@ -3116,6 +3116,10 @@ document.addEventListener('keydown', function(e) {
 $visa_expiry    = $this->sanitize_field('visa_expiry');
 
 $nationality    = $this->sanitize_field('nationality');
+// Prevent the "__add_new__" sentinel value from being persisted (JS-disabled fallback).
+if ( $nationality === '__add_new__' ) {
+    $nationality = '';
+}
 $marital_status = $this->sanitize_field('marital_status');
 $dob            = $this->sanitize_field('date_of_birth');
 
