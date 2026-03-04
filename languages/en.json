@@ -3250,5 +3250,10 @@
     "admin_max_loan_salary_multiplier": "Maximum loan amount is %s SAR (%s× employee salary).",
     "admin_base_salary_not_set_installment": "Employee base salary is missing or zero. Cannot apply installment percentage limit.",
     "admin_monthly_inst_exceeds_max": "Monthly installment (%s SAR) exceeds maximum allowed (%s SAR = %d%% of base salary).",
-    "admin_failed_create_loan": "Failed to create loan. Please contact an administrator."
+    "admin_failed_create_loan": "Failed to create loan. Please contact an administrator.",
+    "click_start_date": "Click to select start date",
+    "now_click_end_date": "Now click end date",
+    "please_upload_supporting_document": "Please upload a supporting document before submitting.",
+    "previous_month": "Previous month",
+    "next_month": "Next month"
 }

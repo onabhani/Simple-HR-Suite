@@ -3267,5 +3267,10 @@
     "admin_max_loan_salary_multiplier": "الحد الأقصى لمبلغ السلفة هو %s ريال (%s× من راتب الموظف).",
     "admin_base_salary_not_set_installment": "الراتب الأساسي للموظف مفقود أو صفر. لا يمكن تطبيق حد نسبة القسط.",
     "admin_monthly_inst_exceeds_max": "القسط الشهري (%s ريال) يتجاوز الحد الأقصى المسموح (%s ريال = %d%% من الراتب الأساسي).",
-    "admin_failed_create_loan": "فشل إنشاء السلفة. يرجى التواصل مع المسؤول."
+    "admin_failed_create_loan": "فشل إنشاء السلفة. يرجى التواصل مع المسؤول.",
+    "click_start_date": "اضغط لاختيار تاريخ البداية",
+    "now_click_end_date": "الآن اضغط لاختيار تاريخ النهاية",
+    "please_upload_supporting_document": "يرجى رفع مستند داعم قبل الإرسال.",
+    "previous_month": "الشهر السابق",
+    "next_month": "الشهر التالي"
 }

@@ -3264,5 +3264,10 @@
     "clock_in": "حاضری درج کریں",
     "clock_out": "روانگی درج کریں",
     "start_break": "وقفہ شروع کریں",
-    "end_break": "وقفہ ختم کریں"
+    "end_break": "وقفہ ختم کریں",
+    "click_start_date": "شروع کی تاریخ منتخب کرنے کے لیے کلک کریں",
+    "now_click_end_date": "اب آخری تاریخ پر کلک کریں",
+    "please_upload_supporting_document": "براہ کرم جمع کرانے سے پہلے معاون دستاویز اپ لوڈ کریں۔",
+    "previous_month": "پچھلا مہینہ",
+    "next_month": "اگلا مہینہ"
 }

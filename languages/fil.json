@@ -3264,5 +3264,10 @@
     "clock_in": "Clock In",
     "clock_out": "Clock Out",
     "start_break": "Simula ng Break",
-    "end_break": "Tapusin ang Break"
+    "end_break": "Tapusin ang Break",
+    "click_start_date": "I-click para pumili ng simula ng petsa",
+    "now_click_end_date": "Ngayon i-click ang huling petsa",
+    "please_upload_supporting_document": "Mangyaring mag-upload ng sumusuportang dokumento bago isumite.",
+    "previous_month": "Nakaraang buwan",
+    "next_month": "Susunod na buwan"
 }
