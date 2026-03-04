@@ -3991,13 +3991,31 @@ private static function maybe_create_early_leave_request(
     \wpdb $wpdb
 ): void {
     $el_table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
-    $el_exists = $wpdb->get_var( $wpdb->prepare(
-        "SELECT id FROM {$el_table} WHERE employee_id = %d AND request_date = %s",
+    $el_existing = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, status FROM {$el_table} WHERE employee_id = %d AND request_date = %s LIMIT 1",
         $employee_id,
         $ymd
     ) );
 
-    if ( $el_exists ) {
+    if ( $el_existing ) {
+        // Update the actual_leave_time on pending requests when recalculated
+        // (e.g., admin corrected a clock-out time). Don't touch approved/rejected.
+        if ( $el_existing->status === 'pending' && $lastOutUtc ) {
+            $tz_upd   = wp_timezone();
+            $utc_out_upd = new \DateTimeImmutable( $lastOutUtc, new \DateTimeZone( 'UTC' ) );
+            $updated_leave = $utc_out_upd->setTimezone( $tz_upd )->format( 'H:i:s' );
+
+            $el_reason_upd = $is_total_hours
+                ? sprintf( __( 'Auto-created: employee worked %d minutes less than required hours.', 'sfs-hr' ), $minutes_early )
+                : sprintf( __( 'Auto-created: employee left %d minutes before shift end.', 'sfs-hr' ), $minutes_early );
+
+            $wpdb->update( $el_table, [
+                'actual_leave_time' => $updated_leave,
+                'reason_note'       => $el_reason_upd,
+                'session_id'        => $session_id,
+                'updated_at'        => current_time( 'mysql' ),
+            ], [ 'id' => (int) $el_existing->id ] );
+        }
         return;
     }
 
@@ -4882,13 +4900,14 @@ if ( ! empty( $leadingOuts ) ) {
             }
         }
 
+        // Status priority: left_early takes precedence over late (consistent
+        // with the normal recalc path where left_early is evaluated first).
+        // left_early is more actionable — managers need to approve the departure.
         $prevStatus = 'present';
-        if ( in_array( 'late', $prevFlags, true ) && in_array( 'left_early', $prevFlags, true ) ) {
-            $prevStatus = 'late';
+        if ( in_array( 'left_early', $prevFlags, true ) ) {
+            $prevStatus = 'left_early';
         } elseif ( in_array( 'late', $prevFlags, true ) ) {
             $prevStatus = 'late';
-        } elseif ( in_array( 'left_early', $prevFlags, true ) ) {
-            $prevStatus = 'left_early';
         }
 
         $prev_session_data = [
@@ -4945,6 +4964,10 @@ if ( ! empty( $leadingOuts ) ) {
     $grEarly = ( $shift && isset($shift->grace_early_leave_minutes) ) ? (int)$shift->grace_early_leave_minutes : $globalGrEarly;
     $round   = ( $shift && isset($shift->rounding_rule) )             ? (string)$shift->rounding_rule           : $globalRound;
     $roundN  = ($round === 'none') ? 0 : (int)$round;
+
+    // Determine total-hours mode early — needed by the incomplete-session cap below
+    // and later by the status/break logic.
+    $is_total_hours = \SFS\HR\Modules\Attendance\Services\Policy_Service::is_total_hours_mode( $employee_id, $shift );
 
     // For incomplete sessions (unmatched clock-in), cap at shift end rather than midnight.
     // This prevents inflated worked hours (e.g. 36h for a day where clock-out was missed).
@@ -5038,7 +5061,7 @@ if ( ! empty( $leadingOuts ) ) {
     $net = max( 0, $net );
 
     // ---- Total-hours mode (shift-level → role-based policy fallback) ----
-    $is_total_hours = \SFS\HR\Modules\Attendance\Services\Policy_Service::is_total_hours_mode( $employee_id, $shift );
+    // $is_total_hours already resolved above (before the cap logic).
     $policy_break   = \SFS\HR\Modules\Attendance\Services\Policy_Service::get_break_settings( $employee_id, $shift );
 
     if ( $is_total_hours && $policy_break['enabled'] && $policy_break['duration_minutes'] > 0 && ! $has_mandatory_break && ! $shift_no_break ) {
@@ -5093,6 +5116,10 @@ if ( ! empty( $leadingOuts ) ) {
             if ( $lastOut && $has_meaningful_end ) {
                 $tz_th        = wp_timezone();
                 $shift_end_th = new \DateTimeImmutable( $ymd . ' ' . $shift->end_time, $tz_th );
+                // Overnight shift: if end_time < start_time, the shift end is the next day
+                if ( $shift->start_time && $shift->end_time < $shift->start_time ) {
+                    $shift_end_th = $shift_end_th->modify( '+1 day' );
+                }
                 $last_out_th  = ( new \DateTimeImmutable( $lastOut, new \DateTimeZone( 'UTC' ) ) )->setTimezone( $tz_th );
                 $actually_left_early = ( $last_out_th < $shift_end_th );
             }
@@ -5335,6 +5362,10 @@ if ( ! empty( $leadingOuts ) ) {
             if ( $minutes_early === 0 && $shift && ! empty( $shift->end_time ) && $lastOut ) {
                 $tz_fb       = wp_timezone();
                 $shift_end_dt = new \DateTimeImmutable( $ymd . ' ' . $shift->end_time, $tz_fb );
+                // Overnight shift: if end_time < start_time, the shift end is the next day
+                if ( $shift->start_time && $shift->end_time < $shift->start_time ) {
+                    $shift_end_dt = $shift_end_dt->modify( '+1 day' );
+                }
                 $last_out_dt  = ( new \DateTimeImmutable( $lastOut, new \DateTimeZone( 'UTC' ) ) )->setTimezone( $tz_fb );
                 $diff_secs    = $shift_end_dt->getTimestamp() - $last_out_dt->getTimestamp();
                 if ( $diff_secs > 0 ) {
@@ -5391,53 +5422,6 @@ if ( ! empty( $leadingOuts ) ) {
         ] );
     }
 }
-
-
-    
-
-    /** Load the Department → Shift automation map from options, resilient to different keys/shapes. */
-/** Load Department → Shift automation map and normalize to: [deptKey => configArray]. */
-private static function load_automation_map(): array {
-    // Try all known locations
-    $candidates = [
-        'sfs_hr_attendance_automation',
-        'sfs_hr_attendance_auto',
-        'sfs_hr_attendance_dept_map',
-    ];
-    $raw = [];
-    foreach ($candidates as $k) {
-        $v = get_option($k);
-        if (is_array($v) && !empty($v)) { $raw = $v; break; }
-    }
-    if (empty($raw)) {
-        $settings = get_option(self::OPT_SETTINGS);
-        if (is_array($settings)) {
-            foreach (['automation','dept_automation','dept_map','attendance_automation'] as $sub) {
-                if (!empty($settings[$sub]) && is_array($settings[$sub])) { $raw = $settings[$sub]; break; }
-            }
-            if (empty($raw) && !empty($settings['attendance']) && is_array($settings['attendance'])) {
-                foreach (['automation','dept_automation','dept_map'] as $sub) {
-                    if (!empty($settings['attendance'][$sub]) && is_array($settings['attendance'][$sub])) {
-                        $raw = $settings['attendance'][$sub]; break;
-                    }
-                }
-            }
-        }
-    }
-
-    // Normalize: if it’s the wrapped shape { department_key_type, map }, unwrap to just the map.
-    if (isset($raw['map']) && is_array($raw['map'])) {
-        $raw = $raw['map'];
-    }
-
-    // Ensure keys are strings (so "2" and 2 both match)
-    $norm = [];
-    foreach ($raw as $k => $v) {
-        $norm[(string)$k] = is_array($v) ? $v : [];
-    }
-    return $norm;
-}
-
 
 
         /* ---------- Dept helpers (safe, backend-only) ---------- */
@@ -5833,7 +5817,9 @@ public static function resolve_shift_for_date(
             $emp = $wpdb->get_row($wpdb->prepare("SELECT dept_id FROM {$empT} WHERE id=%d", $employee_id));
             $row->dept_id = $emp && ! empty( $emp->dept_id ) ? (int) $emp->dept_id : null;
         }
-        error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=1_assignment shift_id=%d wo=%s', $employee_id, $ymd, $row->id ?? 0, $row->weekly_overrides ?? '(empty)' ) );
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=1_assignment shift_id=%d wo=%s', $employee_id, $ymd, $row->id ?? 0, $row->weekly_overrides ?? '(empty)' ) );
+        }
         $row = self::apply_weekly_override( $row, $ymd, $wpdb );
         return self::apply_period_override( $row, $ymd );
     }
@@ -5849,7 +5835,9 @@ public static function resolve_shift_for_date(
         $emp_shift->__virtual  = 0;
         $emp_shift->is_holiday = 0;
 
-        error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=1.5_emp_shift shift_id=%d wo=%s', $employee_id, $ymd, $emp_shift->id ?? 0, $emp_shift->weekly_overrides ?? '(empty)' ) );
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=1.5_emp_shift shift_id=%d wo=%s', $employee_id, $ymd, $emp_shift->id ?? 0, $emp_shift->weekly_overrides ?? '(empty)' ) );
+        }
         $emp_shift = self::apply_weekly_override( $emp_shift, $ymd, $wpdb );
         return self::apply_period_override( $emp_shift, $ymd );
     }
@@ -5869,7 +5857,9 @@ public static function resolve_shift_for_date(
                 $psh->dept_id    = $emp_row && ! empty( $emp_row->dept_id ) ? (int) $emp_row->dept_id : null;
                 $psh->__virtual  = 0;
                 $psh->is_holiday = 0;
-                error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=1.7_project project=%d shift_id=%d', $employee_id, $ymd, $prj->id, $psh->id ?? 0 ) );
+                if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                    error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=1.7_project project=%d shift_id=%d', $employee_id, $ymd, $prj->id, $psh->id ?? 0 ) );
+                }
                 $psh = self::apply_weekly_override( $psh, $ymd, $wpdb );
                 return self::apply_period_override( $psh, $ymd );
             }
@@ -5879,7 +5869,9 @@ public static function resolve_shift_for_date(
     // --- 2) Dept identity (id, slug, name) for automation
     $emp = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$empT} WHERE id=%d", $employee_id));
     if (!$emp) {
-        error_log('[SFS ATT] no employee row for id '.$employee_id);
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            error_log('[SFS ATT] no employee row for id '.$employee_id);
+        }
         return null;
     }
 
@@ -5950,7 +5942,9 @@ public static function resolve_shift_for_date(
                 $sh->__virtual  = 1;
                 $sh->is_holiday = 0;
                 $sh->dept_id    = $dept_id;
-                error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=3_dept_auto shift_id=%d wo=%s', $employee_id, $ymd, $sh->id ?? 0, $sh->weekly_overrides ?? '(empty)' ) );
+                if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                    error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=3_dept_auto shift_id=%d wo=%s', $employee_id, $ymd, $sh->id ?? 0, $sh->weekly_overrides ?? '(empty)' ) );
+                }
                 $sh = self::apply_weekly_override( $sh, $ymd, $wpdb );
                 return self::apply_period_override( $sh, $ymd );
             }
@@ -5984,13 +5978,17 @@ public static function resolve_shift_for_date(
         if ($fb) {
             $fb->__virtual  = 1;
             $fb->is_holiday = 0;
-            error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=4_fallback shift_id=%d wo=%s', $employee_id, $ymd, $fb->id ?? 0, $fb->weekly_overrides ?? '(empty)' ) );
+            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=4_fallback shift_id=%d wo=%s', $employee_id, $ymd, $fb->id ?? 0, $fb->weekly_overrides ?? '(empty)' ) );
+            }
             $fb = self::apply_weekly_override( $fb, $ymd, $wpdb );
             return self::apply_period_override( $fb, $ymd );
         }
     }
 
-    error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=none (no shift found)', $employee_id, $ymd ) );
+    if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+        error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=none (no shift found)', $employee_id, $ymd ) );
+    }
     return null;
 }
 
