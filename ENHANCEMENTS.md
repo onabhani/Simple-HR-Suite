@@ -65,6 +65,16 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 
 ---
 
+## 3.3 Skip Managers & GM Option per Leave Type
+- [x] **Add** a `skip_managers_gm` boolean column to `sfs_hr_leave_types` table
+- [x] **Add** a checkbox in the Leave Type add/edit form: "Skip Managers & GM"
+- [x] **Display** the new field in the Leave Types admin table
+- [x] **Use** this flag in attendance validation so that managers and GM are excluded from deductions/enforcement for leave types where this option is enabled
+
+> **Context:** Some leave types (e.g. certain attendance-related deductions) should not apply to managers and the General Manager. This per-type toggle gives admins granular control over which leave types skip senior roles, without needing a global policy override.
+
+---
+
 ## 4. Performance Reports
 
 ### 4.1 Date Filtering on Performance Reports

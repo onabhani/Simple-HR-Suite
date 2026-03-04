@@ -426,6 +426,84 @@ class Helpers {
         return $out;
     }
 
+    /**
+     * Return distinct nationality values currently in use by employees.
+     *
+     * Only returns nationalities with at least one employee record.
+     * Results are sorted alphabetically and cached for the request.
+     *
+     * @return string[]
+     */
+    public static function get_nationalities_for_select(): array {
+        static $cache = null;
+
+        if ( $cache !== null ) {
+            return $cache;
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_employees';
+
+        $rows = $wpdb->get_col(
+            "SELECT DISTINCT nationality FROM {$table}
+             WHERE nationality IS NOT NULL AND nationality != ''
+             ORDER BY nationality ASC"
+        );
+
+        $cache = $rows ?: [];
+        return $cache;
+    }
+
+    /**
+     * Render a nationality <select> dropdown.
+     *
+     * Auto-seeded from existing employee data. Includes an "Add new…" option
+     * that reveals a text input for entering a new nationality.
+     *
+     * @param string $selected Currently selected value.
+     * @param string $name     HTML name attribute.
+     * @param string $id       HTML id attribute.
+     * @param string $class    CSS class(es) for the wrapper.
+     */
+    public static function render_nationality_select( string $selected = '', string $name = 'nationality', string $id = '', string $class = 'regular-text' ): void {
+        $nationalities = self::get_nationalities_for_select();
+        $id = $id ?: 'sfs-hr-nationality-' . wp_unique_id();
+
+        // If the current value isn't in the list (e.g. brand new), include it.
+        if ( $selected !== '' && ! in_array( $selected, $nationalities, true ) ) {
+            $nationalities[] = $selected;
+            sort( $nationalities );
+        }
+
+        echo '<div class="sfs-hr-nationality-wrap" style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;">';
+        echo '<select id="' . esc_attr( $id ) . '" name="' . esc_attr( $name ) . '" class="' . esc_attr( $class ) . '" onchange="sfsNatSelectChange(this)">';
+        echo '<option value="">' . esc_html__( '— Select —', 'sfs-hr' ) . '</option>';
+        foreach ( $nationalities as $nat ) {
+            echo '<option value="' . esc_attr( $nat ) . '"' . selected( $selected, $nat, false ) . '>' . esc_html( $nat ) . '</option>';
+        }
+        echo '<option value="__add_new__">' . esc_html__( '+ Add new…', 'sfs-hr' ) . '</option>';
+        echo '</select>';
+        echo '<input type="text" class="' . esc_attr( $class ) . ' sfs-hr-nationality-new" placeholder="' . esc_attr__( 'New nationality', 'sfs-hr' ) . '" aria-label="' . esc_attr__( 'New nationality', 'sfs-hr' ) . '" style="display:none;" />';
+        echo '</div>';
+
+        // Inline JS (output once per page).
+        static $js_done = false;
+        if ( ! $js_done ) {
+            $js_done = true;
+            echo '<script>';
+            echo 'function sfsNatSelectChange(sel){';
+            echo 'var wrap=sel.closest(".sfs-hr-nationality-wrap");';
+            echo 'var inp=wrap.querySelector(".sfs-hr-nationality-new");';
+            echo 'if(sel.value==="__add_new__"){';
+            echo 'var origName=sel.name;inp.style.display="";inp.name=origName;sel.removeAttribute("name");inp.focus();';
+            echo '}else{';
+            echo 'var preservedName=inp.name||sel.name||"nationality";inp.style.display="none";inp.value="";sel.name=preservedName;inp.removeAttribute("name");';
+            echo '}';
+            echo '}';
+            echo '</script>';
+        }
+    }
+
 public static function asset_status_label( string $status ): string {
     $key = sanitize_key( $status );
 

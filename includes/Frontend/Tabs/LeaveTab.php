@@ -42,16 +42,35 @@ class LeaveTab implements TabInterface {
         $today = current_time( 'Y-m-d' );
 
         // Employee gender for filtering gender-specific leave types
-        $emp_gender = strtolower( (string) ( $emp['gender'] ?? '' ) );
+        $emp_gender = strtolower( trim( (string) ( $emp['gender'] ?? '' ) ) );
 
-        // Active leave types (filtered by gender)
+        // Active leave types (filtered by gender and skip_managers_gm)
         $types = $wpdb->get_results(
-            "SELECT id, name, gender_required FROM {$type_table} WHERE active = 1 ORDER BY name ASC"
+            "SELECT id, name, gender_required, skip_managers_gm FROM {$type_table} WHERE active = 1 ORDER BY name ASC"
         );
+        // Determine if current user is a manager or GM (check membership explicitly
+        // so users who hold both manager/gm AND a higher-priority role like admin/hr
+        // are still correctly flagged for skip_managers_gm filtering).
+        $cur_uid = get_current_user_id();
+        $is_mgr_or_gm = false;
+        // Check if user is the configured GM approver.
+        $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+        if ( $gm_user_id > 0 && $gm_user_id === $cur_uid ) {
+            $is_mgr_or_gm = true;
+        }
+        // Check if user is a department manager.
+        if ( ! $is_mgr_or_gm ) {
+            $mgr_depts = \SFS\HR\Frontend\Role_Resolver::get_manager_dept_ids( $cur_uid );
+            if ( ! empty( $mgr_depts ) ) {
+                $is_mgr_or_gm = true;
+            }
+        }
         if ( $types ) {
-            $types = array_values( array_filter( $types, function( $t ) use ( $emp_gender ) {
-                $gr = strtolower( trim( (string) ( $t->gender_required ?? 'any' ) ) );
-                return $gr === 'any' || $gr === $emp_gender;
+            $types = array_values( array_filter( $types, function( $t ) use ( $emp_gender, $is_mgr_or_gm ) {
+                if ( $is_mgr_or_gm && ! empty( $t->skip_managers_gm ) ) {
+                    return false;
+                }
+                return $this->is_gender_allowed( (string) ( $t->gender_required ?? 'any' ), $emp_gender );
             } ) );
         }
 
@@ -79,7 +98,7 @@ class LeaveTab implements TabInterface {
 
         $balances = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT b.*, t.name, t.is_annual, t.gender_required
+                "SELECT b.*, t.name, t.is_annual, t.gender_required, t.skip_managers_gm
                  FROM {$bal_table} b
                  JOIN {$type_table} t ON t.id = b.type_id
                  WHERE b.employee_id = %d AND b.year = %d
@@ -90,10 +109,12 @@ class LeaveTab implements TabInterface {
             ARRAY_A
         );
 
-        // Filter out balances for gender-restricted leave types that don't match
-        $balances = array_values( array_filter( $balances, function( $b ) use ( $emp_gender ) {
-            $gr = strtolower( trim( (string) ( $b['gender_required'] ?? 'any' ) ) );
-            return $gr === 'any' || $gr === $emp_gender;
+        // Filter out balances for gender-restricted or manager/GM-skipped leave types
+        $balances = array_values( array_filter( $balances, function( $b ) use ( $emp_gender, $is_mgr_or_gm ) {
+            if ( $is_mgr_or_gm && ! empty( $b['skip_managers_gm'] ) ) {
+                return false;
+            }
+            return $this->is_gender_allowed( (string) ( $b['gender_required'] ?? 'any' ), $emp_gender );
         } ) );
 
         $total_used       = 0;
@@ -317,7 +338,7 @@ class LeaveTab implements TabInterface {
 
         $action_url = admin_url( 'admin-post.php' );
 
-        echo '<form method="post" action="' . esc_url( $action_url ) . '" enctype="multipart/form-data">';
+        echo '<form method="post" action="' . esc_url( $action_url ) . '" enctype="multipart/form-data" id="sfs-leave-request-form">';
         wp_nonce_field( 'sfs_hr_leave_request_self' );
         echo '<input type="hidden" name="action" value="sfs_hr_leave_request_self" />';
         echo '<input type="hidden" name="employee_id" value="' . $emp_id . '" />';
@@ -335,16 +356,22 @@ class LeaveTab implements TabInterface {
         echo '</select>';
         echo '</div>';
 
-        // Dates row
-        echo '<div class="sfs-form-row">';
+        // Date range picker (calendar-based)
         echo '<div class="sfs-form-group">';
-        echo '<label class="sfs-form-label" data-i18n-key="start_date">' . esc_html__( 'Start date', 'sfs-hr' ) . ' <span class="sfs-required">*</span></label>';
-        echo '<input type="date" name="start_date" class="sfs-input" required />';
+        echo '<label class="sfs-form-label" data-i18n-key="date_range">' . esc_html__( 'Date range', 'sfs-hr' ) . ' <span class="sfs-required">*</span></label>';
+        echo '<input type="hidden" name="start_date" id="sfs-leave-start" required />';
+        echo '<input type="hidden" name="end_date" id="sfs-leave-end" />';
+        echo '<div class="sfs-cal-picker" id="sfs-leave-cal">';
+        echo '<div class="sfs-cal-header">';
+        echo '<button type="button" class="sfs-cal-nav sfs-cal-prev" aria-label="' . esc_attr__( 'Previous month', 'sfs-hr' ) . '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>';
+        echo '<span class="sfs-cal-month-label" id="sfs-cal-month-label"></span>';
+        echo '<button type="button" class="sfs-cal-nav sfs-cal-next" aria-label="' . esc_attr__( 'Next month', 'sfs-hr' ) . '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>';
         echo '</div>';
-        echo '<div class="sfs-form-group">';
-        echo '<label class="sfs-form-label" data-i18n-key="end_date">' . esc_html__( 'End date', 'sfs-hr' ) . '</label>';
-        echo '<input type="date" name="end_date" class="sfs-input" />';
-        echo '<span class="sfs-form-hint" data-i18n-key="single_day_leave_hint">' . esc_html__( 'Leave empty for a single-day leave.', 'sfs-hr' ) . '</span>';
+        echo '<div class="sfs-cal-weekdays" id="sfs-cal-weekdays"></div>';
+        echo '<div class="sfs-cal-grid" id="sfs-cal-grid"></div>';
+        echo '<div class="sfs-cal-selected-range" id="sfs-cal-selected-range">';
+        echo '<span data-i18n-key="click_start_date">' . esc_html__( 'Click to select start date', 'sfs-hr' ) . '</span>';
+        echo '</div>';
         echo '</div>';
         echo '</div>';
 
@@ -354,15 +381,18 @@ class LeaveTab implements TabInterface {
         echo '<textarea name="reason" rows="3" class="sfs-textarea"></textarea>';
         echo '</div>';
 
-        // Supporting document
+        // Supporting document (required)
         echo '<div class="sfs-form-group">';
-        echo '<label class="sfs-form-label" data-i18n-key="supporting_document">' . esc_html__( 'Supporting document', 'sfs-hr' ) . '</label>';
-        echo '<label class="sfs-file-upload">';
-        echo '<input type="file" name="supporting_doc" accept=".pdf,image/*" onchange="this.closest(\'.sfs-file-upload\').querySelector(\'.sfs-file-upload-text\').textContent=this.files[0]?this.files[0].name:this.getAttribute(\'data-empty\')" data-empty="' . esc_attr__( 'No file selected', 'sfs-hr' ) . '" />';
+        echo '<label class="sfs-form-label" data-i18n-key="supporting_document">' . esc_html__( 'Supporting document', 'sfs-hr' ) . ' <span class="sfs-required">*</span></label>';
+        echo '<label class="sfs-file-upload" id="sfs-leave-file-upload">';
+        echo '<input type="file" name="supporting_doc" id="sfs-leave-file-input" accept=".pdf,image/*" required onchange="this.closest(\'.sfs-file-upload\').querySelector(\'.sfs-file-upload-text\').textContent=this.files[0]?this.files[0].name:this.getAttribute(\'data-empty\');if(this.files[0]){this.closest(\'.sfs-file-upload\').classList.add(\'sfs-file-has-file\');var n=document.getElementById(\'sfs-leave-doc-notice\');if(n)n.style.display=\'none\';}else{this.closest(\'.sfs-file-upload\').classList.remove(\'sfs-file-has-file\');}" data-empty="' . esc_attr__( 'No file selected', 'sfs-hr' ) . '" />';
         echo '<span class="sfs-file-upload-btn" data-i18n-key="choose_file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' . esc_html__( 'Choose file', 'sfs-hr' ) . '</span>';
         echo '<span class="sfs-file-upload-text" data-i18n-key="no_file_selected">' . esc_html__( 'No file selected', 'sfs-hr' ) . '</span>';
         echo '</label>';
-        echo '<span class="sfs-form-hint" data-i18n-key="required_for_sick_leave">' . esc_html__( 'Required for Sick Leave.', 'sfs-hr' ) . '</span>';
+        echo '<div class="sfs-alert sfs-alert--error sfs-leave-doc-notice" id="sfs-leave-doc-notice" style="display:none;margin-top:6px;padding:8px 12px;font-size:12px;">';
+        echo '<svg viewBox="0 0 24 24" style="width:14px;height:14px;flex-shrink:0;"><circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/><line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" stroke-width="2"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" stroke-width="2"/></svg>';
+        echo '<span data-i18n-key="please_upload_supporting_document">' . esc_html__( 'Please upload a supporting document before submitting.', 'sfs-hr' ) . '</span>';
+        echo '</div>';
         echo '</div>';
 
         // Submit
@@ -377,18 +407,129 @@ class LeaveTab implements TabInterface {
         echo '</div>'; // .sfs-form-modal
         echo '</div>'; // .sfs-form-modal-overlay
 
-        // JS: pre-select leave type from balance card link, pre-fill sick leave dates, Escape key close
+        // JS: Calendar range picker, form validation, pre-select leave type, Escape close
         echo '<script>';
         echo '(function(){';
         echo 'var m=document.getElementById("sfs-leave-modal");if(!m)return;';
+
+        // Escape key close
         echo 'document.addEventListener("keydown",function(e){if(e.key==="Escape")m.classList.remove("sfs-modal-active");});';
-        echo 'var u=new URLSearchParams(window.location.search),t=u.get("leave_type"),s=document.getElementById("sfs-leave-type-select");';
-        echo 'if(t&&s){s.value=t;m.classList.add("sfs-modal-active");}';
-        // Pre-fill dates from sick leave reminder and auto-open modal.
-        echo 'var ss=u.get("sick_start"),se=u.get("sick_end"),om=u.get("open_modal");';
-        echo 'if(om==="1")m.classList.add("sfs-modal-active");';
-        echo 'if(ss){var si=m.querySelector("input[name=start_date]");if(si)si.value=ss;}';
-        echo 'if(se){var ei=m.querySelector("input[name=end_date]");if(ei)ei.value=se;}';
+
+        // Pre-select leave type from balance card link
+        echo 'var u=new URLSearchParams(window.location.search),t=u.get("leave_type"),sel=document.getElementById("sfs-leave-type-select");';
+        echo 'if(t&&sel){sel.value=t;m.classList.add("sfs-modal-active");}';
+        echo 'var om=u.get("open_modal");if(om==="1")m.classList.add("sfs-modal-active");';
+
+        // Calendar range picker
+        echo 'var calGrid=document.getElementById("sfs-cal-grid"),';
+        echo 'calLabel=document.getElementById("sfs-cal-month-label"),';
+        echo 'calWeekdays=document.getElementById("sfs-cal-weekdays"),';
+        echo 'rangeInfo=document.getElementById("sfs-cal-selected-range"),';
+        echo 'startInput=document.getElementById("sfs-leave-start"),';
+        echo 'endInput=document.getElementById("sfs-leave-end");';
+        echo 'if(!calGrid)return;';
+
+        // i18n: month names and day abbreviations from translation system
+        echo 'var monthNames=["' . esc_js( __( 'January', 'sfs-hr' ) ) . '","' . esc_js( __( 'February', 'sfs-hr' ) ) . '","' . esc_js( __( 'March', 'sfs-hr' ) ) . '","' . esc_js( __( 'April', 'sfs-hr' ) ) . '","' . esc_js( __( 'May', 'sfs-hr' ) ) . '","' . esc_js( __( 'June', 'sfs-hr' ) ) . '","' . esc_js( __( 'July', 'sfs-hr' ) ) . '","' . esc_js( __( 'August', 'sfs-hr' ) ) . '","' . esc_js( __( 'September', 'sfs-hr' ) ) . '","' . esc_js( __( 'October', 'sfs-hr' ) ) . '","' . esc_js( __( 'November', 'sfs-hr' ) ) . '","' . esc_js( __( 'December', 'sfs-hr' ) ) . '"];';
+        echo 'var dayNames=["' . esc_js( __( 'Sun', 'sfs-hr' ) ) . '","' . esc_js( __( 'Mon', 'sfs-hr' ) ) . '","' . esc_js( __( 'Tue', 'sfs-hr' ) ) . '","' . esc_js( __( 'Wed', 'sfs-hr' ) ) . '","' . esc_js( __( 'Thu', 'sfs-hr' ) ) . '","' . esc_js( __( 'Fri', 'sfs-hr' ) ) . '","' . esc_js( __( 'Sat', 'sfs-hr' ) ) . '"];';
+        echo 'var txtClickStart="' . esc_js( __( 'Click to select start date', 'sfs-hr' ) ) . '";';
+        echo 'var txtClickEnd="' . esc_js( __( 'Now click end date', 'sfs-hr' ) ) . '";';
+        echo 'var txtTo="' . esc_js( __( 'to', 'sfs-hr' ) ) . '";';
+        echo 'var txtDay="' . esc_js( __( 'day', 'sfs-hr' ) ) . '";';
+        echo 'var txtDays="' . esc_js( __( 'days', 'sfs-hr' ) ) . '";';
+
+        // Try to get translations from loaded i18n if available
+        echo 'function getI18nMonths(){';
+        echo 'try{var s=window.sfsHrTranslations||{};var keys=["january","february","march","april","may","june","july","august","september","october","november","december"];';
+        echo 'var out=[];for(var i=0;i<keys.length;i++){out.push(s[keys[i]]||monthNames[i]);}return out;}catch(e){return monthNames;}}';
+        echo 'function getI18nDays(){';
+        echo 'try{var s=window.sfsHrTranslations||{};var keys=["sun","mon","tue","wed","thu","fri","sat"];';
+        echo 'var out=[];for(var i=0;i<keys.length;i++){out.push(s[keys[i]]||dayNames[i]);}return out;}catch(e){return dayNames;}}';
+
+        // Calendar state
+        echo 'var now=new Date(),curYear=now.getFullYear(),curMonth=now.getMonth();';
+        echo 'var selStart=null,selEnd=null;';
+
+        // Render weekday headers
+        echo 'function renderWeekdays(){';
+        echo 'var d=getI18nDays();calWeekdays.innerHTML="";';
+        echo 'for(var i=0;i<7;i++){var s=document.createElement("span");s.className="sfs-cal-wd";s.textContent=d[i];calWeekdays.appendChild(s);}}';
+
+        // Render calendar grid
+        echo 'function renderCal(){';
+        echo 'var mn=getI18nMonths();';
+        echo 'calLabel.textContent=mn[curMonth]+" "+curYear;';
+        echo 'calLabel.setAttribute("data-month",(curMonth+1));';
+        echo 'calLabel.setAttribute("data-year",curYear);';
+        echo 'calGrid.innerHTML="";';
+        echo 'var first=new Date(curYear,curMonth,1).getDay();';
+        echo 'var daysInMonth=new Date(curYear,curMonth+1,0).getDate();';
+        echo 'var today=new Date();today.setHours(0,0,0,0);';
+        // Empty cells before first day
+        echo 'for(var i=0;i<first;i++){var e=document.createElement("span");e.className="sfs-cal-day sfs-cal-day--empty";calGrid.appendChild(e);}';
+        // Day cells
+        echo 'for(var d=1;d<=daysInMonth;d++){';
+        echo 'var cell=document.createElement("button");cell.type="button";cell.className="sfs-cal-day";cell.textContent=d;';
+        echo 'var dt=new Date(curYear,curMonth,d);dt.setHours(0,0,0,0);';
+        echo 'if(dt<today)cell.classList.add("sfs-cal-day--disabled");';
+        echo 'else{cell.dataset.date=curYear+"-"+String(curMonth+1).padStart(2,"0")+"-"+String(d).padStart(2,"0");';
+        echo 'cell.addEventListener("click",onDayClick);}';
+        // Highlight selected range
+        echo 'if(selStart&&dt.getTime()===selStart.getTime())cell.classList.add("sfs-cal-day--start","sfs-cal-day--selected");';
+        echo 'if(selEnd&&dt.getTime()===selEnd.getTime())cell.classList.add("sfs-cal-day--end","sfs-cal-day--selected");';
+        echo 'if(selStart&&selEnd&&dt>selStart&&dt<selEnd)cell.classList.add("sfs-cal-day--in-range");';
+        echo 'if(selStart&&!selEnd&&dt.getTime()===selStart.getTime())cell.classList.add("sfs-cal-day--single");';
+        echo 'calGrid.appendChild(cell);}}';
+
+        // Day click handler
+        echo 'function onDayClick(e){';
+        echo 'var ds=e.target.dataset.date;if(!ds)return;';
+        echo 'var clicked=new Date(ds+"T00:00:00");';
+        echo 'if(!selStart||selEnd||(clicked<selStart)){selStart=clicked;selEnd=null;}';
+        echo 'else{selEnd=clicked;}';
+        echo 'startInput.value=selStart?fmtDate(selStart):"";';
+        echo 'endInput.value=selEnd?fmtDate(selEnd):"";';
+        echo 'updateRangeInfo();renderCal();}';
+
+        // Format date as YYYY-MM-DD
+        echo 'function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}';
+
+        // Update range info text
+        echo 'function updateRangeInfo(){';
+        echo 'if(!selStart){rangeInfo.innerHTML="<span>"+txtClickStart+"</span>";return;}';
+        echo 'if(!selEnd){rangeInfo.innerHTML="<span class=\"sfs-cal-range-date\">"+fmtDate(selStart)+"</span> <span class=\"sfs-cal-range-sep\">— "+txtClickEnd+"</span>";return;}';
+        echo 'var diff=Math.round((selEnd-selStart)/(1000*60*60*24))+1;';
+        echo 'var dayWord=diff===1?txtDay:txtDays;';
+        echo 'rangeInfo.innerHTML="<span class=\"sfs-cal-range-date\">"+fmtDate(selStart)+"</span><span class=\"sfs-cal-range-sep\"> "+txtTo+" </span><span class=\"sfs-cal-range-date\">"+fmtDate(selEnd)+"</span><span class=\"sfs-cal-range-days\"> · "+diff+" "+dayWord+"</span>";}';
+
+        // Nav buttons
+        echo 'document.querySelector(".sfs-cal-prev").addEventListener("click",function(){curMonth--;if(curMonth<0){curMonth=11;curYear--;}renderCal();});';
+        echo 'document.querySelector(".sfs-cal-next").addEventListener("click",function(){curMonth++;if(curMonth>11){curMonth=0;curYear++;}renderCal();});';
+
+        // Init
+        echo 'renderWeekdays();renderCal();';
+
+        // Pre-fill dates from sick leave reminder (validate before using to avoid NaN/Invalid Date)
+        echo 'var ss=u.get("sick_start"),se=u.get("sick_end");';
+        echo 'if(ss&&ss.length){var _sd=new Date(ss+"T00:00:00");if(isFinite(_sd.getTime())){selStart=_sd;startInput.value=ss;';
+        echo 'if(se&&se.length){var _ed=new Date(se+"T00:00:00");if(isFinite(_ed.getTime())){selEnd=_ed;endInput.value=se;}}';
+        echo 'curMonth=selStart.getMonth();curYear=selStart.getFullYear();';
+        echo 'updateRangeInfo();renderCal();}}';
+
+        // Form validation: require file upload before submit
+        echo 'var form=document.getElementById("sfs-leave-request-form");';
+        echo 'var fileInput=document.getElementById("sfs-leave-file-input");';
+        echo 'var docNotice=document.getElementById("sfs-leave-doc-notice");';
+        echo 'if(form){form.addEventListener("submit",function(e){';
+        echo 'if(!fileInput||!fileInput.files||fileInput.files.length===0){';
+        echo 'e.preventDefault();docNotice.style.display="flex";';
+        echo 'docNotice.scrollIntoView({behavior:"smooth",block:"center"});return false;}';
+        echo 'if(!startInput.value){e.preventDefault();return false;}';
+        echo '});}';
+
+        // Listen for language changes to update calendar
+        echo 'document.addEventListener("sfs-hr-language-changed",function(){renderWeekdays();renderCal();updateRangeInfo();});';
+
         echo '})();</script>';
     }
 
@@ -533,5 +674,10 @@ class LeaveTab implements TabInterface {
             ];
         }
         return $display;
+    }
+
+    private function is_gender_allowed( string $required, string $employee_gender ): bool {
+        $required = strtolower( trim( $required ) ) ?: 'any';
+        return $required === 'any' || $required === $employee_gender;
     }
 }

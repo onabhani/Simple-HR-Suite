@@ -2798,12 +2798,13 @@ private function render_cancellation_detail( int $cancel_id ): void {
               <th><?php esc_html_e('Quota','sfs-hr'); ?></th>
               <th><?php esc_html_e('Gender','sfs-hr'); ?></th>
               <th><?php esc_html_e('Attachment','sfs-hr'); ?></th>
+              <th><?php esc_html_e('Skip Mgr/GM','sfs-hr'); ?></th>
               <th><?php esc_html_e('Special','sfs-hr'); ?></th>
               <th><?php esc_html_e('Actions','sfs-hr'); ?></th>
             </tr></thead>
             <tbody>
               <?php if(!$rows): ?>
-                <tr><td colspan="9"><?php esc_html_e('No types.','sfs-hr'); ?></td></tr>
+                <tr><td colspan="10"><?php esc_html_e('No types.','sfs-hr'); ?></td></tr>
               <?php else: foreach($rows as $r):
                 $looks_annual = (stripos($r['name'],'annual') !== false);
                 $gender_label = ['any' => __('All','sfs-hr'), 'male' => __('Male','sfs-hr'), 'female' => __('Female','sfs-hr')];
@@ -2821,6 +2822,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
                   <td><?php printf('%d', (int)$r['annual_quota']); ?></td>
                   <td><?php echo esc_html($gender_label[$r['gender_required'] ?? 'any'] ?? __('All','sfs-hr')); ?></td>
                   <td><?php echo !empty($r['requires_attachment'])?'✔':'—'; ?></td>
+                  <td><?php echo !empty($r['skip_managers_gm'])?'✔':'—'; ?></td>
                   <td><?php echo esc_html($r['special_code'] ?: '—'); ?></td>
                   <td>
                     <div style="display:flex;gap:6px;">
@@ -2901,6 +2903,10 @@ private function render_cancellation_detail( int $cancel_id ): void {
               <tr>
                 <th><?php esc_html_e('Requires Attachment','sfs-hr'); ?></th>
                 <td><label><input type="checkbox" name="requires_attachment" value="1" <?php checked(!empty($e['requires_attachment'])); ?>/> <?php esc_html_e('Employee must upload supporting document','sfs-hr'); ?></label></td>
+              </tr>
+              <tr>
+                <th><?php esc_html_e('Skip Managers & GM','sfs-hr'); ?></th>
+                <td><label><input type="checkbox" name="skip_managers_gm" value="1" <?php checked(!empty($e['skip_managers_gm'])); ?>/> <?php esc_html_e('Exclude managers and General Manager from this leave type','sfs-hr'); ?></label></td>
               </tr>
               <tr>
   <th><?php esc_html_e('Special Policy','sfs-hr'); ?></th>
@@ -3030,6 +3036,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
     $special = isset($_POST['special_code']) ? sanitize_text_field($_POST['special_code']) : '';
     $gender_required = isset($_POST['gender_required']) ? sanitize_key($_POST['gender_required']) : 'any';
     $requires_attachment = !empty($_POST['requires_attachment']) ? 1 : 0;
+    $skip_managers_gm = !empty($_POST['skip_managers_gm']) ? 1 : 0;
     $color = isset($_POST['color']) ? sanitize_hex_color($_POST['color']) : '#2271b1';
 
     $allowed = ['', 'SICK_SHORT','SICK_LONG','HAJJ','MATERNITY','MARRIAGE','BEREAVEMENT','PATERNITY'];
@@ -3086,6 +3093,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
             'special_code'       => ($special ?: null),
             'gender_required'    => $gender_required,
             'requires_attachment'=> $requires_attachment,
+            'skip_managers_gm'   => $skip_managers_gm,
             'color'              => $color,
         ]
     );
@@ -3128,6 +3136,17 @@ private function render_cancellation_detail( int $cancel_id ): void {
         $special  = isset($_POST['special_code']) ? sanitize_text_field(wp_unslash($_POST['special_code'])) : '';
         $gender_required = isset($_POST['gender_required']) ? sanitize_text_field(wp_unslash($_POST['gender_required'])) : 'any';
         $requires_attachment = !empty($_POST['requires_attachment']) ? 1 : 0;
+        $skip_managers_gm = !empty($_POST['skip_managers_gm']) ? 1 : 0;
+
+        // Validate special_code and gender_required against the same allowlists used in the add flow.
+        $allowed_specials = ['', 'SICK_SHORT','SICK_LONG','HAJJ','MATERNITY','MARRIAGE','BEREAVEMENT','PATERNITY'];
+        if ( ! in_array($special, $allowed_specials, true) ) {
+            $special = '';
+        }
+        $allowed_genders = ['any', 'male', 'female'];
+        if ( ! in_array($gender_required, $allowed_genders, true) ) {
+            $gender_required = 'any';
+        }
 
         if (empty($name)) {
             wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=types&edit_id=' . $id . '&err=' . rawurlencode(__('Name is required', 'sfs-hr'))));
@@ -3146,6 +3165,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
                 'special_code'       => ($special ?: null),
                 'gender_required'    => $gender_required,
                 'requires_attachment'=> $requires_attachment,
+                'skip_managers_gm'   => $skip_managers_gm,
                 'color'              => $color,
                 'updated_at'         => current_time('mysql'),
             ],
@@ -4266,12 +4286,16 @@ if ($special === 'MATERNITY') {
 );
 
 // Hide leave types that don't match the employee's gender
-$gender = strtolower((string)($emp['gender'] ?? ''));
+$gender = strtolower(trim((string)($emp['gender'] ?? '')));
 $types = array_values(array_filter($types, function($t) use ($gender) {
     $gr = strtolower(trim((string)($t['gender_required'] ?? 'any')));
     if ($gr !== 'any' && $gr !== $gender) return false;
     return true;
 }));
+
+if ( empty( $types ) ) {
+    return '<div class="notice notice-info"><p>' . esc_html__( 'No eligible leave types available for your profile.', 'sfs-hr' ) . '</p></div>';
+}
 
         ob_start(); ?>
         <form method="post" enctype="multipart/form-data" class="sfs-hr-leave-form">
@@ -5597,7 +5621,7 @@ public function handle_self_request(): void {
     // Get leave type details for validation
     $type_row = $wpdb->get_row(
         $wpdb->prepare(
-            "SELECT special_code, gender_required, requires_attachment FROM {$type_table} WHERE id = %d AND active = 1",
+            "SELECT special_code, gender_required, requires_attachment, skip_managers_gm FROM {$type_table} WHERE id = %d AND active = 1",
             $type_id
         )
     );
@@ -5606,7 +5630,20 @@ public function handle_self_request(): void {
         $this->redirect_back_with_msg( 'leave_err', 'invalid_type' );
     }
 
-    $special = (string) ( $type_row->special_code ?? '' );
+    $special = strtoupper( trim( (string) ( $type_row->special_code ?? '' ) ) );
+
+    // Validate skip_managers_gm: reject if current user is a manager/GM and flag is set.
+    if ( ! empty( $type_row->skip_managers_gm ) ) {
+        $gm_approver = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+        $is_mgr_or_gm = ( $gm_approver > 0 && $gm_approver === $user_id );
+        if ( ! $is_mgr_or_gm ) {
+            $mgr_depts = \SFS\HR\Frontend\Role_Resolver::get_manager_dept_ids( $user_id );
+            $is_mgr_or_gm = ! empty( $mgr_depts );
+        }
+        if ( $is_mgr_or_gm ) {
+            $this->redirect_back_with_msg( 'leave_err', 'type_not_available' );
+        }
+    }
 
     // Validate gender restriction
     $type_gender = strtolower( trim( (string) ( $type_row->gender_required ?? 'any' ) ) );
@@ -5635,10 +5672,7 @@ public function handle_self_request(): void {
 
         if ( is_wp_error( $attach_id ) ) {
             error_log( '[SFS HR] Leave doc upload failed: ' . $attach_id->get_error_message() );
-            if ( $requires_doc ) {
-                $this->redirect_back_with_msg( 'leave_err', 'doc_upload' );
-            }
-            $attach_id = 0;
+            $this->redirect_back_with_msg( 'leave_err', 'doc_upload' );
         }
     } elseif ( $requires_doc ) {
         // Sick leave type but no file uploaded

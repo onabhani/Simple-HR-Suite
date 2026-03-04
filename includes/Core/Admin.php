@@ -2586,15 +2586,31 @@ function sfsHrToggleKebab(btn) {
   // Close all open menus first.
   document.querySelectorAll('.sfs-hr-kebab-menu.open').forEach(function(el) {
     el.classList.remove('open');
+    var prev = el.previousElementSibling;
+    if (prev && prev.classList.contains('sfs-hr-kebab-btn')) prev.setAttribute('aria-expanded','false');
   });
   if (!isOpen) {
     menu.classList.add('open');
+    btn.setAttribute('aria-expanded','true');
+  } else {
+    btn.setAttribute('aria-expanded','false');
   }
 }
 document.addEventListener('click', function(e) {
   if (!e.target.closest('.sfs-hr-kebab-btn') && !e.target.closest('.sfs-hr-kebab-menu')) {
     document.querySelectorAll('.sfs-hr-kebab-menu.open').forEach(function(el) {
       el.classList.remove('open');
+      var prev = el.previousElementSibling;
+      if (prev && prev.classList.contains('sfs-hr-kebab-btn')) prev.setAttribute('aria-expanded','false');
+    });
+  }
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.sfs-hr-kebab-menu.open').forEach(function(el) {
+      el.classList.remove('open');
+      var prev = el.previousElementSibling;
+      if (prev && prev.classList.contains('sfs-hr-kebab-btn')) prev.setAttribute('aria-expanded','false');
     });
   }
 });
@@ -2733,7 +2749,7 @@ document.addEventListener('click', function(e) {
 
                   <div class="sfs-hr-field">
                     <label for="sfs-hr-nationality"><?php esc_html_e( 'Nationality', 'sfs-hr' ); ?></label>
-                    <input id="sfs-hr-nationality" name="nationality" class="regular-text" />
+                    <?php Helpers::render_nationality_select( '', 'nationality', 'sfs-hr-nationality' ); ?>
                   </div>
 
                   <div class="sfs-hr-field">
@@ -2990,7 +3006,7 @@ document.addEventListener('click', function(e) {
                 foreach ($rows as $r):
                   $name     = trim(($r['first_name']??'').' '.($r['last_name']??''));
                   $status   = $r['status'];
-                  $view_url = esc_url( admin_url('admin.php?page=sfs-hr-employee-profile&employee_id='.(int)$r['id']) );
+                  $view_url = admin_url('admin.php?page=sfs-hr-employee-profile&employee_id='.(int)$r['id']);
                   $edit_url = wp_nonce_url( admin_url('admin.php?page=sfs-hr-employees&action=edit&id='.(int)$r['id']), 'sfs_hr_edit_'.(int)$r['id'] );
                   $del_url  = wp_nonce_url( admin_url('admin-post.php?action=sfs_hr_delete_employee&id='.(int)$r['id']), 'sfs_hr_del_'.(int)$r['id'] );
                   $dept_name = empty($r['dept_id']) ? __('General','sfs-hr') : ($dept_map[(int)$r['dept_id']] ?? '#'.(int)$r['dept_id']);
@@ -3005,7 +3021,7 @@ document.addEventListener('click', function(e) {
                   <td><span class="sfs-hr-badge status-<?php echo esc_attr($status); ?>"><?php echo esc_html(__(ucfirst($status), 'sfs-hr')); ?></span></td>
                   <td>
                     <div class="sfs-hr-kebab-wrap">
-                      <button type="button" class="sfs-hr-kebab-btn" onclick="sfsHrToggleKebab(this)" aria-label="<?php esc_attr_e('Actions','sfs-hr'); ?>">
+                      <button type="button" class="sfs-hr-kebab-btn" onclick="sfsHrToggleKebab(this)" aria-label="<?php esc_attr_e('Actions','sfs-hr'); ?>" aria-expanded="false">
                         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
                       </button>
                       <div class="sfs-hr-kebab-menu">
@@ -3100,6 +3116,10 @@ document.addEventListener('click', function(e) {
 $visa_expiry    = $this->sanitize_field('visa_expiry');
 
 $nationality    = $this->sanitize_field('nationality');
+// Prevent the "__add_new__" sentinel value from being persisted (JS-disabled fallback).
+if ( $nationality === '__add_new__' ) {
+    $nationality = '';
+}
 $marital_status = $this->sanitize_field('marital_status');
 $dob            = $this->sanitize_field('date_of_birth');
 
