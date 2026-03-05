@@ -2883,6 +2883,24 @@ private function render_cancellation_detail( int $cancel_id ): void {
             <?php endif; ?>
             <table class="form-table">
               <tr><th><?php esc_html_e('Name','sfs-hr'); ?></th><td><input name="name" class="regular-text" required value="<?php echo esc_attr($e['name'] ?? ''); ?>"/></td></tr>
+              <?php
+              // Per-language translations for the leave type name
+              $supported_langs = [
+                  'ar'  => __( 'Arabic', 'sfs-hr' ),
+                  'ur'  => __( 'Urdu', 'sfs-hr' ),
+                  'fil' => __( 'Filipino', 'sfs-hr' ),
+              ];
+              $name_trans = [];
+              if ( ! empty( $e['name_translations'] ) ) {
+                  $name_trans = json_decode( $e['name_translations'], true ) ?: [];
+              }
+              foreach ( $supported_langs as $lcode => $llabel ) :
+              ?>
+              <tr>
+                <th><?php printf( esc_html__( 'Name (%s)', 'sfs-hr' ), esc_html( $llabel ) ); ?></th>
+                <td><input name="name_trans_<?php echo esc_attr( $lcode ); ?>" class="regular-text" value="<?php echo esc_attr( $name_trans[ $lcode ] ?? '' ); ?>" dir="<?php echo in_array( $lcode, [ 'ar', 'ur' ], true ) ? 'rtl' : 'ltr'; ?>"/></td>
+              </tr>
+              <?php endforeach; ?>
               <tr><th><?php esc_html_e('Color','sfs-hr'); ?></th><td><input type="color" name="color" value="<?php echo esc_attr($e['color'] ?? '#2271b1'); ?>" style="width:60px;height:30px;padding:0;border:1px solid #8c8f94;"/></td></tr>
               <tr><th><?php esc_html_e('Paid','sfs-hr'); ?></th><td><label><input type="checkbox" name="is_paid" value="1" <?php checked(!empty($e['is_paid']) || !$is_editing); ?>/> <?php esc_html_e('Paid leave','sfs-hr'); ?></label></td></tr>
               <tr><th><?php esc_html_e('Requires Approval','sfs-hr'); ?></th><td><label><input type="checkbox" name="requires_approval" value="1" <?php checked(!empty($e['requires_approval']) || !$is_editing); ?>/> <?php esc_html_e('Yes','sfs-hr'); ?></label></td></tr>
@@ -3039,6 +3057,16 @@ private function render_cancellation_detail( int $cancel_id ): void {
     $skip_managers_gm = !empty($_POST['skip_managers_gm']) ? 1 : 0;
     $color = isset($_POST['color']) ? sanitize_hex_color($_POST['color']) : '#2271b1';
 
+    // Collect per-language name translations
+    $name_trans = [];
+    foreach ( [ 'ar', 'ur', 'fil' ] as $lc ) {
+        $val = isset( $_POST[ 'name_trans_' . $lc ] ) ? sanitize_text_field( wp_unslash( $_POST[ 'name_trans_' . $lc ] ) ) : '';
+        if ( $val !== '' ) {
+            $name_trans[ $lc ] = $val;
+        }
+    }
+    $name_translations_json = ! empty( $name_trans ) ? wp_json_encode( $name_trans, JSON_UNESCAPED_UNICODE ) : null;
+
     $allowed = ['', 'SICK_SHORT','SICK_LONG','HAJJ','MATERNITY','MARRIAGE','BEREAVEMENT','PATERNITY'];
     if ( ! in_array($special, $allowed, true) ) {
         $special = '';
@@ -3095,6 +3123,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
             'requires_attachment'=> $requires_attachment,
             'skip_managers_gm'   => $skip_managers_gm,
             'color'              => $color,
+            'name_translations'  => $name_translations_json,
         ]
     );
 
@@ -3138,6 +3167,16 @@ private function render_cancellation_detail( int $cancel_id ): void {
         $requires_attachment = !empty($_POST['requires_attachment']) ? 1 : 0;
         $skip_managers_gm = !empty($_POST['skip_managers_gm']) ? 1 : 0;
 
+        // Collect per-language name translations
+        $name_trans = [];
+        foreach ( [ 'ar', 'ur', 'fil' ] as $lc ) {
+            $val = isset( $_POST[ 'name_trans_' . $lc ] ) ? sanitize_text_field( wp_unslash( $_POST[ 'name_trans_' . $lc ] ) ) : '';
+            if ( $val !== '' ) {
+                $name_trans[ $lc ] = $val;
+            }
+        }
+        $name_translations_json = ! empty( $name_trans ) ? wp_json_encode( $name_trans, JSON_UNESCAPED_UNICODE ) : null;
+
         // Validate special_code and gender_required against the same allowlists used in the add flow.
         $allowed_specials = ['', 'SICK_SHORT','SICK_LONG','HAJJ','MATERNITY','MARRIAGE','BEREAVEMENT','PATERNITY'];
         if ( ! in_array($special, $allowed_specials, true) ) {
@@ -3167,6 +3206,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
                 'requires_attachment'=> $requires_attachment,
                 'skip_managers_gm'   => $skip_managers_gm,
                 'color'              => $color,
+                'name_translations'  => $name_translations_json,
                 'updated_at'         => current_time('mysql'),
             ],
             ['id' => $id]

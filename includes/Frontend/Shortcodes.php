@@ -2437,6 +2437,23 @@ class Shortcodes {
                     }
                 });
 
+                // Translate dynamic user-entered strings (e.g. leave type names)
+                // Elements with data-i18n-translations='{"ar":"...","ur":"..."}' and data-i18n-default="English Name"
+                container.querySelectorAll('[data-i18n-translations]').forEach(function(el) {
+                    var currLang = localStorage.getItem('sfs_hr_lang') || 'en';
+                    var defaultText = el.dataset.i18nDefault || el.textContent;
+                    if (currLang === 'en' || !currLang) {
+                        el.textContent = defaultText;
+                        return;
+                    }
+                    try {
+                        var map = JSON.parse(el.dataset.i18nTranslations);
+                        el.textContent = (map && map[currLang]) ? map[currLang] : defaultText;
+                    } catch(e) {
+                        el.textContent = defaultText;
+                    }
+                });
+
                 // Switch overview greeting name for Arabic
                 var greetingName = container.querySelector('.sfs-overview-greeting-name');
                 if (greetingName && greetingName.dataset.nameAr) {
@@ -3084,7 +3101,7 @@ private function render_my_leave_frontend( int $employee_id ): void {
     $rows = $wpdb->get_results(
         $wpdb->prepare(
             "
-            SELECT r.*, t.name AS type_name
+            SELECT r.*, t.name AS type_name, t.name_translations AS type_name_translations
             FROM {$req_table} r
             LEFT JOIN {$type_table} t ON t.id = r.type_id
             WHERE r.employee_id = %d
@@ -3180,6 +3197,7 @@ foreach ( $rows as $row ) {
 
     $display_rows[] = [
         'type_name'   => $type_name,
+        'type_name_translations' => $row->type_name_translations ?? null,
         'period'      => $period,
         'days'        => $days,
         'status_key'  => $status_string,
@@ -3203,7 +3221,7 @@ echo '</tr></thead><tbody>';
 
 foreach ( $display_rows as $r ) {
     echo '<tr>';
-    echo '<td>' . esc_html( $r['type_name'] ) . '</td>';
+    echo '<td>' . \SFS\HR\Core\Helpers::translatable_name_html( $r['type_name'], $r['type_name_translations'] ?? null ) . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
     echo '<td>' . esc_html( $r['period'] ) . '</td>';
     echo '<td>' . esc_html( (string) $r['days'] ) . '</td>';
     echo '<td>' . $r['status_html'] . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -3228,7 +3246,7 @@ echo '<div class="sfs-hr-leaves-mobile">';
 foreach ( $display_rows as $r ) {
     echo '<details class="sfs-hr-leave-card">';
     echo '  <summary class="sfs-hr-leave-summary">';
-    echo '      <span class="sfs-hr-leave-summary-title">' . esc_html( $r['type_name'] ) . '</span>';
+    echo '      <span class="sfs-hr-leave-summary-title">' . \SFS\HR\Core\Helpers::translatable_name_html( $r['type_name'], $r['type_name_translations'] ?? null ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
     echo '      <span class="sfs-hr-leave-summary-status">';
     echo            $r['status_html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
     echo '      </span>';

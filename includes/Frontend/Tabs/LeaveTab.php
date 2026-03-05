@@ -10,6 +10,7 @@
 
 namespace SFS\HR\Frontend\Tabs;
 
+use SFS\HR\Core\Helpers;
 use SFS\HR\Modules\Leave\Leave_UI;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -46,7 +47,7 @@ class LeaveTab implements TabInterface {
 
         // Active leave types (filtered by gender and skip_managers_gm)
         $types = $wpdb->get_results(
-            "SELECT id, name, gender_required, skip_managers_gm, requires_attachment, special_code FROM {$type_table} WHERE active = 1 ORDER BY name ASC"
+            "SELECT id, name, name_translations, gender_required, skip_managers_gm, requires_attachment, special_code FROM {$type_table} WHERE active = 1 ORDER BY name ASC"
         );
         // Determine if current user is a manager or GM (check membership explicitly
         // so users who hold both manager/gm AND a higher-priority role like admin/hr
@@ -77,7 +78,7 @@ class LeaveTab implements TabInterface {
         // Leave history
         $rows = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT r.*, t.name AS type_name
+                "SELECT r.*, t.name AS type_name, t.name_translations AS type_name_translations
                  FROM {$req_table} r
                  LEFT JOIN {$type_table} t ON t.id = r.type_id
                  WHERE r.employee_id = %d
@@ -98,7 +99,7 @@ class LeaveTab implements TabInterface {
 
         $balances = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT b.*, t.name, t.is_annual, t.gender_required, t.skip_managers_gm
+                "SELECT b.*, t.name, t.name_translations, t.is_annual, t.gender_required, t.skip_managers_gm
                  FROM {$bal_table} b
                  JOIN {$type_table} t ON t.id = b.type_id
                  WHERE b.employee_id = %d AND b.year = %d
@@ -270,7 +271,7 @@ class LeaveTab implements TabInterface {
         $colors = self::CARD_COLORS;
         $i = 0;
         foreach ( $balances as $b ) {
-            $name      = esc_html( $b['name'] ?? __( 'Leave', 'sfs-hr' ) );
+            $name      = Helpers::translatable_name_html( $b['name'] ?? __( 'Leave', 'sfs-hr' ), $b['name_translations'] ?? null );
             $total     = (int) ( $b['closing'] ?? 0 );
             $consumed  = (int) ( $b['used'] ?? 0 );
             $applied   = (int) ( $b['pending'] ?? 0 );
@@ -353,7 +354,11 @@ class LeaveTab implements TabInterface {
         foreach ( $types as $type ) {
             $needs_doc = ! empty( $type->requires_attachment )
                          || in_array( strtoupper( trim( (string) ( $type->special_code ?? '' ) ) ), [ 'SICK_SHORT', 'SICK_LONG' ], true );
-            echo '<option value="' . (int) $type->id . '" data-requires-doc="' . ( $needs_doc ? '1' : '0' ) . '">' . esc_html( $type->name ) . '</option>';
+            $trans_attr = '';
+            if ( ! empty( $type->name_translations ) ) {
+                $trans_attr = ' data-i18n-default="' . esc_attr( $type->name ) . '" data-i18n-translations="' . esc_attr( $type->name_translations ) . '"';
+            }
+            echo '<option value="' . (int) $type->id . '" data-requires-doc="' . ( $needs_doc ? '1' : '0' ) . '"' . $trans_attr . '>' . esc_html( $type->name ) . '</option>';
         }
         echo '</select>';
         echo '</div>';
@@ -586,7 +591,7 @@ class LeaveTab implements TabInterface {
             if ( ! empty( $r['request_number'] ) ) {
                 echo '<strong>' . esc_html( $r['request_number'] ) . '</strong> — ';
             }
-            echo esc_html( $r['type_name'] ) . '</span>';
+            echo Helpers::translatable_name_html( $r['type_name'], $r['type_name_translations'] ?? null ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
             echo '<span class="sfs-history-card-meta">' . esc_html( $r['period'] ) . ' · ' . (int) $r['days'] . ' <span data-i18n-key="days">' . esc_html__( 'days', 'sfs-hr' ) . '</span></span>';
             echo '</div>';
             echo $r['status_html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -687,6 +692,7 @@ class LeaveTab implements TabInterface {
             $display[] = [
                 'request_number' => $row->request_number ?? '',
                 'type_name'      => $type_name,
+                'type_name_translations' => $row->type_name_translations ?? null,
                 'period'         => $period,
                 'days'           => $days,
                 'status_key'     => $status_key,

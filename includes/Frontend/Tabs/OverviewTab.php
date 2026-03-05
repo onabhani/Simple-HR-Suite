@@ -11,6 +11,7 @@
 
 namespace SFS\HR\Frontend\Tabs;
 
+use SFS\HR\Core\Helpers;
 use SFS\HR\Modules\Attendance\Rest\Public_REST as Attendance_Public_REST;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -95,7 +96,7 @@ class OverviewTab implements TabInterface {
         // Next approved leave.
         $next_leave = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT r.*, t.name AS type_name
+                "SELECT r.*, t.name AS type_name, t.name_translations AS type_name_translations
                  FROM {$req_table} r
                  LEFT JOIN {$type_table} t ON t.id = r.type_id
                  WHERE r.employee_id = %d AND r.status = 'approved' AND r.start_date >= %s
@@ -108,7 +109,7 @@ class OverviewTab implements TabInterface {
         // Pending leave requests (waiting for approval).
         $pending_leaves = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT r.*, t.name AS type_name
+                "SELECT r.*, t.name AS type_name, t.name_translations AS type_name_translations
                  FROM {$req_table} r
                  LEFT JOIN {$type_table} t ON t.id = r.type_id
                  WHERE r.employee_id = %d AND r.status = 'pending'
@@ -121,7 +122,7 @@ class OverviewTab implements TabInterface {
         // Upcoming approved leaves (future).
         $upcoming_leaves = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT r.*, t.name AS type_name
+                "SELECT r.*, t.name AS type_name, t.name_translations AS type_name_translations
                  FROM {$req_table} r
                  LEFT JOIN {$type_table} t ON t.id = r.type_id
                  WHERE r.employee_id = %d AND r.status = 'approved' AND r.start_date >= %s
@@ -261,6 +262,7 @@ class OverviewTab implements TabInterface {
             $timeline[] = [
                 'date'  => $next_leave->start_date,
                 'label' => $next_leave->type_name ?: __( 'Leave', 'sfs-hr' ),
+                'label_translations' => $next_leave->type_name_translations ?? null,
                 'icon'  => 'calendar',
                 'color' => '#3b82f6',
                 'bg'    => '#eff6ff',
@@ -593,6 +595,7 @@ class OverviewTab implements TabInterface {
             // Pending leave requests.
             foreach ( $pending_leaves as $req ) {
                 $type_name = $req->type_name ?: __( 'Leave', 'sfs-hr' );
+                $type_trans = $req->type_name_translations ?? null;
                 $start     = $req->start_date ?: '';
                 $end       = $req->end_date ?: '';
                 $period    = ( $start && $end && $end !== $start ) ? ( $start . ' → ' . $end ) : $start;
@@ -603,7 +606,7 @@ class OverviewTab implements TabInterface {
                 echo '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
                 echo '</div>';
                 echo '<div class="sfs-overview-activity-info">';
-                echo '<div class="sfs-overview-activity-title">' . esc_html( $type_name );
+                echo '<div class="sfs-overview-activity-title">' . Helpers::translatable_name_html( $type_name, $type_trans ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
                 if ( $ref ) {
                     echo ' <span class="sfs-overview-activity-ref">#' . esc_html( $ref ) . '</span>';
                 }
@@ -617,6 +620,7 @@ class OverviewTab implements TabInterface {
             // Upcoming approved leaves.
             foreach ( $upcoming_leaves as $req ) {
                 $type_name = $req->type_name ?: __( 'Leave', 'sfs-hr' );
+                $type_trans = $req->type_name_translations ?? null;
                 $start     = $req->start_date ?: '';
                 $end       = $req->end_date ?: '';
                 $period    = ( $start && $end && $end !== $start ) ? ( $start . ' → ' . $end ) : $start;
@@ -627,7 +631,7 @@ class OverviewTab implements TabInterface {
                 echo '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
                 echo '</div>';
                 echo '<div class="sfs-overview-activity-info">';
-                echo '<div class="sfs-overview-activity-title">' . esc_html( $type_name );
+                echo '<div class="sfs-overview-activity-title">' . Helpers::translatable_name_html( $type_name, $type_trans ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
                 if ( $ref ) {
                     echo ' <span class="sfs-overview-activity-ref">#' . esc_html( $ref ) . '</span>';
                 }
@@ -686,7 +690,7 @@ class OverviewTab implements TabInterface {
                 echo '<div class="sfs-overview-timeline-dot-inner" style="background:' . esc_attr( $event['color'] ) . ';"></div>';
                 echo '</div>';
                 echo '<div class="sfs-overview-timeline-content">';
-                echo '<span class="sfs-overview-timeline-label">' . esc_html( $event['label'] ) . '</span>';
+                echo '<span class="sfs-overview-timeline-label">' . ( ! empty( $event['label_translations'] ) ? Helpers::translatable_name_html( $event['label'], $event['label_translations'] ) : esc_html( $event['label'] ) ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
                 echo '<span class="sfs-overview-timeline-date">' . esc_html( $event['date'] ) . '</span>';
                 echo '</div>';
                 echo '</div>';
