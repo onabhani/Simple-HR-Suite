@@ -2253,10 +2253,12 @@ body:has(.sfs-hr-pwa-app) #masthead {
 /* ── Tables (Desktop) ──────────────────────────────────────── */
 .sfs-hr-pwa-app .sfs-table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     font-size: 13px;
     border: 1px solid var(--sfs-border);
     border-radius: 10px;
+    overflow: hidden;
 }
 .sfs-hr-pwa-app .sfs-table th {
     background: var(--sfs-background);

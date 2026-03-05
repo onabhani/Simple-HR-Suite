@@ -377,7 +377,7 @@ class SettingsTab implements TabInterface {
         // Nationality to check.
         echo '<div class="sfs-form-group">';
         echo '<label class="sfs-form-label" data-i18n-key="gov_nationality">' . esc_html__( 'Nationality to Monitor', 'sfs-hr' ) . '</label>';
-        echo '<input type="text" name="emp[gov_nationality]" class="sfs-input" value="' . esc_attr( $gov_nationality ) . '" style="max-width:300px;" />';
+        \SFS\HR\Core\Helpers::render_nationality_select( $gov_nationality, 'emp[gov_nationality]', '', 'sfs-input' );
         echo '<p class="sfs-form-help" style="color:var(--sfs-text-muted,#6b7280);font-size:12px;margin-top:4px;" data-i18n-key="gov_nationality_help">' . esc_html__( 'Employees with this nationality will trigger the reminder. Must match the nationality value exactly.', 'sfs-hr' ) . '</p>';
         echo '</div>';
 

@@ -5728,7 +5728,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         }
 
         $nationality      = $settings['nationality'] ?? 'Saudi';
-        $threshold_months = (int) ( $settings['threshold_months'] ?? 3 );
+        $threshold_months = max( 1, min( 120, (int) ( $settings['threshold_months'] ?? 3 ) ) );
 
         global $wpdb;
 
@@ -5757,14 +5757,21 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             $dismissed = [];
         }
 
-        $to_show = [];
+        $to_show    = [];
+        $email_ids  = [];
+        $email_data = [];
         foreach ( $qualifying as $emp ) {
             $emp_id = (int) $emp['id'];
             if ( ! in_array( $emp_id, $dismissed, true ) ) {
-                $to_show[] = $emp;
-                // Trigger email on first detection.
-                \SFS\HR\Frontend\GovSupportReminder::maybe_send_email( $emp_id, $emp );
+                $to_show[]              = $emp;
+                $email_ids[]            = $emp_id;
+                $email_data[ $emp_id ]  = $emp;
             }
+        }
+
+        // Schedule email sending in the background instead of during render.
+        if ( ! empty( $email_ids ) && ! wp_next_scheduled( 'sfs_hr_queue_gov_support_emails' ) ) {
+            wp_schedule_single_event( time(), 'sfs_hr_queue_gov_support_emails', [ $email_ids, $email_data ] );
         }
 
         if ( empty( $to_show ) ) {
@@ -5829,7 +5836,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
         $gov_settings    = get_option( 'sfs_hr_gov_support_settings', [] );
         $gov_enabled     = ! empty( $gov_settings['enabled'] );
-        $gov_months      = (int) ( $gov_settings['threshold_months'] ?? 3 );
+        $gov_months      = max( 1, min( 120, (int) ( $gov_settings['threshold_months'] ?? 3 ) ) );
         $gov_nationality = $gov_settings['nationality'] ?? 'Saudi';
 
         ?>
@@ -6886,16 +6893,11 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
     }
 
     /**
-     * Handle save for the admin Employees settings tab.
+     * Shared helper: save employee nationality list and gov support settings.
+     *
+     * @param array $emp_input The emp[] POST data array.
      */
-    public function handle_save_employees_settings(): void {
-        if ( ! current_user_can( 'manage_options' ) ) {
-            wp_die( esc_html__( 'Permission denied', 'sfs-hr' ) );
-        }
-        check_admin_referer( 'sfs_hr_employees_settings', '_sfs_emp_nonce' );
-
-        $emp_input = isset( $_POST['emp'] ) && is_array( $_POST['emp'] ) ? $_POST['emp'] : [];
-
+    private function save_employee_settings( array $emp_input ): void {
         // Nationalities: one per line → array.
         $raw_nat = isset( $emp_input['nationalities'] ) ? sanitize_textarea_field( wp_unslash( $emp_input['nationalities'] ) ) : '';
         $lines   = array_filter( array_map( 'trim', explode( "\n", $raw_nat ) ), 'strlen' );
@@ -6909,9 +6911,24 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             $gov = [];
         }
         $gov['enabled']          = ! empty( $emp_input['gov_enabled'] );
-        $gov['nationality']      = sanitize_text_field( $emp_input['gov_nationality'] ?? 'Saudi' );
+        $raw_gov_nat             = sanitize_text_field( wp_unslash( $emp_input['gov_nationality'] ?? 'Saudi' ) );
+        $valid_nats              = Helpers::get_nationalities_for_select();
+        $gov['nationality']      = in_array( $raw_gov_nat, $valid_nats, true ) ? $raw_gov_nat : ( $valid_nats[0] ?? 'Saudi' );
         $gov['threshold_months'] = max( 1, min( 120, (int) ( $emp_input['gov_months'] ?? 3 ) ) );
         update_option( 'sfs_hr_gov_support_settings', $gov, false );
+    }
+
+    /**
+     * Handle save for the admin Employees settings tab.
+     */
+    public function handle_save_employees_settings(): void {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'Permission denied', 'sfs-hr' ) );
+        }
+        check_admin_referer( 'sfs_hr_employees_settings', '_sfs_emp_nonce' );
+
+        $emp_input = isset( $_POST['emp'] ) && is_array( $_POST['emp'] ) ? $_POST['emp'] : [];
+        $this->save_employee_settings( $emp_input );
 
         Helpers::redirect_with_notice(
             admin_url( 'admin.php?page=sfs-hr-settings&tab=employees' ),
@@ -6977,22 +6994,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         // ── Employees settings ────────────────────────────────────
         $emp_input = isset( $_POST['emp'] ) && is_array( $_POST['emp'] ) ? $_POST['emp'] : [];
         if ( ! empty( $emp_input ) ) {
-            // Nationalities: one per line → array.
-            $raw_nat = isset( $emp_input['nationalities'] ) ? sanitize_textarea_field( wp_unslash( $emp_input['nationalities'] ) ) : '';
-            $lines   = array_filter( array_map( 'trim', explode( "\n", $raw_nat ) ), 'strlen' );
-            $lines   = array_values( array_unique( $lines ) );
-            sort( $lines );
-            update_option( 'sfs_hr_nationalities', $lines, false );
-
-            // Government support reminder settings.
-            $gov = get_option( 'sfs_hr_gov_support_settings', [] );
-            if ( ! is_array( $gov ) ) {
-                $gov = [];
-            }
-            $gov['enabled']          = ! empty( $emp_input['gov_enabled'] );
-            $gov['nationality']      = sanitize_text_field( $emp_input['gov_nationality'] ?? 'Saudi' );
-            $gov['threshold_months'] = max( 1, min( 120, (int) ( $emp_input['gov_months'] ?? 3 ) ) );
-            update_option( 'sfs_hr_gov_support_settings', $gov, false );
+            $this->save_employee_settings( $emp_input );
         }
 
         // ── Notification settings ─────────────────────────────────

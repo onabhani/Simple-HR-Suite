@@ -32,6 +32,21 @@ class GovSupportReminder {
      */
     public static function init(): void {
         add_action( 'wp_ajax_sfs_hr_dismiss_gov_support', [ __CLASS__, 'ajax_dismiss' ] );
+        add_action( 'sfs_hr_queue_gov_support_emails', [ __CLASS__, 'process_queued_emails' ], 10, 2 );
+    }
+
+    /**
+     * Background handler: send government support reminder emails for queued employees.
+     *
+     * @param int[] $emp_ids  Employee IDs to process.
+     * @param array $emp_data Associative array of employee ID => row data.
+     */
+    public static function process_queued_emails( array $emp_ids, array $emp_data ): void {
+        foreach ( $emp_ids as $emp_id ) {
+            if ( isset( $emp_data[ $emp_id ] ) ) {
+                self::maybe_send_email( (int) $emp_id, $emp_data[ $emp_id ] );
+            }
+        }
     }
 
     /**
@@ -55,11 +70,12 @@ class GovSupportReminder {
         }
 
         $target_nationality = $settings['nationality'] ?? 'Saudi';
-        $threshold_months   = (int) ( $settings['threshold_months'] ?? 3 );
+        $threshold_months   = max( 1, (int) ( $settings['threshold_months'] ?? 3 ) );
 
         // Check nationality (case-insensitive match).
         $emp_nationality = trim( (string) ( $emp['nationality'] ?? '' ) );
-        if ( mb_strtolower( $emp_nationality ) !== mb_strtolower( $target_nationality ) ) {
+        $lower = function_exists( 'mb_strtolower' ) ? 'mb_strtolower' : 'strtolower';
+        if ( $lower( $emp_nationality ) !== $lower( $target_nationality ) ) {
             return false;
         }
 
@@ -103,7 +119,7 @@ class GovSupportReminder {
         }
 
         $settings         = get_option( 'sfs_hr_gov_support_settings', [] );
-        $threshold_months = (int) ( $settings['threshold_months'] ?? 3 );
+        $threshold_months = max( 1, (int) ( $settings['threshold_months'] ?? 3 ) );
 
         $name = trim( ( $emp['first_name'] ?? '' ) . ' ' . ( $emp['last_name'] ?? '' ) );
         $code = $emp['employee_code'] ?? 'N/A';
@@ -128,11 +144,11 @@ class GovSupportReminder {
                 esc_html( $settings['nationality'] ?? 'Saudi' )
             );
             Helpers::send_mail( $hr_emails, $subject, $message );
-        }
 
-        // Mark as emailed.
-        $emailed[] = $emp_id;
-        update_option( self::META_EMAILED, $emailed, false );
+            // Mark as emailed only after an actual send attempt.
+            $emailed[] = $emp_id;
+            update_option( self::META_EMAILED, $emailed, false );
+        }
     }
 
     /**
@@ -158,7 +174,7 @@ class GovSupportReminder {
         self::maybe_send_email( $emp_id, $emp );
 
         $settings         = get_option( 'sfs_hr_gov_support_settings', [] );
-        $threshold_months = (int) ( $settings['threshold_months'] ?? 3 );
+        $threshold_months = max( 1, (int) ( $settings['threshold_months'] ?? 3 ) );
         $nationality      = $settings['nationality'] ?? 'Saudi';
 
         $name = trim( ( $emp['first_name'] ?? '' ) . ' ' . ( $emp['last_name'] ?? '' ) );

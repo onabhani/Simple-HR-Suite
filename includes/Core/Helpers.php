@@ -444,6 +444,15 @@ class Helpers {
         // 1. Use admin-configured list if set.
         $configured = get_option( 'sfs_hr_nationalities', [] );
         if ( is_array( $configured ) && ! empty( $configured ) ) {
+            // Normalize: trim, sanitize, remove blanks, deduplicate.
+            $configured = array_values( array_unique( array_filter(
+                array_map( function ( $v ) {
+                    return sanitize_text_field( trim( $v ) );
+                }, $configured ),
+                'strlen'
+            ) ) );
+            sort( $configured );
+
             // Merge with any existing DB values not in the configured list.
             global $wpdb;
             $table   = $wpdb->prefix . 'sfs_hr_employees';
@@ -507,12 +516,12 @@ class Helpers {
         echo '<div class="sfs-hr-nat-panel" style="display:none;">';
         echo '<input type="text" class="sfs-hr-nat-search" placeholder="' . esc_attr__( 'Search nationality…', 'sfs-hr' ) . '" autocomplete="off" />';
         echo '<ul class="sfs-hr-nat-list" role="listbox">';
-        echo '<li class="sfs-hr-nat-opt" data-value="" role="option">' . esc_html__( '— Select —', 'sfs-hr' ) . '</li>';
+        echo '<li class="sfs-hr-nat-opt" data-value="" role="option" tabindex="-1">' . esc_html__( '— Select —', 'sfs-hr' ) . '</li>';
         foreach ( $nationalities as $nat ) {
             $is_sel = ( $nat === $selected ) ? ' aria-selected="true"' : '';
-            echo '<li class="sfs-hr-nat-opt" data-value="' . esc_attr( $nat ) . '" role="option"' . $is_sel . '>' . esc_html( $nat ) . '</li>';
+            echo '<li class="sfs-hr-nat-opt" data-value="' . esc_attr( $nat ) . '" role="option" tabindex="-1"' . $is_sel . '>' . esc_html( $nat ) . '</li>';
         }
-        echo '<li class="sfs-hr-nat-opt sfs-hr-nat-opt--add" data-value="__add_new__" role="option">' . esc_html__( '+ Add new…', 'sfs-hr' ) . '</li>';
+        echo '<li class="sfs-hr-nat-opt sfs-hr-nat-opt--add" data-value="__add_new__" role="option" tabindex="-1">' . esc_html__( '+ Add new…', 'sfs-hr' ) . '</li>';
         echo '</ul>';
         echo '</div>';
         echo '</div>';
@@ -538,20 +547,57 @@ class Helpers {
             echo '</style>';
             echo '<script>';
             echo '(function(){';
-            echo 'document.addEventListener("click",function(e){';
-            echo '  var dd=e.target.closest(".sfs-hr-nat-dropdown");';
-            echo '  document.querySelectorAll(".sfs-hr-nat-panel").forEach(function(p){';
-            echo '    if(!dd||p!==dd.querySelector(".sfs-hr-nat-panel"))p.style.display="none";';
-            echo '  });';
-            echo '  if(!dd)return;';
+            // Helper: open panel
+            echo 'function openPanel(dd){';
             echo '  var btn=dd.querySelector(".sfs-hr-nat-trigger");';
             echo '  var panel=dd.querySelector(".sfs-hr-nat-panel");';
+            echo '  panel.style.display="flex";btn.setAttribute("aria-expanded","true");';
+            echo '  var si=panel.querySelector(".sfs-hr-nat-search");si.value="";si.dispatchEvent(new Event("input"));si.focus();';
+            echo '}';
+            // Helper: close panel
+            echo 'function closePanel(dd){';
+            echo '  var btn=dd.querySelector(".sfs-hr-nat-trigger");';
+            echo '  var panel=dd.querySelector(".sfs-hr-nat-panel");';
+            echo '  panel.style.display="none";btn.setAttribute("aria-expanded","false");';
+            echo '}';
+            // Helper: select an option
+            echo 'function selectOpt(opt){';
+            echo '  var dd=opt.closest(".sfs-hr-nat-dropdown");';
+            echo '  var wrap=dd.closest(".sfs-hr-nationality-wrap");';
+            echo '  var hidden=wrap.querySelector("input[type=hidden]");';
+            echo '  var label=dd.querySelector(".sfs-hr-nat-label");';
+            echo '  var newInp=wrap.querySelector(".sfs-hr-nationality-new");';
+            echo '  var val=opt.getAttribute("data-value");';
+            echo '  dd.querySelectorAll(".sfs-hr-nat-opt").forEach(function(o){o.removeAttribute("aria-selected");});';
+            echo '  if(val==="__add_new__"){';
+            echo '    closePanel(dd);';
+            echo '    hidden.disabled=true;';
+            echo '    newInp.style.display="";newInp.name=hidden.name;newInp.focus();';
+            echo '  }else{';
+            echo '    opt.setAttribute("aria-selected","true");';
+            echo '    hidden.disabled=false;hidden.value=val;';
+            echo '    label.textContent=opt.textContent;';
+            echo '    closePanel(dd);';
+            echo '    newInp.style.display="none";newInp.value="";newInp.removeAttribute("name");';
+            echo '  }';
+            echo '}';
+            // Helper: get visible options
+            echo 'function visibleOpts(dd){';
+            echo '  return Array.prototype.filter.call(dd.querySelectorAll(".sfs-hr-nat-opt"),function(o){return !o.classList.contains("sfs-hr-nat-opt--hidden");});';
+            echo '}';
+            // Click: toggle panel
+            echo 'document.addEventListener("click",function(e){';
+            echo '  var dd=e.target.closest(".sfs-hr-nat-dropdown");';
+            echo '  document.querySelectorAll(".sfs-hr-nat-dropdown").forEach(function(d){';
+            echo '    if(d!==dd)closePanel(d);';
+            echo '  });';
+            echo '  if(!dd)return;';
             echo '  if(e.target.closest(".sfs-hr-nat-trigger")){';
-            echo '    var open=panel.style.display!=="none";';
-            echo '    panel.style.display=open?"none":"flex";';
-            echo '    if(!open){var si=panel.querySelector(".sfs-hr-nat-search");si.value="";si.dispatchEvent(new Event("input"));si.focus();}';
+            echo '    var panel=dd.querySelector(".sfs-hr-nat-panel");';
+            echo '    if(panel.style.display!=="none"){closePanel(dd);}else{openPanel(dd);}';
             echo '  }';
             echo '});';
+            // Search input filtering
             echo 'document.addEventListener("input",function(e){';
             echo '  if(!e.target.classList.contains("sfs-hr-nat-search"))return;';
             echo '  var q=e.target.value.toLowerCase();';
@@ -561,27 +607,37 @@ class Helpers {
             echo '    o.classList.toggle("sfs-hr-nat-opt--hidden",!match);';
             echo '  });';
             echo '});';
+            // Click: select option
             echo 'document.addEventListener("click",function(e){';
             echo '  var opt=e.target.closest(".sfs-hr-nat-opt");';
-            echo '  if(!opt)return;';
-            echo '  var dd=opt.closest(".sfs-hr-nat-dropdown");';
-            echo '  var wrap=dd.closest(".sfs-hr-nationality-wrap");';
-            echo '  var hidden=wrap.querySelector("input[type=hidden]");';
-            echo '  var label=dd.querySelector(".sfs-hr-nat-label");';
-            echo '  var panel=dd.querySelector(".sfs-hr-nat-panel");';
-            echo '  var newInp=wrap.querySelector(".sfs-hr-nationality-new");';
-            echo '  var val=opt.getAttribute("data-value");';
-            echo '  dd.querySelectorAll(".sfs-hr-nat-opt").forEach(function(o){o.removeAttribute("aria-selected");});';
-            echo '  if(val==="__add_new__"){';
-            echo '    panel.style.display="none";';
-            echo '    hidden.disabled=true;';
-            echo '    newInp.style.display="";newInp.name=hidden.name;newInp.focus();';
-            echo '  }else{';
-            echo '    opt.setAttribute("aria-selected","true");';
-            echo '    hidden.disabled=false;hidden.value=val;';
-            echo '    label.textContent=opt.textContent;';
-            echo '    panel.style.display="none";';
-            echo '    newInp.style.display="none";newInp.value="";newInp.removeAttribute("name");';
+            echo '  if(opt)selectOpt(opt);';
+            echo '});';
+            // Keyboard: trigger button
+            echo 'document.addEventListener("keydown",function(e){';
+            echo '  var trigger=e.target.closest(".sfs-hr-nat-trigger");';
+            echo '  if(trigger){';
+            echo '    var dd=trigger.closest(".sfs-hr-nat-dropdown");';
+            echo '    if(e.key==="Enter"||e.key===" "||e.key==="ArrowDown"){';
+            echo '      e.preventDefault();openPanel(dd);';
+            echo '      if(e.key==="ArrowDown"){var vo=visibleOpts(dd);if(vo.length)vo[0].focus();}';
+            echo '    }';
+            echo '    return;';
+            echo '  }';
+            // Keyboard: inside panel (search input or option)
+            echo '  var panel=e.target.closest(".sfs-hr-nat-panel");';
+            echo '  if(!panel)return;';
+            echo '  var dd=panel.closest(".sfs-hr-nat-dropdown");';
+            echo '  if(e.key==="Escape"){e.preventDefault();closePanel(dd);dd.querySelector(".sfs-hr-nat-trigger").focus();return;}';
+            echo '  var opt=e.target.closest(".sfs-hr-nat-opt");';
+            echo '  if(opt){';
+            echo '    var vo=visibleOpts(dd);var idx=vo.indexOf(opt);';
+            echo '    if(e.key==="ArrowDown"){e.preventDefault();if(idx<vo.length-1)vo[idx+1].focus();}';
+            echo '    else if(e.key==="ArrowUp"){e.preventDefault();if(idx>0)vo[idx-1].focus();else panel.querySelector(".sfs-hr-nat-search").focus();}';
+            echo '    else if(e.key==="Enter"||e.key===" "){e.preventDefault();selectOpt(opt);}';
+            echo '  }';
+            // ArrowDown from search moves to first option
+            echo '  if(e.target.classList.contains("sfs-hr-nat-search")&&e.key==="ArrowDown"){';
+            echo '    e.preventDefault();var vo=visibleOpts(dd);if(vo.length)vo[0].focus();';
             echo '  }';
             echo '});';
             echo '})();';
