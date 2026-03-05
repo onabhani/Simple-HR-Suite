@@ -46,7 +46,7 @@ class LeaveTab implements TabInterface {
 
         // Active leave types (filtered by gender and skip_managers_gm)
         $types = $wpdb->get_results(
-            "SELECT id, name, gender_required, skip_managers_gm FROM {$type_table} WHERE active = 1 ORDER BY name ASC"
+            "SELECT id, name, gender_required, skip_managers_gm, requires_attachment, special_code FROM {$type_table} WHERE active = 1 ORDER BY name ASC"
         );
         // Determine if current user is a manager or GM (check membership explicitly
         // so users who hold both manager/gm AND a higher-priority role like admin/hr
@@ -351,7 +351,9 @@ class LeaveTab implements TabInterface {
         echo '<select name="type_id" class="sfs-select" id="sfs-leave-type-select" required>';
         echo '<option value="" data-i18n-key="select_type">' . esc_html__( 'Select type', 'sfs-hr' ) . '</option>';
         foreach ( $types as $type ) {
-            echo '<option value="' . (int) $type->id . '">' . esc_html( $type->name ) . '</option>';
+            $needs_doc = ! empty( $type->requires_attachment )
+                         || in_array( strtoupper( trim( (string) ( $type->special_code ?? '' ) ) ), [ 'SICK_SHORT', 'SICK_LONG' ], true );
+            echo '<option value="' . (int) $type->id . '" data-requires-doc="' . ( $needs_doc ? '1' : '0' ) . '">' . esc_html( $type->name ) . '</option>';
         }
         echo '</select>';
         echo '</div>';
@@ -381,11 +383,11 @@ class LeaveTab implements TabInterface {
         echo '<textarea name="reason" rows="3" class="sfs-textarea"></textarea>';
         echo '</div>';
 
-        // Supporting document (required)
-        echo '<div class="sfs-form-group">';
+        // Supporting document (shown only when leave type requires it)
+        echo '<div class="sfs-form-group" id="sfs-leave-doc-group" style="display:none;">';
         echo '<label class="sfs-form-label" data-i18n-key="supporting_document">' . esc_html__( 'Supporting document', 'sfs-hr' ) . ' <span class="sfs-required">*</span></label>';
         echo '<label class="sfs-file-upload" id="sfs-leave-file-upload">';
-        echo '<input type="file" name="supporting_doc" id="sfs-leave-file-input" accept=".pdf,image/*" required onchange="this.closest(\'.sfs-file-upload\').querySelector(\'.sfs-file-upload-text\').textContent=this.files[0]?this.files[0].name:this.getAttribute(\'data-empty\');if(this.files[0]){this.closest(\'.sfs-file-upload\').classList.add(\'sfs-file-has-file\');var n=document.getElementById(\'sfs-leave-doc-notice\');if(n)n.style.display=\'none\';}else{this.closest(\'.sfs-file-upload\').classList.remove(\'sfs-file-has-file\');}" data-empty="' . esc_attr__( 'No file selected', 'sfs-hr' ) . '" />';
+        echo '<input type="file" name="supporting_doc" id="sfs-leave-file-input" accept=".pdf,image/*" onchange="this.closest(\'.sfs-file-upload\').querySelector(\'.sfs-file-upload-text\').textContent=this.files[0]?this.files[0].name:this.getAttribute(\'data-empty\');if(this.files[0]){this.closest(\'.sfs-file-upload\').classList.add(\'sfs-file-has-file\');var n=document.getElementById(\'sfs-leave-doc-notice\');if(n)n.style.display=\'none\';}else{this.closest(\'.sfs-file-upload\').classList.remove(\'sfs-file-has-file\');}" data-empty="' . esc_attr__( 'No file selected', 'sfs-hr' ) . '" />';
         echo '<span class="sfs-file-upload-btn" data-i18n-key="choose_file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' . esc_html__( 'Choose file', 'sfs-hr' ) . '</span>';
         echo '<span class="sfs-file-upload-text" data-i18n-key="no_file_selected">' . esc_html__( 'No file selected', 'sfs-hr' ) . '</span>';
         echo '</label>';
@@ -440,11 +442,20 @@ class LeaveTab implements TabInterface {
 
         // Try to get translations from loaded i18n if available
         echo 'function getI18nMonths(){';
-        echo 'try{var s=window.sfsHrTranslations||{};var keys=["january","february","march","april","may","june","july","august","september","october","november","december"];';
+        echo 'try{var s=window._sfsStrings||window.sfsHrTranslations||{};var keys=["january","february","march","april","may","june","july","august","september","october","november","december"];';
         echo 'var out=[];for(var i=0;i<keys.length;i++){out.push(s[keys[i]]||monthNames[i]);}return out;}catch(e){return monthNames;}}';
         echo 'function getI18nDays(){';
-        echo 'try{var s=window.sfsHrTranslations||{};var keys=["sun","mon","tue","wed","thu","fri","sat"];';
+        echo 'try{var s=window._sfsStrings||window.sfsHrTranslations||{};var keys=["sun","mon","tue","wed","thu","fri","sat"];';
         echo 'var out=[];for(var i=0;i<keys.length;i++){out.push(s[keys[i]]||dayNames[i]);}return out;}catch(e){return dayNames;}}';
+
+        // i18n: get translated calendar text strings from loaded i18n
+        echo 'function getI18nCalStrings(){';
+        echo 'var s=window._sfsStrings||window.sfsHrTranslations||{};return{';
+        echo 'clickStart:s["click_start_date"]||txtClickStart,';
+        echo 'clickEnd:s["now_click_end_date"]||txtClickEnd,';
+        echo 'to:s["to"]||txtTo,';
+        echo 'day:s["day"]||txtDay,';
+        echo 'days:s["days"]||txtDays};}';
 
         // Calendar state
         echo 'var now=new Date(),curYear=now.getFullYear(),curMonth=now.getMonth();';
@@ -496,11 +507,12 @@ class LeaveTab implements TabInterface {
 
         // Update range info text
         echo 'function updateRangeInfo(){';
-        echo 'if(!selStart){rangeInfo.innerHTML="<span>"+txtClickStart+"</span>";return;}';
-        echo 'if(!selEnd){rangeInfo.innerHTML="<span class=\"sfs-cal-range-date\">"+fmtDate(selStart)+"</span> <span class=\"sfs-cal-range-sep\">— "+txtClickEnd+"</span>";return;}';
+        echo 'var t=getI18nCalStrings();';
+        echo 'if(!selStart){rangeInfo.innerHTML="<span>"+t.clickStart+"</span>";return;}';
+        echo 'if(!selEnd){rangeInfo.innerHTML="<span class=\"sfs-cal-range-date\">"+fmtDate(selStart)+"</span> <span class=\"sfs-cal-range-sep\">— "+t.clickEnd+"</span>";return;}';
         echo 'var diff=Math.round((selEnd-selStart)/(1000*60*60*24))+1;';
-        echo 'var dayWord=diff===1?txtDay:txtDays;';
-        echo 'rangeInfo.innerHTML="<span class=\"sfs-cal-range-date\">"+fmtDate(selStart)+"</span><span class=\"sfs-cal-range-sep\"> "+txtTo+" </span><span class=\"sfs-cal-range-date\">"+fmtDate(selEnd)+"</span><span class=\"sfs-cal-range-days\"> · "+diff+" "+dayWord+"</span>";}';
+        echo 'var dayWord=diff===1?t.day:t.days;';
+        echo 'rangeInfo.innerHTML="<span class=\"sfs-cal-range-date\">"+fmtDate(selStart)+"</span><span class=\"sfs-cal-range-sep\"> "+t.to+" </span><span class=\"sfs-cal-range-date\">"+fmtDate(selEnd)+"</span><span class=\"sfs-cal-range-days\"> · "+diff+" "+dayWord+"</span>";}';
 
         // Nav buttons
         echo 'document.querySelector(".sfs-cal-prev").addEventListener("click",function(){curMonth--;if(curMonth<0){curMonth=11;curYear--;}renderCal();});';
@@ -516,12 +528,25 @@ class LeaveTab implements TabInterface {
         echo 'curMonth=selStart.getMonth();curYear=selStart.getFullYear();';
         echo 'updateRangeInfo();renderCal();}}';
 
-        // Form validation: require file upload before submit
-        echo 'var form=document.getElementById("sfs-leave-request-form");';
+        // Document upload: show/hide based on selected leave type requires_attachment
+        echo 'var docGroup=document.getElementById("sfs-leave-doc-group");';
         echo 'var fileInput=document.getElementById("sfs-leave-file-input");';
         echo 'var docNotice=document.getElementById("sfs-leave-doc-notice");';
+        echo 'function toggleDocField(){';
+        echo 'var opt=sel.options[sel.selectedIndex];';
+        echo 'var needsDoc=opt&&opt.dataset.requiresDoc==="1";';
+        echo 'if(docGroup){docGroup.style.display=needsDoc?"":"none";}';
+        echo 'if(fileInput){if(needsDoc){fileInput.setAttribute("required","required");}else{fileInput.removeAttribute("required");fileInput.value="";';
+        echo 'var upLabel=document.getElementById("sfs-leave-file-upload");if(upLabel){upLabel.classList.remove("sfs-file-has-file");';
+        echo 'var txt=upLabel.querySelector(".sfs-file-upload-text");if(txt)txt.textContent=fileInput.getAttribute("data-empty")||"";}}}}';
+        echo 'if(sel){sel.addEventListener("change",toggleDocField);toggleDocField();}';
+
+        // Form validation: require file upload before submit (only when doc field is visible)
+        echo 'var form=document.getElementById("sfs-leave-request-form");';
         echo 'if(form){form.addEventListener("submit",function(e){';
-        echo 'if(!fileInput||!fileInput.files||fileInput.files.length===0){';
+        echo 'var opt=sel.options[sel.selectedIndex];';
+        echo 'var needsDoc=opt&&opt.dataset.requiresDoc==="1";';
+        echo 'if(needsDoc&&(!fileInput||!fileInput.files||fileInput.files.length===0)){';
         echo 'e.preventDefault();docNotice.style.display="flex";';
         echo 'docNotice.scrollIntoView({behavior:"smooth",block:"center"});return false;}';
         echo 'if(!startInput.value){e.preventDefault();return false;}';

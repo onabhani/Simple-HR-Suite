@@ -2278,6 +2278,9 @@ class Shortcodes {
 
                 // Expose current translations globally for inline JS (calculator, AJAX scripts)
                 window._sfsStrings = langStrings;
+
+                // Notify inline JS (e.g. calendar) that language changed
+                document.dispatchEvent(new CustomEvent('sfs-hr-language-changed', { detail: { lang: lang } }));
             }
 
             function translateFormElements(container, strings) {
