@@ -37,6 +37,10 @@ class LeaveModule {
         add_action('admin_post_sfs_hr_leave_cancellation_approve',  [$this, 'handle_cancellation_approve']);
         add_action('admin_post_sfs_hr_leave_cancellation_reject',   [$this, 'handle_cancellation_reject']);
 
+        // HR actions on approved leaves: hold and update dates
+        add_action('admin_post_sfs_hr_leave_hold',               [$this, 'handle_hold_leave']);
+        add_action('admin_post_sfs_hr_leave_update_dates',       [$this, 'handle_update_leave_dates']);
+
         // Holidays (option-based, supports single-day & multi-day with yearly repeat)
         add_action('admin_post_sfs_hr_holiday_add',          [$this, 'handle_holiday_add']);
         add_action('admin_post_sfs_hr_holiday_del',          [$this, 'handle_holiday_del']);
@@ -181,6 +185,7 @@ public function render_requests(): void {
         'pending_finance'   => __( 'Pending Finance', 'sfs-hr' ),
         'approved'          => __( 'Approved', 'sfs-hr' ),
         'on_leave'          => __( 'On Leave', 'sfs-hr' ),
+        'on_hold'           => __( 'On Hold', 'sfs-hr' ),
         'rejected'          => __( 'Rejected', 'sfs-hr' ),
         'cancelled'         => __( 'Cancelled', 'sfs-hr' ),
     ];
@@ -1425,7 +1430,7 @@ public function handle_approve(): void {
     // Fetch type & apply all your existing business rules (maternity, annual, negative, probation, etc.)
     $type = $wpdb->get_row(
         $wpdb->prepare(
-            "SELECT id, annual_quota, allow_negative, is_annual, special_code
+            "SELECT id, annual_quota, allow_negative, is_annual, special_code, skip_managers_gm
              FROM $types_t WHERE id=%d",
             (int) $row['type_id']
         ),
@@ -2256,6 +2261,353 @@ public function handle_cancellation_reject(): void {
     );
 }
 
+/* ---------------------------------- HR Hold / Update Dates on Approved Leave ---------------------------------- */
+
+/**
+ * HR places an approved leave on hold.
+ * Status changes to 'on_hold'. Employee works normally until the hold is lifted.
+ */
+public function handle_hold_leave(): void {
+    $id = isset( $_POST['leave_request_id'] ) ? (int) $_POST['leave_request_id'] : 0;
+    check_admin_referer( 'sfs_hr_leave_hold_' . $id );
+
+    $redirect_base = admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests' );
+    $detail_url    = admin_url( 'admin.php?page=sfs-hr-leave-requests&action=view&id=' . $id );
+
+    if ( $id <= 0 ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Invalid request.', 'sfs-hr' ) );
+    }
+
+    // Only HR can hold leaves
+    $current_uid = get_current_user_id();
+    if ( ! $this->is_hr_user( $current_uid ) ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Only HR can place a leave on hold.', 'sfs-hr' ) );
+    }
+
+    $reason = isset( $_POST['hold_reason'] ) ? sanitize_text_field( wp_unslash( $_POST['hold_reason'] ) ) : '';
+    if ( empty( trim( $reason ) ) ) {
+        Helpers::redirect_with_notice( $detail_url, 'error', __( 'A reason is required to hold a leave.', 'sfs-hr' ) );
+    }
+
+    global $wpdb;
+    $req_t  = $wpdb->prefix . 'sfs_hr_leave_requests';
+    $emp_t  = $wpdb->prefix . 'sfs_hr_employees';
+    $dept_t = $wpdb->prefix . 'sfs_hr_departments';
+
+    $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $req_t WHERE id=%d", $id ), ARRAY_A );
+    if ( ! $row || ! in_array( $row['status'], [ 'approved', 'on_leave' ], true ) ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Only approved or on-leave requests can be placed on hold.', 'sfs-hr' ) );
+    }
+
+    $now = Helpers::now_mysql();
+    $wpdb->update( $req_t, [
+        'status'      => 'on_hold',
+        'hold_reason' => $reason,
+        'held_by'     => $current_uid,
+        'held_at'     => $now,
+        'updated_at'  => $now,
+    ], [ 'id' => $id ] );
+
+    // Restore balance: subtract used days since leave is now on hold
+    $this->recalc_balance_for_request( $row );
+
+    self::log_event( $id, 'leave_held', [
+        'reason'  => $reason,
+        'held_by' => wp_get_current_user()->display_name,
+    ] );
+
+    do_action( 'sfs_hr_leave_request_status_changed', $id, $row['status'], 'on_hold' );
+
+    // Revert attendance: flip 'on_leave' sessions back to normal within the leave date range
+    $sessions_t = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+    $today_date = current_time( 'Y-m-d' );
+    if ( $row['start_date'] <= $today_date ) {
+        $flip_end = min( $row['end_date'], $today_date );
+        $wpdb->query( $wpdb->prepare(
+            "UPDATE {$sessions_t}
+             SET status = 'absent', updated_at = %s
+             WHERE employee_id = %d
+               AND work_date BETWEEN %s AND %s
+               AND status = 'on_leave'",
+            $now,
+            (int) $row['employee_id'],
+            $row['start_date'],
+            $flip_end
+        ) );
+    }
+
+    // Get employee and manager info for notifications
+    $empInfo = $wpdb->get_row( $wpdb->prepare(
+        "SELECT e.user_id, e.first_name, e.last_name, e.employee_code, e.dept_id, d.manager_user_id
+         FROM $emp_t e LEFT JOIN $dept_t d ON d.id = e.dept_id
+         WHERE e.id = %d",
+        (int) $row['employee_id']
+    ) );
+    $emp_name = trim( ( $empInfo->first_name ?? '' ) . ' ' . ( $empInfo->last_name ?? '' ) );
+    if ( empty( $emp_name ) ) {
+        $emp_name = $empInfo->employee_code ?? __( 'Employee', 'sfs-hr' );
+    }
+
+    $leave_type_name = $wpdb->get_var( $wpdb->prepare(
+        "SELECT name FROM {$wpdb->prefix}sfs_hr_leave_types WHERE id=%d", (int) $row['type_id']
+    ) ) ?: __( 'Leave', 'sfs-hr' );
+
+    // Notify employee
+    if ( ! empty( $empInfo->user_id ) ) {
+        $emp_user = get_user_by( 'id', (int) $empInfo->user_id );
+        if ( $emp_user && $emp_user->user_email ) {
+            Helpers::send_mail(
+                $emp_user->user_email,
+                sprintf( __( '[Leave On Hold] Your %s has been placed on hold', 'sfs-hr' ), $leave_type_name ),
+                sprintf(
+                    __( "Your approved leave has been placed on hold by HR.\n\nLeave Type: %s\nDates: %s → %s\nDuration: %d day(s)\nReason: %s\n\nPlease continue working normally until further notice.", 'sfs-hr' ),
+                    $leave_type_name,
+                    $row['start_date'],
+                    $row['end_date'],
+                    (int) $row['days'],
+                    $reason
+                )
+            );
+        }
+    }
+
+    // Notify manager
+    $mgr_uid = (int) ( $empInfo->manager_user_id ?? 0 );
+    if ( $mgr_uid > 0 ) {
+        $mgr_user = get_user_by( 'id', $mgr_uid );
+        if ( $mgr_user && $mgr_user->user_email ) {
+            Helpers::send_mail(
+                $mgr_user->user_email,
+                sprintf( __( '[Leave On Hold] %s - Leave placed on hold', 'sfs-hr' ), $emp_name ),
+                sprintf(
+                    __( "An approved leave has been placed on hold by HR.\n\nEmployee: %s\nLeave Type: %s\nDates: %s → %s\nDuration: %d day(s)\nReason: %s\n\nThe employee should continue working normally until further notice.", 'sfs-hr' ),
+                    $emp_name,
+                    $leave_type_name,
+                    $row['start_date'],
+                    $row['end_date'],
+                    (int) $row['days'],
+                    $reason
+                )
+            );
+        }
+    }
+
+    Helpers::redirect_with_notice( $detail_url, 'success', __( 'Leave has been placed on hold. Employee and manager have been notified.', 'sfs-hr' ) );
+}
+
+/**
+ * HR updates the dates of an approved or on-hold leave.
+ * The leave remains approved with new dates; original dates are preserved for audit.
+ */
+public function handle_update_leave_dates(): void {
+    $id = isset( $_POST['leave_request_id'] ) ? (int) $_POST['leave_request_id'] : 0;
+    check_admin_referer( 'sfs_hr_leave_update_dates_' . $id );
+
+    $redirect_base = admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests' );
+    $detail_url    = admin_url( 'admin.php?page=sfs-hr-leave-requests&action=view&id=' . $id );
+
+    if ( $id <= 0 ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Invalid request.', 'sfs-hr' ) );
+    }
+
+    // Only HR can update dates
+    $current_uid = get_current_user_id();
+    if ( ! $this->is_hr_user( $current_uid ) ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Only HR can update leave dates.', 'sfs-hr' ) );
+    }
+
+    $reason    = isset( $_POST['date_update_reason'] ) ? sanitize_text_field( wp_unslash( $_POST['date_update_reason'] ) ) : '';
+    $new_start = isset( $_POST['new_start_date'] ) ? sanitize_text_field( $_POST['new_start_date'] ) : '';
+    $new_end   = isset( $_POST['new_end_date'] ) ? sanitize_text_field( $_POST['new_end_date'] ) : '';
+
+    if ( empty( trim( $reason ) ) ) {
+        Helpers::redirect_with_notice( $detail_url, 'error', __( 'A reason is required to update leave dates.', 'sfs-hr' ) );
+    }
+    if ( empty( $new_start ) || empty( $new_end ) ) {
+        Helpers::redirect_with_notice( $detail_url, 'error', __( 'Both start and end dates are required.', 'sfs-hr' ) );
+    }
+    if ( $new_start > $new_end ) {
+        Helpers::redirect_with_notice( $detail_url, 'error', __( 'Start date cannot be after end date.', 'sfs-hr' ) );
+    }
+
+    global $wpdb;
+    $req_t  = $wpdb->prefix . 'sfs_hr_leave_requests';
+    $emp_t  = $wpdb->prefix . 'sfs_hr_employees';
+    $dept_t = $wpdb->prefix . 'sfs_hr_departments';
+
+    $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $req_t WHERE id=%d", $id ), ARRAY_A );
+    if ( ! $row || ! in_array( $row['status'], [ 'approved', 'on_leave', 'on_hold' ], true ) ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Only approved, on-leave, or on-hold requests can have dates updated.', 'sfs-hr' ) );
+    }
+
+    // Calculate new days using the leave calculation service
+    $new_days = LeaveCalculationService::count_working_days(
+        $new_start, $new_end, (int) $row['employee_id']
+    );
+
+    $now = Helpers::now_mysql();
+    $update_data = [
+        'start_date'         => $new_start,
+        'end_date'           => $new_end,
+        'days'               => $new_days,
+        'status'             => 'approved',
+        'date_update_reason' => $reason,
+        'date_updated_by'    => $current_uid,
+        'date_updated_at'    => $now,
+        'updated_at'         => $now,
+    ];
+
+    // Preserve original dates (only if not already saved from a previous update)
+    if ( empty( $row['original_start_date'] ) ) {
+        $update_data['original_start_date'] = $row['start_date'];
+        $update_data['original_end_date']   = $row['end_date'];
+        $update_data['original_days']       = (int) $row['days'];
+    }
+
+    // If was on_hold, clear hold fields since the leave is now active again
+    if ( $row['status'] === 'on_hold' ) {
+        $update_data['hold_reason'] = null;
+        $update_data['held_by']     = null;
+        $update_data['held_at']     = null;
+    }
+
+    $wpdb->update( $req_t, $update_data, [ 'id' => $id ] );
+
+    // Recalculate balance
+    $this->recalc_balance_for_request( $row );
+
+    self::log_event( $id, 'dates_updated', [
+        'reason'         => $reason,
+        'old_start_date' => $row['start_date'],
+        'old_end_date'   => $row['end_date'],
+        'old_days'       => (int) $row['days'],
+        'new_start_date' => $new_start,
+        'new_end_date'   => $new_end,
+        'new_days'       => $new_days,
+        'updated_by'     => wp_get_current_user()->display_name,
+    ] );
+
+    $old_status = $row['status'];
+    if ( $old_status !== 'approved' ) {
+        do_action( 'sfs_hr_leave_request_status_changed', $id, $old_status, 'approved' );
+    }
+
+    // Get employee and manager info for notifications
+    $empInfo = $wpdb->get_row( $wpdb->prepare(
+        "SELECT e.user_id, e.first_name, e.last_name, e.employee_code, e.dept_id, d.manager_user_id
+         FROM $emp_t e LEFT JOIN $dept_t d ON d.id = e.dept_id
+         WHERE e.id = %d",
+        (int) $row['employee_id']
+    ) );
+    $emp_name = trim( ( $empInfo->first_name ?? '' ) . ' ' . ( $empInfo->last_name ?? '' ) );
+    if ( empty( $emp_name ) ) {
+        $emp_name = $empInfo->employee_code ?? __( 'Employee', 'sfs-hr' );
+    }
+
+    $leave_type_name = $wpdb->get_var( $wpdb->prepare(
+        "SELECT name FROM {$wpdb->prefix}sfs_hr_leave_types WHERE id=%d", (int) $row['type_id']
+    ) ) ?: __( 'Leave', 'sfs-hr' );
+
+    // Notify employee
+    if ( ! empty( $empInfo->user_id ) ) {
+        $emp_user = get_user_by( 'id', (int) $empInfo->user_id );
+        if ( $emp_user && $emp_user->user_email ) {
+            Helpers::send_mail(
+                $emp_user->user_email,
+                sprintf( __( '[Leave Dates Updated] Your %s dates have been changed', 'sfs-hr' ), $leave_type_name ),
+                sprintf(
+                    __( "Your leave dates have been updated by HR.\n\nLeave Type: %s\nPrevious Dates: %s → %s (%d day(s))\nNew Dates: %s → %s (%d day(s))\nReason: %s", 'sfs-hr' ),
+                    $leave_type_name,
+                    $row['start_date'],
+                    $row['end_date'],
+                    (int) $row['days'],
+                    $new_start,
+                    $new_end,
+                    $new_days,
+                    $reason
+                )
+            );
+        }
+    }
+
+    // Notify manager
+    $mgr_uid = (int) ( $empInfo->manager_user_id ?? 0 );
+    if ( $mgr_uid > 0 ) {
+        $mgr_user = get_user_by( 'id', $mgr_uid );
+        if ( $mgr_user && $mgr_user->user_email ) {
+            Helpers::send_mail(
+                $mgr_user->user_email,
+                sprintf( __( '[Leave Dates Updated] %s - Leave dates changed', 'sfs-hr' ), $emp_name ),
+                sprintf(
+                    __( "Leave dates have been updated by HR.\n\nEmployee: %s\nLeave Type: %s\nPrevious Dates: %s → %s (%d day(s))\nNew Dates: %s → %s (%d day(s))\nReason: %s", 'sfs-hr' ),
+                    $emp_name,
+                    $leave_type_name,
+                    $row['start_date'],
+                    $row['end_date'],
+                    (int) $row['days'],
+                    $new_start,
+                    $new_end,
+                    $new_days,
+                    $reason
+                )
+            );
+        }
+    }
+
+    Helpers::redirect_with_notice( $detail_url, 'success', __( 'Leave dates updated successfully. Employee and manager have been notified.', 'sfs-hr' ) );
+}
+
+/**
+ * Check if current user is an HR user (HR approver, sfs_hr_manager role, or leave.manage capability).
+ */
+private function is_hr_user( int $user_id ): bool {
+    $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
+    if ( ! empty( $hr_user_ids ) && in_array( $user_id, array_map( 'intval', $hr_user_ids ), true ) ) {
+        return true;
+    }
+    $user = get_user_by( 'id', $user_id );
+    if ( $user && in_array( 'sfs_hr_manager', (array) $user->roles, true ) ) {
+        return true;
+    }
+    return user_can( $user_id, 'sfs_hr.leave.manage' ) || user_can( $user_id, 'administrator' );
+}
+
+/**
+ * Recalculate leave balance after hold/date-update changes.
+ */
+private function recalc_balance_for_request( array $row ): void {
+    global $wpdb;
+    $req_t = $wpdb->prefix . 'sfs_hr_leave_requests';
+    $bal_t = $wpdb->prefix . 'sfs_hr_leave_balances';
+
+    $year = (int) substr( $row['start_date'], 0, 4 );
+    $type_id     = (int) $row['type_id'];
+    $employee_id = (int) $row['employee_id'];
+
+    $used = (int) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COALESCE(SUM(days), 0) FROM $req_t
+         WHERE employee_id = %d AND type_id = %d AND status = 'approved' AND YEAR(start_date) = %d",
+        $employee_id, $type_id, $year
+    ) );
+
+    $bal = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM $bal_t WHERE employee_id = %d AND type_id = %d AND year = %d",
+        $employee_id, $type_id, $year
+    ), ARRAY_A );
+
+    if ( $bal ) {
+        $opening = (int) ( $bal['opening'] ?? 0 );
+        $accrued = (int) ( $bal['accrued'] ?? 0 );
+        $carried = (int) ( $bal['carried_over'] ?? 0 );
+        $closing = $opening + $accrued + $carried - $used;
+        $wpdb->update( $bal_t, [
+            'used'       => $used,
+            'closing'    => $closing,
+            'updated_at' => Helpers::now_mysql(),
+        ], [ 'id' => $bal['id'] ] );
+    }
+}
+
 /* ---------------------------------- Cancellation List & Detail Views ---------------------------------- */
 
 /**
@@ -2929,7 +3281,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
               </tr>
               <tr>
                 <th><?php esc_html_e('Skip Managers & GM','sfs-hr'); ?></th>
-                <td><label><input type="checkbox" name="skip_managers_gm" value="1" <?php checked(!empty($e['skip_managers_gm'])); ?>/> <?php esc_html_e('Exclude managers and General Manager from this leave type','sfs-hr'); ?></label></td>
+                <td><label><input type="checkbox" name="skip_managers_gm" value="1" <?php checked(!empty($e['skip_managers_gm'])); ?>/> <?php esc_html_e('Skip manager and GM approval steps (request goes directly to HR)','sfs-hr'); ?></label></td>
               </tr>
               <tr>
   <th><?php esc_html_e('Special Policy','sfs-hr'); ?></th>
@@ -5677,19 +6029,6 @@ public function handle_self_request(): void {
 
     $special = strtoupper( trim( (string) ( $type_row->special_code ?? '' ) ) );
 
-    // Validate skip_managers_gm: reject if current user is a manager/GM and flag is set.
-    if ( ! empty( $type_row->skip_managers_gm ) ) {
-        $gm_approver = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
-        $is_mgr_or_gm = ( $gm_approver > 0 && $gm_approver === $user_id );
-        if ( ! $is_mgr_or_gm ) {
-            $mgr_depts = \SFS\HR\Frontend\Role_Resolver::get_manager_dept_ids( $user_id );
-            $is_mgr_or_gm = ! empty( $mgr_depts );
-        }
-        if ( $is_mgr_or_gm ) {
-            $this->redirect_back_with_msg( 'leave_err', 'type_not_available' );
-        }
-    }
-
     // Validate gender restriction
     $type_gender = strtolower( trim( (string) ( $type_row->gender_required ?? 'any' ) ) );
     if ( $type_gender !== 'any' ) {
@@ -5729,6 +6068,10 @@ public function handle_self_request(): void {
     // Generate reference number
     $request_number = self::generate_leave_request_number();
 
+    // If skip_managers_gm is set, start at approval_level 2 (skip manager/GM step, go straight to HR)
+    $skip_mgr_gm = ! empty( $type_row->skip_managers_gm );
+    $initial_approval_level = $skip_mgr_gm ? 2 : 1;
+
     // Insert with all required fields
     $insert_data = [
         'employee_id'      => $employee_id,
@@ -5738,17 +6081,39 @@ public function handle_self_request(): void {
         'days'             => $days,
         'reason'           => $reason,
         'status'           => 'pending',
+        'approval_level'   => $initial_approval_level,
         'request_number'   => $request_number,
         'doc_attachment_id'=> $attach_id ?: null,
         'created_at'       => $now,
         'updated_at'       => $now,
     ];
 
+    // If skip_managers_gm, record it in the approval chain
+    if ( $skip_mgr_gm ) {
+        $insert_data['approval_chain'] = wp_json_encode( [
+            [
+                'by'     => 0,
+                'role'   => 'system',
+                'action' => 'skip_managers_gm',
+                'note'   => __( 'Manager/GM approval skipped per leave type policy', 'sfs-hr' ),
+                'at'     => $now,
+            ],
+        ] );
+    }
+
     $result = $wpdb->insert( $req_table, $insert_data );
 
     if ( $result === false ) {
         error_log( '[SFS HR] Leave request insert failed: ' . $wpdb->last_error );
         $this->redirect_back_with_msg( 'leave_err', 'db_error' );
+    }
+
+    $new_request_id = (int) $wpdb->insert_id;
+
+    if ( $skip_mgr_gm ) {
+        self::log_event( $new_request_id, 'skip_managers_gm', [
+            'note' => __( 'Manager/GM approval skipped per leave type policy. Escalated directly to HR.', 'sfs-hr' ),
+        ] );
     }
 
     // Optional: email approvers
@@ -5763,20 +6128,40 @@ public function handle_self_request(): void {
             "SELECT name FROM {$type_table} WHERE id = %d", $type_id
         ) );
 
-        $this->email_approvers_for_employee(
-            $employee_id,
-            __( 'New Leave Request', 'sfs-hr' ),
-            $this->build_leave_request_email_body([
-                'employee_name' => $emp_row ? trim( $emp_row->first_name . ' ' . $emp_row->last_name ) : '',
-                'employee_code' => $emp_row->employee_code ?? '',
-                'department'    => $emp_row->department_name ?? '',
-                'leave_type'    => $type_name,
-                'start_date'    => $start,
-                'end_date'      => $end,
-                'days'          => $days,
-                'reason'        => $reason,
-            ])
-        );
+        if ( $skip_mgr_gm ) {
+            // Notify HR directly since manager/GM approval is skipped
+            $this->notify_hr_users(
+                sprintf( __( '[Leave Request] %s - Direct HR Approval Required', 'sfs-hr' ),
+                    $emp_row ? trim( $emp_row->first_name . ' ' . $emp_row->last_name ) : __( 'Employee', 'sfs-hr' )
+                ),
+                $this->build_leave_request_email_body([
+                    'employee_name' => $emp_row ? trim( $emp_row->first_name . ' ' . $emp_row->last_name ) : '',
+                    'employee_code' => $emp_row->employee_code ?? '',
+                    'department'    => $emp_row->department_name ?? '',
+                    'leave_type'    => $type_name,
+                    'start_date'    => $start,
+                    'end_date'      => $end,
+                    'days'          => $days,
+                    'reason'        => $reason,
+                    'note'          => __( 'Manager/GM approval has been skipped per leave type policy. This request requires direct HR approval.', 'sfs-hr' ),
+                ])
+            );
+        } else {
+            $this->email_approvers_for_employee(
+                $employee_id,
+                __( 'New Leave Request', 'sfs-hr' ),
+                $this->build_leave_request_email_body([
+                    'employee_name' => $emp_row ? trim( $emp_row->first_name . ' ' . $emp_row->last_name ) : '',
+                    'employee_code' => $emp_row->employee_code ?? '',
+                    'department'    => $emp_row->department_name ?? '',
+                    'leave_type'    => $type_name,
+                    'start_date'    => $start,
+                    'end_date'      => $end,
+                    'days'          => $days,
+                    'reason'        => $reason,
+                ])
+            );
+        }
     }
 
     $this->redirect_back_with_msg( 'leave_msg', 'submitted' );
@@ -6763,6 +7148,80 @@ public function render_calendar(): void {
                                     <button type="submit" class="button" style="color:#b32d2e;"><?php esc_html_e( 'Submit Cancellation Request', 'sfs-hr' ); ?></button>
                                 </form>
                             <?php endif; ?>
+                        <?php endif; ?>
+
+                        <?php
+                        // === HR actions: Hold Leave & Update Dates ===
+                        if ( $is_hr && in_array( $request->status, [ 'approved', 'on_leave', 'on_hold' ], true ) && ! $has_returned ) :
+                        ?>
+                            <?php if ( in_array( $request->status, [ 'approved', 'on_leave' ], true ) ) : ?>
+                                <hr style="margin: 30px 0;">
+                                <h3 style="color:#e65100;"><?php esc_html_e( 'Hold Leave', 'sfs-hr' ); ?></h3>
+                                <p class="description"><?php esc_html_e( 'Place this leave on hold. The employee will continue working normally until the hold is lifted or dates are updated.', 'sfs-hr' ); ?></p>
+                                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php esc_attr_e( 'Are you sure you want to place this leave on hold?', 'sfs-hr' ); ?>');" style="margin-top:10px;">
+                                    <input type="hidden" name="action" value="sfs_hr_leave_hold" />
+                                    <?php wp_nonce_field( 'sfs_hr_leave_hold_' . $request_id, '_wpnonce' ); ?>
+                                    <input type="hidden" name="leave_request_id" value="<?php echo (int) $request_id; ?>" />
+                                    <p>
+                                        <label for="hold_reason"><strong><?php esc_html_e( 'Reason for holding:', 'sfs-hr' ); ?></strong> <span style="color:red;">*</span></label><br>
+                                        <textarea name="hold_reason" id="hold_reason" rows="3" style="width:100%;max-width:500px;" required placeholder="<?php esc_attr_e( 'Explain why this leave needs to be placed on hold...', 'sfs-hr' ); ?>"></textarea>
+                                    </p>
+                                    <button type="submit" class="button" style="color:#e65100;"><?php esc_html_e( 'Place On Hold', 'sfs-hr' ); ?></button>
+                                </form>
+                            <?php endif; ?>
+
+                            <?php if ( $request->status === 'on_hold' ) : ?>
+                                <hr style="margin: 30px 0;">
+                                <div class="notice notice-warning inline" style="margin:0 0 15px;">
+                                    <p>
+                                        <strong><?php esc_html_e( 'This leave is currently on hold.', 'sfs-hr' ); ?></strong><br>
+                                        <?php if ( ! empty( $request->hold_reason ) ) : ?>
+                                            <?php echo esc_html( sprintf( __( 'Reason: %s', 'sfs-hr' ), $request->hold_reason ) ); ?><br>
+                                        <?php endif; ?>
+                                        <?php if ( ! empty( $request->held_at ) ) : ?>
+                                            <?php echo esc_html( sprintf( __( 'Held on: %s', 'sfs-hr' ), wp_date( 'M j, Y g:i a', strtotime( $request->held_at ) ) ) ); ?>
+                                        <?php endif; ?>
+                                    </p>
+                                </div>
+                            <?php endif; ?>
+
+                            <hr style="margin: 30px 0;">
+                            <h3 style="color:#1565c0;"><?php esc_html_e( 'Update Leave Dates', 'sfs-hr' ); ?></h3>
+                            <p class="description">
+                                <?php if ( $request->status === 'on_hold' ) : ?>
+                                    <?php esc_html_e( 'Set new dates for this on-hold leave. The leave will be reactivated as approved with the new dates.', 'sfs-hr' ); ?>
+                                <?php else : ?>
+                                    <?php esc_html_e( 'Change the dates of this approved leave. The original dates will be preserved for audit purposes.', 'sfs-hr' ); ?>
+                                <?php endif; ?>
+                            </p>
+                            <?php if ( ! empty( $request->original_start_date ) ) : ?>
+                                <p style="font-size:12px;color:#666;">
+                                    <?php echo esc_html( sprintf(
+                                        __( 'Original dates: %s → %s (%d day(s))', 'sfs-hr' ),
+                                        $request->original_start_date,
+                                        $request->original_end_date,
+                                        (int) $request->original_days
+                                    ) ); ?>
+                                </p>
+                            <?php endif; ?>
+                            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php esc_attr_e( 'Are you sure you want to update the leave dates?', 'sfs-hr' ); ?>');" style="margin-top:10px;">
+                                <input type="hidden" name="action" value="sfs_hr_leave_update_dates" />
+                                <?php wp_nonce_field( 'sfs_hr_leave_update_dates_' . $request_id, '_wpnonce' ); ?>
+                                <input type="hidden" name="leave_request_id" value="<?php echo (int) $request_id; ?>" />
+                                <p>
+                                    <label><strong><?php esc_html_e( 'New start date:', 'sfs-hr' ); ?></strong> <span style="color:red;">*</span></label><br>
+                                    <input type="date" name="new_start_date" required value="<?php echo esc_attr( $request->start_date ); ?>" style="max-width:200px;" />
+                                </p>
+                                <p>
+                                    <label><strong><?php esc_html_e( 'New end date:', 'sfs-hr' ); ?></strong> <span style="color:red;">*</span></label><br>
+                                    <input type="date" name="new_end_date" required value="<?php echo esc_attr( $request->end_date ); ?>" style="max-width:200px;" />
+                                </p>
+                                <p>
+                                    <label for="date_update_reason"><strong><?php esc_html_e( 'Reason for date change:', 'sfs-hr' ); ?></strong> <span style="color:red;">*</span></label><br>
+                                    <textarea name="date_update_reason" id="date_update_reason" rows="3" style="width:100%;max-width:500px;" required placeholder="<?php esc_attr_e( 'Explain why the leave dates need to be changed...', 'sfs-hr' ); ?>"></textarea>
+                                </p>
+                                <button type="submit" class="button button-primary"><?php esc_html_e( 'Update Dates', 'sfs-hr' ); ?></button>
+                            </form>
                         <?php endif; ?>
                     </div>
                 </div>

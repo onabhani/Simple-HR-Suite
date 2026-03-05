@@ -125,6 +125,16 @@ class Migrations {
         self::add_column_if_missing($req, 'approval_chain', "LONGTEXT NULL");
         self::add_column_if_missing($req, 'decided_at',     "DATETIME NULL");
         self::make_text_if_varchar255($req, 'approver_note'); // widen if earlier was VARCHAR(255)
+        // Hold / date-update columns for HR actions on approved leaves
+        self::add_column_if_missing($req, 'hold_reason',         "TEXT NULL");
+        self::add_column_if_missing($req, 'held_by',             "BIGINT(20) UNSIGNED NULL");
+        self::add_column_if_missing($req, 'held_at',             "DATETIME NULL");
+        self::add_column_if_missing($req, 'original_start_date', "DATE NULL");
+        self::add_column_if_missing($req, 'original_end_date',   "DATE NULL");
+        self::add_column_if_missing($req, 'original_days',       "INT NULL");
+        self::add_column_if_missing($req, 'date_update_reason',  "TEXT NULL");
+        self::add_column_if_missing($req, 'date_updated_by',     "BIGINT(20) UNSIGNED NULL");
+        self::add_column_if_missing($req, 'date_updated_at',     "DATETIME NULL");
 
         /** LEAVE BALANCES */
         $wpdb->query("CREATE TABLE IF NOT EXISTS `$bal` (

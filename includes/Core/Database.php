@@ -92,6 +92,15 @@ dbDelta($employees);
       pay_breakdown LONGTEXT NULL,                       -- NEW (json tiers for sick long)
       paid_days INT NOT NULL DEFAULT 0,                  -- NEW
       unpaid_days INT NOT NULL DEFAULT 0,                -- NEW
+      hold_reason TEXT NULL,                             -- HR hold: reason
+      held_by BIGINT UNSIGNED NULL,                      -- HR hold: user who held
+      held_at DATETIME NULL,                             -- HR hold: when held
+      original_start_date DATE NULL,                     -- date update: original start
+      original_end_date DATE NULL,                       -- date update: original end
+      original_days INT NULL,                            -- date update: original days
+      date_update_reason TEXT NULL,                      -- date update: reason
+      date_updated_by BIGINT UNSIGNED NULL,              -- date update: user who updated
+      date_updated_at DATETIME NULL,                     -- date update: when updated
       created_at DATETIME NOT NULL,
       updated_at DATETIME NOT NULL,
       PRIMARY KEY (id),
