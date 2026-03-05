@@ -92,6 +92,7 @@ class Migrations {
         self::add_column_if_missing($types, 'allow_negative',"TINYINT(1) NOT NULL DEFAULT 0");
         self::add_column_if_missing($types, 'is_annual',     "TINYINT(1) NOT NULL DEFAULT 0");
         self::add_column_if_missing($types, 'special_code', "VARCHAR(50) NULL"); // e.g. SICK_SHORT, SICK_LONG, HAJJ, MATERNITY
+        self::add_column_if_missing($types, 'name_translations', "TEXT NULL"); // JSON: {"ar":"...","ur":"...","fil":"..."}
         self::add_column_if_missing($req, 'pay_breakdown', "TEXT NULL");   // JSON: [{days:30, rate:1}, ...]
         self::add_column_if_missing($req, 'paid_days',     "INT NOT NULL DEFAULT 0");
         self::add_column_if_missing($req, 'unpaid_days',   "INT NOT NULL DEFAULT 0");

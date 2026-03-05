@@ -10,6 +10,7 @@
 
 namespace SFS\HR\Frontend\Tabs;
 
+use SFS\HR\Core\Helpers;
 use SFS\HR\Frontend\Role_Resolver;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -64,7 +65,7 @@ class ApprovalsTab implements TabInterface {
 
         if ( ! empty( $leave_where ) ) {
             $where_sql = implode( ' AND ', $leave_where );
-            $query = "SELECT r.*, t.name AS type_name,
+            $query = "SELECT r.*, t.name AS type_name, t.name_translations AS type_name_translations,
                              e.first_name, e.last_name, e.employee_code,
                              d.name AS dept_name
                       FROM {$leave_req_table} r
@@ -183,7 +184,7 @@ class ApprovalsTab implements TabInterface {
             $name    = esc_html( trim( ( $r['first_name'] ?? '' ) . ' ' . ( $r['last_name'] ?? '' ) ) );
             $code    = esc_html( $r['employee_code'] ?? '' );
             $dept    = esc_html( $r['dept_name'] ?? '—' );
-            $type    = esc_html( $r['type_name'] ?? '—' );
+            $type    = Helpers::translatable_name_html( $r['type_name'] ?? '—', $r['type_name_translations'] ?? null );
             $start   = esc_html( $r['start_date'] ?? '' );
             $end     = esc_html( $r['end_date'] ?? '' );
             $period  = ( $start && $end && $end !== $start ) ? ( $start . ' → ' . $end ) : $start;

@@ -290,11 +290,33 @@ Tracked enhancement tasks for the Simple HR Suite plugin. Each item includes a p
 
 ---
 
-## 12. Future Ideas
+## 12. Translatable Settings Data
+
+> **Context:** User-entered settings data (leave type names, department names, etc.) are stored in the database in the admin's language. This section tracks adding per-language translations for these strings so they display correctly in the employee-facing frontend based on the active language.
+
+### 12.0 Leave Type Name Translations
+- [x] **Add** a `name_translations` JSON column to `sfs_hr_leave_types` table
+- [x] **Add** per-language translation inputs on the Leave Type add/edit admin form
+- [x] **Create** a reusable helper function to resolve the translated name from the JSON column based on active language, with fallback to the `name` column
+- [x] **Update** all frontend views (LeaveTab, OverviewTab, ApprovalsTab) to display the translated leave type name
+- [x] **Update** admin views (calendar, balances, reports) to use translated names where appropriate
+
+### 12.1 Future: Other Translatable Data
+- [ ] **Department names** — add `name_translations` to `sfs_hr_departments`
+- [ ] **Holiday names** — add `name_translations` to holidays table
+- [ ] **Shift names** — add `name_translations` to shifts table
+- [ ] **Document type names** — add translations for document categories
+- [ ] **Custom field labels** — translatable labels for any custom fields
+
+> **Pattern:** Each table gets a `name_translations` TEXT column storing a JSON object like `{"ar":"إجازة سنوية","ur":"سالانہ چھٹی","fil":"Taunang Bakasyon"}`. A shared helper resolves the best translation based on the current frontend language, falling back to the original `name` column.
+
+---
+
+## 13. Future Ideas
 
 > Ideas for future consideration. Not yet prioritized or scheduled.
 
-### 12.1 Selfie Face Detection / Recognition
+### 13.1 Selfie Face Detection / Recognition
 - [ ] **Integrate** client-side face detection (e.g., `face-api.js` or TensorFlow.js `blazeface`) to verify that the selfie contains a human face before accepting the punch — prevents blank/ceiling/floor photos
 - [ ] **Evaluate** server-side face matching: compare the punch selfie against the employee's profile photo to verify identity (prevents buddy-punching)
 - [ ] **Consider** liveness detection to prevent photo-of-photo attacks (blink detection, head movement)

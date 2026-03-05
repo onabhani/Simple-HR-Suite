@@ -1089,4 +1089,27 @@ public static function asset_status_badge( string $status ): string {
         return null;
     }
 
+    /**
+     * Output a translatable name span for frontend use.
+     *
+     * Renders a <span> with data attributes so the client-side i18n system
+     * can swap in the correct translation based on the active language.
+     *
+     * @param string      $default_name      The original name (English fallback).
+     * @param string|null $translations_json  JSON string like {"ar":"...","ur":"..."}.
+     * @return string HTML span element.
+     */
+    public static function translatable_name_html( string $default_name, ?string $translations_json ): string {
+        $escaped_name = esc_html( $default_name );
+        if ( empty( $translations_json ) ) {
+            return $escaped_name;
+        }
+        // Validate JSON
+        $map = json_decode( $translations_json, true );
+        if ( ! is_array( $map ) || empty( $map ) ) {
+            return $escaped_name;
+        }
+        return '<span data-i18n-default="' . esc_attr( $default_name ) . '" data-i18n-translations="' . esc_attr( $translations_json ) . '">' . $escaped_name . '</span>';
+    }
+
 }
