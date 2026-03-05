@@ -1424,8 +1424,8 @@ public function handle_approve(): void {
             exit;
         }
 
-        // Only HR can perform the final approval at level 2+
-        if ( $require_hr_approval && ! $is_hr ) {
+        // Only HR can approve at level 2 (HR stage); finance approvers handle level 3+
+        if ( $require_hr_approval && ! $is_hr && $approval_level < 3 ) {
             wp_safe_redirect(
                 add_query_arg(
                     'err',
