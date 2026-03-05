@@ -1423,6 +1423,18 @@ public function handle_approve(): void {
             );
             exit;
         }
+
+        // Only HR can perform the final approval at level 2+
+        if ( $require_hr_approval && ! $is_hr ) {
+            wp_safe_redirect(
+                add_query_arg(
+                    'err',
+                    rawurlencode( __('This request requires HR final approval.', 'sfs-hr') ),
+                    $redirect_base
+                )
+            );
+            exit;
+        }
     }
 
     // ==================== FINAL APPROVAL (HR) ====================
