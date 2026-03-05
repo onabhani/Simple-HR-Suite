@@ -4491,6 +4491,11 @@ body:has(.sfs-hr-pwa-app) #masthead {
     width: 16px;
     height: 16px;
 }
+/* RTL: flip calendar navigation arrows so prev/next point correctly */
+[dir="rtl"] .sfs-hr-pwa-app .sfs-cal-nav svg,
+.sfs-hr-pwa-app[dir="rtl"] .sfs-cal-nav svg {
+    transform: scaleX(-1);
+}
 .sfs-hr-pwa-app .sfs-cal-weekdays {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
