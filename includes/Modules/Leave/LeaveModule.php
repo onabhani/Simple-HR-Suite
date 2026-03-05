@@ -13,6 +13,12 @@ require_once __DIR__ . '/class-leave-ui.php';
 
 class LeaveModule {
 
+    public const SUPPORTED_LANGS = [
+        'ar'  => 'Arabic',
+        'ur'  => 'Urdu',
+        'fil' => 'Filipino',
+    ];
+
     public function hooks(): void {
         add_action('admin_menu', [$this, 'menu']);
 
@@ -2885,11 +2891,10 @@ private function render_cancellation_detail( int $cancel_id ): void {
               <tr><th><?php esc_html_e('Name','sfs-hr'); ?></th><td><input name="name" class="regular-text" required value="<?php echo esc_attr($e['name'] ?? ''); ?>"/></td></tr>
               <?php
               // Per-language translations for the leave type name
-              $supported_langs = [
-                  'ar'  => __( 'Arabic', 'sfs-hr' ),
-                  'ur'  => __( 'Urdu', 'sfs-hr' ),
-                  'fil' => __( 'Filipino', 'sfs-hr' ),
-              ];
+              $supported_langs = array_map(
+                  function( $label ) { return __( $label, 'sfs-hr' ); },
+                  self::SUPPORTED_LANGS
+              );
               $name_trans = [];
               if ( ! empty( $e['name_translations'] ) ) {
                   $name_trans = json_decode( $e['name_translations'], true ) ?: [];

@@ -2440,7 +2440,7 @@ class Shortcodes {
                 // Translate dynamic user-entered strings (e.g. leave type names)
                 // Elements with data-i18n-translations='{"ar":"...","ur":"..."}' and data-i18n-default="English Name"
                 container.querySelectorAll('[data-i18n-translations]').forEach(function(el) {
-                    var currLang = localStorage.getItem('sfs_hr_lang') || 'en';
+                    var currLang = (typeof lang !== 'undefined' && lang) ? lang : (localStorage.getItem('sfs_hr_lang') || 'en');
                     var defaultText = el.dataset.i18nDefault || el.textContent;
                     if (currLang === 'en' || !currLang) {
                         el.textContent = defaultText;
@@ -2457,7 +2457,7 @@ class Shortcodes {
                 // Switch overview greeting name for Arabic
                 var greetingName = container.querySelector('.sfs-overview-greeting-name');
                 if (greetingName && greetingName.dataset.nameAr) {
-                    var currLang = localStorage.getItem('sfs_hr_lang') || 'en';
+                    var currLang = (typeof lang !== 'undefined' && lang) ? lang : (localStorage.getItem('sfs_hr_lang') || 'en');
                     if (currLang === 'ar' && greetingName.dataset.nameAr !== greetingName.dataset.nameEn) {
                         greetingName.textContent = greetingName.dataset.nameAr;
                     } else {
