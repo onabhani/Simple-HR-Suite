@@ -2,6 +2,18 @@
 
 All notable changes to Simple HR Suite will be documented in this file.
 
+## [1.8.2] — 2026-03-05
+
+### Fixed
+- **Leave attachment not displayed in admin detail page** — the uploaded document
+  (`doc_attachment_id`) is now shown as a clickable link in the Leave Information
+  card on the admin leave detail page.
+- **Frontend leave history attachment restricted to sick leave** — removed the
+  `stripos($type_name, 'sick')` check so uploaded documents are visible for all
+  leave types, not just sick leave.
+- **Missing translations in Filipino and Urdu** — synced 39 missing keys
+  (sick leave reminders, loan validation strings) to `fil.json` and `ur.json`.
+
 ## [1.7.3] — 2026-03-03
 
 ### Fixed
