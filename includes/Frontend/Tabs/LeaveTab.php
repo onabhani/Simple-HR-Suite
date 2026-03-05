@@ -651,7 +651,7 @@ class LeaveTab implements TabInterface {
 
             $doc_html = '';
             $doc_id   = isset( $row->doc_attachment_id ) ? (int) $row->doc_attachment_id : 0;
-            if ( $doc_id > 0 && stripos( $type_name, 'sick' ) !== false ) {
+            if ( $doc_id > 0 ) {
                 $doc_url = wp_get_attachment_url( $doc_id );
                 if ( $doc_url ) {
                     $doc_html = '<a href="' . esc_url( $doc_url ) . '" target="_blank" rel="noopener noreferrer" style="color:var(--sfs-primary);">' . esc_html__( 'View', 'sfs-hr' ) . '</a>';

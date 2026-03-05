@@ -6965,6 +6965,26 @@ public function render_calendar(): void {
                                 <th><?php esc_html_e( 'Reason', 'sfs-hr' ); ?></th>
                                 <td><?php echo esc_html( $request->reason ?: '—' ); ?></td>
                             </tr>
+                            <?php
+                            $doc_id = ! empty( $request->doc_attachment_id ) ? (int) $request->doc_attachment_id : 0;
+                            if ( $doc_id > 0 ) :
+                                $doc_url  = wp_get_attachment_url( $doc_id );
+                                $doc_name = basename( get_attached_file( $doc_id ) ?: '' );
+                            ?>
+                            <tr>
+                                <th><?php esc_html_e( 'Attachment', 'sfs-hr' ); ?></th>
+                                <td>
+                                    <?php if ( $doc_url ) : ?>
+                                        <a href="<?php echo esc_url( $doc_url ); ?>" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">
+                                            <span class="dashicons dashicons-media-default" style="vertical-align:middle;"></span>
+                                            <?php echo esc_html( $doc_name ?: __( 'View Document', 'sfs-hr' ) ); ?>
+                                        </a>
+                                    <?php else : ?>
+                                        <em><?php esc_html_e( 'File not found', 'sfs-hr' ); ?></em>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <?php endif; ?>
                             <tr>
                                 <th><?php esc_html_e( 'Created', 'sfs-hr' ); ?></th>
                                 <td><?php echo esc_html( wp_date( 'F j, Y g:i a', strtotime( $request->created_at ) ) ); ?></td>
