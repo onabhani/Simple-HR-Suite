@@ -2253,7 +2253,8 @@ body:has(.sfs-hr-pwa-app) #masthead {
 /* ── Tables (Desktop) ──────────────────────────────────────── */
 .sfs-hr-pwa-app .sfs-table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     font-size: 13px;
     border: 1px solid var(--sfs-border);
     border-radius: 10px;
@@ -2282,6 +2283,10 @@ body:has(.sfs-hr-pwa-app) #masthead {
 .sfs-hr-pwa-app .sfs-table tbody tr:hover {
     background: var(--sfs-background);
 }
+.sfs-hr-pwa-app .sfs-table thead tr:first-child th:first-child { border-top-left-radius: 10px; }
+.sfs-hr-pwa-app .sfs-table thead tr:first-child th:last-child { border-top-right-radius: 10px; }
+.sfs-hr-pwa-app .sfs-table tbody tr:last-child td:first-child { border-bottom-left-radius: 10px; }
+.sfs-hr-pwa-app .sfs-table tbody tr:last-child td:last-child { border-bottom-right-radius: 10px; }
 
 /* ── Leave Balance Cards (§10.2) ───────────────────────────── */
 .sfs-hr-pwa-app .sfs-balance-grid {

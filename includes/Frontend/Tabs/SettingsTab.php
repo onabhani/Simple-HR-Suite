@@ -60,6 +60,7 @@ class SettingsTab implements TabInterface {
         $this->render_attendance_section();
         $this->render_leave_section();
         $this->render_loans_section();
+        $this->render_employees_section();
         $this->render_notification_section();
 
         // Save button.
@@ -80,6 +81,7 @@ class SettingsTab implements TabInterface {
             'attendance'   => [ __( 'Attendance', 'sfs-hr' ), 'attendance' ],
             'leave'        => [ __( 'Leave', 'sfs-hr' ), 'leave' ],
             'loans'        => [ __( 'Loans', 'sfs-hr' ), 'loans' ],
+            'employees'    => [ __( 'Employees', 'sfs-hr' ), 'employees' ],
             'notification' => [ __( 'Notifications', 'sfs-hr' ), 'notifications' ],
         ];
         $first = true;
@@ -323,6 +325,72 @@ class SettingsTab implements TabInterface {
         echo '</div>';
 
         echo '</div></div>';
+        echo '</div>';
+    }
+
+    /* ── Employees Section ─────────────────────────────────────── */
+
+    private function render_employees_section(): void {
+        $nationalities = get_option( 'sfs_hr_nationalities', [] );
+        if ( ! is_array( $nationalities ) ) {
+            $nationalities = [];
+        }
+        // Auto-seed from DB on first load if nothing configured yet.
+        if ( empty( $nationalities ) ) {
+            $nationalities = \SFS\HR\Core\Helpers::get_nationalities_for_select();
+        }
+        $nationalities_str = implode( "\n", $nationalities );
+
+        $gov_settings = get_option( 'sfs_hr_gov_support_settings', [] );
+        $gov_enabled  = ! empty( $gov_settings['enabled'] );
+        $gov_months   = (int) ( $gov_settings['threshold_months'] ?? 3 );
+        $gov_nationality = $gov_settings['nationality'] ?? 'Saudi';
+
+        echo '<div class="sfs-settings-section" data-settings-section="employees" style="display:none;">';
+        echo '<div class="sfs-card" style="margin-bottom:20px;">';
+        echo '<div class="sfs-card-body">';
+        echo '<h3 style="font-size:16px;font-weight:700;color:var(--sfs-text);margin:0 0 16px;" data-i18n-key="nationality_settings">' . esc_html__( 'Nationality Settings', 'sfs-hr' ) . '</h3>';
+
+        // Allowed nationalities textarea.
+        echo '<div class="sfs-form-group">';
+        echo '<label class="sfs-form-label" data-i18n-key="allowed_nationalities">' . esc_html__( 'Allowed Nationalities', 'sfs-hr' ) . '</label>';
+        echo '<textarea name="emp[nationalities]" class="sfs-textarea" rows="8" style="width:100%;font-family:inherit;font-size:13px;" placeholder="' . esc_attr__( 'One nationality per line', 'sfs-hr' ) . '">';
+        echo esc_textarea( $nationalities_str );
+        echo '</textarea>';
+        echo '<p class="sfs-form-help" style="color:var(--sfs-text-muted,#6b7280);font-size:12px;margin-top:4px;" data-i18n-key="nationalities_help">' . esc_html__( 'One nationality per line. These appear in the nationality dropdown when adding/editing employees.', 'sfs-hr' ) . '</p>';
+        echo '</div>';
+
+        echo '</div>';
+        echo '</div>';
+
+        // Government support reminder settings.
+        echo '<div class="sfs-card" style="margin-bottom:20px;">';
+        echo '<div class="sfs-card-body">';
+        echo '<h3 style="font-size:16px;font-weight:700;color:var(--sfs-text);margin:0 0 16px;" data-i18n-key="gov_support_settings">' . esc_html__( 'Government Support Reminder', 'sfs-hr' ) . '</h3>';
+
+        // Enabled toggle.
+        echo '<div class="sfs-form-group" style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">';
+        echo '<label class="sfs-toggle"><input type="checkbox" name="emp[gov_enabled]" value="1"' . checked( $gov_enabled, true, false ) . ' /><span class="sfs-toggle-slider"></span></label>';
+        echo '<span class="sfs-form-label" style="margin:0;" data-i18n-key="enable_gov_reminder">' . esc_html__( 'Enable government support reminder', 'sfs-hr' ) . '</span>';
+        echo '</div>';
+
+        // Nationality to check.
+        echo '<div class="sfs-form-group">';
+        echo '<label class="sfs-form-label" data-i18n-key="gov_nationality">' . esc_html__( 'Nationality to Monitor', 'sfs-hr' ) . '</label>';
+        \SFS\HR\Core\Helpers::render_nationality_select( $gov_nationality, 'emp[gov_nationality]', '', 'sfs-input' );
+        echo '<p class="sfs-form-help" style="color:var(--sfs-text-muted,#6b7280);font-size:12px;margin-top:4px;" data-i18n-key="gov_nationality_help">' . esc_html__( 'Employees with this nationality will trigger the reminder. Must match the nationality value exactly.', 'sfs-hr' ) . '</p>';
+        echo '</div>';
+
+        // Threshold months.
+        echo '<div class="sfs-form-group">';
+        echo '<label class="sfs-form-label" data-i18n-key="gov_threshold_months">' . esc_html__( 'Threshold (Months)', 'sfs-hr' ) . '</label>';
+        echo '<input type="number" name="emp[gov_months]" class="sfs-input" value="' . esc_attr( $gov_months ) . '" min="1" max="120" style="max-width:120px;" />';
+        echo '<p class="sfs-form-help" style="color:var(--sfs-text-muted,#6b7280);font-size:12px;margin-top:4px;" data-i18n-key="gov_months_help">' . esc_html__( 'Alert HR when an employee of the monitored nationality has been employed for this many months (based on hire date).', 'sfs-hr' ) . '</p>';
+        echo '</div>';
+
+        echo '</div>';
+        echo '</div>';
+
         echo '</div>';
     }
 

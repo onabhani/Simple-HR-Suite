@@ -3268,5 +3268,15 @@
     "now_click_end_date": "Ngayon i-click ang huling petsa",
     "please_upload_supporting_document": "Mangyaring mag-upload ng sumusuportang dokumento bago isumite.",
     "previous_month": "Nakaraang buwan",
-    "next_month": "Susunod na buwan"
+    "next_month": "Susunod na buwan",
+    "nationality_settings": "Mga Setting ng Nasyonalidad",
+    "allowed_nationalities": "Mga Pinapayagang Nasyonalidad",
+    "nationalities_help": "Isang nasyonalidad bawat linya. Lalabas ito sa dropdown ng nasyonalidad kapag nagdadagdag o nag-e-edit ng empleyado.",
+    "gov_support_settings": "Paalala ng Suporta ng Pamahalaan",
+    "enable_gov_reminder": "I-enable ang paalala ng suporta ng pamahalaan",
+    "gov_nationality": "Nasyonalidad na Imo-monitor",
+    "gov_nationality_help": "Ang mga empleyado na may ganitong nasyonalidad ang magti-trigger ng paalala. Dapat eksaktong tumugma ang value ng nasyonalidad.",
+    "gov_threshold_months": "Threshold (Buwan)",
+    "gov_months_help": "Alertuhan ang HR kapag ang isang empleyado ng nimo-monitor na nasyonalidad ay nagtrabaho nang ganitong bilang ng buwan (batay sa petsa ng pag-hire).",
+    "gov_support_reminder": "Paalala ng Suporta ng Pamahalaan"
 }

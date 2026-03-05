@@ -3256,5 +3256,15 @@
     "now_click_end_date": "Now click end date",
     "please_upload_supporting_document": "Please upload a supporting document before submitting.",
     "previous_month": "Previous month",
-    "next_month": "Next month"
+    "next_month": "Next month",
+    "nationality_settings": "Nationality Settings",
+    "allowed_nationalities": "Allowed Nationalities",
+    "nationalities_help": "One nationality per line. These appear in the nationality dropdown when adding/editing employees.",
+    "gov_support_settings": "Government Support Reminder",
+    "enable_gov_reminder": "Enable government support reminder",
+    "gov_nationality": "Nationality to Monitor",
+    "gov_nationality_help": "Employees with this nationality will trigger the reminder. Must match the nationality value exactly.",
+    "gov_threshold_months": "Threshold (Months)",
+    "gov_months_help": "Alert HR when an employee of the monitored nationality has been employed for this many months (based on hire date).",
+    "gov_support_reminder": "Government Support Reminder"
 }
