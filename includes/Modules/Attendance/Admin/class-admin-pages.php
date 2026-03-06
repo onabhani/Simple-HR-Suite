@@ -5725,7 +5725,7 @@ $export_url = esc_url( wp_nonce_url(
 
 
 
-    $totalSessions = is_array($rows) ? count($rows) : 0;
+    $pageSessionCount = is_array($rows) ? count($rows) : 0;
     echo '<h2>' . esc_html__('Sessions', 'sfs-hr') . '</h2>';
 
     // Fix Off-Day Absences result notification

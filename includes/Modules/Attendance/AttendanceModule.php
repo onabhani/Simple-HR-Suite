@@ -3978,9 +3978,26 @@ private static function migrate_add_foreign_keys( \wpdb $wpdb, string $p ): void
         ) );
     };
 
-    // Ensure InnoDB
+    // Ensure InnoDB (only ALTER if not already InnoDB)
+    $had_errors = false;
     foreach ( [ $punchT, $sessT, $shiftT, $assignT, $empShT, $flagT, $auditT, $elrT ] as $t ) {
-        $wpdb->query( "ALTER TABLE {$t} ENGINE = InnoDB" );
+        $engine = $wpdb->get_var( $wpdb->prepare(
+            "SELECT ENGINE FROM information_schema.TABLES
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s",
+            $t
+        ) );
+        if ( $engine !== null && strcasecmp( $engine, 'InnoDB' ) !== 0 ) {
+            if ( $wpdb->query( "ALTER TABLE {$t} ENGINE = InnoDB" ) === false ) {
+                $had_errors = true;
+                if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                    error_log( "[SFS HR] FK migration: failed to convert {$t} to InnoDB" );
+                }
+            }
+        }
+    }
+
+    if ( $had_errors ) {
+        return; // Retry on next activation — don't set the migrated flag
     }
 
     // Clean orphaned employee references
@@ -4013,15 +4030,25 @@ private static function migrate_add_foreign_keys( \wpdb $wpdb, string $p ): void
 
     foreach ( $fks as [ $table, $name, $col, $ref_table, $ref_col, $on_delete ] ) {
         if ( ! $fk_exists( $table, $name ) ) {
-            $wpdb->query(
+            $result = $wpdb->query(
                 "ALTER TABLE {$table} ADD CONSTRAINT {$name}
                  FOREIGN KEY ({$col}) REFERENCES {$ref_table}({$ref_col})
                  ON DELETE {$on_delete} ON UPDATE CASCADE"
             );
+            if ( $result === false ) {
+                $had_errors = true;
+                if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                    error_log( "[SFS HR] FK migration: failed to add {$name} on {$table}" );
+                }
+            }
         }
     }
 
-    update_option( 'sfs_hr_att_fk_migrated', 1 );
+    if ( ! $had_errors ) {
+        update_option( 'sfs_hr_att_fk_migrated', 1 );
+    } elseif ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+        error_log( '[SFS HR] FK migration: completed with errors — will retry on next activation' );
+    }
 }
 
 /**
