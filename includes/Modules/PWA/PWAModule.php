@@ -130,9 +130,12 @@ class PWAModule {
      * Enqueue PWA script with localization
      */
     private function enqueue_pwa_script(): void {
+        $pwa_js = ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG )
+            ? 'assets/pwa/pwa-app.js'
+            : 'assets/pwa/pwa-app.min.js';
         wp_enqueue_script(
             'sfs-hr-pwa',
-            SFS_HR_URL . 'assets/pwa/pwa-app.js',
+            SFS_HR_URL . $pwa_js,
             [],
             SFS_HR_VER,
             true

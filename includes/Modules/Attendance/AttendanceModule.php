@@ -111,6 +111,10 @@ class AttendanceModule {
     public function hooks(): void {
         add_action('admin_init', [ $this, 'maybe_install' ]);
 
+        // Deferred recalc hook — fires when a recalc was skipped due to lock contention.
+        // Uses a wrapper because recalc_session_for's 3rd param is $wpdb, not $force.
+        add_action( 'sfs_hr_deferred_recalc', [ self::class, 'run_deferred_recalc' ], 10, 3 );
+
         // Safe call to private method
         add_action('admin_init', function () { $this->register_caps(); });
         add_shortcode('sfs_hr_kiosk', [ $this, 'shortcode_kiosk' ]);
@@ -149,6 +153,9 @@ add_action('rest_api_init', function () {
 
         // Daily session builder — ensures sessions exist for yesterday/today
         ( new \SFS\HR\Modules\Attendance\Cron\Daily_Session_Builder() )->hooks();
+
+        // Selfie cleanup — deletes attachments older than selfie_retention_days
+        ( new \SFS\HR\Modules\Attendance\Cron\Selfie_Cleanup() )->hooks();
     }
 
     /**
@@ -3951,6 +3958,119 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
 }
 
 /**
+ * One-time migration: add FK constraints to attendance tables.
+ * Cleans orphaned rows first, then adds RESTRICT/SET NULL/CASCADE as appropriate.
+ */
+private static function migrate_add_foreign_keys( \wpdb $wpdb, string $p ): void {
+    $empT    = "{$p}sfs_hr_employees";
+    $punchT  = "{$p}sfs_hr_attendance_punches";
+    $sessT   = "{$p}sfs_hr_attendance_sessions";
+    $shiftT  = "{$p}sfs_hr_attendance_shifts";
+    $assignT = "{$p}sfs_hr_attendance_shift_assign";
+    $empShT  = "{$p}sfs_hr_attendance_emp_shifts";
+    $flagT   = "{$p}sfs_hr_attendance_flags";
+    $auditT  = "{$p}sfs_hr_attendance_audit";
+    $elrT    = "{$p}sfs_hr_early_leave_requests";
+
+    // Helper: check if a FK already exists on a table
+    $fk_exists = function( string $table, string $fk_name ) use ( $wpdb ): bool {
+        return (bool) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+             WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = %s
+               AND CONSTRAINT_NAME = %s AND CONSTRAINT_TYPE = 'FOREIGN KEY'",
+            $table, $fk_name
+        ) );
+    };
+
+    // Ensure InnoDB on all tables including the parent employees table
+    // (required for FK constraints).
+    $had_errors = false;
+    foreach ( [ $empT, $punchT, $sessT, $shiftT, $assignT, $empShT, $flagT, $auditT, $elrT ] as $t ) {
+        $engine = $wpdb->get_var( $wpdb->prepare(
+            "SELECT ENGINE FROM information_schema.TABLES
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s",
+            $t
+        ) );
+        if ( $engine !== null && strcasecmp( $engine, 'InnoDB' ) !== 0 ) {
+            if ( $wpdb->query( "ALTER TABLE {$t} ENGINE = InnoDB" ) === false ) {
+                $had_errors = true;
+                if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                    error_log( "[SFS HR] FK migration: failed to convert {$t} to InnoDB" );
+                }
+            }
+        }
+    }
+
+    if ( $had_errors ) {
+        return; // Retry on next activation — don't set the migrated flag
+    }
+
+    // Clean orphaned employee references
+    $cleanup_queries = [
+        "DELETE p FROM {$punchT} p LEFT JOIN {$empT} e ON e.id = p.employee_id WHERE e.id IS NULL",
+        "DELETE s FROM {$sessT} s LEFT JOIN {$empT} e ON e.id = s.employee_id WHERE e.id IS NULL",
+        "DELETE sa FROM {$assignT} sa LEFT JOIN {$empT} e ON e.id = sa.employee_id WHERE e.id IS NULL",
+        "DELETE es FROM {$empShT} es LEFT JOIN {$empT} e ON e.id = es.employee_id WHERE e.id IS NULL",
+        "DELETE f FROM {$flagT} f LEFT JOIN {$empT} e ON e.id = f.employee_id WHERE e.id IS NULL",
+        "UPDATE {$auditT} a LEFT JOIN {$empT} e ON e.id = a.target_employee_id SET a.target_employee_id = NULL WHERE a.target_employee_id IS NOT NULL AND e.id IS NULL",
+        "DELETE el FROM {$elrT} el LEFT JOIN {$empT} e ON e.id = el.employee_id WHERE e.id IS NULL",
+        // Clean orphaned shift references
+        "DELETE sa FROM {$assignT} sa LEFT JOIN {$shiftT} sh ON sh.id = sa.shift_id WHERE sh.id IS NULL",
+        "DELETE es FROM {$empShT} es LEFT JOIN {$shiftT} sh ON sh.id = es.shift_id WHERE sh.id IS NULL",
+        "UPDATE {$sessT} s LEFT JOIN {$assignT} sa ON sa.id = s.shift_assign_id SET s.shift_assign_id = NULL WHERE s.shift_assign_id IS NOT NULL AND sa.id IS NULL",
+    ];
+
+    foreach ( $cleanup_queries as $sql ) {
+        if ( $wpdb->query( $sql ) === false ) {
+            $had_errors = true;
+            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( "[SFS HR] FK migration: cleanup query failed — {$wpdb->last_error}" );
+            }
+        }
+    }
+
+    if ( $had_errors ) {
+        return; // Retry on next activation — don't set the migrated flag
+    }
+
+    // Add FK constraints (skip if already exists)
+    $fks = [
+        [ $punchT,  'fk_punches_employee',       'employee_id',      $empT,    'id', 'RESTRICT' ],
+        [ $sessT,   'fk_sessions_employee',       'employee_id',      $empT,    'id', 'RESTRICT' ],
+        [ $sessT,   'fk_sessions_shift_assign',   'shift_assign_id',  $assignT, 'id', 'SET NULL' ],
+        [ $assignT, 'fk_shift_assign_employee',   'employee_id',      $empT,    'id', 'RESTRICT' ],
+        [ $assignT, 'fk_shift_assign_shift',      'shift_id',         $shiftT,  'id', 'CASCADE'  ],
+        [ $empShT,  'fk_emp_shifts_employee',      'employee_id',      $empT,    'id', 'RESTRICT' ],
+        [ $empShT,  'fk_emp_shifts_shift',         'shift_id',         $shiftT,  'id', 'CASCADE'  ],
+        [ $flagT,   'fk_flags_employee',           'employee_id',      $empT,    'id', 'RESTRICT' ],
+        [ $auditT,  'fk_audit_employee',           'target_employee_id', $empT,  'id', 'SET NULL' ],
+        [ $elrT,    'fk_early_leave_employee',     'employee_id',      $empT,    'id', 'RESTRICT' ],
+    ];
+
+    foreach ( $fks as [ $table, $name, $col, $ref_table, $ref_col, $on_delete ] ) {
+        if ( ! $fk_exists( $table, $name ) ) {
+            $result = $wpdb->query(
+                "ALTER TABLE {$table} ADD CONSTRAINT {$name}
+                 FOREIGN KEY ({$col}) REFERENCES {$ref_table}({$ref_col})
+                 ON DELETE {$on_delete} ON UPDATE CASCADE"
+            );
+            if ( $result === false ) {
+                $had_errors = true;
+                if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                    error_log( "[SFS HR] FK migration: failed to add {$name} on {$table}" );
+                }
+            }
+        }
+    }
+
+    if ( ! $had_errors ) {
+        update_option( 'sfs_hr_att_fk_migrated', 1 );
+    } elseif ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+        error_log( '[SFS HR] FK migration: completed with errors — will retry on next activation' );
+    }
+}
+
+/**
  * Add unique key if it doesn't exist
  */
 private static function add_unique_key_if_missing( \wpdb $wpdb, string $table, string $key_name ): void {
@@ -4034,7 +4154,7 @@ private static function maybe_create_early_leave_request(
         }
     }
 
-    $now_el = current_time( 'mysql' );
+    $now_el = current_time( 'mysql', true );
     $el_ref = self::generate_early_leave_request_number();
 
     $el_reason_note = $is_total_hours
@@ -4068,8 +4188,8 @@ private static function maybe_create_early_leave_request(
 
     if ( $inserted === false ) {
         error_log( sprintf(
-            '[SFS HR] Failed to auto-create early leave request for employee %d on %s: %s',
-            $employee_id, $ymd, $wpdb->last_error
+            '[SFS HR] Failed to auto-create early leave request: db_error=%s',
+            $wpdb->last_error
         ) );
     } else {
         $new_el_id = (int) $wpdb->insert_id;
@@ -4163,7 +4283,8 @@ private static function backfill_early_leave_request_numbers( \wpdb $wpdb ): voi
             locked TINYINT(1) NOT NULL DEFAULT 0,
             PRIMARY KEY (id),
             UNIQUE KEY emp_date (employee_id, work_date),
-            KEY work_date (work_date)
+            KEY work_date (work_date),
+            KEY status (status)
         ) $charset_collate;");
 
         // 3) shift templates (CRUD in admin; Ramadan, etc. handled via assignments)
@@ -4236,7 +4357,8 @@ private static function backfill_early_leave_request_numbers( \wpdb $wpdb ): voi
             override_json LONGTEXT NULL,
             PRIMARY KEY (id),
             UNIQUE KEY emp_date (employee_id, work_date),
-            KEY shift_date (shift_id, work_date)
+            KEY shift_date (shift_id, work_date),
+            KEY work_date (work_date)
         ) $charset_collate;");
 
         // 5) employee default shifts (history)
@@ -4398,6 +4520,11 @@ self::add_column_if_missing($wpdb, $t, 'suggest_out_time',        "suggest_out_t
         self::add_column_if_missing($wpdb, $early_leave_table, 'request_number', "request_number VARCHAR(50) NULL");
         self::add_unique_key_if_missing($wpdb, $early_leave_table, 'request_number');
         self::backfill_early_leave_request_numbers($wpdb);
+
+        // Migration: Add foreign key constraints (runs once)
+        if ( ! get_option( 'sfs_hr_att_fk_migrated' ) ) {
+            self::migrate_add_foreign_keys( $wpdb, $p );
+        }
 
         // Caps + defaults + seed kiosks
         $this->register_caps();
@@ -4631,7 +4758,30 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
      * Recalculate a day session after every punch.
      * Applies: grace (late/early), rounding (nearest N), unpaid break, OT threshold.
      */
-    public static function recalc_session_for( int $employee_id, string $ymd, \wpdb $wpdb = null ): void {
+    /**
+     * Recalculate the attendance session for an employee on a given date.
+     *
+     * @param int       $employee_id
+     * @param string    $ymd         Work date (Y-m-d).
+     * @param \wpdb|null $wpdb
+     * @param bool      $force       When true, always recalculate even for historical dates.
+     *                               Pass true when triggered by a punch operation (add/edit/delete)
+     *                               or ELR approval.  Pass false (default) for bulk/cron rebuilds
+     *                               so that already-finalized historical sessions are protected from
+     *                               unintentional overwrite when shift config changes.
+     */
+    /**
+     * WP-Cron callback for deferred recalculations.
+     *
+     * Needed because recalc_session_for() has $wpdb as its 3rd parameter,
+     * but WP-Cron passes hook args positionally — so the $force boolean
+     * would land in the $wpdb slot without this wrapper.
+     */
+    public static function run_deferred_recalc( int $employee_id, string $ymd, bool $force = false ): void {
+        self::recalc_session_for( $employee_id, $ymd, null, $force );
+    }
+
+    public static function recalc_session_for( int $employee_id, string $ymd, \wpdb $wpdb = null, bool $force = false ): void {
     $wpdb = $wpdb ?: $GLOBALS['wpdb'];
     $pT   = $wpdb->prefix . 'sfs_hr_attendance_punches';
     $sT   = $wpdb->prefix . 'sfs_hr_attendance_sessions';
@@ -4640,6 +4790,41 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
     if ( $ymd > wp_date( 'Y-m-d' ) ) {
         return;
     }
+
+    // ── Historical data protection ──────────────────────────────────
+    // When $force is false (bulk rebuild / cron), skip recalculation for
+    // sessions that already exist with real punch data and are older than
+    // yesterday.  This prevents shift-config changes from retroactively
+    // altering finalized historical sessions.  Explicit punch operations
+    // (add, edit, delete) and ELR approvals pass $force = true to bypass
+    // this guard.
+    if ( ! $force ) {
+        $yesterday = wp_date( 'Y-m-d', strtotime( '-1 day' ) );
+        if ( $ymd < $yesterday ) {
+            $existing_session = $wpdb->get_row( $wpdb->prepare(
+                "SELECT id, in_time, status, locked FROM {$sT} WHERE employee_id = %d AND work_date = %s LIMIT 1",
+                $employee_id, $ymd
+            ) );
+            // If session exists with punch data (not a placeholder absent/holiday
+            // that might need updating), skip recalculation to protect finalized data.
+            if ( $existing_session && $existing_session->in_time !== null ) {
+                return;
+            }
+        }
+    }
+
+    // Acquire per-employee recalc lock to prevent concurrent recalculations
+    // (H3 fix: prevents race between real-time punch recalc and Daily_Session cron).
+    $recalc_lock = 'sfs_hr_recalc_' . $employee_id . '_' . $ymd;
+    $got_lock    = $wpdb->get_var( $wpdb->prepare( "SELECT GET_LOCK(%s, 3)", $recalc_lock ) );
+    if ( ! $got_lock ) {
+        // Schedule a deferred recalc so this employee+date isn't silently dropped.
+        if ( ! wp_next_scheduled( 'sfs_hr_deferred_recalc', [ $employee_id, $ymd, $force ] ) ) {
+            wp_schedule_single_event( time() + 30, 'sfs_hr_deferred_recalc', [ $employee_id, $ymd, $force ] );
+        }
+        return;
+    }
+    try {
 
     // Leave/Holiday guard — check if this day is a holiday or approved leave.
     // If the employee has NO punches, mark as holiday/on_leave.
@@ -4684,7 +4869,24 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
                     'last_recalc_at'      => current_time('mysql', true),
                 ];
                 $exists = $wpdb->get_var( $wpdb->prepare("SELECT id FROM {$sT} WHERE employee_id=%d AND work_date=%s LIMIT 1", $employee_id, $ymd) );
-                if ($exists) $wpdb->update($sT,$data,['id'=>$exists]); else $wpdb->insert($sT,$data);
+                if ($exists) {
+                    // S9: atomically skip locked sessions by including locked=0 in WHERE
+                    $result = $wpdb->update($sT, $data, ['id' => (int) $exists, 'locked' => 0]);
+                    if ( $result === false ) {
+                        error_log("[SFS-HR] recalc_session_for: session write failed (holiday) db_error={$wpdb->last_error}");
+                    } elseif ( $result === 0 ) {
+                        $is_locked = (int) $wpdb->get_var( $wpdb->prepare("SELECT locked FROM {$sT} WHERE id=%d", (int) $exists) );
+                        if ( $is_locked ) {
+                            error_log("[SFS-HR] recalc_session_for: skipping locked session id={$exists} (holiday)");
+                            return;
+                        }
+                    }
+                } else {
+                    $result = $wpdb->insert($sT,$data);
+                    if ( $result === false ) {
+                        error_log("[SFS-HR] recalc_session_for: session insert failed (holiday) db_error={$wpdb->last_error}");
+                    }
+                }
                 return;
             }
         } else {
@@ -4706,7 +4908,24 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
                 'last_recalc_at'      => current_time('mysql', true),
             ];
             $exists = $wpdb->get_var( $wpdb->prepare("SELECT id FROM {$sT} WHERE employee_id=%d AND work_date=%s LIMIT 1", $employee_id, $ymd) );
-            if ($exists) $wpdb->update($sT,$data,['id'=>$exists]); else $wpdb->insert($sT,$data);
+            if ($exists) {
+                // S9: atomically skip locked sessions
+                $result = $wpdb->update($sT, $data, ['id' => (int) $exists, 'locked' => 0]);
+                if ( $result === false ) {
+                    error_log("[SFS-HR] recalc_session_for: session write failed (on_leave) db_error={$wpdb->last_error}");
+                } elseif ( $result === 0 ) {
+                    $is_locked = (int) $wpdb->get_var( $wpdb->prepare("SELECT locked FROM {$sT} WHERE id=%d", (int) $exists) );
+                    if ( $is_locked ) {
+                        error_log("[SFS-HR] recalc_session_for: skipping locked session id={$exists} (on_leave)");
+                        return;
+                    }
+                }
+            } else {
+                $result = $wpdb->insert($sT,$data);
+                if ( $result === false ) {
+                    error_log("[SFS-HR] recalc_session_for: session insert failed (on_leave) db_error={$wpdb->last_error}");
+                }
+            }
             return;
         }
     }
@@ -4804,7 +5023,7 @@ if ( ! empty( $leadingOuts ) ) {
     $prevDate   = $prevDateDt->format( 'Y-m-d' );
     $sT         = $wpdb->prefix . 'sfs_hr_attendance_sessions';
     $prevSess   = $wpdb->get_row( $wpdb->prepare(
-        "SELECT id, status, in_time, out_time, break_minutes, flags_json FROM {$sT}
+        "SELECT id, status, in_time, out_time, break_minutes, flags_json, locked FROM {$sT}
          WHERE employee_id = %d AND work_date = %s LIMIT 1",
         $employee_id, $prevDate
     ) );
@@ -4846,8 +5065,10 @@ if ( ! empty( $leadingOuts ) ) {
             }
         } elseif ( $prevShift && ! empty( $prevShift->end_time ) ) {
             $tz_rc        = wp_timezone();
-            $grEarlyRc    = ( isset( $prevShift->grace_early_leave_minutes ) )
-                ? (int) $prevShift->grace_early_leave_minutes
+            $shiftGrEarlyRc = ( $prevShift && $prevShift->grace_early_leave_minutes !== null )
+                ? (int) $prevShift->grace_early_leave_minutes : null;
+            $grEarlyRc = $shiftGrEarlyRc !== null
+                ? $shiftGrEarlyRc
                 : (int) ( $prevSettings['default_grace_early'] ?? 5 );
             $shiftEndDt   = new \DateTimeImmutable( $prevDate . ' ' . $prevShift->end_time, $tz_rc );
             // Overnight shift: if end_time < start_time, the shift end is the next day
@@ -4891,10 +5112,31 @@ if ( ! empty( $leadingOuts ) ) {
             $prevStatus = 'left_early';
         }
 
+        // Compute overtime for the retro-closed session (H12 fix).
+        // Respect overtime_after_minutes threshold from the shift (C9 fix).
+        $prevOtThreshold = ( $prevShift && $prevShift->overtime_after_minutes !== null )
+            ? (int) $prevShift->overtime_after_minutes
+            : 0;
+        if ( $prevIsTotalHrs ) {
+            $prevOt = max( 0, $netMinutes - $prevTargetMin - $prevOtThreshold );
+        } else {
+            // Build segments to get scheduled_total for the previous date
+            $prevSegments  = self::build_segments_from_shift( $prevShift, $prevDate );
+            $prevScheduled = 0;
+            foreach ( $prevSegments as $ps ) {
+                $prevScheduled += (int) $ps['minutes'];
+            }
+            $prevOt = max( 0, $netMinutes - $prevScheduled - $prevOtThreshold );
+        }
+        if ( $prevRoundN > 0 ) {
+            $prevOt = (int) round( $prevOt / $prevRoundN ) * $prevRoundN;
+        }
+
         $prev_session_data = [
             'out_time'            => $closingOut,
             'net_minutes'         => $netMinutes,
             'rounded_net_minutes' => $roundedNet,
+            'overtime_minutes'    => $prevOt,
             'status'              => $prevStatus,
             'flags_json'          => wp_json_encode( $prevFlags ),
             'last_recalc_at'      => current_time( 'mysql', true ),
@@ -4907,7 +5149,20 @@ if ( ! empty( $leadingOuts ) ) {
             $prev_session_data['early_leave_request_id'] = null;
         }
 
-        $wpdb->update( $sT, $prev_session_data, [ 'id' => (int) $prevSess->id ] );
+        // S9: atomically skip locked sessions during retroactive close
+        $retro_result = $wpdb->update( $sT, $prev_session_data, [ 'id' => (int) $prevSess->id, 'locked' => 0 ] );
+        if ( $retro_result === false ) {
+            // H10: write failed — skip ELR creation for unpersisted session
+            error_log("[SFS-HR] recalc_session_for: retro-close write failed session_id={$prevSess->id} db_error={$wpdb->last_error}");
+            $prevIsEarly = false;
+        } elseif ( $retro_result === 0 ) {
+            // update() returned 0: either locked or data was identical.
+            $is_locked = (int) $wpdb->get_var( $wpdb->prepare("SELECT locked FROM {$sT} WHERE id=%d", (int) $prevSess->id) );
+            if ( $is_locked ) {
+                error_log("[SFS-HR] recalc_session_for: skipping retro-close of locked session id={$prevSess->id}");
+                $prevIsEarly = false;
+            }
+        }
 
         // Auto-create early leave request for the retro-closed session.
         if ( $prevIsEarly && $prevEarlyMin > 0 ) {
@@ -4940,15 +5195,19 @@ if ( ! empty( $leadingOuts ) ) {
     $globalGrEarly = (int)($settings['default_grace_early'] ?? 5);
     $globalRound   = (string)($settings['default_rounding_rule'] ?? '5');
 
-    // Use shift-level grace/rounding if the shift defines them (non-null)
-    $grLate  = ( $shift && isset($shift->grace_late_minutes) )        ? (int)$shift->grace_late_minutes        : $globalGrLate;
-    $grEarly = ( $shift && isset($shift->grace_early_leave_minutes) ) ? (int)$shift->grace_early_leave_minutes : $globalGrEarly;
+    // Use shift-level grace/rounding if the shift defines them (non-null).
+    // An explicit 0 on the shift means "no grace" and is preserved;
+    // only null/missing falls back to the global default.
+    $shiftGrLate  = ( $shift && $shift->grace_late_minutes !== null )        ? (int)$shift->grace_late_minutes        : null;
+    $shiftGrEarly = ( $shift && $shift->grace_early_leave_minutes !== null ) ? (int)$shift->grace_early_leave_minutes : null;
+    $grLate  = $shiftGrLate  !== null ? $shiftGrLate  : $globalGrLate;
+    $grEarly = $shiftGrEarly !== null ? $shiftGrEarly : $globalGrEarly;
     $round   = ( $shift && isset($shift->rounding_rule) )             ? (string)$shift->rounding_rule           : $globalRound;
     $roundN  = ($round === 'none') ? 0 : (int)$round;
 
     // For incomplete sessions (unmatched clock-in), cap at shift end rather than midnight.
     // This prevents inflated worked hours (e.g. 36h for a day where clock-out was missed).
-    $dayCapUtcTs = strtotime($endUtc); // fallback: midnight end of local day
+    $dayCapUtcTs = strtotime($endUtc . ' UTC'); // fallback: midnight end of local day
     if ( ! empty( $segments ) ) {
         $lastSeg = end( $segments );
         $segEndTs = strtotime( $lastSeg['end_utc'] . ' UTC' );
@@ -5055,10 +5314,32 @@ if ( ! empty( $leadingOuts ) ) {
         $no_break_taken = 0;
     }
 
+    // Compute OT from raw (unrounded) net to avoid losing fractional OT to rounding (M2 fix).
+    // Respect overtime_after_minutes threshold from the shift (C9 fix).
+    $scheduled = (int)$ev['scheduled_total'];
+    $raw_net   = $net; // preserve unrounded net for OT calculation
+
+    // Apply rounding to net worked time (display / payroll).
     if ($roundN > 0) $net = (int)round($net / $roundN) * $roundN;
 
-    $scheduled = (int)$ev['scheduled_total'];
-    $ot = max(0, $net - $scheduled);
+    // OT calculation using overtime_after_minutes threshold from the shift (C9 fix).
+    // The threshold is extra minutes an employee must work BEYOND scheduled hours
+    // before overtime starts counting. E.g., threshold=15 means the first 15 min
+    // past the shift are not counted as OT (grace buffer).
+    //
+    // NULL = not configured → OT starts immediately after scheduled (backward compatible)
+    // 0    = OT starts immediately after scheduled (explicit, same as NULL)
+    // >0   = employee must work this many extra minutes before OT kicks in
+    $shift_ot_threshold = ( $shift && $shift->overtime_after_minutes !== null )
+        ? (int) $shift->overtime_after_minutes
+        : 0;
+
+    // OT = excess beyond scheduled + threshold, calculated from raw (unrounded) net
+    $ot = max( 0, $raw_net - $scheduled - $shift_ot_threshold );
+    // Round OT independently if rounding is active
+    if ( $roundN > 0 ) {
+        $ot = (int) round( $ot / $roundN ) * $roundN;
+    }
 
     // Status rollup
     $status = 'present';
@@ -5093,6 +5374,10 @@ if ( ! empty( $leadingOuts ) ) {
             if ( $lastOut && $has_meaningful_end ) {
                 $tz_th        = wp_timezone();
                 $shift_end_th = new \DateTimeImmutable( $ymd . ' ' . $shift->end_time, $tz_th );
+                // Overnight shift: end_time < start_time means shift ends the next day
+                if ( ! empty( $shift->start_time ) && $shift->end_time < $shift->start_time ) {
+                    $shift_end_th = $shift_end_th->modify( '+1 day' );
+                }
                 $last_out_th  = ( new \DateTimeImmutable( $lastOut, new \DateTimeZone( 'UTC' ) ) )->setTimezone( $tz_th );
                 $actually_left_early = ( $last_out_th < $shift_end_th );
             }
@@ -5110,8 +5395,11 @@ if ( ! empty( $leadingOuts ) ) {
             $status = 'present';
         }
 
-        // In total-hours mode, overtime is hours beyond target
-        $ot = max( 0, $net - $target_minutes );
+        // In total-hours mode, overtime is hours beyond target + threshold
+        $ot = max( 0, $raw_net - $target_minutes - $shift_ot_threshold );
+        if ( $roundN > 0 ) {
+            $ot = (int) round( $ot / $roundN ) * $roundN;
+        }
     } elseif (!$segments || count($segments)===0) {
         // No shift segments (no fixed start/end times and NOT total_hours) → day off or holiday
         $status = $is_holiday ? 'holiday' : 'day_off';
@@ -5232,6 +5520,10 @@ if ( ! empty( $leadingOuts ) ) {
         'rounded_rule'    => $round,
         'grace'           => ['late'=>$grLate,'early'=>$grEarly],
         'counters'        => ['outside_geo'=>$outside_geo,'no_selfie'=>$no_selfie],
+        'overtime'        => [
+            'overtime_after_minutes'  => $shift_ot_threshold,
+            'raw_net_before_rounding' => $raw_net,
+        ],
     ];
 
     // Break diagnostics in calc_meta — always write for debugging
@@ -5284,19 +5576,53 @@ if ( ! empty( $leadingOuts ) ) {
         $data['early_leave_request_id'] = null;
     }
 
+    // Back-link: ensure the ELR record's session_id is populated.
+    // This handles the case where the ELR was approved before the session
+    // existed (e.g., pre-approved for a future date).
+    // We'll do an atomic conditional UPDATE after the session is persisted.
+
     // Check if this is a new late/early detection (to avoid duplicate notifications)
     $existing_flags = [];
     $exists = $wpdb->get_var( $wpdb->prepare("SELECT id FROM {$sT} WHERE employee_id=%d AND work_date=%s LIMIT 1", $employee_id, $ymd) );
     if ($exists) {
+        // S9: read flags and attempt atomic update (locked=0 in WHERE skips locked sessions)
         $existing_flags_json = $wpdb->get_var( $wpdb->prepare("SELECT flags_json FROM {$sT} WHERE id=%d", (int)$exists) );
         $existing_flags = $existing_flags_json ? (json_decode($existing_flags_json, true) ?: []) : [];
-        $wpdb->update($sT, $data, ['id'=>(int)$exists]);
+        $result = $wpdb->update($sT, $data, ['id' => (int)$exists, 'locked' => 0]);
+        if ( $result === false ) {
+            error_log("[SFS-HR] recalc_session_for: session write failed db_error={$wpdb->last_error}");
+            return; // Don't proceed with ELR back-linking on failed write
+        } elseif ( $result === 0 ) {
+            // update() returned 0: either locked or data identical.
+            $is_locked = (int) $wpdb->get_var( $wpdb->prepare("SELECT locked FROM {$sT} WHERE id=%d", (int)$exists) );
+            if ( $is_locked ) {
+                error_log("[SFS-HR] recalc_session_for: skipping locked session id={$exists}");
+                return;
+            }
+            // else: data was identical, continue with follow-up work
+        }
     } else {
-        $wpdb->insert($sT, $data);
+        $result = $wpdb->insert($sT, $data);
+        if ( $result === false ) {
+            error_log("[SFS-HR] recalc_session_for: session insert failed db_error={$wpdb->last_error}");
+            return; // Don't proceed with ELR back-linking on failed insert
+        }
     }
 
     // Capture session ID for linking (used by auto-created early leave requests)
     $session_id = $exists ? (int) $exists : (int) $wpdb->insert_id;
+
+    // Atomic back-link: set session_id only if still NULL (prevents race with concurrent workers).
+    if ( ! empty( $approved_el_id ) && $session_id ) {
+        $bl_result = $wpdb->query( $wpdb->prepare(
+            "UPDATE {$elr_table} SET session_id = %d WHERE id = %d AND session_id IS NULL",
+            $session_id,
+            (int) $approved_el_id
+        ) );
+        if ( $bl_result === false ) {
+            error_log("[SFS-HR] recalc_session_for: ELR back-link failed elr_id={$approved_el_id} db_error={$wpdb->last_error}");
+        }
+    }
 
     // Fire notification hooks for late arrival and early leave (only once per session)
     $was_late = in_array('late', $existing_flags, true);
@@ -5335,6 +5661,10 @@ if ( ! empty( $leadingOuts ) ) {
             if ( $minutes_early === 0 && $shift && ! empty( $shift->end_time ) && $lastOut ) {
                 $tz_fb       = wp_timezone();
                 $shift_end_dt = new \DateTimeImmutable( $ymd . ' ' . $shift->end_time, $tz_fb );
+                // Overnight shift: end_time < start_time means shift ends the next day
+                if ( ! empty( $shift->start_time ) && $shift->end_time < $shift->start_time ) {
+                    $shift_end_dt = $shift_end_dt->modify( '+1 day' );
+                }
                 $last_out_dt  = ( new \DateTimeImmutable( $lastOut, new \DateTimeZone( 'UTC' ) ) )->setTimezone( $tz_fb );
                 $diff_secs    = $shift_end_dt->getTimestamp() - $last_out_dt->getTimestamp();
                 if ( $diff_secs > 0 ) {
@@ -5390,10 +5720,15 @@ if ( ! empty( $leadingOuts ) ) {
             'type'                => 'attendance_flag',
         ] );
     }
+
+    } finally {
+        // Release recalc lock (H3 fix)
+        $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $recalc_lock ) );
+    }
 }
 
 
-    
+
 
     /** Load the Department → Shift automation map from options, resilient to different keys/shapes. */
 /** Load Department → Shift automation map and normalize to: [deptKey => configArray]. */

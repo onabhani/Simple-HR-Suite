@@ -62,7 +62,7 @@ class Attendance_Metrics {
         // Get attendance sessions for the period
         $sessions = $wpdb->get_results( $wpdb->prepare(
             "SELECT work_date, status, flags_json, rounded_net_minutes, in_time, out_time,
-                    break_delay_minutes, no_break_taken
+                    break_delay_minutes, no_break_taken, early_leave_approved
              FROM {$sessions_table}
              WHERE employee_id = %d
                AND work_date >= %s
@@ -104,6 +104,12 @@ class Attendance_Metrics {
         foreach ( $sessions as $session ) {
             $flags = json_decode( $session->flags_json, true ) ?: [];
             $status = $session->status;
+
+            // Strip 'left_early' flag when the early leave was approved
+            // so it doesn't count as an attendance issue.
+            if ( ! empty( $session->early_leave_approved ) && in_array( 'left_early', $flags, true ) ) {
+                $flags = array_values( array_filter( $flags, fn( $f ) => $f !== 'left_early' ) );
+            }
 
             // Track daily breakdown
             $day_data = [
@@ -161,7 +167,7 @@ class Attendance_Metrics {
                     'flag' => 'late',
                 ];
             }
-            if ( in_array( 'left_early', $flags, true ) ) {
+            if ( in_array( 'left_early', $flags, true ) && empty( $session->early_leave_approved ) ) {
                 $metrics['early_leave_count']++;
                 $metrics['flag_details'][] = [
                     'date' => $session->work_date,

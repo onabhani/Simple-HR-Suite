@@ -128,36 +128,24 @@ public static function routes(): void {
 
 
 
-/** Store a one-time scan token using options (works across nodes). */
-private static function put_scan_token(string $token, array $payload, int $ttl = 300): void {
+/**
+ * Store a one-time scan token using transients (auto-expires via TTL).
+ * Transients are the WordPress-recommended mechanism for temporary data and
+ * are automatically cleaned up, preventing stale token buildup in wp_options.
+ */
+private static function put_scan_token(string $token, array $payload, int $ttl = 300): bool {
     $key = 'sfs_hr_scan_' . $token;
-    // avoid clobbering an existing token
-    if ( get_option($key, null) !== null ) return;
-    add_option($key, ['data' => $payload, 'exp' => time() + $ttl], '', false);
-}
-
-
-
-/** Consume & delete the token; returns payload or null if missing/expired. */
-private static function pop_scan_token(string $token): ?array {
-    $key = 'sfs_hr_scan_' . $token;
-    $row = get_option($key, null);
-    if ($row === null || !is_array($row)) return null;
-    if (empty($row['exp']) || time() > (int)$row['exp']) {
-        delete_option($key);
-        return null;
-    }
-    delete_option($key);
-    return isset($row['data']) && is_array($row['data']) ? $row['data'] : null;
+    // Avoid clobbering an existing token
+    if ( get_transient( $key ) !== false ) return false;
+    return (bool) set_transient( $key, $payload, $ttl );
 }
 
 /** Peek (do not consume) a scan token; returns payload or null if missing/expired. */
 private static function get_scan_token( string $token ): ?array {
     $key = 'sfs_hr_scan_' . $token;
-    $row = get_option( $key, null );
-    if ( $row === null || ! is_array( $row ) ) return null;
-    if ( empty( $row['exp'] ) || time() > (int) $row['exp'] ) return null;
-    return ( isset( $row['data'] ) && is_array( $row['data'] ) ) ? $row['data'] : null;
+    $row = get_transient( $key );
+    if ( $row === false || ! is_array( $row ) ) return null;
+    return $row;
 }
 
 
@@ -238,13 +226,21 @@ public static function scan( \WP_REST_Request $req ) {
     // Mint short-lived server scan token (one-time use)
     $scan_token = substr( wp_hash( $emp . '|' . $qrTok . '|' . microtime(true) ), 0, 24 );
 
-    self::put_scan_token( $scan_token, [
+    $token_stored = self::put_scan_token( $scan_token, [
         'employee_id' => $emp,
         'device_id'   => $device ?: null,
         'qr_token'    => $qrTok,
-        'ua'          => isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '',
-        'ip'          => isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : '',
+        'ua'          => isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field( (string) $_SERVER['HTTP_USER_AGENT'] ) : '',
+        'ip'          => isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field( (string) $_SERVER['REMOTE_ADDR'] ) : '',
     ], 600 ); // TTL: 10 minutes (allows full punch sequence: In → Break Start → Break End → Out)
+
+    if ( ! $token_stored ) {
+        return new \WP_Error(
+            'token_store_failed',
+            __( 'Failed to store scan token. Please try again.', 'sfs-hr' ),
+            [ 'status' => 500 ]
+        );
+    }
 
     return rest_ensure_response([
         'ok'            => true,
@@ -292,8 +288,8 @@ public static function kiosk_roster( \WP_REST_Request $req ) {
     }
 
     // Build query: active employees with QR enabled and a valid token
-    $where = "e.status = 'active' AND e.qr_enabled = 1 AND e.qr_token IS NOT NULL AND e.qr_token != ''";
-    $params = [];
+    $where = "e.status = %s AND e.qr_enabled = 1 AND e.qr_token IS NOT NULL AND e.qr_token != ''";
+    $params = [ 'active' ];
 
     if ( $allowed_dept_id ) {
         $where .= ' AND e.dept_id = %d';
@@ -306,9 +302,7 @@ public static function kiosk_roster( \WP_REST_Request $req ) {
             WHERE {$where}
             ORDER BY e.id ASC";
 
-    $rows = $params
-        ? $wpdb->get_results( $wpdb->prepare( $sql, ...$params ), ARRAY_A )
-        : $wpdb->get_results( $sql, ARRAY_A );
+    $rows = $wpdb->get_results( $wpdb->prepare( $sql, ...$params ), ARRAY_A );
 
     $employees = [];
     foreach ( (array) $rows as $r ) {
@@ -375,14 +369,22 @@ public static function status( \WP_REST_Request $req ) {
             if ( $dev ) {
                 $qr_enabled  = ((int)$dev->qr_enabled === 1);
                 $device_mode = (string)$dev->selfie_mode;
-                $device_meta = [
-                    'id'       => (int)$dev->id,
-                    'label'    => (string)($dev->label ?? ''),
-                    'dept'     => (string)($dev->allowed_dept_id ?? 'any'),
-                    'geofence' => ($dev->geo_lock_lat !== null && $dev->geo_lock_lng !== null && $dev->geo_lock_radius_m !== null)
-                        ? [ 'lat' => (float)$dev->geo_lock_lat, 'lng' => (float)$dev->geo_lock_lng, 'radius_m' => (int)$dev->geo_lock_radius_m ]
-                        : null,
-                ];
+                // Only expose full device config to authenticated users
+                if ( is_user_logged_in() ) {
+                    $device_meta = [
+                        'id'       => (int)$dev->id,
+                        'label'    => (string)($dev->label ?? ''),
+                        'dept'     => (string)($dev->allowed_dept_id ?? 'any'),
+                        'geofence' => ($dev->geo_lock_lat !== null && $dev->geo_lock_lng !== null && $dev->geo_lock_radius_m !== null)
+                            ? [ 'lat' => (float)$dev->geo_lock_lat, 'lng' => (float)$dev->geo_lock_lng, 'radius_m' => (int)$dev->geo_lock_radius_m ]
+                            : null,
+                    ];
+                } else {
+                    // Unauthenticated: only expose minimal info needed for kiosk UI init
+                    $device_meta = [
+                        'id' => (int)$dev->id,
+                    ];
+                }
             }
         }
 
@@ -490,7 +492,10 @@ if ( $last_punch ) {
         ];
         if ( $dbg && current_user_can( 'sfs_hr_attendance_admin' ) ) {
             $err['detail'] = $e->getMessage();
-            $err['trace']  = $e->getTraceAsString();
+        }
+        // Log server-side only; never expose file paths or traces in API responses.
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            error_log( '[SFS ATT] Status error in snapshot' );
         }
         return new \WP_Error( 'status_error', wp_json_encode($err), [ 'status' => 500 ] );
     }
@@ -518,6 +523,21 @@ public static function can_punch_self_or_kiosk(): bool {
 
 public static function punch( \WP_REST_Request $req ) {
     global $wpdb;
+
+    // ---- IP-based rate limiting (prevents automated flooding / DoS) ----
+    // Allow max 30 punch requests per minute per IP address.
+    $client_ip    = self::get_client_ip();
+    $rate_key     = 'sfs_hr_punch_rate_' . md5( $client_ip );
+    $rate_count   = (int) get_transient( $rate_key );
+    $rate_limit   = 30; // requests per 60-second window
+    if ( $rate_count >= $rate_limit ) {
+        return new \WP_Error(
+            'rate_limited',
+            __( 'Too many requests. Please try again in a minute.', 'sfs-hr' ),
+            [ 'status' => 429 ]
+        );
+    }
+    set_transient( $rate_key, $rate_count + 1, 60 );
 
     // ---- Inputs (validated/sanitized by route args)
     $params      = $req->get_params();
@@ -550,16 +570,24 @@ public static function punch( \WP_REST_Request $req ) {
         }
         // Verify employee exists and is active
         $empT = $wpdb->prefix . 'sfs_hr_employees';
-        $emp_exists = $wpdb->get_var( $wpdb->prepare(
-            "SELECT id FROM {$empT} WHERE id = %d AND status = 'active'",
+        $emp_row_offline = $wpdb->get_row( $wpdb->prepare(
+            "SELECT id, dept_id FROM {$empT} WHERE id = %d AND status = 'active'",
             $offline_employee_id
         ) );
-        if ( ! $emp_exists ) {
+        if ( ! $emp_row_offline ) {
             return new \WP_Error( 'offline_unknown_employee', 'Employee not found or inactive.', [ 'status' => 404 ] );
+        }
+        // Enforce department restriction: device's allowed_dept_id must match employee's dept
+        $dev_dept = $wpdb->get_var( $wpdb->prepare(
+            "SELECT allowed_dept_id FROM {$devT} WHERE id = %d",
+            $device_id
+        ) );
+        if ( $dev_dept && (int) $dev_dept > 0 && (int) $emp_row_offline->dept_id !== (int) $dev_dept ) {
+            return new \WP_Error( 'offline_dept_mismatch', 'Employee does not belong to the department assigned to this device.', [ 'status' => 403 ] );
         }
         // Validate client_punch_time: must be a parseable datetime, not more than 24h old
         if ( $client_punch_time !== '' ) {
-            $client_ts = strtotime( $client_punch_time );
+            $client_ts = strtotime( $client_punch_time . ' UTC' );
             if ( ! $client_ts ) {
                 return new \WP_Error( 'offline_bad_time', 'Invalid client_punch_time format.', [ 'status' => 400 ] );
             }
@@ -569,6 +597,39 @@ public static function punch( \WP_REST_Request $req ) {
             }
             if ( $age < -300 ) { // more than 5 min in the future
                 return new \WP_Error( 'offline_future', 'Offline punch time is in the future.', [ 'status' => 409 ] );
+            }
+
+            // Validate punch falls within the employee's shift window ± 2h buffer (C8/S4 fix).
+            // Prevents time fraud on offline kiosks where punches could be fabricated
+            // for any time within the 24h staleness window.
+            $offline_emp_id = $offline_employee_id;
+            $offline_date   = gmdate( 'Y-m-d', $client_ts );
+            $offline_shift  = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( $offline_emp_id, $offline_date );
+            if ( $offline_shift ) {
+                $offline_segs = \SFS\HR\Modules\Attendance\AttendanceModule::build_segments_from_shift( $offline_shift, $offline_date );
+                if ( ! empty( $offline_segs ) ) {
+                    $first_seg    = reset( $offline_segs );
+                    $last_seg     = end( $offline_segs );
+                    $seg_start_ts = strtotime( $first_seg['start_utc'] . ' UTC' );
+                    $seg_end_ts   = strtotime( $last_seg['end_utc'] . ' UTC' );
+
+                    // Use overtime buffer to extend allowed window past shift end
+                    $ot_buf_raw = $offline_shift->overtime_buffer_minutes ?? null;
+                    $ot_buf     = ( $ot_buf_raw !== null )
+                        ? (int) $ot_buf_raw
+                        : min( (int) round( $last_seg['minutes'] * 0.5 ), 240 );
+
+                    $window_start = $seg_start_ts - 7200; // 2h before shift
+                    $window_end   = $seg_end_ts + $ot_buf * 60;
+
+                    if ( $client_ts < $window_start || $client_ts > $window_end ) {
+                        return new \WP_Error(
+                            'offline_outside_shift',
+                            'Offline punch time falls outside your shift window.',
+                            [ 'status' => 409 ]
+                        );
+                    }
+                }
             }
         }
     }
@@ -900,7 +961,7 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
     // For offline punches, use client-reported time (already validated above)
     $punchTimeUtc = $nowUtc;
     if ( $is_offline_origin && $client_punch_time !== '' ) {
-        $punchTimeUtc = gmdate( 'Y-m-d H:i:s', strtotime( $client_punch_time ) );
+        $punchTimeUtc = gmdate( 'Y-m-d H:i:s', strtotime( $client_punch_time . ' UTC' ) );
     }
     $punchT = $wpdb->prefix . 'sfs_hr_attendance_punches';
 
@@ -921,6 +982,32 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
     }
 
     try {
+        // ---- RE-VALIDATE STATE INSIDE LOCK (H2 TOCTOU fix) ----
+        // The initial snapshot_for_today + allow check happened BEFORE the lock.
+        // A concurrent request could have changed the state between then and now.
+        // Re-check the last punch to confirm the transition is still valid.
+        $last_after_lock = $wpdb->get_var( $wpdb->prepare(
+            "SELECT punch_type FROM {$punchT}
+             WHERE employee_id = %d ORDER BY punch_time DESC, id DESC LIMIT 1",
+            (int) $emp
+        ) );
+        $state_map = [ 'in' => 'in', 'break_end' => 'in', 'break_start' => 'break', 'out' => 'idle' ];
+        $state_after_lock = $state_map[ $last_after_lock ] ?? 'idle';
+        $allow_after_lock = [
+            'in'          => ( $state_after_lock === 'idle' ),
+            'out'         => ( $state_after_lock === 'in' || $has_stale_session ),
+            'break_start' => ( $state_after_lock === 'in' ),
+            'break_end'   => ( $state_after_lock === 'break' ),
+        ];
+        if ( empty( $allow_after_lock[ $punch_type ] ) ) {
+            $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
+            return new \WP_Error(
+                'invalid_transition',
+                'Another punch was processed simultaneously. Please try again.',
+                [ 'status' => 409 ]
+            );
+        }
+
         // ---- FINAL DUPLICATE CHECK: Prevent exact duplicate within 30 seconds of punch time
         // For offline punches, check around the client-reported time to catch duplicates
         $dup_ref_time = $punchTimeUtc;
@@ -940,7 +1027,7 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
 
         if ( $duplicate_check ) {
             $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
-            $dup_time = wp_date( 'H:i:s', strtotime( $duplicate_check->punch_time ) );
+            $dup_time = wp_date( 'H:i:s', strtotime( $duplicate_check->punch_time . ' UTC' ) );
             return new \WP_Error(
                 'duplicate',
                 sprintf( 'This punch was already recorded at %s. Please wait before trying again.', $dup_time ),
@@ -986,16 +1073,9 @@ if ( $punch_id === 0 ) {
     );
 }
 
-if ( $selfie_media_id ) {
-    update_post_meta( $selfie_media_id, '_sfs_att_punch_id', $punch_id );
-    update_post_meta( $selfie_media_id, '_sfs_att_employee_id', (int) $emp );
-    update_post_meta( $selfie_media_id, '_sfs_att_source', $source );
-}
-
-
-    // ---- Audit
+    // ---- Audit (insert before attachment meta so rollback is clean)
     $auditT = $wpdb->prefix . 'sfs_hr_attendance_audit';
-    $wpdb->insert( $auditT, [
+    $audit_ok = $wpdb->insert( $auditT, [
         'actor_user_id'      => $uid,
         'action_type'        => 'punch.create',
         'target_employee_id' => (int) $emp,
@@ -1012,13 +1092,72 @@ if ( $selfie_media_id ) {
         ], fn( $v ) => $v !== null ) ),
         'created_at'         => $nowUtc,
     ] );
+    if ( $audit_ok === false ) {
+        error_log( sprintf( '[SFS ATT] Audit insert failed for punch %d: %s', $punch_id, $wpdb->last_error ) );
+        // Roll back the punch — no attachment meta was written yet
+        $wpdb->delete( $wpdb->prefix . 'sfs_hr_attendance_punches', [ 'id' => $punch_id ], [ '%d' ] );
+        $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
+        return new \WP_Error(
+            'audit_failed',
+            'Failed to record audit trail. Punch was not saved.',
+            [ 'status' => 500 ]
+        );
+    }
+
+    // ---- Attachment meta (after audit success so rollback never needs cleanup)
+    if ( $selfie_media_id ) {
+        update_post_meta( $selfie_media_id, '_sfs_att_punch_id', $punch_id );
+        update_post_meta( $selfie_media_id, '_sfs_att_employee_id', (int) $emp );
+        update_post_meta( $selfie_media_id, '_sfs_att_source', $source );
+    }
 
     // ---- Recalculate the session for the work date (may be yesterday for overnight shifts)
-        \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( (int) $emp, $dateYmd );
+        \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( (int) $emp, $dateYmd, null, true );
 
-    // Post-punch snapshot (must re-query — DB now includes the new punch)
-    $snap  = self::snapshot_for_today( (int) $emp );
+    // Build post-punch snapshot from pre-punch state (avoids duplicate DB query).
+    // The new punch deterministically changes state/allow/label/history.
+    $snap  = $pre;
     $today = wp_date( 'Y-m-d' );
+
+    // Update state based on the punch we just inserted
+    $post_state_map = [ 'in' => 'in', 'break_end' => 'in', 'break_start' => 'break', 'out' => 'idle' ];
+    $post_state = $post_state_map[ $punch_type ] ?? ( $pre['state'] ?? 'idle' );
+    $snap['state'] = $post_state;
+    $snap['allow'] = [
+        'in'          => ( $post_state === 'idle' ),
+        'out'         => ( $post_state === 'in' ),
+        'break_start' => ( $post_state === 'in' ),
+        'break_end'   => ( $post_state === 'break' ),
+    ];
+
+    // Update label
+    $type_labels_post = [
+        'in'          => __( 'Clock In', 'sfs-hr' ),
+        'out'         => __( 'Clock Out', 'sfs-hr' ),
+        'break_start' => __( 'Break Start', 'sfs-hr' ),
+        'break_end'   => __( 'Break End', 'sfs-hr' ),
+    ];
+    $punch_ts   = strtotime( $punchTimeUtc . ' UTC' );
+    $when_label = wp_date( 'H:i', $punch_ts );
+    $snap['label'] = sprintf(
+        __( 'Last: %1$s at %2$s', 'sfs-hr' ),
+        $type_labels_post[ $punch_type ] ?? strtoupper( str_replace( '_', ' ', $punch_type ) ),
+        $when_label
+    );
+
+    // Append to punch history
+    $snap['punch_history'][] = [
+        'type' => $punch_type,
+        'time' => $when_label,
+    ];
+
+    // Update clock_in_time if this was the first clock-in
+    if ( $punch_type === 'in' && empty( $snap['clock_in_time'] ) ) {
+        $snap['clock_in_time'] = $when_label;
+    }
+
+    // Clear stale session message after any successful punch
+    $snap['stale_session_msg'] = '';
 
     // Selfie mode & dept for the NEXT punch response.
     // Reuse already-resolved $assign and $mode when the punch is for today
@@ -1186,8 +1325,9 @@ private static function save_selfie_attachment( array $src ): int {
         // If the last punch is an open session (in or break_end, not out)
         // and it belongs to a previous day, check whether we're still within
         // the shift's allowed window before extending.
-        $yesterday = wp_date( 'Y-m-d', strtotime( '-1 day' ) );
-        if ( in_array( $last_type_g, [ 'in', 'break_end' ], true ) && $last_local >= $yesterday && $last_local < $today ) {
+        // Check any previous day (not just yesterday) to handle sessions stuck
+        // for 2+ days — e.g. employee forgot to clock out before a weekend (C3 fix).
+        if ( in_array( $last_type_g, [ 'in', 'break_end' ], true ) && $last_local < $today ) {
             // Resolve the shift for the day the session started and check
             // whether current time is still within shift_end + buffer.
             $work_date  = $last_local;
@@ -1257,7 +1397,7 @@ private static function save_selfie_attachment( array $src ): int {
     $break_start_ts  = null; // timestamp when current break started
 
     foreach ( $rows as $r ) {
-        $ts = strtotime( $r->punch_time );
+        $ts = strtotime( $r->punch_time . ' UTC' );
         switch ( $r->punch_type ) {
             case 'in':
                 if ( ! $clock_in_time ) {
@@ -1293,7 +1433,7 @@ private static function save_selfie_attachment( array $src ): int {
     if (!empty($rows)) {
         $last     = end($rows);
         $lastType = (string)$last->punch_type;
-        $when     = wp_date('H:i', strtotime($last->punch_time)); // shown in site TZ
+        $when     = wp_date('H:i', strtotime($last->punch_time . ' UTC')); // shown in site TZ
         $typeLabel = $type_labels[ $lastType ] ?? strtoupper(str_replace('_',' ', $lastType));
         /* translators: %1$s = punch type label (e.g. Clock In), %2$s = time (e.g. 14:30) */
         $label    = sprintf( __( 'Last: %1$s at %2$s', 'sfs-hr' ), $typeLabel, $when );
@@ -1366,7 +1506,7 @@ private static function save_selfie_attachment( array $src ): int {
     foreach ( $rows as $r ) {
         $punch_history[] = [
             'type' => $r->punch_type,
-            'time' => wp_date( 'H:i', strtotime( $r->punch_time ) ),
+            'time' => wp_date( 'H:i', strtotime( $r->punch_time . ' UTC' ) ),
         ];
     }
 
@@ -1407,6 +1547,45 @@ private static function save_selfie_attachment( array $src ): int {
     }
 
     /**
+     * Get client IP address.
+     *
+     * Only trusts X-Forwarded-For / X-Real-IP when the immediate peer
+     * (REMOTE_ADDR) is in the trusted-proxy list.  Without this gate,
+     * any client can spoof its IP and bypass per-IP rate limiting.
+     *
+     * Trusted proxies can be configured via the
+     * `sfs_hr_attendance_trusted_proxies` filter (returns string[]).
+     */
+    private static function get_client_ip(): string {
+        $remote_addr = isset( $_SERVER['REMOTE_ADDR'] )
+            ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) )
+            : '0.0.0.0';
+
+        /**
+         * Filter the list of trusted reverse-proxy IPs.
+         *
+         * @param string[] $proxies Default: loopback addresses.
+         */
+        $trusted = apply_filters( 'sfs_hr_attendance_trusted_proxies', [ '127.0.0.1', '::1' ] );
+
+        if ( in_array( $remote_addr, $trusted, true ) ) {
+            // Peer is a known proxy — check forwarded headers
+            foreach ( [ 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP' ] as $key ) {
+                $val = isset( $_SERVER[ $key ] ) ? sanitize_text_field( wp_unslash( $_SERVER[ $key ] ) ) : '';
+                if ( $val !== '' ) {
+                    $ip = trim( explode( ',', $val )[0] );
+                    if ( filter_var( $ip, FILTER_VALIDATE_IP ) ) {
+                        return $ip;
+                    }
+                }
+            }
+        }
+
+        // Untrusted peer or no valid forwarded header — use REMOTE_ADDR
+        return filter_var( $remote_addr, FILTER_VALIDATE_IP ) ? $remote_addr : '0.0.0.0';
+    }
+
+    /**
      * Verify Manager PIN for kiosk device
      * POST /sfs-hr/v1/attendance/verify-pin
      */
@@ -1416,6 +1595,22 @@ private static function save_selfie_attachment( array $src ): int {
 
         if ( ! $device_id || ! $pin ) {
             return new \WP_Error( 'invalid_params', 'Device ID and PIN are required', [ 'status' => 400 ] );
+        }
+
+        // ---- Rate limiting: check BEFORE any DB lookup or PIN verification ----
+        // Per-device rate limit
+        $device_fail_key = 'sfs_hr_pin_fail_' . $device_id;
+        $device_failures = (int) get_transient( $device_fail_key );
+        if ( $device_failures >= 5 ) {
+            return new \WP_Error( 'too_many_attempts', 'Too many failed attempts. Please wait 5 minutes.', [ 'status' => 429 ] );
+        }
+
+        // Per-IP rate limit (prevents distributed brute-force across devices)
+        $client_ip   = self::get_client_ip();
+        $ip_fail_key = 'sfs_hr_pin_fail_ip_' . md5( $client_ip );
+        $ip_failures = (int) get_transient( $ip_fail_key );
+        if ( $ip_failures >= 10 ) {
+            return new \WP_Error( 'too_many_attempts', 'Too many failed attempts from this location. Please wait 5 minutes.', [ 'status' => 429 ] );
         }
 
         global $wpdb;
@@ -1437,21 +1632,17 @@ private static function save_selfie_attachment( array $src ): int {
 
         // Verify PIN using WordPress password functions
         if ( ! wp_check_password( $pin, $device->kiosk_pin ) ) {
-            // Rate limiting: track failed attempts
-            $transient_key = 'sfs_hr_pin_fail_' . $device_id;
-            $failures = (int) get_transient( $transient_key );
-            $failures++;
-            set_transient( $transient_key, $failures, 300 ); // 5 minute window
-
-            if ( $failures >= 5 ) {
-                return new \WP_Error( 'too_many_attempts', 'Too many failed attempts. Please wait 5 minutes.', [ 'status' => 429 ] );
-            }
+            // Increment per-device failure count
+            set_transient( $device_fail_key, $device_failures + 1, 300 ); // 5 min window
+            // Increment per-IP failure count
+            set_transient( $ip_fail_key, $ip_failures + 1, 300 ); // 5 min window
 
             return new \WP_Error( 'invalid_pin', 'Invalid PIN', [ 'status' => 401 ] );
         }
 
-        // Success - clear failures and return success token
-        delete_transient( 'sfs_hr_pin_fail_' . $device_id );
+        // Success - clear failure counters
+        delete_transient( $device_fail_key );
+        // Note: IP counter is NOT cleared on success — prevents alternating valid/invalid to reset
 
         // Generate a short-lived session token for manager actions
         $token = wp_generate_password( 32, false );

@@ -106,7 +106,9 @@ dbDelta($employees);
       PRIMARY KEY (id),
       KEY idx_emp (employee_id),
       KEY idx_type (type_id),
-      KEY idx_status (status)
+      KEY idx_status (status),
+      KEY idx_emp_status (employee_id, status),
+      KEY idx_start_date (start_date)
     ) $charset;";
     dbDelta($leave_requests);
 

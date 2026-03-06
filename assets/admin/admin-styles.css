@@ -240,7 +240,7 @@
 .sfs-hr-admin-btn svg {
     width: 14px;
     height: 14px;
-    stroke: currentColor;
+    stroke: currentcolor;
     fill: none;
     stroke-width: 2;
 }
@@ -961,4 +961,145 @@
     background: #eff6ff;
     color: #0369a1;
     font-weight: 600;
+}
+
+/* ================================================================
+   Mobile Responsive — Attendance Admin Pages
+   ================================================================ */
+
+/* ── Tab Navigation: horizontal scroll on small screens ─────────── */
+@media screen and (max-width: 782px) {
+    .sfs-hr-wrap .nav-tab-wrapper {
+        display: flex;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+        scrollbar-width: none;          /* Firefox */
+    }
+    .sfs-hr-wrap .nav-tab-wrapper::-webkit-scrollbar {
+        display: none;                  /* Chrome/Safari */
+    }
+    .sfs-hr-wrap .nav-tab {
+        flex-shrink: 0;
+        padding: 10px 14px;
+        font-size: 13px;
+    }
+}
+
+/* ── Department Toggle Rows: stack controls below name on mobile ── */
+@media screen and (max-width: 600px) {
+    .sfs-hr-dept-toggle-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .sfs-hr-dept-toggle-row__control {
+        display: flex;
+        margin-left: 0;
+        width: 100%;
+        flex-wrap: wrap;
+    }
+}
+
+/* ── Settings form: touch-friendly inputs ─────────────────────── */
+@media screen and (max-width: 782px) {
+    .sfs-hr-wrap input[type="text"],
+    .sfs-hr-wrap input[type="number"],
+    .sfs-hr-wrap input[type="email"],
+    .sfs-hr-wrap input[type="date"],
+    .sfs-hr-wrap input[type="time"],
+    .sfs-hr-wrap select {
+        min-height: 44px;
+        font-size: 16px;         /* prevent iOS zoom on focus */
+    }
+    .sfs-hr-wrap .submit .button,
+    .sfs-hr-wrap .submit input[type="submit"] {
+        min-height: 44px;
+        padding: 0 24px;
+        font-size: 14px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .sfs-hr-admin-card {
+        padding: 16px;
+        border-radius: 8px;
+    }
+}
+
+/* ── Automation page: summary cards stack, dept rows wrap ──────── */
+@media screen and (max-width: 782px) {
+    .sfs-auto-summary {
+        flex-direction: column;
+    }
+    .sfs-auto-dept-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    .sfs-auto-dept-row .sfs-auto-dept-name {
+        flex: none;
+        width: auto;
+    }
+    .sfs-auto-dept-row .sfs-auto-dept-select {
+        width: 100%;
+    }
+}
+
+/* ── Server-side pagination links ──────────────────────────────── */
+.sfs-hr-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-top: 1px solid #f0f0f1;
+    font-size: 13px;
+    color: #50575e;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.sfs-hr-pagination__info {
+    white-space: nowrap;
+}
+.sfs-hr-pagination__links {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+.sfs-hr-pagination__links a,
+.sfs-hr-pagination__links span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    height: 44px;
+    padding: 0 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    color: #374151;
+    background: #fff;
+    transition: background 0.15s, border-color 0.15s;
+}
+.sfs-hr-pagination__links a:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+}
+.sfs-hr-pagination__links .current {
+    background: #0284c7;
+    border-color: #0284c7;
+    color: #fff;
+}
+.sfs-hr-pagination__links .disabled {
+    opacity: 0.4;
+    cursor: default;
+    pointer-events: none;
+}
+
+@media screen and (max-width: 600px) {
+    .sfs-hr-pagination {
+        flex-direction: column;
+        text-align: center;
+    }
 }
