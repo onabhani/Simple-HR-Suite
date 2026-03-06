@@ -174,7 +174,8 @@ class SettingsTab implements TabInterface {
         $elr_auto_create   = ! empty( $elr_settings['auto_create'] );
         $elr_require_note  = ! empty( $elr_settings['require_note'] );
         $elr_affects_salary = $elr_settings['affects_salary_default'] ?? 'no';
-        $elr_max_per_month = (int) ( $elr_settings['max_per_month'] ?? 0 );
+        $elr_max_per_month   = (int) ( $elr_settings['max_per_month'] ?? 0 );
+        $elr_auto_reject_days = (int) ( $elr_settings['auto_reject_days'] ?? 3 );
 
         echo '<div class="sfs-card" style="margin-bottom:20px;">';
         echo '<div class="sfs-card-body">';
@@ -203,6 +204,12 @@ class SettingsTab implements TabInterface {
         echo '<label class="sfs-form-label" data-i18n-key="elr_max_per_month">' . esc_html__( 'Max Requests Per Month', 'sfs-hr' ) . '</label>';
         echo '<input type="number" name="att[elr_max_per_month]" class="sfs-input" value="' . esc_attr( (string) $elr_max_per_month ) . '" min="0" max="31">';
         echo '<span class="sfs-form-hint" data-i18n-key="elr_max_hint">' . esc_html__( 'Set to 0 for unlimited. Limits how many ELRs an employee can submit per month.', 'sfs-hr' ) . '</span>';
+        echo '</div>';
+
+        echo '<div class="sfs-form-group">';
+        echo '<label class="sfs-form-label" data-i18n-key="elr_auto_reject_days">' . esc_html__( 'Auto-Reject After (days)', 'sfs-hr' ) . '</label>';
+        echo '<input type="number" name="att[elr_auto_reject_days]" class="sfs-input" value="' . esc_attr( (string) $elr_auto_reject_days ) . '" min="1" max="30">';
+        echo '<span class="sfs-form-hint" data-i18n-key="elr_auto_reject_hint">' . esc_html__( 'Pending requests are automatically rejected after this many days if no action is taken.', 'sfs-hr' ) . '</span>';
         echo '</div>';
 
         echo '</div></div>'; // card-body + card

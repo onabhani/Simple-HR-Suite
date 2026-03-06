@@ -384,7 +384,8 @@ private function get_table_columns( $table ): array {
                 $elr_auto_create   = ! empty( $elr_settings['auto_create'] );
                 $elr_require_note  = ! empty( $elr_settings['require_note'] );
                 $elr_affects_salary = $elr_settings['affects_salary_default'] ?? 'no';
-                $elr_max_per_month = (int) ( $elr_settings['max_per_month'] ?? 0 );
+                $elr_max_per_month    = (int) ( $elr_settings['max_per_month'] ?? 0 );
+                $elr_auto_reject_days = (int) ( $elr_settings['auto_reject_days'] ?? 3 );
                 ?>
                 <div class="sfs-hr-admin-card">
                     <div class="sfs-hr-admin-card-header">
@@ -432,6 +433,12 @@ private function get_table_columns( $table ): array {
                         <label class="sfs-hr-form-label" for="sfs-elr-max"><?php esc_html_e( 'Max requests per month', 'sfs-hr' ); ?></label>
                         <input type="number" id="sfs-elr-max" name="elr_max_per_month" min="0" max="31" value="<?php echo esc_attr( $elr_max_per_month ); ?>"/>
                         <span class="sfs-hr-form-hint"><?php esc_html_e( 'Set to 0 for unlimited.', 'sfs-hr' ); ?></span>
+                    </div>
+
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label" for="sfs-elr-auto-reject"><?php esc_html_e( 'Auto-reject after (days)', 'sfs-hr' ); ?></label>
+                        <input type="number" id="sfs-elr-auto-reject" name="elr_auto_reject_days" min="1" max="30" value="<?php echo esc_attr( $elr_auto_reject_days ); ?>"/>
+                        <span class="sfs-hr-form-hint"><?php esc_html_e( 'Pending requests are automatically rejected after this many days if no action is taken.', 'sfs-hr' ); ?></span>
                     </div>
                 </div>
 
@@ -569,6 +576,7 @@ public function render_attendance_hub(): void {
         $elr_saved['affects_salary_default'] = in_array( ( $_POST['elr_affects_salary_default'] ?? 'no' ), [ 'no', 'yes', 'manager' ], true )
             ? sanitize_key( $_POST['elr_affects_salary_default'] ) : 'no';
         $elr_saved['max_per_month']          = max( 0, min( 31, (int) ( $_POST['elr_max_per_month'] ?? 0 ) ) );
+        $elr_saved['auto_reject_days']       = max( 1, min( 30, (int) ( $_POST['elr_auto_reject_days'] ?? 3 ) ) );
         update_option( 'sfs_hr_elr_settings', $elr_saved );
 
         wp_safe_redirect( admin_url('admin.php?page=sfs_hr_attendance&tab=settings&saved=1') );

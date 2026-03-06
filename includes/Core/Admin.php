@@ -6970,6 +6970,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             $elr_saved['affects_salary_default']  = in_array( ( $att_input['elr_affects_salary_default'] ?? 'no' ), [ 'no', 'yes', 'manager' ], true )
                 ? $att_input['elr_affects_salary_default'] : 'no';
             $elr_saved['max_per_month']           = max( 0, min( 31, (int) ( $att_input['elr_max_per_month'] ?? 0 ) ) );
+            $elr_saved['auto_reject_days']        = max( 1, min( 30, (int) ( $att_input['elr_auto_reject_days'] ?? 3 ) ) );
             update_option( 'sfs_hr_elr_settings', $elr_saved );
         }
 

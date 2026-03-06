@@ -8,8 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  */
 class Early_Leave_Auto_Reject {
 
-    const CRON_HOOK    = 'sfs_hr_early_leave_auto_reject';
-    const EXPIRY_HOURS = 72;
+    const CRON_HOOK = 'sfs_hr_early_leave_auto_reject';
 
     /**
      * Register hooks.
@@ -35,11 +34,13 @@ class Early_Leave_Auto_Reject {
     public function run(): void {
         global $wpdb;
 
-        $table    = $wpdb->prefix . 'sfs_hr_early_leave_requests';
-        $cutoff   = gmdate( 'Y-m-d H:i:s', time() - ( self::EXPIRY_HOURS * 3600 ) );
-        $now      = current_time( 'mysql' );
+        $table       = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+        $elr_settings = get_option( 'sfs_hr_elr_settings', [] );
+        $expiry_days  = max( 1, (int) ( $elr_settings['auto_reject_days'] ?? 3 ) );
+        $cutoff       = gmdate( 'Y-m-d H:i:s', time() - ( $expiry_days * 86400 ) );
+        $now          = current_time( 'mysql' );
 
-        // Find all pending requests created more than 72 hours ago
+        // Find all pending requests created more than the configured days ago
         $expired = $wpdb->get_results( $wpdb->prepare(
             "SELECT id, employee_id, request_date
              FROM `{$table}`
@@ -64,7 +65,7 @@ class Early_Leave_Auto_Reject {
                  updated_at   = %s
              WHERE id IN ({$placeholders})",
             array_merge(
-                [ $now, __( 'Auto-rejected: no action was taken within 3 days.', 'sfs-hr' ), $now ],
+                [ $now, sprintf( __( 'Auto-rejected: no action was taken within %d day(s).', 'sfs-hr' ), $expiry_days ), $now ],
                 $ids
             )
         ) );
