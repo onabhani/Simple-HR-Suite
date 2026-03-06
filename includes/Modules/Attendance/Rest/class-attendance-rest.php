@@ -582,6 +582,39 @@ public static function punch( \WP_REST_Request $req ) {
             if ( $age < -300 ) { // more than 5 min in the future
                 return new \WP_Error( 'offline_future', 'Offline punch time is in the future.', [ 'status' => 409 ] );
             }
+
+            // Validate punch falls within the employee's shift window ± 2h buffer (C8/S4 fix).
+            // Prevents time fraud on offline kiosks where punches could be fabricated
+            // for any time within the 24h staleness window.
+            $offline_emp_id = $offline_employee_id;
+            $offline_date   = wp_date( 'Y-m-d', $client_ts );
+            $offline_shift  = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( $offline_emp_id, $offline_date );
+            if ( $offline_shift ) {
+                $offline_segs = \SFS\HR\Modules\Attendance\AttendanceModule::build_segments_from_shift( $offline_shift, $offline_date );
+                if ( ! empty( $offline_segs ) ) {
+                    $first_seg    = reset( $offline_segs );
+                    $last_seg     = end( $offline_segs );
+                    $seg_start_ts = strtotime( $first_seg['start_utc'] . ' UTC' );
+                    $seg_end_ts   = strtotime( $last_seg['end_utc'] . ' UTC' );
+
+                    // Use overtime buffer to extend allowed window past shift end
+                    $ot_buf_raw = $offline_shift->overtime_buffer_minutes ?? null;
+                    $ot_buf     = ( $ot_buf_raw !== null )
+                        ? (int) $ot_buf_raw
+                        : min( (int) round( $last_seg['minutes'] * 0.5 ), 240 );
+
+                    $window_start = $seg_start_ts - 7200; // 2h before shift
+                    $window_end   = $seg_end_ts + $ot_buf * 60;
+
+                    if ( $client_ts < $window_start || $client_ts > $window_end ) {
+                        return new \WP_Error(
+                            'offline_outside_shift',
+                            'Offline punch time falls outside your shift window.',
+                            [ 'status' => 409 ]
+                        );
+                    }
+                }
+            }
         }
     }
 
@@ -933,6 +966,36 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
     }
 
     try {
+        // ---- RE-VALIDATE STATE INSIDE LOCK (H2 TOCTOU fix) ----
+        // The initial snapshot_for_today + allow check happened BEFORE the lock.
+        // A concurrent request could have changed the state between then and now.
+        // Re-check the last punch to confirm the transition is still valid.
+        $last_after_lock = $wpdb->get_var( $wpdb->prepare(
+            "SELECT punch_type FROM {$punchT}
+             WHERE employee_id = %d ORDER BY punch_time DESC LIMIT 1",
+            (int) $emp
+        ) );
+        $state_after_lock = match ( $last_after_lock ) {
+            'in', 'break_end' => 'in',
+            'break_start'     => 'break',
+            'out', null       => 'idle',
+            default           => 'idle',
+        };
+        $allow_after_lock = [
+            'in'          => ( $state_after_lock === 'idle' ),
+            'out'         => ( $state_after_lock === 'in' || $has_stale_session ),
+            'break_start' => ( $state_after_lock === 'in' ),
+            'break_end'   => ( $state_after_lock === 'break' ),
+        ];
+        if ( empty( $allow_after_lock[ $punch_type ] ) ) {
+            $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
+            return new \WP_Error(
+                'invalid_transition',
+                'Another punch was processed simultaneously. Please try again.',
+                [ 'status' => 409 ]
+            );
+        }
+
         // ---- FINAL DUPLICATE CHECK: Prevent exact duplicate within 30 seconds of punch time
         // For offline punches, check around the client-reported time to catch duplicates
         $dup_ref_time = $punchTimeUtc;
@@ -1243,8 +1306,9 @@ private static function save_selfie_attachment( array $src ): int {
         // If the last punch is an open session (in or break_end, not out)
         // and it belongs to a previous day, check whether we're still within
         // the shift's allowed window before extending.
-        $yesterday = wp_date( 'Y-m-d', strtotime( '-1 day' ) );
-        if ( in_array( $last_type_g, [ 'in', 'break_end' ], true ) && $last_local >= $yesterday && $last_local < $today ) {
+        // Check any previous day (not just yesterday) to handle sessions stuck
+        // for 2+ days — e.g. employee forgot to clock out before a weekend (C3 fix).
+        if ( in_array( $last_type_g, [ 'in', 'break_end' ], true ) && $last_local < $today ) {
             // Resolve the shift for the day the session started and check
             // whether current time is still within shift_end + buffer.
             $work_date  = $last_local;

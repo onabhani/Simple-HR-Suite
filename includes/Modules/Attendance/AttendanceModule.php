@@ -4719,6 +4719,15 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
         return;
     }
 
+    // Acquire per-employee recalc lock to prevent concurrent recalculations
+    // (H3 fix: prevents race between real-time punch recalc and Daily_Session cron).
+    $recalc_lock = 'sfs_hr_recalc_' . $employee_id . '_' . $ymd;
+    $got_lock    = $wpdb->get_var( $wpdb->prepare( "SELECT GET_LOCK(%s, 3)", $recalc_lock ) );
+    if ( ! $got_lock ) {
+        return; // another recalc is in progress for this employee+date — skip
+    }
+    try {
+
     // Leave/Holiday guard — check if this day is a holiday or approved leave.
     // If the employee has NO punches, mark as holiday/on_leave.
     // If the employee DID punch (working overtime on a holiday), let the
@@ -4969,10 +4978,31 @@ if ( ! empty( $leadingOuts ) ) {
             $prevStatus = 'left_early';
         }
 
+        // Compute overtime for the retro-closed session (H12 fix).
+        // Respect overtime_after_minutes threshold from the shift (C9 fix).
+        $prevOtThreshold = ( $prevShift && $prevShift->overtime_after_minutes !== null )
+            ? (int) $prevShift->overtime_after_minutes
+            : 0;
+        if ( $prevIsTotalHrs ) {
+            $prevOt = max( 0, $netMinutes - $prevTargetMin - $prevOtThreshold );
+        } else {
+            // Build segments to get scheduled_total for the previous date
+            $prevSegments  = self::build_segments_from_shift( $prevShift, $prevDate );
+            $prevScheduled = 0;
+            foreach ( $prevSegments as $ps ) {
+                $prevScheduled += (int) $ps['minutes'];
+            }
+            $prevOt = max( 0, $netMinutes - $prevScheduled - $prevOtThreshold );
+        }
+        if ( $prevRoundN > 0 ) {
+            $prevOt = (int) round( $prevOt / $prevRoundN ) * $prevRoundN;
+        }
+
         $prev_session_data = [
             'out_time'            => $closingOut,
             'net_minutes'         => $netMinutes,
             'rounded_net_minutes' => $roundedNet,
+            'overtime_minutes'    => $prevOt,
             'status'              => $prevStatus,
             'flags_json'          => wp_json_encode( $prevFlags ),
             'last_recalc_at'      => current_time( 'mysql', true ),
@@ -5133,10 +5163,32 @@ if ( ! empty( $leadingOuts ) ) {
         $no_break_taken = 0;
     }
 
+    // Compute OT from raw (unrounded) net to avoid losing fractional OT to rounding (M2 fix).
+    // Respect overtime_after_minutes threshold from the shift (C9 fix).
+    $scheduled = (int)$ev['scheduled_total'];
+    $raw_net   = $net; // preserve unrounded net for OT calculation
+
+    // Apply rounding to net worked time (display / payroll).
     if ($roundN > 0) $net = (int)round($net / $roundN) * $roundN;
 
-    $scheduled = (int)$ev['scheduled_total'];
-    $ot = max(0, $net - $scheduled);
+    // OT calculation using overtime_after_minutes threshold from the shift (C9 fix).
+    // The threshold is extra minutes an employee must work BEYOND scheduled hours
+    // before overtime starts counting. E.g., threshold=15 means the first 15 min
+    // past the shift are not counted as OT (grace buffer).
+    //
+    // NULL = not configured → OT starts immediately after scheduled (backward compatible)
+    // 0    = OT starts immediately after scheduled (explicit, same as NULL)
+    // >0   = employee must work this many extra minutes before OT kicks in
+    $shift_ot_threshold = ( $shift && $shift->overtime_after_minutes !== null )
+        ? (int) $shift->overtime_after_minutes
+        : 0;
+
+    // OT = excess beyond scheduled + threshold, calculated from raw (unrounded) net
+    $ot = max( 0, $raw_net - $scheduled - $shift_ot_threshold );
+    // Round OT independently if rounding is active
+    if ( $roundN > 0 ) {
+        $ot = (int) round( $ot / $roundN ) * $roundN;
+    }
 
     // Status rollup
     $status = 'present';
@@ -5188,8 +5240,11 @@ if ( ! empty( $leadingOuts ) ) {
             $status = 'present';
         }
 
-        // In total-hours mode, overtime is hours beyond target
-        $ot = max( 0, $net - $target_minutes );
+        // In total-hours mode, overtime is hours beyond target + threshold
+        $ot = max( 0, $raw_net - $target_minutes - $shift_ot_threshold );
+        if ( $roundN > 0 ) {
+            $ot = (int) round( $ot / $roundN ) * $roundN;
+        }
     } elseif (!$segments || count($segments)===0) {
         // No shift segments (no fixed start/end times and NOT total_hours) → day off or holiday
         $status = $is_holiday ? 'holiday' : 'day_off';
@@ -5310,6 +5365,10 @@ if ( ! empty( $leadingOuts ) ) {
         'rounded_rule'    => $round,
         'grace'           => ['late'=>$grLate,'early'=>$grEarly],
         'counters'        => ['outside_geo'=>$outside_geo,'no_selfie'=>$no_selfie],
+        'overtime'        => [
+            'overtime_after_minutes'  => $shift_ot_threshold,
+            'raw_net_before_rounding' => $raw_net,
+        ],
     ];
 
     // Break diagnostics in calc_meta — always write for debugging
@@ -5468,10 +5527,15 @@ if ( ! empty( $leadingOuts ) ) {
             'type'                => 'attendance_flag',
         ] );
     }
+
+    } finally {
+        // Release recalc lock (H3 fix)
+        $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $recalc_lock ) );
+    }
 }
 
 
-    
+
 
     /** Load the Department → Shift automation map from options, resilient to different keys/shapes. */
 /** Load Department → Shift automation map and normalize to: [deptKey => configArray]. */
