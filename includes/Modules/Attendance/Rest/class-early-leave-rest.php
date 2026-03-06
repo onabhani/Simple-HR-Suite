@@ -44,6 +44,9 @@ class Early_Leave_Rest {
             'permission_callback' => fn() => current_user_can( 'sfs_hr_attendance_view_team' ) || current_user_can( 'sfs_hr.leave.review' ),
         ] );
 
+        // Route-level check aligns with handler: admin, GM, or department managers
+        // (who have sfs_hr.leave.review). The handler further verifies the user is
+        // the assigned manager for this specific request when not admin/GM.
         register_rest_route( $ns, '/early-leave/review/(?P<id>\d+)', [
             'methods'             => 'POST',
             'callback'            => [ self::class, 'review_request' ],
@@ -312,9 +315,26 @@ class Early_Leave_Rest {
             return new \WP_Error( 'already_reviewed', __( 'Request has already been reviewed.', 'sfs-hr' ), [ 'status' => 400 ] );
         }
 
-        // Check permission: must be admin, GM, or the assigned department manager
-        $is_admin_or_gm = current_user_can( 'sfs_hr_attendance_admin' ) || current_user_can( 'sfs_hr_loans_gm_approve' );
-        if ( ! $is_admin_or_gm && (int) $request->manager_id !== $user_id ) {
+        // Check permission: must be admin, GM, the assigned manager, or
+        // a department manager of the employee's department (sfs_hr.leave.review).
+        $is_admin_or_gm    = current_user_can( 'sfs_hr_attendance_admin' ) || current_user_can( 'sfs_hr_loans_gm_approve' );
+        $is_assigned_mgr   = ( (int) $request->manager_id === $user_id );
+        $is_dept_mgr       = false;
+        if ( ! $is_admin_or_gm && ! $is_assigned_mgr && current_user_can( 'sfs_hr.leave.review' ) ) {
+            // Check if the current user manages the employee's department
+            $emp_dept_id = $wpdb->get_var( $wpdb->prepare(
+                "SELECT dept_id FROM {$wpdb->prefix}sfs_hr_employees WHERE id = %d",
+                $request->employee_id
+            ) );
+            if ( $emp_dept_id ) {
+                $is_dept_mgr = (bool) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$wpdb->prefix}sfs_hr_departments WHERE id = %d AND manager_user_id = %d AND active = 1",
+                    $emp_dept_id,
+                    $user_id
+                ) );
+            }
+        }
+        if ( ! $is_admin_or_gm && ! $is_assigned_mgr && ! $is_dept_mgr ) {
             return new \WP_Error( 'forbidden', __( 'You are not authorized to review this request.', 'sfs-hr' ), [ 'status' => 403 ] );
         }
 

@@ -128,36 +128,33 @@ public static function routes(): void {
 
 
 
-/** Store a one-time scan token using options (works across nodes). */
+/**
+ * Store a one-time scan token using transients (auto-expires via TTL).
+ * Transients are the WordPress-recommended mechanism for temporary data and
+ * are automatically cleaned up, preventing stale token buildup in wp_options.
+ */
 private static function put_scan_token(string $token, array $payload, int $ttl = 300): void {
     $key = 'sfs_hr_scan_' . $token;
-    // avoid clobbering an existing token
-    if ( get_option($key, null) !== null ) return;
-    add_option($key, ['data' => $payload, 'exp' => time() + $ttl], '', false);
+    // Avoid clobbering an existing token
+    if ( get_transient( $key ) !== false ) return;
+    set_transient( $key, $payload, $ttl );
 }
-
-
 
 /** Consume & delete the token; returns payload or null if missing/expired. */
 private static function pop_scan_token(string $token): ?array {
     $key = 'sfs_hr_scan_' . $token;
-    $row = get_option($key, null);
-    if ($row === null || !is_array($row)) return null;
-    if (empty($row['exp']) || time() > (int)$row['exp']) {
-        delete_option($key);
-        return null;
-    }
-    delete_option($key);
-    return isset($row['data']) && is_array($row['data']) ? $row['data'] : null;
+    $row = get_transient( $key );
+    if ( $row === false || ! is_array( $row ) ) return null;
+    delete_transient( $key );
+    return $row;
 }
 
 /** Peek (do not consume) a scan token; returns payload or null if missing/expired. */
 private static function get_scan_token( string $token ): ?array {
     $key = 'sfs_hr_scan_' . $token;
-    $row = get_option( $key, null );
-    if ( $row === null || ! is_array( $row ) ) return null;
-    if ( empty( $row['exp'] ) || time() > (int) $row['exp'] ) return null;
-    return ( isset( $row['data'] ) && is_array( $row['data'] ) ) ? $row['data'] : null;
+    $row = get_transient( $key );
+    if ( $row === false || ! is_array( $row ) ) return null;
+    return $row;
 }
 
 
@@ -373,14 +370,22 @@ public static function status( \WP_REST_Request $req ) {
             if ( $dev ) {
                 $qr_enabled  = ((int)$dev->qr_enabled === 1);
                 $device_mode = (string)$dev->selfie_mode;
-                $device_meta = [
-                    'id'       => (int)$dev->id,
-                    'label'    => (string)($dev->label ?? ''),
-                    'dept'     => (string)($dev->allowed_dept_id ?? 'any'),
-                    'geofence' => ($dev->geo_lock_lat !== null && $dev->geo_lock_lng !== null && $dev->geo_lock_radius_m !== null)
-                        ? [ 'lat' => (float)$dev->geo_lock_lat, 'lng' => (float)$dev->geo_lock_lng, 'radius_m' => (int)$dev->geo_lock_radius_m ]
-                        : null,
-                ];
+                // Only expose full device config to authenticated users
+                if ( is_user_logged_in() ) {
+                    $device_meta = [
+                        'id'       => (int)$dev->id,
+                        'label'    => (string)($dev->label ?? ''),
+                        'dept'     => (string)($dev->allowed_dept_id ?? 'any'),
+                        'geofence' => ($dev->geo_lock_lat !== null && $dev->geo_lock_lng !== null && $dev->geo_lock_radius_m !== null)
+                            ? [ 'lat' => (float)$dev->geo_lock_lat, 'lng' => (float)$dev->geo_lock_lng, 'radius_m' => (int)$dev->geo_lock_radius_m ]
+                            : null,
+                    ];
+                } else {
+                    // Unauthenticated: only expose minimal info needed for kiosk UI init
+                    $device_meta = [
+                        'id' => (int)$dev->id,
+                    ];
+                }
             }
         }
 
@@ -549,12 +554,20 @@ public static function punch( \WP_REST_Request $req ) {
         }
         // Verify employee exists and is active
         $empT = $wpdb->prefix . 'sfs_hr_employees';
-        $emp_exists = $wpdb->get_var( $wpdb->prepare(
-            "SELECT id FROM {$empT} WHERE id = %d AND status = 'active'",
+        $emp_row_offline = $wpdb->get_row( $wpdb->prepare(
+            "SELECT id, dept_id FROM {$empT} WHERE id = %d AND status = 'active'",
             $offline_employee_id
         ) );
-        if ( ! $emp_exists ) {
+        if ( ! $emp_row_offline ) {
             return new \WP_Error( 'offline_unknown_employee', 'Employee not found or inactive.', [ 'status' => 404 ] );
+        }
+        // Enforce department restriction: device's allowed_dept_id must match employee's dept
+        $dev_dept = $wpdb->get_var( $wpdb->prepare(
+            "SELECT allowed_dept_id FROM {$devT} WHERE id = %d",
+            $device_id
+        ) );
+        if ( $dev_dept && (int) $dev_dept > 0 && (int) $emp_row_offline->dept_id !== (int) $dev_dept ) {
+            return new \WP_Error( 'offline_dept_mismatch', 'Employee does not belong to the department assigned to this device.', [ 'status' => 403 ] );
         }
         // Validate client_punch_time: must be a parseable datetime, not more than 24h old
         if ( $client_punch_time !== '' ) {
@@ -1450,6 +1463,22 @@ private static function save_selfie_attachment( array $src ): int {
         return $R * $c;
     }
 
+    /** Get client IP address, respecting common proxy headers. */
+    private static function get_client_ip(): string {
+        // Check proxy headers (typical in load-balanced / reverse-proxy setups)
+        foreach ( [ 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'REMOTE_ADDR' ] as $key ) {
+            $val = isset( $_SERVER[ $key ] ) ? sanitize_text_field( wp_unslash( $_SERVER[ $key ] ) ) : '';
+            if ( $val !== '' ) {
+                // X-Forwarded-For may contain a comma-separated list; take the first (client) IP
+                $ip = trim( explode( ',', $val )[0] );
+                if ( filter_var( $ip, FILTER_VALIDATE_IP ) ) {
+                    return $ip;
+                }
+            }
+        }
+        return '0.0.0.0';
+    }
+
     /**
      * Verify Manager PIN for kiosk device
      * POST /sfs-hr/v1/attendance/verify-pin
@@ -1460,6 +1489,22 @@ private static function save_selfie_attachment( array $src ): int {
 
         if ( ! $device_id || ! $pin ) {
             return new \WP_Error( 'invalid_params', 'Device ID and PIN are required', [ 'status' => 400 ] );
+        }
+
+        // ---- Rate limiting: check BEFORE any DB lookup or PIN verification ----
+        // Per-device rate limit
+        $device_fail_key = 'sfs_hr_pin_fail_' . $device_id;
+        $device_failures = (int) get_transient( $device_fail_key );
+        if ( $device_failures >= 5 ) {
+            return new \WP_Error( 'too_many_attempts', 'Too many failed attempts. Please wait 5 minutes.', [ 'status' => 429 ] );
+        }
+
+        // Per-IP rate limit (prevents distributed brute-force across devices)
+        $client_ip   = self::get_client_ip();
+        $ip_fail_key = 'sfs_hr_pin_fail_ip_' . md5( $client_ip );
+        $ip_failures = (int) get_transient( $ip_fail_key );
+        if ( $ip_failures >= 10 ) {
+            return new \WP_Error( 'too_many_attempts', 'Too many failed attempts from this location. Please wait 5 minutes.', [ 'status' => 429 ] );
         }
 
         global $wpdb;
@@ -1481,21 +1526,17 @@ private static function save_selfie_attachment( array $src ): int {
 
         // Verify PIN using WordPress password functions
         if ( ! wp_check_password( $pin, $device->kiosk_pin ) ) {
-            // Rate limiting: track failed attempts
-            $transient_key = 'sfs_hr_pin_fail_' . $device_id;
-            $failures = (int) get_transient( $transient_key );
-            $failures++;
-            set_transient( $transient_key, $failures, 300 ); // 5 minute window
-
-            if ( $failures >= 5 ) {
-                return new \WP_Error( 'too_many_attempts', 'Too many failed attempts. Please wait 5 minutes.', [ 'status' => 429 ] );
-            }
+            // Increment per-device failure count
+            set_transient( $device_fail_key, $device_failures + 1, 300 ); // 5 min window
+            // Increment per-IP failure count
+            set_transient( $ip_fail_key, $ip_failures + 1, 300 ); // 5 min window
 
             return new \WP_Error( 'invalid_pin', 'Invalid PIN', [ 'status' => 401 ] );
         }
 
-        // Success - clear failures and return success token
-        delete_transient( 'sfs_hr_pin_fail_' . $device_id );
+        // Success - clear failure counters
+        delete_transient( $device_fail_key );
+        // Note: IP counter is NOT cleared on success — prevents alternating valid/invalid to reset
 
         // Generate a short-lived session token for manager actions
         $token = wp_generate_password( 32, false );
