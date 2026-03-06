@@ -291,7 +291,6 @@ class Early_Leave_Rest {
         // Accept both 'action' (approve/reject) and 'status' (approved/rejected) params
         $action     = sanitize_key( $req['action'] ?? $req['status'] ?? '' );
         $note       = sanitize_textarea_field( $req['manager_note'] ?? '' );
-        $affects    = (int) ( $req['affects_salary'] ?? 0 );
 
         // Normalize action values
         if ( $action === 'approved' ) {
@@ -346,7 +345,7 @@ class Early_Leave_Rest {
             'reviewed_by'    => $user_id,
             'reviewed_at'    => $now,
             'manager_note'   => $note,
-            'affects_salary' => $affects,
+            'affects_salary' => $action === 'approve' ? 0 : 1,
             'updated_at'     => $now,
         ];
 
