@@ -112,7 +112,8 @@ class AttendanceModule {
         add_action('admin_init', [ $this, 'maybe_install' ]);
 
         // Deferred recalc hook — fires when a recalc was skipped due to lock contention.
-        add_action( 'sfs_hr_deferred_recalc', [ self::class, 'recalc_session_for' ], 10, 3 );
+        // Uses a wrapper because recalc_session_for's 3rd param is $wpdb, not $force.
+        add_action( 'sfs_hr_deferred_recalc', [ self::class, 'run_deferred_recalc' ], 10, 3 );
 
         // Safe call to private method
         add_action('admin_init', function () { $this->register_caps(); });
@@ -4769,6 +4770,17 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
      *                               so that already-finalized historical sessions are protected from
      *                               unintentional overwrite when shift config changes.
      */
+    /**
+     * WP-Cron callback for deferred recalculations.
+     *
+     * Needed because recalc_session_for() has $wpdb as its 3rd parameter,
+     * but WP-Cron passes hook args positionally — so the $force boolean
+     * would land in the $wpdb slot without this wrapper.
+     */
+    public static function run_deferred_recalc( int $employee_id, string $ymd, bool $force = false ): void {
+        self::recalc_session_for( $employee_id, $ymd, null, $force );
+    }
+
     public static function recalc_session_for( int $employee_id, string $ymd, \wpdb $wpdb = null, bool $force = false ): void {
     $wpdb = $wpdb ?: $GLOBALS['wpdb'];
     $pT   = $wpdb->prefix . 'sfs_hr_attendance_punches';
