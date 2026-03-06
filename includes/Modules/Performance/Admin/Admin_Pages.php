@@ -732,6 +732,39 @@ class Admin_Pages {
                     <h3><?php esc_html_e( 'Review Score', 'sfs-hr' ); ?></h3>
                     <div class="value"><?php echo $score_data['components']['reviews']['raw_score'] !== null ? esc_html( number_format( $score_data['components']['reviews']['raw_score'], 1 ) ) . '/5' : '—'; ?></div>
                 </div>
+                <?php
+                // Early Leave Request stats card
+                $elr_table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+                $elr_stats = $wpdb->get_row( $wpdb->prepare(
+                    "SELECT
+                        COUNT(*) as total,
+                        SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
+                        SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
+                        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
+                     FROM {$elr_table}
+                     WHERE employee_id = %d AND request_date BETWEEN %s AND %s",
+                    $employee_id,
+                    $start_date,
+                    $end_date
+                ) );
+                $elr_total    = (int) ( $elr_stats->total ?? 0 );
+                $elr_approved = (int) ( $elr_stats->approved ?? 0 );
+                $elr_rejected = (int) ( $elr_stats->rejected ?? 0 );
+                $elr_pending  = (int) ( $elr_stats->pending ?? 0 );
+                ?>
+                <div class="sfs-perf-card">
+                    <h3><?php esc_html_e( 'Early Leave Requests', 'sfs-hr' ); ?></h3>
+                    <div class="value"><?php echo esc_html( $elr_total ); ?></div>
+                    <div class="sub">
+                        <?php echo esc_html( sprintf(
+                            /* translators: %1$d = approved, %2$d = rejected, %3$d = pending */
+                            __( 'Approved: %1$d, Rejected: %2$d, Pending: %3$d', 'sfs-hr' ),
+                            $elr_approved,
+                            $elr_rejected,
+                            $elr_pending
+                        ) ); ?>
+                    </div>
+                </div>
             </div>
 
             <!-- Commitment Detail Breakdown -->

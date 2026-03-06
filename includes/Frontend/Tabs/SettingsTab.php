@@ -167,6 +167,46 @@ class SettingsTab implements TabInterface {
         echo '</div>';
 
         echo '</div></div>'; // card-body + card
+
+        // ── Early Leave Request Settings Card ──
+        $elr_settings = get_option( 'sfs_hr_elr_settings', [] );
+        $elr_enabled       = ! empty( $elr_settings['enabled'] );
+        $elr_auto_create   = ! empty( $elr_settings['auto_create'] );
+        $elr_require_note  = ! empty( $elr_settings['require_note'] );
+        $elr_affects_salary = $elr_settings['affects_salary_default'] ?? 'no';
+        $elr_max_per_month = (int) ( $elr_settings['max_per_month'] ?? 0 );
+
+        echo '<div class="sfs-card" style="margin-bottom:20px;">';
+        echo '<div class="sfs-card-body">';
+        echo '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--sfs-border,#f3f4f6);">';
+        echo '<div style="width:36px;height:36px;border-radius:10px;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg viewBox="0 0 24 24" width="18" height="18" stroke="#d97706" fill="none" stroke-width="2"><path d="M10 2h4"/><path d="M12 14V8"/><circle cx="12" cy="14" r="8"/></svg></div>';
+        echo '<div>';
+        echo '<h3 style="font-size:15px;font-weight:700;color:var(--sfs-text);margin:0;" data-i18n-key="elr_settings">' . esc_html__( 'Early Leave Requests', 'sfs-hr' ) . '</h3>';
+        echo '<p style="font-size:12px;color:var(--sfs-text-muted,#6b7280);margin:2px 0 0;" data-i18n-key="elr_settings_desc">' . esc_html__( 'Configure how early leave requests are handled.', 'sfs-hr' ) . '</p>';
+        echo '</div></div>';
+
+        $this->toggle_field( 'att[elr_enabled]', __( 'Enable Early Leave Requests', 'sfs-hr' ), $elr_enabled, 'elr_enabled', __( 'Allow employees to submit early leave requests.', 'sfs-hr' ), 'elr_enabled_hint' );
+        $this->toggle_field( 'att[elr_auto_create]', __( 'Auto-Create on Early Leave', 'sfs-hr' ), $elr_auto_create, 'elr_auto_create', __( 'Automatically create an ELR when an employee clocks out early.', 'sfs-hr' ), 'elr_auto_create_hint' );
+        $this->toggle_field( 'att[elr_require_note]', __( 'Require Reason Note', 'sfs-hr' ), $elr_require_note, 'elr_require_note', __( 'Employees must provide a reason note when submitting.', 'sfs-hr' ), 'elr_require_note_hint' );
+
+        echo '<div class="sfs-form-group" style="margin-top:12px;">';
+        echo '<label class="sfs-form-label" data-i18n-key="elr_affects_salary_default">' . esc_html__( 'Default Salary Impact', 'sfs-hr' ) . '</label>';
+        echo '<select name="att[elr_affects_salary_default]" class="sfs-select">';
+        echo '<option value="no"' . selected( $elr_affects_salary, 'no', false ) . ' data-i18n-key="no_deduction">' . esc_html__( 'No Deduction', 'sfs-hr' ) . '</option>';
+        echo '<option value="yes"' . selected( $elr_affects_salary, 'yes', false ) . ' data-i18n-key="deduct_by_default">' . esc_html__( 'Deduct by Default', 'sfs-hr' ) . '</option>';
+        echo '<option value="manager"' . selected( $elr_affects_salary, 'manager', false ) . ' data-i18n-key="manager_decides">' . esc_html__( 'Manager Decides', 'sfs-hr' ) . '</option>';
+        echo '</select>';
+        echo '<span class="sfs-form-hint" data-i18n-key="elr_salary_hint">' . esc_html__( 'Whether rejected early leaves affect salary deduction.', 'sfs-hr' ) . '</span>';
+        echo '</div>';
+
+        echo '<div class="sfs-form-group">';
+        echo '<label class="sfs-form-label" data-i18n-key="elr_max_per_month">' . esc_html__( 'Max Requests Per Month', 'sfs-hr' ) . '</label>';
+        echo '<input type="number" name="att[elr_max_per_month]" class="sfs-input" value="' . esc_attr( (string) $elr_max_per_month ) . '" min="0" max="31">';
+        echo '<span class="sfs-form-hint" data-i18n-key="elr_max_hint">' . esc_html__( 'Set to 0 for unlimited. Limits how many ELRs an employee can submit per month.', 'sfs-hr' ) . '</span>';
+        echo '</div>';
+
+        echo '</div></div>'; // card-body + card
+
         echo '</div>'; // section
     }
 
@@ -426,6 +466,12 @@ class SettingsTab implements TabInterface {
         $this->toggle_field( 'notif[notify_late_arrival]', __( 'Late Arrival', 'sfs-hr' ), $ns['notify_late_arrival'] ?? true, 'late_arrival' );
         $this->toggle_field( 'notif[notify_early_leave]', __( 'Early Leave', 'sfs-hr' ), $ns['notify_early_leave'] ?? true, 'early_leave' );
         $this->toggle_field( 'notif[notify_missed_punch]', __( 'Missed Punch', 'sfs-hr' ), $ns['notify_missed_punch'] ?? true, 'missed_punch' );
+
+        // Early Leave Request notifications.
+        echo '<h4 style="font-size:14px;font-weight:700;color:var(--sfs-text);margin:20px 0 12px;" data-i18n-key="elr_notifications">' . esc_html__( 'Early Leave Request Notifications', 'sfs-hr' ) . '</h4>';
+        $this->toggle_field( 'notif[notify_elr_created]', __( 'ELR Submitted', 'sfs-hr' ), $ns['notify_elr_created'] ?? true, 'elr_created', __( 'Notify manager when an employee submits an early leave request.', 'sfs-hr' ), 'elr_created_hint' );
+        $this->toggle_field( 'notif[notify_elr_approved]', __( 'ELR Approved', 'sfs-hr' ), $ns['notify_elr_approved'] ?? true, 'elr_approved', __( 'Notify employee when their early leave request is approved.', 'sfs-hr' ), 'elr_approved_hint' );
+        $this->toggle_field( 'notif[notify_elr_rejected]', __( 'ELR Rejected', 'sfs-hr' ), $ns['notify_elr_rejected'] ?? true, 'elr_rejected', __( 'Notify employee when their early leave request is rejected.', 'sfs-hr' ), 'elr_rejected_hint' );
 
         echo '<div class="sfs-form-group">';
         echo '<label class="sfs-form-label" data-i18n-key="late_arrival_threshold_min">' . esc_html__( 'Late Arrival Threshold (min)', 'sfs-hr' ) . '</label>';

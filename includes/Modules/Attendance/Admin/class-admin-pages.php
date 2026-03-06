@@ -377,6 +377,64 @@ private function get_table_columns( $table ): array {
                 })();
                 </script>
 
+                <!-- Card 4: Early Leave Request Settings -->
+                <?php
+                $elr_settings = get_option( 'sfs_hr_elr_settings', [] );
+                $elr_enabled       = ! empty( $elr_settings['enabled'] );
+                $elr_auto_create   = ! empty( $elr_settings['auto_create'] );
+                $elr_require_note  = ! empty( $elr_settings['require_note'] );
+                $elr_affects_salary = $elr_settings['affects_salary_default'] ?? 'no';
+                $elr_max_per_month = (int) ( $elr_settings['max_per_month'] ?? 0 );
+                ?>
+                <div class="sfs-hr-admin-card">
+                    <div class="sfs-hr-admin-card-header">
+                        <h2 class="sfs-hr-admin-card-title"><?php esc_html_e( 'Early Leave Requests', 'sfs-hr' ); ?></h2>
+                    </div>
+
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-toggle">
+                            <input type="checkbox" name="elr_enabled" value="1" <?php checked( $elr_enabled ); ?>/>
+                            <span class="sfs-hr-toggle__track"></span>
+                            <span class="sfs-hr-toggle__label"><?php esc_html_e( 'Enable Early Leave Requests', 'sfs-hr' ); ?></span>
+                        </label>
+                        <span class="sfs-hr-form-hint"><?php esc_html_e( 'Allow employees to submit early leave requests.', 'sfs-hr' ); ?></span>
+                    </div>
+
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-toggle">
+                            <input type="checkbox" name="elr_auto_create" value="1" <?php checked( $elr_auto_create ); ?>/>
+                            <span class="sfs-hr-toggle__track"></span>
+                            <span class="sfs-hr-toggle__label"><?php esc_html_e( 'Auto-create on early clock-out', 'sfs-hr' ); ?></span>
+                        </label>
+                        <span class="sfs-hr-form-hint"><?php esc_html_e( 'Automatically create an ELR when an employee clocks out early.', 'sfs-hr' ); ?></span>
+                    </div>
+
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-toggle">
+                            <input type="checkbox" name="elr_require_note" value="1" <?php checked( $elr_require_note ); ?>/>
+                            <span class="sfs-hr-toggle__track"></span>
+                            <span class="sfs-hr-toggle__label"><?php esc_html_e( 'Require reason note', 'sfs-hr' ); ?></span>
+                        </label>
+                        <span class="sfs-hr-form-hint"><?php esc_html_e( 'Employees must provide a reason when submitting.', 'sfs-hr' ); ?></span>
+                    </div>
+
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label" for="sfs-elr-salary"><?php esc_html_e( 'Default salary impact', 'sfs-hr' ); ?></label>
+                        <select id="sfs-elr-salary" name="elr_affects_salary_default">
+                            <option value="no" <?php selected( $elr_affects_salary, 'no' ); ?>><?php esc_html_e( 'No Deduction', 'sfs-hr' ); ?></option>
+                            <option value="yes" <?php selected( $elr_affects_salary, 'yes' ); ?>><?php esc_html_e( 'Deduct by Default', 'sfs-hr' ); ?></option>
+                            <option value="manager" <?php selected( $elr_affects_salary, 'manager' ); ?>><?php esc_html_e( 'Manager Decides', 'sfs-hr' ); ?></option>
+                        </select>
+                        <span class="sfs-hr-form-hint"><?php esc_html_e( 'Whether rejected early leaves affect salary deduction.', 'sfs-hr' ); ?></span>
+                    </div>
+
+                    <div class="sfs-hr-form-group">
+                        <label class="sfs-hr-form-label" for="sfs-elr-max"><?php esc_html_e( 'Max requests per month', 'sfs-hr' ); ?></label>
+                        <input type="number" id="sfs-elr-max" name="elr_max_per_month" min="0" max="31" value="<?php echo esc_attr( $elr_max_per_month ); ?>"/>
+                        <span class="sfs-hr-form-hint"><?php esc_html_e( 'Set to 0 for unlimited.', 'sfs-hr' ); ?></span>
+                    </div>
+                </div>
+
                 <?php submit_button( __( 'Save Settings', 'sfs-hr' ) ); ?>
             </form>
         <?php
@@ -502,6 +560,16 @@ public function render_attendance_hub(): void {
         $existing = get_option( AttendanceModule::OPT_SETTINGS, [] );
         $merged   = array_replace_recursive( $existing, $input );
         update_option( AttendanceModule::OPT_SETTINGS, $merged, false );
+
+        // ELR settings.
+        $elr_saved = get_option( 'sfs_hr_elr_settings', [] );
+        $elr_saved['enabled']                = ! empty( $_POST['elr_enabled'] );
+        $elr_saved['auto_create']            = ! empty( $_POST['elr_auto_create'] );
+        $elr_saved['require_note']           = ! empty( $_POST['elr_require_note'] );
+        $elr_saved['affects_salary_default'] = in_array( ( $_POST['elr_affects_salary_default'] ?? 'no' ), [ 'no', 'yes', 'manager' ], true )
+            ? sanitize_key( $_POST['elr_affects_salary_default'] ) : 'no';
+        $elr_saved['max_per_month']          = max( 0, min( 31, (int) ( $_POST['elr_max_per_month'] ?? 0 ) ) );
+        update_option( 'sfs_hr_elr_settings', $elr_saved );
 
         wp_safe_redirect( admin_url('admin.php?page=sfs_hr_attendance&tab=settings&saved=1') );
 

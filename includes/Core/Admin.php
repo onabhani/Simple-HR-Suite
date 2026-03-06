@@ -6961,6 +6961,16 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             $att_saved['selfie_retention_days'] = max( 1, min( 365, (int) ( $att_input['selfie_retention_days'] ?? 30 ) ) );
             $att_saved['monthly_ot_threshold']  = max( 0, (int) ( $att_input['monthly_ot_threshold'] ?? 2400 ) );
             update_option( 'sfs_hr_attendance_settings', $att_saved );
+
+            // ELR settings (nested under att[] in the form).
+            $elr_saved = get_option( 'sfs_hr_elr_settings', [] );
+            $elr_saved['enabled']                = ! empty( $att_input['elr_enabled'] );
+            $elr_saved['auto_create']            = ! empty( $att_input['elr_auto_create'] );
+            $elr_saved['require_note']           = ! empty( $att_input['elr_require_note'] );
+            $elr_saved['affects_salary_default']  = in_array( ( $att_input['elr_affects_salary_default'] ?? 'no' ), [ 'no', 'yes', 'manager' ], true )
+                ? $att_input['elr_affects_salary_default'] : 'no';
+            $elr_saved['max_per_month']           = max( 0, min( 31, (int) ( $att_input['elr_max_per_month'] ?? 0 ) ) );
+            update_option( 'sfs_hr_elr_settings', $elr_saved );
         }
 
         // ── Leave settings ────────────────────────────────────────
@@ -7008,7 +7018,9 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 'enabled', 'email_enabled', 'manager_notification', 'employee_notification',
                 'hr_notification', 'notify_leave_created', 'notify_leave_approved',
                 'notify_leave_rejected', 'notify_leave_cancelled', 'notify_late_arrival',
-                'notify_early_leave', 'notify_missed_punch', 'notify_new_employee',
+                'notify_early_leave', 'notify_missed_punch',
+                'notify_elr_created', 'notify_elr_approved', 'notify_elr_rejected',
+                'notify_new_employee',
                 'notify_birthday', 'notify_anniversary', 'notify_contract_expiry',
                 'notify_probation_end', 'notify_payslip_ready', 'notify_payroll_processed',
             ];

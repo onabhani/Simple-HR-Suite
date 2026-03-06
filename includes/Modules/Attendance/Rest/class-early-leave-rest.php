@@ -421,6 +421,14 @@ class Early_Leave_Rest {
         $limit  = min( 100, max( 1, (int) ( $req['limit'] ?? 50 ) ) );
         $offset = max( 0, (int) ( $req['offset'] ?? 0 ) );
 
+        // Support "period=current" to auto-resolve from/to based on attendance period settings.
+        $period = sanitize_key( $req['period'] ?? '' );
+        if ( $period === 'current' && empty( $from ) && empty( $to ) ) {
+            $period_dates = AttendanceModule::get_current_period();
+            $from = $period_dates['start'] ?? '';
+            $to   = $period_dates['end'] ?? '';
+        }
+
         $where = [];
         $args  = [];
 
