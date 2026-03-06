@@ -4771,7 +4771,21 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
                     'last_recalc_at'      => current_time('mysql', true),
                 ];
                 $exists = $wpdb->get_var( $wpdb->prepare("SELECT id FROM {$sT} WHERE employee_id=%d AND work_date=%s LIMIT 1", $employee_id, $ymd) );
-                if ($exists) $wpdb->update($sT,$data,['id'=>$exists]); else $wpdb->insert($sT,$data);
+                if ($exists) {
+                    // S9: skip locked sessions
+                    $is_locked = (int) $wpdb->get_var( $wpdb->prepare("SELECT locked FROM {$sT} WHERE id=%d", (int) $exists) );
+                    if ( $is_locked ) {
+                        error_log("[SFS-HR] recalc_session_for: skipping locked session id={$exists} emp={$employee_id} date={$ymd}");
+                        return;
+                    }
+                    $result = $wpdb->update($sT,$data,['id'=>$exists]);
+                } else {
+                    $result = $wpdb->insert($sT,$data);
+                }
+                // H10: detect silent write failures
+                if ( $result === false ) {
+                    error_log("[SFS-HR] recalc_session_for: session write failed (holiday) emp={$employee_id} date={$ymd} db_error={$wpdb->last_error}");
+                }
                 return;
             }
         } else {
@@ -4793,7 +4807,19 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
                 'last_recalc_at'      => current_time('mysql', true),
             ];
             $exists = $wpdb->get_var( $wpdb->prepare("SELECT id FROM {$sT} WHERE employee_id=%d AND work_date=%s LIMIT 1", $employee_id, $ymd) );
-            if ($exists) $wpdb->update($sT,$data,['id'=>$exists]); else $wpdb->insert($sT,$data);
+            if ($exists) {
+                $is_locked = (int) $wpdb->get_var( $wpdb->prepare("SELECT locked FROM {$sT} WHERE id=%d", (int) $exists) );
+                if ( $is_locked ) {
+                    error_log("[SFS-HR] recalc_session_for: skipping locked session id={$exists} emp={$employee_id} date={$ymd}");
+                    return;
+                }
+                $result = $wpdb->update($sT,$data,['id'=>$exists]);
+            } else {
+                $result = $wpdb->insert($sT,$data);
+            }
+            if ( $result === false ) {
+                error_log("[SFS-HR] recalc_session_for: session write failed (on_leave) emp={$employee_id} date={$ymd} db_error={$wpdb->last_error}");
+            }
             return;
         }
     }
@@ -4891,7 +4917,7 @@ if ( ! empty( $leadingOuts ) ) {
     $prevDate   = $prevDateDt->format( 'Y-m-d' );
     $sT         = $wpdb->prefix . 'sfs_hr_attendance_sessions';
     $prevSess   = $wpdb->get_row( $wpdb->prepare(
-        "SELECT id, status, in_time, out_time, break_minutes, flags_json FROM {$sT}
+        "SELECT id, status, in_time, out_time, break_minutes, flags_json, locked FROM {$sT}
          WHERE employee_id = %d AND work_date = %s LIMIT 1",
         $employee_id, $prevDate
     ) );
@@ -5015,7 +5041,16 @@ if ( ! empty( $leadingOuts ) ) {
             $prev_session_data['early_leave_request_id'] = null;
         }
 
-        $wpdb->update( $sT, $prev_session_data, [ 'id' => (int) $prevSess->id ] );
+        // S9: skip locked sessions during retroactive close
+        if ( ! empty( $prevSess->locked ) ) {
+            error_log("[SFS-HR] recalc_session_for: skipping retro-close of locked session id={$prevSess->id} emp={$employee_id} date={$prevDate}");
+        } else {
+            $retro_result = $wpdb->update( $sT, $prev_session_data, [ 'id' => (int) $prevSess->id ] );
+            // H10: detect silent write failures
+            if ( $retro_result === false ) {
+                error_log("[SFS-HR] recalc_session_for: retro-close write failed emp={$employee_id} prev_date={$prevDate} db_error={$wpdb->last_error}");
+            }
+        }
 
         // Auto-create early leave request for the retro-closed session.
         if ( $prevIsEarly && $prevEarlyMin > 0 ) {
@@ -5425,11 +5460,22 @@ if ( ! empty( $leadingOuts ) ) {
     $existing_flags = [];
     $exists = $wpdb->get_var( $wpdb->prepare("SELECT id FROM {$sT} WHERE employee_id=%d AND work_date=%s LIMIT 1", $employee_id, $ymd) );
     if ($exists) {
+        // S9: skip locked sessions — do not overwrite finalized/payroll-approved data
+        $is_locked = (int) $wpdb->get_var( $wpdb->prepare("SELECT locked FROM {$sT} WHERE id=%d", (int) $exists) );
+        if ( $is_locked ) {
+            error_log("[SFS-HR] recalc_session_for: skipping locked session id={$exists} emp={$employee_id} date={$ymd}");
+            return;
+        }
         $existing_flags_json = $wpdb->get_var( $wpdb->prepare("SELECT flags_json FROM {$sT} WHERE id=%d", (int)$exists) );
         $existing_flags = $existing_flags_json ? (json_decode($existing_flags_json, true) ?: []) : [];
-        $wpdb->update($sT, $data, ['id'=>(int)$exists]);
+        $result = $wpdb->update($sT, $data, ['id'=>(int)$exists]);
     } else {
-        $wpdb->insert($sT, $data);
+        $result = $wpdb->insert($sT, $data);
+    }
+
+    // H10: detect silent write failures
+    if ( $result === false ) {
+        error_log("[SFS-HR] recalc_session_for: session write failed emp={$employee_id} date={$ymd} db_error={$wpdb->last_error}");
     }
 
     // Capture session ID for linking (used by auto-created early leave requests)
