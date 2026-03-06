@@ -3978,9 +3978,10 @@ private static function migrate_add_foreign_keys( \wpdb $wpdb, string $p ): void
         ) );
     };
 
-    // Ensure InnoDB (only ALTER if not already InnoDB)
+    // Ensure InnoDB on all tables including the parent employees table
+    // (required for FK constraints).
     $had_errors = false;
-    foreach ( [ $punchT, $sessT, $shiftT, $assignT, $empShT, $flagT, $auditT, $elrT ] as $t ) {
+    foreach ( [ $empT, $punchT, $sessT, $shiftT, $assignT, $empShT, $flagT, $auditT, $elrT ] as $t ) {
         $engine = $wpdb->get_var( $wpdb->prepare(
             "SELECT ENGINE FROM information_schema.TABLES
              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s",
@@ -4852,17 +4853,20 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
                 if ($exists) {
                     // S9: atomically skip locked sessions by including locked=0 in WHERE
                     $result = $wpdb->update($sT, $data, ['id' => (int) $exists, 'locked' => 0]);
-                    if ( $result === 0 ) {
-                        // Row exists but wasn't updated — likely locked
-                        error_log("[SFS-HR] recalc_session_for: skipping locked session id={$exists} (holiday)");
-                        return;
+                    if ( $result === false ) {
+                        error_log("[SFS-HR] recalc_session_for: session write failed (holiday) db_error={$wpdb->last_error}");
+                    } elseif ( $result === 0 ) {
+                        $is_locked = (int) $wpdb->get_var( $wpdb->prepare("SELECT locked FROM {$sT} WHERE id=%d", (int) $exists) );
+                        if ( $is_locked ) {
+                            error_log("[SFS-HR] recalc_session_for: skipping locked session id={$exists} (holiday)");
+                            return;
+                        }
                     }
                 } else {
                     $result = $wpdb->insert($sT,$data);
-                }
-                // H10: detect silent write failures
-                if ( $result === false ) {
-                    error_log("[SFS-HR] recalc_session_for: session write failed (holiday) db_error={$wpdb->last_error}");
+                    if ( $result === false ) {
+                        error_log("[SFS-HR] recalc_session_for: session insert failed (holiday) db_error={$wpdb->last_error}");
+                    }
                 }
                 return;
             }
@@ -4888,15 +4892,20 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
             if ($exists) {
                 // S9: atomically skip locked sessions
                 $result = $wpdb->update($sT, $data, ['id' => (int) $exists, 'locked' => 0]);
-                if ( $result === 0 ) {
-                    error_log("[SFS-HR] recalc_session_for: skipping locked session id={$exists} (on_leave)");
-                    return;
+                if ( $result === false ) {
+                    error_log("[SFS-HR] recalc_session_for: session write failed (on_leave) db_error={$wpdb->last_error}");
+                } elseif ( $result === 0 ) {
+                    $is_locked = (int) $wpdb->get_var( $wpdb->prepare("SELECT locked FROM {$sT} WHERE id=%d", (int) $exists) );
+                    if ( $is_locked ) {
+                        error_log("[SFS-HR] recalc_session_for: skipping locked session id={$exists} (on_leave)");
+                        return;
+                    }
                 }
             } else {
                 $result = $wpdb->insert($sT,$data);
-            }
-            if ( $result === false ) {
-                error_log("[SFS-HR] recalc_session_for: session write failed (on_leave) db_error={$wpdb->last_error}");
+                if ( $result === false ) {
+                    error_log("[SFS-HR] recalc_session_for: session insert failed (on_leave) db_error={$wpdb->last_error}");
+                }
             }
             return;
         }
@@ -5123,11 +5132,19 @@ if ( ! empty( $leadingOuts ) ) {
 
         // S9: atomically skip locked sessions during retroactive close
         $retro_result = $wpdb->update( $sT, $prev_session_data, [ 'id' => (int) $prevSess->id, 'locked' => 0 ] );
-        if ( $retro_result === 0 ) {
-            error_log("[SFS-HR] recalc_session_for: skipping retro-close of locked session id={$prevSess->id}");
-        } elseif ( $retro_result === false ) {
+        if ( $retro_result === false ) {
             // H10: detect silent write failures
             error_log("[SFS-HR] recalc_session_for: retro-close write failed session_id={$prevSess->id} db_error={$wpdb->last_error}");
+        } elseif ( $retro_result === 0 ) {
+            // update() returned 0: either locked or data was identical.
+            // Verify via SELECT to avoid false-positive skip.
+            $is_locked = (int) $wpdb->get_var( $wpdb->prepare("SELECT locked FROM {$sT} WHERE id=%d", (int) $prevSess->id) );
+            if ( $is_locked ) {
+                error_log("[SFS-HR] recalc_session_for: skipping retro-close of locked session id={$prevSess->id}");
+                // Skip follow-up work (ELR creation) for locked sessions
+                $prevIsEarly = false;
+            }
+            // else: data was identical (no-op update), continue normally
         }
 
         // Auto-create early leave request for the retro-closed session.
@@ -5562,17 +5579,23 @@ if ( ! empty( $leadingOuts ) ) {
         $existing_flags_json = $wpdb->get_var( $wpdb->prepare("SELECT flags_json FROM {$sT} WHERE id=%d", (int)$exists) );
         $existing_flags = $existing_flags_json ? (json_decode($existing_flags_json, true) ?: []) : [];
         $result = $wpdb->update($sT, $data, ['id' => (int)$exists, 'locked' => 0]);
-        if ( $result === 0 ) {
-            error_log("[SFS-HR] recalc_session_for: skipping locked session id={$exists}");
-            return;
+        if ( $result === false ) {
+            error_log("[SFS-HR] recalc_session_for: session write failed db_error={$wpdb->last_error}");
+        } elseif ( $result === 0 ) {
+            // update() returned 0: either locked or data identical.
+            $is_locked = (int) $wpdb->get_var( $wpdb->prepare("SELECT locked FROM {$sT} WHERE id=%d", (int)$exists) );
+            if ( $is_locked ) {
+                error_log("[SFS-HR] recalc_session_for: skipping locked session id={$exists}");
+                return;
+            }
+            // else: data was identical, continue with follow-up work
         }
     } else {
         $result = $wpdb->insert($sT, $data);
-    }
-
-    // H10: detect silent write failures
-    if ( $result === false ) {
-        error_log("[SFS-HR] recalc_session_for: session write failed db_error={$wpdb->last_error}");
+        // H10: detect silent write failures
+        if ( $result === false ) {
+            error_log("[SFS-HR] recalc_session_for: session insert failed db_error={$wpdb->last_error}");
+        }
     }
 
     // Capture session ID for linking (used by auto-created early leave requests)

@@ -56,7 +56,7 @@ class Early_Leave_Auto_Reject {
         $ids = wp_list_pluck( $expired, 'id' );
         $placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
 
-        $wpdb->query( $wpdb->prepare(
+        $affected = $wpdb->query( $wpdb->prepare(
             "UPDATE `{$table}`
              SET status       = 'rejected',
                  reviewed_by  = NULL,
@@ -64,7 +64,7 @@ class Early_Leave_Auto_Reject {
                  manager_note = %s,
                  affects_salary = %d,
                  updated_at   = %s
-             WHERE id IN ({$placeholders})",
+             WHERE id IN ({$placeholders}) AND status = 'pending'",
             array_merge(
                 [ $now, sprintf( __( 'Auto-rejected: no action was taken within %d day(s).', 'sfs-hr' ), $expiry_days ), $affects_salary, $now ],
                 $ids
@@ -73,7 +73,8 @@ class Early_Leave_Auto_Reject {
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
             error_log( sprintf(
-                '[SFS HR] Early leave auto-reject: rejected %d expired request(s).',
+                '[SFS HR] Early leave auto-reject: rejected %d of %d expired request(s).',
+                (int) $affected,
                 count( $ids )
             ) );
         }

@@ -5256,7 +5256,7 @@ $sql = "
   LEFT JOIN {$eT} e ON e.id = p.employee_id
   LEFT JOIN {$uT} u ON u.ID = e.user_id
   {$where}
-  ORDER BY p.punch_time DESC
+  ORDER BY p.punch_time DESC, p.id DESC
   LIMIT {$per_page} OFFSET {$offset}
 ";
 
@@ -5648,8 +5648,8 @@ private function render_sessions(): void {
     // Sessions rows (+ employee_code column) — stable sort
 $sortName = "COALESCE(NULLIF(TRIM(u.display_name),''), NULLIF(TRIM(e.employee_code),''), CONCAT('#', s.employee_id))";
 $orderSQL = ($mode === 'period_25')
-    ? "{$sortName} ASC, s.work_date ASC"
-    : "{$sortName} ASC";
+    ? "{$sortName} ASC, s.work_date ASC, s.employee_id ASC"
+    : "{$sortName} ASC, s.employee_id ASC";
 
 // Count total matching rows for pagination
 $totalSessions = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$sT} s {$where}");

@@ -54,8 +54,11 @@ class Daily_Session_Builder {
      * Rebuild sessions for yesterday and today.
      */
     public function run(): void {
-        // Guard against concurrent execution.
-        set_transient( self::RUNNING_TRANSIENT, time(), 10 * MINUTE_IN_SECONDS );
+        // Atomic guard against concurrent execution.
+        // add_transient only succeeds if the key doesn't already exist.
+        if ( ! add_transient( self::RUNNING_TRANSIENT, time(), 10 * MINUTE_IN_SECONDS ) ) {
+            return; // Another instance is already running.
+        }
 
         $today     = wp_date( 'Y-m-d' );
         $yesterday = wp_date( 'Y-m-d', strtotime( '-1 day' ) );
@@ -85,8 +88,8 @@ class Daily_Session_Builder {
      * session record and absences would be invisible in reports.
      */
     public function maybe_run_fallback(): void {
-        // Skip AJAX / REST / CLI requests to minimise overhead.
-        if ( wp_doing_ajax() || wp_doing_cron() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
+        // Skip AJAX / REST / CLI / WP-CLI requests to minimise overhead.
+        if ( wp_doing_ajax() || wp_doing_cron() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) || ( defined( 'WP_CLI' ) && WP_CLI ) ) {
             return;
         }
 

@@ -133,6 +133,14 @@ class Early_Leave_Rest {
             }
         }
 
+        if ( $manager_id === null ) {
+            return new \WP_Error(
+                'no_approver',
+                __( 'Cannot submit early leave request: no approver is configured for your role. Please contact HR.', 'sfs-hr' ),
+                [ 'status' => 422 ]
+            );
+        }
+
         // Get scheduled end time from shift
         $shift = AttendanceModule::resolve_shift_for_date( $emp_id, $request_date );
         $scheduled_end_time = $shift && ! empty( $shift->end_time ) ? $shift->end_time : null;
@@ -413,17 +421,25 @@ class Early_Leave_Rest {
             'reviewed_by'    => $user_id,
             'reviewed_at'    => $now,
             'manager_note'   => $note,
-            'affects_salary' => $action === 'approve' ? 0 : 1,
+            'affects_salary' => $action === 'approve'
+                ? (int) ( $req['affects_salary'] ?? 0 )
+                : (int) ( $req['affects_salary'] ?? 0 ),
             'updated_at'     => $now,
         ];
+
+        // Wrap the entire review in a transaction so partial failures
+        // don't leave ELR/session state inconsistent.
+        $wpdb->query( 'BEGIN' );
 
         // Atomically update only if still pending (prevents race condition
         // where two managers approve the same request simultaneously).
         $updated = $wpdb->update( $table, $update_data, [ 'id' => $request_id, 'status' => 'pending' ] );
         if ( $updated === false ) {
+            $wpdb->query( 'ROLLBACK' );
             return new \WP_Error( 'db_error', __( 'Database error while updating the request.', 'sfs-hr' ), [ 'status' => 500 ] );
         }
         if ( $updated === 0 ) {
+            $wpdb->query( 'ROLLBACK' );
             return new \WP_Error( 'already_reviewed', __( 'Request has already been reviewed by another user.', 'sfs-hr' ), [ 'status' => 409 ] );
         }
 
@@ -441,12 +457,16 @@ class Early_Leave_Rest {
                 ) );
                 // Back-link the session to the early leave request
                 if ( $session_id ) {
-                    $wpdb->update( $table, [ 'session_id' => $session_id ], [ 'id' => $request_id ] );
+                    $bl = $wpdb->update( $table, [ 'session_id' => $session_id ], [ 'id' => $request_id ] );
+                    if ( $bl === false ) {
+                        $wpdb->query( 'ROLLBACK' );
+                        return new \WP_Error( 'db_error', __( 'Failed to link session to request.', 'sfs-hr' ), [ 'status' => 500 ] );
+                    }
                 }
             }
 
             if ( $session_id ) {
-                $wpdb->update(
+                $sess_upd = $wpdb->update(
                     $session_table,
                     [
                         'early_leave_approved'    => 1,
@@ -454,9 +474,17 @@ class Early_Leave_Rest {
                     ],
                     [ 'id' => $session_id ]
                 );
+                if ( $sess_upd === false ) {
+                    $wpdb->query( 'ROLLBACK' );
+                    return new \WP_Error( 'db_error', __( 'Failed to update session.', 'sfs-hr' ), [ 'status' => 500 ] );
+                }
             }
+        }
 
-            // Recalculate session to suppress left_early status
+        $wpdb->query( 'COMMIT' );
+
+        // Recalculate session after commit to suppress left_early status
+        if ( $action === 'approve' ) {
             AttendanceModule::recalc_session_for( (int) $request->employee_id, $request->request_date, null, true );
         }
 

@@ -133,11 +133,11 @@ public static function routes(): void {
  * Transients are the WordPress-recommended mechanism for temporary data and
  * are automatically cleaned up, preventing stale token buildup in wp_options.
  */
-private static function put_scan_token(string $token, array $payload, int $ttl = 300): void {
+private static function put_scan_token(string $token, array $payload, int $ttl = 300): bool {
     $key = 'sfs_hr_scan_' . $token;
     // Avoid clobbering an existing token
-    if ( get_transient( $key ) !== false ) return;
-    set_transient( $key, $payload, $ttl );
+    if ( get_transient( $key ) !== false ) return false;
+    return (bool) set_transient( $key, $payload, $ttl );
 }
 
 /** Peek (do not consume) a scan token; returns payload or null if missing/expired. */
@@ -226,13 +226,21 @@ public static function scan( \WP_REST_Request $req ) {
     // Mint short-lived server scan token (one-time use)
     $scan_token = substr( wp_hash( $emp . '|' . $qrTok . '|' . microtime(true) ), 0, 24 );
 
-    self::put_scan_token( $scan_token, [
+    $token_stored = self::put_scan_token( $scan_token, [
         'employee_id' => $emp,
         'device_id'   => $device ?: null,
         'qr_token'    => $qrTok,
         'ua'          => isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field( (string) $_SERVER['HTTP_USER_AGENT'] ) : '',
         'ip'          => isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field( (string) $_SERVER['REMOTE_ADDR'] ) : '',
     ], 600 ); // TTL: 10 minutes (allows full punch sequence: In → Break Start → Break End → Out)
+
+    if ( ! $token_stored ) {
+        return new \WP_Error(
+            'token_store_failed',
+            __( 'Failed to store scan token. Please try again.', 'sfs-hr' ),
+            [ 'status' => 500 ]
+        );
+    }
 
     return rest_ensure_response([
         'ok'            => true,
@@ -1065,14 +1073,7 @@ if ( $punch_id === 0 ) {
     );
 }
 
-if ( $selfie_media_id ) {
-    update_post_meta( $selfie_media_id, '_sfs_att_punch_id', $punch_id );
-    update_post_meta( $selfie_media_id, '_sfs_att_employee_id', (int) $emp );
-    update_post_meta( $selfie_media_id, '_sfs_att_source', $source );
-}
-
-
-    // ---- Audit
+    // ---- Audit (insert before attachment meta so rollback is clean)
     $auditT = $wpdb->prefix . 'sfs_hr_attendance_audit';
     $audit_ok = $wpdb->insert( $auditT, [
         'actor_user_id'      => $uid,
@@ -1093,7 +1094,7 @@ if ( $selfie_media_id ) {
     ] );
     if ( $audit_ok === false ) {
         error_log( sprintf( '[SFS ATT] Audit insert failed for punch %d: %s', $punch_id, $wpdb->last_error ) );
-        // Roll back the punch to maintain data consistency
+        // Roll back the punch — no attachment meta was written yet
         $wpdb->delete( $wpdb->prefix . 'sfs_hr_attendance_punches', [ 'id' => $punch_id ], [ '%d' ] );
         $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
         return new \WP_Error(
@@ -1101,6 +1102,13 @@ if ( $selfie_media_id ) {
             'Failed to record audit trail. Punch was not saved.',
             [ 'status' => 500 ]
         );
+    }
+
+    // ---- Attachment meta (after audit success so rollback never needs cleanup)
+    if ( $selfie_media_id ) {
+        update_post_meta( $selfie_media_id, '_sfs_att_punch_id', $punch_id );
+        update_post_meta( $selfie_media_id, '_sfs_att_employee_id', (int) $emp );
+        update_post_meta( $selfie_media_id, '_sfs_att_source', $source );
     }
 
     // ---- Recalculate the session for the work date (may be yesterday for overnight shifts)
