@@ -571,6 +571,7 @@ public function render_attendance_hub(): void {
 
         // ELR settings.
         $elr_saved = get_option( 'sfs_hr_elr_settings', [] );
+        if ( ! is_array( $elr_saved ) ) { $elr_saved = []; }
         $elr_saved['enabled']                = ! empty( $_POST['elr_enabled'] );
         $elr_saved['auto_create']            = ! empty( $_POST['elr_auto_create'] );
         $elr_saved['require_note']           = ! empty( $_POST['elr_require_note'] );

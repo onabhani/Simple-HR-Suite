@@ -4,7 +4,8 @@ namespace SFS\HR\Modules\Attendance\Cron;
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 /**
- * Auto-reject early leave requests that have been pending for more than 72 hours.
+ * Auto-reject early leave requests that have been pending longer than the
+ * configured auto_reject_days setting (default: 3 days).
  */
 class Early_Leave_Auto_Reject {
 

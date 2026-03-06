@@ -111,6 +111,9 @@ class AttendanceModule {
     public function hooks(): void {
         add_action('admin_init', [ $this, 'maybe_install' ]);
 
+        // Deferred recalc hook — fires when a recalc was skipped due to lock contention.
+        add_action( 'sfs_hr_deferred_recalc', [ self::class, 'recalc_session_for' ], 10, 2 );
+
         // Safe call to private method
         add_action('admin_init', function () { $this->register_caps(); });
         add_shortcode('sfs_hr_kiosk', [ $this, 'shortcode_kiosk' ]);
@@ -4803,7 +4806,11 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
     $recalc_lock = 'sfs_hr_recalc_' . $employee_id . '_' . $ymd;
     $got_lock    = $wpdb->get_var( $wpdb->prepare( "SELECT GET_LOCK(%s, 3)", $recalc_lock ) );
     if ( ! $got_lock ) {
-        return; // another recalc is in progress for this employee+date — skip
+        // Schedule a deferred recalc so this employee+date isn't silently dropped.
+        if ( ! wp_next_scheduled( 'sfs_hr_deferred_recalc', [ $employee_id, $ymd ] ) ) {
+            wp_schedule_single_event( time() + 30, 'sfs_hr_deferred_recalc', [ $employee_id, $ymd ] );
+        }
+        return;
     }
     try {
 
@@ -5560,14 +5567,7 @@ if ( ! empty( $leadingOuts ) ) {
     // Back-link: ensure the ELR record's session_id is populated.
     // This handles the case where the ELR was approved before the session
     // existed (e.g., pre-approved for a future date).
-    if ( ! empty( $approved_el_id ) ) {
-        $elr_session = $wpdb->get_var( $wpdb->prepare(
-            "SELECT session_id FROM {$elr_table} WHERE id = %d",
-            (int) $approved_el_id
-        ) );
-        // We'll update the ELR's session_id after the session is persisted
-        // (we need the session ID from insert/update below).
-    }
+    // We'll do an atomic conditional UPDATE after the session is persisted.
 
     // Check if this is a new late/early detection (to avoid duplicate notifications)
     $existing_flags = [];
@@ -5600,13 +5600,16 @@ if ( ! empty( $leadingOuts ) ) {
     // Capture session ID for linking (used by auto-created early leave requests)
     $session_id = $exists ? (int) $exists : (int) $wpdb->insert_id;
 
-    // Back-link the ELR's session_id if it was null (pre-approved before session existed).
-    if ( ! empty( $approved_el_id ) && $session_id && ( ! isset( $elr_session ) || ! $elr_session ) ) {
-        $wpdb->update(
-            $wpdb->prefix . 'sfs_hr_early_leave_requests',
-            [ 'session_id' => $session_id ],
-            [ 'id' => (int) $approved_el_id ]
-        );
+    // Atomic back-link: set session_id only if still NULL (prevents race with concurrent workers).
+    if ( ! empty( $approved_el_id ) && $session_id ) {
+        $bl_result = $wpdb->query( $wpdb->prepare(
+            "UPDATE {$elr_table} SET session_id = %d WHERE id = %d AND session_id IS NULL",
+            $session_id,
+            (int) $approved_el_id
+        ) );
+        if ( $bl_result === false ) {
+            error_log("[SFS-HR] recalc_session_for: ELR back-link failed elr_id={$approved_el_id} db_error={$wpdb->last_error}");
+        }
     }
 
     // Fire notification hooks for late arrival and early leave (only once per session)
