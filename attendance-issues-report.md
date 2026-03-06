@@ -5,6 +5,25 @@
 
 ---
 
+## Top 10 — Prioritized Fixes (Remaining)
+
+> Items already fixed: C1, C2, C4, C5, C6, H4, H7 (partial), scan token TTL, device dept restriction, security hardening.
+
+| # | Issue | Fix | Impact |
+|---|-------|-----|--------|
+| 1 | **C9** — `overtime_after_minutes` stored but never used in OT calculation | Read `$shift->overtime_after_minutes` in `recalc_session_for()`; change OT formula to `max(0, $excess - $threshold)` | Payroll: every employee's OT is wrong — admin-configured thresholds silently ignored; direct salary overpayment |
+| 2 | **H12** — Retroactive overnight session closure skips overtime & break delay | Call full `recalc_session_for()` after retroactive close, or replicate OT + break_delay + calc_meta logic in the leading-OUT path | Payroll: all overnight shift employees get `overtime_minutes=0` permanently; systematic underpayment |
+| 3 | **M2** — Rounding applied before OT calculation | Calculate `$ot = max(0, $net_raw - $scheduled)` BEFORE rounding `$net`; round both independently | Payroll: fractional OT minutes lost to rounding every day; compounds over pay period |
+| 4 | **C3** — Incomplete session permanently locks out employee | In `snapshot_for_employee()`, if incomplete session is >24h old, auto-close it or allow new session for different date | Operations: employee locked out of attendance system until admin intervenes; blocks all punching |
+| 5 | **H2** — State machine check before lock (TOCTOU race) | Move snapshot/state validation to AFTER lock acquisition (inside critical section) | Data integrity: concurrent punches create corrupt sessions — double clock-in, phantom state transitions |
+| 6 | **H3** — Session recalc race with `Daily_Session` cron | Add per-employee MySQL named lock in `recalc_session_for()` (separate from punch lock) | Data integrity: cron overwrites latest punch data; session state non-deterministic during cron window |
+| 7 | **C8/S4** — Offline punch timestamp not validated against shift window | After staleness check, resolve employee's shift; reject punches outside shift window ± buffer | Security: offline kiosk can submit punches for any time in last 24h; time fraud possible |
+| 8 | **H10** — Session insert/update failures are silent | Check `$wpdb->update()`/`insert()` return values; return `WP_Error` on failure; wrap in transaction with rollback | Data integrity: punch succeeds but session silently broken; payroll never reflects the work |
+| 9 | **S9** — Session recalc doesn't respect `locked` flag | Check `$session->locked` before recalculating; skip recalc and log warning if locked | Payroll: finalized/locked sessions overwritten by any recalc trigger; payroll figures change after approval |
+| 10 | **M13** — `affects_salary` hardcoded to 1 on ELR rejection | Accept `affects_salary` parameter for reject action; default to 0 for rejections | HR: rejected early leave always penalizes salary; managers cannot reject without financial impact on employee |
+
+---
+
 ## Table of Contents
 
 1. [Executive Summary](#executive-summary)
