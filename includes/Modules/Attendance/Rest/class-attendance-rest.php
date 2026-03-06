@@ -140,15 +140,6 @@ private static function put_scan_token(string $token, array $payload, int $ttl =
     set_transient( $key, $payload, $ttl );
 }
 
-/** Consume & delete the token; returns payload or null if missing/expired. */
-private static function pop_scan_token(string $token): ?array {
-    $key = 'sfs_hr_scan_' . $token;
-    $row = get_transient( $key );
-    if ( $row === false || ! is_array( $row ) ) return null;
-    delete_transient( $key );
-    return $row;
-}
-
 /** Peek (do not consume) a scan token; returns payload or null if missing/expired. */
 private static function get_scan_token( string $token ): ?array {
     $key = 'sfs_hr_scan_' . $token;
@@ -493,8 +484,10 @@ if ( $last_punch ) {
         ];
         if ( $dbg && current_user_can( 'sfs_hr_attendance_admin' ) ) {
             $err['detail'] = $e->getMessage();
-            // Stack traces logged server-side only; never expose file paths in API responses.
-            error_log( '[SFS ATT] Status error: ' . $e->getMessage() . "\n" . $e->getTraceAsString() );
+        }
+        // Log server-side only; never expose file paths or traces in API responses.
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            error_log( '[SFS ATT] Status error in snapshot' );
         }
         return new \WP_Error( 'status_error', wp_json_encode($err), [ 'status' => 500 ] );
     }
@@ -1542,20 +1535,43 @@ private static function save_selfie_attachment( array $src ): int {
         return $R * $c;
     }
 
-    /** Get client IP address, respecting common proxy headers. */
+    /**
+     * Get client IP address.
+     *
+     * Only trusts X-Forwarded-For / X-Real-IP when the immediate peer
+     * (REMOTE_ADDR) is in the trusted-proxy list.  Without this gate,
+     * any client can spoof its IP and bypass per-IP rate limiting.
+     *
+     * Trusted proxies can be configured via the
+     * `sfs_hr_attendance_trusted_proxies` filter (returns string[]).
+     */
     private static function get_client_ip(): string {
-        // Check proxy headers (typical in load-balanced / reverse-proxy setups)
-        foreach ( [ 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'REMOTE_ADDR' ] as $key ) {
-            $val = isset( $_SERVER[ $key ] ) ? sanitize_text_field( wp_unslash( $_SERVER[ $key ] ) ) : '';
-            if ( $val !== '' ) {
-                // X-Forwarded-For may contain a comma-separated list; take the first (client) IP
-                $ip = trim( explode( ',', $val )[0] );
-                if ( filter_var( $ip, FILTER_VALIDATE_IP ) ) {
-                    return $ip;
+        $remote_addr = isset( $_SERVER['REMOTE_ADDR'] )
+            ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) )
+            : '0.0.0.0';
+
+        /**
+         * Filter the list of trusted reverse-proxy IPs.
+         *
+         * @param string[] $proxies Default: loopback addresses.
+         */
+        $trusted = apply_filters( 'sfs_hr_attendance_trusted_proxies', [ '127.0.0.1', '::1' ] );
+
+        if ( in_array( $remote_addr, $trusted, true ) ) {
+            // Peer is a known proxy — check forwarded headers
+            foreach ( [ 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP' ] as $key ) {
+                $val = isset( $_SERVER[ $key ] ) ? sanitize_text_field( wp_unslash( $_SERVER[ $key ] ) ) : '';
+                if ( $val !== '' ) {
+                    $ip = trim( explode( ',', $val )[0] );
+                    if ( filter_var( $ip, FILTER_VALIDATE_IP ) ) {
+                        return $ip;
+                    }
                 }
             }
         }
-        return '0.0.0.0';
+
+        // Untrusted peer or no valid forwarded header — use REMOTE_ADDR
+        return filter_var( $remote_addr, FILTER_VALIDATE_IP ) ? $remote_addr : '0.0.0.0';
     }
 
     /**

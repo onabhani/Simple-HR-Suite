@@ -273,7 +273,7 @@ class Admin_REST {
         $start = new \DateTimeImmutable($sd); $end = new \DateTimeImmutable($ed);
         $days  = (int)$start->diff($end)->format('%a');
 
-        if ( $days > 366 ) {
+        if ( $days > 365 ) {
             return new \WP_Error( 'range_too_large', 'Date range cannot exceed 366 days.', [ 'status' => 400 ] );
         }
 
@@ -414,7 +414,9 @@ $meta['selfie_mode'] = $selfie_mode;
                 'result'      => 'Service not wired; echo-only.',
             ]);
         } catch ( \Throwable $e ) {
-            error_log( '[SFS ATT] Rebuild failed: ' . $e->getMessage() );
+            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( '[SFS ATT] Rebuild failed for date=' . $date );
+            }
             return new \WP_Error( 'rebuild_failed', 'Session rebuild failed.', [ 'status' => 500 ] );
         }
     }
@@ -444,9 +446,12 @@ $meta['selfie_mode'] = $selfie_mode;
         if ( ! in_array( $punch_type, [ 'in', 'out', 'break_start', 'break_end' ], true ) ) {
             return new \WP_Error( 'invalid_punch_type', 'punch_type must be in, out, break_start, or break_end.', [ 'status' => 400 ] );
         }
-        if ( ! strtotime( $punch_time . ' UTC' ) ) {
+        $parsed_ts = strtotime( $punch_time . ' UTC' );
+        if ( ! $parsed_ts ) {
             return new \WP_Error( 'invalid_time', 'punch_time must be a valid datetime (Y-m-d H:i:s).', [ 'status' => 400 ] );
         }
+        // Normalize to canonical UTC format
+        $punch_time = gmdate( 'Y-m-d H:i:s', $parsed_ts );
 
         // Verify employee exists
         $empT = $wpdb->prefix . 'sfs_hr_employees';
@@ -455,8 +460,11 @@ $meta['selfie_mode'] = $selfie_mode;
         }
 
         $punchT = $wpdb->prefix . 'sfs_hr_attendance_punches';
+        $auditT = $wpdb->prefix . 'sfs_hr_attendance_audit';
         $nowUtc = gmdate( 'Y-m-d H:i:s' );
         $uid    = get_current_user_id();
+
+        $wpdb->query( 'START TRANSACTION' );
 
         $inserted = $wpdb->insert( $punchT, [
             'employee_id' => $employee_id,
@@ -471,14 +479,14 @@ $meta['selfie_mode'] = $selfie_mode;
         ] );
 
         if ( ! $inserted ) {
+            $wpdb->query( 'ROLLBACK' );
             return new \WP_Error( 'insert_failed', 'Failed to create punch.', [ 'status' => 500 ] );
         }
 
         $punch_id = (int) $wpdb->insert_id;
 
         // Audit log
-        $auditT = $wpdb->prefix . 'sfs_hr_attendance_audit';
-        $wpdb->insert( $auditT, [
+        $audit_ok = $wpdb->insert( $auditT, [
             'actor_user_id'      => $uid,
             'action_type'        => 'punch.admin_create',
             'target_employee_id' => $employee_id,
@@ -492,8 +500,15 @@ $meta['selfie_mode'] = $selfie_mode;
             'created_at' => $nowUtc,
         ] );
 
-        // Recalculate session for the work date
-        $work_date = wp_date( 'Y-m-d', strtotime( $punch_time . ' UTC' ) );
+        if ( ! $audit_ok ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new \WP_Error( 'audit_failed', 'Failed to log audit trail.', [ 'status' => 500 ] );
+        }
+
+        $wpdb->query( 'COMMIT' );
+
+        // Recalculate session for the work date (outside transaction)
+        $work_date = wp_date( 'Y-m-d', $parsed_ts );
         \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( $employee_id, $work_date, null, true );
 
         $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$punchT} WHERE id = %d", $punch_id ) );
@@ -532,9 +547,11 @@ $meta['selfie_mode'] = $selfie_mode;
         }
         if ( $punch_time !== null ) {
             $punch_time = sanitize_text_field( $punch_time );
-            if ( ! strtotime( $punch_time . ' UTC' ) ) {
+            $parsed_ts  = strtotime( $punch_time . ' UTC' );
+            if ( ! $parsed_ts ) {
                 return new \WP_Error( 'invalid_time', 'Invalid punch_time.', [ 'status' => 400 ] );
             }
+            $punch_time = gmdate( 'Y-m-d H:i:s', $parsed_ts );
             $update['punch_time'] = $punch_time;
         }
         if ( $note !== null ) {
@@ -548,13 +565,19 @@ $meta['selfie_mode'] = $selfie_mode;
             'note'       => $existing->note,
         ] );
 
-        $wpdb->update( $punchT, $update, [ 'id' => $punch_id ] );
-
-        // Audit log
         $uid    = get_current_user_id();
         $nowUtc = gmdate( 'Y-m-d H:i:s' );
         $auditT = $wpdb->prefix . 'sfs_hr_attendance_audit';
-        $wpdb->insert( $auditT, [
+
+        $wpdb->query( 'START TRANSACTION' );
+
+        $updated = $wpdb->update( $punchT, $update, [ 'id' => $punch_id ] );
+        if ( $updated === false ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new \WP_Error( 'update_failed', 'Failed to update punch.', [ 'status' => 500 ] );
+        }
+
+        $audit_ok = $wpdb->insert( $auditT, [
             'actor_user_id'      => $uid,
             'action_type'        => 'punch.admin_edit',
             'target_employee_id' => (int) $existing->employee_id,
@@ -564,7 +587,14 @@ $meta['selfie_mode'] = $selfie_mode;
             'created_at'         => $nowUtc,
         ] );
 
-        // Recalc session for both old and new dates (if time changed)
+        if ( ! $audit_ok ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new \WP_Error( 'audit_failed', 'Failed to log audit trail.', [ 'status' => 500 ] );
+        }
+
+        $wpdb->query( 'COMMIT' );
+
+        // Recalc session for both old and new dates (if time changed) — outside transaction
         $old_date = wp_date( 'Y-m-d', strtotime( $existing->punch_time . ' UTC' ) );
         $new_date = $punch_time ? wp_date( 'Y-m-d', strtotime( $punch_time . ' UTC' ) ) : $old_date;
         $emp_id   = (int) $existing->employee_id;
@@ -595,11 +625,14 @@ $meta['selfie_mode'] = $selfie_mode;
             return new \WP_Error( 'not_found', 'Punch not found.', [ 'status' => 404 ] );
         }
 
-        // Audit log before deletion
         $uid    = get_current_user_id();
         $nowUtc = gmdate( 'Y-m-d H:i:s' );
         $auditT = $wpdb->prefix . 'sfs_hr_attendance_audit';
-        $wpdb->insert( $auditT, [
+
+        $wpdb->query( 'START TRANSACTION' );
+
+        // Audit log before deletion
+        $audit_ok = $wpdb->insert( $auditT, [
             'actor_user_id'      => $uid,
             'action_type'        => 'punch.admin_delete',
             'target_employee_id' => (int) $existing->employee_id,
@@ -613,9 +646,20 @@ $meta['selfie_mode'] = $selfie_mode;
             'created_at' => $nowUtc,
         ] );
 
-        $wpdb->delete( $punchT, [ 'id' => $punch_id ] );
+        if ( ! $audit_ok ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new \WP_Error( 'audit_failed', 'Failed to log audit trail.', [ 'status' => 500 ] );
+        }
 
-        // Recalc session for the affected date
+        $deleted = $wpdb->delete( $punchT, [ 'id' => $punch_id ] );
+        if ( $deleted === false ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new \WP_Error( 'delete_failed', 'Failed to delete punch.', [ 'status' => 500 ] );
+        }
+
+        $wpdb->query( 'COMMIT' );
+
+        // Recalc session for the affected date (outside transaction)
         $work_date = wp_date( 'Y-m-d', strtotime( $existing->punch_time . ' UTC' ) );
         \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( (int) $existing->employee_id, $work_date, null, true );
 
