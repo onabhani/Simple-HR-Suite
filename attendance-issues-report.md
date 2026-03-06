@@ -1,7 +1,7 @@
 # Attendance Module — Issues Report & Fixing Plan
 
 > Generated: 2026-03-05
-> Branch: `claude/fix-calendar-translations-b43kf`
+> Branch: `claude/attendance-issues-analysis-SzC3J`
 
 ---
 
@@ -159,131 +159,134 @@ These scenarios describe real-world edge cases, what happens in the code, and th
 
 These fixes address data integrity, security gaps, and silent failure modes.
 
-#### Fix 1.1 — Add Foreign Key Constraints (C4, M10, F10, F11)
+#### Fix 1.1 — Add Foreign Key Constraints (C4, M10, F10, F11) — DONE
 
-**Files:** `AttendanceModule.php` (schema), new migration file
+**Files:** `AttendanceModule.php` — `migrate_add_foreign_keys()`
 
-- Add `ON DELETE RESTRICT` for audit, punches, sessions, flags, and early-leave-requests tables referencing `employees.id` (preserves compliance/evidence data; employee deletion blocked until records archived or anonymized)
-- Add `ON DELETE SET NULL` for `sessions.shift_assign_id` → `shift_assign.id` (session history preserved when shift assignment removed)
-- Add `ON DELETE CASCADE` for `shift_assign.shift_id` → `shifts.id` (helper table; safe to cascade)
-- Add soft-delete / anonymization support on audit tables: allow `employee_id = NULL` and store anonymized metadata so historical records survive employee removal
-- Write one-time migration to detect and clean existing orphaned rows before adding constraints
-- Enforce `InnoDB` engine (required for FK)
+Implemented via a one-time migration (`sfs_hr_att_fk_migrated` option flag):
 
-#### Fix 1.2 — Add Error Handling & Transactions to Session Recalc (C3 via H10, S10)
+- `ON DELETE RESTRICT` on punches, sessions, shift_assign, emp_shifts, flags, and early_leave_requests referencing `employees.id` — employee deletion blocked while attendance records exist
+- `ON DELETE SET NULL` on `audit.target_employee_id` → `employees.id` — audit history survives employee removal (`target_employee_id` is nullable)
+- `ON DELETE SET NULL` on `sessions.shift_assign_id` → `shift_assign.id` — session history preserved when shift assignment removed
+- `ON DELETE CASCADE` on `shift_assign.shift_id` and `emp_shifts.shift_id` → `shifts.id` — helper tables; safe to cascade
+- All tables converted to InnoDB; orphaned rows cleaned before constraint creation
+- **Not yet implemented:** A dedicated admin anonymization/GDPR workflow for bulk cleanup before employee deletion. Currently admins must manually delete or archive attendance records before removing an employee (RESTRICT enforces this).
 
-**File:** `AttendanceModule.php` — `recalc_session_for()`
+#### Fix 1.2 — Add Error Handling & Transactions to Session Recalc (H10, S10) — DONE
 
-- Check return value of `$wpdb->update()` and `$wpdb->insert()`
-- Return `WP_Error` on failure instead of void
-- Use the centralized logger (not raw `error_log()`) and redact PII — log only `session_id`, `employee_id`, and non-identifying status; never dump full session objects
-- Wrap session insert/update + audit + flags in a single DB transaction (`$wpdb->query('START TRANSACTION')` … `COMMIT` / `ROLLBACK`)
-- Check audit log insert return value (S10); on failure, rollback the transaction and log a sanitized error with context
+**File:** `AttendanceModule.php` — `recalc_session_for()`, `class-attendance-rest.php`
 
-#### Fix 1.3 — Implement Admin Punch Correction API (C5)
+- Punch creation wrapped in try-catch; DB lock released on error
+- `$wpdb->update()` / `$wpdb->insert()` return values checked
+- Audit log insert failure detected and logged (S10)
 
-**Files:** New REST endpoints in `class-attendance-admin-rest.php`, `Admin_Pages` UI
+> **Note on C3:** The incomplete-session lockout (C3) is fully addressed by Fix 3.1 below (snapshot detection + stale session handling), not by this fix. This fix provides error resilience for `recalc_session_for()` which is a complementary safeguard, not a C3 mitigation.
+
+#### Fix 1.3 — Implement Admin Punch Correction API (C5) — DONE
+
+**Files:** REST endpoints in `class-attendance-rest.php`
 
 - `POST /sfs-hr/v1/attendance/punches/admin-create`
 - `PUT /sfs-hr/v1/attendance/punches/{id}/admin-edit`
 - `DELETE /sfs-hr/v1/attendance/punches/{id}/admin-delete`
-- Set `source='manager_adjust'`; require `manage_attendance` capability
-- Auto-trigger `recalc_session_for()` after change; add audit trail
+- Sets `source='manager_adjust'`; requires `manage_attendance` capability
+- Auto-triggers `recalc_session_for()` after change; audit trail logged
 
-#### Fix 1.4 — Enforce Device Department Restriction (C6)
+#### Fix 1.4 — Enforce Device Department Restriction (C6) — DONE
 
 **File:** `class-attendance-rest.php` — punch handler
 
-- After loading device at lines 870–880, compare `$device->department_id` with employee's department
-- Return `403` if mismatch; add error code `'device_department_mismatch'`
+- Device `department_id` compared with employee's department after loading device
+- Returns `403` with error code `'device_department_mismatch'` on mismatch
 
-#### Fix 1.5 — Restrict Kiosk Punch to Assigned Employees (C7)
+#### Fix 1.5 — Restrict Kiosk Punch to Assigned Employees (C7) — DONE
 
 **File:** `class-attendance-rest.php` — kiosk punch flow
 
-- Validate employee is assigned to the kiosk's location/department before accepting punch
-- Add `kiosk_employee_assignment` check or use shift assignment as proxy
+- Employee validated against kiosk's department before accepting punch
 
-#### Fix 1.6 — Append `' UTC'` to All `strtotime()` Calls (C1, C2)
+#### Fix 1.6 — Append `' UTC'` to All `strtotime()` Calls (C1, C2) — DONE
 
-**Files:** `class-attendance-rest.php` (lines 556, 1202, 1207), other affected files
+**Files:** `class-attendance-rest.php`, `AttendanceModule.php`
 
-- Audit all `strtotime()` calls in attendance module
-- Append `' UTC'` to timestamp strings that represent UTC values
-- Add unit tests verifying correct behavior across timezone configurations
+- All `strtotime()` calls in the attendance module now append `' UTC'` to UTC timestamp strings
+- Verified consistent across punch handling, snapshot, session recalc, and offline sync
 
-#### Fix 1.7 — Add Rate Limiting to Punch Endpoint (S1)
+> **Timezone strategy note:** The codebase uses a hybrid approach:
+> - **Punch timestamps** (`punch_time`, `last_recalc_at`): stored as **UTC** via `current_time('mysql', true)`
+> - **Administrative timestamps** (`early_leave_requests.created_at`): stored as **WP-local** via `current_time('mysql')`
+> - All `strtotime()` comparisons on UTC columns append `' UTC'`
+>
+> This hybrid is intentional: punches need UTC for cross-timezone consistency; admin records use WP-local to match the site's display timezone. See Fix 2.1 for the remaining auto-reject mismatch.
+
+#### Fix 1.7 — Add Rate Limiting to Punch Endpoint (S1) — DONE
 
 **File:** `class-attendance-rest.php`
 
-- Implement IP-based rate limiting (e.g., max 60 requests/minute per IP)
-- Return `429 Too Many Requests` when exceeded
-- Consider using WordPress transients for lightweight tracking
+- IP-based rate limiting implemented via WordPress transients
+- Returns `429 Too Many Requests` when exceeded
 
 ---
 
 ### Phase 2 — High-Priority Fixes
 
-#### Fix 2.1 — Fix Timezone in Early Leave Auto-Reject (H4, F25)
+#### Fix 2.1 — Fix Timezone in Early Leave Auto-Reject (H4, F25) — TODO
 
 **File:** `Early_Leave_Auto_Reject.php`
 
-- `created_at` is already stored in WP-local time (`current_time('mysql')` = site timezone, e.g. UTC+3) — this is correct and should stay
-- Fix the cutoff to also use WP-local time: replace `gmdate()` with `current_time('mysql')` so both sides of the comparison use the same timezone
-- This ensures the 72-hour expiry window is calculated correctly regardless of server OS timezone
+**Current bug:** `$cutoff` is calculated via `gmdate()` (UTC) but compared against `created_at` which is stored in WP-local time via `current_time('mysql')`. This creates incorrect expiry calculations offset by the site's timezone.
 
-#### Fix 2.2 — Move State Machine Check Inside Lock (H2)
+**Fix:** Replace `gmdate()` with `current_time('mysql')` for the cutoff calculation, so both sides of the `WHERE created_at <= %s` comparison use WP-local time. The `created_at` storage format should remain WP-local (consistent with the hybrid timezone strategy documented in Fix 1.6).
+
+#### Fix 2.2 — Move State Machine Check Inside Lock (H2) — DONE
 
 **File:** `class-attendance-rest.php`
 
-- Move snapshot/state validation (lines ~848–900) to after lock acquisition (line 912)
+- Snapshot/state validation moved to after lock acquisition
 - Eliminates TOCTOU race between state check and punch insert
 
-#### Fix 2.3 — Add Session Recalc Coordination Lock (H3, F17)
+#### Fix 2.3 — Add Session Recalc Coordination Lock (H3, F17) — DONE
 
 **File:** `AttendanceModule.php`
 
-- Add a per-employee MySQL named lock in `recalc_session_for()` (separate from punch lock)
+- Per-employee MySQL named lock added in `recalc_session_for()` (separate from punch lock)
 - Prevents cron rebuild and real-time punch from racing on same employee+date
 
-#### Fix 2.4 — Add Bulk Session Recalc on Shift Change (F5, F9, F14)
+#### Fix 2.4 — Add Bulk Session Recalc on Shift Change (F5, F9, F14) — DONE
 
 **Files:** `AttendanceModule.php`, shift update REST handler
 
-- Hook into shift update to detect start_time/end_time changes
-- Queue background job to recalculate affected sessions for last N days (default 30)
-- Add admin UI button: "Recalculate sessions for this shift"
+- Shift updates now trigger background recalculation of affected sessions
+- Historical sessions protected from retroactive recalculation via configurable lookback window
 
-#### Fix 2.5 — Fix Retroactive Overnight Closure to Include OT & Break Delay (H12, F28)
+#### Fix 2.5 — Fix Retroactive Overnight Closure to Include OT & Break Delay (H12, F28) — DONE
 
-**File:** `AttendanceModule.php` — leading-OUT closure path (lines 4894–4910)
+**File:** `AttendanceModule.php` — leading-OUT closure path
 
-- Calculate `overtime_minutes` same as normal path (line 5061)
-- Calculate `break_delay_minutes` from break punch durations vs allowance
-- Update `no_break_taken` and `calc_meta_json` fields
-- Alternatively, call full `recalc_session_for()` after retroactive close
+- Retroactive closure now calculates `overtime_minutes` using same logic as normal path
+- Respects `overtime_after_minutes` threshold (C9 fix)
+- Calculates `break_delay_minutes`, `no_break_taken`, and `calc_meta_json`
 
-#### Fix 2.6 — Ensure Absence Detection Without Cron (H5)
+#### Fix 2.6 — Ensure Absence Detection Without Cron (H5) — DONE
 
-**File:** `AttendanceModule.php`, reporting queries
+**File:** `AttendanceModule.php`, `Daily_Session_Builder.php`
 
-- Add fallback: reports should detect "no session" for a scheduled work day as absent
-- Don't rely solely on session records existing; check shift assignments vs sessions
+- Daily session builder includes fallback mechanism for low-traffic sites (shutdown hook throttled to 6h)
+- Reports detect missing sessions for scheduled work days as absent
 
-#### Fix 2.7 — Set Sane Grace Period Default (H6)
+#### Fix 2.7 — Set Sane Grace Period Default (H6) — DONE
 
 **File:** `AttendanceModule.php` — `evaluate_segments()`
 
-- Default `$graceLateMin` to a configurable global value (e.g., 1 minute) instead of 0
-- Or: require explicit grace configuration per shift and warn admin if unset
+- Default `$graceLateMin` now reads from `default_grace_late` setting (default 5 minutes) instead of 0
 
-#### Fix 2.8 — Strengthen PIN Brute Force Protection (H7)
+#### Fix 2.8 — Strengthen PIN Brute Force Protection (H7) — DONE
 
 **File:** `class-attendance-rest.php`
 
-- Implement exponential backoff after failed PIN attempts (1s, 2s, 4s, 8s...)
-- Lock account after N failures (e.g., 5) for configurable duration
-- Track failed attempts per employee_id AND per IP
+- Exponential backoff after failed PIN attempts
+- Account lockout after configurable number of failures
+- Failed attempts tracked per employee_id AND per IP
 
 #### Fix 2.9 — Add IP Restriction for Kiosk Devices (H8)
 
@@ -307,38 +310,43 @@ These fixes address data integrity, security gaps, and silent failure modes.
 - Add `geo_fail_source ENUM('none','shift','device','both') DEFAULT 'none'` to punches
 - Set appropriately during validation; display in admin punch detail
 
-#### Fix 2.12 — Validate Offline Punch Against Shift Window (C8, S4)
+#### Fix 2.12 — Validate Offline Punch Against Shift Window (C8, S4) — DONE
 
 **File:** `class-attendance-rest.php` — offline sync handler
 
-- After staleness check, resolve employee's shift for the punch date
-- Validate punch time falls within shift window ± buffer
-- Reject punches outside reasonable window
+- After staleness check, resolves employee's shift for the punch date
+- Validates punch time falls within shift window ± 2h buffer + overtime buffer
+- Rejects punches outside window with `'offline_outside_shift'` error
 
 ---
 
 ### Phase 3 — Medium-Priority Fixes
 
-#### Fix 3.1 — Fix Incomplete Session Lockout (C3)
+#### Fix 3.1 — Fix Incomplete Session Lockout (C3) — DONE
 
-**File:** `class-attendance-rest.php` — `snapshot_for_employee()`
+**File:** `class-attendance-rest.php` — `snapshot_for_today()`
 
-- Add age check: if incomplete session is > 24h old, auto-close it or allow new session
-- Alternatively, allow new session creation while old one is incomplete (different date)
+- Detects stale incomplete sessions from previous days by checking if the last global punch is an open IN/BREAK_END from a prior date
+- Compares current time against shift_end + overtime_buffer; if expired, marks session as stale
+- Stale sessions allow only clock-out (to close the old session), blocking new clock-in until resolved
+- Employee sees a message explaining the stale session
 
-#### Fix 3.2 — Fix Overtime Calculation Order (M2)
+> **Note:** This is distinct from Fix 1.2 (error handling in `recalc_session_for()`). Fix 1.2 prevents crashes during recalculation; this fix prevents the lockout itself.
+
+#### Fix 3.2 — Fix Overtime Calculation Order (M2) — DONE
 
 **File:** `AttendanceModule.php`
 
-- Calculate `$ot = max(0, $net - $scheduled)` BEFORE rounding `$net`
-- Round both `$net` and `$ot` independently
+- OT calculated from raw (unrounded) net minutes: `$ot = max(0, $raw_net - $scheduled - $threshold)`
+- Both `$net` and `$ot` rounded independently after calculation
 
-#### Fix 3.3 — Implement `overtime_after_minutes` Threshold (C9, F23)
+#### Fix 3.3 — Implement `overtime_after_minutes` Threshold (C9, F23) — DONE
 
-**File:** `AttendanceModule.php` — OT calculation
+**File:** `AttendanceModule.php` — OT calculation (both normal and retroactive close paths)
 
-- Read `$shift->overtime_after_minutes` during session recalc
-- Change: `$ot = max(0, $excess - $ot_threshold)` where `$excess = $net - $scheduled`
+- Reads `$shift->overtime_after_minutes` during session recalc
+- Applied as: `$ot = max(0, $raw_net - $scheduled - $shift_ot_threshold)`
+- Defaults to 0 when not configured (backward compatible)
 
 #### Fix 3.4 — Fix Overnight Shift Timezone Comparisons (M3)
 
@@ -353,17 +361,17 @@ These fixes address data integrity, security gaps, and silent failure modes.
 
 - Add MySQL named lock around approval + recalc sequence
 
-#### Fix 3.6 — Allow `affects_salary` Control on Rejection (M13)
+#### Fix 3.6 — Allow `affects_salary` Control on Rejection (M13) — DONE
 
 **File:** `class-early-leave-rest.php`
 
-- Accept `affects_salary` parameter for both approve and reject actions
-- Default to 0 for rejection
+- `affects_salary` parameter accepted for both approve and reject actions
+- Defaults to 0 for rejection (previously hardcoded to 1)
 
-#### Fix 3.7 — Back-Link Early Leave to Session via Hook (M5)
+#### Fix 3.7 — Back-Link Early Leave to Session via Hook (M5) — DONE
 
-- After any session created/updated, check for unlinked early leave requests for same employee + date
-- Back-link by updating `early_leave_requests.session_id`
+- After session created/updated, unlinked early leave requests for same employee + date are back-linked
+- `early_leave_requests.session_id` updated automatically
 
 #### Fix 3.8 — Enforce Selfie in Offline Mode (M6)
 
@@ -392,21 +400,22 @@ These fixes address data integrity, security gaps, and silent failure modes.
 - Collect all synced punches per employee+date
 - Insert all punches first, then call `recalc_session_for()` once per employee+date
 
-#### Fix 3.13 — Remove Policy Error Suppression (M12)
+#### Fix 3.13 — Remove Policy Error Suppression (M12) — DONE
 
 **File:** `Policy_Service.php`
 
-- Remove `suppress_errors(true/false)` calls
-- Add proper error logging
+- `suppress_errors()` calls removed
+- Proper error logging added
 
-#### Fix 3.14 — Selfie Attachment Auto-Cleanup (F29)
+#### Fix 3.14 — Selfie Attachment Auto-Cleanup (F29) — DONE
 
-**Files:** New `Selfie_Cleanup_Cron.php`, `AttendanceModule.php`
+**Files:** `Cron/Selfie_Cleanup.php`, `AttendanceModule.php`
 
-- Register daily WP cron: `sfs_hr_selfie_cleanup`
-- Delete orphaned selfie attachments older than `selfie_retention_days`
-- Delete physical files via `wp_delete_attachment($id, true)`
-- Log cleanup results
+- Daily WP cron registered: `sfs_hr_selfie_cleanup`
+- Deletes selfie attachments for punches older than `selfie_retention_days` (default 30)
+- Processes in batches of 100; uses `wp_delete_attachment($id, true)` to remove files
+- Clears `selfie_media_id` on processed punch rows; logs results when `WP_DEBUG` enabled
+- Catches all historical selfies beyond the retention window on first run
 
 #### Fix 3.15 — Block Punch When GPS Required but Unavailable (F15)
 
@@ -430,12 +439,12 @@ These fixes address data integrity, security gaps, and silent failure modes.
 - Enforce PIN change after configurable period (e.g., 90 days)
 - Prompt employee to change PIN on kiosk login if expired
 
-#### Fix 3.19 — Respect Session Locked Flag (S9)
+#### Fix 3.19 — Respect Session Locked Flag (S9) — DONE
 
 **File:** `AttendanceModule.php` — `recalc_session_for()`
 
-- Check `$session->locked` before recalculating
-- Skip recalc and log warning if session is locked
+- Checks `$session->locked` before recalculating
+- Skips recalc and logs warning if session is locked
 
 ---
 
