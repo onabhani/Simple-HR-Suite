@@ -385,7 +385,6 @@ $meta['selfie_mode'] = $selfie_mode;
 
         $employee_id = isset($params['employee_id']) ? (int)$params['employee_id'] : 0;
 
-        // ← HERE is your requested line:
         $device_id   = isset($params['device']) ? (int)$params['device'] : 0;
 
         // If you have a service that actually performs the rebuild, call it safely:
