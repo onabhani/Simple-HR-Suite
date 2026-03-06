@@ -273,6 +273,10 @@ class Admin_REST {
         $start = new \DateTimeImmutable($sd); $end = new \DateTimeImmutable($ed);
         $days  = (int)$start->diff($end)->format('%a');
 
+        if ( $days > 366 ) {
+            return new \WP_Error( 'range_too_large', 'Date range cannot exceed 366 days.', [ 'status' => 400 ] );
+        }
+
         for ( $i=0; $i<= $days; $i++ ) {
             $d = $start->modify("+{$i} day")->format('Y-m-d');
             foreach ( $emps as $eid ) {
@@ -410,7 +414,8 @@ $meta['selfie_mode'] = $selfie_mode;
                 'result'      => 'Service not wired; echo-only.',
             ]);
         } catch ( \Throwable $e ) {
-            return new \WP_Error('rebuild_failed', $e->getMessage(), [ 'status' => 500 ]);
+            error_log( '[SFS ATT] Rebuild failed: ' . $e->getMessage() );
+            return new \WP_Error( 'rebuild_failed', 'Session rebuild failed.', [ 'status' => 500 ] );
         }
     }
 
@@ -519,6 +524,7 @@ $meta['selfie_mode'] = $selfie_mode;
 
         $update = [ 'source' => 'manager_adjust' ];
         if ( $punch_type !== null ) {
+            $punch_type = sanitize_text_field( (string) $punch_type );
             if ( ! in_array( $punch_type, [ 'in', 'out', 'break_start', 'break_end' ], true ) ) {
                 return new \WP_Error( 'invalid_punch_type', 'Invalid punch_type.', [ 'status' => 400 ] );
             }

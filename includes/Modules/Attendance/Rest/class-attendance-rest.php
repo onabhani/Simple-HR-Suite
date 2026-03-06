@@ -242,8 +242,8 @@ public static function scan( \WP_REST_Request $req ) {
         'employee_id' => $emp,
         'device_id'   => $device ?: null,
         'qr_token'    => $qrTok,
-        'ua'          => isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '',
-        'ip'          => isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : '',
+        'ua'          => isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field( (string) $_SERVER['HTTP_USER_AGENT'] ) : '',
+        'ip'          => isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field( (string) $_SERVER['REMOTE_ADDR'] ) : '',
     ], 600 ); // TTL: 10 minutes (allows full punch sequence: In → Break Start → Break End → Out)
 
     return rest_ensure_response([
@@ -292,8 +292,8 @@ public static function kiosk_roster( \WP_REST_Request $req ) {
     }
 
     // Build query: active employees with QR enabled and a valid token
-    $where = "e.status = 'active' AND e.qr_enabled = 1 AND e.qr_token IS NOT NULL AND e.qr_token != ''";
-    $params = [];
+    $where = "e.status = %s AND e.qr_enabled = 1 AND e.qr_token IS NOT NULL AND e.qr_token != ''";
+    $params = [ 'active' ];
 
     if ( $allowed_dept_id ) {
         $where .= ' AND e.dept_id = %d';
@@ -306,9 +306,7 @@ public static function kiosk_roster( \WP_REST_Request $req ) {
             WHERE {$where}
             ORDER BY e.id ASC";
 
-    $rows = $params
-        ? $wpdb->get_results( $wpdb->prepare( $sql, ...$params ), ARRAY_A )
-        : $wpdb->get_results( $sql, ARRAY_A );
+    $rows = $wpdb->get_results( $wpdb->prepare( $sql, ...$params ), ARRAY_A );
 
     $employees = [];
     foreach ( (array) $rows as $r ) {
@@ -490,7 +488,8 @@ if ( $last_punch ) {
         ];
         if ( $dbg && current_user_can( 'sfs_hr_attendance_admin' ) ) {
             $err['detail'] = $e->getMessage();
-            $err['trace']  = $e->getTraceAsString();
+            // Stack traces logged server-side only; never expose file paths in API responses.
+            error_log( '[SFS ATT] Status error: ' . $e->getMessage() . "\n" . $e->getTraceAsString() );
         }
         return new \WP_Error( 'status_error', wp_json_encode($err), [ 'status' => 500 ] );
     }

@@ -150,9 +150,13 @@ class Early_Leave_Rest {
             'updated_at'           => $now,
         ];
 
-        $wpdb->insert( $table, $data );
-        $request_id = (int) $wpdb->insert_id;
+        $inserted = $wpdb->insert( $table, $data );
 
+        if ( $inserted === false ) {
+            return new \WP_Error( 'db_error', __( 'Failed to create request.', 'sfs-hr' ), [ 'status' => 500 ] );
+        }
+
+        $request_id = (int) $wpdb->insert_id;
         if ( ! $request_id ) {
             return new \WP_Error( 'db_error', __( 'Failed to create request.', 'sfs-hr' ), [ 'status' => 500 ] );
         }
@@ -249,12 +253,14 @@ class Early_Leave_Rest {
 
         // If admin, show all pending
         if ( current_user_can( 'sfs_hr_attendance_admin' ) ) {
-            $sql = "SELECT r.*, e.first_name, e.last_name, e.employee_number
-                    FROM {$table} r
-                    LEFT JOIN {$emp_t} e ON e.id = r.employee_id
-                    WHERE r.status = 'pending'
-                    ORDER BY r.request_date DESC, r.created_at DESC";
-            $rows = $wpdb->get_results( $sql, ARRAY_A );
+            $rows = $wpdb->get_results( $wpdb->prepare(
+                "SELECT r.*, e.first_name, e.last_name, e.employee_number
+                 FROM {$table} r
+                 LEFT JOIN {$emp_t} e ON e.id = r.employee_id
+                 WHERE r.status = %s
+                 ORDER BY r.request_date DESC, r.created_at DESC",
+                'pending'
+            ), ARRAY_A );
         } else {
             // Show requests where current user is the manager
             $sql = $wpdb->prepare(
@@ -446,7 +452,10 @@ class Early_Leave_Rest {
         $table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
 
         if ( current_user_can( 'sfs_hr_attendance_admin' ) ) {
-            return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE status = 'pending'" );
+            return (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$table} WHERE status = %s",
+                'pending'
+            ) );
         }
 
         return (int) $wpdb->get_var( $wpdb->prepare(
