@@ -455,7 +455,7 @@ class Early_Leave_Rest {
             }
 
             // Recalculate session to suppress left_early status
-            AttendanceModule::recalc_session_for( (int) $request->employee_id, $request->request_date );
+            AttendanceModule::recalc_session_for( (int) $request->employee_id, $request->request_date, null, true );
         }
 
         // Fire hook for AuditTrail

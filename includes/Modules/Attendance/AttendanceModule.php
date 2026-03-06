@@ -4709,7 +4709,19 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
      * Recalculate a day session after every punch.
      * Applies: grace (late/early), rounding (nearest N), unpaid break, OT threshold.
      */
-    public static function recalc_session_for( int $employee_id, string $ymd, \wpdb $wpdb = null ): void {
+    /**
+     * Recalculate the attendance session for an employee on a given date.
+     *
+     * @param int       $employee_id
+     * @param string    $ymd         Work date (Y-m-d).
+     * @param \wpdb|null $wpdb
+     * @param bool      $force       When true, always recalculate even for historical dates.
+     *                               Pass true when triggered by a punch operation (add/edit/delete)
+     *                               or ELR approval.  Pass false (default) for bulk/cron rebuilds
+     *                               so that already-finalized historical sessions are protected from
+     *                               unintentional overwrite when shift config changes.
+     */
+    public static function recalc_session_for( int $employee_id, string $ymd, \wpdb $wpdb = null, bool $force = false ): void {
     $wpdb = $wpdb ?: $GLOBALS['wpdb'];
     $pT   = $wpdb->prefix . 'sfs_hr_attendance_punches';
     $sT   = $wpdb->prefix . 'sfs_hr_attendance_sessions';
@@ -4717,6 +4729,28 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
     // Never create sessions for future dates
     if ( $ymd > wp_date( 'Y-m-d' ) ) {
         return;
+    }
+
+    // ── Historical data protection ──────────────────────────────────
+    // When $force is false (bulk rebuild / cron), skip recalculation for
+    // sessions that already exist with real punch data and are older than
+    // yesterday.  This prevents shift-config changes from retroactively
+    // altering finalized historical sessions.  Explicit punch operations
+    // (add, edit, delete) and ELR approvals pass $force = true to bypass
+    // this guard.
+    if ( ! $force ) {
+        $yesterday = wp_date( 'Y-m-d', strtotime( '-1 day' ) );
+        if ( $ymd < $yesterday ) {
+            $existing_session = $wpdb->get_row( $wpdb->prepare(
+                "SELECT id, in_time, status, locked FROM {$sT} WHERE employee_id = %d AND work_date = %s LIMIT 1",
+                $employee_id, $ymd
+            ) );
+            // If session exists with punch data (not a placeholder absent/holiday
+            // that might need updating), skip recalculation to protect finalized data.
+            if ( $existing_session && $existing_session->in_time !== null ) {
+                return;
+            }
+        }
     }
 
     // Acquire per-employee recalc lock to prevent concurrent recalculations

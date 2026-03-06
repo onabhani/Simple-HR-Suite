@@ -1104,7 +1104,7 @@ if ( $selfie_media_id ) {
     ] );
 
     // ---- Recalculate the session for the work date (may be yesterday for overnight shifts)
-        \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( (int) $emp, $dateYmd );
+        \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( (int) $emp, $dateYmd, null, true );
 
     // Build post-punch snapshot from pre-punch state (avoids duplicate DB query).
     // The new punch deterministically changes state/allow/label/history.

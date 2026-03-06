@@ -494,7 +494,7 @@ $meta['selfie_mode'] = $selfie_mode;
 
         // Recalculate session for the work date
         $work_date = wp_date( 'Y-m-d', strtotime( $punch_time . ' UTC' ) );
-        \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( $employee_id, $work_date );
+        \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( $employee_id, $work_date, null, true );
 
         $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$punchT} WHERE id = %d", $punch_id ) );
         return rest_ensure_response( [ 'ok' => true, 'punch' => $row ] );
@@ -569,9 +569,9 @@ $meta['selfie_mode'] = $selfie_mode;
         $new_date = $punch_time ? wp_date( 'Y-m-d', strtotime( $punch_time . ' UTC' ) ) : $old_date;
         $emp_id   = (int) $existing->employee_id;
 
-        \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( $emp_id, $old_date );
+        \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( $emp_id, $old_date, null, true );
         if ( $new_date !== $old_date ) {
-            \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( $emp_id, $new_date );
+            \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( $emp_id, $new_date, null, true );
         }
 
         $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$punchT} WHERE id = %d", $punch_id ) );
@@ -617,7 +617,7 @@ $meta['selfie_mode'] = $selfie_mode;
 
         // Recalc session for the affected date
         $work_date = wp_date( 'Y-m-d', strtotime( $existing->punch_time . ' UTC' ) );
-        \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( (int) $existing->employee_id, $work_date );
+        \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( (int) $existing->employee_id, $work_date, null, true );
 
         return rest_ensure_response( [ 'ok' => true, 'deleted' => $punch_id ] );
     }
