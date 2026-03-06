@@ -4234,7 +4234,8 @@ private static function backfill_early_leave_request_numbers( \wpdb $wpdb ): voi
             locked TINYINT(1) NOT NULL DEFAULT 0,
             PRIMARY KEY (id),
             UNIQUE KEY emp_date (employee_id, work_date),
-            KEY work_date (work_date)
+            KEY work_date (work_date),
+            KEY status (status)
         ) $charset_collate;");
 
         // 3) shift templates (CRUD in admin; Ramadan, etc. handled via assignments)
@@ -4307,7 +4308,8 @@ private static function backfill_early_leave_request_numbers( \wpdb $wpdb ): voi
             override_json LONGTEXT NULL,
             PRIMARY KEY (id),
             UNIQUE KEY emp_date (employee_id, work_date),
-            KEY shift_date (shift_id, work_date)
+            KEY shift_date (shift_id, work_date),
+            KEY work_date (work_date)
         ) $charset_collate;");
 
         // 5) employee default shifts (history)

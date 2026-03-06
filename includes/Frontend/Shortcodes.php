@@ -34,9 +34,12 @@ class Shortcodes {
 
         // Check if our shortcode is present in the content
         if ( has_shortcode( $post->post_content, 'sfs_hr_my_profile' ) ) {
+            $pwa_css = ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG )
+                ? 'assets/frontend/pwa-styles.css'
+                : 'assets/frontend/pwa-styles.min.css';
             wp_enqueue_style(
                 'sfs-hr-pwa-styles',
-                \SFS_HR_URL . 'assets/frontend/pwa-styles.css',
+                \SFS_HR_URL . $pwa_css,
                 [],
                 \SFS_HR_VER
             );

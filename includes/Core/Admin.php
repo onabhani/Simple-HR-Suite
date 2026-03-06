@@ -47,9 +47,12 @@ class Admin {
         $is_hr_page = $screen && ( strpos( $screen->id, 'sfs-hr' ) !== false || strpos( $screen->id, 'sfs_hr' ) !== false );
         $is_hr_hook = strpos( $hook, 'sfs-hr' ) !== false || strpos( $hook, 'sfs_hr' ) !== false;
         if ( $is_hr_page || $is_hr_hook ) {
+            $admin_css = ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG )
+                ? 'assets/admin/admin-styles.css'
+                : 'assets/admin/admin-styles.min.css';
             wp_enqueue_style(
                 'sfs-hr-admin',
-                SFS_HR_URL . 'assets/admin/admin-styles.css',
+                SFS_HR_URL . $admin_css,
                 [],
                 SFS_HR_VER
             );

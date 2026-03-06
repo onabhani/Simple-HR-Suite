@@ -5158,6 +5158,17 @@ if ($has('selfie_meta_json')) $extra[] = 'p.selfie_meta_json';
 
 $extraSQL = $extra ? (",\n         " . implode(",\n         ", $extra)) : '';
 
+// Count total matching rows for pagination
+$count_sql = "SELECT COUNT(*) FROM {$pT} p {$where}";
+$totalPunches = (int) $wpdb->get_var( $count_sql );
+
+// Pagination
+$per_page = 50;
+$current_page = max( 1, isset( $_GET['paged'] ) ? (int) $_GET['paged'] : 1 );
+$total_pages  = max( 1, (int) ceil( $totalPunches / $per_page ) );
+$current_page = min( $current_page, $total_pages );
+$offset       = ( $current_page - 1 ) * $per_page;
+
 $sql = "
   SELECT p.id, p.employee_id,
          u.display_name,
@@ -5170,6 +5181,7 @@ $sql = "
   LEFT JOIN {$uT} u ON u.ID = e.user_id
   {$where}
   ORDER BY p.punch_time DESC
+  LIMIT {$per_page} OFFSET {$offset}
 ";
 
 $rows = $wpdb->get_results( $sql );
@@ -5185,7 +5197,6 @@ $this->att_log('Punches query done', [
 
 
   // 5) UI
-  $totalPunches = is_array($rows) ? count($rows) : 0;
   echo '<h2>' . esc_html__('Punches', 'sfs-hr') . '</h2>';
 
   // Toolbar Card
@@ -5474,7 +5485,41 @@ echo '</tr>';
   } else {
     echo '<tr><td colspan="8" class="empty-state"><p>' . esc_html__('No punches found for this selection.', 'sfs-hr') . '</p></td></tr>';
   }
-  echo '</tbody></table></div>';
+  echo '</tbody></table>';
+
+  // Pagination
+  if ( $total_pages > 1 ) {
+      $base_url = add_query_arg( [
+          'page' => 'sfs_hr_attendance', 'tab' => 'punches',
+          'mode' => $mode, 'date' => $date, 'month' => $month, 'employee_id' => $emp,
+      ], admin_url( 'admin.php' ) );
+      echo '<div class="sfs-hr-pagination">';
+      printf(
+          '<span class="sfs-hr-pagination__info">%s</span>',
+          sprintf( esc_html__( 'Showing %1$d–%2$d of %3$d punches', 'sfs-hr' ), $offset + 1, min( $offset + $per_page, $totalPunches ), $totalPunches )
+      );
+      echo '<span class="sfs-hr-pagination__links">';
+      if ( $current_page > 1 ) {
+          printf( '<a href="%s">&laquo;</a>', esc_url( add_query_arg( 'paged', $current_page - 1, $base_url ) ) );
+      } else {
+          echo '<span class="disabled">&laquo;</span>';
+      }
+      for ( $p = max(1, $current_page - 2); $p <= min($total_pages, $current_page + 2); $p++ ) {
+          if ( $p === $current_page ) {
+              printf( '<span class="current">%d</span>', $p );
+          } else {
+              printf( '<a href="%s">%d</a>', esc_url( add_query_arg( 'paged', $p, $base_url ) ), $p );
+          }
+      }
+      if ( $current_page < $total_pages ) {
+          printf( '<a href="%s">&raquo;</a>', esc_url( add_query_arg( 'paged', $current_page + 1, $base_url ) ) );
+      } else {
+          echo '<span class="disabled">&raquo;</span>';
+      }
+      echo '</span></div>';
+  }
+
+  echo '</div>';
 }
 
 
@@ -5526,6 +5571,14 @@ $orderSQL = ($mode === 'period_25')
     ? "{$sortName} ASC, s.work_date ASC"
     : "{$sortName} ASC";
 
+// Count total matching rows for pagination
+$totalSessions = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$sT} s {$where}");
+$sess_per_page = 50;
+$sess_current_page = max( 1, isset( $_GET['paged'] ) ? (int) $_GET['paged'] : 1 );
+$sess_total_pages  = max( 1, (int) ceil( $totalSessions / $sess_per_page ) );
+$sess_current_page = min( $sess_current_page, $sess_total_pages );
+$sess_offset       = ( $sess_current_page - 1 ) * $sess_per_page;
+
 $rows = $wpdb->get_results("
     SELECT s.*,
            u.display_name,
@@ -5535,6 +5588,7 @@ $rows = $wpdb->get_results("
     LEFT JOIN {$uT} u ON u.ID = e.user_id
     {$where}
     ORDER BY {$orderSQL}
+    LIMIT {$sess_per_page} OFFSET {$sess_offset}
 ");
 
 
@@ -5817,7 +5871,41 @@ if ( $rows ) {
     echo '<tr><td colspan="9" class="empty-state"><p>' . esc_html__('No sessions found for this selection.', 'sfs-hr') . '</p></td></tr>';
 }
 
-echo '</tbody></table></div>';
+echo '</tbody></table>';
+
+// Pagination
+if ( $sess_total_pages > 1 ) {
+    $sess_base_url = add_query_arg( [
+        'page' => 'sfs_hr_attendance', 'tab' => 'sessions',
+        'mode' => $mode, 'date' => $date, 'month' => $month, 'year' => $year, 'employee_id' => $emp,
+    ], admin_url( 'admin.php' ) );
+    echo '<div class="sfs-hr-pagination">';
+    printf(
+        '<span class="sfs-hr-pagination__info">%s</span>',
+        sprintf( esc_html__( 'Showing %1$d–%2$d of %3$d sessions', 'sfs-hr' ), $sess_offset + 1, min( $sess_offset + $sess_per_page, $totalSessions ), $totalSessions )
+    );
+    echo '<span class="sfs-hr-pagination__links">';
+    if ( $sess_current_page > 1 ) {
+        printf( '<a href="%s">&laquo;</a>', esc_url( add_query_arg( 'paged', $sess_current_page - 1, $sess_base_url ) ) );
+    } else {
+        echo '<span class="disabled">&laquo;</span>';
+    }
+    for ( $pg = max(1, $sess_current_page - 2); $pg <= min($sess_total_pages, $sess_current_page + 2); $pg++ ) {
+        if ( $pg === $sess_current_page ) {
+            printf( '<span class="current">%d</span>', $pg );
+        } else {
+            printf( '<a href="%s">%d</a>', esc_url( add_query_arg( 'paged', $pg, $sess_base_url ) ), $pg );
+        }
+    }
+    if ( $sess_current_page < $sess_total_pages ) {
+        printf( '<a href="%s">&raquo;</a>', esc_url( add_query_arg( 'paged', $sess_current_page + 1, $sess_base_url ) ) );
+    } else {
+        echo '<span class="disabled">&raquo;</span>';
+    }
+    echo '</span></div>';
+}
+
+echo '</div>';
 
 }
 
