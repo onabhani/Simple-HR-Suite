@@ -1016,9 +1016,54 @@ if ( $selfie_media_id ) {
     // ---- Recalculate the session for the work date (may be yesterday for overnight shifts)
         \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( (int) $emp, $dateYmd );
 
-    // Post-punch snapshot (must re-query — DB now includes the new punch)
-    $snap  = self::snapshot_for_today( (int) $emp );
+    // Build post-punch snapshot from pre-punch state (avoids duplicate DB query).
+    // The new punch deterministically changes state/allow/label/history.
+    $snap  = $pre;
     $today = wp_date( 'Y-m-d' );
+
+    // Update state based on the punch we just inserted
+    $post_state = match ( $punch_type ) {
+        'in', 'break_end' => 'in',
+        'break_start'     => 'break',
+        'out'             => 'idle',
+        default           => $pre['state'] ?? 'idle',
+    };
+    $snap['state'] = $post_state;
+    $snap['allow'] = [
+        'in'          => ( $post_state === 'idle' ),
+        'out'         => ( $post_state === 'in' ),
+        'break_start' => ( $post_state === 'in' ),
+        'break_end'   => ( $post_state === 'break' ),
+    ];
+
+    // Update label
+    $type_labels_post = [
+        'in'          => __( 'Clock In', 'sfs-hr' ),
+        'out'         => __( 'Clock Out', 'sfs-hr' ),
+        'break_start' => __( 'Break Start', 'sfs-hr' ),
+        'break_end'   => __( 'Break End', 'sfs-hr' ),
+    ];
+    $punch_ts   = strtotime( $punchTimeUtc . ' UTC' );
+    $when_label = wp_date( 'H:i', $punch_ts );
+    $snap['label'] = sprintf(
+        __( 'Last: %1$s at %2$s', 'sfs-hr' ),
+        $type_labels_post[ $punch_type ] ?? strtoupper( str_replace( '_', ' ', $punch_type ) ),
+        $when_label
+    );
+
+    // Append to punch history
+    $snap['punch_history'][] = [
+        'type' => $punch_type,
+        'time' => $when_label,
+    ];
+
+    // Update clock_in_time if this was the first clock-in
+    if ( $punch_type === 'in' && empty( $snap['clock_in_time'] ) ) {
+        $snap['clock_in_time'] = $when_label;
+    }
+
+    // Clear stale session message after any successful punch
+    $snap['stale_session_msg'] = '';
 
     // Selfie mode & dept for the NEXT punch response.
     // Reuse already-resolved $assign and $mode when the punch is for today
