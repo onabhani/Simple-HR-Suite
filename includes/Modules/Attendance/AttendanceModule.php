@@ -112,7 +112,7 @@ class AttendanceModule {
         add_action('admin_init', [ $this, 'maybe_install' ]);
 
         // Deferred recalc hook — fires when a recalc was skipped due to lock contention.
-        add_action( 'sfs_hr_deferred_recalc', [ self::class, 'recalc_session_for' ], 10, 2 );
+        add_action( 'sfs_hr_deferred_recalc', [ self::class, 'recalc_session_for' ], 10, 3 );
 
         // Safe call to private method
         add_action('admin_init', function () { $this->register_caps(); });
@@ -4807,8 +4807,8 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
     $got_lock    = $wpdb->get_var( $wpdb->prepare( "SELECT GET_LOCK(%s, 3)", $recalc_lock ) );
     if ( ! $got_lock ) {
         // Schedule a deferred recalc so this employee+date isn't silently dropped.
-        if ( ! wp_next_scheduled( 'sfs_hr_deferred_recalc', [ $employee_id, $ymd ] ) ) {
-            wp_schedule_single_event( time() + 30, 'sfs_hr_deferred_recalc', [ $employee_id, $ymd ] );
+        if ( ! wp_next_scheduled( 'sfs_hr_deferred_recalc', [ $employee_id, $ymd, $force ] ) ) {
+            wp_schedule_single_event( time() + 30, 'sfs_hr_deferred_recalc', [ $employee_id, $ymd, $force ] );
         }
         return;
     }

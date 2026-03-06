@@ -135,7 +135,9 @@ class Daily_Session_Builder {
         }
 
         // Don't start if another instance is already running (cheap pre-filter).
-        if ( get_option( self::RUNNING_LOCK ) !== false ) {
+        // Allow through if the lock is stale so acquire_lock() can clean it up.
+        $lock_ts = get_option( self::RUNNING_LOCK );
+        if ( $lock_ts !== false && ( time() - (int) $lock_ts ) <= self::LOCK_TTL ) {
             return;
         }
 

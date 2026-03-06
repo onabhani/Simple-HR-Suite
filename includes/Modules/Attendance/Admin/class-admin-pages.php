@@ -566,6 +566,7 @@ public function render_attendance_hub(): void {
         ];
 
         $existing = get_option( AttendanceModule::OPT_SETTINGS, [] );
+        if ( ! is_array( $existing ) ) { $existing = []; }
         $merged   = array_replace_recursive( $existing, $input );
         update_option( AttendanceModule::OPT_SETTINGS, $merged, false );
 
