@@ -3951,6 +3951,77 @@ private static function add_column_if_missing( \wpdb $wpdb, string $table, strin
 }
 
 /**
+ * One-time migration: add FK constraints to attendance tables.
+ * Cleans orphaned rows first, then adds RESTRICT/SET NULL/CASCADE as appropriate.
+ */
+private static function migrate_add_foreign_keys( \wpdb $wpdb, string $p ): void {
+    $empT    = "{$p}sfs_hr_employees";
+    $punchT  = "{$p}sfs_hr_attendance_punches";
+    $sessT   = "{$p}sfs_hr_attendance_sessions";
+    $shiftT  = "{$p}sfs_hr_attendance_shifts";
+    $assignT = "{$p}sfs_hr_attendance_shift_assign";
+    $empShT  = "{$p}sfs_hr_attendance_emp_shifts";
+    $flagT   = "{$p}sfs_hr_attendance_flags";
+    $auditT  = "{$p}sfs_hr_attendance_audit";
+    $elrT    = "{$p}sfs_hr_early_leave_requests";
+
+    // Helper: check if a FK already exists on a table
+    $fk_exists = function( string $table, string $fk_name ) use ( $wpdb ): bool {
+        return (bool) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+             WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = %s
+               AND CONSTRAINT_NAME = %s AND CONSTRAINT_TYPE = 'FOREIGN KEY'",
+            $table, $fk_name
+        ) );
+    };
+
+    // Ensure InnoDB
+    foreach ( [ $punchT, $sessT, $shiftT, $assignT, $empShT, $flagT, $auditT, $elrT ] as $t ) {
+        $wpdb->query( "ALTER TABLE {$t} ENGINE = InnoDB" );
+    }
+
+    // Clean orphaned employee references
+    $wpdb->query( "DELETE p FROM {$punchT} p LEFT JOIN {$empT} e ON e.id = p.employee_id WHERE e.id IS NULL" );
+    $wpdb->query( "DELETE s FROM {$sessT} s LEFT JOIN {$empT} e ON e.id = s.employee_id WHERE e.id IS NULL" );
+    $wpdb->query( "DELETE sa FROM {$assignT} sa LEFT JOIN {$empT} e ON e.id = sa.employee_id WHERE e.id IS NULL" );
+    $wpdb->query( "DELETE es FROM {$empShT} es LEFT JOIN {$empT} e ON e.id = es.employee_id WHERE e.id IS NULL" );
+    $wpdb->query( "DELETE f FROM {$flagT} f LEFT JOIN {$empT} e ON e.id = f.employee_id WHERE e.id IS NULL" );
+    $wpdb->query( "UPDATE {$auditT} a LEFT JOIN {$empT} e ON e.id = a.target_employee_id SET a.target_employee_id = NULL WHERE a.target_employee_id IS NOT NULL AND e.id IS NULL" );
+    $wpdb->query( "DELETE el FROM {$elrT} el LEFT JOIN {$empT} e ON e.id = el.employee_id WHERE e.id IS NULL" );
+
+    // Clean orphaned shift references
+    $wpdb->query( "DELETE sa FROM {$assignT} sa LEFT JOIN {$shiftT} sh ON sh.id = sa.shift_id WHERE sh.id IS NULL" );
+    $wpdb->query( "DELETE es FROM {$empShT} es LEFT JOIN {$shiftT} sh ON sh.id = es.shift_id WHERE sh.id IS NULL" );
+    $wpdb->query( "UPDATE {$sessT} s LEFT JOIN {$assignT} sa ON sa.id = s.shift_assign_id SET s.shift_assign_id = NULL WHERE s.shift_assign_id IS NOT NULL AND sa.id IS NULL" );
+
+    // Add FK constraints (skip if already exists)
+    $fks = [
+        [ $punchT,  'fk_punches_employee',       'employee_id',      $empT,    'id', 'RESTRICT' ],
+        [ $sessT,   'fk_sessions_employee',       'employee_id',      $empT,    'id', 'RESTRICT' ],
+        [ $sessT,   'fk_sessions_shift_assign',   'shift_assign_id',  $assignT, 'id', 'SET NULL' ],
+        [ $assignT, 'fk_shift_assign_employee',   'employee_id',      $empT,    'id', 'RESTRICT' ],
+        [ $assignT, 'fk_shift_assign_shift',      'shift_id',         $shiftT,  'id', 'CASCADE'  ],
+        [ $empShT,  'fk_emp_shifts_employee',      'employee_id',      $empT,    'id', 'RESTRICT' ],
+        [ $empShT,  'fk_emp_shifts_shift',         'shift_id',         $shiftT,  'id', 'CASCADE'  ],
+        [ $flagT,   'fk_flags_employee',           'employee_id',      $empT,    'id', 'RESTRICT' ],
+        [ $auditT,  'fk_audit_employee',           'target_employee_id', $empT,  'id', 'SET NULL' ],
+        [ $elrT,    'fk_early_leave_employee',     'employee_id',      $empT,    'id', 'RESTRICT' ],
+    ];
+
+    foreach ( $fks as [ $table, $name, $col, $ref_table, $ref_col, $on_delete ] ) {
+        if ( ! $fk_exists( $table, $name ) ) {
+            $wpdb->query(
+                "ALTER TABLE {$table} ADD CONSTRAINT {$name}
+                 FOREIGN KEY ({$col}) REFERENCES {$ref_table}({$ref_col})
+                 ON DELETE {$on_delete} ON UPDATE CASCADE"
+            );
+        }
+    }
+
+    update_option( 'sfs_hr_att_fk_migrated', 1 );
+}
+
+/**
  * Add unique key if it doesn't exist
  */
 private static function add_unique_key_if_missing( \wpdb $wpdb, string $table, string $key_name ): void {
@@ -4398,6 +4469,11 @@ self::add_column_if_missing($wpdb, $t, 'suggest_out_time',        "suggest_out_t
         self::add_column_if_missing($wpdb, $early_leave_table, 'request_number', "request_number VARCHAR(50) NULL");
         self::add_unique_key_if_missing($wpdb, $early_leave_table, 'request_number');
         self::backfill_early_leave_request_numbers($wpdb);
+
+        // Migration: Add foreign key constraints (runs once)
+        if ( ! get_option( 'sfs_hr_att_fk_migrated' ) ) {
+            self::migrate_add_foreign_keys( $wpdb, $p );
+        }
 
         // Caps + defaults + seed kiosks
         $this->register_caps();
@@ -4948,7 +5024,7 @@ if ( ! empty( $leadingOuts ) ) {
 
     // For incomplete sessions (unmatched clock-in), cap at shift end rather than midnight.
     // This prevents inflated worked hours (e.g. 36h for a day where clock-out was missed).
-    $dayCapUtcTs = strtotime($endUtc); // fallback: midnight end of local day
+    $dayCapUtcTs = strtotime($endUtc . ' UTC'); // fallback: midnight end of local day
     if ( ! empty( $segments ) ) {
         $lastSeg = end( $segments );
         $segEndTs = strtotime( $lastSeg['end_utc'] . ' UTC' );

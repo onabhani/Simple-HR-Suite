@@ -86,6 +86,31 @@ class Admin_REST {
             ],
         ] );
 
+        /* ---------------- Admin Punch Correction ---------------- */
+        register_rest_route( $ns, '/attendance/punches/admin-create', [
+            [
+                'methods'             => 'POST',
+                'callback'            => [ __CLASS__, 'punch_admin_create' ],
+                'permission_callback' => [ __CLASS__, 'can_admin' ],
+            ],
+        ] );
+
+        register_rest_route( $ns, '/attendance/punches/(?P<id>\d+)/admin-edit', [
+            [
+                'methods'             => 'PUT',
+                'callback'            => [ __CLASS__, 'punch_admin_edit' ],
+                'permission_callback' => [ __CLASS__, 'can_admin' ],
+            ],
+        ] );
+
+        register_rest_route( $ns, '/attendance/punches/(?P<id>\d+)/admin-delete', [
+            [
+                'methods'             => 'DELETE',
+                'callback'            => [ __CLASS__, 'punch_admin_delete' ],
+                'permission_callback' => [ __CLASS__, 'can_admin' ],
+            ],
+        ] );
+
         /* ---------------- Sessions (rebuild) ---------------- */
         // POST /sfs-hr/v1/attendance/sessions/rebuild
         register_rest_route( $ns, '/attendance/sessions/rebuild', [
@@ -387,5 +412,207 @@ $meta['selfie_mode'] = $selfie_mode;
         } catch ( \Throwable $e ) {
             return new \WP_Error('rebuild_failed', $e->getMessage(), [ 'status' => 500 ]);
         }
+    }
+
+    /* ================================================================
+     * Admin Punch Correction — create / edit / delete
+     * All actions use source='manager_adjust', log to audit table,
+     * and trigger session recalculation for the affected work date.
+     * ================================================================ */
+
+    /**
+     * POST /sfs-hr/v1/attendance/punches/admin-create
+     * Required: employee_id, punch_type, punch_time (Y-m-d H:i:s UTC)
+     * Optional: note
+     */
+    public static function punch_admin_create( \WP_REST_Request $req ) {
+        global $wpdb;
+
+        $employee_id = (int) $req->get_param( 'employee_id' );
+        $punch_type  = sanitize_text_field( (string) $req->get_param( 'punch_type' ) );
+        $punch_time  = sanitize_text_field( (string) $req->get_param( 'punch_time' ) );
+        $note        = sanitize_textarea_field( (string) ( $req->get_param( 'note' ) ?? '' ) );
+
+        if ( ! $employee_id || ! $punch_time ) {
+            return new \WP_Error( 'missing_fields', 'employee_id and punch_time are required.', [ 'status' => 400 ] );
+        }
+        if ( ! in_array( $punch_type, [ 'in', 'out', 'break_start', 'break_end' ], true ) ) {
+            return new \WP_Error( 'invalid_punch_type', 'punch_type must be in, out, break_start, or break_end.', [ 'status' => 400 ] );
+        }
+        if ( ! strtotime( $punch_time . ' UTC' ) ) {
+            return new \WP_Error( 'invalid_time', 'punch_time must be a valid datetime (Y-m-d H:i:s).', [ 'status' => 400 ] );
+        }
+
+        // Verify employee exists
+        $empT = $wpdb->prefix . 'sfs_hr_employees';
+        if ( ! $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$empT} WHERE id = %d", $employee_id ) ) ) {
+            return new \WP_Error( 'employee_not_found', 'Employee not found.', [ 'status' => 404 ] );
+        }
+
+        $punchT = $wpdb->prefix . 'sfs_hr_attendance_punches';
+        $nowUtc = gmdate( 'Y-m-d H:i:s' );
+        $uid    = get_current_user_id();
+
+        $inserted = $wpdb->insert( $punchT, [
+            'employee_id' => $employee_id,
+            'punch_type'  => $punch_type,
+            'punch_time'  => $punch_time,
+            'source'      => 'manager_adjust',
+            'note'        => $note ?: null,
+            'valid_geo'   => 1,
+            'valid_selfie' => 1,
+            'created_at'  => $nowUtc,
+            'created_by'  => $uid,
+        ] );
+
+        if ( ! $inserted ) {
+            return new \WP_Error( 'insert_failed', 'Failed to create punch.', [ 'status' => 500 ] );
+        }
+
+        $punch_id = (int) $wpdb->insert_id;
+
+        // Audit log
+        $auditT = $wpdb->prefix . 'sfs_hr_attendance_audit';
+        $wpdb->insert( $auditT, [
+            'actor_user_id'      => $uid,
+            'action_type'        => 'punch.admin_create',
+            'target_employee_id' => $employee_id,
+            'target_punch_id'    => $punch_id,
+            'after_json'         => wp_json_encode( [
+                'punch_type' => $punch_type,
+                'punch_time' => $punch_time,
+                'source'     => 'manager_adjust',
+                'note'       => $note,
+            ] ),
+            'created_at' => $nowUtc,
+        ] );
+
+        // Recalculate session for the work date
+        $work_date = wp_date( 'Y-m-d', strtotime( $punch_time . ' UTC' ) );
+        \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( $employee_id, $work_date );
+
+        $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$punchT} WHERE id = %d", $punch_id ) );
+        return rest_ensure_response( [ 'ok' => true, 'punch' => $row ] );
+    }
+
+    /**
+     * PUT /sfs-hr/v1/attendance/punches/{id}/admin-edit
+     * Editable: punch_type, punch_time, note
+     */
+    public static function punch_admin_edit( \WP_REST_Request $req ) {
+        global $wpdb;
+
+        $punch_id = (int) $req['id'];
+        if ( ! $punch_id ) {
+            return new \WP_Error( 'invalid_id', 'Punch ID is required.', [ 'status' => 400 ] );
+        }
+
+        $punchT = $wpdb->prefix . 'sfs_hr_attendance_punches';
+        $existing = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$punchT} WHERE id = %d", $punch_id ) );
+        if ( ! $existing ) {
+            return new \WP_Error( 'not_found', 'Punch not found.', [ 'status' => 404 ] );
+        }
+
+        $punch_type = $req->get_param( 'punch_type' );
+        $punch_time = $req->get_param( 'punch_time' );
+        $note       = $req->get_param( 'note' );
+
+        $update = [ 'source' => 'manager_adjust' ];
+        if ( $punch_type !== null ) {
+            if ( ! in_array( $punch_type, [ 'in', 'out', 'break_start', 'break_end' ], true ) ) {
+                return new \WP_Error( 'invalid_punch_type', 'Invalid punch_type.', [ 'status' => 400 ] );
+            }
+            $update['punch_type'] = $punch_type;
+        }
+        if ( $punch_time !== null ) {
+            $punch_time = sanitize_text_field( $punch_time );
+            if ( ! strtotime( $punch_time . ' UTC' ) ) {
+                return new \WP_Error( 'invalid_time', 'Invalid punch_time.', [ 'status' => 400 ] );
+            }
+            $update['punch_time'] = $punch_time;
+        }
+        if ( $note !== null ) {
+            $update['note'] = sanitize_textarea_field( $note );
+        }
+
+        $before_json = wp_json_encode( [
+            'punch_type' => $existing->punch_type,
+            'punch_time' => $existing->punch_time,
+            'source'     => $existing->source,
+            'note'       => $existing->note,
+        ] );
+
+        $wpdb->update( $punchT, $update, [ 'id' => $punch_id ] );
+
+        // Audit log
+        $uid    = get_current_user_id();
+        $nowUtc = gmdate( 'Y-m-d H:i:s' );
+        $auditT = $wpdb->prefix . 'sfs_hr_attendance_audit';
+        $wpdb->insert( $auditT, [
+            'actor_user_id'      => $uid,
+            'action_type'        => 'punch.admin_edit',
+            'target_employee_id' => (int) $existing->employee_id,
+            'target_punch_id'    => $punch_id,
+            'before_json'        => $before_json,
+            'after_json'         => wp_json_encode( $update ),
+            'created_at'         => $nowUtc,
+        ] );
+
+        // Recalc session for both old and new dates (if time changed)
+        $old_date = wp_date( 'Y-m-d', strtotime( $existing->punch_time . ' UTC' ) );
+        $new_date = $punch_time ? wp_date( 'Y-m-d', strtotime( $punch_time . ' UTC' ) ) : $old_date;
+        $emp_id   = (int) $existing->employee_id;
+
+        \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( $emp_id, $old_date );
+        if ( $new_date !== $old_date ) {
+            \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( $emp_id, $new_date );
+        }
+
+        $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$punchT} WHERE id = %d", $punch_id ) );
+        return rest_ensure_response( [ 'ok' => true, 'punch' => $row ] );
+    }
+
+    /**
+     * DELETE /sfs-hr/v1/attendance/punches/{id}/admin-delete
+     */
+    public static function punch_admin_delete( \WP_REST_Request $req ) {
+        global $wpdb;
+
+        $punch_id = (int) $req['id'];
+        if ( ! $punch_id ) {
+            return new \WP_Error( 'invalid_id', 'Punch ID is required.', [ 'status' => 400 ] );
+        }
+
+        $punchT  = $wpdb->prefix . 'sfs_hr_attendance_punches';
+        $existing = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$punchT} WHERE id = %d", $punch_id ) );
+        if ( ! $existing ) {
+            return new \WP_Error( 'not_found', 'Punch not found.', [ 'status' => 404 ] );
+        }
+
+        // Audit log before deletion
+        $uid    = get_current_user_id();
+        $nowUtc = gmdate( 'Y-m-d H:i:s' );
+        $auditT = $wpdb->prefix . 'sfs_hr_attendance_audit';
+        $wpdb->insert( $auditT, [
+            'actor_user_id'      => $uid,
+            'action_type'        => 'punch.admin_delete',
+            'target_employee_id' => (int) $existing->employee_id,
+            'target_punch_id'    => $punch_id,
+            'before_json'        => wp_json_encode( [
+                'punch_type' => $existing->punch_type,
+                'punch_time' => $existing->punch_time,
+                'source'     => $existing->source,
+                'note'       => $existing->note,
+            ] ),
+            'created_at' => $nowUtc,
+        ] );
+
+        $wpdb->delete( $punchT, [ 'id' => $punch_id ] );
+
+        // Recalc session for the affected date
+        $work_date = wp_date( 'Y-m-d', strtotime( $existing->punch_time . ' UTC' ) );
+        \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( (int) $existing->employee_id, $work_date );
+
+        return rest_ensure_response( [ 'ok' => true, 'deleted' => $punch_id ] );
     }
 }

@@ -559,7 +559,7 @@ public static function punch( \WP_REST_Request $req ) {
         }
         // Validate client_punch_time: must be a parseable datetime, not more than 24h old
         if ( $client_punch_time !== '' ) {
-            $client_ts = strtotime( $client_punch_time );
+            $client_ts = strtotime( $client_punch_time . ' UTC' );
             if ( ! $client_ts ) {
                 return new \WP_Error( 'offline_bad_time', 'Invalid client_punch_time format.', [ 'status' => 400 ] );
             }
@@ -900,7 +900,7 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
     // For offline punches, use client-reported time (already validated above)
     $punchTimeUtc = $nowUtc;
     if ( $is_offline_origin && $client_punch_time !== '' ) {
-        $punchTimeUtc = gmdate( 'Y-m-d H:i:s', strtotime( $client_punch_time ) );
+        $punchTimeUtc = gmdate( 'Y-m-d H:i:s', strtotime( $client_punch_time . ' UTC' ) );
     }
     $punchT = $wpdb->prefix . 'sfs_hr_attendance_punches';
 
@@ -940,7 +940,7 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
 
         if ( $duplicate_check ) {
             $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
-            $dup_time = wp_date( 'H:i:s', strtotime( $duplicate_check->punch_time ) );
+            $dup_time = wp_date( 'H:i:s', strtotime( $duplicate_check->punch_time . ' UTC' ) );
             return new \WP_Error(
                 'duplicate',
                 sprintf( 'This punch was already recorded at %s. Please wait before trying again.', $dup_time ),
@@ -1257,7 +1257,7 @@ private static function save_selfie_attachment( array $src ): int {
     $break_start_ts  = null; // timestamp when current break started
 
     foreach ( $rows as $r ) {
-        $ts = strtotime( $r->punch_time );
+        $ts = strtotime( $r->punch_time . ' UTC' );
         switch ( $r->punch_type ) {
             case 'in':
                 if ( ! $clock_in_time ) {
@@ -1293,7 +1293,7 @@ private static function save_selfie_attachment( array $src ): int {
     if (!empty($rows)) {
         $last     = end($rows);
         $lastType = (string)$last->punch_type;
-        $when     = wp_date('H:i', strtotime($last->punch_time)); // shown in site TZ
+        $when     = wp_date('H:i', strtotime($last->punch_time . ' UTC')); // shown in site TZ
         $typeLabel = $type_labels[ $lastType ] ?? strtoupper(str_replace('_',' ', $lastType));
         /* translators: %1$s = punch type label (e.g. Clock In), %2$s = time (e.g. 14:30) */
         $label    = sprintf( __( 'Last: %1$s at %2$s', 'sfs-hr' ), $typeLabel, $when );
@@ -1366,7 +1366,7 @@ private static function save_selfie_attachment( array $src ): int {
     foreach ( $rows as $r ) {
         $punch_history[] = [
             'type' => $r->punch_type,
-            'time' => wp_date( 'H:i', strtotime( $r->punch_time ) ),
+            'time' => wp_date( 'H:i', strtotime( $r->punch_time . ' UTC' ) ),
         ];
     }
 
