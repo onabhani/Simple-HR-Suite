@@ -5299,6 +5299,10 @@ if ( ! empty( $leadingOuts ) ) {
             if ( $lastOut && $has_meaningful_end ) {
                 $tz_th        = wp_timezone();
                 $shift_end_th = new \DateTimeImmutable( $ymd . ' ' . $shift->end_time, $tz_th );
+                // Overnight shift: end_time < start_time means shift ends the next day
+                if ( ! empty( $shift->start_time ) && $shift->end_time < $shift->start_time ) {
+                    $shift_end_th = $shift_end_th->modify( '+1 day' );
+                }
                 $last_out_th  = ( new \DateTimeImmutable( $lastOut, new \DateTimeZone( 'UTC' ) ) )->setTimezone( $tz_th );
                 $actually_left_early = ( $last_out_th < $shift_end_th );
             }
@@ -5580,6 +5584,10 @@ if ( ! empty( $leadingOuts ) ) {
             if ( $minutes_early === 0 && $shift && ! empty( $shift->end_time ) && $lastOut ) {
                 $tz_fb       = wp_timezone();
                 $shift_end_dt = new \DateTimeImmutable( $ymd . ' ' . $shift->end_time, $tz_fb );
+                // Overnight shift: end_time < start_time means shift ends the next day
+                if ( ! empty( $shift->start_time ) && $shift->end_time < $shift->start_time ) {
+                    $shift_end_dt = $shift_end_dt->modify( '+1 day' );
+                }
                 $last_out_dt  = ( new \DateTimeImmutable( $lastOut, new \DateTimeZone( 'UTC' ) ) )->setTimezone( $tz_fb );
                 $diff_secs    = $shift_end_dt->getTimestamp() - $last_out_dt->getTimestamp();
                 if ( $diff_secs > 0 ) {
