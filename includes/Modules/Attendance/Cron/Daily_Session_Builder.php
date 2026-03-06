@@ -17,9 +17,14 @@ class Daily_Session_Builder {
     const CRON_HOOK = 'sfs_hr_daily_session_build';
 
     /**
-     * Transient key used to throttle the fallback check.
+     * Transient key set while a build is in progress (short TTL guard).
      */
-    const FALLBACK_TRANSIENT = 'sfs_hr_session_build_last_run';
+    const RUNNING_TRANSIENT = 'sfs_hr_session_build_running';
+
+    /**
+     * Transient key set after a successful build (throttle key).
+     */
+    const LAST_SUCCESS_TRANSIENT = 'sfs_hr_session_build_last_success';
 
     /**
      * Register hooks.
@@ -49,14 +54,18 @@ class Daily_Session_Builder {
      * Rebuild sessions for yesterday and today.
      */
     public function run(): void {
+        // Guard against concurrent execution.
+        set_transient( self::RUNNING_TRANSIENT, time(), 10 * MINUTE_IN_SECONDS );
+
         $today     = wp_date( 'Y-m-d' );
         $yesterday = wp_date( 'Y-m-d', strtotime( '-1 day' ) );
 
         AttendanceModule::rebuild_sessions_for_date_static( $yesterday );
         AttendanceModule::rebuild_sessions_for_date_static( $today );
 
-        // Update the fallback transient so the shutdown hook knows we ran.
-        set_transient( self::FALLBACK_TRANSIENT, time(), 6 * HOUR_IN_SECONDS );
+        // Mark successful completion — throttles fallback for 6 hours.
+        set_transient( self::LAST_SUCCESS_TRANSIENT, time(), 6 * HOUR_IN_SECONDS );
+        delete_transient( self::RUNNING_TRANSIENT );
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
             error_log( sprintf(
@@ -81,14 +90,15 @@ class Daily_Session_Builder {
             return;
         }
 
-        $last_run = get_transient( self::FALLBACK_TRANSIENT );
-        if ( $last_run ) {
-            return; // ran recently — nothing to do
+        // Don't retry if a previous run succeeded recently.
+        if ( get_transient( self::LAST_SUCCESS_TRANSIENT ) ) {
+            return;
         }
 
-        // Mark as running immediately to prevent parallel requests from
-        // also triggering the rebuild.
-        set_transient( self::FALLBACK_TRANSIENT, time(), 6 * HOUR_IN_SECONDS );
+        // Don't start if another instance is already running.
+        if ( get_transient( self::RUNNING_TRANSIENT ) ) {
+            return;
+        }
 
         $this->run();
     }

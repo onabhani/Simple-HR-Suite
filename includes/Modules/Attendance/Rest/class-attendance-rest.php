@@ -518,7 +518,7 @@ public static function punch( \WP_REST_Request $req ) {
 
     // ---- IP-based rate limiting (prevents automated flooding / DoS) ----
     // Allow max 30 punch requests per minute per IP address.
-    $client_ip    = sanitize_text_field( $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0' );
+    $client_ip    = self::get_client_ip();
     $rate_key     = 'sfs_hr_punch_rate_' . md5( $client_ip );
     $rate_count   = (int) get_transient( $rate_key );
     $rate_limit   = 30; // requests per 60-second window
@@ -983,12 +983,8 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
              WHERE employee_id = %d ORDER BY punch_time DESC LIMIT 1",
             (int) $emp
         ) );
-        $state_after_lock = match ( $last_after_lock ) {
-            'in', 'break_end' => 'in',
-            'break_start'     => 'break',
-            'out', null       => 'idle',
-            default           => 'idle',
-        };
+        $state_map = [ 'in' => 'in', 'break_end' => 'in', 'break_start' => 'break', 'out' => 'idle' ];
+        $state_after_lock = $state_map[ $last_after_lock ] ?? 'idle';
         $allow_after_lock = [
             'in'          => ( $state_after_lock === 'idle' ),
             'out'         => ( $state_after_lock === 'in' || $has_stale_session ),
@@ -1078,7 +1074,7 @@ if ( $selfie_media_id ) {
 
     // ---- Audit
     $auditT = $wpdb->prefix . 'sfs_hr_attendance_audit';
-    $wpdb->insert( $auditT, [
+    $audit_ok = $wpdb->insert( $auditT, [
         'actor_user_id'      => $uid,
         'action_type'        => 'punch.create',
         'target_employee_id' => (int) $emp,
@@ -1095,6 +1091,17 @@ if ( $selfie_media_id ) {
         ], fn( $v ) => $v !== null ) ),
         'created_at'         => $nowUtc,
     ] );
+    if ( $audit_ok === false ) {
+        error_log( sprintf( '[SFS ATT] Audit insert failed for punch %d: %s', $punch_id, $wpdb->last_error ) );
+        // Roll back the punch to maintain data consistency
+        $wpdb->delete( $wpdb->prefix . 'sfs_hr_attendance_punches', [ 'id' => $punch_id ], [ '%d' ] );
+        $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
+        return new \WP_Error(
+            'audit_failed',
+            'Failed to record audit trail. Punch was not saved.',
+            [ 'status' => 500 ]
+        );
+    }
 
     // ---- Recalculate the session for the work date (may be yesterday for overnight shifts)
         \SFS\HR\Modules\Attendance\AttendanceModule::recalc_session_for( (int) $emp, $dateYmd, null, true );
@@ -1105,12 +1112,8 @@ if ( $selfie_media_id ) {
     $today = wp_date( 'Y-m-d' );
 
     // Update state based on the punch we just inserted
-    $post_state = match ( $punch_type ) {
-        'in', 'break_end' => 'in',
-        'break_start'     => 'break',
-        'out'             => 'idle',
-        default           => $pre['state'] ?? 'idle',
-    };
+    $post_state_map = [ 'in' => 'in', 'break_end' => 'in', 'break_start' => 'break', 'out' => 'idle' ];
+    $post_state = $post_state_map[ $punch_type ] ?? ( $pre['state'] ?? 'idle' );
     $snap['state'] = $post_state;
     $snap['allow'] = [
         'in'          => ( $post_state === 'idle' ),

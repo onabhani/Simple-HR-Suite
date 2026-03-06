@@ -105,6 +105,12 @@ class Attendance_Metrics {
             $flags = json_decode( $session->flags_json, true ) ?: [];
             $status = $session->status;
 
+            // Strip 'left_early' flag when the early leave was approved
+            // so it doesn't count as an attendance issue.
+            if ( ! empty( $session->early_leave_approved ) && in_array( 'left_early', $flags, true ) ) {
+                $flags = array_values( array_filter( $flags, fn( $f ) => $f !== 'left_early' ) );
+            }
+
             // Track daily breakdown
             $day_data = [
                 'date'    => $session->work_date,

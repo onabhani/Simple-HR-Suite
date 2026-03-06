@@ -68,16 +68,38 @@ class Selfie_Cleanup {
 
             foreach ( $rows as $row ) {
                 // Delete the physical file + attachment post.
-                wp_delete_attachment( (int) $row->selfie_media_id, true );
+                $deleted = wp_delete_attachment( (int) $row->selfie_media_id, true );
+
+                if ( ! $deleted ) {
+                    if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                        error_log( sprintf(
+                            '[SFS HR] Selfie cleanup: failed to delete attachment %d for punch %d, skipping DB update.',
+                            $row->selfie_media_id,
+                            $row->id
+                        ) );
+                    }
+                    continue;
+                }
 
                 // Clear the reference so the punch record stays clean.
-                $wpdb->update(
+                $updated = $wpdb->update(
                     $punches_table,
                     [ 'selfie_media_id' => null ],
                     [ 'id' => (int) $row->id ],
                     [ null ],
                     [ '%d' ]
                 );
+
+                if ( $updated === false ) {
+                    if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                        error_log( sprintf(
+                            '[SFS HR] Selfie cleanup: DB update failed for punch %d: %s',
+                            $row->id,
+                            $wpdb->last_error
+                        ) );
+                    }
+                    continue;
+                }
 
                 $total_deleted++;
             }

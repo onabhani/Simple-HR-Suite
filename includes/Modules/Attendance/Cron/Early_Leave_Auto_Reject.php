@@ -29,16 +29,17 @@ class Early_Leave_Auto_Reject {
     }
 
     /**
-     * Auto-reject pending early leave requests older than 72 hours.
+     * Auto-reject pending early leave requests older than the configured expiry.
      */
     public function run(): void {
         global $wpdb;
 
-        $table       = $wpdb->prefix . 'sfs_hr_early_leave_requests';
-        $elr_settings = get_option( 'sfs_hr_elr_settings', [] );
-        $expiry_days  = max( 1, (int) ( $elr_settings['auto_reject_days'] ?? 3 ) );
-        $cutoff       = gmdate( 'Y-m-d H:i:s', time() - ( $expiry_days * 86400 ) );
-        $now          = current_time( 'mysql' );
+        $table         = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+        $elr_settings  = get_option( 'sfs_hr_elr_settings', [] );
+        $expiry_days   = max( 1, (int) ( $elr_settings['auto_reject_days'] ?? 3 ) );
+        $affects_salary = (int) ( $elr_settings['affects_salary'] ?? 1 );
+        $cutoff        = gmdate( 'Y-m-d H:i:s', time() - ( $expiry_days * 86400 ) );
+        $now           = current_time( 'mysql', true );
 
         // Find all pending requests created more than the configured days ago
         $expired = $wpdb->get_results( $wpdb->prepare(
@@ -61,11 +62,11 @@ class Early_Leave_Auto_Reject {
                  reviewed_by  = NULL,
                  reviewed_at  = %s,
                  manager_note = %s,
-                 affects_salary = 1,
+                 affects_salary = %d,
                  updated_at   = %s
              WHERE id IN ({$placeholders})",
             array_merge(
-                [ $now, sprintf( __( 'Auto-rejected: no action was taken within %d day(s).', 'sfs-hr' ), $expiry_days ), $now ],
+                [ $now, sprintf( __( 'Auto-rejected: no action was taken within %d day(s).', 'sfs-hr' ), $expiry_days ), $affects_salary, $now ],
                 $ids
             )
         ) );

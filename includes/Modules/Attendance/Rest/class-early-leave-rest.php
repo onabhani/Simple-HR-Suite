@@ -145,7 +145,7 @@ class Early_Leave_Rest {
             $request_date
         ) );
 
-        $now = current_time( 'mysql' );
+        $now = current_time( 'mysql', true );
 
         // Generate reference number
         $request_number = AttendanceModule::generate_early_leave_request_number();
@@ -244,7 +244,7 @@ class Early_Leave_Rest {
 
         $wpdb->update(
             $table,
-            [ 'status' => 'cancelled', 'updated_at' => current_time( 'mysql' ) ],
+            [ 'status' => 'cancelled', 'updated_at' => current_time( 'mysql', true ) ],
             [ 'id' => $request_id ]
         );
 
@@ -265,6 +265,7 @@ class Early_Leave_Rest {
      *  - GM: sees pending ELRs from department managers (only GM can approve those).
      *  - Admin: no pending list (admin cannot approve ELRs).
      */
+    /** @noinspection PhpUnusedParameterInspection — $req required by WP REST callback signature */
     public static function pending_requests( \WP_REST_Request $req ): \WP_REST_Response|\WP_Error {
         global $wpdb;
 
@@ -283,7 +284,7 @@ class Early_Leave_Rest {
             // GM sees pending ELRs from department managers only.
             // A department manager is any employee whose user_id is a
             // manager_user_id in an active department.
-            $rows = $wpdb->get_results( $wpdb->prepare(
+            $rows = $wpdb->get_results(
                 "SELECT r.*, e.first_name, e.last_name, e.employee_number
                  FROM {$table} r
                  LEFT JOIN {$emp_t} e ON e.id = r.employee_id
@@ -291,8 +292,9 @@ class Early_Leave_Rest {
                    AND e.user_id IN (
                        SELECT manager_user_id FROM {$dept_t} WHERE active = 1 AND manager_user_id IS NOT NULL
                    )
-                 ORDER BY r.request_date DESC, r.created_at DESC"
-            ), ARRAY_A );
+                 ORDER BY r.request_date DESC, r.created_at DESC",
+                ARRAY_A
+            );
         }
 
         // Department manager: sees pending ELRs from employees in their dept(s),
@@ -404,7 +406,7 @@ class Early_Leave_Rest {
         }
 
         $new_status = $action === 'approve' ? 'approved' : 'rejected';
-        $now        = current_time( 'mysql' );
+        $now        = current_time( 'mysql', true );
 
         $update_data = [
             'status'         => $new_status,

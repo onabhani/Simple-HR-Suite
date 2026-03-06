@@ -4149,7 +4149,7 @@ private static function maybe_create_early_leave_request(
         }
     }
 
-    $now_el = current_time( 'mysql' );
+    $now_el = current_time( 'mysql', true );
     $el_ref = self::generate_early_leave_request_number();
 
     $el_reason_note = $is_total_hours
@@ -4183,8 +4183,8 @@ private static function maybe_create_early_leave_request(
 
     if ( $inserted === false ) {
         error_log( sprintf(
-            '[SFS HR] Failed to auto-create early leave request for employee %d on %s: %s',
-            $employee_id, $ymd, $wpdb->last_error
+            '[SFS HR] Failed to auto-create early leave request: db_error=%s',
+            $wpdb->last_error
         ) );
     } else {
         $new_el_id = (int) $wpdb->insert_id;
@@ -4850,19 +4850,19 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
                 ];
                 $exists = $wpdb->get_var( $wpdb->prepare("SELECT id FROM {$sT} WHERE employee_id=%d AND work_date=%s LIMIT 1", $employee_id, $ymd) );
                 if ($exists) {
-                    // S9: skip locked sessions
-                    $is_locked = (int) $wpdb->get_var( $wpdb->prepare("SELECT locked FROM {$sT} WHERE id=%d", (int) $exists) );
-                    if ( $is_locked ) {
-                        error_log("[SFS-HR] recalc_session_for: skipping locked session id={$exists} emp={$employee_id} date={$ymd}");
+                    // S9: atomically skip locked sessions by including locked=0 in WHERE
+                    $result = $wpdb->update($sT, $data, ['id' => (int) $exists, 'locked' => 0]);
+                    if ( $result === 0 ) {
+                        // Row exists but wasn't updated — likely locked
+                        error_log("[SFS-HR] recalc_session_for: skipping locked session id={$exists} (holiday)");
                         return;
                     }
-                    $result = $wpdb->update($sT,$data,['id'=>$exists]);
                 } else {
                     $result = $wpdb->insert($sT,$data);
                 }
                 // H10: detect silent write failures
                 if ( $result === false ) {
-                    error_log("[SFS-HR] recalc_session_for: session write failed (holiday) emp={$employee_id} date={$ymd} db_error={$wpdb->last_error}");
+                    error_log("[SFS-HR] recalc_session_for: session write failed (holiday) db_error={$wpdb->last_error}");
                 }
                 return;
             }
@@ -4886,17 +4886,17 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
             ];
             $exists = $wpdb->get_var( $wpdb->prepare("SELECT id FROM {$sT} WHERE employee_id=%d AND work_date=%s LIMIT 1", $employee_id, $ymd) );
             if ($exists) {
-                $is_locked = (int) $wpdb->get_var( $wpdb->prepare("SELECT locked FROM {$sT} WHERE id=%d", (int) $exists) );
-                if ( $is_locked ) {
-                    error_log("[SFS-HR] recalc_session_for: skipping locked session id={$exists} emp={$employee_id} date={$ymd}");
+                // S9: atomically skip locked sessions
+                $result = $wpdb->update($sT, $data, ['id' => (int) $exists, 'locked' => 0]);
+                if ( $result === 0 ) {
+                    error_log("[SFS-HR] recalc_session_for: skipping locked session id={$exists} (on_leave)");
                     return;
                 }
-                $result = $wpdb->update($sT,$data,['id'=>$exists]);
             } else {
                 $result = $wpdb->insert($sT,$data);
             }
             if ( $result === false ) {
-                error_log("[SFS-HR] recalc_session_for: session write failed (on_leave) emp={$employee_id} date={$ymd} db_error={$wpdb->last_error}");
+                error_log("[SFS-HR] recalc_session_for: session write failed (on_leave) db_error={$wpdb->last_error}");
             }
             return;
         }
@@ -5037,9 +5037,9 @@ if ( ! empty( $leadingOuts ) ) {
             }
         } elseif ( $prevShift && ! empty( $prevShift->end_time ) ) {
             $tz_rc        = wp_timezone();
-            $shiftGrEarlyRc = ( isset( $prevShift->grace_early_leave_minutes ) )
-                ? (int) $prevShift->grace_early_leave_minutes : 0;
-            $grEarlyRc = $shiftGrEarlyRc > 0
+            $shiftGrEarlyRc = ( $prevShift && $prevShift->grace_early_leave_minutes !== null )
+                ? (int) $prevShift->grace_early_leave_minutes : null;
+            $grEarlyRc = $shiftGrEarlyRc !== null
                 ? $shiftGrEarlyRc
                 : (int) ( $prevSettings['default_grace_early'] ?? 5 );
             $shiftEndDt   = new \DateTimeImmutable( $prevDate . ' ' . $prevShift->end_time, $tz_rc );
@@ -5121,15 +5121,13 @@ if ( ! empty( $leadingOuts ) ) {
             $prev_session_data['early_leave_request_id'] = null;
         }
 
-        // S9: skip locked sessions during retroactive close
-        if ( ! empty( $prevSess->locked ) ) {
-            error_log("[SFS-HR] recalc_session_for: skipping retro-close of locked session id={$prevSess->id} emp={$employee_id} date={$prevDate}");
-        } else {
-            $retro_result = $wpdb->update( $sT, $prev_session_data, [ 'id' => (int) $prevSess->id ] );
+        // S9: atomically skip locked sessions during retroactive close
+        $retro_result = $wpdb->update( $sT, $prev_session_data, [ 'id' => (int) $prevSess->id, 'locked' => 0 ] );
+        if ( $retro_result === 0 ) {
+            error_log("[SFS-HR] recalc_session_for: skipping retro-close of locked session id={$prevSess->id}");
+        } elseif ( $retro_result === false ) {
             // H10: detect silent write failures
-            if ( $retro_result === false ) {
-                error_log("[SFS-HR] recalc_session_for: retro-close write failed emp={$employee_id} prev_date={$prevDate} db_error={$wpdb->last_error}");
-            }
+            error_log("[SFS-HR] recalc_session_for: retro-close write failed session_id={$prevSess->id} db_error={$wpdb->last_error}");
         }
 
         // Auto-create early leave request for the retro-closed session.
@@ -5164,13 +5162,12 @@ if ( ! empty( $leadingOuts ) ) {
     $globalRound   = (string)($settings['default_rounding_rule'] ?? '5');
 
     // Use shift-level grace/rounding if the shift defines them (non-null).
-    // When shift-level grace is 0, fall back to the global default to avoid
-    // false-positive "late" flags (grace=0 means 1 second late triggers the flag,
-    // which is almost never intentional).
-    $shiftGrLate  = ( $shift && isset($shift->grace_late_minutes) )        ? (int)$shift->grace_late_minutes        : 0;
-    $shiftGrEarly = ( $shift && isset($shift->grace_early_leave_minutes) ) ? (int)$shift->grace_early_leave_minutes : 0;
-    $grLate  = $shiftGrLate  > 0 ? $shiftGrLate  : $globalGrLate;
-    $grEarly = $shiftGrEarly > 0 ? $shiftGrEarly : $globalGrEarly;
+    // An explicit 0 on the shift means "no grace" and is preserved;
+    // only null/missing falls back to the global default.
+    $shiftGrLate  = ( $shift && $shift->grace_late_minutes !== null )        ? (int)$shift->grace_late_minutes        : null;
+    $shiftGrEarly = ( $shift && $shift->grace_early_leave_minutes !== null ) ? (int)$shift->grace_early_leave_minutes : null;
+    $grLate  = $shiftGrLate  !== null ? $shiftGrLate  : $globalGrLate;
+    $grEarly = $shiftGrEarly !== null ? $shiftGrEarly : $globalGrEarly;
     $round   = ( $shift && isset($shift->rounding_rule) )             ? (string)$shift->rounding_rule           : $globalRound;
     $roundN  = ($round === 'none') ? 0 : (int)$round;
 
@@ -5561,22 +5558,21 @@ if ( ! empty( $leadingOuts ) ) {
     $existing_flags = [];
     $exists = $wpdb->get_var( $wpdb->prepare("SELECT id FROM {$sT} WHERE employee_id=%d AND work_date=%s LIMIT 1", $employee_id, $ymd) );
     if ($exists) {
-        // S9: skip locked sessions — do not overwrite finalized/payroll-approved data
-        $is_locked = (int) $wpdb->get_var( $wpdb->prepare("SELECT locked FROM {$sT} WHERE id=%d", (int) $exists) );
-        if ( $is_locked ) {
-            error_log("[SFS-HR] recalc_session_for: skipping locked session id={$exists} emp={$employee_id} date={$ymd}");
-            return;
-        }
+        // S9: read flags and attempt atomic update (locked=0 in WHERE skips locked sessions)
         $existing_flags_json = $wpdb->get_var( $wpdb->prepare("SELECT flags_json FROM {$sT} WHERE id=%d", (int)$exists) );
         $existing_flags = $existing_flags_json ? (json_decode($existing_flags_json, true) ?: []) : [];
-        $result = $wpdb->update($sT, $data, ['id'=>(int)$exists]);
+        $result = $wpdb->update($sT, $data, ['id' => (int)$exists, 'locked' => 0]);
+        if ( $result === 0 ) {
+            error_log("[SFS-HR] recalc_session_for: skipping locked session id={$exists}");
+            return;
+        }
     } else {
         $result = $wpdb->insert($sT, $data);
     }
 
     // H10: detect silent write failures
     if ( $result === false ) {
-        error_log("[SFS-HR] recalc_session_for: session write failed emp={$employee_id} date={$ymd} db_error={$wpdb->last_error}");
+        error_log("[SFS-HR] recalc_session_for: session write failed db_error={$wpdb->last_error}");
     }
 
     // Capture session ID for linking (used by auto-created early leave requests)

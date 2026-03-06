@@ -212,12 +212,11 @@ Implemented via a one-time migration (`sfs_hr_att_fk_migrated` option flag):
 - All `strtotime()` calls in the attendance module now append `' UTC'` to UTC timestamp strings
 - Verified consistent across punch handling, snapshot, session recalc, and offline sync
 
-> **Timezone strategy note:** The codebase uses a hybrid approach:
-> - **Punch timestamps** (`punch_time`, `last_recalc_at`): stored as **UTC** via `current_time('mysql', true)`
-> - **Administrative timestamps** (`early_leave_requests.created_at`): stored as **WP-local** via `current_time('mysql')`
+> **Timezone strategy note:** All database timestamps are stored in **UTC**:
+> - **Punch timestamps** (`punch_time`, `last_recalc_at`): stored via `current_time('mysql', true)`
+> - **Early leave request timestamps** (`created_at`, `updated_at`, `reviewed_at`): stored via `current_time('mysql', true)`
 > - All `strtotime()` comparisons on UTC columns append `' UTC'`
->
-> This hybrid is intentional: punches need UTC for cross-timezone consistency; admin records use WP-local to match the site's display timezone. See Fix 2.1 for the remaining auto-reject mismatch.
+> - WP-local conversion is performed only at the display/UI layer using `wp_date()` or timezone-aware formatting
 
 #### Fix 1.7 — Add Rate Limiting to Punch Endpoint (S1) — DONE
 
@@ -230,13 +229,13 @@ Implemented via a one-time migration (`sfs_hr_att_fk_migrated` option flag):
 
 ### Phase 2 — High-Priority Fixes
 
-#### Fix 2.1 — Fix Timezone in Early Leave Auto-Reject (H4, F25) — TODO
+#### Fix 2.1 — Fix Timezone in Early Leave Auto-Reject (H4, F25) — DONE
 
 **File:** `Early_Leave_Auto_Reject.php`
 
-**Current bug:** `$cutoff` is calculated via `gmdate()` (UTC) but compared against `created_at` which is stored in WP-local time via `current_time('mysql')`. This creates incorrect expiry calculations offset by the site's timezone.
+**Bug:** `$cutoff` was calculated via `gmdate()` (UTC) but `$now` (used for `reviewed_at`/`updated_at`) was set via `current_time('mysql')` (WP-local), mixing timezones within the same update.
 
-**Fix:** Replace `gmdate()` with `current_time('mysql')` for the cutoff calculation, so both sides of the `WHERE created_at <= %s` comparison use WP-local time. The `created_at` storage format should remain WP-local (consistent with the hybrid timezone strategy documented in Fix 1.6).
+**Fix:** All ELR timestamps (`created_at`, `updated_at`, `reviewed_at`) now use UTC via `current_time('mysql', true)`. The `$cutoff` (already UTC via `gmdate()`) and `$now` (now UTC) are consistent. This aligns with the unified UTC storage strategy documented in Fix 1.6.
 
 #### Fix 2.2 — Move State Machine Check Inside Lock (H2) — DONE
 
@@ -540,8 +539,8 @@ Implemented via a one-time migration (`sfs_hr_att_fk_migrated` option flag):
 - Test selfie capture timeout with slow camera; verify token doesn't expire
 
 ### Data Integrity
-- Delete an employee and verify all related records cascade correctly
-- Delete a shift and verify assignments update appropriately
+- Attempt to delete an employee who has attendance records and verify deletion is blocked (RESTRICT); then remove/archive dependent records (punches, sessions, flags, early leave requests) and verify deletion succeeds; confirm audit rows have `target_employee_id` set to NULL (SET NULL)
+- Delete a shift and verify shift_assign and emp_shifts rows are cascaded (CASCADE); verify sessions retain history with `shift_assign_id` set to NULL (SET NULL)
 - Verify no orphaned selfie attachments remain after punch deletion
 - Run cleanup cron; verify retention period respected
 

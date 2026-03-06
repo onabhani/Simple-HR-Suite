@@ -5565,10 +5565,14 @@ echo '</tr>';
 
   // Pagination
   if ( $total_pages > 1 ) {
-      $base_url = add_query_arg( [
+      $base_args = [
           'page' => 'sfs_hr_attendance', 'tab' => 'punches',
           'mode' => $mode, 'date' => $date, 'month' => $month, 'employee_id' => $emp,
-      ], admin_url( 'admin.php' ) );
+      ];
+      if ( isset( $_GET['debug'] ) ) {
+          $base_args['debug'] = (int) $_GET['debug'];
+      }
+      $base_url = add_query_arg( $base_args, admin_url( 'admin.php' ) );
       echo '<div class="sfs-hr-pagination">';
       printf(
           '<span class="sfs-hr-pagination__info">%s</span>',
@@ -5725,7 +5729,6 @@ $export_url = esc_url( wp_nonce_url(
 
 
 
-    $pageSessionCount = is_array($rows) ? count($rows) : 0;
     echo '<h2>' . esc_html__('Sessions', 'sfs-hr') . '</h2>';
 
     // Fix Off-Day Absences result notification
