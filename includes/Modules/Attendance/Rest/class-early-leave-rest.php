@@ -250,11 +250,15 @@ class Early_Leave_Rest {
             return new \WP_Error( 'invalid_status', __( 'Only pending requests can be cancelled.', 'sfs-hr' ), [ 'status' => 400 ] );
         }
 
-        $wpdb->update(
+        $cancelled = $wpdb->update(
             $table,
             [ 'status' => 'cancelled', 'updated_at' => current_time( 'mysql', true ) ],
             [ 'id' => $request_id ]
         );
+
+        if ( $cancelled === false ) {
+            return new \WP_Error( 'db_error', __( 'Failed to cancel request.', 'sfs-hr' ), [ 'status' => 500 ] );
+        }
 
         // Fire hook for AuditTrail
         do_action( 'sfs_hr_early_leave_status_changed', $request_id, 'pending', 'cancelled' );
@@ -422,7 +426,7 @@ class Early_Leave_Rest {
             'reviewed_at'    => $now,
             'manager_note'   => $note,
             'affects_salary' => $action === 'approve'
-                ? (int) ( $req['affects_salary'] ?? 0 )
+                ? 0
                 : (int) ( $req['affects_salary'] ?? 0 ),
             'updated_at'     => $now,
         ];

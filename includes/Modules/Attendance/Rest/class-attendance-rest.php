@@ -603,7 +603,7 @@ public static function punch( \WP_REST_Request $req ) {
             // Prevents time fraud on offline kiosks where punches could be fabricated
             // for any time within the 24h staleness window.
             $offline_emp_id = $offline_employee_id;
-            $offline_date   = wp_date( 'Y-m-d', $client_ts );
+            $offline_date   = gmdate( 'Y-m-d', $client_ts );
             $offline_shift  = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( $offline_emp_id, $offline_date );
             if ( $offline_shift ) {
                 $offline_segs = \SFS\HR\Modules\Attendance\AttendanceModule::build_segments_from_shift( $offline_shift, $offline_date );
@@ -988,7 +988,7 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
         // Re-check the last punch to confirm the transition is still valid.
         $last_after_lock = $wpdb->get_var( $wpdb->prepare(
             "SELECT punch_type FROM {$punchT}
-             WHERE employee_id = %d ORDER BY punch_time DESC LIMIT 1",
+             WHERE employee_id = %d ORDER BY punch_time DESC, id DESC LIMIT 1",
             (int) $emp
         ) );
         $state_map = [ 'in' => 'in', 'break_end' => 'in', 'break_start' => 'break', 'out' => 'idle' ];

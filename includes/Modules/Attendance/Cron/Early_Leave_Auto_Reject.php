@@ -36,6 +36,7 @@ class Early_Leave_Auto_Reject {
 
         $table         = $wpdb->prefix . 'sfs_hr_early_leave_requests';
         $elr_settings  = get_option( 'sfs_hr_elr_settings', [] );
+        if ( ! is_array( $elr_settings ) ) { $elr_settings = []; }
         $expiry_days   = max( 1, (int) ( $elr_settings['auto_reject_days'] ?? 3 ) );
         $affects_salary = (int) ( $elr_settings['affects_salary'] ?? 1 );
         $cutoff        = gmdate( 'Y-m-d H:i:s', time() - ( $expiry_days * 86400 ) );
@@ -49,12 +50,27 @@ class Early_Leave_Auto_Reject {
             $cutoff
         ) );
 
+        if ( $wpdb->last_error ) {
+            error_log( sprintf( '[SFS HR] Early leave auto-reject: SELECT failed — %s', $wpdb->last_error ) );
+            return;
+        }
+
         if ( empty( $expired ) ) {
             return;
         }
 
         $ids = wp_list_pluck( $expired, 'id' );
         $placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+
+        $manager_note = sprintf(
+            _n(
+                'Auto-rejected: no action was taken within %d day.',
+                'Auto-rejected: no action was taken within %d days.',
+                $expiry_days,
+                'sfs-hr'
+            ),
+            $expiry_days
+        );
 
         $affected = $wpdb->query( $wpdb->prepare(
             "UPDATE `{$table}`
@@ -66,10 +82,15 @@ class Early_Leave_Auto_Reject {
                  updated_at   = %s
              WHERE id IN ({$placeholders}) AND status = 'pending'",
             array_merge(
-                [ $now, sprintf( __( 'Auto-rejected: no action was taken within %d day(s).', 'sfs-hr' ), $expiry_days ), $affects_salary, $now ],
+                [ $now, $manager_note, $affects_salary, $now ],
                 $ids
             )
         ) );
+
+        if ( $wpdb->last_error ) {
+            error_log( sprintf( '[SFS HR] Early leave auto-reject: UPDATE failed — %s', $wpdb->last_error ) );
+            return;
+        }
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
             error_log( sprintf(

@@ -380,6 +380,7 @@ private function get_table_columns( $table ): array {
                 <!-- Card 4: Early Leave Request Settings -->
                 <?php
                 $elr_settings = get_option( 'sfs_hr_elr_settings', [] );
+                if ( ! is_array( $elr_settings ) ) { $elr_settings = []; }
                 $elr_enabled       = ! empty( $elr_settings['enabled'] );
                 $elr_auto_create   = ! empty( $elr_settings['auto_create'] );
                 $elr_require_note  = ! empty( $elr_settings['require_note'] );

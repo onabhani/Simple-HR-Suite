@@ -60,22 +60,26 @@ class Daily_Session_Builder {
             return; // Another instance is already running.
         }
 
-        $today     = wp_date( 'Y-m-d' );
-        $yesterday = wp_date( 'Y-m-d', strtotime( '-1 day' ) );
+        // Use UTC dates so the target day is consistent regardless of site timezone.
+        $today     = gmdate( 'Y-m-d' );
+        $yesterday = gmdate( 'Y-m-d', strtotime( '-1 day' ) );
 
-        AttendanceModule::rebuild_sessions_for_date_static( $yesterday );
-        AttendanceModule::rebuild_sessions_for_date_static( $today );
+        try {
+            AttendanceModule::rebuild_sessions_for_date_static( $yesterday );
+            AttendanceModule::rebuild_sessions_for_date_static( $today );
 
-        // Mark successful completion — throttles fallback for 6 hours.
-        set_transient( self::LAST_SUCCESS_TRANSIENT, time(), 6 * HOUR_IN_SECONDS );
-        delete_transient( self::RUNNING_TRANSIENT );
+            // Mark successful completion — throttles fallback for 6 hours.
+            set_transient( self::LAST_SUCCESS_TRANSIENT, time(), 6 * HOUR_IN_SECONDS );
 
-        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( sprintf(
-                '[SFS HR] Daily session builder: rebuilt sessions for %s and %s.',
-                $yesterday,
-                $today
-            ) );
+            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( sprintf(
+                    '[SFS HR] Daily session builder: rebuilt sessions for %s and %s.',
+                    $yesterday,
+                    $today
+                ) );
+            }
+        } finally {
+            delete_transient( self::RUNNING_TRANSIENT );
         }
     }
 

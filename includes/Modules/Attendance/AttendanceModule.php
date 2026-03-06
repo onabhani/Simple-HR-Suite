@@ -5133,18 +5133,16 @@ if ( ! empty( $leadingOuts ) ) {
         // S9: atomically skip locked sessions during retroactive close
         $retro_result = $wpdb->update( $sT, $prev_session_data, [ 'id' => (int) $prevSess->id, 'locked' => 0 ] );
         if ( $retro_result === false ) {
-            // H10: detect silent write failures
+            // H10: write failed — skip ELR creation for unpersisted session
             error_log("[SFS-HR] recalc_session_for: retro-close write failed session_id={$prevSess->id} db_error={$wpdb->last_error}");
+            $prevIsEarly = false;
         } elseif ( $retro_result === 0 ) {
             // update() returned 0: either locked or data was identical.
-            // Verify via SELECT to avoid false-positive skip.
             $is_locked = (int) $wpdb->get_var( $wpdb->prepare("SELECT locked FROM {$sT} WHERE id=%d", (int) $prevSess->id) );
             if ( $is_locked ) {
                 error_log("[SFS-HR] recalc_session_for: skipping retro-close of locked session id={$prevSess->id}");
-                // Skip follow-up work (ELR creation) for locked sessions
                 $prevIsEarly = false;
             }
-            // else: data was identical (no-op update), continue normally
         }
 
         // Auto-create early leave request for the retro-closed session.
@@ -5581,6 +5579,7 @@ if ( ! empty( $leadingOuts ) ) {
         $result = $wpdb->update($sT, $data, ['id' => (int)$exists, 'locked' => 0]);
         if ( $result === false ) {
             error_log("[SFS-HR] recalc_session_for: session write failed db_error={$wpdb->last_error}");
+            return; // Don't proceed with ELR back-linking on failed write
         } elseif ( $result === 0 ) {
             // update() returned 0: either locked or data identical.
             $is_locked = (int) $wpdb->get_var( $wpdb->prepare("SELECT locked FROM {$sT} WHERE id=%d", (int)$exists) );
@@ -5592,9 +5591,9 @@ if ( ! empty( $leadingOuts ) ) {
         }
     } else {
         $result = $wpdb->insert($sT, $data);
-        // H10: detect silent write failures
         if ( $result === false ) {
             error_log("[SFS-HR] recalc_session_for: session insert failed db_error={$wpdb->last_error}");
+            return; // Don't proceed with ELR back-linking on failed insert
         }
     }
 
