@@ -346,7 +346,7 @@ class Early_Leave_Rest {
             'reviewed_by'    => $user_id,
             'reviewed_at'    => $now,
             'manager_note'   => $note,
-            'affects_salary' => $action === 'approve' ? $affects : 1, // rejected = affects salary
+            'affects_salary' => $affects,
             'updated_at'     => $now,
         ];
 

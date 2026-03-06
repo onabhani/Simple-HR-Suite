@@ -60,7 +60,7 @@ class Early_Leave_Auto_Reject {
                  reviewed_by  = NULL,
                  reviewed_at  = %s,
                  manager_note = %s,
-                 affects_salary = 1,
+                 affects_salary = 0,
                  updated_at   = %s
              WHERE id IN ({$placeholders})",
             array_merge(
