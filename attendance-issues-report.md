@@ -228,10 +228,9 @@ These fixes address data integrity, security gaps, and silent failure modes.
 
 **File:** `Early_Leave_Auto_Reject.php`
 
-- Keep cutoff in UTC via `gmdate()` (or use `current_time('mysql', true)`) — do NOT switch to WP-local time
-- Fix `created_at` storage: ensure all code paths that insert early-leave requests store `created_at` in UTC (use `current_time('mysql', true)` or `gmdate('Y-m-d H:i:s')` instead of `current_time('mysql')`)
-- Affected insert locations: `class-early-leave-rest.php`, `class-admin-pages.php`, `AttendanceModule.php` (auto-created requests)
-- Convert to WP-local timezone only when rendering dates to users in the UI
+- `created_at` is already stored in WP-local time (`current_time('mysql')` = site timezone, e.g. UTC+3) — this is correct and should stay
+- Fix the cutoff to also use WP-local time: replace `gmdate()` with `current_time('mysql')` so both sides of the comparison use the same timezone
+- This ensures the 72-hour expiry window is calculated correctly regardless of server OS timezone
 
 #### Fix 2.2 — Move State Machine Check Inside Lock (H2)
 
