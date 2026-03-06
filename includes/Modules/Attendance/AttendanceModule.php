@@ -4959,8 +4959,10 @@ if ( ! empty( $leadingOuts ) ) {
             }
         } elseif ( $prevShift && ! empty( $prevShift->end_time ) ) {
             $tz_rc        = wp_timezone();
-            $grEarlyRc    = ( isset( $prevShift->grace_early_leave_minutes ) )
-                ? (int) $prevShift->grace_early_leave_minutes
+            $shiftGrEarlyRc = ( isset( $prevShift->grace_early_leave_minutes ) )
+                ? (int) $prevShift->grace_early_leave_minutes : 0;
+            $grEarlyRc = $shiftGrEarlyRc > 0
+                ? $shiftGrEarlyRc
                 : (int) ( $prevSettings['default_grace_early'] ?? 5 );
             $shiftEndDt   = new \DateTimeImmutable( $prevDate . ' ' . $prevShift->end_time, $tz_rc );
             // Overnight shift: if end_time < start_time, the shift end is the next day
@@ -5083,9 +5085,14 @@ if ( ! empty( $leadingOuts ) ) {
     $globalGrEarly = (int)($settings['default_grace_early'] ?? 5);
     $globalRound   = (string)($settings['default_rounding_rule'] ?? '5');
 
-    // Use shift-level grace/rounding if the shift defines them (non-null)
-    $grLate  = ( $shift && isset($shift->grace_late_minutes) )        ? (int)$shift->grace_late_minutes        : $globalGrLate;
-    $grEarly = ( $shift && isset($shift->grace_early_leave_minutes) ) ? (int)$shift->grace_early_leave_minutes : $globalGrEarly;
+    // Use shift-level grace/rounding if the shift defines them (non-null).
+    // When shift-level grace is 0, fall back to the global default to avoid
+    // false-positive "late" flags (grace=0 means 1 second late triggers the flag,
+    // which is almost never intentional).
+    $shiftGrLate  = ( $shift && isset($shift->grace_late_minutes) )        ? (int)$shift->grace_late_minutes        : 0;
+    $shiftGrEarly = ( $shift && isset($shift->grace_early_leave_minutes) ) ? (int)$shift->grace_early_leave_minutes : 0;
+    $grLate  = $shiftGrLate  > 0 ? $shiftGrLate  : $globalGrLate;
+    $grEarly = $shiftGrEarly > 0 ? $shiftGrEarly : $globalGrEarly;
     $round   = ( $shift && isset($shift->rounding_rule) )             ? (string)$shift->rounding_rule           : $globalRound;
     $roundN  = ($round === 'none') ? 0 : (int)$round;
 
@@ -5456,6 +5463,18 @@ if ( ! empty( $leadingOuts ) ) {
         $data['early_leave_request_id'] = null;
     }
 
+    // Back-link: ensure the ELR record's session_id is populated.
+    // This handles the case where the ELR was approved before the session
+    // existed (e.g., pre-approved for a future date).
+    if ( ! empty( $approved_el_id ) ) {
+        $elr_session = $wpdb->get_var( $wpdb->prepare(
+            "SELECT session_id FROM {$elr_table} WHERE id = %d",
+            (int) $approved_el_id
+        ) );
+        // We'll update the ELR's session_id after the session is persisted
+        // (we need the session ID from insert/update below).
+    }
+
     // Check if this is a new late/early detection (to avoid duplicate notifications)
     $existing_flags = [];
     $exists = $wpdb->get_var( $wpdb->prepare("SELECT id FROM {$sT} WHERE employee_id=%d AND work_date=%s LIMIT 1", $employee_id, $ymd) );
@@ -5480,6 +5499,15 @@ if ( ! empty( $leadingOuts ) ) {
 
     // Capture session ID for linking (used by auto-created early leave requests)
     $session_id = $exists ? (int) $exists : (int) $wpdb->insert_id;
+
+    // Back-link the ELR's session_id if it was null (pre-approved before session existed).
+    if ( ! empty( $approved_el_id ) && $session_id && ( ! isset( $elr_session ) || ! $elr_session ) ) {
+        $wpdb->update(
+            $wpdb->prefix . 'sfs_hr_early_leave_requests',
+            [ 'session_id' => $session_id ],
+            [ 'id' => (int) $approved_el_id ]
+        );
+    }
 
     // Fire notification hooks for late arrival and early leave (only once per session)
     $was_late = in_array('late', $existing_flags, true);

@@ -44,14 +44,14 @@ class Early_Leave_Rest {
             'permission_callback' => fn() => current_user_can( 'sfs_hr_attendance_view_team' ) || current_user_can( 'sfs_hr.leave.review' ),
         ] );
 
-        // Route-level check aligns with handler: admin, GM, or department managers
-        // (who have sfs_hr.leave.review). The handler further verifies the user is
-        // the assigned manager for this specific request when not admin/GM.
+        // Route-level check: GM or department managers (sfs_hr.leave.review).
+        // Admin is intentionally excluded — ELR approval follows the
+        // dept-manager → GM hierarchy only.  The handler further verifies
+        // the reviewer is the correct person for the specific request.
         register_rest_route( $ns, '/early-leave/review/(?P<id>\d+)', [
             'methods'             => 'POST',
             'callback'            => [ self::class, 'review_request' ],
-            'permission_callback' => fn() => current_user_can( 'sfs_hr_attendance_admin' )
-                || current_user_can( 'sfs_hr_loans_gm_approve' )
+            'permission_callback' => fn() => current_user_can( 'sfs_hr_loans_gm_approve' )
                 || current_user_can( 'sfs_hr.leave.review' ),
         ] );
 
@@ -107,13 +107,26 @@ class Early_Leave_Rest {
             return new \WP_Error( 'duplicate', __( 'You already have a pending early leave request for this date.', 'sfs-hr' ), [ 'status' => 409 ] );
         }
 
-        // Get employee's department manager
+        // Determine the approver based on hierarchy:
+        //  - Regular employee → their department manager approves.
+        //  - Department manager → the GM approves.
         $emp_table  = $wpdb->prefix . 'sfs_hr_employees';
         $dept_table = $wpdb->prefix . 'sfs_hr_departments';
         $emp_row    = $wpdb->get_row( $wpdb->prepare( "SELECT dept_id FROM {$emp_table} WHERE id = %d", $emp_id ) );
         $manager_id = null;
 
-        if ( $emp_row && $emp_row->dept_id ) {
+        // Check if the requesting employee is themselves a department manager.
+        $is_requester_mgr = (bool) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$dept_table} WHERE manager_user_id = %d AND active = 1",
+            $user_id
+        ) );
+
+        if ( $is_requester_mgr ) {
+            // Department manager's ELR → GM is the approver.
+            $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+            $manager_id = $gm_user_id > 0 ? $gm_user_id : null;
+        } elseif ( $emp_row && $emp_row->dept_id ) {
+            // Regular employee → department manager is the approver.
             $dept = $wpdb->get_row( $wpdb->prepare( "SELECT manager_user_id FROM {$dept_table} WHERE id = %d", $emp_row->dept_id ) );
             if ( $dept && $dept->manager_user_id ) {
                 $manager_id = (int) $dept->manager_user_id;
@@ -245,7 +258,12 @@ class Early_Leave_Rest {
     }
 
     /**
-     * Manager gets pending requests for their team
+     * Manager/GM gets pending requests they are authorised to review.
+     *
+     * Visibility rules:
+     *  - Department manager: sees pending ELRs from employees in their department(s).
+     *  - GM: sees pending ELRs from department managers (only GM can approve those).
+     *  - Admin: no pending list (admin cannot approve ELRs).
      */
     public static function pending_requests( \WP_REST_Request $req ): \WP_REST_Response|\WP_Error {
         global $wpdb;
@@ -253,28 +271,59 @@ class Early_Leave_Rest {
         $user_id = get_current_user_id();
         $table   = $wpdb->prefix . 'sfs_hr_early_leave_requests';
         $emp_t   = $wpdb->prefix . 'sfs_hr_employees';
+        $dept_t  = $wpdb->prefix . 'sfs_hr_departments';
 
-        // If admin, show all pending
-        if ( current_user_can( 'sfs_hr_attendance_admin' ) ) {
+        $rows = [];
+
+        // Check if current user is the configured GM.
+        $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+        $is_gm      = ( $gm_user_id > 0 && $gm_user_id === $user_id );
+
+        if ( $is_gm ) {
+            // GM sees pending ELRs from department managers only.
+            // A department manager is any employee whose user_id is a
+            // manager_user_id in an active department.
             $rows = $wpdb->get_results( $wpdb->prepare(
                 "SELECT r.*, e.first_name, e.last_name, e.employee_number
                  FROM {$table} r
                  LEFT JOIN {$emp_t} e ON e.id = r.employee_id
-                 WHERE r.status = %s
-                 ORDER BY r.request_date DESC, r.created_at DESC",
-                'pending'
+                 WHERE r.status = 'pending'
+                   AND e.user_id IN (
+                       SELECT manager_user_id FROM {$dept_t} WHERE active = 1 AND manager_user_id IS NOT NULL
+                   )
+                 ORDER BY r.request_date DESC, r.created_at DESC"
             ), ARRAY_A );
-        } else {
-            // Show requests where current user is the manager
-            $sql = $wpdb->prepare(
+        }
+
+        // Department manager: sees pending ELRs from employees in their dept(s),
+        // excluding other department managers (those go to GM).
+        $managed_dept_ids = $wpdb->get_col( $wpdb->prepare(
+            "SELECT id FROM {$dept_t} WHERE manager_user_id = %d AND active = 1",
+            $user_id
+        ) );
+
+        if ( ! empty( $managed_dept_ids ) ) {
+            $placeholders = implode( ',', array_fill( 0, count( $managed_dept_ids ), '%d' ) );
+            $dept_rows = $wpdb->get_results( $wpdb->prepare(
                 "SELECT r.*, e.first_name, e.last_name, e.employee_number
                  FROM {$table} r
                  LEFT JOIN {$emp_t} e ON e.id = r.employee_id
-                 WHERE r.status = 'pending' AND r.manager_id = %d
+                 WHERE r.status = 'pending'
+                   AND e.dept_id IN ({$placeholders})
+                   AND (e.user_id NOT IN (
+                       SELECT manager_user_id FROM {$dept_t} WHERE active = 1 AND manager_user_id IS NOT NULL
+                   ))
                  ORDER BY r.request_date DESC, r.created_at DESC",
-                $user_id
-            );
-            $rows = $wpdb->get_results( $sql, ARRAY_A );
+                ...$managed_dept_ids
+            ), ARRAY_A );
+
+            // Merge (de-duplicate by request ID) if user is both GM and dept manager.
+            $existing_ids = array_column( $rows, 'id' );
+            foreach ( $dept_rows as $dr ) {
+                if ( ! in_array( $dr['id'], $existing_ids, true ) ) {
+                    $rows[] = $dr;
+                }
+            }
         }
 
         return rest_ensure_response( $rows ?: [] );
@@ -314,27 +363,44 @@ class Early_Leave_Rest {
             return new \WP_Error( 'already_reviewed', __( 'Request has already been reviewed.', 'sfs-hr' ), [ 'status' => 400 ] );
         }
 
-        // Check permission: must be admin, GM, the assigned manager, or
-        // a department manager of the employee's department (sfs_hr.leave.review).
-        $is_admin_or_gm    = current_user_can( 'sfs_hr_attendance_admin' ) || current_user_can( 'sfs_hr_loans_gm_approve' );
-        $is_assigned_mgr   = ( (int) $request->manager_id === $user_id );
-        $is_dept_mgr       = false;
-        if ( ! $is_admin_or_gm && ! $is_assigned_mgr && current_user_can( 'sfs_hr.leave.review' ) ) {
-            // Check if the current user manages the employee's department
+        // ── Approval hierarchy ──
+        // Regular employees: only their department manager can approve.
+        // Department managers: only the GM can approve.
+        // Admin and cross-department managers are NOT allowed.
+        $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+        $is_gm      = ( $gm_user_id > 0 && $gm_user_id === $user_id );
+
+        // Determine if the requesting employee is themselves a department manager.
+        $dept_t             = $wpdb->prefix . 'sfs_hr_departments';
+        $requester_user_id  = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT user_id FROM {$wpdb->prefix}sfs_hr_employees WHERE id = %d",
+            $request->employee_id
+        ) );
+        $requester_is_mgr = $requester_user_id > 0 && (bool) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$dept_t} WHERE manager_user_id = %d AND active = 1",
+            $requester_user_id
+        ) );
+
+        if ( $requester_is_mgr ) {
+            // Department manager's ELR → only GM can approve.
+            if ( ! $is_gm ) {
+                return new \WP_Error( 'forbidden', __( 'Only the General Manager can approve early leave requests from department managers.', 'sfs-hr' ), [ 'status' => 403 ] );
+            }
+        } else {
+            // Regular employee's ELR → only their department manager can approve.
             $emp_dept_id = $wpdb->get_var( $wpdb->prepare(
                 "SELECT dept_id FROM {$wpdb->prefix}sfs_hr_employees WHERE id = %d",
                 $request->employee_id
             ) );
-            if ( $emp_dept_id ) {
-                $is_dept_mgr = (bool) $wpdb->get_var( $wpdb->prepare(
-                    "SELECT COUNT(*) FROM {$wpdb->prefix}sfs_hr_departments WHERE id = %d AND manager_user_id = %d AND active = 1",
-                    $emp_dept_id,
-                    $user_id
-                ) );
+            $is_dept_mgr = $emp_dept_id && (bool) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$dept_t} WHERE id = %d AND manager_user_id = %d AND active = 1",
+                $emp_dept_id,
+                $user_id
+            ) );
+
+            if ( ! $is_dept_mgr ) {
+                return new \WP_Error( 'forbidden', __( 'Only the department manager can approve this early leave request.', 'sfs-hr' ), [ 'status' => 403 ] );
             }
-        }
-        if ( ! $is_admin_or_gm && ! $is_assigned_mgr && ! $is_dept_mgr ) {
-            return new \WP_Error( 'forbidden', __( 'You are not authorized to review this request.', 'sfs-hr' ), [ 'status' => 403 ] );
         }
 
         $new_status = $action === 'approve' ? 'approved' : 'rejected';
@@ -472,22 +538,55 @@ class Early_Leave_Rest {
     }
 
     /**
-     * Get pending count for dashboard
+     * Get pending count for dashboard.
+     *
+     * Mirrors the visibility rules of pending_requests():
+     *  - GM: counts pending ELRs from department managers.
+     *  - Department manager: counts pending ELRs from their department's
+     *    non-manager employees.
+     *  - Admin: 0 (admin cannot approve ELRs).
      */
     public static function get_pending_count_for_user( int $user_id ): int {
         global $wpdb;
-        $table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+        $table  = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+        $emp_t  = $wpdb->prefix . 'sfs_hr_employees';
+        $dept_t = $wpdb->prefix . 'sfs_hr_departments';
 
-        if ( current_user_can( 'sfs_hr_attendance_admin' ) ) {
-            return (int) $wpdb->get_var( $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$table} WHERE status = %s",
-                'pending'
+        $count = 0;
+
+        // GM: count pending ELRs from department managers.
+        $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+        if ( $gm_user_id > 0 && $gm_user_id === $user_id ) {
+            $count += (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM {$table} r
+                 JOIN {$emp_t} e ON e.id = r.employee_id
+                 WHERE r.status = 'pending'
+                   AND e.user_id IN (
+                       SELECT manager_user_id FROM {$dept_t} WHERE active = 1 AND manager_user_id IS NOT NULL
+                   )"
+            );
+        }
+
+        // Department manager: count pending ELRs from their department(s), excluding other managers.
+        $managed_dept_ids = $wpdb->get_col( $wpdb->prepare(
+            "SELECT id FROM {$dept_t} WHERE manager_user_id = %d AND active = 1",
+            $user_id
+        ) );
+
+        if ( ! empty( $managed_dept_ids ) ) {
+            $placeholders = implode( ',', array_fill( 0, count( $managed_dept_ids ), '%d' ) );
+            $count += (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$table} r
+                 JOIN {$emp_t} e ON e.id = r.employee_id
+                 WHERE r.status = 'pending'
+                   AND e.dept_id IN ({$placeholders})
+                   AND (e.user_id NOT IN (
+                       SELECT manager_user_id FROM {$dept_t} WHERE active = 1 AND manager_user_id IS NOT NULL
+                   ))",
+                ...$managed_dept_ids
             ) );
         }
 
-        return (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM {$table} WHERE status = 'pending' AND manager_id = %d",
-            $user_id
-        ) );
+        return $count;
     }
 }

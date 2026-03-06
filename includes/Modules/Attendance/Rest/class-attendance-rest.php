@@ -523,6 +523,21 @@ public static function can_punch_self_or_kiosk(): bool {
 public static function punch( \WP_REST_Request $req ) {
     global $wpdb;
 
+    // ---- IP-based rate limiting (prevents automated flooding / DoS) ----
+    // Allow max 30 punch requests per minute per IP address.
+    $client_ip    = sanitize_text_field( $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0' );
+    $rate_key     = 'sfs_hr_punch_rate_' . md5( $client_ip );
+    $rate_count   = (int) get_transient( $rate_key );
+    $rate_limit   = 30; // requests per 60-second window
+    if ( $rate_count >= $rate_limit ) {
+        return new \WP_Error(
+            'rate_limited',
+            __( 'Too many requests. Please try again in a minute.', 'sfs-hr' ),
+            [ 'status' => 429 ]
+        );
+    }
+    set_transient( $rate_key, $rate_count + 1, 60 );
+
     // ---- Inputs (validated/sanitized by route args)
     $params      = $req->get_params();
     $punch_type  = isset( $params['punch_type'] ) ? sanitize_text_field( (string) $params['punch_type'] ) : '';
