@@ -149,6 +149,9 @@ add_action('rest_api_init', function () {
 
         // Daily session builder — ensures sessions exist for yesterday/today
         ( new \SFS\HR\Modules\Attendance\Cron\Daily_Session_Builder() )->hooks();
+
+        // Selfie cleanup — deletes attachments older than selfie_retention_days
+        ( new \SFS\HR\Modules\Attendance\Cron\Selfie_Cleanup() )->hooks();
     }
 
     /**
