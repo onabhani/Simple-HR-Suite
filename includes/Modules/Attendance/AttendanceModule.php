@@ -2147,12 +2147,8 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
     </aside>
 
     <main class="sfs-kiosk-right">
-      <h2 class="sfs-title"><?php esc_html_e( 'Attendance Kiosk', 'sfs-hr' ); ?></h2>
-      <h1 id="sfs-greet-<?php echo $inst; ?>" class="sfs-greet"><?php esc_html_e( 'Good day!', 'sfs-hr' ); ?></h1>
-
-
-      <!-- hero -->
       <h2 class="sfs-title sr-only"><?php esc_html_e( 'Attendance Kiosk', 'sfs-hr' ); ?></h2>
+      <h1 id="sfs-greet-<?php echo $inst; ?>" class="sfs-greet"><?php esc_html_e( 'Good day!', 'sfs-hr' ); ?></h1>
 <div class="sfs-statusbar">
   <span id="sfs-status-dot-<?php echo $inst; ?>" class="sfs-dot sfs-dot--idle"></span>
   <span id="sfs-status-text-<?php echo $inst; ?>"><?php esc_html_e( 'Ready', 'sfs-hr' ); ?></span>
@@ -2235,12 +2231,12 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 
 
     </main>
-    <?php if ( $immersive ): ?>
+
+  </div> <!-- .sfs-kiosk-shell -->
+</div> <!-- .sfs-kiosk-app -->
+<?php if ( $immersive ): ?>
   </div> <!-- .sfs-kiosk-veil -->
 <?php endif; ?>
-
-  </div>
-</div>
 
 
 <style>
@@ -2489,9 +2485,11 @@ body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
 @media (max-width:960px){
   #<?php echo $root_id; ?> .sfs-kiosk-shell{ grid-template-columns:1fr; }
   #<?php echo $root_id; ?>.sfs-kiosk-app{
-    background:linear-gradient(180deg,var(--sfs-teal) 0 220px, var(--sfs-surface) 220px 100%);
+    background:linear-gradient(180deg,var(--sfs-teal) 0 160px, var(--sfs-surface) 160px 100%);
   }
-  #<?php echo $root_id; ?> .sfs-kiosk-left{ min-height:220px; padding:20px 16px; }
+  #<?php echo $root_id; ?> .sfs-kiosk-left{ min-height:auto; padding:16px 16px 12px; }
+  #<?php echo $root_id; ?> .sfs-greet{ margin: 8px 0 12px; font-size:clamp(24px,5vw,40px); }
+  #<?php echo $root_id; ?> .sfs-kiosk-right{ padding:12px 16px; }
 }
 
 
@@ -2539,13 +2537,6 @@ body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
 
 
 </style>
-
-
-
-
-
-</div>
-</div>
 
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" defer></script>
 <?php
@@ -2768,6 +2759,9 @@ const qrStat  = document.getElementById('sfs-kiosk-qr-status-<?php echo $inst; ?
       let lastBlob = null;
       let scannedEmpId = null;
       let employeeScanToken = null;
+      let pendingPunch = null;
+      let manualSelfieMode = false;
+      const PUNCH_ORDER = ['in','out','break_start','break_end'];
 
       let lastQrValue = '';
       let lastQrTs = 0;
@@ -2832,22 +2826,6 @@ if (capture) {
 let view = 'menu';                         // 'menu' | 'scan'
 let idleTimer = null;
 const IDLE_MS = 5 * 60 * 1000;            // 5 minutes
-
-function setMode(next) {
-  view = next === 'scan' ? 'scan' : 'menu';
-  ROOT.dataset.view = view;
-
-  if (view === 'menu') {
-    stopQr();                              // hard stop camera
-    clearIdle();
-    setStat(t.ready_choose_action||'Ready — choose an action', 'idle');
-  } else {
-    // scan
-    kickScanner();                         // open camera (no auto-return per scan)
-    touchActivity();                       // arm idle countdown
-    setStat(t.scanning||'Scanning…', 'scanning');
-  }
-}
 
 function returnToMenu() { setMode('menu'); }
 
@@ -2916,29 +2894,24 @@ function setStat(text, mode) {
   lastUIBeat = Date.now();
 }
 
-function setMode(view){
-  const v = (view === 'scan') ? 'scan' : 'menu';
-  ROOT.dataset.view = v;
-
-  if (v === 'scan') {
-    // hide menu, start camera (idempotent)
-    startQr();
-  } else {
-    // back to menu — stop camera and reset UI
-    stopQr();
-    setStat(t.ready_pick_action||'Ready — pick an action', 'idle');
-  }
-}
-
 // === VIEW STATE ===
 // 'menu'  -> big buttons, camera hidden
 // 'scan'  -> camera shown, small toolbar/status shown
 function setMode(mode){
-  const root = ROOT; // #<?php echo $root_id; ?>
+  const root = ROOT;
   if (!root) return;
   const m = (mode === 'scan') ? 'scan' : 'menu';
   root.dataset.view = m;
-  // No inline show/hide; CSS controls visibility by [data-view]
+
+  if (m === 'scan') {
+    kickScanner();
+    touchActivity();
+    setStat(t.scanning||'Scanning…', 'scanning');
+  } else {
+    stopQr();
+    clearIdle();
+    setStat(t.ready_choose_action||'Ready — choose an action', 'idle');
+  }
 }
 
 
