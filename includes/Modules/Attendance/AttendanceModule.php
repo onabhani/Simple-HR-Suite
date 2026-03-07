@@ -2193,22 +2193,28 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 
     <!-- ── CAMERA (scan view — within viewport) ── -->
     <div id="sfs-kiosk-camwrap-<?php echo $inst; ?>" class="sfs-camwrap">
-      <div class="sfs-cam-body">
-        <div class="sfs-cam-feed">
-          <video id="sfs-kiosk-qr-video-<?php echo $inst; ?>"
-                 autoplay playsinline webkit-playsinline muted></video>
-          <div class="sfs-qr-guide"><div class="sfs-qr-c sfs-qr-tl"></div><div class="sfs-qr-c sfs-qr-tr"></div><div class="sfs-qr-c sfs-qr-bl"></div><div class="sfs-qr-c sfs-qr-br"></div></div>
-          <div class="sfs-scan-hint"><span class="sfs-pulse"></span> <?php esc_html_e( 'Next employee — show QR code', 'sfs-hr' ); ?></div>
+      <!-- Camera + activity panel row (side-by-side on tablet, stacked on mobile) -->
+      <div class="sfs-scan-row">
+        <div class="sfs-cam-card">
+          <div class="sfs-cam-body">
+            <div class="sfs-cam-feed">
+              <video id="sfs-kiosk-qr-video-<?php echo $inst; ?>"
+                     autoplay playsinline webkit-playsinline muted></video>
+              <div class="sfs-qr-guide"><div class="sfs-qr-c sfs-qr-tl"></div><div class="sfs-qr-c sfs-qr-tr"></div><div class="sfs-qr-c sfs-qr-bl"></div><div class="sfs-qr-c sfs-qr-br"></div></div>
+              <div class="sfs-scan-hint"><span class="sfs-pulse"></span> <?php esc_html_e( 'Next employee — show QR code', 'sfs-hr' ); ?></div>
+              <!-- Inline camera status badge -->
+              <span id="sfs-kiosk-cam-badge-<?php echo $inst; ?>" class="sfs-cam-badge"><?php esc_html_e( 'Camera On', 'sfs-hr' ); ?></span>
+            </div>
+          </div>
         </div>
-        <!-- Recent scans log (side panel on tablet+) -->
+        <!-- Recent activity panel (always visible on both mobile & tablet) -->
         <div id="sfs-kiosk-log-<?php echo $inst; ?>" class="sfs-scan-log">
-          <h4 class="sfs-log-title"><?php esc_html_e( 'Recent Scans', 'sfs-hr' ); ?></h4>
+          <div class="sfs-log-header">
+            <h4 class="sfs-log-title"><?php esc_html_e( 'Recent Scans', 'sfs-hr' ); ?></h4>
+            <span class="sfs-log-live"><?php esc_html_e( 'Live', 'sfs-hr' ); ?></span>
+          </div>
           <ul id="sfs-kiosk-log-list-<?php echo $inst; ?>" class="sfs-log-list"></ul>
         </div>
-      </div>
-      <!-- Mobile bottom bar: last scan (shown only on mobile) -->
-      <div id="sfs-kiosk-mob-log-<?php echo $inst; ?>" class="sfs-mob-log">
-        <span class="sfs-mob-log-label"><?php esc_html_e( 'No scans yet', 'sfs-hr' ); ?></span>
       </div>
       <!-- Hidden elements for QR processing -->
       <canvas id="sfs-kiosk-selfie-<?php echo $inst; ?>" width="480" height="480" hidden></canvas>
@@ -2382,10 +2388,12 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 }
 
 /* ── CAMERA AREA (within viewport) ── */
-#<?php echo $root_id; ?> .sfs-camwrap{ width:100%; flex:1; display:flex; flex-direction:column; }
+#<?php echo $root_id; ?> .sfs-camwrap{ width:100%; flex:1; display:flex; flex-direction:column; min-height:0; padding:12px; gap:12px; }
+#<?php echo $root_id; ?> .sfs-scan-row{ flex:1; display:flex; gap:12px; min-height:0; }
+#<?php echo $root_id; ?> .sfs-cam-card{ flex:1; display:flex; flex-direction:column; min-height:0; }
 #<?php echo $root_id; ?> .sfs-cam-body{
   flex:1; display:flex; position:relative; background:#0a0a14; overflow:hidden;
-  border-radius:12px;
+  border-radius:var(--sfs-radius); min-height:0;
 }
 #<?php echo $root_id; ?> .sfs-cam-feed{
   flex:1; display:flex; align-items:center; justify-content:center; position:relative;
@@ -2393,6 +2401,19 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 #<?php echo $root_id; ?> .sfs-cam-feed video{
   width:100%; height:100%; object-fit:cover; display:block;
 }
+/* Camera status badge (inline on camera) */
+#<?php echo $root_id; ?> .sfs-cam-badge{
+  position:absolute; top:12px; right:12px;
+  background:rgba(0,0,0,0.5); color:#fff; padding:4px 10px;
+  border-radius:6px; font-size:11px; font-weight:600;
+  display:flex; align-items:center; gap:6px; backdrop-filter:blur(4px);
+}
+#<?php echo $root_id; ?> .sfs-cam-badge::before{
+  content:''; width:6px; height:6px; border-radius:50%;
+  background:var(--sfs-green); box-shadow:0 0 4px var(--sfs-green);
+}
+#<?php echo $root_id; ?> .sfs-cam-badge.off{ opacity:0.7; }
+#<?php echo $root_id; ?> .sfs-cam-badge.off::before{ background:var(--sfs-red); box-shadow:0 0 4px var(--sfs-red); }
 /* QR guide corners */
 #<?php echo $root_id; ?> .sfs-qr-guide{
   position:absolute; width:140px; height:140px;
@@ -2421,35 +2442,61 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
   70%{box-shadow:0 0 0 8px rgba(22,163,74,0)}
   100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}
 }
-#<?php echo $root_id; ?> .sfs-qr-status{ font-size:12px; color:var(--sfs-text-muted); margin-top:4px; }
+#<?php echo $root_id; ?> .sfs-qr-status{ display:none; }
 
-/* Recent scans log (side panel inside cam-body) */
+/* ── Recent activity panel (card-based, always visible) ── */
 #<?php echo $root_id; ?> .sfs-scan-log{
-  width:220px; background:rgba(15,76,92,0.95); color:#fff;
+  width:260px; background:var(--sfs-white); color:var(--sfs-text);
   display:flex; flex-direction:column; flex-shrink:0;
-  border-radius:0 12px 12px 0;
+  border-radius:var(--sfs-radius); border:1px solid var(--sfs-border);
+  overflow:hidden;
+}
+#<?php echo $root_id; ?> .sfs-log-header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 16px 10px; border-bottom:1px solid var(--sfs-border);
 }
 #<?php echo $root_id; ?> .sfs-log-title{
-  padding:12px 14px 8px; font-size:11px; text-transform:uppercase;
-  letter-spacing:0.06em; opacity:0.6; border-bottom:1px solid rgba(255,255,255,0.1);
-  margin:0; color:#fff; font-weight:600;
+  font-size:14px; font-weight:700; margin:0; color:var(--sfs-text);
 }
-#<?php echo $root_id; ?> .sfs-log-list{ list-style:none; margin:0; padding:6px 0; flex:1; overflow-y:auto; }
+#<?php echo $root_id; ?> .sfs-log-live{
+  font-size:10px; font-weight:600; text-transform:uppercase;
+  color:var(--sfs-green); letter-spacing:0.04em;
+}
+#<?php echo $root_id; ?> .sfs-log-list{ list-style:none; margin:0; padding:0; flex:1; overflow-y:auto; }
+#<?php echo $root_id; ?> .sfs-log-list:empty::after{
+  content:'Waiting for scans\2026'; display:block; text-align:center;
+  padding:32px 16px; font-size:13px; color:var(--sfs-text-muted);
+}
 #<?php echo $root_id; ?> .sfs-log-list li{
   display:flex; align-items:center; gap:10px;
-  padding:10px 14px; border-bottom:1px solid rgba(255,255,255,0.06);
-  font-size:13px; flex-direction:row;
+  padding:10px 16px; border-bottom:1px solid var(--sfs-border);
+  font-size:13px;
 }
 #<?php echo $root_id; ?> .sfs-log-list li:last-child{ border-bottom:none; }
-#<?php echo $root_id; ?> .sfs-log-list .sfs-log-icon{
-  width:28px; height:28px; border-radius:50%;
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-initials{
+  width:32px; height:32px; border-radius:50%;
   display:flex; align-items:center; justify-content:center;
-  font-size:14px; font-weight:700; flex-shrink:0;
+  font-size:11px; font-weight:700; flex-shrink:0;
+  background:rgba(15,76,92,0.1); color:var(--sfs-teal);
 }
-#<?php echo $root_id; ?> .sfs-log-list .sfs-log-icon.ok{ background:rgba(22,163,74,0.25); color:#4ade80; }
-#<?php echo $root_id; ?> .sfs-log-list .sfs-log-icon.err{ background:rgba(239,68,68,0.25); color:#fca5a5; }
-#<?php echo $root_id; ?> .sfs-log-list .sfs-log-name{ font-weight:600; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-#<?php echo $root_id; ?> .sfs-log-list .sfs-log-meta{ font-size:11px; opacity:0.55; color:#fff; }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-initials.ok{ background:rgba(22,163,74,0.1); color:var(--sfs-green); }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-initials.err{ background:rgba(239,68,68,0.1); color:var(--sfs-red); }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-info{ flex:1; min-width:0; }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-name{
+  font-weight:600; color:var(--sfs-text); display:block;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-meta{
+  font-size:11px; color:var(--sfs-text-muted); display:flex; align-items:center; gap:4px;
+}
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-meta .sfs-log-dot{
+  width:6px; height:6px; border-radius:50%; flex-shrink:0;
+}
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-meta .sfs-log-dot.ok{ background:var(--sfs-green); }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-meta .sfs-log-dot.err{ background:var(--sfs-red); }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-time{
+  font-size:11px; color:var(--sfs-text-muted); flex-shrink:0; white-space:nowrap;
+}
 
 /* Flash overlay — large centered with employee name */
 #<?php echo $root_id; ?> .sfs-flash-inner{
@@ -2491,7 +2538,8 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 #<?php echo $root_id; ?>[data-view="scan"] .sfs-al{ display:none !important; }
 #<?php echo $root_id; ?>[data-view="scan"] .sfs-camwrap{ display:flex; }
 #<?php echo $root_id; ?>[data-view="scan"] .sfs-statusbar{ display:flex; max-width:100%; margin:4px 8px; }
-#<?php echo $root_id; ?>[data-view="scan"] .sfs-kc{ padding:0; }
+#<?php echo $root_id; ?>[data-view="scan"] .sfs-kc{ padding:0; align-items:stretch; overflow:visible; }
+#<?php echo $root_id; ?>[data-view="scan"] .sfs-chip{ display:none; }
 
 /* A11y helper */
 #<?php echo $root_id; ?> .sr-only{
@@ -2514,25 +2562,6 @@ body.sfs-kiosk-immersive .elementor-location-header,
 body.sfs-kiosk-immersive .elementor-location-footer{ display:none !important; }
 body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
 
-/* Mobile bottom bar: last scan info (hidden on desktop, shown on mobile) */
-#<?php echo $root_id; ?> .sfs-mob-log{
-  display:none; /* hidden on desktop by default */
-  background:rgba(0,0,0,0.7); padding:10px 14px;
-  align-items:center; gap:10px; flex-shrink:0;
-  color:#fff; font-size:13px;
-}
-#<?php echo $root_id; ?> .sfs-mob-log .sfs-mob-log-icon{
-  width:24px; height:24px; border-radius:50%;
-  display:flex; align-items:center; justify-content:center;
-  font-size:12px; font-weight:700; flex-shrink:0;
-}
-#<?php echo $root_id; ?> .sfs-mob-log .sfs-mob-log-icon.ok{ background:rgba(22,163,74,0.3); color:#4ade80; }
-#<?php echo $root_id; ?> .sfs-mob-log .sfs-mob-log-icon.err{ background:rgba(239,68,68,0.3); color:#fca5a5; }
-#<?php echo $root_id; ?> .sfs-mob-log .sfs-mob-log-name{ font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-#<?php echo $root_id; ?> .sfs-mob-log .sfs-mob-log-label{ font-size:10px; color:rgba(255,255,255,0.5); text-transform:uppercase; }
-#<?php echo $root_id; ?> .sfs-mob-log .sfs-mob-log-count{ font-size:11px; color:rgba(255,255,255,0.5); }
-#<?php echo $root_id; ?> .sfs-mob-log .sfs-mob-log-time{ font-size:11px; color:rgba(255,255,255,0.5); margin-left:auto; }
-
 /* ── MOBILE (< 640px) ── */
 @media (max-width:640px){
   #<?php echo $root_id; ?> .sfs-kh{
@@ -2542,12 +2571,15 @@ body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
   #<?php echo $root_id; ?> .sfs-kh-meta{ text-align:left; font-size:12px; opacity:0.85; flex-direction:row; gap:6px; }
   #<?php echo $root_id; ?> .sfs-kc{ padding:20px 16px; }
   #<?php echo $root_id; ?> .sfs-greet{ font-size:24px; }
-  /* Hide sidebar log, show bottom bar instead */
-  #<?php echo $root_id; ?> .sfs-scan-log{ display:none; }
-  #<?php echo $root_id; ?>[data-view="scan"] .sfs-mob-log{ display:flex; }
-  #<?php echo $root_id; ?> .sfs-cam-body{ border-radius:0; }
+  /* Stack camera above scan log vertically */
+  #<?php echo $root_id; ?> .sfs-scan-row{ flex-direction:column; }
+  #<?php echo $root_id; ?> .sfs-scan-log{ width:auto; max-height:180px; }
+  #<?php echo $root_id; ?> .sfs-cam-body{ border-radius:var(--sfs-radius); }
+  #<?php echo $root_id; ?> .sfs-camwrap{ padding:8px; gap:8px; }
   #<?php echo $root_id; ?> .sfs-sh .sfs-sh-sub{ display:none; }
   #<?php echo $root_id; ?> .sfs-sh-stop{ padding:7px 10px; }
+  /* Hide status bar on mobile scan — saves vertical space */
+  #<?php echo $root_id; ?>[data-view="scan"] .sfs-statusbar{ display:none; }
 }
 
 /* Quick "halo" flash on successful / queued punch */
@@ -2756,6 +2788,7 @@ const SUGGEST_TIMES = {
       const dateEl  = document.getElementById('sfs-kiosk-date-<?php echo $inst; ?>');
       const empEl    = document.getElementById('sfs-kiosk-emp-<?php echo $inst; ?>');
       const flashEl  = document.getElementById('sfs-kiosk-flash-<?php echo $inst; ?>');
+      const camBadge = document.getElementById('sfs-kiosk-cam-badge-<?php echo $inst; ?>');
 
       // QR elems
       const qrWrap  = document.getElementById('sfs-kiosk-camwrap-<?php echo $inst; ?>');
@@ -3494,6 +3527,7 @@ async function startQr(){
       const cams = devs.filter(d => d.kind === 'videoinput');
       if (!cams.length) {
         setStat(t.no_camera_found||'No camera found on this device.', 'error');
+        if (camBadge) { camBadge.textContent = t.no_camera||'No Camera'; camBadge.classList.add('off'); }
         return;
       }
     }
@@ -3562,6 +3596,7 @@ async function startQr(){
 
     // === IMPORTANT: mark running BEFORE starting selfie preview ===
     qrRunning = true;
+    if (camBadge) { camBadge.textContent = t.camera_on||'Camera On'; camBadge.classList.remove('off'); }
     touchActivity();
     if (camwrap) camwrap.style.display = 'grid';
 
@@ -3712,6 +3747,7 @@ async function startQr(){
 function stopQr(){
   inflight = false;
   qrRunning = false;
+  if (camBadge) { camBadge.textContent = (window.SFS_ATT_I18N||{}).camera_off||'Camera Off'; camBadge.classList.add('off'); }
   showScannerUI(false);
   if (qrLoop) { cancelAnimationFrame(qrLoop); qrLoop = null; }
   if (selfiePreviewLoop) { cancelAnimationFrame(selfiePreviewLoop); selfiePreviewLoop = null; }
@@ -3848,32 +3884,35 @@ function tickSessionTime(){
     : m + 'm ' + (s % 60) + 's';
 }
 
+function getInitials(name){
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
+  return name.slice(0,2).toUpperCase();
+}
+
+// TODO: Future — headcount counter: clock_in increments, clock_out decrements.
+// Display the difference (employees currently inside) and optionally surface
+// names of those who clocked in but haven't clocked out yet.
 function addScanLog(name, action, ok){
   sessionCount++;
   if (countEl) countEl.textContent = String(sessionCount);
 
-  const time = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  const time = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
   scanLog.unshift({ name, action, time, ok });
 
-  // Update sidebar log (tablet+)
+  // Update activity log (visible on both mobile & tablet)
   if (logList) {
     const li = document.createElement('li');
-    li.className = ok ? 'sfs-log-ok' : 'sfs-log-err';
-    li.innerHTML = '<span class="sfs-log-icon ' + (ok ? 'ok' : 'err') + '">' + (ok ? '\u2713' : '\u2717') + '</span>'
-      + '<div><span class="sfs-log-name">' + (name||'\u2014').replace(/</g,'&lt;') + '</span>'
-      + '<span class="sfs-log-meta">' + labelFor(action) + ' \u2014 ' + time + '</span></div>';
+    const safeName = (name||'\u2014').replace(/</g,'&lt;');
+    const cls = ok ? 'ok' : 'err';
+    li.innerHTML = '<span class="sfs-log-initials ' + cls + '">' + getInitials(name) + '</span>'
+      + '<div class="sfs-log-info"><span class="sfs-log-name">' + safeName + '</span>'
+      + '<span class="sfs-log-meta"><span class="sfs-log-dot ' + cls + '"></span> '
+      + labelFor(action) + ' \u2022 ' + time + '</span></div>'
+      + '<span class="sfs-log-time">' + time + '</span>';
     logList.prepend(li);
     while (logList.children.length > 50) logList.removeChild(logList.lastChild);
-  }
-
-  // Update mobile bottom bar
-  const mobLog = document.getElementById('sfs-kiosk-mob-log-<?php echo $inst; ?>');
-  if (mobLog) {
-    const safeName = (name||'\u2014').replace(/</g,'&lt;');
-    mobLog.innerHTML = '<span class="sfs-mob-log-icon ' + (ok ? 'ok' : 'err') + '">' + (ok ? '\u2713' : '\u2717') + '</span>'
-      + '<div style="flex:1;min-width:0;"><span class="sfs-mob-log-name">' + safeName + '</span>'
-      + '<span class="sfs-mob-log-count">' + sessionCount + ' scanned</span></div>'
-      + '<span class="sfs-mob-log-time">' + time.slice(0,5) + '</span>';
   }
 }
 

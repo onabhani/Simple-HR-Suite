@@ -667,11 +667,12 @@ if ( $source === 'kiosk' && $scan_token !== '' && ! $is_offline_origin ) {
     $allow = isset( $pre['allow'] ) && is_array( $pre['allow'] ) ? $pre['allow'] : [];
 
     // When a stale open session exists (buffer expired, snapshot shows idle),
-    // only permit closing the session — no new clock-in or break actions.
+    // allow a fresh clock-in — the old incomplete record stays as-is for HR
+    // to review.  The stale_session_msg is returned to the UI as a non-blocking note.
     $has_stale_session = ! empty( $pre['stale_session_msg'] );
     if ( $has_stale_session ) {
-        $allow['out']         = true;
-        $allow['in']          = false;
+        $allow['in']          = true;   // unblock new clock-in
+        $allow['out']         = false;  // nothing open today to close
         $allow['break_start'] = false;
         $allow['break_end']   = false;
     }
@@ -1497,8 +1498,9 @@ private static function save_selfie_attachment( array $src ): int {
     // employee.  The UI will display a message instead of showing stale buttons.
     $stale_session_msg = '';
     if ( $stale_open_session !== '' && $state === 'idle' ) {
-        $stale_session_msg = __( 'Your previous shift was not closed. Please contact HR.', 'sfs-hr' );
-        $label             = $stale_session_msg;
+        $stale_session_msg = __( 'Note: a previous shift was not closed and is marked incomplete.', 'sfs-hr' );
+        // Don't override $label — let the normal idle label show so the
+        // employee sees "Ready" / "Clock In" instead of an error.
     }
 
     // Build punch history for UI display.
