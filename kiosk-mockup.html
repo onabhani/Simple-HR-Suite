@@ -555,10 +555,10 @@
 
 <div class="demo-tabs">
   <span class="demo-label">Switch views:</span>
-  <button class="active" onclick="showView('menu')">Menu View</button>
-  <button onclick="showView('scan')">Camera / Scan View</button>
-  <button onclick="showView('result-ok')">Success Result</button>
-  <button onclick="showView('result-err')">Error Result</button>
+  <button class="active" data-view-target="menu">Menu View</button>
+  <button data-view-target="scan">Camera / Scan View</button>
+  <button data-view-target="result-ok">Success Result</button>
+  <button data-view-target="result-err">Error Result</button>
 </div>
 
 <div class="device-row">
@@ -795,33 +795,46 @@
 <script>
 function showView(view) {
   // Update tabs
-  document.querySelectorAll('.demo-tabs button').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
+  document.querySelectorAll('.demo-tabs button').forEach(function(b) { b.classList.remove('active'); });
+  var activeTab = document.querySelector('.demo-tabs button[data-view-target="' + view + '"]');
+  if (activeTab) activeTab.classList.add('active');
 
   // Hide all views
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
 
   // Show matching views in both devices
-  document.getElementById('ipad-' + view).classList.add('active');
-  document.getElementById('mobile-' + view).classList.add('active');
+  var ipadView = document.getElementById('ipad-' + view);
+  var mobileView = document.getElementById('mobile-' + view);
+  if (ipadView) ipadView.classList.add('active');
+  if (mobileView) mobileView.classList.add('active');
 }
 
-// Make action buttons interactive in demo
-document.querySelectorAll('.action-btn').forEach(btn => {
-  btn.addEventListener('click', () => showView('scan'));
-});
-document.querySelectorAll('.back-btn, .scan-bottom-btn').forEach(btn => {
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    showView('menu');
-    document.querySelector('.demo-tabs button').classList.add('active');
+// Tab buttons
+document.querySelectorAll('.demo-tabs button').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    showView(this.getAttribute('data-view-target'));
   });
 });
-document.querySelectorAll('.result-btn.primary').forEach(btn => {
-  btn.addEventListener('click', () => showView('scan'));
+
+// Action buttons → scan view
+document.querySelectorAll('.action-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() { showView('scan'); });
 });
-document.querySelectorAll('.result-btn.secondary').forEach(btn => {
-  btn.addEventListener('click', () => showView('menu'));
+
+// Back buttons → menu view
+document.querySelectorAll('.back-btn, .scan-bottom-btn').forEach(function(btn) {
+  btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    showView('menu');
+  });
+});
+
+// Result buttons
+document.querySelectorAll('.result-btn.primary').forEach(function(btn) {
+  btn.addEventListener('click', function() { showView('scan'); });
+});
+document.querySelectorAll('.result-btn.secondary').forEach(function(btn) {
+  btn.addEventListener('click', function() { showView('menu'); });
 });
 </script>
 
