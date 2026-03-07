@@ -2206,6 +2206,10 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
           <ul id="sfs-kiosk-log-list-<?php echo $inst; ?>" class="sfs-log-list"></ul>
         </div>
       </div>
+      <!-- Mobile bottom bar: last scan (shown only on mobile) -->
+      <div id="sfs-kiosk-mob-log-<?php echo $inst; ?>" class="sfs-mob-log">
+        <span class="sfs-mob-log-label"><?php esc_html_e( 'No scans yet', 'sfs-hr' ); ?></span>
+      </div>
       <!-- Hidden elements for QR processing -->
       <canvas id="sfs-kiosk-selfie-<?php echo $inst; ?>" width="480" height="480" hidden></canvas>
       <span id="sfs-kiosk-qr-status-<?php echo $inst; ?>" class="sfs-qr-status"></span>
@@ -2510,6 +2514,25 @@ body.sfs-kiosk-immersive .elementor-location-header,
 body.sfs-kiosk-immersive .elementor-location-footer{ display:none !important; }
 body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
 
+/* Mobile bottom bar: last scan info (hidden on desktop, shown on mobile) */
+#<?php echo $root_id; ?> .sfs-mob-log{
+  display:none; /* hidden on desktop by default */
+  background:rgba(0,0,0,0.7); padding:10px 14px;
+  align-items:center; gap:10px; flex-shrink:0;
+  color:#fff; font-size:13px;
+}
+#<?php echo $root_id; ?> .sfs-mob-log .sfs-mob-log-icon{
+  width:24px; height:24px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; font-weight:700; flex-shrink:0;
+}
+#<?php echo $root_id; ?> .sfs-mob-log .sfs-mob-log-icon.ok{ background:rgba(22,163,74,0.3); color:#4ade80; }
+#<?php echo $root_id; ?> .sfs-mob-log .sfs-mob-log-icon.err{ background:rgba(239,68,68,0.3); color:#fca5a5; }
+#<?php echo $root_id; ?> .sfs-mob-log .sfs-mob-log-name{ font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#<?php echo $root_id; ?> .sfs-mob-log .sfs-mob-log-label{ font-size:10px; color:rgba(255,255,255,0.5); text-transform:uppercase; }
+#<?php echo $root_id; ?> .sfs-mob-log .sfs-mob-log-count{ font-size:11px; color:rgba(255,255,255,0.5); }
+#<?php echo $root_id; ?> .sfs-mob-log .sfs-mob-log-time{ font-size:11px; color:rgba(255,255,255,0.5); margin-left:auto; }
+
 /* ── MOBILE (< 640px) ── */
 @media (max-width:640px){
   #<?php echo $root_id; ?> .sfs-kh{
@@ -2519,7 +2542,9 @@ body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
   #<?php echo $root_id; ?> .sfs-kh-meta{ text-align:left; font-size:12px; opacity:0.85; flex-direction:row; gap:6px; }
   #<?php echo $root_id; ?> .sfs-kc{ padding:20px 16px; }
   #<?php echo $root_id; ?> .sfs-greet{ font-size:24px; }
+  /* Hide sidebar log, show bottom bar instead */
   #<?php echo $root_id; ?> .sfs-scan-log{ display:none; }
+  #<?php echo $root_id; ?>[data-view="scan"] .sfs-mob-log{ display:flex; }
   #<?php echo $root_id; ?> .sfs-cam-body{ border-radius:0; }
   #<?php echo $root_id; ?> .sfs-sh .sfs-sh-sub{ display:none; }
   #<?php echo $root_id; ?> .sfs-sh-stop{ padding:7px 10px; }
@@ -3830,6 +3855,7 @@ function addScanLog(name, action, ok){
   const time = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
   scanLog.unshift({ name, action, time, ok });
 
+  // Update sidebar log (tablet+)
   if (logList) {
     const li = document.createElement('li');
     li.className = ok ? 'sfs-log-ok' : 'sfs-log-err';
@@ -3838,6 +3864,16 @@ function addScanLog(name, action, ok){
       + '<span class="sfs-log-meta">' + labelFor(action) + ' \u2014 ' + time + '</span></div>';
     logList.prepend(li);
     while (logList.children.length > 50) logList.removeChild(logList.lastChild);
+  }
+
+  // Update mobile bottom bar
+  const mobLog = document.getElementById('sfs-kiosk-mob-log-<?php echo $inst; ?>');
+  if (mobLog) {
+    const safeName = (name||'\u2014').replace(/</g,'&lt;');
+    mobLog.innerHTML = '<span class="sfs-mob-log-icon ' + (ok ? 'ok' : 'err') + '">' + (ok ? '\u2713' : '\u2717') + '</span>'
+      + '<div style="flex:1;min-width:0;"><span class="sfs-mob-log-name">' + safeName + '</span>'
+      + '<span class="sfs-mob-log-count">' + sessionCount + ' scanned</span></div>'
+      + '<span class="sfs-mob-log-time">' + time.slice(0,5) + '</span>';
   }
 }
 
