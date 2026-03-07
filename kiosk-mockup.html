@@ -3,11 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kiosk Redesign — Interactive Mockup</title>
+<title>Kiosk Redesign — All Views</title>
 <style>
   :root {
     --teal: #0f4c5c;
-    --teal-light: #1a6b7a;
     --surface: #f8f9fb;
     --white: #ffffff;
     --border: #e5e7eb;
@@ -20,823 +19,326 @@
     --red-bg: #fef2f2;
     --red-border: #fecaca;
     --amber: #f59e0b;
-    --amber-bg: #fffbeb;
-    --amber-border: #fde68a;
     --blue: #3b82f6;
-    --blue-bg: #eff6ff;
-    --blue-border: #bfdbfe;
     --radius: 14px;
   }
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: #e5e7eb;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px;
-    gap: 20px;
+    padding: 32px 20px;
   }
+  h1 { text-align: center; font-size: 22px; color: var(--text); margin-bottom: 8px; }
+  .subtitle { text-align: center; font-size: 14px; color: var(--text-muted); margin-bottom: 40px; }
 
-  /* ── Tab switcher for demo ──────────────────────── */
-  .demo-tabs {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    justify-content: center;
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-    background: #e5e7eb;
-    padding: 12px 0;
-    width: 100%;
+  .section-title {
+    font-size: 18px; font-weight: 700; color: var(--text);
+    margin: 48px 0 20px; padding-bottom: 8px;
+    border-bottom: 2px solid var(--teal); display: inline-block;
   }
-  .demo-tabs button {
-    padding: 10px 20px;
-    border: 2px solid var(--teal);
-    background: var(--white);
-    color: var(--teal);
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .demo-tabs button.active {
-    background: var(--teal);
-    color: #fff;
-  }
-  .demo-tabs button:hover:not(.active) {
-    background: #e0f2f7;
-  }
-  .demo-label {
-    font-size: 12px;
-    color: var(--text-muted);
-    text-align: center;
-    width: 100%;
-  }
+  .section-row-label { text-align: center; width: 100%; margin-bottom: 24px; }
 
-  /* ── Device frames ──────────────────────────────── */
-  .device-row {
-    display: flex;
-    gap: 32px;
-    flex-wrap: wrap;
-    justify-content: center;
-    width: 100%;
-    max-width: 1400px;
+  .device-pair {
+    display: flex; gap: 32px; justify-content: center;
+    flex-wrap: wrap; margin-bottom: 56px;
   }
-  .device-frame {
-    border-radius: 20px;
-    overflow: hidden;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-    background: var(--white);
-    flex-shrink: 0;
-  }
-  .device-frame.ipad {
-    width: 768px;
-    height: 560px;
-  }
-  .device-frame.mobile {
-    width: 375px;
-    height: 667px;
-  }
+  .device-col { display: flex; flex-direction: column; align-items: center; }
   .device-label {
-    text-align: center;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-muted);
-    margin-bottom: 8px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-size: 11px; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px;
   }
-  .device-col {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+  .frame {
+    border-radius: 20px; overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    background: var(--white); display: flex; flex-direction: column;
+  }
+  .frame.ipad { width: 680px; height: 480px; }
+  .frame.mobile { width: 340px; height: 600px; }
+
+  /* Header */
+  .kh {
+    background: var(--teal); color: #fff; padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  }
+  .kh .brand { font-weight: 700; font-size: 16px; }
+  .kh .clock { font-weight: 800; font-size: 28px; letter-spacing: -0.02em; }
+  .kh .meta { text-align: right; font-size: 13px; opacity: 0.9; line-height: 1.4; }
+  .kh.mob {
+    flex-direction: column; align-items: flex-start; padding: 14px 18px; gap: 2px;
+  }
+  .kh.mob .top { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+  .kh.mob .clock { font-size: 32px; }
+  .kh.mob .meta { text-align: left; font-size: 12px; opacity: 0.85; }
+
+  /* Scan header */
+  .sh {
+    background: var(--teal); color: #fff; padding: 10px 16px;
+    display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+  }
+  .sh .back {
+    background: rgba(255,255,255,0.15); border: none; color: #fff;
+    padding: 7px 14px; border-radius: 8px; font-size: 14px; font-weight: 600;
+  }
+  .sh .action { flex: 1; text-align: center; font-weight: 700; font-size: 17px; }
+  .sh .time { font-size: 14px; opacity: 0.9; }
+
+  /* Content */
+  .kc {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    padding: 24px; background: var(--surface); overflow: hidden;
+  }
+  .kc.mob { padding: 20px 16px; }
+  .greeting { font-weight: 800; font-size: 30px; color: var(--text); margin-bottom: 20px; text-align: center; }
+  .greeting.mob { font-size: 24px; margin-bottom: 16px; }
+
+  /* Action buttons */
+  .al { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 10px; }
+  .ab {
+    display: flex; align-items: center; gap: 14px;
+    padding: 15px 18px; border-radius: var(--radius);
+    border: 1px solid var(--border); background: var(--white);
+    font-size: 16px; font-weight: 600; color: var(--text);
+  }
+  .ab .dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .ab .arr { margin-left: auto; color: var(--text-muted); font-size: 18px; }
+  .ab.in  { border-left: 4px solid var(--green); }  .ab.in .dot { background: var(--green); }
+  .ab.out { border-left: 4px solid var(--red); }     .ab.out .dot { background: var(--red); }
+  .ab.brk { border-left: 4px solid var(--amber); }   .ab.brk .dot { background: var(--amber); }
+  .ab.bend{ border-left: 4px solid var(--blue); }    .ab.bend .dot { background: var(--blue); }
+  .ab.sug { box-shadow: 0 0 0 2px rgba(37,99,235,0.25); border-color: #2563eb; }
+
+  /* Camera */
+  .cam-area {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 20px; gap: 14px; background: var(--surface);
+  }
+  .cam {
+    width: 100%; max-width: 460px; aspect-ratio: 4/3;
+    background: #1a1a2e; border-radius: 14px;
+    position: relative; display: flex; align-items: center; justify-content: center;
+  }
+  .cam.tall { aspect-ratio: 3/4; max-width: 100%; }
+  .cam-ph { color: rgba(255,255,255,0.3); font-size: 13px; }
+  .qr-g { position: absolute; width: 120px; height: 120px; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+  .qr-g .c { position: absolute; width: 24px; height: 24px; border-color: rgba(255,255,255,0.75); border-style: solid; border-width: 0; }
+  .qr-g .c.tl { top:0;left:0; border-top-width:3px; border-left-width:3px; border-top-left-radius:5px; }
+  .qr-g .c.tr { top:0;right:0; border-top-width:3px; border-right-width:3px; border-top-right-radius:5px; }
+  .qr-g .c.bl { bottom:0;left:0; border-bottom-width:3px; border-left-width:3px; border-bottom-left-radius:5px; }
+  .qr-g .c.br { bottom:0;right:0; border-bottom-width:3px; border-right-width:3px; border-bottom-right-radius:5px; }
+  .scan-inst { font-size: 14px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+  .scan-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .back-big {
+    width: 100%; max-width: 440px; padding: 13px;
+    background: var(--white); border: 1px solid var(--border); border-radius: 12px;
+    font-size: 15px; font-weight: 600; color: var(--text-muted); text-align: center; margin-top: auto;
   }
 
-  /* ── View visibility ────────────────────────────── */
-  .view { display: none; height: 100%; }
-  .view.active { display: flex; flex-direction: column; }
+  /* Result */
+  .rc {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 32px 24px; gap: 6px; background: var(--surface);
+  }
+  .ri {
+    width: 72px; height: 72px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px; font-weight: 700; margin-bottom: 14px;
+  }
+  .ri.ok { background: var(--green-bg); color: var(--green); border: 3px solid var(--green-border); }
+  .ri.err { background: var(--red-bg); color: var(--red); border: 3px solid var(--red-border); }
+  .rn { font-size: 24px; font-weight: 800; color: var(--text); }
+  .rn.mob { font-size: 20px; }
+  .ra { font-size: 15px; color: var(--text-muted); margin-top: 4px; }
+  .rb { display: inline-flex; align-items: center; gap: 8px; padding: 7px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; margin-top: 10px; }
+  .rb.gin { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .rb .bd { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .cring { width: 36px; height: 36px; margin-top: 14px; }
+  .cring circle { fill: none; stroke-width: 3; transform: rotate(-90deg); transform-origin: center; }
+  .cring .bg { stroke: var(--border); }
+  .cring .fg { stroke: var(--green); stroke-dasharray: 100; stroke-dashoffset: 25; stroke-linecap: round; }
+  .rcount { font-size: 12px; color: var(--text-muted); margin-top: 16px; }
+  .re-msg { font-size: 22px; font-weight: 700; color: var(--text); text-align: center; }
+  .re-msg.mob { font-size: 19px; }
+  .re-sub { font-size: 14px; color: var(--text-muted); margin-bottom: 20px; }
+  .rbtn {
+    width: 100%; max-width: 320px; padding: 13px; border-radius: 12px;
+    font-size: 15px; font-weight: 600; text-align: center; border: none; margin-top: 6px;
+  }
+  .rbtn.pri { background: var(--teal); color: #fff; }
+  .rbtn.sec { background: var(--white); color: var(--text); border: 1px solid var(--border); }
 
-  /* ── KIOSK SHELL ────────────────────────────────── */
-  .kiosk {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    background: var(--surface);
-  }
-
-  /* ── Header bar ─────────────────────────────────── */
-  .kiosk-header {
-    background: var(--teal);
-    color: #fff;
-    padding: 14px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-shrink: 0;
-  }
-  .kiosk-header .brand {
-    font-weight: 700;
-    font-size: 16px;
-    letter-spacing: 0.02em;
-  }
-  .kiosk-header .clock {
-    font-weight: 800;
-    font-size: 28px;
-    letter-spacing: -0.02em;
-  }
-  .kiosk-header .meta {
-    text-align: right;
-    font-size: 13px;
-    opacity: 0.9;
-    line-height: 1.4;
-  }
-
-  /* Mobile header variant */
-  .mobile .kiosk-header {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 16px 20px;
-    gap: 4px;
-  }
-  .mobile .kiosk-header .top-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-  }
-  .mobile .kiosk-header .clock {
-    font-size: 36px;
-  }
-  .mobile .kiosk-header .meta {
-    text-align: left;
-    font-size: 12px;
-    opacity: 0.85;
-  }
-
-  /* ── Content area ───────────────────────────────── */
-  .kiosk-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 24px;
-    overflow-y: auto;
-  }
-  .mobile .kiosk-content {
-    padding: 20px 16px;
-  }
-
-  .greeting {
-    font-weight: 800;
-    font-size: 32px;
-    color: var(--text);
-    margin-bottom: 24px;
-    text-align: center;
-  }
-  .mobile .greeting {
-    font-size: 26px;
-    margin-bottom: 20px;
-  }
-
-  /* ── Action buttons ─────────────────────────────── */
-  .action-list {
-    width: 100%;
-    max-width: 480px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .action-btn {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 16px 20px;
-    border-radius: var(--radius);
-    border: 1px solid var(--border);
-    background: var(--white);
-    cursor: pointer;
-    transition: all 0.15s;
-    font-size: 17px;
-    font-weight: 600;
-    color: var(--text);
-    text-decoration: none;
-    position: relative;
-  }
-  .action-btn:hover {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    transform: translateY(-1px);
-  }
-  .action-btn .dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .action-btn .arrow {
-    margin-left: auto;
-    color: var(--text-muted);
-    font-size: 18px;
-  }
-  .action-btn.btn-in    { border-left: 4px solid var(--green); }
-  .action-btn.btn-in    .dot { background: var(--green); }
-  .action-btn.btn-out   { border-left: 4px solid var(--red); }
-  .action-btn.btn-out   .dot { background: var(--red); }
-  .action-btn.btn-break { border-left: 4px solid var(--amber); }
-  .action-btn.btn-break .dot { background: var(--amber); }
-  .action-btn.btn-bend  { border-left: 4px solid var(--blue); }
-  .action-btn.btn-bend  .dot { background: var(--blue); }
-
-  /* Suggested button glow */
-  .action-btn.suggested {
-    border-left-width: 4px;
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25), 0 2px 8px rgba(37,99,235,0.1);
-    border-color: #2563eb;
-    animation: pulse-glow 2s ease-in-out infinite;
-  }
-  @keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2), 0 2px 8px rgba(37,99,235,0.08); }
-    50%      { box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.3), 0 2px 12px rgba(37,99,235,0.15); }
-  }
-
-  .mobile .action-btn {
-    padding: 14px 16px;
-    font-size: 16px;
-  }
-
-  /* ── SCAN VIEW ──────────────────────────────────── */
-  .scan-header {
-    background: var(--teal);
-    color: #fff;
-    padding: 12px 20px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-shrink: 0;
-  }
-  .scan-header .back-btn {
-    background: rgba(255,255,255,0.15);
-    border: none;
-    color: #fff;
-    padding: 8px 14px;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .scan-header .back-btn:hover {
-    background: rgba(255,255,255,0.25);
-  }
-  .scan-header .scan-action {
-    flex: 1;
-    text-align: center;
-    font-weight: 700;
-    font-size: 18px;
-  }
-  .scan-header .scan-time {
-    font-size: 14px;
-    opacity: 0.9;
-  }
-
-  .scan-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    gap: 16px;
-  }
-
-  .camera-frame {
-    width: 100%;
-    max-width: 520px;
-    aspect-ratio: 4/3;
-    background: #1a1a2e;
-    border-radius: 16px;
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .mobile .camera-frame {
-    aspect-ratio: 3/4;
-    max-width: 100%;
-  }
-  .camera-placeholder {
-    color: rgba(255,255,255,0.3);
-    font-size: 14px;
-    text-align: center;
-  }
-
-  /* QR guide overlay corners */
-  .qr-guide {
-    position: absolute;
-    width: 140px;
-    height: 140px;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-  }
-  .mobile .qr-guide {
-    width: 120px;
-    height: 120px;
-  }
-  .qr-guide .corner {
-    position: absolute;
-    width: 28px;
-    height: 28px;
-    border-color: rgba(255,255,255,0.8);
-    border-style: solid;
-    border-width: 0;
-  }
-  .qr-guide .corner.tl { top: 0; left: 0; border-top-width: 3px; border-left-width: 3px; border-top-left-radius: 6px; }
-  .qr-guide .corner.tr { top: 0; right: 0; border-top-width: 3px; border-right-width: 3px; border-top-right-radius: 6px; }
-  .qr-guide .corner.bl { bottom: 0; left: 0; border-bottom-width: 3px; border-left-width: 3px; border-bottom-left-radius: 6px; }
-  .qr-guide .corner.br { bottom: 0; right: 0; border-bottom-width: 3px; border-right-width: 3px; border-bottom-right-radius: 6px; }
-
-  .scan-instruction {
-    font-size: 15px;
-    color: var(--text-muted);
-    text-align: center;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .scan-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--green);
-    animation: scan-blink 1.2s ease-in-out infinite;
-  }
-  @keyframes scan-blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
-  }
-
-  .scan-bottom-btn {
-    width: 100%;
-    max-width: 480px;
-    padding: 14px;
-    background: var(--white);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--text-muted);
-    cursor: pointer;
-    text-align: center;
-    margin-top: auto;
-  }
-  .scan-bottom-btn:hover {
-    background: #f3f4f6;
-  }
-
-  /* ── RESULT VIEW ────────────────────────────────── */
-  .result-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 32px 24px;
-    gap: 8px;
-  }
-
-  .result-icon {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 40px;
-    font-weight: 700;
-    margin-bottom: 16px;
-  }
-  .result-icon.success {
-    background: var(--green-bg);
-    color: var(--green);
-    border: 3px solid var(--green-border);
-  }
-  .result-icon.error {
-    background: var(--red-bg);
-    color: var(--red);
-    border: 3px solid var(--red-border);
-  }
-
-  .result-name {
-    font-size: 26px;
-    font-weight: 800;
-    color: var(--text);
-  }
-  .mobile .result-name {
-    font-size: 22px;
-  }
-
-  .result-action {
-    font-size: 16px;
-    color: var(--text-muted);
-    margin-top: 4px;
-  }
-
-  .result-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    border-radius: 999px;
-    font-size: 14px;
-    font-weight: 600;
-    margin-top: 12px;
-  }
-  .result-badge.badge-in {
-    background: var(--green-bg);
-    color: var(--green);
-    border: 1px solid var(--green-border);
-  }
-  .result-badge .badge-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: currentColor;
-  }
-
-  .result-countdown {
-    margin-top: 24px;
-    font-size: 13px;
-    color: var(--text-muted);
-  }
-
-  /* Error result */
-  .result-error-msg {
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--text);
-    text-align: center;
-    line-height: 1.3;
-  }
-  .result-error-sub {
-    font-size: 15px;
-    color: var(--text-muted);
-    margin-bottom: 24px;
-  }
-
-  .result-btn {
-    width: 100%;
-    max-width: 360px;
-    padding: 14px;
-    border-radius: 12px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    text-align: center;
-    border: none;
-    margin-top: 8px;
-  }
-  .result-btn.primary {
-    background: var(--teal);
-    color: #fff;
-  }
-  .result-btn.secondary {
-    background: var(--white);
-    color: var(--text);
-    border: 1px solid var(--border);
-  }
-
-  /* countdown ring */
-  .countdown-ring {
-    width: 40px;
-    height: 40px;
-    margin-top: 20px;
-  }
-  .countdown-ring circle {
-    fill: none;
-    stroke-width: 3;
-    transform: rotate(-90deg);
-    transform-origin: center;
-  }
-  .countdown-ring .bg { stroke: var(--border); }
-  .countdown-ring .fg {
-    stroke: var(--green);
-    stroke-dasharray: 100;
-    stroke-dashoffset: 0;
-    stroke-linecap: round;
-    animation: countdown 4s linear forwards;
-  }
-  @keyframes countdown {
-    from { stroke-dashoffset: 0; }
-    to   { stroke-dashoffset: 100; }
-  }
-
-  /* ── Responsive helper ──────────────────────────── */
-  @media (max-width: 1200px) {
-    .device-frame.ipad { width: 100%; max-width: 700px; }
-  }
-  @media (max-width: 820px) {
-    .device-row { flex-direction: column; align-items: center; }
-    .device-frame.ipad { width: 100%; max-width: 600px; height: 500px; }
-    .device-frame.mobile { width: 100%; max-width: 375px; }
+  @media (max-width: 1100px) { .frame.ipad { width: 100%; max-width: 580px; } }
+  @media (max-width: 780px) {
+    .device-pair { flex-direction: column; align-items: center; }
+    .frame.ipad { max-width: 100%; height: 440px; }
+    .frame.mobile { width: 100%; max-width: 375px; }
   }
 </style>
 </head>
 <body>
 
-<h1 style="font-size:20px; color:#1f2937; text-align:center;">Kiosk Redesign — Interactive Mockup</h1>
+<h1>Kiosk Redesign — All Views</h1>
+<p class="subtitle">iPad (left) &amp; Mobile (right) for each view</p>
 
-<div class="demo-tabs">
-  <span class="demo-label">Switch views:</span>
-  <button class="active" data-view-target="menu">Menu View</button>
-  <button data-view-target="scan">Camera / Scan View</button>
-  <button data-view-target="result-ok">Success Result</button>
-  <button data-view-target="result-err">Error Result</button>
-</div>
-
-<div class="device-row">
-
-  <!-- ═══════ iPAD ═══════ -->
+<!-- 1. MENU VIEW -->
+<div class="section-row-label"><span class="section-title">1. Menu View</span></div>
+<div class="device-pair">
   <div class="device-col">
     <div class="device-label">iPad / Tablet</div>
-    <div class="device-frame ipad" id="ipad">
-
-      <!-- MENU VIEW -->
-      <div class="view kiosk active" id="ipad-menu">
-        <div class="kiosk-header">
-          <span class="brand">DOFS</span>
-          <span class="clock">04:08 AM</span>
-          <div class="meta">
-            Sat, 18 Ramadan 1447<br>
-            Warehouse Kiosk #1
-          </div>
-        </div>
-        <div class="kiosk-content">
-          <div class="greeting">Good morning!</div>
-          <div class="action-list">
-            <div class="action-btn btn-in suggested">
-              <span class="dot"></span>
-              Clock In
-              <span class="arrow">›</span>
-            </div>
-            <div class="action-btn btn-out">
-              <span class="dot"></span>
-              Clock Out
-              <span class="arrow">›</span>
-            </div>
-            <div class="action-btn btn-break">
-              <span class="dot"></span>
-              Start Break
-              <span class="arrow">›</span>
-            </div>
-            <div class="action-btn btn-bend">
-              <span class="dot"></span>
-              End Break
-              <span class="arrow">›</span>
-            </div>
-          </div>
+    <div class="frame ipad">
+      <div class="kh">
+        <span class="brand">DOFS</span>
+        <span class="clock">04:08 AM</span>
+        <div class="meta">Sat, 18 Ramadan 1447<br>Warehouse Kiosk #1</div>
+      </div>
+      <div class="kc">
+        <div class="greeting">Good morning!</div>
+        <div class="al">
+          <div class="ab in sug"><span class="dot"></span>Clock In<span class="arr">›</span></div>
+          <div class="ab out"><span class="dot"></span>Clock Out<span class="arr">›</span></div>
+          <div class="ab brk"><span class="dot"></span>Start Break<span class="arr">›</span></div>
+          <div class="ab bend"><span class="dot"></span>End Break<span class="arr">›</span></div>
         </div>
       </div>
-
-      <!-- SCAN VIEW -->
-      <div class="view kiosk" id="ipad-scan">
-        <div class="scan-header">
-          <button class="back-btn">← Back</button>
-          <span class="scan-action">Clock In</span>
-          <span class="scan-time">04:08 AM</span>
-        </div>
-        <div class="scan-content">
-          <div class="camera-frame">
-            <div class="camera-placeholder">📷 Camera Feed</div>
-            <div class="qr-guide">
-              <div class="corner tl"></div>
-              <div class="corner tr"></div>
-              <div class="corner bl"></div>
-              <div class="corner br"></div>
-            </div>
-          </div>
-          <div class="scan-instruction">
-            <span class="scan-dot"></span>
-            Show your QR code to the camera
-          </div>
-          <button class="scan-bottom-btn">← Back to Menu</button>
-        </div>
-      </div>
-
-      <!-- SUCCESS RESULT -->
-      <div class="view kiosk" id="ipad-result-ok">
-        <div class="kiosk-header">
-          <span class="brand">DOFS</span>
-          <span class="clock">04:08 AM</span>
-          <div class="meta">
-            Sat, 18 Ramadan 1447<br>
-            Warehouse Kiosk #1
-          </div>
-        </div>
-        <div class="result-content">
-          <div class="result-icon success">✓</div>
-          <div class="result-name">Ahmed Al-Rashid</div>
-          <div class="result-action">Clock In — 04:08 AM</div>
-          <div class="result-badge badge-in">
-            <span class="badge-dot"></span>
-            Clocked In
-          </div>
-          <svg class="countdown-ring" viewBox="0 0 36 36">
-            <circle class="bg" cx="18" cy="18" r="16"/>
-            <circle class="fg" cx="18" cy="18" r="16" pathLength="100"/>
-          </svg>
-          <div class="result-countdown">Returning to menu...</div>
-        </div>
-      </div>
-
-      <!-- ERROR RESULT -->
-      <div class="view kiosk" id="ipad-result-err">
-        <div class="kiosk-header">
-          <span class="brand">DOFS</span>
-          <span class="clock">04:08 AM</span>
-          <div class="meta">
-            Sat, 18 Ramadan 1447<br>
-            Warehouse Kiosk #1
-          </div>
-        </div>
-        <div class="result-content">
-          <div class="result-icon error">✗</div>
-          <div class="result-error-msg">Invalid action now.</div>
-          <div class="result-error-sub">Try a different punch type.</div>
-          <button class="result-btn primary">Try Again</button>
-          <button class="result-btn secondary">Back to Menu</button>
-        </div>
-      </div>
-
     </div>
   </div>
-
-  <!-- ═══════ MOBILE ═══════ -->
   <div class="device-col">
     <div class="device-label">Mobile Phone</div>
-    <div class="device-frame mobile" id="mobile">
-
-      <!-- MENU VIEW -->
-      <div class="view kiosk mobile active" id="mobile-menu">
-        <div class="kiosk-header">
-          <div class="top-row">
-            <span class="brand">DOFS</span>
-            <span class="clock">04:08 AM</span>
-          </div>
-          <div class="meta">
-            Sat, 18 Ramadan 1447 &nbsp;·&nbsp; Warehouse Kiosk #1
-          </div>
-        </div>
-        <div class="kiosk-content">
-          <div class="greeting">Good morning!</div>
-          <div class="action-list">
-            <div class="action-btn btn-in suggested">
-              <span class="dot"></span>
-              Clock In
-              <span class="arrow">›</span>
-            </div>
-            <div class="action-btn btn-out">
-              <span class="dot"></span>
-              Clock Out
-              <span class="arrow">›</span>
-            </div>
-            <div class="action-btn btn-break">
-              <span class="dot"></span>
-              Start Break
-              <span class="arrow">›</span>
-            </div>
-            <div class="action-btn btn-bend">
-              <span class="dot"></span>
-              End Break
-              <span class="arrow">›</span>
-            </div>
-          </div>
+    <div class="frame mobile">
+      <div class="kh mob">
+        <div class="top"><span class="brand">DOFS</span><span class="clock">04:08 AM</span></div>
+        <div class="meta">Sat, 18 Ramadan 1447 &middot; Warehouse Kiosk #1</div>
+      </div>
+      <div class="kc mob">
+        <div class="greeting mob">Good morning!</div>
+        <div class="al">
+          <div class="ab in sug"><span class="dot"></span>Clock In<span class="arr">›</span></div>
+          <div class="ab out"><span class="dot"></span>Clock Out<span class="arr">›</span></div>
+          <div class="ab brk"><span class="dot"></span>Start Break<span class="arr">›</span></div>
+          <div class="ab bend"><span class="dot"></span>End Break<span class="arr">›</span></div>
         </div>
       </div>
-
-      <!-- SCAN VIEW -->
-      <div class="view kiosk mobile" id="mobile-scan">
-        <div class="scan-header">
-          <button class="back-btn">←</button>
-          <span class="scan-action">Clock In</span>
-          <span class="scan-time">04:08</span>
-        </div>
-        <div class="scan-content">
-          <div class="camera-frame">
-            <div class="camera-placeholder">📷 Camera Feed</div>
-            <div class="qr-guide">
-              <div class="corner tl"></div>
-              <div class="corner tr"></div>
-              <div class="corner bl"></div>
-              <div class="corner br"></div>
-            </div>
-          </div>
-          <div class="scan-instruction">
-            <span class="scan-dot"></span>
-            Show your QR code
-          </div>
-          <button class="scan-bottom-btn">← Back to Menu</button>
-        </div>
-      </div>
-
-      <!-- SUCCESS RESULT -->
-      <div class="view kiosk mobile" id="mobile-result-ok">
-        <div class="kiosk-header">
-          <div class="top-row">
-            <span class="brand">DOFS</span>
-            <span class="clock">04:08 AM</span>
-          </div>
-        </div>
-        <div class="result-content">
-          <div class="result-icon success">✓</div>
-          <div class="result-name">Ahmed Al-Rashid</div>
-          <div class="result-action">Clock In — 04:08 AM</div>
-          <div class="result-badge badge-in">
-            <span class="badge-dot"></span>
-            Clocked In
-          </div>
-          <svg class="countdown-ring" viewBox="0 0 36 36">
-            <circle class="bg" cx="18" cy="18" r="16"/>
-            <circle class="fg" cx="18" cy="18" r="16" pathLength="100"/>
-          </svg>
-          <div class="result-countdown">Returning to menu...</div>
-        </div>
-      </div>
-
-      <!-- ERROR RESULT -->
-      <div class="view kiosk mobile" id="mobile-result-err">
-        <div class="kiosk-header">
-          <div class="top-row">
-            <span class="brand">DOFS</span>
-            <span class="clock">04:08 AM</span>
-          </div>
-        </div>
-        <div class="result-content">
-          <div class="result-icon error">✗</div>
-          <div class="result-error-msg">Invalid action now.</div>
-          <div class="result-error-sub">Try a different punch type.</div>
-          <button class="result-btn primary">Try Again</button>
-          <button class="result-btn secondary">Back to Menu</button>
-        </div>
-      </div>
-
     </div>
   </div>
-
 </div>
 
-<script>
-function showView(view) {
-  // Update tabs
-  document.querySelectorAll('.demo-tabs button').forEach(function(b) { b.classList.remove('active'); });
-  var activeTab = document.querySelector('.demo-tabs button[data-view-target="' + view + '"]');
-  if (activeTab) activeTab.classList.add('active');
+<!-- 2. CAMERA / SCAN VIEW -->
+<div class="section-row-label"><span class="section-title">2. Camera / Scan View</span></div>
+<div class="device-pair">
+  <div class="device-col">
+    <div class="device-label">iPad / Tablet</div>
+    <div class="frame ipad">
+      <div class="sh">
+        <button class="back">← Back</button>
+        <span class="action">Clock In</span>
+        <span class="time">04:08 AM</span>
+      </div>
+      <div class="cam-area">
+        <div class="cam">
+          <div class="cam-ph">Camera Feed</div>
+          <div class="qr-g"><div class="c tl"></div><div class="c tr"></div><div class="c bl"></div><div class="c br"></div></div>
+        </div>
+        <div class="scan-inst"><span class="scan-dot"></span> Show your QR code to the camera</div>
+        <div class="back-big">← Back to Menu</div>
+      </div>
+    </div>
+  </div>
+  <div class="device-col">
+    <div class="device-label">Mobile Phone</div>
+    <div class="frame mobile">
+      <div class="sh">
+        <button class="back">←</button>
+        <span class="action">Clock In</span>
+        <span class="time">04:08</span>
+      </div>
+      <div class="cam-area">
+        <div class="cam tall">
+          <div class="cam-ph">Camera Feed</div>
+          <div class="qr-g"><div class="c tl"></div><div class="c tr"></div><div class="c bl"></div><div class="c br"></div></div>
+        </div>
+        <div class="scan-inst"><span class="scan-dot"></span> Show your QR code</div>
+        <div class="back-big">← Back to Menu</div>
+      </div>
+    </div>
+  </div>
+</div>
 
-  // Hide all views
-  document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
+<!-- 3. SUCCESS RESULT -->
+<div class="section-row-label"><span class="section-title">3. Success Result</span></div>
+<div class="device-pair">
+  <div class="device-col">
+    <div class="device-label">iPad / Tablet</div>
+    <div class="frame ipad">
+      <div class="kh">
+        <span class="brand">DOFS</span>
+        <span class="clock">04:08 AM</span>
+        <div class="meta">Sat, 18 Ramadan 1447<br>Warehouse Kiosk #1</div>
+      </div>
+      <div class="rc">
+        <div class="ri ok">✓</div>
+        <div class="rn">Ahmed Al-Rashid</div>
+        <div class="ra">Clock In — 04:08 AM</div>
+        <div class="rb gin"><span class="bd"></span> Clocked In</div>
+        <svg class="cring" viewBox="0 0 36 36"><circle class="bg" cx="18" cy="18" r="16"/><circle class="fg" cx="18" cy="18" r="16" pathLength="100"/></svg>
+        <div class="rcount">Returning to menu...</div>
+      </div>
+    </div>
+  </div>
+  <div class="device-col">
+    <div class="device-label">Mobile Phone</div>
+    <div class="frame mobile">
+      <div class="kh mob">
+        <div class="top"><span class="brand">DOFS</span><span class="clock">04:08 AM</span></div>
+      </div>
+      <div class="rc">
+        <div class="ri ok">✓</div>
+        <div class="rn mob">Ahmed Al-Rashid</div>
+        <div class="ra">Clock In — 04:08 AM</div>
+        <div class="rb gin"><span class="bd"></span> Clocked In</div>
+        <svg class="cring" viewBox="0 0 36 36"><circle class="bg" cx="18" cy="18" r="16"/><circle class="fg" cx="18" cy="18" r="16" pathLength="100"/></svg>
+        <div class="rcount">Returning to menu...</div>
+      </div>
+    </div>
+  </div>
+</div>
 
-  // Show matching views in both devices
-  var ipadView = document.getElementById('ipad-' + view);
-  var mobileView = document.getElementById('mobile-' + view);
-  if (ipadView) ipadView.classList.add('active');
-  if (mobileView) mobileView.classList.add('active');
-}
-
-// Tab buttons
-document.querySelectorAll('.demo-tabs button').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    showView(this.getAttribute('data-view-target'));
-  });
-});
-
-// Action buttons → scan view
-document.querySelectorAll('.action-btn').forEach(function(btn) {
-  btn.addEventListener('click', function() { showView('scan'); });
-});
-
-// Back buttons → menu view
-document.querySelectorAll('.back-btn, .scan-bottom-btn').forEach(function(btn) {
-  btn.addEventListener('click', function(e) {
-    e.stopPropagation();
-    showView('menu');
-  });
-});
-
-// Result buttons
-document.querySelectorAll('.result-btn.primary').forEach(function(btn) {
-  btn.addEventListener('click', function() { showView('scan'); });
-});
-document.querySelectorAll('.result-btn.secondary').forEach(function(btn) {
-  btn.addEventListener('click', function() { showView('menu'); });
-});
-</script>
+<!-- 4. ERROR RESULT -->
+<div class="section-row-label"><span class="section-title">4. Error Result</span></div>
+<div class="device-pair">
+  <div class="device-col">
+    <div class="device-label">iPad / Tablet</div>
+    <div class="frame ipad">
+      <div class="kh">
+        <span class="brand">DOFS</span>
+        <span class="clock">04:08 AM</span>
+        <div class="meta">Sat, 18 Ramadan 1447<br>Warehouse Kiosk #1</div>
+      </div>
+      <div class="rc">
+        <div class="ri err">✗</div>
+        <div class="re-msg">Invalid action now.</div>
+        <div class="re-sub">Try a different punch type.</div>
+        <button class="rbtn pri">Try Again</button>
+        <button class="rbtn sec">Back to Menu</button>
+      </div>
+    </div>
+  </div>
+  <div class="device-col">
+    <div class="device-label">Mobile Phone</div>
+    <div class="frame mobile">
+      <div class="kh mob">
+        <div class="top"><span class="brand">DOFS</span><span class="clock">04:08 AM</span></div>
+      </div>
+      <div class="rc">
+        <div class="ri err">✗</div>
+        <div class="re-msg mob">Invalid action now.</div>
+        <div class="re-sub">Try a different punch type.</div>
+        <button class="rbtn pri">Try Again</button>
+        <button class="rbtn sec">Back to Menu</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
