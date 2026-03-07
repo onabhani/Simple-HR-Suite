@@ -2382,10 +2382,10 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 }
 
 /* ── CAMERA AREA (within viewport) ── */
-#<?php echo $root_id; ?> .sfs-camwrap{ width:100%; flex:1; display:flex; flex-direction:column; }
+#<?php echo $root_id; ?> .sfs-camwrap{ width:100%; flex:1; display:flex; flex-direction:column; min-height:0; }
 #<?php echo $root_id; ?> .sfs-cam-body{
   flex:1; display:flex; position:relative; background:#0a0a14; overflow:hidden;
-  border-radius:12px;
+  border-radius:12px; min-height:0;
 }
 #<?php echo $root_id; ?> .sfs-cam-feed{
   flex:1; display:flex; align-items:center; justify-content:center; position:relative;
@@ -2421,7 +2421,7 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
   70%{box-shadow:0 0 0 8px rgba(22,163,74,0)}
   100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}
 }
-#<?php echo $root_id; ?> .sfs-qr-status{ font-size:12px; color:var(--sfs-text-muted); margin-top:4px; }
+#<?php echo $root_id; ?> .sfs-qr-status{ display:none; /* info shown in statusbar instead */ }
 
 /* Recent scans log (side panel inside cam-body) */
 #<?php echo $root_id; ?> .sfs-scan-log{
@@ -2435,6 +2435,10 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
   margin:0; color:#fff; font-weight:600;
 }
 #<?php echo $root_id; ?> .sfs-log-list{ list-style:none; margin:0; padding:6px 0; flex:1; overflow-y:auto; }
+#<?php echo $root_id; ?> .sfs-log-list:empty::after{
+  content:'Waiting for scans\2026'; display:block; text-align:center;
+  padding:24px 14px; font-size:12px; opacity:0.35; color:#fff;
+}
 #<?php echo $root_id; ?> .sfs-log-list li{
   display:flex; align-items:center; gap:10px;
   padding:10px 14px; border-bottom:1px solid rgba(255,255,255,0.06);
@@ -2491,7 +2495,8 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 #<?php echo $root_id; ?>[data-view="scan"] .sfs-al{ display:none !important; }
 #<?php echo $root_id; ?>[data-view="scan"] .sfs-camwrap{ display:flex; }
 #<?php echo $root_id; ?>[data-view="scan"] .sfs-statusbar{ display:flex; max-width:100%; margin:4px 8px; }
-#<?php echo $root_id; ?>[data-view="scan"] .sfs-kc{ padding:0; }
+#<?php echo $root_id; ?>[data-view="scan"] .sfs-kc{ padding:0; align-items:stretch; overflow:visible; }
+#<?php echo $root_id; ?>[data-view="scan"] .sfs-chip{ display:none; }
 
 /* A11y helper */
 #<?php echo $root_id; ?> .sr-only{
@@ -2517,9 +2522,10 @@ body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
 /* Mobile bottom bar: last scan info (hidden on desktop, shown on mobile) */
 #<?php echo $root_id; ?> .sfs-mob-log{
   display:none; /* hidden on desktop by default */
-  background:rgba(0,0,0,0.7); padding:10px 14px;
+  background:#0a0a14; padding:10px 14px;
   align-items:center; gap:10px; flex-shrink:0;
   color:#fff; font-size:13px;
+  border-top:1px solid rgba(255,255,255,0.08);
 }
 #<?php echo $root_id; ?> .sfs-mob-log .sfs-mob-log-icon{
   width:24px; height:24px; border-radius:50%;
@@ -2548,6 +2554,8 @@ body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
   #<?php echo $root_id; ?> .sfs-cam-body{ border-radius:0; }
   #<?php echo $root_id; ?> .sfs-sh .sfs-sh-sub{ display:none; }
   #<?php echo $root_id; ?> .sfs-sh-stop{ padding:7px 10px; }
+  /* Hide status bar on mobile scan — saves vertical space */
+  #<?php echo $root_id; ?>[data-view="scan"] .sfs-statusbar{ display:none; }
 }
 
 /* Quick "halo" flash on successful / queued punch */
