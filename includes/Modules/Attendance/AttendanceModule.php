@@ -2664,7 +2664,7 @@ body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
   #<?php echo $root_id; ?> .sfs-scan-tips-icon{
     font-size:16px; opacity:0.6; flex-shrink:0; width:20px; text-align:center;
   }
-  #<?php echo $root_id; ?> .sfs-camwrap{ padding:8px; gap:8px; }
+  #<?php echo $root_id; ?> .sfs-camwrap{ padding:16px 8px 8px; gap:16px; }
   #<?php echo $root_id; ?> .sfs-sh .sfs-sh-sub{ display:none; }
   #<?php echo $root_id; ?> .sfs-sh-stop{ padding:7px 10px; }
   /* Hide status bar on mobile scan — saves vertical space */
@@ -3690,9 +3690,6 @@ async function handleQrFound(raw) {
 
         // Show prominent error notice overlay so operator sees it clearly
         showPunchError(errMsg, errDetail ? errDetail + ' — ' + labelFor(currentAction) : '');
-
-        // Log the error in the scan log with error styling
-        addScanLog(empName || '?', currentAction, false);
 
         // Flash red overlay
         flash('out', empName || '');

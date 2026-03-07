@@ -2453,8 +2453,8 @@ public function handle_update_leave_dates(): void {
     }
 
     // Calculate new days using the leave calculation service
-    $new_days = LeaveCalculationService::count_working_days(
-        $new_start, $new_end, (int) $row['employee_id']
+    $new_days = LeaveCalculationService::business_days(
+        $new_start, $new_end
     );
 
     $now = Helpers::now_mysql();
