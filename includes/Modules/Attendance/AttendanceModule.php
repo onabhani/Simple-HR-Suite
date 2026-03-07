@@ -2159,6 +2159,13 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
     <span id="sfs-kiosk-session-time-<?php echo $inst; ?>" class="sfs-sh-time">--:--</span>
   </header>
 
+  <!-- ── SCAN INFO BAR (mobile: system name + time + date below scan header) ── -->
+  <div class="sfs-scan-info">
+    <span class="sfs-scan-info-brand"><?php echo esc_html( get_bloginfo('name') ); ?></span>
+    <span id="sfs-scan-info-time-<?php echo $inst; ?>" class="sfs-scan-info-time">--:--</span>
+    <span id="sfs-scan-info-date-<?php echo $inst; ?>" class="sfs-scan-info-date">&mdash;</span>
+  </div>
+
   <!-- ── CONTENT AREA ── -->
   <main class="sfs-kc">
     <h2 class="sfs-title sr-only"><?php esc_html_e( 'Attendance Kiosk', 'sfs-hr' ); ?></h2>
@@ -2247,6 +2254,33 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
     </div>
 
   </main>
+
+  <!-- ── Wrong-punch error notice (overlay) ── -->
+  <div id="sfs-kiosk-error-notice-<?php echo $inst; ?>" class="sfs-punch-error-notice">
+    <div class="sfs-error-icon">&times;</div>
+    <div id="sfs-kiosk-error-msg-<?php echo $inst; ?>" class="sfs-error-msg"></div>
+    <div id="sfs-kiosk-error-detail-<?php echo $inst; ?>" class="sfs-error-detail"></div>
+  </div>
+
+  <!-- ── Mobile: slide-up modal trigger (bottom bar) ── -->
+  <div id="sfs-log-modal-trigger-<?php echo $inst; ?>" class="sfs-log-modal-trigger">
+    <span id="sfs-log-modal-count-<?php echo $inst; ?>" class="sfs-log-modal-count">0</span>
+    <span id="sfs-log-modal-last-<?php echo $inst; ?>" class="sfs-log-modal-last"><?php esc_html_e( 'Waiting for scans…', 'sfs-hr' ); ?></span>
+    <span class="sfs-log-modal-arrow">&#8593;</span>
+  </div>
+
+  <!-- ── Mobile: slide-up modal backdrop ── -->
+  <div id="sfs-log-modal-backdrop-<?php echo $inst; ?>" class="sfs-log-modal-backdrop"></div>
+
+  <!-- ── Mobile: slide-up modal panel ── -->
+  <div id="sfs-log-modal-<?php echo $inst; ?>" class="sfs-log-modal">
+    <div class="sfs-log-modal-handle"></div>
+    <div class="sfs-log-header">
+      <h4 class="sfs-log-title"><?php esc_html_e( 'Recent Scans', 'sfs-hr' ); ?></h4>
+      <span class="sfs-log-live"><?php esc_html_e( 'Live', 'sfs-hr' ); ?></span>
+    </div>
+    <ul id="sfs-log-modal-list-<?php echo $inst; ?>" class="sfs-log-list"></ul>
+  </div>
 
 </div> <!-- .sfs-kiosk-app -->
 <?php if ( $immersive ): ?>
@@ -2571,16 +2605,150 @@ body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
   #<?php echo $root_id; ?> .sfs-kh-meta{ text-align:left; font-size:12px; opacity:0.85; flex-direction:row; gap:6px; }
   #<?php echo $root_id; ?> .sfs-kc{ padding:20px 16px; }
   #<?php echo $root_id; ?> .sfs-greet{ font-size:24px; }
-  /* Stack camera above scan log vertically */
-  #<?php echo $root_id; ?> .sfs-scan-row{ flex-direction:column; }
-  #<?php echo $root_id; ?> .sfs-scan-log{ width:auto; max-height:180px; }
-  #<?php echo $root_id; ?> .sfs-cam-body{ border-radius:var(--sfs-radius); }
+  /* Camera square on mobile — fits viewport nicely */
+  #<?php echo $root_id; ?> .sfs-scan-row{ flex-direction:column; flex:0 0 auto; }
+  #<?php echo $root_id; ?> .sfs-cam-card{ flex:0 0 auto; }
+  #<?php echo $root_id; ?> .sfs-cam-body{
+    border-radius:var(--sfs-radius);
+    aspect-ratio:1/1; width:100%; max-width:min(100vw - 16px, 400px); margin:0 auto;
+    flex:none;
+  }
+  #<?php echo $root_id; ?> .sfs-cam-feed video{
+    object-fit:cover; width:100%; height:100%;
+  }
+  /* Hide inline scan log on mobile — replaced by slide-up modal */
+  #<?php echo $root_id; ?> .sfs-scan-log{ display:none !important; }
   #<?php echo $root_id; ?> .sfs-camwrap{ padding:8px; gap:8px; }
   #<?php echo $root_id; ?> .sfs-sh .sfs-sh-sub{ display:none; }
   #<?php echo $root_id; ?> .sfs-sh-stop{ padding:7px 10px; }
   /* Hide status bar on mobile scan — saves vertical space */
   #<?php echo $root_id; ?>[data-view="scan"] .sfs-statusbar{ display:none; }
+
+  /* ── Scan info bar (system name + time + date) under scan header on mobile ── */
+  #<?php echo $root_id; ?> .sfs-scan-info{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--sfs-teal); color:rgba(255,255,255,0.9);
+    padding:6px 16px; font-size:12px; border-top:1px solid rgba(255,255,255,0.1);
+  }
+  #<?php echo $root_id; ?> .sfs-scan-info-brand{ font-weight:700; font-size:13px; }
+  #<?php echo $root_id; ?> .sfs-scan-info-time{ font-weight:700; font-size:16px; }
+  #<?php echo $root_id; ?> .sfs-scan-info-date{ font-size:11px; opacity:0.8; }
+  #<?php echo $root_id; ?>[data-view="menu"] .sfs-scan-info{ display:none; }
+
+  /* ── Slide-up modal for recent scans on mobile ── */
+  #<?php echo $root_id; ?> .sfs-log-modal-trigger{
+    display:flex; align-items:center; gap:8px;
+    position:fixed; bottom:0; left:0; right:0;
+    background:var(--sfs-white); color:var(--sfs-text);
+    padding:12px 16px; padding-bottom:calc(12px + env(safe-area-inset-bottom, 0px));
+    border-top:1px solid var(--sfs-border);
+    box-shadow:0 -4px 12px rgba(0,0,0,0.08);
+    z-index:9990; cursor:pointer;
+    font-size:14px; font-weight:600;
+  }
+  #<?php echo $root_id; ?> .sfs-log-modal-trigger .sfs-log-modal-count{
+    background:var(--sfs-teal); color:#fff; border-radius:999px;
+    min-width:24px; height:24px; display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:700; padding:0 6px;
+  }
+  #<?php echo $root_id; ?> .sfs-log-modal-trigger .sfs-log-modal-last{
+    flex:1; min-width:0; display:flex; align-items:center; gap:6px;
+    font-size:13px; font-weight:500; color:var(--sfs-text-muted);
+  }
+  #<?php echo $root_id; ?> .sfs-log-modal-trigger .sfs-log-modal-last .sfs-log-dot{
+    width:6px; height:6px; border-radius:50%; flex-shrink:0;
+  }
+  #<?php echo $root_id; ?> .sfs-log-modal-trigger .sfs-log-modal-arrow{
+    font-size:18px; color:var(--sfs-text-muted); margin-left:auto;
+  }
+  #<?php echo $root_id; ?>[data-view="menu"] .sfs-log-modal-trigger{ display:none; }
+
+  /* Slide-up modal panel */
+  #<?php echo $root_id; ?> .sfs-log-modal{
+    position:fixed; bottom:0; left:0; right:0;
+    background:var(--sfs-white); border-radius:16px 16px 0 0;
+    box-shadow:0 -8px 32px rgba(0,0,0,0.15);
+    z-index:9995; transform:translateY(100%);
+    transition:transform 0.3s ease;
+    max-height:60vh; display:flex; flex-direction:column;
+    padding-bottom:env(safe-area-inset-bottom, 0px);
+  }
+  #<?php echo $root_id; ?> .sfs-log-modal.open{ transform:translateY(0); }
+  #<?php echo $root_id; ?> .sfs-log-modal-handle{
+    width:36px; height:4px; border-radius:2px;
+    background:#d1d5db; margin:10px auto 6px; flex-shrink:0;
+  }
+  #<?php echo $root_id; ?> .sfs-log-modal .sfs-log-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 16px 10px; border-bottom:1px solid var(--sfs-border);
+  }
+  #<?php echo $root_id; ?> .sfs-log-modal .sfs-log-title{
+    font-size:15px; font-weight:700; margin:0; color:var(--sfs-text);
+  }
+  #<?php echo $root_id; ?> .sfs-log-modal .sfs-log-live{
+    font-size:10px; font-weight:600; text-transform:uppercase;
+    color:var(--sfs-green); letter-spacing:0.04em;
+  }
+  #<?php echo $root_id; ?> .sfs-log-modal .sfs-log-list{
+    list-style:none; margin:0; padding:0; flex:1; overflow-y:auto;
+  }
+  #<?php echo $root_id; ?> .sfs-log-modal .sfs-log-list li{
+    display:flex; align-items:center; gap:10px;
+    padding:10px 16px; border-bottom:1px solid var(--sfs-border); font-size:13px;
+  }
+  #<?php echo $root_id; ?>[data-view="menu"] .sfs-log-modal{ display:none; }
+
+  /* Backdrop */
+  #<?php echo $root_id; ?> .sfs-log-modal-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,0.3);
+    z-index:9994; opacity:0; pointer-events:none; transition:opacity 0.3s;
+  }
+  #<?php echo $root_id; ?> .sfs-log-modal-backdrop.show{ opacity:1; pointer-events:auto; }
+  #<?php echo $root_id; ?>[data-view="menu"] .sfs-log-modal-backdrop{ display:none; }
 }
+
+/* Desktop/tablet: hide mobile-only elements */
+@media (min-width:641px){
+  #<?php echo $root_id; ?> .sfs-scan-info{ display:none; }
+  #<?php echo $root_id; ?> .sfs-log-modal-trigger{ display:none !important; }
+  #<?php echo $root_id; ?> .sfs-log-modal{ display:none !important; }
+  #<?php echo $root_id; ?> .sfs-log-modal-backdrop{ display:none !important; }
+}
+
+/* ── Wrong-punch error notice ── */
+#<?php echo $root_id; ?> .sfs-punch-error-notice{
+  position:fixed; top:50%; left:50%; transform:translate(-50%,-50%) scale(0.9);
+  background:var(--sfs-red); color:#fff; border-radius:16px;
+  padding:24px 32px; text-align:center; z-index:9999;
+  opacity:0; pointer-events:none; transition:all 0.3s ease;
+  box-shadow:0 20px 60px rgba(0,0,0,0.3);
+  max-width:90vw; min-width:260px;
+}
+#<?php echo $root_id; ?> .sfs-punch-error-notice.show{
+  opacity:1; transform:translate(-50%,-50%) scale(1); pointer-events:auto;
+}
+#<?php echo $root_id; ?> .sfs-punch-error-notice .sfs-error-icon{
+  width:48px; height:48px; border-radius:50%;
+  border:3px solid rgba(255,255,255,0.5);
+  display:flex; align-items:center; justify-content:center;
+  font-size:24px; font-weight:700; margin:0 auto 12px;
+}
+#<?php echo $root_id; ?> .sfs-punch-error-notice .sfs-error-msg{
+  font-size:16px; font-weight:700; margin-bottom:4px;
+}
+#<?php echo $root_id; ?> .sfs-punch-error-notice .sfs-error-detail{
+  font-size:13px; opacity:0.85;
+}
+
+/* ── Scan log dot colors by action type ── */
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-dot.action-in{ background:var(--sfs-green); }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-dot.action-out{ background:var(--sfs-red); }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-dot.action-break_start{ background:var(--sfs-amber); }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-dot.action-break_end{ background:var(--sfs-blue); }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-initials.action-in{ background:rgba(22,163,74,0.1); color:var(--sfs-green); }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-initials.action-out{ background:rgba(239,68,68,0.1); color:var(--sfs-red); }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-initials.action-break_start{ background:rgba(245,158,11,0.1); color:var(--sfs-amber); }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-initials.action-break_end{ background:rgba(59,130,246,0.1); color:var(--sfs-blue); }
 
 /* Quick "halo" flash on successful / queued punch */
 #<?php echo $root_id; ?>.sfs-kiosk-flash-ok {
@@ -3463,13 +3631,25 @@ async function handleQrFound(raw) {
       const msg  = r.data?.message || (t.punch_failed_prefix||'Punch failed:') + ` (HTTP ${r.status})`;
 
       if (r.status === 409) {
+        let errMsg = msg;
+        let errDetail = empName || '';
         if (code === 'no_shift') {
-          setStat(t.no_shift_contact_hr||'No shift configured. Contact your Manager or HR.', 'error');
+          errMsg = t.no_shift_contact_hr||'No shift configured. Contact your Manager or HR.';
         } else if (code === 'invalid_transition') {
-          setStat(t.invalid_action_try_different||'Invalid action now. Try a different punch type.', 'error');
+          errMsg = t.invalid_action_try_different||'Invalid action now. Try a different punch type.';
         } else {
-          setStat(t.no_shift_contact_hr||'No shift, contact your Manager or HR.', 'error');
+          errMsg = t.no_shift_contact_hr||'No shift, contact your Manager or HR.';
         }
+        setStat(errMsg, 'error');
+
+        // Show prominent error notice overlay so operator sees it clearly
+        showPunchError(errMsg, errDetail ? errDetail + ' — ' + labelFor(currentAction) : '');
+
+        // Log the error in the scan log with error styling
+        addScanLog(empName || '?', currentAction, false);
+
+        // Flash red overlay
+        flash('out', empName || '');
 
         // Back off so the same frame doesn't hammer the API
         lastQrValue = raw;
@@ -3479,8 +3659,9 @@ async function handleQrFound(raw) {
         return false;
       }
 
-      // Non-409 errors keep prior handling
+      // Non-409 errors: show error notice too
       setStat(msg, 'error');
+      showPunchError(msg, empName ? empName + ' — ' + labelFor(currentAction) : '');
       if (r.status === 429) {
         lastQrValue = raw;
         lastQrTs    = Date.now() + (BACKOFF_MS_429 - QR_COOLDOWN_MS);
@@ -3493,7 +3674,9 @@ async function handleQrFound(raw) {
 
   } catch (punchErr) {
     // ← ENHANCED error handling
-    setStat((t.punch_failed_prefix||'Punch failed:') + ` ${punchErr && punchErr.message ? punchErr.message : (t.unknown_error||'Unknown error')}`, 'error');
+    const punchErrMsg = (t.punch_failed_prefix||'Punch failed:') + ` ${punchErr && punchErr.message ? punchErr.message : (t.unknown_error||'Unknown error')}`;
+    setStat(punchErrMsg, 'error');
+    showPunchError(punchErrMsg, empName || '');
     dbg('punch failed', punchErr);
     
     // Always arm cooldown to prevent infinite loops
@@ -3901,18 +4084,44 @@ function addScanLog(name, action, ok){
   const time = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
   scanLog.unshift({ name, action, time, ok });
 
-  // Update activity log (visible on both mobile & tablet)
-  if (logList) {
-    const li = document.createElement('li');
-    const safeName = (name||'\u2014').replace(/</g,'&lt;');
-    const cls = ok ? 'ok' : 'err';
-    li.innerHTML = '<span class="sfs-log-initials ' + cls + '">' + getInitials(name) + '</span>'
+  const safeName = (name||'\u2014').replace(/</g,'&lt;');
+  const cls = ok ? 'ok' : 'err';
+  // Action-specific color class for dots and initials
+  const actionCls = 'action-' + (action || 'in');
+
+  // Build log item HTML with action-specific colors
+  function buildLogHtml(){
+    return '<span class="sfs-log-initials ' + cls + ' ' + actionCls + '">' + getInitials(name) + '</span>'
       + '<div class="sfs-log-info"><span class="sfs-log-name">' + safeName + '</span>'
-      + '<span class="sfs-log-meta"><span class="sfs-log-dot ' + cls + '"></span> '
+      + '<span class="sfs-log-meta"><span class="sfs-log-dot ' + cls + ' ' + actionCls + '"></span> '
       + labelFor(action) + ' \u2022 ' + time + '</span></div>'
       + '<span class="sfs-log-time">' + time + '</span>';
+  }
+
+  // Update desktop/tablet activity log
+  if (logList) {
+    const li = document.createElement('li');
+    li.innerHTML = buildLogHtml();
     logList.prepend(li);
     while (logList.children.length > 50) logList.removeChild(logList.lastChild);
+  }
+
+  // Update mobile slide-up modal list
+  const modalList = document.getElementById('sfs-log-modal-list-<?php echo $inst; ?>');
+  if (modalList) {
+    const li = document.createElement('li');
+    li.innerHTML = buildLogHtml();
+    modalList.prepend(li);
+    while (modalList.children.length > 50) modalList.removeChild(modalList.lastChild);
+  }
+
+  // Update mobile bottom trigger bar
+  const triggerCount = document.getElementById('sfs-log-modal-count-<?php echo $inst; ?>');
+  const triggerLast  = document.getElementById('sfs-log-modal-last-<?php echo $inst; ?>');
+  if (triggerCount) triggerCount.textContent = String(sessionCount);
+  if (triggerLast) {
+    triggerLast.innerHTML = '<span class="sfs-log-dot ' + actionCls + '"></span> '
+      + safeName + ' — ' + labelFor(action);
   }
 }
 
@@ -4094,6 +4303,69 @@ function tickDate(){
 }
 
 tickDate();
+
+// ── Mobile scan info bar: sync time + date ──
+(function(){
+  const scanTimeEl = document.getElementById('sfs-scan-info-time-<?php echo $inst; ?>');
+  const scanDateEl = document.getElementById('sfs-scan-info-date-<?php echo $inst; ?>');
+  function tickScanInfo(){
+    const d = new Date();
+    if (scanTimeEl) scanTimeEl.textContent = d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    if (scanDateEl) {
+      const dateLang = localStorage.getItem('sfs_hr_lang') || 'en';
+      const dateLocale = dateLang === 'ar' ? 'ar-SA' : (dateLang === 'ur' ? 'ur-PK' : (dateLang === 'fil' ? 'fil-PH' : 'en-US'));
+      scanDateEl.textContent = d.toLocaleDateString(dateLocale, {
+        weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+      });
+    }
+  }
+  tickScanInfo();
+  setInterval(tickScanInfo, 1000);
+})();
+
+// ── Slide-up modal for Recent Scans (mobile) ──
+(function(){
+  const trigger  = document.getElementById('sfs-log-modal-trigger-<?php echo $inst; ?>');
+  const modal    = document.getElementById('sfs-log-modal-<?php echo $inst; ?>');
+  const backdrop = document.getElementById('sfs-log-modal-backdrop-<?php echo $inst; ?>');
+  if (!trigger || !modal || !backdrop) return;
+
+  function openModal(){
+    modal.classList.add('open');
+    backdrop.classList.add('show');
+  }
+  function closeModal(){
+    modal.classList.remove('open');
+    backdrop.classList.remove('show');
+  }
+  trigger.addEventListener('click', openModal);
+  backdrop.addEventListener('click', closeModal);
+  // Swipe-down to close
+  let startY = 0;
+  modal.addEventListener('touchstart', function(e){ startY = e.touches[0].clientY; }, {passive:true});
+  modal.addEventListener('touchmove', function(e){
+    const dy = e.touches[0].clientY - startY;
+    if (dy > 60) closeModal();
+  }, {passive:true});
+})();
+
+// ── Wrong-punch error notice (visible overlay) ──
+const errorNoticeEl  = document.getElementById('sfs-kiosk-error-notice-<?php echo $inst; ?>');
+const errorMsgEl     = document.getElementById('sfs-kiosk-error-msg-<?php echo $inst; ?>');
+const errorDetailEl  = document.getElementById('sfs-kiosk-error-detail-<?php echo $inst; ?>');
+let errorNoticeTimer = null;
+
+function showPunchError(msg, detail){
+  if (!errorNoticeEl) return;
+  if (errorMsgEl)    errorMsgEl.textContent = msg || '';
+  if (errorDetailEl) errorDetailEl.textContent = detail || '';
+  errorNoticeEl.classList.add('show');
+  playErrorTone();
+  if (errorNoticeTimer) clearTimeout(errorNoticeTimer);
+  errorNoticeTimer = setTimeout(function(){
+    errorNoticeEl.classList.remove('show');
+  }, 2500);
+}
 
 (function(){
   const greet = document.getElementById('sfs-greet-<?php echo $inst; ?>');
