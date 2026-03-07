@@ -995,9 +995,9 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
         $state_map = [ 'in' => 'in', 'break_end' => 'in', 'break_start' => 'break', 'out' => 'idle' ];
         $state_after_lock = $state_map[ $last_after_lock ] ?? 'idle';
         $allow_after_lock = [
-            'in'          => ( $state_after_lock === 'idle' ),
-            'out'         => ( $state_after_lock === 'in' || $has_stale_session ),
-            'break_start' => ( $state_after_lock === 'in' ),
+            'in'          => ( $state_after_lock === 'idle' || $has_stale_session ),
+            'out'         => ( $state_after_lock === 'in' && ! $has_stale_session ),
+            'break_start' => ( $state_after_lock === 'in' && ! $has_stale_session ),
             'break_end'   => ( $state_after_lock === 'break' ),
         ];
         if ( empty( $allow_after_lock[ $punch_type ] ) ) {
