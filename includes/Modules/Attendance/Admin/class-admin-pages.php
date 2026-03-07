@@ -4671,6 +4671,7 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
                             <label><input type="checkbox" name="qr_enabled" value="1" <?php checked($qr_enabled); ?>/> <?php esc_html_e( 'QR Scanning', 'sfs-hr' ); ?></label>
                             <label><input type="checkbox" name="kiosk_enabled" value="1" <?php checked(!empty($editing->kiosk_enabled)); ?>/> <?php esc_html_e( 'Kiosk enabled', 'sfs-hr' ); ?></label>
                             <label><input type="checkbox" name="kiosk_offline" value="1" <?php checked(!empty($editing->kiosk_offline)); ?>/> <?php esc_html_e( 'Allow offline', 'sfs-hr' ); ?></label>
+                            <label><input type="checkbox" name="break_enabled" value="1" <?php checked(!empty($editing->break_enabled)); ?>/> <?php esc_html_e( 'Break punches', 'sfs-hr' ); ?></label>
                             <label><input type="checkbox" name="active" value="1" <?php checked(!isset($editing->active) || (int)$editing->active===1); ?>/> <?php esc_html_e( 'Active', 'sfs-hr' ); ?></label>
                         </div>
                     </div>
@@ -4857,6 +4858,9 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
                         <?php if ( ! empty( $r->qr_enabled ) ) : ?>
                             <span class="sfs-esc-badge sfs-esc-badge--policy"><?php esc_html_e( 'QR', 'sfs-hr' ); ?></span>
                         <?php endif; ?>
+                        <?php if ( ! empty( $r->break_enabled ) ) : ?>
+                            <span class="sfs-esc-badge sfs-esc-badge--policy"><?php esc_html_e( 'Breaks', 'sfs-hr' ); ?></span>
+                        <?php endif; ?>
                     </div>
                     <div class="sfs-edc-meta">
                         <dl>
@@ -4906,6 +4910,7 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
         $type  = in_array( $_POST['type'] ?? 'kiosk', ['kiosk','mobile','web'], true ) ? $_POST['type'] : 'kiosk';
         $kiosk_enabled = !empty($_POST['kiosk_enabled']) ? 1 : 0;
         $kiosk_offline = !empty($_POST['kiosk_offline']) ? 1 : 0;
+        $break_enabled = !empty($_POST['break_enabled']) ? 1 : 0;
         $pin_raw = (string)($_POST['kiosk_pin'] ?? '');
 
         $lat = is_numeric($_POST['geo_lock_lat'] ?? null) ? (float)$_POST['geo_lock_lat'] : null;
@@ -4940,6 +4945,7 @@ $data = [
     'type'              => $type,
     'kiosk_enabled'     => $kiosk_enabled,
     'kiosk_offline'     => $kiosk_offline,
+    'break_enabled'     => $break_enabled,
     'geo_lock_lat'      => $lat,
     'geo_lock_lng'      => $lng,
     'geo_lock_radius_m' => $rad,

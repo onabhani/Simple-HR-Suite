@@ -2289,6 +2289,7 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
     border: 1px solid #dcdcde;
     border-radius: 6px;
     margin-top: 16px;
+    overflow: visible;
   }
   .sfs-hr-emp-table .widefat {
     border: none;
@@ -2363,6 +2364,12 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
   .sfs-hr-kebab-menu.open {
     display: block;
   }
+  .sfs-hr-kebab-menu.open-up {
+    top: auto;
+    bottom: 100%;
+    margin-top: 0;
+    margin-bottom: 4px;
+  }
   .sfs-hr-kebab-menu a {
     display: flex;
     align-items: center;
@@ -2389,8 +2396,9 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
   .sfs-hr-pagination {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 16px;
+    justify-content: center;
+    gap: 4px;
+    padding: 12px 16px;
     background: #fff;
     border: 1px solid #dcdcde;
     border-top: none;
@@ -2404,7 +2412,7 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
     justify-content: center;
     min-width: 32px;
     height: 32px;
-    padding: 0 10px;
+    padding: 0 8px;
     border-radius: 4px;
     text-decoration: none;
     font-size: 13px;
@@ -2593,12 +2601,18 @@ function sfsHrToggleKebab(btn) {
   // Close all open menus first.
   document.querySelectorAll('.sfs-hr-kebab-menu.open').forEach(function(el) {
     el.classList.remove('open');
+    el.classList.remove('open-up');
     var prev = el.previousElementSibling;
     if (prev && prev.classList.contains('sfs-hr-kebab-btn')) prev.setAttribute('aria-expanded','false');
   });
   if (!isOpen) {
     menu.classList.add('open');
     btn.setAttribute('aria-expanded','true');
+    // Flip upward if menu would overflow the viewport bottom.
+    var rect = menu.getBoundingClientRect();
+    if (rect.bottom > window.innerHeight) {
+      menu.classList.add('open-up');
+    }
   } else {
     btn.setAttribute('aria-expanded','false');
   }
@@ -2607,6 +2621,7 @@ document.addEventListener('click', function(e) {
   if (!e.target.closest('.sfs-hr-kebab-btn') && !e.target.closest('.sfs-hr-kebab-menu')) {
     document.querySelectorAll('.sfs-hr-kebab-menu.open').forEach(function(el) {
       el.classList.remove('open');
+      el.classList.remove('open-up');
       var prev = el.previousElementSibling;
       if (prev && prev.classList.contains('sfs-hr-kebab-btn')) prev.setAttribute('aria-expanded','false');
     });
@@ -2616,6 +2631,7 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     document.querySelectorAll('.sfs-hr-kebab-menu.open').forEach(function(el) {
       el.classList.remove('open');
+      el.classList.remove('open-up');
       var prev = el.previousElementSibling;
       if (prev && prev.classList.contains('sfs-hr-kebab-btn')) prev.setAttribute('aria-expanded','false');
     });
