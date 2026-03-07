@@ -586,6 +586,10 @@ add_action('rest_api_init', function () {
         color:#1e40af; background:#dbeafe; border:1px solid #bfdbfe;
         border-radius:10px; padding:10px 14px; font-weight:600;
       }
+      #<?php echo esc_attr( $root_id ); ?> .sfs-att-statusline[data-mode="warning"]{
+        color:#92400e; background:#fef3c7; border:1px solid #fde68a;
+        border-radius:10px; padding:10px 14px; font-weight:500;
+      }
       #<?php echo esc_attr( $root_id ); ?> .sfs-att-statusline[data-mode="off_day"]{
         color:#4338ca; background:#eef2ff; border:1px solid #c7d2fe;
         border-radius:10px; padding:12px 18px; font-weight:600; font-size:15px;
@@ -1457,17 +1461,10 @@ setInterval(tickClock, 1000);
                     hint && (hint.textContent = '');
                     if (progressWrap) progressWrap.style.display = 'none';
                 } else if (j.stale_session_msg) {
-                    // Show the stale session warning but enable Clock Out so
-                    // the employee can close the stuck session themselves.
-                    // Clear any method-level block on 'out' so syncButtons()
-                    // won't disable the button due to policy restrictions.
-                    setStat(j.stale_session_msg, 'error');
-                    allowed['out'] = true;
-                    allowed['in'] = false;
-                    allowed['break_start'] = false;
-                    allowed['break_end'] = false;
-                    delete methodBlocked['out'];
-                    syncButtons();
+                    // Stale session: the backend already returns the correct
+                    // allow flags (in=true, out=false) so we just show the
+                    // informational message without overriding button state.
+                    setStat(j.stale_session_msg, 'warning');
                     hint && (hint.textContent = '');
                     if (progressWrap) progressWrap.style.display = '';
                 } else {
