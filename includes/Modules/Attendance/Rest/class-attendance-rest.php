@@ -669,10 +669,12 @@ if ( $source === 'kiosk' && $scan_token !== '' && ! $is_offline_origin ) {
     // When a stale open session exists (buffer expired, snapshot shows idle),
     // allow a fresh clock-in — the old incomplete record stays as-is for HR
     // to review.  The stale_session_msg is returned to the UI as a non-blocking note.
+    // Respect off-day: don't unblock clock-in when today has no shift.
     $has_stale_session = ! empty( $pre['stale_session_msg'] );
     if ( $has_stale_session ) {
-        $allow['in']          = true;   // unblock new clock-in
-        $allow['out']         = false;  // nothing open today to close
+        $is_off = ! empty( $pre['is_off_day'] );
+        $allow['in']          = ! $is_off;  // unblock new clock-in (unless off day)
+        $allow['out']         = false;       // nothing open today to close
         $allow['break_start'] = false;
         $allow['break_end']   = false;
     }
@@ -987,17 +989,29 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
         // The initial snapshot_for_today + allow check happened BEFORE the lock.
         // A concurrent request could have changed the state between then and now.
         // Re-check the last punch to confirm the transition is still valid.
-        $last_after_lock = $wpdb->get_var( $wpdb->prepare(
-            "SELECT punch_type FROM {$punchT}
+        $last_row_after_lock = $wpdb->get_row( $wpdb->prepare(
+            "SELECT punch_type, punch_time FROM {$punchT}
              WHERE employee_id = %d ORDER BY punch_time DESC, id DESC LIMIT 1",
             (int) $emp
         ) );
+        $last_after_lock = $last_row_after_lock ? (string) $last_row_after_lock->punch_type : null;
         $state_map = [ 'in' => 'in', 'break_end' => 'in', 'break_start' => 'break', 'out' => 'idle' ];
         $state_after_lock = $state_map[ $last_after_lock ] ?? 'idle';
+
+        // Re-evaluate stale session inside the lock: if another request already
+        // clocked in (last punch is now from today), the stale flag no longer applies.
+        $has_stale_after_lock = $has_stale_session;
+        if ( $has_stale_session && $last_row_after_lock ) {
+            $last_punch_date = wp_date( 'Y-m-d', strtotime( $last_row_after_lock->punch_time . ' UTC' ) );
+            if ( $last_punch_date >= wp_date( 'Y-m-d' ) ) {
+                $has_stale_after_lock = false;
+            }
+        }
+
         $allow_after_lock = [
-            'in'          => ( $state_after_lock === 'idle' || $has_stale_session ),
-            'out'         => ( $state_after_lock === 'in' && ! $has_stale_session ),
-            'break_start' => ( $state_after_lock === 'in' && ! $has_stale_session ),
+            'in'          => ( $state_after_lock === 'idle' || $has_stale_after_lock ),
+            'out'         => ( $state_after_lock === 'in' && ! $has_stale_after_lock ),
+            'break_start' => ( $state_after_lock === 'in' && ! $has_stale_after_lock ),
             'break_end'   => ( $state_after_lock === 'break' ),
         ];
         if ( empty( $allow_after_lock[ $punch_type ] ) ) {
