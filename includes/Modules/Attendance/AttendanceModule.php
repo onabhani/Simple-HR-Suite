@@ -2173,8 +2173,11 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
       <span id="sfs-status-text-<?php echo $inst; ?>"><?php esc_html_e( 'Ready', 'sfs-hr' ); ?></span>
     </div>
 
-    <!-- lane chip (hidden helper, used by JS) -->
-    <span id="sfs-kiosk-lane-chip-<?php echo $inst; ?>" class="sfs-chip sfs-chip--in" hidden><?php esc_html_e( 'Clock In', 'sfs-hr' ); ?></span>
+    <!-- lane chip (internal state only — hidden from all views) -->
+    <span id="sfs-kiosk-lane-chip-<?php echo $inst; ?>" class="sfs-chip sfs-chip--in" hidden aria-hidden="true"><?php esc_html_e( 'Clock In', 'sfs-hr' ); ?></span>
+
+    <!-- ── Instruction text (menu view only) ── -->
+    <p class="sfs-kiosk-instruction"><?php esc_html_e( 'Select an action, then scan employee QR codes.', 'sfs-hr' ); ?></p>
 
     <!-- ── ACTION BUTTONS (menu view — card style per mockup) ── -->
     <div id="sfs-kiosk-lane-<?php echo $inst; ?>" class="sfs-al">
@@ -2220,6 +2223,21 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
           <ul id="sfs-kiosk-log-list-<?php echo $inst; ?>" class="sfs-log-list"></ul>
         </div>
       </div>
+      <!-- Quick tips panel (visible on mobile below camera, hidden on tablet where log shows inline) -->
+      <div class="sfs-scan-tips">
+        <div class="sfs-scan-tips-row">
+          <span class="sfs-scan-tips-icon">&#9432;</span>
+          <span><?php esc_html_e( 'Hold QR code steady in the frame', 'sfs-hr' ); ?></span>
+        </div>
+        <div class="sfs-scan-tips-row">
+          <span class="sfs-scan-tips-icon">&#8635;</span>
+          <span><?php esc_html_e( 'Scans automatically — no need to tap', 'sfs-hr' ); ?></span>
+        </div>
+        <div class="sfs-scan-tips-row">
+          <span class="sfs-scan-tips-icon">&#9650;</span>
+          <span><?php esc_html_e( 'Swipe up to view recent scans', 'sfs-hr' ); ?></span>
+        </div>
+      </div>
       <!-- Hidden elements for QR processing -->
       <canvas id="sfs-kiosk-selfie-<?php echo $inst; ?>" width="480" height="480" hidden></canvas>
       <span id="sfs-kiosk-qr-status-<?php echo $inst; ?>" class="sfs-qr-status"></span>
@@ -2244,8 +2262,7 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
         </div>
         <div class="sfs-summary-detail" id="sfs-summary-duration-<?php echo $inst; ?>"></div>
         <div style="display:flex;gap:12px;margin-top:24px;">
-          <button type="button" id="sfs-summary-new-<?php echo $inst; ?>" style="flex:1;padding:13px 24px;font-size:15px;font-weight:600;border:none;border-radius:12px;background:#0f4c5c;color:#fff;cursor:pointer;"><?php esc_html_e( 'New Session', 'sfs-hr' ); ?></button>
-          <button type="button" id="sfs-summary-menu-<?php echo $inst; ?>" style="flex:1;padding:13px 24px;font-size:15px;font-weight:600;border:1px solid #e5e7eb;border-radius:12px;background:#fff;color:#111827;cursor:pointer;"><?php esc_html_e( 'Back to Menu', 'sfs-hr' ); ?></button>
+          <button type="button" id="sfs-summary-done-<?php echo $inst; ?>" style="flex:1;padding:13px 24px;font-size:15px;font-weight:600;border:none;border-radius:12px;background:#0f4c5c;color:#fff;cursor:pointer;"><?php esc_html_e( 'Done', 'sfs-hr' ); ?></button>
         </div>
       </div>
     </div>
@@ -2389,12 +2406,15 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 #<?php echo $root_id; ?> .sfs-statusbar[data-mode="break_end"]   { color:#1e40af; background:#dbeafe; border:1px solid #bfdbfe; font-weight:600; }
 #<?php echo $root_id; ?> .sfs-statusbar[data-mode="scanning"]    { color:#1d4ed8; background:#eff6ff; border:1px solid #bfdbfe; }
 
-/* Lane chip (matches self-web .sfs-att-chip) */
+/* Lane chip — internal state element, always hidden */
 #<?php echo $root_id; ?> .sfs-chip{
-  display:inline-block; padding:6px 14px; border-radius:999px;
-  font-size:13px; font-weight:600; line-height:1.2; white-space:nowrap;
-  border:1px solid #e5e7eb;
+  display:none !important;
 }
+/* Instruction text on menu view */
+#<?php echo $root_id; ?> .sfs-kiosk-instruction{
+  font-size:14px; color:var(--sfs-text-muted); margin:0 0 4px; text-align:center;
+}
+#<?php echo $root_id; ?>[data-view="scan"] .sfs-kiosk-instruction{ display:none; }
 #<?php echo $root_id; ?> .sfs-chip--idle{ background:#f3f4f6; color:#374151; }
 #<?php echo $root_id; ?> .sfs-chip--in{ background:#dcfce7; color:#166534; border-color:#bbf7d0; }
 #<?php echo $root_id; ?> .sfs-chip--out{ background:#fee2e2; color:#b91c1c; border-color:#fecaca; }
@@ -2568,6 +2588,9 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 #<?php echo $root_id; ?> .sfs-summary-label{ display:block; font-size:16px; color:#6b7280; margin-top:4px; }
 #<?php echo $root_id; ?> .sfs-summary-detail{ font-size:14px; color:#6b7280; }
 
+/* Scan tips — hidden by default; shown on mobile via media query */
+#<?php echo $root_id; ?> .sfs-scan-tips{ display:none; }
+
 /* ── VIEW TOGGLE: menu vs scan ── */
 #<?php echo $root_id; ?>[data-view="menu"] .sfs-kh{ display:flex; }
 #<?php echo $root_id; ?>[data-view="menu"] .sfs-sh{ display:none; }
@@ -2628,6 +2651,19 @@ body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
   }
   /* Hide inline scan log on mobile — replaced by slide-up modal */
   #<?php echo $root_id; ?> .sfs-scan-log{ display:none !important; }
+  /* Show tips panel on mobile scan view to fill empty space below camera */
+  #<?php echo $root_id; ?>[data-view="scan"] .sfs-scan-tips{
+    display:flex; flex-direction:column; gap:10px;
+    padding:16px 20px; margin:0 8px;
+    background:#f8fafc; border-radius:12px; border:1px solid var(--sfs-border);
+  }
+  #<?php echo $root_id; ?> .sfs-scan-tips-row{
+    display:flex; align-items:center; gap:10px;
+    font-size:13px; color:var(--sfs-text-muted);
+  }
+  #<?php echo $root_id; ?> .sfs-scan-tips-icon{
+    font-size:16px; opacity:0.6; flex-shrink:0; width:20px; text-align:center;
+  }
   #<?php echo $root_id; ?> .sfs-camwrap{ padding:8px; gap:8px; }
   #<?php echo $root_id; ?> .sfs-sh .sfs-sh-sub{ display:none; }
   #<?php echo $root_id; ?> .sfs-sh-stop{ padding:7px 10px; }
@@ -4053,8 +4089,7 @@ const summaryEl     = document.getElementById('sfs-kiosk-summary-<?php echo $ins
 const summaryCountEl = document.getElementById('sfs-summary-count-<?php echo $inst; ?>');
 const summaryDurEl  = document.getElementById('sfs-summary-duration-<?php echo $inst; ?>');
 const stopBtn       = document.getElementById('sfs-kiosk-stop-<?php echo $inst; ?>');
-const summaryNewBtn = document.getElementById('sfs-summary-new-<?php echo $inst; ?>');
-const summaryMenuBtn = document.getElementById('sfs-summary-menu-<?php echo $inst; ?>');
+const summaryDoneBtn = document.getElementById('sfs-summary-done-<?php echo $inst; ?>');
 
 function startSession(){
   sessionCount = 0;
@@ -4088,8 +4123,10 @@ function getInitials(name){
 // Display the difference (employees currently inside) and optionally surface
 // names of those who clocked in but haven't clocked out yet.
 function addScanLog(name, action, ok){
-  sessionCount++;
-  if (countEl) countEl.textContent = String(sessionCount);
+  if (ok) {
+    sessionCount++;
+    if (countEl) countEl.textContent = String(sessionCount);
+  }
 
   const time = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
   scanLog.unshift({ name, action, time, ok });
@@ -4155,17 +4192,11 @@ if (stopBtn) {
   stopBtn.addEventListener('click', showSessionSummary);
 }
 
-// Session summary buttons
-if (summaryNewBtn) {
-  summaryNewBtn.addEventListener('click', () => {
+// Session summary: single "Done" button — resets session and returns to menu
+if (summaryDoneBtn) {
+  summaryDoneBtn.addEventListener('click', () => {
     if (summaryEl) summaryEl.style.display = 'none';
     startSession();
-    // stay on menu — operator picks action, which starts scanner
-  });
-}
-if (summaryMenuBtn) {
-  summaryMenuBtn.addEventListener('click', () => {
-    if (summaryEl) summaryEl.style.display = 'none';
     ROOT.dataset.view = 'menu';
     setStat(t.ready_choose_action||'Ready — choose an action', 'idle');
   });
