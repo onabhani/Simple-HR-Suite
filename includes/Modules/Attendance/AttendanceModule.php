@@ -2135,104 +2135,109 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
   data-geo-enforce-out="1"
 >
 
-  <div class="sfs-kiosk-shell">
+  <!-- ── MENU HEADER (top bar — shown in menu view) ── -->
+  <header class="sfs-kh">
+    <span class="sfs-kh-brand"><?php echo esc_html( get_bloginfo('name') ); ?></span>
+    <span id="sfs-kiosk-clock-<?php echo $inst; ?>" class="sfs-kh-clock">--:--</span>
+    <div class="sfs-kh-meta">
+      <span id="sfs-kiosk-date-<?php echo $inst; ?>" class="sfs-kh-date">—</span>
+      <span class="sfs-kh-device"><?php echo esc_html($device['label'] ?? 'Kiosk'); ?></span>
+    </div>
+  </header>
 
-    <aside class="sfs-kiosk-left">
-      <div>
-          <div class="sfs-brand"><?php echo esc_html( get_bloginfo('name') ); ?></div>
-        <div id="sfs-kiosk-date-<?php echo $inst; ?>" class="sfs-date">—</div>
-        <div id="sfs-kiosk-clock-<?php echo $inst; ?>" class="sfs-clock">--:--</div>
-      </div>
-      <div class="sfs-device"><?php echo esc_html($device['label'] ?? 'Kiosk'); ?></div>
-    </aside>
+  <!-- ── SCAN HEADER (shown in scan view) ── -->
+  <header class="sfs-sh">
+    <button id="sfs-kiosk-stop-<?php echo $inst; ?>" type="button" class="sfs-sh-stop"><?php esc_html_e( 'STOP', 'sfs-hr' ); ?></button>
+    <div class="sfs-sh-mode">
+      <span id="sfs-kiosk-lane-label-<?php echo $inst; ?>" class="sfs-sh-action"><?php esc_html_e( 'Clock In', 'sfs-hr' ); ?></span>
+      <span class="sfs-sh-sub"><?php esc_html_e( 'Continuous Scan Mode', 'sfs-hr' ); ?></span>
+    </div>
+    <div class="sfs-sh-counter">
+      <span id="sfs-kiosk-count-<?php echo $inst; ?>" class="sfs-sh-num">0</span>
+      <span class="sfs-sh-lbl"><?php esc_html_e( 'scanned', 'sfs-hr' ); ?></span>
+    </div>
+    <span id="sfs-kiosk-session-time-<?php echo $inst; ?>" class="sfs-sh-time">--:--</span>
+  </header>
 
-    <main class="sfs-kiosk-right">
-      <h2 class="sfs-title sr-only"><?php esc_html_e( 'Attendance Kiosk', 'sfs-hr' ); ?></h2>
-      <h1 id="sfs-greet-<?php echo $inst; ?>" class="sfs-greet"><?php esc_html_e( 'Good day!', 'sfs-hr' ); ?></h1>
-<div class="sfs-statusbar">
-  <span id="sfs-status-dot-<?php echo $inst; ?>" class="sfs-dot sfs-dot--idle"></span>
-  <span id="sfs-status-text-<?php echo $inst; ?>"><?php esc_html_e( 'Ready', 'sfs-hr' ); ?></span>
-</div>
+  <!-- ── CONTENT AREA ── -->
+  <main class="sfs-kc">
+    <h2 class="sfs-title sr-only"><?php esc_html_e( 'Attendance Kiosk', 'sfs-hr' ); ?></h2>
+    <h1 id="sfs-greet-<?php echo $inst; ?>" class="sfs-greet"><?php esc_html_e( 'Good day!', 'sfs-hr' ); ?></h1>
+
+    <div class="sfs-statusbar">
+      <span id="sfs-status-dot-<?php echo $inst; ?>" class="sfs-dot sfs-dot--idle"></span>
+      <span id="sfs-status-text-<?php echo $inst; ?>"><?php esc_html_e( 'Ready', 'sfs-hr' ); ?></span>
+    </div>
+
+    <!-- lane chip (hidden helper, used by JS) -->
+    <span id="sfs-kiosk-lane-chip-<?php echo $inst; ?>" class="sfs-chip sfs-chip--in" hidden><?php esc_html_e( 'Clock In', 'sfs-hr' ); ?></span>
+
+    <!-- ── ACTION BUTTONS (menu view — card style per mockup) ── -->
+    <div id="sfs-kiosk-lane-<?php echo $inst; ?>" class="sfs-al">
+      <button type="button" data-action="in" class="sfs-ab sfs-ab--in sfs-lane-btn">
+        <span class="sfs-ab-dot"></span><?php esc_html_e( 'Clock In', 'sfs-hr' ); ?><span class="sfs-ab-arr">&#8250;</span>
+      </button>
+      <button type="button" data-action="out" class="sfs-ab sfs-ab--out sfs-lane-btn">
+        <span class="sfs-ab-dot"></span><?php esc_html_e( 'Clock Out', 'sfs-hr' ); ?><span class="sfs-ab-arr">&#8250;</span>
+      </button>
+      <?php if ( ! empty( $device['break_enabled'] ) ) : ?>
+      <button type="button" data-action="break_start" class="sfs-ab sfs-ab--brk sfs-lane-btn">
+        <span class="sfs-ab-dot"></span><?php esc_html_e( 'Start Break', 'sfs-hr' ); ?><span class="sfs-ab-arr">&#8250;</span>
+      </button>
+      <button type="button" data-action="break_end" class="sfs-ab sfs-ab--bend sfs-lane-btn">
+        <span class="sfs-ab-dot"></span><?php esc_html_e( 'End Break', 'sfs-hr' ); ?><span class="sfs-ab-arr">&#8250;</span>
+      </button>
+      <?php endif; ?>
+    </div>
 
 
-      <!-- lane -->
-<div id="sfs-kiosk-lane-<?php echo $inst; ?>" style="gap:8px;align-items:center;margin:10px 0;">
-        <strong id="sfs-kiosk-lane-label-<?php echo $inst; ?>" style="min-width:110px;"><?php esc_html_e( 'Current:', 'sfs-hr' ); ?></strong>
-        <span id="sfs-kiosk-lane-chip-<?php echo $inst; ?>" class="sfs-chip sfs-chip--in"><?php esc_html_e( 'Clock In', 'sfs-hr' ); ?></span>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:10px">
-          <button type="button" data-action="in"          class="button sfs-lane-btn button-primary"><?php esc_html_e( 'Clock In', 'sfs-hr' ); ?></button>
-          <button type="button" data-action="out"         class="button sfs-lane-btn"><?php esc_html_e( 'Clock Out', 'sfs-hr' ); ?></button>
-          <?php if ( ! empty( $device['break_enabled'] ) ) : ?>
-          <button type="button" data-action="break_start" class="button sfs-lane-btn"><?php esc_html_e( 'Start Break', 'sfs-hr' ); ?></button>
-          <button type="button" data-action="break_end"   class="button sfs-lane-btn"><?php esc_html_e( 'End Break', 'sfs-hr' ); ?></button>
-          <?php endif; ?>
+    <!-- ── CAMERA (scan view — within viewport) ── -->
+    <div id="sfs-kiosk-camwrap-<?php echo $inst; ?>" class="sfs-camwrap">
+      <div class="sfs-cam-body">
+        <div class="sfs-cam-feed">
+          <video id="sfs-kiosk-qr-video-<?php echo $inst; ?>"
+                 autoplay playsinline webkit-playsinline muted></video>
+          <div class="sfs-qr-guide"><div class="sfs-qr-c sfs-qr-tl"></div><div class="sfs-qr-c sfs-qr-tr"></div><div class="sfs-qr-c sfs-qr-bl"></div><div class="sfs-qr-c sfs-qr-br"></div></div>
+          <div class="sfs-scan-hint"><span class="sfs-pulse"></span> <?php esc_html_e( 'Next employee — show QR code', 'sfs-hr' ); ?></div>
+        </div>
+        <!-- Recent scans log (side panel on tablet+) -->
+        <div id="sfs-kiosk-log-<?php echo $inst; ?>" class="sfs-scan-log">
+          <h4 class="sfs-log-title"><?php esc_html_e( 'Recent Scans', 'sfs-hr' ); ?></h4>
+          <ul id="sfs-kiosk-log-list-<?php echo $inst; ?>" class="sfs-log-list"></ul>
         </div>
       </div>
-
-
-
-
-<!-- Scan counter bar (visible in scan view) -->
-<div id="sfs-kiosk-scanbar-<?php echo $inst; ?>" class="sfs-scanbar">
-  <span class="sfs-scanbar-count"><strong id="sfs-kiosk-count-<?php echo $inst; ?>">0</strong> <?php esc_html_e( 'scanned', 'sfs-hr' ); ?></span>
-  <span id="sfs-kiosk-session-time-<?php echo $inst; ?>" class="sfs-scanbar-time"></span>
-  <button id="sfs-kiosk-stop-<?php echo $inst; ?>" type="button" class="sfs-stop-btn"><?php esc_html_e( 'STOP', 'sfs-hr' ); ?></button>
-</div>
-
-<!-- QR/camera + recent scans split -->
-<div id="sfs-kiosk-scan-split-<?php echo $inst; ?>" class="sfs-scan-split">
-  <!-- Camera panel -->
-  <div id="sfs-kiosk-camwrap-<?php echo $inst; ?>" class="sfs-camwrap" style="margin:0;">
-    <video id="sfs-kiosk-qr-video-<?php echo $inst; ?>"
-           autoplay playsinline webkit-playsinline muted
-           style="width:100%;border-radius:8px;background:#000"></video>
-
-    <!-- Hidden square canvas only for snapshot encoding -->
-    <canvas id="sfs-kiosk-selfie-<?php echo $inst; ?>" width="480" height="480" hidden></canvas>
-
-    <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
-      <button id="sfs-kiosk-qr-exit-<?php echo $inst; ?>" type="button" class="button button-secondary"><?php esc_html_e( 'Exit', 'sfs-hr' ); ?></button>
-      <button id="sfs-kiosk-qr-stop-<?php echo $inst; ?>" type="button" class="button" hidden><?php esc_html_e( 'Stop Camera', 'sfs-hr' ); ?></button>
-      <span id="sfs-kiosk-qr-status-<?php echo $inst; ?>" style="font-size:12px;color:#646970;"></span>
+      <!-- Hidden elements for QR processing -->
+      <canvas id="sfs-kiosk-selfie-<?php echo $inst; ?>" width="480" height="480" hidden></canvas>
+      <span id="sfs-kiosk-qr-status-<?php echo $inst; ?>" class="sfs-qr-status"></span>
     </div>
-  </div>
 
-  <!-- Recent scans log -->
-  <div id="sfs-kiosk-log-<?php echo $inst; ?>" class="sfs-scan-log">
-    <h4 class="sfs-log-title"><?php esc_html_e( 'Recent Scans', 'sfs-hr' ); ?></h4>
-    <ul id="sfs-kiosk-log-list-<?php echo $inst; ?>" class="sfs-log-list"></ul>
-  </div>
-</div>
-
-<!-- Large flash overlay with employee name -->
-<div id="sfs-kiosk-flash-<?php echo $inst; ?>" class="sfs-flash">
-  <div class="sfs-flash-inner">
-    <div id="sfs-kiosk-flash-name-<?php echo $inst; ?>" class="sfs-flash-name"></div>
-    <div id="sfs-kiosk-flash-action-<?php echo $inst; ?>" class="sfs-flash-action"></div>
-    <div id="sfs-kiosk-flash-time-<?php echo $inst; ?>" class="sfs-flash-time"></div>
-  </div>
-</div>
-
-<!-- Session summary overlay -->
-<div id="sfs-kiosk-summary-<?php echo $inst; ?>" class="sfs-session-summary" style="display:none;">
-  <div class="sfs-summary-card">
-    <h2><?php esc_html_e( 'Session Complete', 'sfs-hr' ); ?></h2>
-    <div class="sfs-summary-stat">
-      <span class="sfs-summary-number" id="sfs-summary-count-<?php echo $inst; ?>">0</span>
-      <span class="sfs-summary-label"><?php esc_html_e( 'employees scanned', 'sfs-hr' ); ?></span>
+    <!-- Large flash overlay with employee name -->
+    <div id="sfs-kiosk-flash-<?php echo $inst; ?>" class="sfs-flash">
+      <div class="sfs-flash-inner">
+        <div id="sfs-kiosk-flash-name-<?php echo $inst; ?>" class="sfs-flash-name"></div>
+        <div id="sfs-kiosk-flash-action-<?php echo $inst; ?>" class="sfs-flash-action"></div>
+        <div id="sfs-kiosk-flash-time-<?php echo $inst; ?>" class="sfs-flash-time"></div>
+      </div>
     </div>
-    <div class="sfs-summary-detail" id="sfs-summary-duration-<?php echo $inst; ?>"></div>
-    <div style="display:flex;gap:12px;margin-top:24px;">
-      <button type="button" id="sfs-summary-new-<?php echo $inst; ?>" class="button button-primary" style="padding:10px 24px;font-size:16px;"><?php esc_html_e( 'New Session', 'sfs-hr' ); ?></button>
-      <button type="button" id="sfs-summary-menu-<?php echo $inst; ?>" class="button" style="padding:10px 24px;font-size:16px;"><?php esc_html_e( 'Back to Menu', 'sfs-hr' ); ?></button>
+
+    <!-- Session summary overlay -->
+    <div id="sfs-kiosk-summary-<?php echo $inst; ?>" class="sfs-session-summary" style="display:none;">
+      <div class="sfs-summary-card">
+        <h2><?php esc_html_e( 'Session Complete', 'sfs-hr' ); ?></h2>
+        <div class="sfs-summary-stat">
+          <span class="sfs-summary-number" id="sfs-summary-count-<?php echo $inst; ?>">0</span>
+          <span class="sfs-summary-label"><?php esc_html_e( 'employees scanned', 'sfs-hr' ); ?></span>
+        </div>
+        <div class="sfs-summary-detail" id="sfs-summary-duration-<?php echo $inst; ?>"></div>
+        <div style="display:flex;gap:12px;margin-top:24px;">
+          <button type="button" id="sfs-summary-new-<?php echo $inst; ?>" class="button button-primary" style="padding:10px 24px;font-size:16px;"><?php esc_html_e( 'New Session', 'sfs-hr' ); ?></button>
+          <button type="button" id="sfs-summary-menu-<?php echo $inst; ?>" class="button" style="padding:10px 24px;font-size:16px;"><?php esc_html_e( 'Back to Menu', 'sfs-hr' ); ?></button>
+        </div>
+      </div>
     </div>
-  </div>
-</div>
 
+  </main>
 
-    </main>
-
-  </div> <!-- .sfs-kiosk-shell -->
 </div> <!-- .sfs-kiosk-app -->
 <?php if ( $immersive ): ?>
   </div> <!-- .sfs-kiosk-veil -->
@@ -2243,62 +2248,86 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 /* ==== Scope to this kiosk instance ==== */
 #<?php echo $root_id; ?>.sfs-kiosk-app{
   --sfs-teal:#0f4c5c;
-  --sfs-surface:#ffffff;
+  --sfs-surface:#f8f9fb;
+  --sfs-white:#ffffff;
   --sfs-border:#e5e7eb;
+  --sfs-text:#1f2937;
+  --sfs-text-muted:#6b7280;
+  --sfs-green:#16a34a;
+  --sfs-red:#ef4444;
+  --sfs-amber:#f59e0b;
+  --sfs-blue:#3b82f6;
+  --sfs-radius:14px;
   position:relative;
   min-height:100dvh; width:100%; margin:0;
-  background:linear-gradient(90deg,var(--sfs-teal) 0 36%, var(--sfs-surface) 36% 100%);
-}
-#<?php echo $root_id; ?> .sfs-kiosk-shell{
-  display:grid; grid-template-columns:minmax(260px,36vw) 1fr; min-height:100dvh;
-}
-#<?php echo $root_id; ?> .sfs-kiosk-left{
-  color:#fff; padding:32px 28px; display:flex; flex-direction:column; justify-content:space-between; background:transparent;
-}
-#<?php echo $root_id; ?> .sfs-date{ opacity:.95; font-size:clamp(14px,2.2vw,18px); margin-bottom:8px; }
-#<?php echo $root_id; ?> .sfs-clock{ font-weight:800; letter-spacing:-.02em; font-size:clamp(42px,8vw,88px); line-height:1; }
-#<?php echo $root_id; ?> .sfs-device{ opacity:.9; font-size:clamp(12px,1.4vw,14px); }
-#<?php echo $root_id; ?> .sfs-kiosk-right{
+  display:flex; flex-direction:column;
   background:var(--sfs-surface);
-  padding:clamp(16px,3vw,32px);
-  display:flex; flex-direction:column; align-items:center;
+  font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color:var(--sfs-text);
 }
-#<?php echo $root_id; ?> .sfs-title{ margin:0 0 10px; font-size:clamp(18px,2.4vw,28px); }
 
-/* Greeting headline */
+/* ── MENU HEADER (top bar) ── */
+#<?php echo $root_id; ?> .sfs-kh{
+  background:var(--sfs-teal); color:#fff;
+  padding:14px 24px;
+  display:flex; align-items:center; justify-content:space-between;
+  flex-shrink:0;
+}
+#<?php echo $root_id; ?> .sfs-kh-brand{ font-weight:700; font-size:16px; }
+#<?php echo $root_id; ?> .sfs-kh-clock{ font-weight:800; font-size:28px; letter-spacing:-0.02em; }
+#<?php echo $root_id; ?> .sfs-kh-meta{ text-align:right; font-size:13px; opacity:0.9; line-height:1.4; display:flex; flex-direction:column; }
+#<?php echo $root_id; ?> .sfs-kh-device{ font-size:12px; opacity:0.8; }
+
+/* ── SCAN HEADER (compact bar during scanning) ── */
+#<?php echo $root_id; ?> .sfs-sh{
+  background:var(--sfs-teal); color:#fff;
+  padding:10px 16px;
+  display:flex; align-items:center; gap:12px;
+  flex-shrink:0;
+}
+#<?php echo $root_id; ?> .sfs-sh-stop{
+  background:var(--sfs-red); border:none; color:#fff;
+  padding:7px 16px; border-radius:8px; font-size:13px; font-weight:700;
+  letter-spacing:0.02em; cursor:pointer;
+}
+#<?php echo $root_id; ?> .sfs-sh-stop:hover{ background:#dc2626; }
+#<?php echo $root_id; ?> .sfs-sh-mode{ flex:1; text-align:center; }
+#<?php echo $root_id; ?> .sfs-sh-action{ font-weight:700; font-size:17px; display:block; }
+#<?php echo $root_id; ?> .sfs-sh-sub{ font-size:11px; opacity:0.75; }
+#<?php echo $root_id; ?> .sfs-sh-counter{
+  background:rgba(255,255,255,0.15); border-radius:8px;
+  padding:5px 12px; text-align:center; min-width:60px;
+}
+#<?php echo $root_id; ?> .sfs-sh-num{ font-weight:800; font-size:20px; display:block; line-height:1.1; }
+#<?php echo $root_id; ?> .sfs-sh-lbl{ font-size:9px; text-transform:uppercase; opacity:0.7; letter-spacing:0.04em; }
+#<?php echo $root_id; ?> .sfs-sh-time{ font-size:14px; opacity:0.9; }
+
+/* ── CONTENT AREA ── */
+#<?php echo $root_id; ?> .sfs-kc{
+  flex:1; display:flex; flex-direction:column; align-items:center;
+  padding:24px; background:var(--sfs-surface); overflow:hidden;
+}
+
+/* Greeting */
 #<?php echo $root_id; ?> .sfs-greet{
-  margin: clamp(8px, 2vw, 24px) 0 clamp(14px, 4vw, 40px);
-  font-weight: 800;
-  font-size: clamp(28px, 6vw, 72px);
-  line-height: 1.1;
-  text-align: center;
+  font-weight:800; font-size:clamp(24px,5vw,36px);
+  color:var(--sfs-text); margin:clamp(8px,2vw,20px) 0; text-align:center;
 }
 
-/* Lane container + statusbar blocks */
-#<?php echo $root_id; ?> #sfs-kiosk-lane-<?php echo $inst; ?>{
-  width:100%;
-  max-width:1024px;
-  margin:6px auto 12px;
-  display:flex;
-  gap:8px;
-  align-items:center;
-}
-
-
-/* Statusbar visual presets (kept) */
+/* ── Statusbar ── */
 #<?php echo $root_id; ?> .sfs-statusbar{
   display:flex; align-items:center; gap:10px;
-  width:100%; max-width:1024px; margin:8px auto 12px;
+  width:100%; max-width:500px; margin:8px auto 12px;
   padding:10px 12px; border:1px solid var(--sfs-border);
-  border-radius:10px; background:#fff;
+  border-radius:10px; background:var(--sfs-white);
 }
 #<?php echo $root_id; ?> .sfs-dot{ width:10px; height:10px; border-radius:999px; display:inline-block; }
 #<?php echo $root_id; ?> .sfs-dot--idle{ background:#d1d5db; }
-#<?php echo $root_id; ?> .sfs-dot--in{ background:#16a34a; }
-#<?php echo $root_id; ?> .sfs-dot--out{ background:#ef4444; }
-#<?php echo $root_id; ?> .sfs-dot--break_start{ background:#f59e0b; }
-#<?php echo $root_id; ?> .sfs-dot--break_end{ background:#3b82f6; }
-#<?php echo $root_id; ?> .sfs-statusbar[data-mode="idle"]        { border-color:#e5e7eb; background:#fff; }
+#<?php echo $root_id; ?> .sfs-dot--in{ background:var(--sfs-green); }
+#<?php echo $root_id; ?> .sfs-dot--out{ background:var(--sfs-red); }
+#<?php echo $root_id; ?> .sfs-dot--break_start{ background:var(--sfs-amber); }
+#<?php echo $root_id; ?> .sfs-dot--break_end{ background:var(--sfs-blue); }
+#<?php echo $root_id; ?> .sfs-statusbar[data-mode="idle"]        { border-color:#e5e7eb; background:var(--sfs-white); }
 #<?php echo $root_id; ?> .sfs-statusbar[data-mode="ok"]          { border-color:#b7dfc8; background:#f6fff9; }
 #<?php echo $root_id; ?> .sfs-statusbar[data-mode="busy"]        { border-color:#bfdbfe; background:#eff6ff; }
 #<?php echo $root_id; ?> .sfs-statusbar[data-mode="error"]       { border-color:#fecaca; background:#fff7f7; }
@@ -2306,8 +2335,9 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 #<?php echo $root_id; ?> .sfs-statusbar[data-mode="out"]         { border-color:#fecaca; background:#fff7f7; }
 #<?php echo $root_id; ?> .sfs-statusbar[data-mode="break_start"] { border-color:#fde68a; background:#fffbeb; }
 #<?php echo $root_id; ?> .sfs-statusbar[data-mode="break_end"]   { border-color:#bfdbfe; background:#eff6ff; }
+#<?php echo $root_id; ?> .sfs-statusbar[data-mode="scanning"]    { border-color:#bfdbfe; background:#eff6ff; }
 
-/* Lane chip (Current:) */
+/* Lane chip (hidden helper) */
 #<?php echo $root_id; ?> .sfs-chip{
   display:inline-block; padding:6px 10px; border-radius:999px;
   font-size:13px; line-height:1; background:#f3f4f6; border:1px solid #e5e7eb; color:#111827;
@@ -2318,111 +2348,104 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 #<?php echo $root_id; ?> .sfs-chip--break_start{ background:#fff4d6; border-color:#fde68a; }
 #<?php echo $root_id; ?> .sfs-chip--break_end{ background:#eef4ff; border-color:#bfdbfe; }
 
-
-/* Hide label + chip in menu: menu shows only 4 big buttons */
-#<?php echo $root_id; ?>[data-view="menu"] #sfs-kiosk-lane-label-<?php echo $inst; ?>,
-#<?php echo $root_id; ?>[data-view="menu"] #sfs-kiosk-lane-chip-<?php echo $inst; ?>{
-  display:none;
+/* ── ACTION BUTTONS (card style per mockup) ── */
+#<?php echo $root_id; ?> .sfs-al{
+  width:100%; max-width:500px;
+  display:flex; flex-direction:column; gap:10px;
+  margin-top:clamp(8px,3vw,24px);
+}
+#<?php echo $root_id; ?> .sfs-ab{
+  display:flex; align-items:center; gap:14px;
+  padding:15px 18px; border-radius:var(--sfs-radius);
+  border:1px solid var(--sfs-border); background:var(--sfs-white);
+  font-size:16px; font-weight:600; color:var(--sfs-text);
+  cursor:pointer; text-align:left;
+  transition:box-shadow 0.15s;
+}
+#<?php echo $root_id; ?> .sfs-ab:hover{ box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+#<?php echo $root_id; ?> .sfs-ab-dot{ width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+#<?php echo $root_id; ?> .sfs-ab-arr{ margin-left:auto; color:var(--sfs-text-muted); font-size:18px; }
+#<?php echo $root_id; ?> .sfs-ab--in  { border-left:4px solid var(--sfs-green); }
+#<?php echo $root_id; ?> .sfs-ab--in  .sfs-ab-dot{ background:var(--sfs-green); }
+#<?php echo $root_id; ?> .sfs-ab--out { border-left:4px solid var(--sfs-red); }
+#<?php echo $root_id; ?> .sfs-ab--out .sfs-ab-dot{ background:var(--sfs-red); }
+#<?php echo $root_id; ?> .sfs-ab--brk { border-left:4px solid var(--sfs-amber); }
+#<?php echo $root_id; ?> .sfs-ab--brk .sfs-ab-dot{ background:var(--sfs-amber); }
+#<?php echo $root_id; ?> .sfs-ab--bend{ border-left:4px solid var(--sfs-blue); }
+#<?php echo $root_id; ?> .sfs-ab--bend .sfs-ab-dot{ background:var(--sfs-blue); }
+#<?php echo $root_id; ?> .sfs-ab.button-suggested{
+  box-shadow:0 0 0 2px rgba(37,99,235,0.25); border-color:#2563eb;
 }
 
-/* Buttons — base (also overrides WP .button) */
-#<?php echo $root_id; ?> [data-action]{
-  padding:clamp(10px,1.4vw,14px) clamp(14px,2.4vw,22px);
-  font-size:clamp(14px,1.8vw,18px);
-  border-radius:10px;
-  color:#111 !important;              /* <<< black text */
-  text-shadow:none !important;
+/* ── CAMERA AREA (within viewport) ── */
+#<?php echo $root_id; ?> .sfs-camwrap{ width:100%; flex:1; display:flex; flex-direction:column; }
+#<?php echo $root_id; ?> .sfs-cam-body{
+  flex:1; display:flex; position:relative; background:#0a0a14; overflow:hidden;
+  border-radius:12px;
 }
+#<?php echo $root_id; ?> .sfs-cam-feed{
+  flex:1; display:flex; align-items:center; justify-content:center; position:relative;
+}
+#<?php echo $root_id; ?> .sfs-cam-feed video{
+  width:100%; height:100%; object-fit:cover; display:block;
+}
+/* QR guide corners */
+#<?php echo $root_id; ?> .sfs-qr-guide{
+  position:absolute; width:140px; height:140px;
+  top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:none;
+}
+#<?php echo $root_id; ?> .sfs-qr-c{
+  position:absolute; width:28px; height:28px;
+  border-color:rgba(255,255,255,0.7); border-style:solid; border-width:0;
+}
+#<?php echo $root_id; ?> .sfs-qr-tl{ top:0;left:0; border-top-width:3px; border-left-width:3px; border-top-left-radius:6px; }
+#<?php echo $root_id; ?> .sfs-qr-tr{ top:0;right:0; border-top-width:3px; border-right-width:3px; border-top-right-radius:6px; }
+#<?php echo $root_id; ?> .sfs-qr-bl{ bottom:0;left:0; border-bottom-width:3px; border-left-width:3px; border-bottom-left-radius:6px; }
+#<?php echo $root_id; ?> .sfs-qr-br{ bottom:0;right:0; border-bottom-width:3px; border-right-width:3px; border-bottom-right-radius:6px; }
+#<?php echo $root_id; ?> .sfs-scan-hint{
+  position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
+  background:rgba(0,0,0,0.6); color:#fff; padding:8px 18px; border-radius:20px;
+  font-size:13px; display:flex; align-items:center; gap:8px; white-space:nowrap;
+}
+#<?php echo $root_id; ?> .sfs-pulse{
+  width:8px; height:8px; border-radius:50%; background:var(--sfs-green);
+  box-shadow:0 0 0 3px rgba(22,163,74,0.3);
+  animation:sfs-pulse-anim 2s infinite;
+}
+@keyframes sfs-pulse-anim{
+  0%{box-shadow:0 0 0 0 rgba(22,163,74,0.4)}
+  70%{box-shadow:0 0 0 8px rgba(22,163,74,0)}
+  100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}
+}
+#<?php echo $root_id; ?> .sfs-qr-status{ font-size:12px; color:var(--sfs-text-muted); margin-top:4px; }
 
-/* Menu vs Scan visibility */
-#<?php echo $root_id; ?>[data-view="menu"]  #sfs-kiosk-lane-<?php echo $inst; ?>{
-  display:flex;
-}
-#<?php echo $root_id; ?>[data-view="scan"]  #sfs-kiosk-lane-<?php echo $inst; ?>{
-  display:none !important; /* override any inline display */
-}
-
-#<?php echo $root_id; ?>[data-view="menu"]  .sfs-camwrap{ display:none; }
-#<?php echo $root_id; ?>[data-view="scan"]  .sfs-camwrap{ display:grid; }
-#<?php echo $root_id; ?>[data-view="menu"]  .sfs-scan-split{ display:none !important; }
-#<?php echo $root_id; ?>[data-view="menu"]  .sfs-scanbar{ display:none !important; }
-
-#<?php echo $root_id; ?>[data-view="menu"]  .sfs-statusbar{ display:none; }
-#<?php echo $root_id; ?>[data-view="scan"]  .sfs-statusbar{ display:flex; }
-
-
-/* Big, centered action buttons in menu */
-#<?php echo $root_id; ?>[data-view="menu"] .sfs-kiosk-right{ align-items:center; }
-#<?php echo $root_id; ?>[data-view="menu"] #sfs-kiosk-lane-<?php echo $inst; ?>{
-  flex-direction:column; align-items:center;
-  gap:clamp(12px,2.4vw,22px); margin-top:clamp(6px,4vw,40px);
-}
-#<?php echo $root_id; ?>[data-view="menu"] #sfs-kiosk-lane-<?php echo $inst; ?> .sfs-lane-btn{
-  width:min(560px,92%);
-  padding:clamp(16px,2.2vw,22px) clamp(20px,3vw,28px);
-  font-size:clamp(20px,3.2vw,36px);
-  border-radius:16px; border:1px solid #e5e7eb; box-shadow:0 2px 0 rgba(0,0,0,.05);
-  color:#111 !important;               /* ensure black text on the big buttons */
-}
-/* Soft color cues per action (menu only) */
-#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn[data-action="in"]{          background:#e8f7ee; }
-#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn[data-action="out"]{         background:#feecec; }
-#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn[data-action="break_start"]{ background:#fff4d6; }
-#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn[data-action="break_end"]{   background:#eef4ff; }
-
-/* Time-based suggestion highlighting (±30 min from configured time) */
-#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn.button-suggested {
-  border: 3px solid #2563eb !important;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2), 0 2px 0 rgba(0,0,0,.05) !important;
-  font-weight: 600 !important;
-}
-#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn.button-suggested[data-action="in"]{ background:#d1fae5; }
-#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn.button-suggested[data-action="out"]{ background:#fecaca; }
-#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn.button-suggested[data-action="break_start"]{ background:#fde68a; }
-#<?php echo $root_id; ?>[data-view="menu"] .sfs-lane-btn.button-suggested[data-action="break_end"]{ background:#bfdbfe; }
-
-/* Scan bar (counter + STOP) */
-#<?php echo $root_id; ?> .sfs-scanbar{
-  display:none; align-items:center; gap:12px;
-  width:100%; max-width:1024px; margin:8px auto;
-  padding:10px 16px; background:#f9fafb; border:1px solid var(--sfs-border); border-radius:10px;
-}
-#<?php echo $root_id; ?>[data-view="scan"] .sfs-scanbar{ display:flex; }
-#<?php echo $root_id; ?> .sfs-scanbar-count{ font-size:clamp(16px,2vw,22px); }
-#<?php echo $root_id; ?> .sfs-scanbar-count strong{ font-size:clamp(20px,2.6vw,28px); color:var(--sfs-teal); }
-#<?php echo $root_id; ?> .sfs-scanbar-time{ font-size:13px; color:#6b7280; margin-left:auto; }
-#<?php echo $root_id; ?> .sfs-stop-btn{
-  background:#ef4444 !important; color:#fff !important; border:none !important;
-  padding:8px 20px; font-size:15px; font-weight:700; border-radius:8px;
-  cursor:pointer; letter-spacing:.04em; text-transform:uppercase;
-}
-#<?php echo $root_id; ?> .sfs-stop-btn:hover{ background:#dc2626 !important; }
-
-/* Scan split: camera + log side by side on wide screens */
-#<?php echo $root_id; ?> .sfs-scan-split{
-  display:none; gap:16px; width:100%; max-width:1024px; margin:10px auto;
-}
-#<?php echo $root_id; ?>[data-view="scan"] .sfs-scan-split{ display:grid; grid-template-columns:1fr 280px; }
-@media (max-width:960px){
-  #<?php echo $root_id; ?>[data-view="scan"] .sfs-scan-split{ grid-template-columns:1fr; }
-}
-
-/* Recent scans log */
+/* Recent scans log (side panel inside cam-body) */
 #<?php echo $root_id; ?> .sfs-scan-log{
-  background:#f9fafb; border:1px solid var(--sfs-border); border-radius:10px;
-  padding:12px; max-height:60vh; overflow-y:auto;
+  width:220px; background:rgba(15,76,92,0.95); color:#fff;
+  display:flex; flex-direction:column; flex-shrink:0;
+  border-radius:0 12px 12px 0;
 }
-#<?php echo $root_id; ?> .sfs-log-title{ margin:0 0 8px; font-size:14px; color:#374151; }
-#<?php echo $root_id; ?> .sfs-log-list{ list-style:none; margin:0; padding:0; }
+#<?php echo $root_id; ?> .sfs-log-title{
+  padding:12px 14px 8px; font-size:11px; text-transform:uppercase;
+  letter-spacing:0.06em; opacity:0.6; border-bottom:1px solid rgba(255,255,255,0.1);
+  margin:0; color:#fff; font-weight:600;
+}
+#<?php echo $root_id; ?> .sfs-log-list{ list-style:none; margin:0; padding:6px 0; flex:1; overflow-y:auto; }
 #<?php echo $root_id; ?> .sfs-log-list li{
-  padding:8px 10px; border-bottom:1px solid #e5e7eb; font-size:13px;
-  display:flex; flex-direction:column; gap:2px;
+  display:flex; align-items:center; gap:10px;
+  padding:10px 14px; border-bottom:1px solid rgba(255,255,255,0.06);
+  font-size:13px; flex-direction:row;
 }
 #<?php echo $root_id; ?> .sfs-log-list li:last-child{ border-bottom:none; }
-#<?php echo $root_id; ?> .sfs-log-list .sfs-log-name{ font-weight:600; color:#111827; }
-#<?php echo $root_id; ?> .sfs-log-list .sfs-log-meta{ font-size:12px; color:#6b7280; }
-#<?php echo $root_id; ?> .sfs-log-list .sfs-log-ok{ border-left:3px solid #16a34a; }
-#<?php echo $root_id; ?> .sfs-log-list .sfs-log-err{ border-left:3px solid #ef4444; }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-icon{
+  width:28px; height:28px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:14px; font-weight:700; flex-shrink:0;
+}
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-icon.ok{ background:rgba(22,163,74,0.25); color:#4ade80; }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-icon.err{ background:rgba(239,68,68,0.25); color:#fca5a5; }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-name{ font-weight:600; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-meta{ font-size:11px; opacity:0.55; color:#fff; }
 
 /* Flash overlay — large centered with employee name */
 #<?php echo $root_id; ?> .sfs-flash-inner{
@@ -2450,15 +2473,21 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 #<?php echo $root_id; ?> .sfs-summary-label{ display:block; font-size:16px; color:#6b7280; margin-top:4px; }
 #<?php echo $root_id; ?> .sfs-summary-detail{ font-size:14px; color:#6b7280; }
 
-/* Camera / canvas sizing */
-#<?php echo $root_id; ?> #sfs-kiosk-camwrap-<?php echo $inst; ?>{ width:100%; max-width:1024px; margin:10px auto; }
-#<?php echo $root_id; ?> video{ width:100%; height:auto; border-radius:8px; background:#000; }
-#<?php echo $root_id; ?> #sfs-kiosk-canvas-<?php echo $inst; ?>{
-  width:100%; height:auto; max-height:56vh; border:1px dashed var(--sfs-border); border-radius:8px; background:#f6f7f7;
-}
+/* ── VIEW TOGGLE: menu vs scan ── */
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-kh{ display:flex; }
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-sh{ display:none; }
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-greet{ display:block; }
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-al{ display:flex; }
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-camwrap{ display:none; }
+#<?php echo $root_id; ?>[data-view="menu"] .sfs-statusbar{ display:none; }
 
-/* Never show Stop Camera in production */
-#<?php echo $root_id; ?> #sfs-kiosk-qr-stop-<?php echo $inst; ?>{ display:none !important; }
+#<?php echo $root_id; ?>[data-view="scan"] .sfs-kh{ display:none; }
+#<?php echo $root_id; ?>[data-view="scan"] .sfs-sh{ display:flex; }
+#<?php echo $root_id; ?>[data-view="scan"] .sfs-greet{ display:none; }
+#<?php echo $root_id; ?>[data-view="scan"] .sfs-al{ display:none !important; }
+#<?php echo $root_id; ?>[data-view="scan"] .sfs-camwrap{ display:flex; }
+#<?php echo $root_id; ?>[data-view="scan"] .sfs-statusbar{ display:flex; max-width:100%; margin:4px 8px; }
+#<?php echo $root_id; ?>[data-view="scan"] .sfs-kc{ padding:0; }
 
 /* A11y helper */
 #<?php echo $root_id; ?> .sr-only{
@@ -2466,10 +2495,10 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 }
 
 /* Immersive veil */
-.sfs-kiosk-veil{ position:fixed; inset:0; background:#ffffff; z-index:2147483000; overflow:auto; }
+.sfs-kiosk-veil{ position:fixed; inset:0; background:var(--sfs-surface); z-index:2147483000; overflow:auto; display:flex; flex-direction:column; }
 html.sfs-kiosk-immersive, body.sfs-kiosk-immersive{ overflow:hidden; }
 body.sfs-kiosk-immersive .site-header,
-body.sfs-kiosk-immersive header,
+body.sfs-kiosk-immersive header:not(.sfs-kh):not(.sfs-sh),
 body.sfs-kiosk-immersive .site-footer,
 body.sfs-kiosk-immersive footer,
 body.sfs-kiosk-immersive .entry-header,
@@ -2481,17 +2510,20 @@ body.sfs-kiosk-immersive .elementor-location-header,
 body.sfs-kiosk-immersive .elementor-location-footer{ display:none !important; }
 body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
 
-/* Mobile stacking */
-@media (max-width:960px){
-  #<?php echo $root_id; ?> .sfs-kiosk-shell{ grid-template-columns:1fr; }
-  #<?php echo $root_id; ?>.sfs-kiosk-app{
-    background:linear-gradient(180deg,var(--sfs-teal) 0 160px, var(--sfs-surface) 160px 100%);
+/* ── MOBILE (< 640px) ── */
+@media (max-width:640px){
+  #<?php echo $root_id; ?> .sfs-kh{
+    flex-direction:column; align-items:flex-start; padding:14px 18px; gap:2px;
   }
-  #<?php echo $root_id; ?> .sfs-kiosk-left{ min-height:auto; padding:16px 16px 12px; }
-  #<?php echo $root_id; ?> .sfs-greet{ margin: 8px 0 12px; font-size:clamp(24px,5vw,40px); }
-  #<?php echo $root_id; ?> .sfs-kiosk-right{ padding:12px 16px; }
+  #<?php echo $root_id; ?> .sfs-kh-clock{ font-size:32px; }
+  #<?php echo $root_id; ?> .sfs-kh-meta{ text-align:left; font-size:12px; opacity:0.85; flex-direction:row; gap:6px; }
+  #<?php echo $root_id; ?> .sfs-kc{ padding:20px 16px; }
+  #<?php echo $root_id; ?> .sfs-greet{ font-size:24px; }
+  #<?php echo $root_id; ?> .sfs-scan-log{ display:none; }
+  #<?php echo $root_id; ?> .sfs-cam-body{ border-radius:0; }
+  #<?php echo $root_id; ?> .sfs-sh .sfs-sh-sub{ display:none; }
+  #<?php echo $root_id; ?> .sfs-sh-stop{ padding:7px 10px; }
 }
-
 
 /* Quick "halo" flash on successful / queued punch */
 #<?php echo $root_id; ?>.sfs-kiosk-flash-ok {
@@ -2499,43 +2531,20 @@ body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
 }
 
 #<?php echo $root_id; ?> .sfs-flash {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.4s ease-out;
-  z-index: 9998;
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none; opacity: 0;
+  transition: opacity 0.4s ease-out; z-index: 9998;
 }
-
-#<?php echo $root_id; ?> .sfs-flash.show {
-  opacity: 1;
-}
-
-#<?php echo $root_id; ?> .sfs-flash--in {
-  background: rgba(34, 197, 94, 0.5);
-}
-
-#<?php echo $root_id; ?> .sfs-flash--out {
-  background: rgba(239, 68, 68, 0.5);
-}
-
-#<?php echo $root_id; ?> .sfs-flash--break_start {
-  background: rgba(245, 158, 11, 0.5);
-}
-
-#<?php echo $root_id; ?> .sfs-flash--break_end {
-  background: rgba(59, 130, 246, 0.5);
-}
+#<?php echo $root_id; ?> .sfs-flash.show { opacity: 1; }
+#<?php echo $root_id; ?> .sfs-flash--in { background: rgba(34, 197, 94, 0.5); }
+#<?php echo $root_id; ?> .sfs-flash--out { background: rgba(239, 68, 68, 0.5); }
+#<?php echo $root_id; ?> .sfs-flash--break_start { background: rgba(245, 158, 11, 0.5); }
+#<?php echo $root_id; ?> .sfs-flash--break_end { background: rgba(59, 130, 246, 0.5); }
 
 @keyframes sfs-kiosk-punch-ok {
   0%   { box-shadow: 0 0 0 0 rgba(34,197,94,0.85); }
   100% { box-shadow: 0 0 0 32px rgba(34,197,94,0); }
 }
-
-
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" defer></script>
@@ -2727,23 +2736,8 @@ const SUGGEST_TIMES = {
       const qrWrap  = document.getElementById('sfs-kiosk-camwrap-<?php echo $inst; ?>');
       const qrVid   = document.getElementById('sfs-kiosk-qr-video-<?php echo $inst; ?>');
       
-      const qrStop  = document.getElementById('sfs-kiosk-qr-stop-<?php echo $inst; ?>');
-      
-const qrExit = document.getElementById('sfs-kiosk-qr-exit-<?php echo $inst; ?>');
-qrExit && qrExit.addEventListener('click', () => {
-  // show exiting while we stop camera
-  setStat(t.exiting||'Exiting…', 'busy');
-
-  // hard stop camera + QR loop
-  stopQr();
-
-  // go back to menu view (CSS hides camera + statusbar)
-  ROOT.dataset.view = 'menu';
-
-  // reset main status text so it’s clean next time
-  const tag = requiresSelfie ? ' — ' + ((window.SFS_ATT_I18N||{}).selfie_required||'selfie required') : '';
-  setStat(((window.SFS_ATT_I18N||{}).ready||'Ready') + ' — ' + ((window.SFS_ATT_I18N||{}).action||'action') + ': ' + labelFor(currentAction) + tag, 'idle');
-});
+      // STOP button is now sfs-kiosk-stop (in scan header), handled via stopBtn below
+      const qrStop = null; // removed: old hidden "Stop Camera" button no longer exists
 
 
 
@@ -2951,12 +2945,17 @@ function setAction(a){
   if (!ACTIONS.includes(a)) return;
   currentAction = a;
 
-  // NO listener binding here.
-  laneChip.textContent = labelFor(currentAction);
-  laneChip.className   = chipClassFor(currentAction);
+  if (laneChip) {
+    laneChip.textContent = labelFor(currentAction);
+    laneChip.className   = chipClassFor(currentAction);
+  }
+
+  // Update scan header label
+  const scanLabel = document.getElementById('sfs-kiosk-lane-label-<?php echo $inst; ?>');
+  if (scanLabel) scanLabel.textContent = labelFor(currentAction);
 
   setStat(
-    ((window.SFS_ATT_I18N||{}).ready||'Ready') + ' — ' + ((window.SFS_ATT_I18N||{}).action||'action') + ': ' + labelFor(currentAction) + (requiresSelfie ? ' — ' + ((window.SFS_ATT_I18N||{}).selfie_required||'selfie required') : ''),
+    ((window.SFS_ATT_I18N||{}).ready||'Ready') + ' \u2014 ' + ((window.SFS_ATT_I18N||{}).action||'action') + ': ' + labelFor(currentAction) + (requiresSelfie ? ' \u2014 ' + ((window.SFS_ATT_I18N||{}).selfie_required||'selfie required') : ''),
     currentAction
   );
 }
@@ -3729,17 +3728,8 @@ if (laneChip) {
 
 
 
-    // Toggle UI based on device + view:
-    // - QR disabled  → always hidden
-    // - QR enabled   → only visible in scan mode
+    // CSS view toggle handles visibility; only update capture button
     const inScan = (ROOT && ROOT.dataset.view === 'scan');
-
-    if (qrWrap) {
-      qrWrap.style.display = (qrOn && inScan) ? '' : 'none';
-    }
-    if (camwrap) {
-      camwrap.style.display = (qrOn && inScan) ? 'grid' : 'none';
-    }
     if (capture) {
       capture.style.display = (qrOn && requiresSelfie && manualSelfieMode && inScan) ? '' : 'none';
     }
@@ -3780,7 +3770,7 @@ function flashPunchSuccess(kind) {
 }
 
 
-function showScannerUI(on){ if (qrWrap) qrWrap.style.display = on ? '' : 'none'; }
+function showScannerUI(on){ /* CSS view toggle handles visibility */ }
 
 function kickScanner(){
   try {
@@ -3843,10 +3833,10 @@ function addScanLog(name, action, ok){
   if (logList) {
     const li = document.createElement('li');
     li.className = ok ? 'sfs-log-ok' : 'sfs-log-err';
-    li.innerHTML = '<span class="sfs-log-name">' + (name||'—').replace(/</g,'&lt;') + '</span>'
-      + '<span class="sfs-log-meta">' + labelFor(action) + ' — ' + time + '</span>';
+    li.innerHTML = '<span class="sfs-log-icon ' + (ok ? 'ok' : 'err') + '">' + (ok ? '\u2713' : '\u2717') + '</span>'
+      + '<div><span class="sfs-log-name">' + (name||'\u2014').replace(/</g,'&lt;') + '</span>'
+      + '<span class="sfs-log-meta">' + labelFor(action) + ' \u2014 ' + time + '</span></div>';
     logList.prepend(li);
-    // Keep max 50 entries in DOM
     while (logList.children.length > 50) logList.removeChild(logList.lastChild);
   }
 }
