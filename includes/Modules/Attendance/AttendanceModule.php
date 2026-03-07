@@ -2247,8 +2247,8 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
         </div>
         <div class="sfs-summary-detail" id="sfs-summary-duration-<?php echo $inst; ?>"></div>
         <div style="display:flex;gap:12px;margin-top:24px;">
-          <button type="button" id="sfs-summary-new-<?php echo $inst; ?>" class="button button-primary" style="padding:10px 24px;font-size:16px;"><?php esc_html_e( 'New Session', 'sfs-hr' ); ?></button>
-          <button type="button" id="sfs-summary-menu-<?php echo $inst; ?>" class="button" style="padding:10px 24px;font-size:16px;"><?php esc_html_e( 'Back to Menu', 'sfs-hr' ); ?></button>
+          <button type="button" id="sfs-summary-new-<?php echo $inst; ?>" style="flex:1;padding:13px 24px;font-size:15px;font-weight:600;border:none;border-radius:12px;background:#0f4c5c;color:#fff;cursor:pointer;"><?php esc_html_e( 'New Session', 'sfs-hr' ); ?></button>
+          <button type="button" id="sfs-summary-menu-<?php echo $inst; ?>" style="flex:1;padding:13px 24px;font-size:15px;font-weight:600;border:1px solid #e5e7eb;border-radius:12px;background:#fff;color:#111827;cursor:pointer;"><?php esc_html_e( 'Back to Menu', 'sfs-hr' ); ?></button>
         </div>
       </div>
     </div>
@@ -2289,36 +2289,41 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 
 
 <style>
-/* ==== Scope to this kiosk instance ==== */
+/* ==== Scope to this kiosk instance — matches self-web design ==== */
 #<?php echo $root_id; ?>.sfs-kiosk-app{
   --sfs-teal:#0f4c5c;
-  --sfs-surface:#f8f9fb;
+  --sfs-surface:#ffffff;
+  --sfs-bg:#f0f2f5;
   --sfs-white:#ffffff;
   --sfs-border:#e5e7eb;
-  --sfs-text:#1f2937;
+  --sfs-text:#111827;
   --sfs-text-muted:#6b7280;
-  --sfs-green:#16a34a;
+  --sfs-green:#22c55e;
+  --sfs-green-dark:#16a34a;
   --sfs-red:#ef4444;
   --sfs-amber:#f59e0b;
   --sfs-blue:#3b82f6;
-  --sfs-radius:14px;
+  --sfs-radius:16px;
   position:relative;
   min-height:100dvh; width:100%; margin:0;
   display:flex; flex-direction:column;
-  background:var(--sfs-surface);
-  font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background:var(--sfs-bg);
+  font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing:antialiased;
   color:var(--sfs-text);
 }
 
-/* ── MENU HEADER (top bar) ── */
+/* ── MENU HEADER (top bar — teal like self-web brand badge) ── */
 #<?php echo $root_id; ?> .sfs-kh{
   background:var(--sfs-teal); color:#fff;
   padding:14px 24px;
   display:flex; align-items:center; justify-content:space-between;
   flex-shrink:0;
 }
-#<?php echo $root_id; ?> .sfs-kh-brand{ font-weight:700; font-size:16px; }
-#<?php echo $root_id; ?> .sfs-kh-clock{ font-weight:800; font-size:28px; letter-spacing:-0.02em; }
+#<?php echo $root_id; ?> .sfs-kh-brand{
+  font-weight:700; font-size:14px; letter-spacing:0.04em; text-transform:uppercase;
+}
+#<?php echo $root_id; ?> .sfs-kh-clock{ font-weight:800; font-size:32px; letter-spacing:-0.02em; line-height:1; }
 #<?php echo $root_id; ?> .sfs-kh-meta{ text-align:right; font-size:13px; opacity:0.9; line-height:1.4; display:flex; flex-direction:column; }
 #<?php echo $root_id; ?> .sfs-kh-device{ font-size:12px; opacity:0.8; }
 
@@ -2331,25 +2336,31 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 }
 #<?php echo $root_id; ?> .sfs-sh-stop{
   background:var(--sfs-red); border:none; color:#fff;
-  padding:7px 16px; border-radius:8px; font-size:13px; font-weight:700;
+  padding:7px 16px; border-radius:12px; font-size:13px; font-weight:700;
   letter-spacing:0.02em; cursor:pointer;
+  transition:transform 0.1s, background 0.15s;
 }
 #<?php echo $root_id; ?> .sfs-sh-stop:hover{ background:#dc2626; }
+#<?php echo $root_id; ?> .sfs-sh-stop:active{ transform:scale(0.97); }
 #<?php echo $root_id; ?> .sfs-sh-mode{ flex:1; text-align:center; }
 #<?php echo $root_id; ?> .sfs-sh-action{ font-weight:700; font-size:17px; display:block; }
 #<?php echo $root_id; ?> .sfs-sh-sub{ font-size:11px; opacity:0.75; }
 #<?php echo $root_id; ?> .sfs-sh-counter{
-  background:rgba(255,255,255,0.15); border-radius:8px;
+  background:rgba(255,255,255,0.15); border-radius:12px;
   padding:5px 12px; text-align:center; min-width:60px;
 }
 #<?php echo $root_id; ?> .sfs-sh-num{ font-weight:800; font-size:20px; display:block; line-height:1.1; }
 #<?php echo $root_id; ?> .sfs-sh-lbl{ font-size:9px; text-transform:uppercase; opacity:0.7; letter-spacing:0.04em; }
 #<?php echo $root_id; ?> .sfs-sh-time{ font-size:14px; opacity:0.9; }
 
-/* ── CONTENT AREA ── */
+/* ── CONTENT AREA (white panel with rounded top — like self-web .sfs-att-panel) ── */
 #<?php echo $root_id; ?> .sfs-kc{
   flex:1; display:flex; flex-direction:column; align-items:center;
-  padding:24px; background:var(--sfs-surface); overflow:hidden;
+  padding:20px 20px 24px;
+  background:var(--sfs-surface);
+  border-radius:var(--sfs-radius) var(--sfs-radius) 0 0;
+  box-shadow:0 -4px 20px rgba(0,0,0,0.08);
+  overflow:hidden;
 }
 
 /* Greeting */
@@ -2358,12 +2369,12 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
   color:var(--sfs-text); margin:clamp(8px,2vw,20px) 0; text-align:center;
 }
 
-/* ── Statusbar ── */
+/* ── Statusbar (matches self-web .sfs-att-statusline) ── */
 #<?php echo $root_id; ?> .sfs-statusbar{
   display:flex; align-items:center; gap:10px;
   width:100%; max-width:500px; margin:8px auto 12px;
-  padding:10px 12px; border:1px solid var(--sfs-border);
-  border-radius:10px; background:var(--sfs-white);
+  padding:10px 14px;
+  border-radius:10px; font-size:13px; transition:all 0.2s;
 }
 #<?php echo $root_id; ?> .sfs-dot{ width:10px; height:10px; border-radius:999px; display:inline-block; }
 #<?php echo $root_id; ?> .sfs-dot--idle{ background:#d1d5db; }
@@ -2371,54 +2382,54 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 #<?php echo $root_id; ?> .sfs-dot--out{ background:var(--sfs-red); }
 #<?php echo $root_id; ?> .sfs-dot--break_start{ background:var(--sfs-amber); }
 #<?php echo $root_id; ?> .sfs-dot--break_end{ background:var(--sfs-blue); }
-#<?php echo $root_id; ?> .sfs-statusbar[data-mode="idle"]        { border-color:#e5e7eb; background:var(--sfs-white); }
-#<?php echo $root_id; ?> .sfs-statusbar[data-mode="ok"]          { border-color:#b7dfc8; background:#f6fff9; }
-#<?php echo $root_id; ?> .sfs-statusbar[data-mode="busy"]        { border-color:#bfdbfe; background:#eff6ff; }
-#<?php echo $root_id; ?> .sfs-statusbar[data-mode="error"]       { border-color:#fecaca; background:#fff7f7; }
-#<?php echo $root_id; ?> .sfs-statusbar[data-mode="in"]          { border-color:#b7dfc8; background:#f6fff9; }
-#<?php echo $root_id; ?> .sfs-statusbar[data-mode="out"]         { border-color:#fecaca; background:#fff7f7; }
-#<?php echo $root_id; ?> .sfs-statusbar[data-mode="break_start"] { border-color:#fde68a; background:#fffbeb; }
-#<?php echo $root_id; ?> .sfs-statusbar[data-mode="break_end"]   { border-color:#bfdbfe; background:#eff6ff; }
-#<?php echo $root_id; ?> .sfs-statusbar[data-mode="scanning"]    { border-color:#bfdbfe; background:#eff6ff; }
+#<?php echo $root_id; ?> .sfs-statusbar[data-mode="idle"]        { color:#6b7280; background:transparent; border:none; }
+#<?php echo $root_id; ?> .sfs-statusbar[data-mode="ok"]          { color:#166534; background:#dcfce7; border:1px solid #bbf7d0; font-weight:600; }
+#<?php echo $root_id; ?> .sfs-statusbar[data-mode="busy"]        { color:#1d4ed8; background:#eff6ff; border:1px solid #bfdbfe; }
+#<?php echo $root_id; ?> .sfs-statusbar[data-mode="error"]       { color:#b91c1c; background:#fee2e2; border:1px solid #fecaca; font-weight:500; }
+#<?php echo $root_id; ?> .sfs-statusbar[data-mode="in"]          { color:#166534; background:#dcfce7; border:1px solid #bbf7d0; font-weight:600; }
+#<?php echo $root_id; ?> .sfs-statusbar[data-mode="out"]         { color:#b91c1c; background:#fee2e2; border:1px solid #fecaca; font-weight:600; }
+#<?php echo $root_id; ?> .sfs-statusbar[data-mode="break_start"] { color:#92400e; background:#fef3c7; border:1px solid #fde68a; font-weight:600; }
+#<?php echo $root_id; ?> .sfs-statusbar[data-mode="break_end"]   { color:#1e40af; background:#dbeafe; border:1px solid #bfdbfe; font-weight:600; }
+#<?php echo $root_id; ?> .sfs-statusbar[data-mode="scanning"]    { color:#1d4ed8; background:#eff6ff; border:1px solid #bfdbfe; }
 
-/* Lane chip (hidden helper) */
+/* Lane chip (matches self-web .sfs-att-chip) */
 #<?php echo $root_id; ?> .sfs-chip{
-  display:inline-block; padding:6px 10px; border-radius:999px;
-  font-size:13px; line-height:1; background:#f3f4f6; border:1px solid #e5e7eb; color:#111827;
+  display:inline-block; padding:6px 14px; border-radius:999px;
+  font-size:13px; font-weight:600; line-height:1.2; white-space:nowrap;
+  border:1px solid #e5e7eb;
 }
-#<?php echo $root_id; ?> .sfs-chip--idle{ background:#f3f4f6; border-color:#e5e7eb; }
-#<?php echo $root_id; ?> .sfs-chip--in{ background:#e8f7ee; border-color:#b7dfc8; }
-#<?php echo $root_id; ?> .sfs-chip--out{ background:#feecec; border-color:#fecaca; }
-#<?php echo $root_id; ?> .sfs-chip--break_start{ background:#fff4d6; border-color:#fde68a; }
-#<?php echo $root_id; ?> .sfs-chip--break_end{ background:#eef4ff; border-color:#bfdbfe; }
+#<?php echo $root_id; ?> .sfs-chip--idle{ background:#f3f4f6; color:#374151; }
+#<?php echo $root_id; ?> .sfs-chip--in{ background:#dcfce7; color:#166534; border-color:#bbf7d0; }
+#<?php echo $root_id; ?> .sfs-chip--out{ background:#fee2e2; color:#b91c1c; border-color:#fecaca; }
+#<?php echo $root_id; ?> .sfs-chip--break_start{ background:#fef3c7; color:#92400e; border-color:#fde68a; }
+#<?php echo $root_id; ?> .sfs-chip--break_end{ background:#dbeafe; color:#1e40af; border-color:#bfdbfe; }
 
-/* ── ACTION BUTTONS (card style per mockup) ── */
+/* ── ACTION BUTTONS (solid colored — matches self-web .sfs-att-btn) ── */
 #<?php echo $root_id; ?> .sfs-al{
   width:100%; max-width:500px;
-  display:flex; flex-direction:column; gap:10px;
+  display:flex; flex-wrap:wrap; gap:10px;
   margin-top:clamp(8px,3vw,24px);
 }
 #<?php echo $root_id; ?> .sfs-ab{
-  display:flex; align-items:center; gap:14px;
-  padding:15px 18px; border-radius:var(--sfs-radius);
-  border:1px solid var(--sfs-border); background:var(--sfs-white);
-  font-size:16px; font-weight:600; color:var(--sfs-text);
-  cursor:pointer; text-align:left;
-  transition:box-shadow 0.15s;
+  flex:1 1 calc(50% - 5px); min-width:120px;
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  padding:14px 12px; border-radius:12px;
+  border:none;
+  font-size:15px; font-weight:600; color:#fff;
+  cursor:pointer; text-align:center;
+  transition:transform 0.1s, box-shadow 0.15s;
 }
-#<?php echo $root_id; ?> .sfs-ab:hover{ box-shadow:0 2px 8px rgba(0,0,0,0.08); }
-#<?php echo $root_id; ?> .sfs-ab-dot{ width:12px; height:12px; border-radius:50%; flex-shrink:0; }
-#<?php echo $root_id; ?> .sfs-ab-arr{ margin-left:auto; color:var(--sfs-text-muted); font-size:18px; }
-#<?php echo $root_id; ?> .sfs-ab--in  { border-left:4px solid var(--sfs-green); }
-#<?php echo $root_id; ?> .sfs-ab--in  .sfs-ab-dot{ background:var(--sfs-green); }
-#<?php echo $root_id; ?> .sfs-ab--out { border-left:4px solid var(--sfs-red); }
-#<?php echo $root_id; ?> .sfs-ab--out .sfs-ab-dot{ background:var(--sfs-red); }
-#<?php echo $root_id; ?> .sfs-ab--brk { border-left:4px solid var(--sfs-amber); }
-#<?php echo $root_id; ?> .sfs-ab--brk .sfs-ab-dot{ background:var(--sfs-amber); }
-#<?php echo $root_id; ?> .sfs-ab--bend{ border-left:4px solid var(--sfs-blue); }
-#<?php echo $root_id; ?> .sfs-ab--bend .sfs-ab-dot{ background:var(--sfs-blue); }
+#<?php echo $root_id; ?> .sfs-ab:active:not(:disabled){ transform:scale(0.97); }
+#<?php echo $root_id; ?> .sfs-ab:disabled{ opacity:0.45; cursor:not-allowed; }
+#<?php echo $root_id; ?> .sfs-ab-dot{ display:none; }
+#<?php echo $root_id; ?> .sfs-ab-arr{ display:none; }
+#<?php echo $root_id; ?> .sfs-ab--in  { background:var(--sfs-green); box-shadow:0 2px 8px rgba(34,197,94,0.3); }
+#<?php echo $root_id; ?> .sfs-ab--out { background:var(--sfs-red); box-shadow:0 2px 8px rgba(239,68,68,0.3); }
+#<?php echo $root_id; ?> .sfs-ab--brk { background:var(--sfs-amber); box-shadow:0 2px 8px rgba(245,158,11,0.3); }
+#<?php echo $root_id; ?> .sfs-ab--bend{ background:var(--sfs-blue); box-shadow:0 2px 8px rgba(59,130,246,0.3); }
 #<?php echo $root_id; ?> .sfs-ab.button-suggested{
-  box-shadow:0 0 0 2px rgba(37,99,235,0.25); border-color:#2563eb;
+  box-shadow:0 0 0 3px rgba(255,255,255,0.4), 0 2px 12px rgba(0,0,0,0.15);
+  transform:scale(1.02);
 }
 
 /* ── CAMERA AREA (within viewport) ── */
@@ -2439,8 +2450,9 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 #<?php echo $root_id; ?> .sfs-cam-badge{
   position:absolute; top:12px; right:12px;
   background:rgba(0,0,0,0.5); color:#fff; padding:4px 10px;
-  border-radius:6px; font-size:11px; font-weight:600;
-  display:flex; align-items:center; gap:6px; backdrop-filter:blur(4px);
+  border-radius:10px; font-size:11px; font-weight:600;
+  display:flex; align-items:center; gap:6px;
+  backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
 }
 #<?php echo $root_id; ?> .sfs-cam-badge::before{
   content:''; width:6px; height:6px; border-radius:50%;
@@ -2503,8 +2515,9 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 }
 #<?php echo $root_id; ?> .sfs-log-list li{
   display:flex; align-items:center; gap:10px;
-  padding:10px 16px; border-bottom:1px solid var(--sfs-border);
-  font-size:13px;
+  padding:8px 12px; margin:3px 8px; border-radius:10px;
+  background:#f9fafb; font-size:13px;
+  border-bottom:none;
 }
 #<?php echo $root_id; ?> .sfs-log-list li:last-child{ border-bottom:none; }
 #<?php echo $root_id; ?> .sfs-log-list .sfs-log-initials{
@@ -2517,7 +2530,7 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 #<?php echo $root_id; ?> .sfs-log-list .sfs-log-initials.err{ background:rgba(239,68,68,0.1); color:var(--sfs-red); }
 #<?php echo $root_id; ?> .sfs-log-list .sfs-log-info{ flex:1; min-width:0; }
 #<?php echo $root_id; ?> .sfs-log-list .sfs-log-name{
-  font-weight:600; color:var(--sfs-text); display:block;
+  font-weight:600; font-size:14px; color:#374151; display:block;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 #<?php echo $root_id; ?> .sfs-log-list .sfs-log-meta{
@@ -2529,7 +2542,7 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 #<?php echo $root_id; ?> .sfs-log-list .sfs-log-meta .sfs-log-dot.ok{ background:var(--sfs-green); }
 #<?php echo $root_id; ?> .sfs-log-list .sfs-log-meta .sfs-log-dot.err{ background:var(--sfs-red); }
 #<?php echo $root_id; ?> .sfs-log-list .sfs-log-time{
-  font-size:11px; color:var(--sfs-text-muted); flex-shrink:0; white-space:nowrap;
+  font-size:13px; color:#6b7280; font-weight:500; flex-shrink:0; white-space:nowrap;
 }
 
 /* Flash overlay — large centered with employee name */
@@ -2581,7 +2594,7 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
 }
 
 /* Immersive veil */
-.sfs-kiosk-veil{ position:fixed; inset:0; background:var(--sfs-surface); z-index:2147483000; overflow:auto; display:flex; flex-direction:column; }
+.sfs-kiosk-veil{ position:fixed; inset:0; background:#f0f2f5; z-index:2147483000; overflow:auto; display:flex; flex-direction:column; }
 html.sfs-kiosk-immersive, body.sfs-kiosk-immersive{ overflow:hidden; }
 body.sfs-kiosk-immersive .site-header,
 body.sfs-kiosk-immersive header:not(.sfs-kh):not(.sfs-sh),
@@ -2740,15 +2753,15 @@ body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
   font-size:13px; opacity:0.85;
 }
 
-/* ── Scan log dot colors by action type ── */
+/* ── Scan log dot & initials colors by action (matches self-web .sfs-att-punch-badge) ── */
 #<?php echo $root_id; ?> .sfs-log-list .sfs-log-dot.action-in{ background:var(--sfs-green); }
 #<?php echo $root_id; ?> .sfs-log-list .sfs-log-dot.action-out{ background:var(--sfs-red); }
 #<?php echo $root_id; ?> .sfs-log-list .sfs-log-dot.action-break_start{ background:var(--sfs-amber); }
 #<?php echo $root_id; ?> .sfs-log-list .sfs-log-dot.action-break_end{ background:var(--sfs-blue); }
-#<?php echo $root_id; ?> .sfs-log-list .sfs-log-initials.action-in{ background:rgba(22,163,74,0.1); color:var(--sfs-green); }
-#<?php echo $root_id; ?> .sfs-log-list .sfs-log-initials.action-out{ background:rgba(239,68,68,0.1); color:var(--sfs-red); }
-#<?php echo $root_id; ?> .sfs-log-list .sfs-log-initials.action-break_start{ background:rgba(245,158,11,0.1); color:var(--sfs-amber); }
-#<?php echo $root_id; ?> .sfs-log-list .sfs-log-initials.action-break_end{ background:rgba(59,130,246,0.1); color:var(--sfs-blue); }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-initials.action-in{ background:#dcfce7; color:#16a34a; }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-initials.action-out{ background:#fee2e2; color:#dc2626; }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-initials.action-break_start{ background:#fef3c7; color:#d97706; }
+#<?php echo $root_id; ?> .sfs-log-list .sfs-log-initials.action-break_end{ background:#dbeafe; color:#2563eb; }
 
 /* Quick "halo" flash on successful / queued punch */
 #<?php echo $root_id; ?>.sfs-kiosk-flash-ok {
@@ -2761,10 +2774,10 @@ body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
   transition: opacity 0.4s ease-out; z-index: 9998;
 }
 #<?php echo $root_id; ?> .sfs-flash.show { opacity: 1; }
-#<?php echo $root_id; ?> .sfs-flash--in { background: rgba(34, 197, 94, 0.5); }
-#<?php echo $root_id; ?> .sfs-flash--out { background: rgba(239, 68, 68, 0.5); }
-#<?php echo $root_id; ?> .sfs-flash--break_start { background: rgba(245, 158, 11, 0.5); }
-#<?php echo $root_id; ?> .sfs-flash--break_end { background: rgba(59, 130, 246, 0.5); }
+#<?php echo $root_id; ?> .sfs-flash--in { background: rgba(34, 197, 94, 0.35); }
+#<?php echo $root_id; ?> .sfs-flash--out { background: rgba(239, 68, 68, 0.35); }
+#<?php echo $root_id; ?> .sfs-flash--break_start { background: rgba(245, 158, 11, 0.35); }
+#<?php echo $root_id; ?> .sfs-flash--break_end { background: rgba(59, 130, 246, 0.35); }
 
 @keyframes sfs-kiosk-punch-ok {
   0%   { box-shadow: 0 0 0 0 rgba(34,197,94,0.85); }
