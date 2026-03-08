@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Simple HR Suite
  * Description: Simple HR Suite – employees, departments, leave, balances, approvals.
- * Version: 1.9.1
+ * Version: 1.9.2
  * Author: hdqah.com
  * Author URI: https://hdqah.com
  * Text Domain: sfs-hr
