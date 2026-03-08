@@ -985,44 +985,6 @@ if ( $require_selfie && ( ! $selfie_media_id || ! $valid_selfie ) ) {
     }
 
     try {
-        // ---- RE-VALIDATE STATE INSIDE LOCK (H2 TOCTOU fix) ----
-        // The initial snapshot_for_today + allow check happened BEFORE the lock.
-        // A concurrent request could have changed the state between then and now.
-        // Re-check the last punch to confirm the transition is still valid.
-        $last_row_after_lock = $wpdb->get_row( $wpdb->prepare(
-            "SELECT punch_type, punch_time FROM {$punchT}
-             WHERE employee_id = %d ORDER BY punch_time DESC, id DESC LIMIT 1",
-            (int) $emp
-        ) );
-        $last_after_lock = $last_row_after_lock ? (string) $last_row_after_lock->punch_type : null;
-        $state_map = [ 'in' => 'in', 'break_end' => 'in', 'break_start' => 'break', 'out' => 'idle' ];
-        $state_after_lock = $state_map[ $last_after_lock ] ?? 'idle';
-
-        // Re-evaluate stale session inside the lock: if another request already
-        // clocked in (last punch is now from today), the stale flag no longer applies.
-        $has_stale_after_lock = $has_stale_session;
-        if ( $has_stale_session && $last_row_after_lock ) {
-            $last_punch_date = wp_date( 'Y-m-d', strtotime( $last_row_after_lock->punch_time . ' UTC' ) );
-            if ( $last_punch_date >= wp_date( 'Y-m-d' ) ) {
-                $has_stale_after_lock = false;
-            }
-        }
-
-        $allow_after_lock = [
-            'in'          => ( $state_after_lock === 'idle' || $has_stale_after_lock ),
-            'out'         => ( $state_after_lock === 'in' && ! $has_stale_after_lock ),
-            'break_start' => ( $state_after_lock === 'in' && ! $has_stale_after_lock ),
-            'break_end'   => ( $state_after_lock === 'break' ),
-        ];
-        if ( empty( $allow_after_lock[ $punch_type ] ) ) {
-            $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
-            return new \WP_Error(
-                'invalid_transition',
-                'Another punch was processed simultaneously. Please try again.',
-                [ 'status' => 409 ]
-            );
-        }
-
         // ---- FINAL DUPLICATE CHECK: Prevent exact duplicate within 30 seconds of punch time
         // For offline punches, check around the client-reported time to catch duplicates
         $dup_ref_time = $punchTimeUtc;
