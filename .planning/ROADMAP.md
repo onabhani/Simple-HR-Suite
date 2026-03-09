@@ -13,7 +13,7 @@ This roadmap covers the second phase of the AttendanceModule god-class refactori
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Views Extraction** - Extract shortcode_widget and shortcode_kiosk into Frontend/ classes (completed 2026-03-09)
-- [ ] **Phase 2: Migration Extraction** - Extract maybe_install into module-local Migration class
+- [x] **Phase 2: Migration Extraction** - Extract maybe_install into module-local Migration class (completed 2026-03-09)
 - [ ] **Phase 3: Orchestrator Cleanup** - Slim AttendanceModule.php to a thin orchestrator under 500 lines
 
 ## Phase Details
@@ -41,7 +41,7 @@ Plans:
   1. `Migration.php` exists in the Attendance module directory with all table creation and column-add logic from `maybe_install()`
   2. Migration class uses `CREATE TABLE IF NOT EXISTS` and `add_column_if_missing()` patterns consistently
   3. AttendanceModule calls the Migration class from its existing activation/admin_init hook — migration behavior unchanged
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 02-01-PLAN.md — Extract migration, capability, and seed logic into Migration class
@@ -67,5 +67,5 @@ Phases execute in numeric order: 1 -> 2 -> 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Views Extraction | 2/2 | Complete   | 2026-03-09 |
-| 2. Migration Extraction | 0/1 | Not started | - |
+| 2. Migration Extraction | 1/1 | Complete   | 2026-03-09 |
 | 3. Orchestrator Cleanup | 0/? | Not started | - |

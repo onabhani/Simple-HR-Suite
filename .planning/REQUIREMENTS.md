@@ -16,9 +16,9 @@ Requirements for this refactor. Each maps to roadmap phases.
 
 ### Migration Extraction
 
-- [ ] **MIGR-01**: Extract maybe_install() (~300 lines) into module-local `Migration.php`
-- [ ] **MIGR-02**: Migration class follows existing `CREATE TABLE IF NOT EXISTS` + `add_column_if_missing()` pattern
-- [ ] **MIGR-03**: AttendanceModule calls Migration class from its existing hook
+- [x] **MIGR-01**: Extract maybe_install() (~300 lines) into module-local `Migration.php`
+- [x] **MIGR-02**: Migration class follows existing `CREATE TABLE IF NOT EXISTS` + `add_column_if_missing()` pattern
+- [x] **MIGR-03**: AttendanceModule calls Migration class from its existing hook
 
 ### Cleanup
 
@@ -60,9 +60,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | VIEW-02 | Phase 1 | Complete |
 | VIEW-03 | Phase 1 | Complete |
 | VIEW-04 | Phase 1 | Complete |
-| MIGR-01 | Phase 2 | Pending |
-| MIGR-02 | Phase 2 | Pending |
-| MIGR-03 | Phase 2 | Pending |
+| MIGR-01 | Phase 2 | Complete |
+| MIGR-02 | Phase 2 | Complete |
+| MIGR-03 | Phase 2 | Complete |
 | CLEN-01 | Phase 3 | Pending |
 | CLEN-02 | Phase 3 | Pending |
 | CLEN-03 | Phase 3 | Pending |
