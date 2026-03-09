@@ -30,7 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Extract Widget_Shortcode into Frontend/ class
+- [x] 01-01-PLAN.md — Extract Widget_Shortcode into Frontend/ class
 - [ ] 01-02-PLAN.md — Extract Kiosk_Shortcode into Frontend/ class and complete delegation wiring
 
 ### Phase 2: Migration Extraction
@@ -66,6 +66,6 @@ Phases execute in numeric order: 1 -> 2 -> 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Views Extraction | 0/2 | Not started | - |
+| 1. Views Extraction | 1/2 | In progress | - |
 | 2. Migration Extraction | 0/? | Not started | - |
 | 3. Orchestrator Cleanup | 0/? | Not started | - |
