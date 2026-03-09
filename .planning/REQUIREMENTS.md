@@ -10,9 +10,9 @@ Requirements for this refactor. Each maps to roadmap phases.
 ### Views Extraction
 
 - [x] **VIEW-01**: Extract shortcode_widget() (~1900 lines) into `Frontend/Widget_Shortcode.php` with a `render()` method
-- [ ] **VIEW-02**: Extract shortcode_kiosk() (~2800 lines) into `Frontend/Kiosk_Shortcode.php` with a `render()` method
+- [x] **VIEW-02**: Extract shortcode_kiosk() (~2800 lines) into `Frontend/Kiosk_Shortcode.php` with a `render()` method
 - [x] **VIEW-03**: All inline JS/CSS preserved as-is in view output — no asset file extraction
-- [ ] **VIEW-04**: AttendanceModule shortcode methods become thin delegates to Frontend classes
+- [x] **VIEW-04**: AttendanceModule shortcode methods become thin delegates to Frontend classes
 
 ### Migration Extraction
 
@@ -57,9 +57,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | VIEW-01 | Phase 1 | Complete |
-| VIEW-02 | Phase 1 | Pending |
+| VIEW-02 | Phase 1 | Complete |
 | VIEW-03 | Phase 1 | Complete |
-| VIEW-04 | Phase 1 | Pending |
+| VIEW-04 | Phase 1 | Complete |
 | MIGR-01 | Phase 2 | Pending |
 | MIGR-02 | Phase 2 | Pending |
 | MIGR-03 | Phase 2 | Pending |

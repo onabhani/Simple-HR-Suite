@@ -12,7 +12,7 @@ This roadmap covers the second phase of the AttendanceModule god-class refactori
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Views Extraction** - Extract shortcode_widget and shortcode_kiosk into Frontend/ classes
+- [x] **Phase 1: Views Extraction** - Extract shortcode_widget and shortcode_kiosk into Frontend/ classes (completed 2026-03-09)
 - [ ] **Phase 2: Migration Extraction** - Extract maybe_install into module-local Migration class
 - [ ] **Phase 3: Orchestrator Cleanup** - Slim AttendanceModule.php to a thin orchestrator under 500 lines
 
@@ -27,7 +27,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. `Frontend/Kiosk_Shortcode.php` exists with a `render()` method that produces identical output to the current `shortcode_kiosk()`
   3. All inline JS and CSS remains embedded in the rendered output (no external asset files created)
   4. AttendanceModule shortcode registration methods delegate to the new Frontend classes
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 01-01-PLAN.md — Extract Widget_Shortcode into Frontend/ class
@@ -66,6 +66,6 @@ Phases execute in numeric order: 1 -> 2 -> 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Views Extraction | 1/2 | In progress | - |
+| 1. Views Extraction | 2/2 | Complete   | 2026-03-09 |
 | 2. Migration Extraction | 0/? | Not started | - |
 | 3. Orchestrator Cleanup | 0/? | Not started | - |
