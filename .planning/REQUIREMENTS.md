@@ -22,9 +22,9 @@ Requirements for this refactor. Each maps to roadmap phases.
 
 ### Cleanup
 
-- [ ] **CLEN-01**: Remove or consolidate remaining helper/delegate methods that are no longer needed
-- [ ] **CLEN-02**: AttendanceModule.php reduced to under 500 lines
-- [ ] **CLEN-03**: Zero behavior change — all existing functionality preserved
+- [x] **CLEN-01**: Remove or consolidate remaining helper/delegate methods that are no longer needed
+- [x] **CLEN-02**: AttendanceModule.php reduced to under 500 lines
+- [x] **CLEN-03**: Zero behavior change — all existing functionality preserved
 
 ## v2 Requirements
 
@@ -63,9 +63,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MIGR-01 | Phase 2 | Complete |
 | MIGR-02 | Phase 2 | Complete |
 | MIGR-03 | Phase 2 | Complete |
-| CLEN-01 | Phase 3 | Pending |
-| CLEN-02 | Phase 3 | Pending |
-| CLEN-03 | Phase 3 | Pending |
+| CLEN-01 | Phase 3 | Complete |
+| CLEN-02 | Phase 3 | Complete |
+| CLEN-03 | Phase 3 | Complete |
 
 **Coverage:**
 - v1 requirements: 10 total
