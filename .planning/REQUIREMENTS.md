@@ -1,0 +1,77 @@
+# Requirements: Attendance Module Refactor — Phase 2
+
+**Defined:** 2026-03-09
+**Core Value:** AttendanceModule.php becomes a clean orchestrator under 500 lines that delegates to focused classes
+
+## v1 Requirements
+
+Requirements for this refactor. Each maps to roadmap phases.
+
+### Views Extraction
+
+- [ ] **VIEW-01**: Extract shortcode_widget() (~1900 lines) into `Frontend/Widget_Shortcode.php` with a `render()` method
+- [ ] **VIEW-02**: Extract shortcode_kiosk() (~2800 lines) into `Frontend/Kiosk_Shortcode.php` with a `render()` method
+- [ ] **VIEW-03**: All inline JS/CSS preserved as-is in view output — no asset file extraction
+- [ ] **VIEW-04**: AttendanceModule shortcode methods become thin delegates to Frontend classes
+
+### Migration Extraction
+
+- [ ] **MIGR-01**: Extract maybe_install() (~300 lines) into module-local `Migration.php`
+- [ ] **MIGR-02**: Migration class follows existing `CREATE TABLE IF NOT EXISTS` + `add_column_if_missing()` pattern
+- [ ] **MIGR-03**: AttendanceModule calls Migration class from its existing hook
+
+### Cleanup
+
+- [ ] **CLEN-01**: Remove or consolidate remaining helper/delegate methods that are no longer needed
+- [ ] **CLEN-02**: AttendanceModule.php reduced to under 500 lines
+- [ ] **CLEN-03**: Zero behavior change — all existing functionality preserved
+
+## v2 Requirements
+
+Deferred to future work. Tracked but not in current roadmap.
+
+### Asset Optimization
+
+- **ASST-01**: Extract inline JS to separate asset files in `assets/js/`
+- **ASST-02**: Extract inline CSS to separate asset files in `assets/css/`
+
+### Testing
+
+- **TEST-01**: Unit tests for extracted Frontend classes
+- **TEST-02**: Unit tests for Migration class
+- **TEST-03**: Integration tests verifying shortcode output unchanged
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| JS/CSS asset extraction | High risk of breakage, deferred to v2 |
+| Unit/integration tests | Separate effort after refactor completes |
+| Other module refactoring | This is Attendance-only |
+| Functional changes | Pure structural refactor — zero behavior change |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| VIEW-01 | — | Pending |
+| VIEW-02 | — | Pending |
+| VIEW-03 | — | Pending |
+| VIEW-04 | — | Pending |
+| MIGR-01 | — | Pending |
+| MIGR-02 | — | Pending |
+| MIGR-03 | — | Pending |
+| CLEN-01 | — | Pending |
+| CLEN-02 | — | Pending |
+| CLEN-03 | — | Pending |
+
+**Coverage:**
+- v1 requirements: 10 total
+- Mapped to phases: 0
+- Unmapped: 10 ⚠️
+
+---
+*Requirements defined: 2026-03-09*
+*Last updated: 2026-03-09 after initial definition*
