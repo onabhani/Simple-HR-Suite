@@ -13,7 +13,7 @@ This roadmap covers the second phase of the AttendanceModule god-class refactori
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Views Extraction** - Extract shortcode_widget and shortcode_kiosk into Frontend/ classes (completed 2026-03-09)
-- [x] **Phase 2: Migration Extraction** - Extract maybe_install into module-local Migration class (completed 2026-03-09)
+- [x] **Phase 2: Migration Extraction** - Extract maybe_install into module-local Migration class (completed 2026-03-09)
 - [ ] **Phase 3: Orchestrator Cleanup** - Slim AttendanceModule.php to a thin orchestrator under 500 lines
 
 ## Phase Details
@@ -54,10 +54,10 @@ Plans:
   1. AttendanceModule.php is under 500 lines of code
   2. No orphaned helper methods remain that duplicate logic now living in extracted classes
   3. All existing user-facing functionality works identically — zero behavior change from before the refactor
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 03-01: TBD
+- [ ] 03-01-PLAN.md — Remove dead-code methods, normalize formatting, verify zero behavior change
 
 ## Progress
 
@@ -68,4 +68,4 @@ Phases execute in numeric order: 1 -> 2 -> 3
 |-------|----------------|--------|-----------|
 | 1. Views Extraction | 2/2 | Complete   | 2026-03-09 |
 | 2. Migration Extraction | 1/1 | Complete   | 2026-03-09 |
-| 3. Orchestrator Cleanup | 0/? | Not started | - |
+| 3. Orchestrator Cleanup | 0/1 | Not started | - |
