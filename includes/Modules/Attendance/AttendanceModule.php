@@ -58,32 +58,30 @@ class AttendanceModule {
 
         add_shortcode('sfs_hr_kiosk', [ $this, 'shortcode_kiosk' ]);
 
-add_action('wp_ajax_sfs_hr_att_dbg', [ $this, 'ajax_dbg' ]);
-add_action('wp_ajax_nopriv_sfs_hr_att_dbg', [ $this, 'ajax_dbg' ]);
+        add_action('wp_ajax_sfs_hr_att_dbg', [ $this, 'ajax_dbg' ]);
+        add_action('wp_ajax_nopriv_sfs_hr_att_dbg', [ $this, 'ajax_dbg' ]);
 
         // Keep Admin pages on init
-add_action('init', function () {
-    ( new \SFS\HR\Modules\Attendance\Admin\Admin_Pages() )->hooks();
-});
+        add_action('init', function () {
+            ( new \SFS\HR\Modules\Attendance\Admin\Admin_Pages() )->hooks();
+        });
 
-// Register REST routes (Admin + Public) in the right hook
-add_action('rest_api_init', function () {
-    // Admin REST
-    if (method_exists(\SFS\HR\Modules\Attendance\Rest\Admin_REST::class, 'routes')) {
-        \SFS\HR\Modules\Attendance\Rest\Admin_REST::routes();
-    } elseif (method_exists(\SFS\HR\Modules\Attendance\Rest\Admin_REST::class, 'register')) {
-        // fallback if Admin_REST only has register()
-        \SFS\HR\Modules\Attendance\Rest\Admin_REST::register();
-    }
+        // Register REST routes (Admin + Public) in the right hook
+        add_action('rest_api_init', function () {
+            // Admin REST
+            if (method_exists(\SFS\HR\Modules\Attendance\Rest\Admin_REST::class, 'routes')) {
+                \SFS\HR\Modules\Attendance\Rest\Admin_REST::routes();
+            } elseif (method_exists(\SFS\HR\Modules\Attendance\Rest\Admin_REST::class, 'register')) {
+                // fallback if Admin_REST only has register()
+                \SFS\HR\Modules\Attendance\Rest\Admin_REST::register();
+            }
 
-    // Public REST — call register() so nocache headers are attached
-    \SFS\HR\Modules\Attendance\Rest\Public_REST::register();
+            // Public REST — call register() so nocache headers are attached
+            \SFS\HR\Modules\Attendance\Rest\Public_REST::register();
 
-    // Early Leave Requests REST
-    \SFS\HR\Modules\Attendance\Rest\Early_Leave_Rest::register_routes();
-}, 10);
-
-
+            // Early Leave Requests REST
+            \SFS\HR\Modules\Attendance\Rest\Early_Leave_Rest::register_routes();
+        }, 10);
 
         add_shortcode('sfs_hr_attendance_widget', [ $this, 'shortcode_widget' ]);
 
@@ -105,42 +103,20 @@ add_action('rest_api_init', function () {
         return Frontend\Widget_Shortcode::render();
     }
 
+    /**
+     * Kiosk Widget
+     */
+    public function shortcode_kiosk( $atts = [] ): string {
+        return Frontend\Kiosk_Shortcode::render( $atts );
+    }
 
-
-
-/**
- * Kiosk Widget
- */
-public function shortcode_kiosk( $atts = [] ): string {
-    return Frontend\Kiosk_Shortcode::render( $atts );
-}
-
-
-
-/**
- * Generate reference number for early leave requests
- */
-/** @deprecated Delegate to Early_Leave_Service. */
-public static function generate_early_leave_request_number(): string {
-    return Services\Early_Leave_Service::generate_early_leave_request_number();
-}
-
-/** @deprecated Delegate to Early_Leave_Service. */
-private static function maybe_create_early_leave_request(
-    int $employee_id,
-    string $ymd,
-    int $session_id,
-    ?string $lastOutUtc,
-    int $minutes_early,
-    bool $is_total_hours,
-    $shift,
-    \wpdb $wpdb
-): void {
-    Services\Early_Leave_Service::maybe_create_early_leave_request(
-        $employee_id, $ymd, $session_id, $lastOutUtc,
-        $minutes_early, $is_total_hours, $shift, $wpdb
-    );
-}
+    /**
+     * Generate reference number for early leave requests
+     */
+    /** @deprecated Delegate to Early_Leave_Service. */
+    public static function generate_early_leave_request_number(): string {
+        return Services\Early_Leave_Service::generate_early_leave_request_number();
+    }
 
     /**
      * Create / upgrade tables and initialize caps & defaults.
@@ -149,18 +125,18 @@ private static function maybe_create_early_leave_request(
         ( new Migration() )->run();
     }
 
-public function ajax_dbg(): void {
-    // Minimal, safe logger
-    $msg = isset($_POST['m']) ? wp_unslash($_POST['m']) : '';
-    $ctx = isset($_POST['c']) ? wp_unslash($_POST['c']) : '';
-    $ip  = $_SERVER['REMOTE_ADDR'] ?? '';
-    $ua  = $_SERVER['HTTP_USER_AGENT'] ?? '';
-    $line = '[SFS ATT DBG] ' . gmdate('c') . " ip={$ip} | " . $msg;
-    if ($ctx !== '') { $line .= ' | ' . $ctx; }
-    $line .= ' | UA=' . substr($ua, 0, 120);
-    error_log($line);
-    wp_send_json_success();
-}
+    public function ajax_dbg(): void {
+        // Minimal, safe logger
+        $msg = isset($_POST['m']) ? wp_unslash($_POST['m']) : '';
+        $ctx = isset($_POST['c']) ? wp_unslash($_POST['c']) : '';
+        $ip  = $_SERVER['REMOTE_ADDR'] ?? '';
+        $ua  = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $line = '[SFS ATT DBG] ' . gmdate('c') . " ip={$ip} | " . $msg;
+        if ($ctx !== '') { $line .= ' | ' . $ctx; }
+        $line .= ' | UA=' . substr($ua, 0, 120);
+        error_log($line);
+        wp_send_json_success();
+    }
 
     /* ---------------- Core helpers ---------------- */
 
@@ -229,39 +205,22 @@ public function ajax_dbg(): void {
         return ! empty( $holiday_dates );
     }
 
-
-/** Local Y-m-d → [start_utc, end_utc) */
-public static function local_day_window_to_utc(string $ymd): array {
-    $tz  = wp_timezone();
-    $stL = new \DateTimeImmutable($ymd.' 00:00:00', $tz);
-    $enL = $stL->modify('+1 day');
-    $stU = $stL->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
-    $enU = $enL->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
-    return [$stU, $enU];
-}
-
-/** Format a UTC MySQL datetime into site-local using WP formats. */
-public static function fmt_local(?string $utc_mysql): string {
-    if (!$utc_mysql) return '';
-    $ts = strtotime($utc_mysql.' UTC');
-    return wp_date(get_option('date_format').' '.get_option('time_format'), $ts);
-}
-
-
-/** Find the config array for a department by trying id → slug → name. */
-private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array {
-    $candidates = [];
-    if (!empty($deptInfo['id']))   $candidates[] = (string)$deptInfo['id'];
-    if (!empty($deptInfo['slug'])) $candidates[] = (string)$deptInfo['slug'];
-    if (!empty($deptInfo['name'])) $candidates[] = (string)$deptInfo['name'];
-
-    foreach ($candidates as $key) {
-        if (isset($autoMap[$key]) && is_array($autoMap[$key])) {
-            return $autoMap[$key];
-        }
+    /** Local Y-m-d -> [start_utc, end_utc) */
+    public static function local_day_window_to_utc(string $ymd): array {
+        $tz  = wp_timezone();
+        $stL = new \DateTimeImmutable($ymd.' 00:00:00', $tz);
+        $enL = $stL->modify('+1 day');
+        $stU = $stL->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+        $enU = $enL->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+        return [$stU, $enU];
     }
-    return null;
-}
+
+    /** Format a UTC MySQL datetime into site-local using WP formats. */
+    public static function fmt_local(?string $utc_mysql): string {
+        if (!$utc_mysql) return '';
+        $ts = strtotime($utc_mysql.' UTC');
+        return wp_date(get_option('date_format').' '.get_option('time_format'), $ts);
+    }
 
     /** @deprecated Delegate to Session_Service. */
     public static function run_deferred_recalc( int $employee_id, string $ymd, bool $force = false ): void {
@@ -272,10 +231,6 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
     public static function recalc_session_for( int $employee_id, string $ymd, \wpdb $wpdb = null, bool $force = false ): void {
         Services\Session_Service::recalc_session_for( $employee_id, $ymd, $wpdb, $force );
     }
-
-
-
-
 
     /** @deprecated Delegate to Shift_Service. */
     public static function resolve_shift_for_date(
@@ -290,11 +245,6 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
     /** @deprecated Delegate to Shift_Service. */
     public static function build_segments_from_shift( ?\stdClass $shift, string $ymd ): array {
         return Services\Shift_Service::build_segments_from_shift( $shift, $ymd );
-    }
-
-    /** @deprecated Delegate to Session_Service. */
-    private static function evaluate_segments(array $segments, array $punchesUTC, int $graceLateMin, int $graceEarlyMin, int $dayEndUtcTs = 0): array {
-        return Services\Session_Service::evaluate_segments( $segments, $punchesUTC, $graceLateMin, $graceEarlyMin, $dayEndUtcTs );
     }
 
     /** @deprecated Delegate to Session_Service. */
@@ -347,7 +297,7 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
         return $mode;
     }
 
-        /* ---------- Dept helpers (safe, backend-only) ---------- */
+    /* ---------- Dept helpers (safe, backend-only) ---------- */
 
     /**
      * Internal: cache of employee table columns so we don't hammer SHOW COLUMNS.
@@ -480,11 +430,5 @@ private static function pick_dept_conf(array $autoMap, array $deptInfo): ?array 
     public static function get_employee_dept_for_attendance( int $employee_id ): string {
         $info = self::employee_department_info( $employee_id );
         return $info['slug'];
-    }
-
-    /** Convenience: department label only. */
-    private static function employee_department_label( int $employee_id, \wpdb $wpdb ): ?string {
-        $info = self::employee_department_info( $employee_id, $wpdb );
-        return $info ? ($info['name'] ?: $info['slug']) : null;
     }
 }
