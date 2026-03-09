@@ -46,7 +46,7 @@ class Setup_Wizard {
     /** Hidden page (no menu item). */
     public function menu(): void {
         add_submenu_page(
-            null,
+            '',
             __( 'Setup Wizard', 'sfs-hr' ),
             __( 'Setup Wizard', 'sfs-hr' ),
             'manage_options',
