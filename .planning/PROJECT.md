@@ -2,11 +2,11 @@
 
 ## What This Is
 
-A continuation of the AttendanceModule god-class refactoring in Simple HR Suite. Phase 1 extracted 5 service classes (Period, Shift, Early_Leave, Session, Policy). Phase 2 extracts the remaining ~4900 lines — shortcode views, migration logic, and helper methods — to reduce AttendanceModule.php to a thin orchestrator under 500 lines.
+A structural refactor of the AttendanceModule god-class in Simple HR Suite. Phase 1 (pre-existing) extracted 5 service classes. Phase 2 (v1.0) extracted shortcode views and migration logic, reducing AttendanceModule.php from ~5390 lines to a 434-line clean orchestrator.
 
 ## Core Value
 
-AttendanceModule.php becomes a clean orchestrator that delegates to focused classes, making the attendance module maintainable and each piece independently testable.
+AttendanceModule.php is a clean orchestrator that delegates to focused classes, making the attendance module maintainable and each piece independently testable.
 
 ## Requirements
 
@@ -17,47 +17,56 @@ AttendanceModule.php becomes a clean orchestrator that delegates to focused clas
 - ✓ Early_Leave_Service extracted — existing
 - ✓ Session_Service extracted — existing
 - ✓ Policy_Service extracted — existing
+- ✓ Extract shortcode_widget() into Frontend/Widget_Shortcode.php — v1.0
+- ✓ Extract shortcode_kiosk() into Frontend/Kiosk_Shortcode.php — v1.0
+- ✓ All inline JS/CSS preserved as-is — v1.0
+- ✓ Shortcode methods become thin delegates — v1.0
+- ✓ Extract maybe_install() into Migration.php — v1.0
+- ✓ Migration follows CREATE TABLE + add_column_if_missing pattern — v1.0
+- ✓ AttendanceModule calls Migration from existing hook — v1.0
+- ✓ Remove orphaned helper/delegate methods — v1.0
+- ✓ AttendanceModule.php under 500 lines — v1.0
+- ✓ Zero behavior change — v1.0
 
 ### Active
 
-- [ ] Extract shortcode_widget() (~1900 lines) into Frontend/Widget_Shortcode.php
-- [ ] Extract shortcode_kiosk() (~2800 lines) into Frontend/Kiosk_Shortcode.php
-- [ ] Extract maybe_install() (~300 lines) into module-local Migration.php
-- [ ] Review and clean up remaining helper/delegate methods
-- [ ] AttendanceModule.php reduced to under 500 lines as thin orchestrator
+(None — next milestone not yet defined)
 
 ### Out of Scope
 
-- Extracting JS/CSS to separate asset files — too high risk of breakage for this refactor
-- Adding unit/integration tests — separate effort after refactor
-- Refactoring other modules — this is Attendance-only
-- Changing any user-facing behavior — pure structural refactor
+- Extracting JS/CSS to separate asset files — high risk of breakage, deferred
+- Unit/integration tests — separate effort
+- Refactoring other modules — this project is Attendance-only
+- Changing user-facing behavior — pure structural refactor
 
 ## Context
 
-- AttendanceModule.php is currently ~5390 lines
-- Two massive shortcodes account for ~4700 lines: `shortcode_widget` (employee self-service) and `shortcode_kiosk` (terminal mode)
-- Both contain inline HTML, JS, and CSS that should move as-is into view classes
-- The module already has Admin/, Cron/, Rest/, Services/ subdirectories
-- Frontend/ subdirectory will be created to match existing module patterns
-- Inline JS/CSS stays embedded in view output to minimize risk
-- Migration logic uses the project's `add_column_if_missing()` pattern
-
-## Constraints
-
-- **Zero behavior change**: This is a pure structural refactor — no functional changes
-- **Inline assets preserved**: JS/CSS remain inline in view render output, not extracted to files
-- **Migration pattern**: Must follow existing `CREATE TABLE IF NOT EXISTS` + `add_column_if_missing()` pattern
-- **PHP namespace**: New classes under `SFS\HR\Modules\Attendance\*`
+Shipped v1.0 with 18,094 LOC PHP across the Attendance module.
+Tech stack: WordPress, PHP 8.2+, `$wpdb` direct queries.
+AttendanceModule.php is now 434 lines — a thin orchestrator delegating to:
+- `Services/` — Period, Shift, Early_Leave, Session, Policy
+- `Frontend/` — Widget_Shortcode, Kiosk_Shortcode
+- `Migration.php` — table creation, capabilities, seed data
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Frontend/ subdirectory for views | Matches existing module pattern used elsewhere in the plugin | — Pending |
-| Module-local Migration.php | Keeps module self-contained; migration logic is Attendance-specific | — Pending |
-| Keep inline JS/CSS | Minimal risk — move code as-is, verify behavior unchanged | — Pending |
-| Phase 1 service extraction | Already validated in previous refactor commit (ea325b3) | ✓ Good |
+| Frontend/ subdirectory for views | Matches existing module pattern | ✓ Good |
+| Module-local Migration.php | Keeps module self-contained | ✓ Good |
+| Keep inline JS/CSS | Minimal risk — move code as-is | ✓ Good |
+| Phase 1 service extraction | Already validated in commit ea325b3 | ✓ Good |
+| Verbatim extraction, no refactoring | Zero behavior change guarantee | ✓ Good |
+| self:: → AttendanceModule:: in extracted classes | Required for correct static dispatch outside original class | ✓ Good |
+| Instance methods on Migration class | Cleaner than static helpers for extraction | ✓ Good |
+| Eliminate middleman delegates | backfill_early_leave calls Early_Leave_Service directly | ✓ Good |
+
+## Constraints
+
+- **Zero behavior change**: Pure structural refactor
+- **Inline assets preserved**: JS/CSS remain inline in view output
+- **Migration pattern**: CREATE TABLE IF NOT EXISTS + add_column_if_missing()
+- **PHP namespace**: SFS\HR\Modules\Attendance\*
 
 ---
-*Last updated: 2026-03-09 after initialization*
+*Last updated: 2026-03-10 after v1.0 milestone*
