@@ -16,7 +16,7 @@ class Widget_Shortcode {
      *
      * @return string HTML output.
      */
-    public static function render(): string {
+    public static function render( array $atts = [] ): string {
     if ( ! is_user_logged_in() ) { return '<div>' . esc_html__( 'Please sign in.', 'sfs-hr' ) . '</div>'; }
     if ( ! current_user_can( 'sfs_hr_attendance_clock_self' ) ) {
         return '<div>' . esc_html__( 'You do not have permission to clock in/out.', 'sfs-hr' ) . '</div>';
@@ -26,7 +26,7 @@ class Widget_Shortcode {
   // NEW: immersive flag (like kiosk)
     $atts = shortcode_atts([
         'immersive' => '1', // default ON
-    ], [], 'sfs_hr_attendance_widget');
+    ], $atts, 'sfs_hr_attendance_widget');
 
     $immersive = $atts['immersive'] === '1' || $atts['immersive'] === 1 || $atts['immersive'] === true;
 
@@ -1433,7 +1433,7 @@ setInterval(tickClock, 1000);
                         try { selfieVideo.play().then(r).catch(()=>r()); } catch(_) { r(); }
                     };
                 });
-                if (selfieStatus) selfieStatus.textContent = label + ' — ' + (i18n.ready_capture || 'Ready');
+                if (selfieStatus) selfieStatus.textContent = label + ' — ' + (i18n.ready_capture_submit || 'Ready');
             } catch(e) {
                 setStat(i18n.camera_error + ' ' + (e.message || e), 'error');
                 stopSelfiePreview();

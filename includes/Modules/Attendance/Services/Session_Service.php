@@ -985,7 +985,7 @@ if ( ! empty( $leadingOuts ) ) {
         ) );
         $punched = array_map( 'intval', (array) $punched );
 
-        $all_active = $wpdb->get_col( "SELECT id FROM {$eT} WHERE status = 'active'" );
+        $all_active = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$eT} WHERE status = %s", 'active' ) );
         $all_active = array_map( 'intval', (array) $all_active );
 
         $all_ids = array_values( array_unique( array_merge( $punched, $all_active ) ) );

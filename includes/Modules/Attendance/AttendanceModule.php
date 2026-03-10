@@ -99,8 +99,8 @@ class AttendanceModule {
      * Minimal employee widget (shortcode) with nonce + REST calls.
      * Place on a page restricted to logged-in employees.
      */
-    public function shortcode_widget(): string {
-        return Frontend\Widget_Shortcode::render();
+    public function shortcode_widget( $atts = [] ): string {
+        return Frontend\Widget_Shortcode::render( (array) $atts );
     }
 
     /**
@@ -257,10 +257,11 @@ class AttendanceModule {
         // Global options
         $opt    = get_option( self::OPT_SETTINGS, [] );
         $policy = is_array( $opt ) ? ( $opt['selfie_policy'] ?? [] ) : [];
+        if ( ! is_array( $policy ) ) { $policy = []; }
 
         $default_mode = $policy['default'] ?? 'optional';
-        $dept_modes   = $policy['by_dept_id'] ?? [];
-        $emp_modes    = $policy['by_employee'] ?? [];
+        $dept_modes   = is_array( $policy['by_dept_id'] ?? null ) ? $policy['by_dept_id'] : [];
+        $emp_modes    = is_array( $policy['by_employee'] ?? null ) ? $policy['by_employee'] : [];
 
         $mode = $default_mode;
 
