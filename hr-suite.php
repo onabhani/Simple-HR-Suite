@@ -2,9 +2,12 @@
 /**
  * Plugin Name: Simple HR Suite
  * Description: Simple HR Suite – employees, departments, leave, balances, approvals.
- * Version: 1.9.2
+ * Version: 2.0.0
  * Author: hdqah.com
  * Author URI: https://hdqah.com
+ * Requires at least: 6.4
+ * Tested up to: 6.9.4
+ * Requires PHP: 8.2
  * Text Domain: sfs-hr
  * GitHub Plugin URI: onabhani/Simple-HR-Suite
  * Primary Branch: main
@@ -12,7 +15,7 @@
 
 if (!defined('ABSPATH')) { exit; }
 
-define('SFS_HR_VER', '1.9.1');
+define('SFS_HR_VER', '2.0.0');
 define('SFS_HR_DIR', plugin_dir_path(__FILE__));
 define('SFS_HR_URL', plugin_dir_url(__FILE__));
 define('SFS_HR_PLUGIN_FILE', __FILE__);
