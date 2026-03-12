@@ -6860,6 +6860,21 @@ public function render_calendar(): void {
         }
 
         $employee_name = trim( $request->first_name . ' ' . $request->last_name );
+
+        // Fetch last leave for this employee (most recent approved/returned leave before this request)
+        $last_leave = $wpdb->get_row( $wpdb->prepare(
+            "SELECT r.start_date, r.end_date, r.days, r.status, t.name as type_name
+             FROM {$req_t} r
+             JOIN {$types_t} t ON t.id = r.type_id
+             WHERE r.employee_id = %d
+               AND r.id != %d
+               AND r.status IN ('approved','on_leave','returned','early_returned')
+             ORDER BY r.end_date DESC
+             LIMIT 1",
+            (int) $request->employee_id,
+            $request_id
+        ) );
+
         $nonce_approve = wp_create_nonce( 'sfs_hr_leave_approve' );
         $nonce_reject = wp_create_nonce( 'sfs_hr_leave_reject' );
         $nonce_cancel = wp_create_nonce( 'sfs_hr_leave_cancel_' . $request_id );
@@ -6988,6 +7003,26 @@ public function render_calendar(): void {
                             <tr>
                                 <th><?php esc_html_e( 'Created', 'sfs-hr' ); ?></th>
                                 <td><?php echo esc_html( wp_date( 'F j, Y g:i a', strtotime( $request->created_at ) ) ); ?></td>
+                            </tr>
+                            <tr>
+                                <th><?php esc_html_e( 'Last Leave', 'sfs-hr' ); ?></th>
+                                <td>
+                                    <?php if ( $last_leave ) : ?>
+                                        <strong><?php echo esc_html( $last_leave->type_name ); ?></strong><br>
+                                        <?php
+                                        printf(
+                                            /* translators: 1: leave start date, 2: leave end date */
+                                            esc_html__( '%1$s → %2$s (%3$d days)', 'sfs-hr' ),
+                                            esc_html( wp_date( 'F j, Y', strtotime( $last_leave->start_date ) ) ),
+                                            esc_html( wp_date( 'F j, Y', strtotime( $last_leave->end_date ) ) ),
+                                            (int) $last_leave->days
+                                        );
+                                        ?>
+                                        <br><small><?php echo Leave_UI::leave_status_chip( $last_leave->status ); ?></small>
+                                    <?php else : ?>
+                                        <em><?php esc_html_e( 'No previous leave on record', 'sfs-hr' ); ?></em>
+                                    <?php endif; ?>
+                                </td>
                             </tr>
                             <?php if ( $request->status !== 'pending' && $approver_name ) : ?>
                                 <tr>
