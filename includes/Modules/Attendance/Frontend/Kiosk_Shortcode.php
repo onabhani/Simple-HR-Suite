@@ -1296,12 +1296,22 @@ let inflight = false;
 
 
 // Short beep on success (no <audio> tag needed)
+// Shared AudioContext — reused across punches to avoid resource accumulation
+let _sharedAudioCtx = null;
+function getAudioCtx(){
+  if (!_sharedAudioCtx || _sharedAudioCtx.state === 'closed') {
+    _sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return _sharedAudioCtx;
+}
 async function playActionTone(kind){
   const freq = { in: 920, out: 420, break_start: 680, break_end: 560 }[kind] || 750;
   try {
     const ctx = getAudioCtx();
     if (!ctx) return;
-    if (ctx.state === 'suspended') { await ctx.resume(); }
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
     const o = ctx.createOscillator(); const g = ctx.createGain();
     o.type = 'sine'; o.frequency.value = freq;
     o.connect(g); g.connect(ctx.destination);
@@ -1333,7 +1343,7 @@ function playErrorTone() {
   try {
     const ctx = getAudioCtx();
     if (!ctx) return;
-    if (ctx.state === 'suspended') { ctx.resume().catch(()=>{}); }
+    if (ctx.state === 'suspended') ctx.resume().catch(()=>{});
     const o = ctx.createOscillator(); const g = ctx.createGain();
     o.type = 'square'; o.frequency.value = 220;
     o.connect(g); g.connect(ctx.destination);
@@ -1816,6 +1826,8 @@ async function startQr(){
     // --- Reuse persistent off-screen canvas for scanning ---
     const scanCanvas = _scanCanvas;
     const sctx = _scanCtx;
+    let lastScanTs = 0;
+    const SCAN_INTERVAL_MS = 150; // throttle QR decode to ~7fps to reduce GC pressure
 
     const ensureCanvasSize = () => {
       const w = qrVid.videoWidth  || 640;
@@ -1852,41 +1864,45 @@ async function startQr(){
           return;
         }
 
-        const w = scanCanvas.width, h = scanCanvas.height;
-        sctx.drawImage(qrVid, 0, 0, w, h);
-
+        // Throttle QR decoding to reduce ImageData allocation / GC pressure
+        const now = Date.now();
         let payload = null;
+        if (now - lastScanTs >= SCAN_INTERVAL_MS) {
+          lastScanTs = now;
 
-        // (A) BarcodeDetector path
-        if (useBarcodeDetector && detector) {
-          try {
-            const det = await detector.detect(scanCanvas);
-            if (det && det.length) {
-              payload = String(det[0].rawValue ?? '');
-              if (payload) dbg('tick: detector hit');
+          const w = scanCanvas.width, h = scanCanvas.height;
+          sctx.drawImage(qrVid, 0, 0, w, h);
+
+          // (A) BarcodeDetector path
+          if (useBarcodeDetector && detector) {
+            try {
+              const det = await detector.detect(scanCanvas);
+              if (det && det.length) {
+                payload = String(det[0].rawValue ?? '');
+                if (payload) dbg('tick: detector hit');
+              }
+            } catch (e) {
+              dbg('tick: detector error', e && (e.message || e));
             }
-          } catch (e) {
-            dbg('tick: detector error', e && (e.message || e));
           }
-        }
 
-        // (B) jsQR fallback path — reuse ImageData buffer to reduce GC pressure
-        if (!payload && typeof window.jsQR === 'function') {
-          try {
-            if (!_scanImageData || _scanImageData.width !== w || _scanImageData.height !== h) {
-              _scanImageData = sctx.getImageData(0, 0, w, h);
-            } else {
-              // Copy pixel data into existing buffer
-              const fresh = sctx.getImageData(0, 0, w, h);
-              _scanImageData.data.set(fresh.data);
+          // (B) jsQR fallback path — reuse ImageData buffer to reduce GC pressure
+          if (!payload && typeof window.jsQR === 'function') {
+            try {
+              if (!_scanImageData || _scanImageData.width !== w || _scanImageData.height !== h) {
+                _scanImageData = sctx.getImageData(0, 0, w, h);
+              } else {
+                const fresh = sctx.getImageData(0, 0, w, h);
+                _scanImageData.data.set(fresh.data);
+              }
+              const code = jsQR(_scanImageData.data, w, h, { inversionAttempts: 'attemptBoth' });
+              if (code && code.data) {
+                payload = String(code.data);
+                dbg('tick: jsQR hit');
+              }
+            } catch (err) {
+              dbg('tick: jsQR error (non-fatal)', err && (err.message || err));
             }
-            const code = jsQR(_scanImageData.data, w, h, { inversionAttempts: 'attemptBoth' });
-            if (code && code.data) {
-              payload = String(code.data);
-              dbg('tick: jsQR hit');
-            }
-          } catch (err) {
-            dbg('tick: jsQR error (non-fatal)', err && (err.message || err));
           }
         }
 
@@ -1969,7 +1985,11 @@ function stopQr(){
   if (selfiePreviewLoop) { cancelAnimationFrame(selfiePreviewLoop); selfiePreviewLoop = null; }
   if (qrStream) { try { qrStream.getTracks().forEach(t=>t.stop()); } catch(_) {} qrStream = null; }
   if (qrVid) qrVid.srcObject = null;
-  
+
+  // Clear inline display styles so CSS [data-view="menu"] rules take effect
+  if (camwrap) camwrap.style.display = '';
+  if (qrWrap) qrWrap.style.display = '';
+
   if (qrStop)  qrStop.disabled  = true;
   if (qrStat)  qrStat.textContent = '';
   lastUIBeat = 0;
