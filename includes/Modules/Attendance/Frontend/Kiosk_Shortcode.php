@@ -1281,11 +1281,18 @@ let inflight = false;
 
 
 // Short beep on success (no <audio> tag needed)
+// Shared AudioContext — reused across punches to avoid resource accumulation
+let _sharedAudioCtx = null;
+function getAudioCtx(){
+  if (!_sharedAudioCtx || _sharedAudioCtx.state === 'closed') {
+    _sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return _sharedAudioCtx;
+}
 async function playActionTone(kind){
   const freq = { in: 920, out: 420, break_start: 680, break_end: 560 }[kind] || 750;
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    // Resume context if suspended (browser autoplay policy)
+    const ctx = getAudioCtx();
     if (ctx.state === 'suspended') {
       await ctx.resume();
     }
@@ -1295,9 +1302,8 @@ async function playActionTone(kind){
     g.gain.value = 0.25;
     o.start();
     g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
-    setTimeout(()=>{ o.stop(); ctx.close(); }, 260);
+    setTimeout(()=>{ o.stop(); }, 260);
   } catch(e) {
-    // Log audio errors to console for debugging
     dbg('Audio tone error:', e);
   }
 }
@@ -1319,13 +1325,14 @@ function flash(kind, empName){
 
 function playErrorTone() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
     const o = ctx.createOscillator(); const g = ctx.createGain();
     o.type = 'square'; o.frequency.value = 220;
     o.connect(g); g.connect(ctx.destination);
     o.start();
     g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
-    setTimeout(()=>{ o.stop(); ctx.close(); }, 280);
+    setTimeout(()=>{ o.stop(); }, 280);
   } catch(_) {}
 }
 
@@ -1802,6 +1809,8 @@ async function startQr(){
     // --- Offscreen canvas for scanning
     const scanCanvas = document.createElement('canvas');
     const sctx = scanCanvas.getContext('2d', { willReadFrequently: true });
+    let lastScanTs = 0;
+    const SCAN_INTERVAL_MS = 150; // throttle QR decode to ~7fps to reduce GC pressure
 
     const ensureCanvasSize = () => {
       const w = qrVid.videoWidth  || 640;
@@ -1833,36 +1842,41 @@ async function startQr(){
           return;
         }
 
-        const w = scanCanvas.width, h = scanCanvas.height;
-        sctx.drawImage(qrVid, 0, 0, w, h);
-
+        // Throttle QR decoding to reduce ImageData allocation / GC pressure
+        const now = Date.now();
         let payload = null;
+        if (now - lastScanTs >= SCAN_INTERVAL_MS) {
+          lastScanTs = now;
 
-        // (A) BarcodeDetector path
-        if (useBarcodeDetector && detector) {
-          try {
-            const det = await detector.detect(scanCanvas);
-            if (det && det.length) {
-              payload = String(det[0].rawValue ?? '');
-              if (payload) dbg('tick: detector hit');
+          const w = scanCanvas.width, h = scanCanvas.height;
+          sctx.drawImage(qrVid, 0, 0, w, h);
+
+          // (A) BarcodeDetector path
+          if (useBarcodeDetector && detector) {
+            try {
+              const det = await detector.detect(scanCanvas);
+              if (det && det.length) {
+                payload = String(det[0].rawValue ?? '');
+                if (payload) dbg('tick: detector hit');
+              }
+            } catch (e) {
+              dbg('tick: detector error', e && (e.message || e));
             }
-          } catch (e) {
-            dbg('tick: detector error', e && (e.message || e));
           }
-        }
 
-        // (B) jsQR fallback path
-        if (!payload && typeof window.jsQR === 'function') {
-          try {
-            const img  = sctx.getImageData(0, 0, w, h);
-            const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
-            if (code && code.data) {
-              payload = String(code.data);
-              dbg('tick: jsQR hit');
+          // (B) jsQR fallback path
+          if (!payload && typeof window.jsQR === 'function') {
+            try {
+              const img  = sctx.getImageData(0, 0, w, h);
+              const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
+              if (code && code.data) {
+                payload = String(code.data);
+                dbg('tick: jsQR hit');
+              }
+            } catch (err) {
+              // Non-fatal decode hiccup; keep UI in "Scanning…" and just log
+              dbg('tick: jsQR error (non-fatal)', err && (err.message || err));
             }
-          } catch (err) {
-            // Non-fatal decode hiccup; keep UI in "Scanning…" and just log
-            dbg('tick: jsQR error (non-fatal)', err && (err.message || err));
           }
         }
 
@@ -1943,7 +1957,11 @@ function stopQr(){
   if (selfiePreviewLoop) { cancelAnimationFrame(selfiePreviewLoop); selfiePreviewLoop = null; }
   if (qrStream) { try { qrStream.getTracks().forEach(t=>t.stop()); } catch(_) {} qrStream = null; }
   if (qrVid) qrVid.srcObject = null;
-  
+
+  // Clear inline display styles so CSS [data-view="menu"] rules take effect
+  if (camwrap) camwrap.style.display = '';
+  if (qrWrap) qrWrap.style.display = '';
+
   if (qrStop)  qrStop.disabled  = true;
   if (qrStat)  qrStat.textContent = '';
   lastUIBeat = 0;
@@ -2091,6 +2109,7 @@ function addScanLog(name, action, ok){
 
   const time = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
   scanLog.unshift({ name, action, time, ok });
+  if (scanLog.length > 50) scanLog.length = 50;
 
   const safeName = (name||'\u2014').replace(/</g,'&lt;');
   const cls = ok ? 'ok' : 'err';

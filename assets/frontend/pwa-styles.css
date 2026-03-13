@@ -997,6 +997,26 @@ body:has(.sfs-hr-pwa-app) #masthead {
     display: inline-block;
 }
 
+/* ── Immersive attendance tab ─────────────────────────────────── */
+/* Hide the app header and bottom navigation when the attendance tab is active */
+.sfs-hr-pwa-app:has(.sfs-hr-tab--immersive) .sfs-hr-app-header,
+.sfs-hr-pwa-app:has(.sfs-hr-tab--immersive) .sfs-hr-profile-tabs,
+.sfs-hr-pwa-app:has(.sfs-hr-tab--immersive) .sfs-hr-sidebar {
+    display: none !important;
+}
+/* Let the attendance content fill the entire viewport */
+.sfs-hr-pwa-app:has(.sfs-hr-tab--immersive) .sfs-hr-profile--frontend {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+}
+.sfs-hr-pwa-app:has(.sfs-hr-tab--immersive) .sfs-hr-portal-layout {
+    padding: 0 !important;
+}
+.sfs-hr-pwa-app:has(.sfs-hr-tab--immersive) .sfs-hr-profile-attendance-tab {
+    min-height: 100dvh;
+}
+
 /* Attendance button */
 .sfs-hr-pwa-app .sfs-hr-att-btn {
     display: inline-flex;
