@@ -1728,6 +1728,11 @@ async function startQr(){
   lastQrValue = '';
   lastQrTs = 0;
   stopQr();
+
+  // Capture epoch immediately after stopQr() so we can detect if
+  // stopQr() fires again during any of the async startup steps below.
+  const myEpoch = qrEpoch;
+
   lastUIBeat = 0;
   const tag = requiresSelfie ? ' — ' + ((window.SFS_ATT_I18N||{}).selfie_required||'selfie required') : '';
   setStat(((window.SFS_ATT_I18N||{}).scanning||'Scanning') + ' — ' + ((window.SFS_ATT_I18N||{}).action||'action') + ': ' + labelFor(currentAction) + tag, 'scanning');
@@ -1738,6 +1743,7 @@ async function startQr(){
   try {
     if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
       const devs = await navigator.mediaDevices.enumerateDevices();
+      if (myEpoch !== qrEpoch) { dbg('startQr: aborted during enumerateDevices'); return; }
       const cams = devs.filter(d => d.kind === 'videoinput');
       if (!cams.length) {
         setStat(t.no_camera_found||'No camera found on this device.', 'error');
@@ -1764,6 +1770,7 @@ async function startQr(){
     try {
       detector = new BarcodeDetector({ formats: ['qr_code'] });
       await detector.detect(document.createElement('canvas'));
+      if (myEpoch !== qrEpoch) { dbg('startQr: aborted during BarcodeDetector init'); return; }
       dbg('startQr: BarcodeDetector OK');
     } catch {
       useBarcodeDetector = false;
@@ -1777,6 +1784,7 @@ async function startQr(){
     const t0 = Date.now();
     while (typeof window.jsQR !== 'function' && (Date.now() - t0) < 3000) {
       await new Promise(r => setTimeout(r,100));
+      if (myEpoch !== qrEpoch) { dbg('startQr: aborted during jsQR poll'); return; }
     }
     dbg('startQr: jsQR loaded?', typeof window.jsQR === 'function');
     if (typeof window.jsQR !== 'function'){
@@ -1798,6 +1806,16 @@ async function startQr(){
   try {
     dbg('startQr: getUserMedia requesting…', constraints.video);
     qrStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+    // If stopQr() was called while we were waiting for the camera,
+    // release the stream we just acquired and bail out.
+    if (myEpoch !== qrEpoch) {
+      dbg('startQr: aborted after getUserMedia');
+      try { qrStream.getTracks().forEach(t=>t.stop()); } catch(_) {}
+      qrStream = null;
+      return;
+    }
+
     qrVid.srcObject = qrStream;
     await new Promise(r => qrVid.onloadedmetadata = r);
     dbg('startQr: stream ready', { w: qrVid.videoWidth, h: qrVid.videoHeight });
@@ -1806,6 +1824,15 @@ async function startQr(){
       await qrVid.play();
     } catch(e) {
       dbg('startQr: play() err', e && e.message);
+    }
+
+    // Final epoch check before committing to the running state
+    if (myEpoch !== qrEpoch) {
+      dbg('startQr: aborted after play');
+      try { qrStream.getTracks().forEach(t=>t.stop()); } catch(_) {}
+      qrStream = null;
+      qrVid.srcObject = null;
+      return;
     }
 
     // === IMPORTANT: mark running BEFORE starting selfie preview ===
@@ -1841,9 +1868,6 @@ async function startQr(){
       }
       return true;
     };
-
-    // Capture epoch at start of this scanner session
-    const myEpoch = qrEpoch;
 
     // ====== TICK LOOP ======
     const tick = async () => {
