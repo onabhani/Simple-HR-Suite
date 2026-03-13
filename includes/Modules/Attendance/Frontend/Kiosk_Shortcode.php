@@ -1315,7 +1315,7 @@ async function playActionTone(kind){
     const o = ctx.createOscillator(); const g = ctx.createGain();
     o.type = 'sine'; o.frequency.value = freq;
     o.connect(g); g.connect(ctx.destination);
-    g.gain.value = 0.25;
+    g.gain.setValueAtTime(0.25, ctx.currentTime);
     o.start();
     g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
     setTimeout(()=>{ try { o.stop(); o.disconnect(); g.disconnect(); } catch(_){} }, 260);
@@ -1339,14 +1339,17 @@ function flash(kind, empName){
 }
 
 
-function playErrorTone() {
+async function playErrorTone() {
   try {
     const ctx = getAudioCtx();
     if (!ctx) return;
-    if (ctx.state === 'suspended') ctx.resume().catch(()=>{});
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
     const o = ctx.createOscillator(); const g = ctx.createGain();
     o.type = 'square'; o.frequency.value = 220;
     o.connect(g); g.connect(ctx.destination);
+    g.gain.setValueAtTime(0.25, ctx.currentTime);
     o.start();
     g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
     setTimeout(()=>{ try { o.stop(); o.disconnect(); g.disconnect(); } catch(_){} }, 280);
