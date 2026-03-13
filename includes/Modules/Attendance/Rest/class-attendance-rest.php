@@ -1050,6 +1050,9 @@ if ( $punch_id === 0 ) {
     );
 }
 
+// Flush object cache so the subsequent status query sees the new punch
+wp_cache_flush();
+
     // ---- Audit (insert before attachment meta so rollback is clean)
     $auditT = $wpdb->prefix . 'sfs_hr_attendance_audit';
     $audit_ok = $wpdb->insert( $auditT, [
