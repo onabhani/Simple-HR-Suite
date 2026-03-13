@@ -5,6 +5,9 @@
  * Version: 2.0.0
  * Author: hdqah.com
  * Author URI: https://hdqah.com
+ * Requires at least: 6.4
+ * Tested up to: 6.9.4
+ * Requires PHP: 8.2
  * Text Domain: sfs-hr
  * GitHub Plugin URI: onabhani/Simple-HR-Suite
  * Primary Branch: main
