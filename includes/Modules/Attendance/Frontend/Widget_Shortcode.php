@@ -1472,6 +1472,11 @@ setInterval(tickClock, 1000);
                 return;
             }
 
+            // Timeout: 30s for selfie uploads (large payload), 15s otherwise
+            var punchTimeout = selfieBlob ? 30000 : 15000;
+            var punchCtrl = new AbortController();
+            var punchTimer = setTimeout(function(){ punchCtrl.abort(); }, punchTimeout);
+
             try {
                 let resp, text = '', j = null;
 
@@ -1494,7 +1499,8 @@ setInterval(tickClock, 1000);
                         method: 'POST',
                         headers: { 'X-WP-Nonce': NONCE },
                         credentials: 'same-origin',
-                        body: fd
+                        body: fd,
+                        signal: punchCtrl.signal
                     });
                 } else if (selfieNeeded) {
                     // Selfie needed but no blob — try file input, or error
@@ -1518,7 +1524,8 @@ setInterval(tickClock, 1000);
                         method: 'POST',
                         headers: { 'X-WP-Nonce': NONCE },
                         credentials: 'same-origin',
-                        body: fd
+                        body: fd,
+                        signal: punchCtrl.signal
                     });
                 } else {
                     const payload = { punch_type: type, source: 'self_web' };
@@ -1535,7 +1542,8 @@ setInterval(tickClock, 1000);
                             'Content-Type': 'application/json'
                         },
                         credentials: 'same-origin',
-                        body: JSON.stringify(payload)
+                        body: JSON.stringify(payload),
+                        signal: punchCtrl.signal
                     });
                 }
 
@@ -1578,7 +1586,9 @@ setInterval(tickClock, 1000);
                 refresh();
 
             } catch (e) {
-                const errMsg = i18n.error_prefix + ' ' + e.message;
+                var errMsg = (e.name === 'AbortError')
+                    ? (i18n.error_prefix + ' ' + (i18n.request_timed_out || 'Request timed out. Please try again.'))
+                    : (i18n.error_prefix + ' ' + e.message);
                 setStat(errMsg, 'error');
                 // Close the overlay so user sees the main status message
                 stopSelfiePreview();
@@ -1589,6 +1599,8 @@ setInterval(tickClock, 1000);
                         btn.disabled = !isActionAvailable(t);
                     });
                 }
+            } finally {
+                clearTimeout(punchTimer);
             }
         }
 

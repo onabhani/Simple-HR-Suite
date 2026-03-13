@@ -870,17 +870,24 @@ async function attemptPunch(type, scanToken, selfieBlob, geox) {
   }
 
   let res, text = '', json = null;
+  var apCtrl = new AbortController();
+  var apTimer = setTimeout(function(){ apCtrl.abort(); }, selfieBlob ? 30000 : 15000);
   try {
     res  = await fetch(punchUrl, {
       method: 'POST',
       headers: { 'X-WP-Nonce': nonce },
       credentials: 'same-origin',
-      body: fd
+      body: fd,
+      signal: apCtrl.signal
     });
     text = await res.text();
     try { json = JSON.parse(text); } catch(_) {}
   } catch (e) {
+    clearTimeout(apTimer);
     dbg('attemptPunch network error', e && (e.message || e));
+    if (e.name === 'AbortError') {
+      return { ok:false, status:0, data:{ message: t.request_timed_out || 'Request timed out. Please try again.' }, code:'timeout', raw:'' };
+    }
 
     // Offline queueing: store punch locally with offline_origin fields for later sync
     if (OFFLINE_ENABLED && window.sfsHrPwa && window.sfsHrPwa.db) {
@@ -903,6 +910,7 @@ async function attemptPunch(type, scanToken, selfieBlob, geox) {
 
     return { ok:false, status:0, data:{ message: t.network_error || 'Network error' }, code:null, raw:text };
   }
+  clearTimeout(apTimer);
 
   // Safe debug head
   try {
@@ -2436,8 +2444,10 @@ function showPunchError(msg, detail){
           body = JSON.stringify(payload);
         }
 
+        var kpCtrl = new AbortController();
+        var kpTimer = setTimeout(function(){ kpCtrl.abort(); }, requiresSelfie ? 30000 : 15000);
         try{
-          const r = await fetch(punchUrl, { method:'POST', headers, credentials:'same-origin', body });
+          const r = await fetch(punchUrl, { method:'POST', headers, credentials:'same-origin', body, signal: kpCtrl.signal });
           const j = await r.json();
           if (!r.ok) throw new Error(j.message || 'Punch failed');
           setStat(j.label || t.done_label||'Done', 'ok');
@@ -2447,7 +2457,12 @@ function showPunchError(msg, detail){
           ROOT.querySelectorAll('button[data-action]').forEach(b=>b.disabled = true);
           setTimeout(()=>ROOT.querySelectorAll('button[data-action]').forEach(b=>b.disabled = !allowed[b.getAttribute('data-type')]), 3000);
         }catch(e){
-          setStat((t.error_prefix||'Error:') + ' ' + e.message, 'error');
+          var kpMsg = (e.name === 'AbortError')
+              ? ((t.error_prefix||'Error:') + ' ' + (t.request_timed_out || 'Request timed out. Please try again.'))
+              : ((t.error_prefix||'Error:') + ' ' + e.message);
+          setStat(kpMsg, 'error');
+        }finally{
+          clearTimeout(kpTimer);
         }
       }
 
