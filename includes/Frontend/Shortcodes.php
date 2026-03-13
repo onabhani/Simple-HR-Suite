@@ -432,7 +432,7 @@ class Shortcodes {
     <!-- Desktop Sidebar Navigation -->
     <?php echo Navigation::render_sidebar( $portal_tabs, $active_tab, $base_url ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- HTML escaped inside render_sidebar ?>
 
-    <div class="sfs-hr sfs-hr-profile sfs-hr-profile--frontend sfs-hr-tab--<?php echo esc_attr( $active_tab ); ?>">
+    <div class="sfs-hr sfs-hr-profile sfs-hr-profile--frontend sfs-hr-tab--<?php echo esc_attr( $active_tab ); ?><?php echo $active_tab === 'attendance' ? ' sfs-hr-tab--immersive' : ''; ?>">
 
         <?php if ( $is_terminated ) : ?>
             <div class="sfs-hr-alert" style="background:#fff3cd;color:#856404;padding:15px;border-radius:4px;margin-bottom:20px;">
@@ -465,7 +465,7 @@ class Shortcodes {
     <?php elseif ( $active_tab === 'attendance' && $can_self_clock ) : ?>
 
         <div class="sfs-hr-profile-attendance-tab">
-            <?php echo do_shortcode( '[sfs_hr_attendance_widget immersive="0"]' ); ?>
+            <?php echo do_shortcode( '[sfs_hr_attendance_widget immersive="1"]' ); ?>
         </div>
 
     <?php elseif ( $active_tab === 'documents' && ! $is_limited_access ) : ?>
@@ -3675,7 +3675,7 @@ private function render_trainee_profile( array $trainee ): string {
 
             <?php if ( $active_tab === 'attendance' && $can_self_clock ) : ?>
                 <div class="sfs-hr-profile-attendance-tab">
-                    <?php echo do_shortcode( '[sfs_hr_attendance_widget immersive="0"]' ); ?>
+                    <?php echo do_shortcode( '[sfs_hr_attendance_widget immersive="1"]' ); ?>
                 </div>
             <?php else : ?>
                 <div class="sfs-hr-profile-header">
