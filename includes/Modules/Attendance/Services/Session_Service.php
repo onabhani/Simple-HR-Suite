@@ -172,6 +172,18 @@ class Session_Service {
     // Resolve shift using the proper cascade
     $shift = Shift_Service::resolve_shift_for_date($employee_id, $ymd, [], $wpdb);
 
+    // Off-day detection: when shift is null, check if a base shift exists.
+    // If so, use it for context (punch window, policy) — overtime logic below
+    // will mark all worked time as overtime.
+    $is_off_day = false;
+    if ( ! $shift ) {
+        $off_day_shift = Shift_Service::resolve_shift_for_date( $employee_id, $ymd, [], $wpdb, true );
+        if ( $off_day_shift && ! empty( $off_day_shift->__off_day ) ) {
+            $is_off_day = true;
+            $shift      = $off_day_shift;
+        }
+    }
+
     // Build segments from resolved shift
     $segments = Shift_Service::build_segments_from_shift($shift, $ymd);
 
@@ -204,7 +216,7 @@ if ( ! empty( $segments ) ) {
     }
 
     // Tighten the window START to (shift_start - 2 hours)
-    if ( ! $is_holiday ) {
+    if ( ! $is_holiday && ! $is_off_day ) {
         $firstSeg        = reset( $segments );
         $segStartUtcTs   = strtotime( $firstSeg['start_utc'] . ' UTC' );
         $bufferSeconds   = 7200; // 2 hours before shift start
@@ -249,6 +261,33 @@ if ( ! empty( $leadingOuts ) ) {
     $rows = array_values( array_filter( $rows, function ( $r ) use ( $leadingOuts ) {
         return ! in_array( $r->punch_time, $leadingOuts, true );
     } ) );
+}
+
+// Off-day guard: no punches on a scheduled off day → mark as day_off (not absent)
+if ( $is_off_day && empty( $rows ) ) {
+    $data = [
+        'employee_id'         => $employee_id,
+        'work_date'           => $ymd,
+        'in_time'             => null,
+        'out_time'            => null,
+        'break_minutes'       => 0,
+        'break_delay_minutes' => 0,
+        'no_break_taken'      => 0,
+        'net_minutes'         => 0,
+        'rounded_net_minutes' => 0,
+        'overtime_minutes'    => 0,
+        'status'              => 'day_off',
+        'flags_json'          => wp_json_encode([]),
+        'calc_meta_json'      => wp_json_encode(['reason' => 'scheduled_off_day']),
+        'last_recalc_at'      => current_time('mysql', true),
+    ];
+    $exists = $wpdb->get_var( $wpdb->prepare("SELECT id FROM {$sT} WHERE employee_id=%d AND work_date=%s LIMIT 1", $employee_id, $ymd) );
+    if ($exists) {
+        $wpdb->update($sT, $data, ['id' => (int) $exists, 'locked' => 0]);
+    } else {
+        $wpdb->insert($sT, $data);
+    }
+    return;
 }
 
     // Grace & rounding
@@ -479,6 +518,14 @@ if ( ! empty( $leadingOuts ) ) {
         $status = 'holiday';
         $flags  = array_values( array_diff( $flags, [ 'late', 'left_early', 'incomplete', 'missed_segment' ] ) );
         $flags[] = 'holiday_work';
+    }
+
+    // Off-day overtime: employee worked on a scheduled off day — all worked time is overtime
+    if ( $is_off_day && count( $rows ) > 0 ) {
+        $ot     = $net;
+        $status = 'day_off';
+        $flags  = array_values( array_diff( $flags, [ 'late', 'left_early', 'incomplete', 'missed_segment' ] ) );
+        $flags[] = 'off_day_work';
     }
 
     // Suppress left_early when approved early leave request exists
