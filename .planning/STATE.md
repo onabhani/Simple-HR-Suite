@@ -1,38 +1,43 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: Attendance Module Refactor Phase 2
-status: shipped
-stopped_at: Milestone v1.0 archived
-last_updated: "2026-03-10"
-last_activity: 2026-03-10 — Milestone v1.0 shipped and archived
+milestone: v1.1
+milestone_name: Module-by-Module Code Audit
+status: defining_requirements
+stopped_at: Defining requirements
+last_updated: "2026-03-16"
+last_activity: 2026-03-16 — Milestone v1.1 started
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 4
-  completed_plans: 4
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-10)
+See: .planning/PROJECT.md (updated 2026-03-16)
 
-**Core value:** AttendanceModule.php is a clean orchestrator that delegates to focused classes
-**Current focus:** Planning next milestone
+**Core value:** Identify security, performance, duplication, and logical issues across all modules
+**Current focus:** Defining requirements for code audit
 
 ## Current Position
 
-Milestone v1.0 shipped. All 3 phases, 4 plans complete.
-Next step: `/gsd:new-milestone` to define next milestone scope.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-16 — Milestone v1.1 started
 
 ## Accumulated Context
 
 ### Decisions
 
-See PROJECT.md Key Decisions table for full log.
+- Audit-only milestone, no code fixes
+- Review order: Core+Frontend first, then modules by size/risk
+- 4 metrics: security, performance, duplication, logical issues
+- Small modules (under 1.3K lines) will be batched
 
 ### Pending Todos
 
@@ -44,6 +49,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-10
-Stopped at: Milestone v1.0 archived and tagged
+Last session: 2026-03-16
+Stopped at: Milestone v1.1 initialization
 Resume file: None

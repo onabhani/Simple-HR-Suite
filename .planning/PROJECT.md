@@ -1,72 +1,77 @@
-# Attendance Module Refactor — Phase 2
+# Simple HR Suite — Code Audit
 
 ## What This Is
 
-A structural refactor of the AttendanceModule god-class in Simple HR Suite. Phase 1 (pre-existing) extracted 5 service classes. Phase 2 (v1.0) extracted shortcode views and migration logic, reducing AttendanceModule.php from ~5390 lines to a 434-line clean orchestrator.
+A comprehensive module-by-module code audit of Simple HR Suite, a WordPress plugin managing employees, departments, leave, attendance, payroll, loans, and more for Saudi/Arabic-speaking organizations. The audit covers ~87K lines of PHP across 19 modules plus Core/Frontend shared code.
 
 ## Core Value
 
-AttendanceModule.php is a clean orchestrator that delegates to focused classes, making the attendance module maintainable and each piece independently testable.
+Identify and document security vulnerabilities, performance bottlenecks, code duplication, and logical issues across all modules — producing actionable findings reports with severity ratings and fix recommendations.
+
+## Current Milestone: v1.1 Code Audit
+
+**Goal:** Systematic code review of every module for security, performance, duplication, and logical issues.
+
+**Target reviews:**
+- Core + Frontend (~25K lines)
+- 19 modules ordered by size/risk (Attendance, Leave, Performance, Loans, Payroll, Settlement, Assets, Employees, Hiring, Resignation, Workforce_Status, Documents, ShiftSwap, Departments, Surveys, Projects, Reminders, EmployeeExit, PWA)
+
+**Review metrics per module:**
+1. Security — SQL injection, missing `$wpdb->prepare()`, auth/capability checks, nonce validation, data sanitization/escaping
+2. Performance — N+1 queries, missing indexes, unbounded queries, heavy loops
+3. Duplication — Repeated logic, copy-paste patterns that should be shared helpers
+4. Logical issues — Race conditions, incorrect calculations, missing edge cases, dead code
 
 ## Requirements
 
 ### Validated
 
-- ✓ Period_Service extracted — existing
-- ✓ Shift_Service extracted — existing
-- ✓ Early_Leave_Service extracted — existing
-- ✓ Session_Service extracted — existing
-- ✓ Policy_Service extracted — existing
-- ✓ Extract shortcode_widget() into Frontend/Widget_Shortcode.php — v1.0
-- ✓ Extract shortcode_kiosk() into Frontend/Kiosk_Shortcode.php — v1.0
-- ✓ All inline JS/CSS preserved as-is — v1.0
-- ✓ Shortcode methods become thin delegates — v1.0
-- ✓ Extract maybe_install() into Migration.php — v1.0
-- ✓ Migration follows CREATE TABLE + add_column_if_missing pattern — v1.0
-- ✓ AttendanceModule calls Migration from existing hook — v1.0
-- ✓ Remove orphaned helper/delegate methods — v1.0
-- ✓ AttendanceModule.php under 500 lines — v1.0
-- ✓ Zero behavior change — v1.0
+- ✓ Period_Service extracted — v1.0
+- ✓ Shift_Service extracted — v1.0
+- ✓ Early_Leave_Service extracted — v1.0
+- ✓ Session_Service extracted — v1.0
+- ✓ Policy_Service extracted — v1.0
+- ✓ Shortcode views extracted — v1.0
+- ✓ Migration extracted — v1.0
+- ✓ AttendanceModule.php reduced to 434-line orchestrator — v1.0
 
 ### Active
 
-(None — next milestone not yet defined)
+- [ ] Audit Core + Frontend for security, performance, duplication, logical issues
+- [ ] Audit each of the 19 modules using the same 4 metrics
+- [ ] Produce findings report per module with severity ratings (Critical/High/Medium/Low)
+- [ ] Provide fix recommendations for each finding
 
 ### Out of Scope
 
-- Extracting JS/CSS to separate asset files — high risk of breakage, deferred
-- Unit/integration tests — separate effort
-- Refactoring other modules — this project is Attendance-only
-- Changing user-facing behavior — pure structural refactor
+- Implementing fixes — this milestone is audit-only, fixes are a separate effort
+- Refactoring or restructuring code — audit identifies issues, does not change code
+- Unit/integration test creation — separate effort
+- Third-party vendor code in `assets/vendor/` — not our code to audit
 
 ## Context
 
-Shipped v1.0 with 18,094 LOC PHP across the Attendance module.
-Tech stack: WordPress, PHP 8.2+, `$wpdb` direct queries.
-AttendanceModule.php is now 434 lines — a thin orchestrator delegating to:
-- `Services/` — Period, Shift, Early_Leave, Session, Policy
-- `Frontend/` — Widget_Shortcode, Kiosk_Shortcode
-- `Migration.php` — table creation, capabilities, seed data
+Tech stack: WordPress, PHP 8.2+, `$wpdb` direct queries, no ORM.
+REST API namespace: `sfs-hr/v1`. Capabilities: dotted `sfs_hr.*` format.
+19 modules ranging from 414 lines (PWA) to 18,218 lines (Attendance).
+Core + Frontend shared code: ~25K lines.
+No CI/CD, no test suite, no Composer/npm.
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Frontend/ subdirectory for views | Matches existing module pattern | ✓ Good |
-| Module-local Migration.php | Keeps module self-contained | ✓ Good |
-| Keep inline JS/CSS | Minimal risk — move code as-is | ✓ Good |
-| Phase 1 service extraction | Already validated in commit ea325b3 | ✓ Good |
-| Verbatim extraction, no refactoring | Zero behavior change guarantee | ✓ Good |
-| self:: → AttendanceModule:: in extracted classes | Required for correct static dispatch outside original class | ✓ Good |
-| Instance methods on Migration class | Cleaner than static helpers for extraction | ✓ Good |
-| Eliminate middleman delegates | backfill_early_leave calls Early_Leave_Service directly | ✓ Good |
+| Audit-only, no fixes | Keep scope manageable, fixes in separate milestone | — Pending |
+| Review order by size/risk | Largest modules have most surface area for issues | — Pending |
+| Batch small modules | Phases 14-20 modules are under 1.3K lines each | — Pending |
+| 4 metrics per module | Security, performance, duplication, logical — covers OWASP + maintainability | — Pending |
 
 ## Constraints
 
-- **Zero behavior change**: Pure structural refactor
-- **Inline assets preserved**: JS/CSS remain inline in view output
-- **Migration pattern**: CREATE TABLE IF NOT EXISTS + add_column_if_missing()
-- **PHP namespace**: SFS\HR\Modules\Attendance\*
+- **Audit only**: No code changes in this milestone
+- **One module per phase**: Keep reviews focused and manageable
+- **Severity ratings**: Every finding must be rated Critical/High/Medium/Low
+- **Actionable**: Every finding must include a fix recommendation
 
 ---
-*Last updated: 2026-03-10 after v1.0 milestone*
+*Last updated: 2026-03-16 after v1.1 milestone start*
