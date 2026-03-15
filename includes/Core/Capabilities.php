@@ -110,9 +110,10 @@ class Capabilities {
         }
 
         if ( $cache[ $uid ]['is_mgr'] ) {
-            $allcaps['sfs_hr.view']                = true;
-            $allcaps['sfs_hr.leave.review']        = true;
-            $allcaps['sfs_hr_performance_view']     = true;
+            $allcaps['sfs_hr.view']                  = true;
+            $allcaps['sfs_hr.leave.review']          = true;
+            $allcaps['sfs_hr_performance_view']       = true;
+            $allcaps['sfs_hr_attendance_view_team']   = true;
         }
 
         if ( $cache[ $uid ]['is_hr_responsible'] ) {

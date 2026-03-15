@@ -136,22 +136,25 @@ class Admin_Pages {
 
 
 public function menu(): void {
-    // only show these menus to users who have the attendance admin cap
-    if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) { return; }
+    // Show attendance menu to admin OR department managers (view_team)
+    if ( ! current_user_can( 'sfs_hr_attendance_admin' ) && ! current_user_can( 'sfs_hr_attendance_view_team' ) ) { return; }
 
     $parent = 'sfs-hr'; // your HR top-level menu slug
+
+    // Use the broadest cap the current user has so WordPress renders the menu item
+    $menu_cap = current_user_can( 'sfs_hr_attendance_admin' ) ? 'sfs_hr_attendance_admin' : 'sfs_hr_attendance_view_team';
 
     // Hub (tabs: Settings, Automation, Shifts, Assignments, Exceptions, Devices, Punches, Sessions)
     add_submenu_page(
         $parent,
         __('Attendance','sfs-hr'),
         __('Attendance','sfs-hr'),
-        'sfs_hr_attendance_admin',
+        $menu_cap,
         'sfs_hr_attendance',
         [ $this, 'render_attendance_hub' ]
     );
 
-    
+
 }
 
 
@@ -453,17 +456,24 @@ private function get_table_columns( $table ): array {
  * One-page tabbed UI to reduce sidebar clutter.
  */
 public function render_attendance_hub(): void {
-    // Allow attendance_admin OR attendance_view_team for certain tabs
-    $tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'settings';
+    $is_admin     = current_user_can( 'sfs_hr_attendance_admin' );
+    $is_team_view = current_user_can( 'sfs_hr_attendance_view_team' );
+
+    // Tabs accessible to view_team (department managers)
     $view_team_tabs = ['early_leave', 'punches', 'sessions'];
 
+    // Default tab: admin goes to settings, team-only viewers go to early_leave
+    $default_tab = $is_admin ? 'settings' : 'early_leave';
+    $tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : $default_tab;
+
     if ( in_array($tab, $view_team_tabs, true) ) {
-        if ( ! current_user_can( 'sfs_hr_attendance_view_team' ) && ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
+        if ( ! $is_team_view && ! $is_admin ) {
             wp_die( esc_html__( 'You do not have permission to access this page.', 'sfs-hr' ) );
         }
     } else {
-        if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
-            wp_die( esc_html__( 'You do not have permission to access this page.', 'sfs-hr' ) );
+        if ( ! $is_admin ) {
+            // Non-admin tried to access an admin-only tab — redirect to default
+            $tab = $default_tab;
         }
     }
 
@@ -472,8 +482,8 @@ public function render_attendance_hub(): void {
     Helpers::render_admin_nav();
     echo '<hr class="wp-header-end" />';
 
-    // $tab already set at top of function for capability check
-    $tabs = [
+    // Build tab list — non-admin users only see team-viewable tabs
+    $all_tabs = [
         'settings'    => __( 'Settings', 'sfs-hr' ),
         'automation'  => __( 'Automation', 'sfs-hr' ),
         'shifts'      => __( 'Shifts', 'sfs-hr' ),
@@ -485,7 +495,14 @@ public function render_attendance_hub(): void {
         'punches'     => __( 'Punches', 'sfs-hr' ),
         'sessions'    => __( 'Sessions', 'sfs-hr' ),
     ];
-    if ( ! isset($tabs[$tab]) ) { $tab = 'settings'; }
+
+    if ( $is_admin ) {
+        $tabs = $all_tabs;
+    } else {
+        $tabs = array_intersect_key( $all_tabs, array_flip( $view_team_tabs ) );
+    }
+
+    if ( ! isset($tabs[$tab]) ) { $tab = $default_tab; }
 
     $base = admin_url('admin.php?page=sfs_hr_attendance');
 
@@ -5909,6 +5926,8 @@ if ( $rows ) {
                 'manual_edit'       => ['color' => '#1e40af', 'bg' => '#dbeafe', 'label' => __('Manual Edit', 'sfs-hr')],
                 'missed_segment'    => ['color' => '#7c2d12', 'bg' => '#ffedd5', 'label' => __('Missed Segment', 'sfs-hr')],
                 'incomplete'        => ['color' => '#9a3412', 'bg' => '#fff7ed', 'label' => __('Incomplete', 'sfs-hr')],
+                'holiday_work'      => ['color' => '#0e7490', 'bg' => '#cffafe', 'label' => __('Holiday OT', 'sfs-hr')],
+                'off_day_work'      => ['color' => '#0e7490', 'bg' => '#cffafe', 'label' => __('Off-Day OT', 'sfs-hr')],
             ];
             $badges = [];
             foreach ( $flag_list as $flag ) {

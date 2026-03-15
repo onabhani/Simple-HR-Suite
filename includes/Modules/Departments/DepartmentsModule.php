@@ -503,11 +503,11 @@ class DepartmentsModule {
 
     $id   = isset( $_POST['id'] ) ? (int) $_POST['id'] : 0;
     $name = isset( $_POST['name'] ) ? sanitize_text_field( $_POST['name'] ) : '';
-    $mgr  = isset( $_POST['manager_user_id'] ) ? (int) $_POST['manager_user_id'] : 0;
+    $mgr  = isset( $_POST['manager_user_id'] ) ? max( 0, (int) $_POST['manager_user_id'] ) : 0;
     if ( $mgr > 0 && ! get_user_by( 'id', $mgr ) ) {
         $mgr = 0;
     }
-    $hr_responsible = isset( $_POST['hr_responsible_user_id'] ) ? (int) $_POST['hr_responsible_user_id'] : 0;
+    $hr_responsible = isset( $_POST['hr_responsible_user_id'] ) ? max( 0, (int) $_POST['hr_responsible_user_id'] ) : 0;
     if ( $hr_responsible > 0 && ! get_user_by( 'id', $hr_responsible ) ) {
         $hr_responsible = 0;
     }

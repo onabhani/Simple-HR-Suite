@@ -27,7 +27,8 @@ class Shift_Service {
         int $employee_id,
         string $ymd,
         array $settings = [],
-        \wpdb $wpdb_in = null
+        \wpdb $wpdb_in = null,
+        bool $include_off_days = false
     ): ?\stdClass {
         $wpdb   = $wpdb_in ?: $GLOBALS['wpdb'];
         $p      = $wpdb->prefix;
@@ -53,8 +54,8 @@ class Shift_Service {
                 $row->dept_id = $emp && ! empty( $emp->dept_id ) ? (int) $emp->dept_id : null;
             }
             error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=1_assignment shift_id=%d wo=%s', $employee_id, $ymd, $row->id ?? 0, $row->weekly_overrides ?? '(empty)' ) );
-            $row = self::apply_weekly_override( $row, $ymd, $wpdb );
-            return self::apply_period_override( $row, $ymd );
+            $row = self::apply_weekly_override( $row, $ymd, $wpdb, $include_off_days );
+            return self::apply_period_override( $row, $ymd, $include_off_days );
         }
 
         // --- 1.5) Employee-specific shift (from emp_shifts mapping)
@@ -69,8 +70,8 @@ class Shift_Service {
             $emp_shift->is_holiday = 0;
 
             error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=1.5_emp_shift shift_id=%d wo=%s', $employee_id, $ymd, $emp_shift->id ?? 0, $emp_shift->weekly_overrides ?? '(empty)' ) );
-            $emp_shift = self::apply_weekly_override( $emp_shift, $ymd, $wpdb );
-            return self::apply_period_override( $emp_shift, $ymd );
+            $emp_shift = self::apply_weekly_override( $emp_shift, $ymd, $wpdb, $include_off_days );
+            return self::apply_period_override( $emp_shift, $ymd, $include_off_days );
         }
 
         // --- 1.7) Project shift — if employee is assigned to an active project on this date
@@ -89,8 +90,8 @@ class Shift_Service {
                     $psh->__virtual  = 0;
                     $psh->is_holiday = 0;
                     error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=1.7_project project=%d shift_id=%d', $employee_id, $ymd, $prj->id, $psh->id ?? 0 ) );
-                    $psh = self::apply_weekly_override( $psh, $ymd, $wpdb );
-                    return self::apply_period_override( $psh, $ymd );
+                    $psh = self::apply_weekly_override( $psh, $ymd, $wpdb, $include_off_days );
+                    return self::apply_period_override( $psh, $ymd, $include_off_days );
                 }
             }
         }
@@ -170,8 +171,8 @@ class Shift_Service {
                     $sh->is_holiday = 0;
                     $sh->dept_id    = $dept_id;
                     error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=3_dept_auto shift_id=%d wo=%s', $employee_id, $ymd, $sh->id ?? 0, $sh->weekly_overrides ?? '(empty)' ) );
-                    $sh = self::apply_weekly_override( $sh, $ymd, $wpdb );
-                    return self::apply_period_override( $sh, $ymd );
+                    $sh = self::apply_weekly_override( $sh, $ymd, $wpdb, $include_off_days );
+                    return self::apply_period_override( $sh, $ymd, $include_off_days );
                 }
             }
         }
@@ -204,8 +205,8 @@ class Shift_Service {
                 $fb->__virtual  = 1;
                 $fb->is_holiday = 0;
                 error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=4_fallback shift_id=%d wo=%s', $employee_id, $ymd, $fb->id ?? 0, $fb->weekly_overrides ?? '(empty)' ) );
-                $fb = self::apply_weekly_override( $fb, $ymd, $wpdb );
-                return self::apply_period_override( $fb, $ymd );
+                $fb = self::apply_weekly_override( $fb, $ymd, $wpdb, $include_off_days );
+                return self::apply_period_override( $fb, $ymd, $include_off_days );
             }
         }
 
@@ -422,7 +423,7 @@ class Shift_Service {
      *      {"saturday": null}                                 — day off
      *    When a day key is missing the shift's default times apply.
      */
-    private static function apply_weekly_override( ?\stdClass $shift, string $ymd, \wpdb $wpdb = null ): ?\stdClass {
+    private static function apply_weekly_override( ?\stdClass $shift, string $ymd, \wpdb $wpdb = null, bool $include_off_days = false ): ?\stdClass {
         if ( ! $shift ) {
             return $shift;
         }
@@ -450,6 +451,10 @@ class Shift_Service {
 
         // --- New format: null = day off ---
         if ( $override_value === null ) {
+            if ( $include_off_days ) {
+                $shift->__off_day = true;
+                return $shift;
+            }
             return null;
         }
 
@@ -497,7 +502,7 @@ class Shift_Service {
      * weekdays, preventing the system from marking employees as absent on their
      * scheduled rest days (e.g. Friday, Saturday).
      */
-    private static function apply_period_override( ?\stdClass $shift, string $ymd ): ?\stdClass {
+    private static function apply_period_override( ?\stdClass $shift, string $ymd, bool $include_off_days = false ): ?\stdClass {
         if ( ! $shift ) {
             return $shift;
         }
@@ -527,6 +532,10 @@ class Shift_Service {
                     $date = new \DateTimeImmutable( $ymd . ' 00:00:00', $tz );
                     $day_of_week = strtolower( $date->format( 'l' ) );
                     if ( in_array( $day_of_week, $ov['off_days'], true ) ) {
+                        if ( $include_off_days ) {
+                            $shift->__off_day = true;
+                            return $shift;
+                        }
                         return null; // Scheduled day off during this override period.
                     }
                 }

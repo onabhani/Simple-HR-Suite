@@ -774,8 +774,15 @@ if ( $source === 'kiosk' && $scan_token !== '' && ! $is_offline_origin ) {
         }
     }
 
+    // Off-day overtime: when the normal shift resolves to null, check if a base
+    // shift exists (off day vs truly no shift). Allow clock-in on off days.
     if ( ! $assign ) {
-        return new \WP_Error( 'no_shift', 'No shift set (no assignment and no department automation). Ask HR to set Automation or create an assignment.', [ 'status' => 409 ] );
+        $off_day_shift = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $emp, $dateYmd, [], null, true );
+        if ( $off_day_shift && ! empty( $off_day_shift->__off_day ) ) {
+            $assign = $off_day_shift;
+        } else {
+            return new \WP_Error( 'no_shift', 'No shift set (no assignment and no department automation). Ask HR to set Automation or create an assignment.', [ 'status' => 409 ] );
+        }
     }
     if ( isset( $assign->is_holiday ) && (int) $assign->is_holiday === 1 ) {
         return new \WP_Error( 'holiday', 'Today is marked as a holiday.', [ 'status' => 409 ] );
@@ -1437,38 +1444,25 @@ private static function save_selfie_attachment( array $src ): int {
 
     // --- Off-day detection ---
     // Check if today has a valid shift. When the shift resolves to null (weekly
-    // override, period override off_days, or schedule rotation day-off), block
-    // new clock-ins so the button doesn't appear on rest days.
-    // An active overnight session (clocked in yesterday) still allows clock-out.
+    // override, period override off_days, or schedule rotation day-off), check
+    // whether a base shift exists. If it does, the employee may clock in for
+    // overtime. If no shift is configured at all, block clock-in.
     $is_off_day = false;
     if ( $state === 'idle' && empty( $overnight_ymd ) ) {
         $today_shift = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( $employee_id, $today );
 
-        // Diagnostic: log which shift resolved and its weekly_overrides so we
-        // can verify the correct shift is being used for off-day detection.
-        $tz_diag      = wp_timezone();
-        $diag_date    = new \DateTimeImmutable( $today . ' 00:00:00', $tz_diag );
-        $diag_dow     = strtolower( $diag_date->format( 'l' ) );
-        $diag_shift_id = $today_shift ? ( $today_shift->id ?? 'no-id' ) : 'null';
-        $diag_wo       = $today_shift ? ( $today_shift->weekly_overrides ?? '(empty)' ) : 'N/A';
-        $diag_virtual  = $today_shift ? ( $today_shift->__virtual ?? '?' ) : 'N/A';
-        $diag_path     = 'unknown';
-        if ( $today_shift ) {
-            if ( isset( $today_shift->__virtual ) && (int) $today_shift->__virtual === 0 ) {
-                $diag_path = 'assignment_or_emp_shift';
-            } else {
-                $diag_path = 'dept_automation_or_fallback';
-            }
-        }
-        error_log( sprintf(
-            '[SFS ATT OFF-DAY DIAG] emp=%d date=%s dow=%s | resolved_shift_id=%s path=%s virtual=%s | weekly_overrides=%s',
-            $employee_id, $today, $diag_dow, $diag_shift_id, $diag_path, $diag_virtual, $diag_wo
-        ) );
-
         if ( ! $today_shift ) {
-            $is_off_day  = true;
-            $allow['in'] = false;
-            $label       = __( 'Day Off', 'sfs-hr' );
+            // Check if a base shift exists (off day vs no shift at all)
+            if ( \SFS\HR\Modules\Attendance\AttendanceModule::is_off_day( $employee_id, $today ) ) {
+                // Off day with a configured shift — allow clock-in for overtime
+                $is_off_day = true;
+                $label      = __( 'Day Off', 'sfs-hr' );
+            } else {
+                // No shift configured at all — block clock-in
+                $is_off_day  = true;
+                $allow['in'] = false;
+                $label       = __( 'Day Off', 'sfs-hr' );
+            }
         }
     }
 

@@ -205,6 +205,19 @@ class AttendanceModule {
         return ! empty( $holiday_dates );
     }
 
+    /**
+     * Check if a date is a scheduled off day for the employee.
+     * Returns true when a shift exists but the day is marked off via weekly/period overrides.
+     */
+    public static function is_off_day( int $employee_id, string $ymd ): bool {
+        $normal = self::resolve_shift_for_date( $employee_id, $ymd );
+        if ( $normal !== null ) {
+            return false; // shift resolves normally — not an off day
+        }
+        $with_off = self::resolve_shift_for_date( $employee_id, $ymd, [], null, true );
+        return $with_off !== null && ! empty( $with_off->__off_day );
+    }
+
     /** Local Y-m-d -> [start_utc, end_utc) */
     public static function local_day_window_to_utc(string $ymd): array {
         $tz  = wp_timezone();
@@ -237,9 +250,10 @@ class AttendanceModule {
         int $employee_id,
         string $ymd,
         array $settings = [],
-        \wpdb $wpdb_in = null
+        \wpdb $wpdb_in = null,
+        bool $include_off_days = false
     ): ?\stdClass {
-        return Services\Shift_Service::resolve_shift_for_date( $employee_id, $ymd, $settings, $wpdb_in );
+        return Services\Shift_Service::resolve_shift_for_date( $employee_id, $ymd, $settings, $wpdb_in, $include_off_days );
     }
 
     /** @deprecated Delegate to Shift_Service. */
