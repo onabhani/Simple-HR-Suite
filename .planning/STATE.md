@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 07-02-PLAN.md
-last_updated: "2026-03-16T03:40:52.734Z"
+stopped_at: Completed 08-01-PLAN.md
+last_updated: "2026-03-16T04:14:44.455Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
   completed_phases: 4
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 10
+  completed_plans: 9
   percent: 50
 ---
 
@@ -64,6 +64,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 06-leave-audit P02 | 6 | 2 tasks | 1 files |
 | Phase 07-performance-audit P01 | 35 | 2 tasks | 1 files |
 | Phase 07-performance-audit P02 | 183 | 2 tasks | 1 files |
+| Phase 08-loans-audit P01 | 3 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,9 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 07-performance-audit]: No __return_true endpoints in Performance REST — all routes require sfs_hr_performance_view minimum
 - [Phase 07-performance-audit]: PADM: REST update_settings calls undefined PerformanceModule::save_settings() — PHP fatal on PUT /performance/settings
 - [Phase 07-performance-audit]: PADM: Performance scores live-calculated with no draft/published gate — draft review ratings visible via REST score endpoint
+- [Phase 08-loans-audit]: LOAN-LOGIC-002: PayrollModule references l.monthly_installment which does not exist in sfs_hr_loans schema — loan deductions silently fail on every payroll run
+- [Phase 08-loans-audit]: LOAN-SEC-001/002: unprepared SHOW TABLES and bare ALTER TABLE DDL in LoansModule admin_init/activation paths — same Critical antipattern as Phase 04
+- [Phase 08-loans-audit]: LOAN-DUP-001: installment calculation diverges between frontend (floor+remainder) and admin (round(principal/count)) — stored installment_amount differs from schedule amounts
 
 ### Phase Structure
 
@@ -126,6 +130,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T03:35:50.942Z
-Stopped at: Completed 07-02-PLAN.md
+Last session: 2026-03-16T04:14:44.453Z
+Stopped at: Completed 08-01-PLAN.md
 Resume file: None

@@ -285,7 +285,7 @@ Plans:
 | 5. Attendance Audit | 2/2 | Complete   | 2026-03-16 | — |
 | 6. Leave Audit | 2/2 | Complete   | 2026-03-16 | — |
 | 7. Performance Audit | 1/2 | In Progress|  | — |
-| 8. Loans Audit | v1.1 | 0/? | Not started | — |
+| 8. Loans Audit | 1/2 | In Progress|  | — |
 | 9. Payroll Audit | v1.1 | 0/? | Not started | — |
 | 10. Settlement Audit | v1.1 | 0/? | Not started | — |
 | 11. Assets Audit | v1.1 | 0/? | Not started | — |
