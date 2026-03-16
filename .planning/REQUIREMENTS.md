@@ -12,7 +12,7 @@ Requirements for module-by-module code audit. Each maps to roadmap phases.
 - [x] **CORE-01**: Audit Core/ (~25K lines) for security vulnerabilities (SQL injection, missing prepare, auth bypass)
 - [x] **CORE-02**: Audit Core/ for performance issues (N+1 queries, unbounded queries, heavy admin_init)
 - [x] **CORE-03**: Audit Core/ for code duplication and logical issues
-- [ ] **CORE-04**: Audit Frontend/ tabs and shortcodes for security and performance
+- [x] **CORE-04**: Audit Frontend/ tabs and shortcodes for security and performance
 
 ### Critical Modules
 
@@ -62,7 +62,7 @@ Requirements for module-by-module code audit. Each maps to roadmap phases.
 | CORE-01 | Phase 4 | Complete |
 | CORE-02 | Phase 4 | Complete |
 | CORE-03 | Phase 4 | Complete |
-| CORE-04 | Phase 4 | Pending |
+| CORE-04 | Phase 4 | Complete |
 | CRIT-01 | Phase 5 | Pending |
 | CRIT-02 | Phase 6 | Pending |
 | CRIT-03 | Phase 7 | Pending |

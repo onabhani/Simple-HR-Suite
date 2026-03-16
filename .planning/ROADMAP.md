@@ -20,7 +20,7 @@ Full details: `milestones/v1.0-ROADMAP.md`
 
 ### v1.1 Module-by-Module Code Audit
 
-- [ ] **Phase 4: Core + Frontend Audit** — Audit shared Core infrastructure and Frontend tab/shortcode layer
+- [x] **Phase 4: Core + Frontend Audit** — Audit shared Core infrastructure and Frontend tab/shortcode layer (completed 2026-03-16)
 - [ ] **Phase 5: Attendance Audit** — Audit the largest module (~18K lines) for all 4 metrics
 - [ ] **Phase 6: Leave Audit** — Audit Leave module including balance, request, and approval logic
 - [ ] **Phase 7: Performance Audit** — Audit employee performance review and justification module
@@ -235,7 +235,7 @@ Plans:
 | 1. Views Extraction | v1.0 | 2/2 | Complete | 2026-03-09 |
 | 2. Migration Extraction | v1.0 | 1/1 | Complete | 2026-03-09 |
 | 3. Orchestrator Cleanup | v1.0 | 1/1 | Complete | 2026-03-10 |
-| 4. Core + Frontend Audit | 1/2 | In Progress|  | — |
+| 4. Core + Frontend Audit | 2/2 | Complete   | 2026-03-16 | — |
 | 5. Attendance Audit | v1.1 | 0/? | Not started | — |
 | 6. Leave Audit | v1.1 | 0/? | Not started | — |
 | 7. Performance Audit | v1.1 | 0/? | Not started | — |
