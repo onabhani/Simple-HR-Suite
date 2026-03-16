@@ -140,8 +140,8 @@ Plans:
   4. A findings report for Settlement exists with severity ratings and fix recommendations
 **Plans**: 2 plans
 Plans:
-- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
-- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
+- [ ] 10-01-PLAN.md -- Settlement services, handlers, and module orchestrator audit (~671 lines, 3 files)
+- [ ] 10-02-PLAN.md -- Settlement admin controller and view classes audit (~1,055 lines, 4 files)
 
 ### Phase 11: Assets Audit
 **Goal**: All security, performance, duplication, and logical issues in the Assets module (~4K lines) are documented
@@ -286,7 +286,7 @@ Plans:
 | 7. Performance Audit | 1/2 | In Progress|  | — |
 | 8. Loans Audit | 2/2 | Complete   | 2026-03-16 | — |
 | 9. Payroll Audit | 3/3 | Complete   | 2026-03-16 | — |
-| 10. Settlement Audit | v1.1 | 0/? | Not started | — |
+| 10. Settlement Audit | v1.1 | 0/2 | Planned | — |
 | 11. Assets Audit | v1.1 | 0/? | Not started | — |
 | 12. Employees Audit | v1.1 | 0/? | Not started | — |
 | 13. Hiring Audit | v1.1 | 0/? | Not started | — |
