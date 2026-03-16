@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 12-02-PLAN.md
-last_updated: "2026-03-16T17:51:23.446Z"
+stopped_at: Completed 13-01-PLAN.md
+last_updated: "2026-03-16T18:18:27.592Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
   completed_phases: 9
-  total_plans: 19
-  completed_plans: 19
+  total_plans: 21
+  completed_plans: 20
   percent: 50
 ---
 
@@ -75,6 +75,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 11-assets-audit P02 | 3 | 2 tasks | 1 files |
 | Phase 12-employees-audit P01 | 4 | 2 tasks | 1 files |
 | Phase 12-employees-audit P02 | 25 | 2 tasks | 1 files |
+| Phase 13-hiring-audit P01 | 7 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -147,6 +148,10 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 12-employees-audit]: EmployeesModule.php bootstrap is CLEAN: no ALTER TABLE, no bare SHOW TABLES, no information_schema — unlike Loans (Phase 08) and Core (Phase 04)
 - [Phase 12-employees-audit]: 3 information_schema.tables calls per My Profile overview tab load — same antipattern as Phase 04/08/11; replace with SHOW TABLES LIKE or cached result
 - [Phase 12-employees-audit]: hire_date/hired_at: both Employees files consistently prefer hired_at (inconsistent with CLAUDE.md); fix should be coordinated across both files
+- [Phase 13-hiring-audit]: HiringModule.php install() is clean — no bare ALTER TABLE, no information_schema (unlike Loans Phase 08, Core Phase 04)
+- [Phase 13-hiring-audit]: HIR-SEC-002 Critical: all 3 conversion methods (trainee-to-candidate, trainee-to-employee, candidate-to-employee) are public static with no current_user_can() check — any authenticated user can trigger employee creation
+- [Phase 13-hiring-audit]: HIR-LOGIC-001 Critical: conversion workflows not wrapped in transactions — orphan WP users and duplicate employee records possible on partial failure
+- [Phase 13-hiring-audit]: HIR-SEC-001 Critical: two unprepared employee code get_var() calls with raw string interpolation — same antipattern as Phase 04/08/11
 
 ### Phase Structure
 
@@ -179,6 +184,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T17:46:19.328Z
-Stopped at: Completed 12-02-PLAN.md
+Last session: 2026-03-16T18:18:27.590Z
+Stopped at: Completed 13-01-PLAN.md
 Resume file: None
