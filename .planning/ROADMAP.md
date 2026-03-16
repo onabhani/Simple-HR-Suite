@@ -111,8 +111,9 @@ Plans:
   5. A findings report for Loans exists with severity ratings and fix recommendations
 **Plans**: 2 plans
 Plans:
-- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
-- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
+- [ ] 08-01-PLAN.md -- Module orchestrator, frontend, and notifications audit (~2K lines, 3 files)
+- [ ] 08-02-PLAN.md -- Admin pages and dashboard widget audit (~3.3K lines, 2 files)
+
 
 ### Phase 9: Payroll Audit
 **Goal**: All security, performance, duplication, and logical issues in the Payroll module (~3.5K lines) are documented
