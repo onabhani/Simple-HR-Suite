@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 11-01-PLAN.md
-last_updated: "2026-03-16T16:32:27.489Z"
+stopped_at: Completed 11-02-PLAN.md
+last_updated: "2026-03-16T16:38:07.860Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 17
-  completed_plans: 16
+  completed_plans: 17
   percent: 50
 ---
 
@@ -72,6 +72,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 10-settlement-audit P01 | 3 | 2 tasks | 1 files |
 | Phase 10-settlement-audit P02 | 3 | 2 tasks | 1 files |
 | Phase 11-assets-audit P01 | 195 | 2 tasks | 1 files |
+| Phase 11-assets-audit P02 | 3 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -134,6 +135,9 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 11-assets-audit]: ASSET-SEC-004/005: handle_assign_decision and handle_return_decision use is_user_logged_in() only — capability gate missing
 - [Phase 11-assets-audit]: AssetsModule bootstrap is clean: prepared SHOW TABLES, no bare ALTER TABLE (unlike Loans Phase 08 and Core Phase 04)
 - [Phase 11-assets-audit]: REST stub registers no routes (not __return_true pattern) — correct design decision
+- [Phase 11-assets-audit]: AVIEW-SEC-001/002 High: inline $wpdb queries in assignments-list.php and assets-edit.php view files violate controller/view separation — queries are static/prepared so no injection risk but architectural violation
+- [Phase 11-assets-audit]: AVIEW-LOGIC-001 High: assignments list shows all-org data to dept managers —  from controller unscoped; form correctly restricts to manager dept but list does not
+- [Phase 11-assets-audit]: AVIEW-PERF-001 High: PHP-side re-filter after LIMIT 200 in assets-list.php causes silent data loss on filtered views when total assets exceed 200
 
 ### Phase Structure
 
@@ -166,6 +170,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T16:32:27.487Z
-Stopped at: Completed 11-01-PLAN.md
+Last session: 2026-03-16T16:38:07.858Z
+Stopped at: Completed 11-02-PLAN.md
 Resume file: None
