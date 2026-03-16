@@ -23,7 +23,7 @@ Requirements for module-by-module code audit. Each maps to roadmap phases.
 
 ### Financial Modules
 
-- [ ] **FIN-01**: Audit Payroll module (~3.5K lines) — security, performance, duplication, logical issues
+- [x] **FIN-01**: Audit Payroll module (~3.5K lines) — security, performance, duplication, logical issues
 - [ ] **FIN-02**: Audit Settlement module (~1.7K lines) — security, performance, duplication, logical issues
 
 ### Medium Modules
@@ -67,7 +67,7 @@ Requirements for module-by-module code audit. Each maps to roadmap phases.
 | CRIT-02 | Phase 6 | Complete |
 | CRIT-03 | Phase 7 | Complete |
 | CRIT-04 | Phase 8 | Complete |
-| FIN-01 | Phase 9 | Pending |
+| FIN-01 | Phase 9 | Complete |
 | FIN-02 | Phase 10 | Pending |
 | MED-01 | Phase 11 | Pending |
 | MED-02 | Phase 12 | Pending |

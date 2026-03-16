@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 08-02-PLAN.md
-last_updated: "2026-03-16T04:25:48.251Z"
+stopped_at: Completed 09-01-PLAN.md
+last_updated: "2026-03-16T04:55:27.669Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
   completed_phases: 5
-  total_plans: 10
-  completed_plans: 10
+  total_plans: 12
+  completed_plans: 11
   percent: 50
 ---
 
@@ -66,6 +66,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 07-performance-audit P02 | 183 | 2 tasks | 1 files |
 | Phase 08-loans-audit P01 | 3 | 2 tasks | 1 files |
 | Phase 08-loans-audit P02 | 3 | 2 tasks | 1 files |
+| Phase 09-payroll-audit P01 | 4 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -103,6 +104,10 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 08-loans-audit]: LADM-LOGIC-001: Finance approval allows principal amount higher than GM-approved — no upper bound validation
 - [Phase 08-loans-audit]: LADM-LOGIC-006: Admin always creates loans as pending_gm regardless of require_gm_approval setting
 - [Phase 08-loans-audit]: LADM-PERF-001: loan list has no pagination — all loans loaded on every page view
+- [Phase 09-payroll-audit]: PAY-DUP-001 Critical confirmed: PayrollModule queries l.monthly_installment which does not exist — loan deductions silently zero on every payroll run since module creation
+- [Phase 09-payroll-audit]: PAY-LOGIC-001 High: count_working_days() excludes only Friday, missing Saturday — Saudi weekend is Fri+Sat — understates absence deductions by ~15%
+- [Phase 09-payroll-audit]: PAY-LOGIC-003 Medium: transient-based payroll lock has TOCTOU race — recommend MySQL GET_LOCK() same as Attendance module
+- [Phase 09-payroll-audit]: No __return_true REST endpoints in Payroll — all routes have real permission callbacks; run/approve capability guards are correct
 
 ### Phase Structure
 
@@ -135,6 +140,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T04:21:42.924Z
-Stopped at: Completed 08-02-PLAN.md
+Last session: 2026-03-16T04:55:27.667Z
+Stopped at: Completed 09-01-PLAN.md
 Resume file: None
