@@ -49,7 +49,10 @@ Full details: `milestones/v1.0-ROADMAP.md`
   3. Admin-init hooks and shared helpers are evaluated for performance cost — heavy operations flagged with severity
   4. All Frontend/ tab renderers and shortcodes are checked for unescaped output and missing auth checks
   5. A findings report for Core + Frontend exists listing every issue with severity rating and a concrete fix recommendation
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 04-01-PLAN.md -- Core/ security, performance, duplication audit (~13.7K lines, 11 files)
+- [ ] 04-02-PLAN.md -- Frontend/ security, performance, duplication audit (~11.2K lines, 20 files)
 
 ### Phase 5: Attendance Audit
 **Goal**: All security, performance, duplication, and logical issues in the Attendance module (~18K lines) are documented
@@ -232,7 +235,7 @@ Full details: `milestones/v1.0-ROADMAP.md`
 | 1. Views Extraction | v1.0 | 2/2 | Complete | 2026-03-09 |
 | 2. Migration Extraction | v1.0 | 1/1 | Complete | 2026-03-09 |
 | 3. Orchestrator Cleanup | v1.0 | 1/1 | Complete | 2026-03-10 |
-| 4. Core + Frontend Audit | v1.1 | 0/? | Not started | — |
+| 4. Core + Frontend Audit | v1.1 | 0/2 | Planning complete | — |
 | 5. Attendance Audit | v1.1 | 0/? | Not started | — |
 | 6. Leave Audit | v1.1 | 0/? | Not started | — |
 | 7. Performance Audit | v1.1 | 0/? | Not started | — |
