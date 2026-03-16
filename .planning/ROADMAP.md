@@ -32,7 +32,7 @@ Full details: `milestones/v1.0-ROADMAP.md`
 - [x] **Phase 13: Hiring Audit** — Audit Hiring module (applicants, pipeline, onboarding) (completed 2026-03-16)
 - [x] **Phase 14: Resignation Audit** — Audit Resignation submission and approval workflow (completed 2026-03-16)
 - [x] **Phase 15: Workforce_Status Audit** — Audit workforce status tracking and dashboard (completed 2026-03-16)
-- [ ] **Phase 16: Documents Audit** — Audit document upload, storage, and access control
+- [x] **Phase 16: Documents Audit** — Audit document upload, storage, and access control (completed 2026-03-16)
 - [ ] **Phase 17: ShiftSwap Audit** — Audit shift swap request and approval workflow
 - [ ] **Phase 18: Departments + Surveys + Projects Audit** — Batch audit of three small modules (~2.2K lines combined)
 - [ ] **Phase 19: Reminders + EmployeeExit + PWA Audit** — Batch audit of three small modules (~1.8K lines combined)
@@ -291,7 +291,7 @@ Plans:
 | 13. Hiring Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 14. Resignation Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 15. Workforce_Status Audit | 2/2 | Complete    | 2026-03-16 | — |
-| 16. Documents Audit | 1/2 | In Progress|  | — |
+| 16. Documents Audit | 2/2 | Complete   | 2026-03-16 | — |
 | 17. ShiftSwap Audit | v1.1 | 0/? | Not started | — |
 | 18. Departments + Surveys + Projects Audit | v1.1 | 0/? | Not started | — |
 | 19. Reminders + EmployeeExit + PWA Audit | v1.1 | 0/? | Not started | — |

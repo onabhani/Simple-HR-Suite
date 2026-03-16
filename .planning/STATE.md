@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 16-01-PLAN.md
-last_updated: "2026-03-16T20:38:39.131Z"
+stopped_at: Completed 16-02-PLAN.md
+last_updated: "2026-03-16T20:46:05.657Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
-  completed_phases: 12
+  completed_phases: 13
   total_plans: 27
-  completed_plans: 26
+  completed_plans: 27
   percent: 50
 ---
 
@@ -82,6 +82,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 15-workforce-status-audit P01 | 3 | 2 tasks | 1 files |
 | Phase 15-workforce-status-audit P02 | 3 | 2 tasks | 1 files |
 | Phase 16-documents-audit P01 | 3 | 2 tasks | 1 files |
+| Phase 16-documents-audit P02 | 4 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -180,6 +181,12 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 16-documents-audit]: Documents module uses correct MIME allowlist with finfo magic-bytes detection -- superior to Assets Phase 11 which had no allowlist
 - [Phase 16-documents-audit]: DOC-SEC-004: Uploaded documents stored in public WP Media Library with no access control -- High severity, needs authenticated download endpoint or protected uploads directory
 - [Phase 16-documents-audit]: DOC-SEC-001/002: information_schema + bare ALTER TABLE antipatterns confirmed for 5th and 3rd recurrence respectively; same fix applies as Phase 04/08
+- [Phase 16-documents-audit]: DADM-SEC-001: Wrong capability (sfs_hr_attendance_view_team) at admin tab gate -- any holder sees all-org documents; 2nd recurrence of WADM-SEC-001 pattern
+- [Phase 16-documents-audit]: DADM-SEC-002: Documents in public WP Media Library via media_handle_upload(), file_url in REST response -- no download access control; same as Assets Phase 11 ASSET-SEC-002
+- [Phase 16-documents-audit]: DADM-SEC-003/004: information_schema + bare ALTER TABLE in admin_init -- 5th and 3rd recurrences; move to Migrations.php
+- [Phase 16-documents-audit]: DADM-LOGIC-001: handle_delete/handle_request_update do not cross-validate document belongs to submitted employee_id -- add ownership check
+- [Phase 16-documents-audit]: DADM-PERF-001: get_uploadable_document_types_for_employee N+1 (12 queries per self-service tab load) -- fetch all docs once and process in PHP
+- [Phase 16-documents-audit]: No __return_true REST endpoints in Documents; admin tab has 0 direct wpdb calls -- best delegation pattern in audit series
 
 ### Phase Structure
 
@@ -212,6 +219,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T20:38:39.128Z
-Stopped at: Completed 16-01-PLAN.md
+Last session: 2026-03-16T20:46:05.655Z
+Stopped at: Completed 16-02-PLAN.md
 Resume file: None
