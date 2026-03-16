@@ -155,9 +155,8 @@ Plans:
   5. A findings report for Assets exists with severity ratings and fix recommendations
 **Plans**: 2 plans
 Plans:
-- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
-- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
-
+- [ ] 11-01-PLAN.md -- Assets module orchestrator, REST, and admin controller audit (~2.5K lines, 3 files)
+- [ ] 11-02-PLAN.md -- Assets view templates audit (~1.5K lines, 3 files)
 ### Phase 12: Employees Audit
 **Goal**: All security, performance, duplication, and logical issues in the Employees module (~3.2K lines) are documented
 **Depends on**: Phase 11
@@ -287,7 +286,7 @@ Plans:
 | 8. Loans Audit | 2/2 | Complete   | 2026-03-16 | — |
 | 9. Payroll Audit | 3/3 | Complete   | 2026-03-16 | — |
 | 10. Settlement Audit | 2/2 | Complete    | 2026-03-16 | — |
-| 11. Assets Audit | v1.1 | 0/? | Not started | — |
+| 11. Assets Audit | v1.1 | 0/2 | Not started | — |
 | 12. Employees Audit | v1.1 | 0/? | Not started | — |
 | 13. Hiring Audit | v1.1 | 0/? | Not started | — |
 | 14. Resignation Audit | v1.1 | 0/? | Not started | — |
