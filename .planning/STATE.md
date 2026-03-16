@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 13-01-PLAN.md
-last_updated: "2026-03-16T18:18:27.592Z"
+stopped_at: Completed 13-02-PLAN.md
+last_updated: "2026-03-16T18:26:23.770Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 21
-  completed_plans: 20
+  completed_plans: 21
   percent: 50
 ---
 
@@ -76,6 +76,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 12-employees-audit P01 | 4 | 2 tasks | 1 files |
 | Phase 12-employees-audit P02 | 25 | 2 tasks | 1 files |
 | Phase 13-hiring-audit P01 | 7 | 2 tasks | 1 files |
+| Phase 13-hiring-audit P02 | 4 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -152,6 +153,10 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 13-hiring-audit]: HIR-SEC-002 Critical: all 3 conversion methods (trainee-to-candidate, trainee-to-employee, candidate-to-employee) are public static with no current_user_can() check — any authenticated user can trigger employee creation
 - [Phase 13-hiring-audit]: HIR-LOGIC-001 Critical: conversion workflows not wrapped in transactions — orphan WP users and duplicate employee records possible on partial failure
 - [Phase 13-hiring-audit]: HIR-SEC-001 Critical: two unprepared employee code get_var() calls with raw string interpolation — same antipattern as Phase 04/08/11
+- [Phase 13-hiring-audit]: HADM-SEC-002 Critical: all 6 POST handlers have no current_user_can() check — nonce-only guard insufficient; any authenticated user can add/modify candidates and trigger employee creation
+- [Phase 13-hiring-audit]: HADM-SEC-001 Critical: manage_options used as capability for dept/GM approval with TODO comments — approval workflow non-functional for actual HR managers; needs sfs_hr.manage or dept-manager dynamic check
+- [Phase 13-hiring-audit]: HADM-LOGIC-001 Critical: handle_candidate_action() has no state-machine transition enforcement — any stage can be skipped or reversed including moving a hired candidate to rejected; fix: conditional UPDATE WHERE status = expected
+- [Phase 13-hiring-audit]: HADM-LOGIC-004 High: direct_hire_employee_id stored as embedded JSON in notes text column; editing notes destroys the employee link — needs dedicated direct_hire_employee_id BIGINT column in sfs_hr_trainees
 
 ### Phase Structure
 
@@ -184,6 +189,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T18:18:27.590Z
-Stopped at: Completed 13-01-PLAN.md
+Last session: 2026-03-16T18:26:23.768Z
+Stopped at: Completed 13-02-PLAN.md
 Resume file: None
