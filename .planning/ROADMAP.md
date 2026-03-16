@@ -123,10 +123,11 @@ Plans:
   3. All `$wpdb` queries confirmed prepared or flagged
   4. Export/report generation checked for unescaped output and data leakage across departments
   5. A findings report for Payroll exists with severity ratings and fix recommendations
-**Plans**: 2 plans
+**Plans**: 3 plans
 Plans:
 - [ ] 09-01-PLAN.md -- Payroll module orchestrator and REST endpoints audit (~963 lines, 2 files)
 - [ ] 09-02-PLAN.md -- Payroll admin pages audit (~2,576 lines, 1 file)
+- [ ] 09-03-PLAN.md -- Gap closure: add wpdb call-accounting table to Admin_Pages findings
 
 ### Phase 10: Settlement Audit
 **Goal**: All security, performance, duplication, and logical issues in the Settlement module (~1.7K lines) are documented
