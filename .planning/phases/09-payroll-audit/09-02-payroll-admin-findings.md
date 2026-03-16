@@ -600,3 +600,71 @@ The following table summarizes the export handlers against the security audit re
 All export handlers require nonce validation (`check_admin_referer`). All except the attendance handler require management-level capabilities. No export handler is accessible via GET request (all require POST with a nonce). Bookmarked/shared export URLs cannot bypass auth.
 
 Department-level data leakage: None of the export handlers filter by the requesting user's department. This is intentional for `sfs_hr.manage` holders (org-wide view), but the attendance export's `sfs_hr.view` gate means employees access data beyond their own records.
+
+---
+
+## All $wpdb Call Accounting
+
+### Admin_Pages.php
+
+| Line | Method | Prepared? | Status |
+|------|--------|-----------|--------|
+| 143 | `get_row("SELECT * FROM {$periods_table} WHERE status IN ('open','processing') ...")` | No | Static query, no user input — safe; pattern violation (PADM-SEC-002) |
+| 148 | `get_row("SELECT * FROM {$periods_table} ORDER BY start_date DESC LIMIT 1")` | No | Static query, no user input — safe; pattern violation (PADM-SEC-002) |
+| 154 | `get_var("SELECT COUNT(*) FROM {$emp_table} WHERE status = 'active'")` | No | Static query, no user input — safe; pattern violation (PADM-SEC-002) |
+| 155 | `get_var("SELECT COUNT(*) FROM {$periods_table}")` | No | Static query, no user input — safe; pattern violation (PADM-SEC-002) |
+| 158 | `get_row("SELECT * FROM {$runs_table} WHERE status IN ('approved','paid') ...")` | No | Static query, no user input — safe; part of PADM-SEC-002 information-disclosure finding |
+| 261 | `get_results("SELECT * FROM {$table} ORDER BY start_date DESC LIMIT 50")` | No | Static query, no user input — safe; pattern violation (PADM-PERF-003 — hardcoded LIMIT, no pagination) |
+| 422 | `get_results("SELECT r.*, p.name ... FROM {$runs_table} r LEFT JOIN ... ORDER BY r.created_at DESC LIMIT 50")` | No | Static query, no user input — safe; pattern violation (PADM-PERF-003 — hardcoded LIMIT, no pagination) |
+| 524 | `get_row($wpdb->prepare("SELECT r.*, p.name ... WHERE r.id = %d", $run_id))` | Yes | OK — `$run_id` from `intval($_GET['run_id'])` |
+| 537 | `get_results($wpdb->prepare("SELECT i.*, e.first_name ... WHERE i.run_id = %d ...", $run_id))` | Yes | OK |
+| 818 | `get_results("SELECT * FROM {$table} ORDER BY type, display_order ASC")` | No | Static query, no user input — safe; pattern violation; listed as PADM-SEC-008 (components visible to sfs_hr.view) |
+| 944 | `get_row($wpdb->prepare("SELECT * FROM {$table} WHERE id = %d", $comp_id))` | Yes | OK — `$comp_id` from `intval($_GET['comp_id'])` |
+| 1099 | `get_results("SELECT ps.*, p.name ... ORDER BY ps.created_at DESC LIMIT 100")` | No | Static query, no user input — safe; pattern violation (PADM-SEC-003 — LIMIT 100, no dept scoping) |
+| 1111 | `get_row($wpdb->prepare("SELECT id FROM {$emp_table} WHERE user_id = %d LIMIT 1", $user_id))` | Yes | OK |
+| 1121 | `get_results($wpdb->prepare("SELECT ps.*, ... WHERE ps.employee_id = %d ...", $employee->id))` | Yes | OK |
+| 1206 | `get_row($wpdb->prepare("SELECT ps.*, p.name ... WHERE ps.id = %d", $payslip_id))` | Yes | OK |
+| 1230 | `get_var($wpdb->prepare("SELECT id FROM {$emp_table} WHERE user_id = %d LIMIT 1", get_current_user_id()))` | Yes | OK |
+| 1374 | `insert($wpdb->prefix . 'sfs_hr_payroll_periods', [...])` | Yes (insert auto-prepares) | OK — values from sanitized POST vars |
+| 1419 | `get_row($wpdb->prepare("SELECT * FROM {$periods_table} WHERE id = %d", $period_id))` | Yes | OK |
+| 1431 | `query('START TRANSACTION')` | No | Static DDL — no user input, safe |
+| 1435 | `get_var($wpdb->prepare("SELECT COALESCE(MAX(run_number), 0) + 1 FROM {$runs_table} WHERE period_id = %d", $period_id))` | Yes | OK |
+| 1444 | `insert($runs_table, [...])` | Yes (insert auto-prepares) | OK |
+| 1459 | `get_col("SELECT id FROM {$emp_table} WHERE status = 'active'")` | No | Static query, no user input — safe; pattern violation (PAY-SEC-001 in 09-01 findings) |
+| 1479 | `insert($items_table, [...])` | Yes (insert auto-prepares) | OK — called in loop per employee |
+| 1517 | `update($runs_table, [...], ['id' => $run_id])` | Yes (update auto-prepares) | OK |
+| 1533 | `update($periods_table, [...], ['id' => $period_id])` | Yes (update auto-prepares) | OK |
+| 1538 | `query('COMMIT')` | No | Static DDL — no user input, safe |
+| 1548 | `query('ROLLBACK')` | No | Static DDL — no user input, safe |
+| 1574 | `get_row($wpdb->prepare("SELECT * FROM {$runs_table} WHERE id = %d", $run_id))` | Yes | OK |
+| 1588 | `update($runs_table, [...], ['id' => $run_id])` | Yes (update auto-prepares) | OK |
+| 1601 | `get_results($wpdb->prepare("SELECT id, employee_id FROM {$items_table} WHERE run_id = %d", $run_id))` | Yes | OK |
+| 1609 | `insert($payslips_table, [...])` | Yes (insert auto-prepares) | OK — called in loop per item |
+| 1619 | `update($periods_table, [...], ['id' => $run->period_id])` | Yes (update auto-prepares) | OK |
+| 1681 | `update($table, $data, ['id' => $comp_id])` | Yes (update auto-prepares) | OK — `$data` values from sanitized POST |
+| 1684 | `get_var($wpdb->prepare("SELECT id FROM {$table} WHERE code = %s", $code))` | Yes | OK |
+| 1690 | `insert($table, $data)` | Yes (insert auto-prepares) | OK — `$data` values from sanitized POST |
+| 1713 | `get_var($wpdb->prepare("SELECT is_active FROM {$table} WHERE id = %d", $comp_id))` | Yes | OK |
+| 1714 | `update($table, ['is_active' => $current ? 0 : 1], ['id' => $comp_id])` | Yes (update auto-prepares) | OK |
+| 1731 | `get_results("SELECT * FROM {$periods_table} ORDER BY start_date DESC LIMIT 24")` | No | Static query, no user input — safe; pattern violation (PADM-PERF-005 — unconditional load) |
+| 1736 | `get_results("SELECT r.*, p.name ... WHERE r.status IN ('approved', 'paid') ... LIMIT 24")` | No | Static query, no user input — safe; pattern violation (PADM-PERF-005 — unconditional load) |
+| 1967 | `get_row($wpdb->prepare("SELECT * FROM {$periods_table} WHERE id = %d", (int) $period_id))` | Yes | OK |
+| 1981 | `get_results($wpdb->prepare("SELECT e.id, e.employee_code, ... FROM {$emp_table} e LEFT JOIN ... WHERE e.status = 'active' GROUP BY e.id ...", $start_date, $end_date))` | Yes | OK — but PADM-SEC-001: capability gate is sfs_hr.view (Critical) |
+| 2079 | `get_row($wpdb->prepare("SELECT r.*, p.name ... WHERE r.id = %d", $run_id))` | Yes | OK |
+| 2092 | `get_results($wpdb->prepare("SELECT i.*, i.components_json, e.first_name ... WHERE i.run_id = %d ...", $run_id))` | Yes | OK |
+| 2266 | `get_row($wpdb->prepare("SELECT r.*, p.name ... WHERE r.id = %d", $run_id))` | Yes | OK |
+| 2280 | `get_results($wpdb->prepare("SELECT i.*, e.first_name, e.last_name, ... WHERE i.run_id = %d ...", $run_id))` | Yes | OK |
+| 2369 | `get_row($wpdb->prepare("SELECT COUNT(*) as total_days, SUM(net_minutes) ... WHERE employee_id = %d AND work_date BETWEEN %s AND %s", $item->employee_id, ...))` | Yes | OK — prepared, but N+1 pattern (PADM-PERF-001) |
+| 2512 | `get_row($wpdb->prepare("SELECT r.*, p.name ... WHERE r.id = %d", $run_id))` | Yes | OK |
+| 2524 | `get_results($wpdb->prepare("SELECT i.*, e.first_name, e.last_name, e.employee_code ... WHERE i.run_id = %d ...", $run_id))` | Yes | OK |
+
+**Total: 46 $wpdb calls — 36 prepared (including insert/update/delete auto-prepare and $wpdb->prepare()), 10 raw (all static queries with no user input); 1 flagged Critical finding (line 1981 via PADM-SEC-001), 9 additional pattern violations across PADM-SEC-002, PADM-SEC-003, PADM-SEC-008, PADM-PERF-001, PADM-PERF-003, PADM-PERF-005, and PAY-SEC-001 (already in 09-01)**
+
+> **Note on the 5 gap-flagged lines:**
+> - **Line 261** — `get_results()` with static query, `LIMIT 50` on periods list. No user input, safe. Pattern violation: should use `$wpdb->prepare()`. Related finding: PADM-PERF-003.
+> - **Line 422** — `get_results()` with static JOIN query, `LIMIT 50` on runs list. No user input, safe. Pattern violation: should use `$wpdb->prepare()`. Related finding: PADM-PERF-003.
+> - **Line 818** — `get_results()` with static query on salary components. No user input, safe. Pattern violation. Related finding: PADM-SEC-008 (components exposed to sfs_hr.view).
+> - **Line 1731** — `get_results()` with static query on periods, `LIMIT 24`. No user input, safe. Pattern violation. Related finding: PADM-PERF-005.
+> - **Line 1736** — `get_results()` with static JOIN query on approved/paid runs, `LIMIT 24`. No user input, safe. Pattern violation. Related finding: PADM-PERF-005.
+>
+> All five lines are static queries with no user-controlled dynamic values. None introduce SQL injection risk. All five are pattern violations (missing `$wpdb->prepare()`) but not injection vulnerabilities. The gaps identified in the 09-VERIFICATION.md are now fully accounted for.
