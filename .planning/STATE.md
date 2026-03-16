@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 09-01-PLAN.md
-last_updated: "2026-03-16T04:55:27.669Z"
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-03-16T05:01:27.440Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 12
-  completed_plans: 11
+  completed_plans: 12
   percent: 50
 ---
 
@@ -67,6 +67,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 08-loans-audit P01 | 3 | 2 tasks | 1 files |
 | Phase 08-loans-audit P02 | 3 | 2 tasks | 1 files |
 | Phase 09-payroll-audit P01 | 4 | 2 tasks | 1 files |
+| Phase 09-payroll-audit P02 | 25 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -108,6 +109,10 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 09-payroll-audit]: PAY-LOGIC-001 High: count_working_days() excludes only Friday, missing Saturday — Saudi weekend is Fri+Sat — understates absence deductions by ~15%
 - [Phase 09-payroll-audit]: PAY-LOGIC-003 Medium: transient-based payroll lock has TOCTOU race — recommend MySQL GET_LOCK() same as Attendance module
 - [Phase 09-payroll-audit]: No __return_true REST endpoints in Payroll — all routes have real permission callbacks; run/approve capability guards are correct
+- [Phase 09-payroll-audit]: PADM-SEC-001 Critical: handle_export_attendance() uses sfs_hr.view — any employee can export all-org attendance data
+- [Phase 09-payroll-audit]: PADM-LOGIC-001 High: handle_approve_run() payslip generation has TOCTOU race — fix: atomic UPDATE WHERE status=review
+- [Phase 09-payroll-audit]: PADM-DUP-001 High: components_json split duplicated 6 times — extract parse_components() helper
+- [Phase 09-payroll-audit]: PADM-LOGIC-002 High: sfs_hr_payroll_run capability appears unregistered — dead permission slot
 
 ### Phase Structure
 
@@ -140,6 +145,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T04:55:27.667Z
-Stopped at: Completed 09-01-PLAN.md
+Last session: 2026-03-16T05:01:27.437Z
+Stopped at: Completed 09-02-PLAN.md
 Resume file: None

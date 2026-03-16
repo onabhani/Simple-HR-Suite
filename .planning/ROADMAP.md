@@ -25,7 +25,7 @@ Full details: `milestones/v1.0-ROADMAP.md`
 - [x] **Phase 6: Leave Audit** — Audit Leave module including balance, request, and approval logic (completed 2026-03-16)
 - [ ] **Phase 7: Performance Audit** — Audit employee performance review and justification module
 - [x] **Phase 8: Loans Audit** — Audit Loans module including installment and repayment logic (completed 2026-03-16)
-- [ ] **Phase 9: Payroll Audit** — Audit Payroll calculation, run, and export logic
+- [x] **Phase 9: Payroll Audit** — Audit Payroll calculation, run, and export logic (completed 2026-03-16)
 - [ ] **Phase 10: Settlement Audit** — Audit end-of-service settlement calculation module
 - [ ] **Phase 11: Assets Audit** — Audit Assets assignment, tracking, and return logic
 - [ ] **Phase 12: Employees Audit** — Audit employee CRUD, profile, and status management
@@ -284,7 +284,7 @@ Plans:
 | 6. Leave Audit | 2/2 | Complete   | 2026-03-16 | — |
 | 7. Performance Audit | 1/2 | In Progress|  | — |
 | 8. Loans Audit | 2/2 | Complete   | 2026-03-16 | — |
-| 9. Payroll Audit | 1/2 | In Progress|  | — |
+| 9. Payroll Audit | 2/2 | Complete   | 2026-03-16 | — |
 | 10. Settlement Audit | v1.1 | 0/? | Not started | — |
 | 11. Assets Audit | v1.1 | 0/? | Not started | — |
 | 12. Employees Audit | v1.1 | 0/? | Not started | — |
