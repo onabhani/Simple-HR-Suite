@@ -113,8 +113,6 @@ Plans:
 Plans:
 - [ ] 08-01-PLAN.md -- Module orchestrator, frontend, and notifications audit (~2K lines, 3 files)
 - [ ] 08-02-PLAN.md -- Admin pages and dashboard widget audit (~3.3K lines, 2 files)
-
-
 ### Phase 9: Payroll Audit
 **Goal**: All security, performance, duplication, and logical issues in the Payroll module (~3.5K lines) are documented
 **Depends on**: Phase 8
@@ -127,8 +125,8 @@ Plans:
   5. A findings report for Payroll exists with severity ratings and fix recommendations
 **Plans**: 2 plans
 Plans:
-- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
-- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
+- [ ] 09-01-PLAN.md -- Payroll module orchestrator and REST endpoints audit (~963 lines, 2 files)
+- [ ] 09-02-PLAN.md -- Payroll admin pages audit (~2,576 lines, 1 file)
 
 ### Phase 10: Settlement Audit
 **Goal**: All security, performance, duplication, and logical issues in the Settlement module (~1.7K lines) are documented
@@ -286,7 +284,7 @@ Plans:
 | 6. Leave Audit | 2/2 | Complete   | 2026-03-16 | — |
 | 7. Performance Audit | 1/2 | In Progress|  | — |
 | 8. Loans Audit | 2/2 | Complete   | 2026-03-16 | — |
-| 9. Payroll Audit | v1.1 | 0/? | Not started | — |
+| 9. Payroll Audit | v1.1 | 0/2 | Not started | — |
 | 10. Settlement Audit | v1.1 | 0/? | Not started | — |
 | 11. Assets Audit | v1.1 | 0/? | Not started | — |
 | 12. Employees Audit | v1.1 | 0/? | Not started | — |
