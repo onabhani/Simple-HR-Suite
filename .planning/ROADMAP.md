@@ -94,7 +94,10 @@ Plans:
   3. All `$wpdb` queries confirmed prepared or flagged
   4. Repeated scoring or aggregation logic that could be a shared helper is identified
   5. A findings report for Performance exists with severity ratings and fix recommendations
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
+- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
 
 ### Phase 8: Loans Audit
 **Goal**: All security, performance, duplication, and logical issues in the Loans module (~5.4K lines) are documented
@@ -106,7 +109,10 @@ Plans:
   3. All `$wpdb` queries confirmed prepared or flagged by severity
   4. Repeated installment/schedule logic that duplicates Payroll deduction logic is identified
   5. A findings report for Loans exists with severity ratings and fix recommendations
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
+- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
 
 ### Phase 9: Payroll Audit
 **Goal**: All security, performance, duplication, and logical issues in the Payroll module (~3.5K lines) are documented
@@ -118,7 +124,10 @@ Plans:
   3. All `$wpdb` queries confirmed prepared or flagged
   4. Export/report generation checked for unescaped output and data leakage across departments
   5. A findings report for Payroll exists with severity ratings and fix recommendations
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
+- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
 
 ### Phase 10: Settlement Audit
 **Goal**: All security, performance, duplication, and logical issues in the Settlement module (~1.7K lines) are documented
@@ -129,7 +138,10 @@ Plans:
   2. Settlement trigger conditions (resignation vs. termination vs. contract end) are checked for logical correctness
   3. All `$wpdb` queries confirmed prepared or flagged
   4. A findings report for Settlement exists with severity ratings and fix recommendations
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
+- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
 
 ### Phase 11: Assets Audit
 **Goal**: All security, performance, duplication, and logical issues in the Assets module (~4K lines) are documented
@@ -141,7 +153,10 @@ Plans:
   3. All `$wpdb` queries confirmed prepared or flagged
   4. Duplicate asset status tracking logic identified and documented
   5. A findings report for Assets exists with severity ratings and fix recommendations
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
+- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
 
 ### Phase 12: Employees Audit
 **Goal**: All security, performance, duplication, and logical issues in the Employees module (~3.2K lines) are documented
@@ -153,7 +168,10 @@ Plans:
   3. Dual hire_date/hired_at handling is audited for consistency across all query paths
   4. All `$wpdb` queries confirmed prepared or flagged
   5. A findings report for Employees exists with severity ratings and fix recommendations
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
+- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
 
 ### Phase 13: Hiring Audit
 **Goal**: All security, performance, duplication, and logical issues in the Hiring module (~2.5K lines) are documented
@@ -164,7 +182,10 @@ Plans:
   2. Pipeline stage transitions are audited for missing capability checks
   3. All `$wpdb` queries confirmed prepared or flagged
   4. A findings report for Hiring exists with severity ratings and fix recommendations
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
+- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
 
 ### Phase 14: Resignation Audit
 **Goal**: All security, performance, duplication, and logical issues in the Resignation module (~2.3K lines) are documented
@@ -175,7 +196,10 @@ Plans:
   2. Approval state machine is audited for unauthorized backwards transitions (approved back to pending, etc.)
   3. All `$wpdb` queries confirmed prepared or flagged
   4. A findings report for Resignation exists with severity ratings and fix recommendations
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
+- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
 
 ### Phase 15: Workforce_Status Audit
 **Goal**: All security, performance, duplication, and logical issues in the Workforce_Status module (~2K lines) are documented
@@ -186,7 +210,10 @@ Plans:
   2. Dashboard queries are audited for N+1 patterns or full-table scans on large employee sets
   3. All `$wpdb` queries confirmed prepared or flagged
   4. A findings report for Workforce_Status exists with severity ratings and fix recommendations
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
+- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
 
 ### Phase 16: Documents Audit
 **Goal**: All security, performance, duplication, and logical issues in the Documents module (~1.9K lines) are documented
@@ -197,7 +224,10 @@ Plans:
   2. Document access control is verified — employees cannot access other employees' documents
   3. All `$wpdb` queries confirmed prepared or flagged
   4. A findings report for Documents exists with severity ratings and fix recommendations
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
+- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
 
 ### Phase 17: ShiftSwap Audit
 **Goal**: All security, performance, duplication, and logical issues in the ShiftSwap module (~1.3K lines) are documented
@@ -208,7 +238,10 @@ Plans:
   2. Approval logic is audited for missing manager capability checks
   3. All `$wpdb` queries confirmed prepared or flagged
   4. A findings report for ShiftSwap exists with severity ratings and fix recommendations
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
+- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
 
 ### Phase 18: Departments + Surveys + Projects Audit
 **Goal**: Security, performance, duplication, and logical issues in Departments (~775 lines), Surveys (~1.3K lines), and Projects (~1.2K lines) are documented
@@ -220,7 +253,10 @@ Plans:
   3. Project assignment logic is checked for missing ownership validation
   4. All `$wpdb` queries across all three modules confirmed prepared or flagged
   5. A single findings report covering Departments, Surveys, and Projects exists with per-module severity ratings and fix recommendations
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
+- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
 
 ### Phase 19: Reminders + EmployeeExit + PWA Audit
 **Goal**: Security, performance, duplication, and logical issues in Reminders (~915 lines), EmployeeExit (~490 lines), and PWA (~414 lines) are documented
@@ -232,7 +268,10 @@ Plans:
   3. PWA service worker and manifest endpoints are checked for data leakage (auth tokens, employee data in cacheable responses)
   4. All `$wpdb` queries across all three modules confirmed prepared or flagged
   5. A single findings report covering Reminders, EmployeeExit, and PWA exists with per-module severity ratings and fix recommendations
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
+- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
 
 ## Progress
 
