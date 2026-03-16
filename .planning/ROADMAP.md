@@ -8,7 +8,7 @@
 ## Phases
 
 <details>
-<summary>✅ v1.0 Attendance Module Refactor Phase 2 (Phases 1-3) — SHIPPED 2026-03-10</summary>
+<summary>v1.0 Attendance Module Refactor Phase 2 (Phases 1-3) — SHIPPED 2026-03-10</summary>
 
 - [x] Phase 1: Views Extraction (2/2 plans) — completed 2026-03-09
 - [x] Phase 2: Migration Extraction (1/1 plan) — completed 2026-03-09
@@ -239,8 +239,8 @@ Plans:
   4. A findings report for ShiftSwap exists with severity ratings and fix recommendations
 **Plans**: 2 plans
 Plans:
-- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
-- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
+- [ ] 17-01-PLAN.md -- ShiftSwapModule orchestrator, service, handlers, and notifications audit (~969 lines, 4 files)
+- [ ] 17-02-PLAN.md -- ShiftSwap admin tab and REST endpoints audit (~377 lines, 2 files)
 
 ### Phase 18: Departments + Surveys + Projects Audit
 **Goal**: Security, performance, duplication, and logical issues in Departments (~775 lines), Surveys (~1.3K lines), and Projects (~1.2K lines) are documented
@@ -292,6 +292,6 @@ Plans:
 | 14. Resignation Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 15. Workforce_Status Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 16. Documents Audit | 2/2 | Complete    | 2026-03-16 | — |
-| 17. ShiftSwap Audit | v1.1 | 0/? | Not started | — |
+| 17. ShiftSwap Audit | v1.1 | 0/2 | Not started | — |
 | 18. Departments + Surveys + Projects Audit | v1.1 | 0/? | Not started | — |
 | 19. Reminders + EmployeeExit + PWA Audit | v1.1 | 0/? | Not started | — |
