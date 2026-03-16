@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 12-01-PLAN.md
-last_updated: "2026-03-16T17:39:14.847Z"
+stopped_at: Completed 12-02-PLAN.md
+last_updated: "2026-03-16T17:46:19.330Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 19
-  completed_plans: 18
+  completed_plans: 19
   percent: 50
 ---
 
@@ -74,6 +74,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 11-assets-audit P01 | 195 | 2 tasks | 1 files |
 | Phase 11-assets-audit P02 | 3 | 2 tasks | 1 files |
 | Phase 12-employees-audit P01 | 4 | 2 tasks | 1 files |
+| Phase 12-employees-audit P02 | 25 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -142,6 +143,10 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 12-employees-audit]: EMP-LOGIC-001: hire_date/hired_at diverge on edit — form saves hired_at only; hire_date not synced in handle_save_edit()
 - [Phase 12-employees-audit]: WP user creation handler is correctly secured (create_users cap + nonce + subscriber role) — no privilege escalation risk
 - [Phase 12-employees-audit]: 8 information_schema.tables checks per profile page load — same antipattern as Phase 04/08/11 (EMP-PERF-001)
+- [Phase 12-employees-audit]: My Profile data scoping is CLEAN: all queries use employee_id derived from get_current_user_id(); no IDOR risk; asset write handlers re-validate ownership server-side
+- [Phase 12-employees-audit]: EmployeesModule.php bootstrap is CLEAN: no ALTER TABLE, no bare SHOW TABLES, no information_schema — unlike Loans (Phase 08) and Core (Phase 04)
+- [Phase 12-employees-audit]: 3 information_schema.tables calls per My Profile overview tab load — same antipattern as Phase 04/08/11; replace with SHOW TABLES LIKE or cached result
+- [Phase 12-employees-audit]: hire_date/hired_at: both Employees files consistently prefer hired_at (inconsistent with CLAUDE.md); fix should be coordinated across both files
 
 ### Phase Structure
 
@@ -174,6 +179,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T17:39:14.845Z
-Stopped at: Completed 12-01-PLAN.md
+Last session: 2026-03-16T17:46:19.328Z
+Stopped at: Completed 12-02-PLAN.md
 Resume file: None
