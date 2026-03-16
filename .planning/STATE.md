@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 16-02-PLAN.md
-last_updated: "2026-03-16T20:52:22.508Z"
+stopped_at: Completed 17-01-PLAN.md
+last_updated: "2026-03-16T22:03:56.968Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
   completed_phases: 13
-  total_plans: 27
-  completed_plans: 27
+  total_plans: 29
+  completed_plans: 28
   percent: 50
 ---
 
@@ -83,6 +83,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 15-workforce-status-audit P02 | 3 | 2 tasks | 1 files |
 | Phase 16-documents-audit P01 | 3 | 2 tasks | 1 files |
 | Phase 16-documents-audit P02 | 4 | 2 tasks | 1 files |
+| Phase 17-shiftswap-audit P01 | 3 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -187,6 +188,11 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 16-documents-audit]: DADM-LOGIC-001: handle_delete/handle_request_update do not cross-validate document belongs to submitted employee_id -- add ownership check
 - [Phase 16-documents-audit]: DADM-PERF-001: get_uploadable_document_types_for_employee N+1 (12 queries per self-service tab load) -- fetch all docs once and process in PHP
 - [Phase 16-documents-audit]: No __return_true REST endpoints in Documents; admin tab has 0 direct wpdb calls -- best delegation pattern in audit series
+- [Phase 17-shiftswap-audit]: SS-LOGIC-001 High: execute_swap() is not atomic — two wpdb->update calls without transaction; partial swap execution leaves inconsistent shift assignments
+- [Phase 17-shiftswap-audit]: SS-LOGIC-002 High: No duplicate swap request guard — same shift can have multiple concurrent pending requests leading to multi-execution on approval
+- [Phase 17-shiftswap-audit]: SS-SEC-005 High: TOCTOU race on manager approval — unconditional update_swap_status() without WHERE status guard (same pattern as Resignation Phase 14)
+- [Phase 17-shiftswap-audit]: Swap ownership validation SAFE: validate_shift_ownership() enforces WHERE id AND employee_id before swap creation; no IDOR risk on source shift
+- [Phase 17-shiftswap-audit]: SS-LOGIC-006 Low: HR notification emails always show N/A for shift dates — wrong column names (requester_shift_date vs requester_date in schema)
 
 ### Phase Structure
 
@@ -219,6 +225,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T20:46:05.655Z
-Stopped at: Completed 16-02-PLAN.md
+Last session: 2026-03-16T22:03:56.966Z
+Stopped at: Completed 17-01-PLAN.md
 Resume file: None
