@@ -99,7 +99,7 @@ class DashboardTab implements TabInterface {
         // ── Calendar heatmap (current period) ──
         $heatmap = $wpdb->get_results( $wpdb->prepare(
             "SELECT work_date,
-                    SUM(CASE WHEN status IN ('present') THEN 1 ELSE 0 END) AS present_cnt,
+                    SUM(CASE WHEN status IN ('present','late','left_early','incomplete') THEN 1 ELSE 0 END) AS present_cnt,
                     SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) AS late_cnt,
                     SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) AS absent_cnt,
                     SUM(CASE WHEN status IN ('on_leave','holiday','day_off') THEN 1 ELSE 0 END) AS off_cnt,
@@ -124,7 +124,7 @@ class DashboardTab implements TabInterface {
                 'absent'  => (int) $h['absent_cnt'],
                 'off'     => (int) $h['off_cnt'],
                 'total'   => (int) $h['total_cnt'],
-                'pct'     => $present_pct + $late_pct, // attendance rate
+                'pct'     => $present_pct, // attendance rate (present_cnt already includes late/left_early/incomplete)
             ];
         }
 
