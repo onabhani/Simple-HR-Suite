@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 05-02-PLAN.md
-last_updated: "2026-03-16T02:03:09.910Z"
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-03-16T02:23:26.210Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
   completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 6
+  completed_plans: 5
   percent: 50
 ---
 
@@ -60,6 +60,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 04 P02 | 3 | 2 tasks | 1 files |
 | Phase 05-attendance-audit P01 | 30 | 2 tasks | 1 files |
 | Phase 05-attendance-audit P02 | 28 | 2 tasks | 1 files |
+| Phase 06-leave-audit P01 | 3 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -78,6 +79,9 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 05-attendance-audit]: GET /attendance/status __return_true is Critical: exposes device geofence + employee snapshot to unauthenticated callers
 - [Phase 05-attendance-audit]: POST /attendance/verify-pin __return_true is Critical: PIN brute-force with no rate limiting or lockout
 - [Phase 05-attendance-audit]: Scan token peek-not-consume (kiosk) is intentional design but creates 10-min window for multi-type punch forgery from one QR scan
+- [Phase 06-leave-audit]: LV-CALC-002: handle_approve() destroys opening/carried_over on every approval — Critical balance corruption
+- [Phase 06-leave-audit]: LV-CALC-001: Tenure boundary evaluated at Jan 1, not employee anniversary — mid-year 5-year mark missed
+- [Phase 06-leave-audit]: LV-CALC-004: handle_self_request() uses calendar days; shortcode_request() uses business_days() — inconsistent
 
 ### Phase Structure
 
@@ -110,6 +114,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T01:58:27.128Z
-Stopped at: Completed 05-02-PLAN.md
+Last session: 2026-03-16T02:23:26.208Z
+Stopped at: Completed 06-01-PLAN.md
 Resume file: None
