@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 10-02-PLAN.md
-last_updated: "2026-03-16T15:41:30.913Z"
+stopped_at: Completed 11-01-PLAN.md
+last_updated: "2026-03-16T16:32:27.489Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
   completed_phases: 7
-  total_plans: 15
-  completed_plans: 15
+  total_plans: 17
+  completed_plans: 16
   percent: 50
 ---
 
@@ -71,6 +71,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 09-payroll-audit P03 | 15 | 1 tasks | 1 files |
 | Phase 10-settlement-audit P01 | 3 | 2 tasks | 1 files |
 | Phase 10-settlement-audit P02 | 3 | 2 tasks | 1 files |
+| Phase 11-assets-audit P01 | 195 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -127,6 +128,12 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 10-settlement-audit]: SADM-LOGIC-001 Critical: JS calculateGratuity() uses 21-day UAE formula in admin form — confirms SETT-LOGIC-001 affects the admin UI; sub-5-year employees are shown and stored a 40% overpayment
 - [Phase 10-settlement-audit]: SADM-SEC-001 High: Approve/Reject/Pay buttons shown to all admin page viewers — no current_user_can() in render_action_buttons(); server-side handlers do check capability
 - [Phase 10-settlement-audit]: Settlement admin view files have 0 direct wpdb calls — all DB access delegated to Settlement_Service; admin views are clean from SQL injection perspective
+- [Phase 11-assets-audit]: ASSET-SEC-002: Invoice upload has no MIME allowlist; save_data_url_attachment writes binary before type validation — SVG/HTML injectable
+- [Phase 11-assets-audit]: ASSET-SEC-003: log_asset_event uses information_schema.tables on every call — same Critical antipattern as Phase 04 and Phase 08
+- [Phase 11-assets-audit]: ASSET-DUP-001: Dual asset status tracking (assets.status + assignments.status) updated without transactions — divergence possible
+- [Phase 11-assets-audit]: ASSET-SEC-004/005: handle_assign_decision and handle_return_decision use is_user_logged_in() only — capability gate missing
+- [Phase 11-assets-audit]: AssetsModule bootstrap is clean: prepared SHOW TABLES, no bare ALTER TABLE (unlike Loans Phase 08 and Core Phase 04)
+- [Phase 11-assets-audit]: REST stub registers no routes (not __return_true pattern) — correct design decision
 
 ### Phase Structure
 
@@ -159,6 +166,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T15:36:45.494Z
-Stopped at: Completed 10-02-PLAN.md
+Last session: 2026-03-16T16:32:27.487Z
+Stopped at: Completed 11-01-PLAN.md
 Resume file: None
