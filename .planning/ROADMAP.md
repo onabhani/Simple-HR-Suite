@@ -225,8 +225,8 @@ Plans:
   4. A findings report for Documents exists with severity ratings and fix recommendations
 **Plans**: 2 plans
 Plans:
-- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
-- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
+- [ ] 16-01-PLAN.md -- DocumentsModule orchestrator, service layer, and handlers audit (~1,160 lines, 3 files)
+- [ ] 16-02-PLAN.md -- Documents admin tab and REST endpoints audit (~718 lines, 2 files)
 
 ### Phase 17: ShiftSwap Audit
 **Goal**: All security, performance, duplication, and logical issues in the ShiftSwap module (~1.3K lines) are documented
@@ -291,7 +291,7 @@ Plans:
 | 13. Hiring Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 14. Resignation Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 15. Workforce_Status Audit | 2/2 | Complete    | 2026-03-16 | — |
-| 16. Documents Audit | v1.1 | 0/? | Not started | — |
+| 16. Documents Audit | v1.1 | 0/2 | Planned | — |
 | 17. ShiftSwap Audit | v1.1 | 0/? | Not started | — |
 | 18. Departments + Surveys + Projects Audit | v1.1 | 0/? | Not started | — |
 | 19. Reminders + EmployeeExit + PWA Audit | v1.1 | 0/? | Not started | — |
