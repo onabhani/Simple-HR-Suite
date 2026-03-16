@@ -33,7 +33,7 @@ Requirements for module-by-module code audit. Each maps to roadmap phases.
 - [x] **MED-03**: Audit Hiring module (~2.5K lines) — security, performance, duplication, logical issues
 - [x] **MED-04**: Audit Resignation module (~2.3K lines) — security, performance, duplication, logical issues
 - [x] **MED-05**: Audit Workforce_Status module (~2K lines) — security, performance, duplication, logical issues
-- [ ] **MED-06**: Audit Documents module (~1.9K lines) — security, performance, duplication, logical issues
+- [x] **MED-06**: Audit Documents module (~1.9K lines) — security, performance, duplication, logical issues
 - [ ] **MED-07**: Audit ShiftSwap module (~1.3K lines) — security, performance, duplication, logical issues
 
 ### Small Modules
@@ -74,7 +74,7 @@ Requirements for module-by-module code audit. Each maps to roadmap phases.
 | MED-03 | Phase 13 | Complete |
 | MED-04 | Phase 14 | Complete |
 | MED-05 | Phase 15 | Complete |
-| MED-06 | Phase 16 | Pending |
+| MED-06 | Phase 16 | Complete |
 | MED-07 | Phase 17 | Pending |
 | SML-01 | Phase 18 | Pending |
 | SML-02 | Phase 18 | Pending |
