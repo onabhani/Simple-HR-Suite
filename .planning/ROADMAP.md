@@ -197,8 +197,8 @@ Plans:
   4. A findings report for Resignation exists with severity ratings and fix recommendations
 **Plans**: 2 plans
 Plans:
-- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
-- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
+- [ ] 14-01-PLAN.md -- ResignationModule orchestrator and admin pages audit (~861 lines, 4 files)
+- [ ] 14-02-PLAN.md -- Services, handlers, frontend, cron, notifications audit (~1,400 lines, 5 files)
 
 ### Phase 15: Workforce_Status Audit
 **Goal**: All security, performance, duplication, and logical issues in the Workforce_Status module (~2K lines) are documented
@@ -289,7 +289,7 @@ Plans:
 | 11. Assets Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 12. Employees Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 13. Hiring Audit | 2/2 | Complete    | 2026-03-16 | — |
-| 14. Resignation Audit | v1.1 | 0/? | Not started | — |
+| 14. Resignation Audit | v1.1 | 0/2 | Planned | — |
 | 15. Workforce_Status Audit | v1.1 | 0/? | Not started | — |
 | 16. Documents Audit | v1.1 | 0/? | Not started | — |
 | 17. ShiftSwap Audit | v1.1 | 0/? | Not started | — |
