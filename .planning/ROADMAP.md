@@ -211,8 +211,8 @@ Plans:
   4. A findings report for Workforce_Status exists with severity ratings and fix recommendations
 **Plans**: 2 plans
 Plans:
-- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
-- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
+- [ ] 15-01-PLAN.md -- Module orchestrator, Admin_Pages dashboard, and empty Status_Analytics audit (~1,368 lines, 3 files)
+- [ ] 15-02-PLAN.md -- Absent_Cron scheduler and Absent_Notifications service audit (~664 lines, 2 files)
 
 ### Phase 16: Documents Audit
 **Goal**: All security, performance, duplication, and logical issues in the Documents module (~1.9K lines) are documented
@@ -290,7 +290,7 @@ Plans:
 | 12. Employees Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 13. Hiring Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 14. Resignation Audit | 2/2 | Complete    | 2026-03-16 | — |
-| 15. Workforce_Status Audit | v1.1 | 0/? | Not started | — |
+| 15. Workforce_Status Audit | v1.1 | 0/2 | Not started | — |
 | 16. Documents Audit | v1.1 | 0/? | Not started | — |
 | 17. ShiftSwap Audit | v1.1 | 0/? | Not started | — |
 | 18. Departments + Surveys + Projects Audit | v1.1 | 0/? | Not started | — |
