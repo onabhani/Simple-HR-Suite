@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
-status: defining_requirements
-stopped_at: Defining requirements
+status: roadmap_ready
+stopped_at: Phase 4 not started — roadmap written, awaiting plan-phase
 last_updated: "2026-03-16"
-last_activity: 2026-03-16 — Milestone v1.1 started
+last_activity: 2026-03-16 — Roadmap created for v1.1 (phases 4-19)
 progress:
-  total_phases: 0
+  total_phases: 16
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -20,24 +20,59 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-03-16)
 
-**Core value:** Identify security, performance, duplication, and logical issues across all modules
-**Current focus:** Defining requirements for code audit
+**Core value:** Identify security, performance, duplication, and logical issues across all modules with actionable findings reports
+**Current focus:** Phase 4 — Core + Frontend Audit (not yet started)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 4 — Core + Frontend Audit
 Plan: —
-Status: Defining requirements
-Last activity: 2026-03-16 — Milestone v1.1 started
+Status: Not started
+Last activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
+
+Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/16 phases
+
+## Performance Metrics
+
+| Metric | Value |
+|--------|-------|
+| Phases total | 16 |
+| Phases complete | 0 |
+| Requirements total | 23 |
+| Requirements mapped | 23 |
+| Coverage | 100% |
 
 ## Accumulated Context
 
 ### Decisions
 
-- Audit-only milestone, no code fixes
-- Review order: Core+Frontend first, then modules by size/risk
-- 4 metrics: security, performance, duplication, logical issues
-- Small modules (under 1.3K lines) will be batched
+- Audit-only milestone — no code changes permitted in v1.1
+- Review order: Core+Frontend first, then modules by size/risk (Attendance down to ShiftSwap), then batched small modules
+- 4 metrics per module: security (SQL injection, auth, nonces, escaping), performance (N+1, unbounded queries), duplication (repeated logic), logical issues (race conditions, bad calculations, dead code)
+- Small modules batched into two phases: Departments+Surveys+Projects (Phase 18), Reminders+EmployeeExit+PWA (Phase 19)
+- Every finding must have severity rating: Critical / High / Medium / Low
+- Every finding must include a concrete fix recommendation
+
+### Phase Structure
+
+| Phase | Module(s) | Requirements | Lines |
+|-------|-----------|--------------|-------|
+| 4 | Core + Frontend | CORE-01, CORE-02, CORE-03, CORE-04 | ~25K |
+| 5 | Attendance | CRIT-01 | ~18K |
+| 6 | Leave | CRIT-02 | ~7.7K |
+| 7 | Performance | CRIT-03 | ~6.1K |
+| 8 | Loans | CRIT-04 | ~5.4K |
+| 9 | Payroll | FIN-01 | ~3.5K |
+| 10 | Settlement | FIN-02 | ~1.7K |
+| 11 | Assets | MED-01 | ~4K |
+| 12 | Employees | MED-02 | ~3.2K |
+| 13 | Hiring | MED-03 | ~2.5K |
+| 14 | Resignation | MED-04 | ~2.3K |
+| 15 | Workforce_Status | MED-05 | ~2K |
+| 16 | Documents | MED-06 | ~1.9K |
+| 17 | ShiftSwap | MED-07 | ~1.3K |
+| 18 | Departments + Surveys + Projects | SML-01, SML-02, SML-03 | ~3.3K |
+| 19 | Reminders + EmployeeExit + PWA | SML-04, SML-05, SML-06 | ~1.8K |
 
 ### Pending Todos
 
@@ -50,5 +85,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-16
-Stopped at: Milestone v1.1 initialization
-Resume file: None
+Stopped at: Roadmap written — ready to start Phase 4
+Resume file: .planning/ROADMAP.md (Phase 4 detail section)

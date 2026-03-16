@@ -59,35 +59,35 @@ Requirements for module-by-module code audit. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CORE-01 | — | Pending |
-| CORE-02 | — | Pending |
-| CORE-03 | — | Pending |
-| CORE-04 | — | Pending |
-| CRIT-01 | — | Pending |
-| CRIT-02 | — | Pending |
-| CRIT-03 | — | Pending |
-| CRIT-04 | — | Pending |
-| FIN-01 | — | Pending |
-| FIN-02 | — | Pending |
-| MED-01 | — | Pending |
-| MED-02 | — | Pending |
-| MED-03 | — | Pending |
-| MED-04 | — | Pending |
-| MED-05 | — | Pending |
-| MED-06 | — | Pending |
-| MED-07 | — | Pending |
-| SML-01 | — | Pending |
-| SML-02 | — | Pending |
-| SML-03 | — | Pending |
-| SML-04 | — | Pending |
-| SML-05 | — | Pending |
-| SML-06 | — | Pending |
+| CORE-01 | Phase 4 | Pending |
+| CORE-02 | Phase 4 | Pending |
+| CORE-03 | Phase 4 | Pending |
+| CORE-04 | Phase 4 | Pending |
+| CRIT-01 | Phase 5 | Pending |
+| CRIT-02 | Phase 6 | Pending |
+| CRIT-03 | Phase 7 | Pending |
+| CRIT-04 | Phase 8 | Pending |
+| FIN-01 | Phase 9 | Pending |
+| FIN-02 | Phase 10 | Pending |
+| MED-01 | Phase 11 | Pending |
+| MED-02 | Phase 12 | Pending |
+| MED-03 | Phase 13 | Pending |
+| MED-04 | Phase 14 | Pending |
+| MED-05 | Phase 15 | Pending |
+| MED-06 | Phase 16 | Pending |
+| MED-07 | Phase 17 | Pending |
+| SML-01 | Phase 18 | Pending |
+| SML-02 | Phase 18 | Pending |
+| SML-03 | Phase 18 | Pending |
+| SML-04 | Phase 19 | Pending |
+| SML-05 | Phase 19 | Pending |
+| SML-06 | Phase 19 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 23 total
-- Mapped to phases: 0
-- Unmapped: 23 ⚠️
+- Mapped to phases: 23
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-16*
-*Last updated: 2026-03-16 after initial definition*
+*Last updated: 2026-03-16 after roadmap creation (phases 4-19)*
