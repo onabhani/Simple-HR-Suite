@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 11-02-PLAN.md
-last_updated: "2026-03-16T16:41:49.570Z"
+stopped_at: Completed 12-01-PLAN.md
+last_updated: "2026-03-16T17:39:14.847Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
   completed_phases: 8
-  total_plans: 17
-  completed_plans: 17
+  total_plans: 19
+  completed_plans: 18
   percent: 50
 ---
 
@@ -73,6 +73,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 10-settlement-audit P02 | 3 | 2 tasks | 1 files |
 | Phase 11-assets-audit P01 | 195 | 2 tasks | 1 files |
 | Phase 11-assets-audit P02 | 3 | 2 tasks | 1 files |
+| Phase 12-employees-audit P01 | 4 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -138,6 +139,9 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 11-assets-audit]: AVIEW-SEC-001/002 High: inline $wpdb queries in assignments-list.php and assets-edit.php view files violate controller/view separation — queries are static/prepared so no injection risk but architectural violation
 - [Phase 11-assets-audit]: AVIEW-LOGIC-001 High: assignments list shows all-org data to dept managers —  from controller unscoped; form correctly restricts to manager dept but list does not
 - [Phase 11-assets-audit]: AVIEW-PERF-001 High: PHP-side re-filter after LIMIT 200 in assets-list.php causes silent data loss on filtered views when total assets exceed 200
+- [Phase 12-employees-audit]: EMP-LOGIC-001: hire_date/hired_at diverge on edit — form saves hired_at only; hire_date not synced in handle_save_edit()
+- [Phase 12-employees-audit]: WP user creation handler is correctly secured (create_users cap + nonce + subscriber role) — no privilege escalation risk
+- [Phase 12-employees-audit]: 8 information_schema.tables checks per profile page load — same antipattern as Phase 04/08/11 (EMP-PERF-001)
 
 ### Phase Structure
 
@@ -170,6 +174,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T16:38:07.858Z
-Stopped at: Completed 11-02-PLAN.md
+Last session: 2026-03-16T17:39:14.845Z
+Stopped at: Completed 12-01-PLAN.md
 Resume file: None
