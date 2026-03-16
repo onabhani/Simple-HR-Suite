@@ -79,7 +79,10 @@ Plans:
   3. All `$wpdb` queries in Leave are confirmed prepared or flagged by severity
   4. Overlap detection logic (concurrent leave requests) is evaluated for race conditions
   5. A findings report for Leave exists with severity ratings and fix recommendations
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 06-01-PLAN.md -- Leave services, balance calculation, and $wpdb security audit (3 files, ~7.7K lines)
+- [ ] 06-02-PLAN.md -- Leave approval workflow, overlap detection, REST/admin handlers audit (2 files, ~7.5K lines)
 
 ### Phase 7: Performance Audit
 **Goal**: All security, performance, duplication, and logical issues in the Performance module (~6.1K lines) are documented
@@ -240,7 +243,7 @@ Plans:
 | 3. Orchestrator Cleanup | v1.0 | 1/1 | Complete | 2026-03-10 |
 | 4. Core + Frontend Audit | 2/2 | Complete   | 2026-03-16 | — |
 | 5. Attendance Audit | 2/2 | Complete   | 2026-03-16 | — |
-| 6. Leave Audit | v1.1 | 0/? | Not started | — |
+| 6. Leave Audit | v1.1 | 0/2 | Planned | — |
 | 7. Performance Audit | v1.1 | 0/? | Not started | — |
 | 8. Loans Audit | v1.1 | 0/? | Not started | — |
 | 9. Payroll Audit | v1.1 | 0/? | Not started | — |
