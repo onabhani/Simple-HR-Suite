@@ -286,7 +286,7 @@ Plans:
 | 7. Performance Audit | 1/2 | In Progress|  | — |
 | 8. Loans Audit | 2/2 | Complete   | 2026-03-16 | — |
 | 9. Payroll Audit | 3/3 | Complete   | 2026-03-16 | — |
-| 10. Settlement Audit | 2/2 | Complete   | 2026-03-16 | — |
+| 10. Settlement Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 11. Assets Audit | v1.1 | 0/? | Not started | — |
 | 12. Employees Audit | v1.1 | 0/? | Not started | — |
 | 13. Hiring Audit | v1.1 | 0/? | Not started | — |
