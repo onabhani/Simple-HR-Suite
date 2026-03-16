@@ -64,7 +64,10 @@ Plans:
   3. N+1 query patterns and unbounded result sets in attendance reporting are identified and rated
   4. Duplicated logic across Attendance services (Period_Service, Shift_Service, etc.) that survived the v1.0 refactor is catalogued
   5. A findings report for Attendance exists with severity ratings and fix recommendations for every issue found
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 05-01-PLAN.md -- Services, Cron, Migration audit (~3.9K lines, 10 files)
+- [ ] 05-02-PLAN.md -- Admin, REST, Frontend audit (~14.3K lines, 6 files)
 
 ### Phase 6: Leave Audit
 **Goal**: All security, performance, duplication, and logical issues in the Leave module (~7.7K lines) are documented
@@ -236,7 +239,7 @@ Plans:
 | 2. Migration Extraction | v1.0 | 1/1 | Complete | 2026-03-09 |
 | 3. Orchestrator Cleanup | v1.0 | 1/1 | Complete | 2026-03-10 |
 | 4. Core + Frontend Audit | 2/2 | Complete   | 2026-03-16 | — |
-| 5. Attendance Audit | v1.1 | 0/? | Not started | — |
+| 5. Attendance Audit | v1.1 | 0/2 | Not started | — |
 | 6. Leave Audit | v1.1 | 0/? | Not started | — |
 | 7. Performance Audit | v1.1 | 0/? | Not started | — |
 | 8. Loans Audit | v1.1 | 0/? | Not started | — |
