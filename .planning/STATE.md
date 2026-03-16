@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 10-01-PLAN.md
-last_updated: "2026-03-16T15:31:02.272Z"
+stopped_at: Completed 10-02-PLAN.md
+last_updated: "2026-03-16T15:36:45.496Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 15
-  completed_plans: 14
+  completed_plans: 15
   percent: 50
 ---
 
@@ -70,6 +70,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 09-payroll-audit P02 | 25 | 2 tasks | 1 files |
 | Phase 09-payroll-audit P03 | 15 | 1 tasks | 1 files |
 | Phase 10-settlement-audit P01 | 3 | 2 tasks | 1 files |
+| Phase 10-settlement-audit P02 | 3 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -123,6 +124,9 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 10-settlement-audit]: SETT-DUP-001 High: client-computed gratuity_amount accepted without server-side re-validation in handle_create()
 - [Phase 10-settlement-audit]: SettlementModule.php bootstrap is clean: no bare ALTER TABLE, no unprepared SHOW TABLES — unlike Loans (Phase 08) and Core (Phase 04)
 - [Phase 10-settlement-audit]: All 5 Settlement handlers have correct nonce (check_admin_referer) and capability (sfs_hr.manage) guards at entry — no missing auth guards
+- [Phase 10-settlement-audit]: SADM-LOGIC-001 Critical: JS calculateGratuity() uses 21-day UAE formula in admin form — confirms SETT-LOGIC-001 affects the admin UI; sub-5-year employees are shown and stored a 40% overpayment
+- [Phase 10-settlement-audit]: SADM-SEC-001 High: Approve/Reject/Pay buttons shown to all admin page viewers — no current_user_can() in render_action_buttons(); server-side handlers do check capability
+- [Phase 10-settlement-audit]: Settlement admin view files have 0 direct wpdb calls — all DB access delegated to Settlement_Service; admin views are clean from SQL injection perspective
 
 ### Phase Structure
 
@@ -155,6 +159,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T15:31:02.270Z
-Stopped at: Completed 10-01-PLAN.md
+Last session: 2026-03-16T15:36:45.494Z
+Stopped at: Completed 10-02-PLAN.md
 Resume file: None
