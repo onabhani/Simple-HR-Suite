@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 13-02-PLAN.md
-last_updated: "2026-03-16T18:31:05.397Z"
+stopped_at: Completed 14-01-PLAN.md
+last_updated: "2026-03-16T18:52:36.672Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
   completed_phases: 10
-  total_plans: 21
-  completed_plans: 21
+  total_plans: 23
+  completed_plans: 22
   percent: 50
 ---
 
@@ -77,6 +77,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 12-employees-audit P02 | 25 | 2 tasks | 1 files |
 | Phase 13-hiring-audit P01 | 7 | 2 tasks | 1 files |
 | Phase 13-hiring-audit P02 | 4 | 2 tasks | 1 files |
+| Phase 14-resignation-audit P01 | 5 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -157,6 +158,9 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 13-hiring-audit]: HADM-SEC-001 Critical: manage_options used as capability for dept/GM approval with TODO comments — approval workflow non-functional for actual HR managers; needs sfs_hr.manage or dept-manager dynamic check
 - [Phase 13-hiring-audit]: HADM-LOGIC-001 Critical: handle_candidate_action() has no state-machine transition enforcement — any stage can be skipped or reversed including moving a hired candidate to rejected; fix: conditional UPDATE WHERE status = expected
 - [Phase 13-hiring-audit]: HADM-LOGIC-004 High: direct_hire_employee_id stored as embedded JSON in notes text column; editing notes destroys the employee link — needs dedicated direct_hire_employee_id BIGINT column in sfs_hr_trainees
+- [Phase 14-resignation-audit]: ResignationModule.php has no install() method — DDL delegated cleanly to Migrations.php (cleanest bootstrap in audit series)
+- [Phase 14-resignation-audit]: RES-SEC-001 Critical: Resignation_List render() has no outer capability guard — sfs_hr.view users with no managed depts see all-org resignation data (empty dept_ids skips filter)
+- [Phase 14-resignation-audit]: RADM-LOGIC-002 High: handle_approve() lacks conditional UPDATE guard — concurrent approvals at same level cause TOCTOU race (same pattern as Hiring Phase 13 HADM-LOGIC-001)
 
 ### Phase Structure
 
@@ -189,6 +193,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T18:26:23.768Z
-Stopped at: Completed 13-02-PLAN.md
+Last session: 2026-03-16T18:52:36.669Z
+Stopped at: Completed 14-01-PLAN.md
 Resume file: None

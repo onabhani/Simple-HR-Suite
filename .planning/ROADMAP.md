@@ -289,7 +289,7 @@ Plans:
 | 11. Assets Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 12. Employees Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 13. Hiring Audit | 2/2 | Complete    | 2026-03-16 | — |
-| 14. Resignation Audit | v1.1 | 0/2 | Planned | — |
+| 14. Resignation Audit | 1/2 | In Progress|  | — |
 | 15. Workforce_Status Audit | v1.1 | 0/? | Not started | — |
 | 16. Documents Audit | v1.1 | 0/? | Not started | — |
 | 17. ShiftSwap Audit | v1.1 | 0/? | Not started | — |
