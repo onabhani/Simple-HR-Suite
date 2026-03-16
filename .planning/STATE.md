@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 17-01-PLAN.md
-last_updated: "2026-03-16T22:03:56.968Z"
+stopped_at: Completed 17-02-PLAN.md
+last_updated: "2026-03-16T22:10:30.031Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
-  completed_phases: 13
+  completed_phases: 14
   total_plans: 29
-  completed_plans: 28
+  completed_plans: 29
   percent: 50
 ---
 
@@ -84,6 +84,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 16-documents-audit P01 | 3 | 2 tasks | 1 files |
 | Phase 16-documents-audit P02 | 4 | 2 tasks | 1 files |
 | Phase 17-shiftswap-audit P01 | 3 | 1 tasks | 1 files |
+| Phase 17-shiftswap-audit P02 | 3 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -193,6 +194,9 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 17-shiftswap-audit]: SS-SEC-005 High: TOCTOU race on manager approval — unconditional update_swap_status() without WHERE status guard (same pattern as Resignation Phase 14)
 - [Phase 17-shiftswap-audit]: Swap ownership validation SAFE: validate_shift_ownership() enforces WHERE id AND employee_id before swap creation; no IDOR risk on source shift
 - [Phase 17-shiftswap-audit]: SS-LOGIC-006 Low: HR notification emails always show N/A for shift dates — wrong column names (requester_shift_date vs requester_date in schema)
+- [Phase 17-shiftswap-audit]: ShiftSwap admin tab is employee self-service (My Profile), not manager admin view -- absence of current_user_can() is by design, replaced by ownership check
+- [Phase 17-shiftswap-audit]: SSADM: REST /shift-swaps returns all-org data without department scoping -- Medium finding, same systemic pattern as Assets/Resignation/Documents phases
+- [Phase 17-shiftswap-audit]: SSADM: Zero direct wpdb calls in admin tab and REST files -- best delegation pattern in audit series; all DB access via ShiftSwap_Service
 
 ### Phase Structure
 
@@ -225,6 +229,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T22:03:56.966Z
-Stopped at: Completed 17-01-PLAN.md
+Last session: 2026-03-16T22:10:30.028Z
+Stopped at: Completed 17-02-PLAN.md
 Resume file: None
