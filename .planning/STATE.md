@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 08-01-PLAN.md
-last_updated: "2026-03-16T04:14:44.455Z"
+stopped_at: Completed 08-02-PLAN.md
+last_updated: "2026-03-16T04:21:42.927Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
   percent: 50
 ---
 
@@ -65,6 +65,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 07-performance-audit P01 | 35 | 2 tasks | 1 files |
 | Phase 07-performance-audit P02 | 183 | 2 tasks | 1 files |
 | Phase 08-loans-audit P01 | 3 | 2 tasks | 1 files |
+| Phase 08-loans-audit P02 | 3 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -98,6 +99,10 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 08-loans-audit]: LOAN-LOGIC-002: PayrollModule references l.monthly_installment which does not exist in sfs_hr_loans schema — loan deductions silently fail on every payroll run
 - [Phase 08-loans-audit]: LOAN-SEC-001/002: unprepared SHOW TABLES and bare ALTER TABLE DDL in LoansModule admin_init/activation paths — same Critical antipattern as Phase 04
 - [Phase 08-loans-audit]: LOAN-DUP-001: installment calculation diverges between frontend (floor+remainder) and admin (round(principal/count)) — stored installment_amount differs from schedule amounts
+- [Phase 08-loans-audit]: LADM-SEC-002: installment nonce in data-nonce HTML attribute — Critical, DOM-readable by scripts
+- [Phase 08-loans-audit]: LADM-LOGIC-001: Finance approval allows principal amount higher than GM-approved — no upper bound validation
+- [Phase 08-loans-audit]: LADM-LOGIC-006: Admin always creates loans as pending_gm regardless of require_gm_approval setting
+- [Phase 08-loans-audit]: LADM-PERF-001: loan list has no pagination — all loans loaded on every page view
 
 ### Phase Structure
 
@@ -130,6 +135,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T04:14:44.453Z
-Stopped at: Completed 08-01-PLAN.md
+Last session: 2026-03-16T04:21:42.924Z
+Stopped at: Completed 08-02-PLAN.md
 Resume file: None
