@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 15-01-PLAN.md
-last_updated: "2026-03-16T19:27:38.700Z"
+stopped_at: Completed 15-02-PLAN.md
+last_updated: "2026-03-16T19:34:25.138Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 25
-  completed_plans: 24
+  completed_plans: 25
   percent: 50
 ---
 
@@ -80,6 +80,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 14-resignation-audit P01 | 5 | 2 tasks | 1 files |
 | Phase 14-resignation-audit P02 | 5 | 2 tasks | 1 files |
 | Phase 15-workforce-status-audit P01 | 3 | 2 tasks | 1 files |
+| Phase 15-workforce-status-audit P02 | 3 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -172,6 +173,9 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 15-workforce-status-audit]: WADM-LOGIC-001 High: Friday-only fallback misses Saudi Saturday -- same bug as Phase 09 PAY-LOGIC-001; Absent_Notifications reads weekly_off_days correctly but Admin_Pages fallback does not
 - [Phase 15-workforce-status-audit]: WFS-ORCH-001: WorkforceStatusModule bootstrap clean -- no ALTER TABLE, no SHOW TABLES, no information_schema unlike Loans Phase 08 and Core Phase 04
 - [Phase 15-workforce-status-audit]: WFS-SVC-001: Status_Analytics.php is empty dead code -- either implement analytics service or delete file
+- [Phase 15-workforce-status-audit]: WNTF-PERF-001 High: double absent detection confirmed -- 3 queries run twice per cron run; pass pre-computed result to eliminate redundant execution
+- [Phase 15-workforce-status-audit]: WNTF-LOGIC-001 High: weekly_off_days defaults to [5] Friday-only -- Saudi Saturday excluded; change to [5,6] -- same root cause as PAY-LOGIC-001 Phase 09
+- [Phase 15-workforce-status-audit]: WNTF-DUP-001 Medium: is_holiday() verbatim duplication between Admin_Pages and Notifications -- extract to shared Core helper in v1.2
 
 ### Phase Structure
 
@@ -204,6 +208,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T19:27:38.697Z
-Stopped at: Completed 15-01-PLAN.md
+Last session: 2026-03-16T19:34:25.135Z
+Stopped at: Completed 15-02-PLAN.md
 Resume file: None
