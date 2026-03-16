@@ -22,7 +22,7 @@ Full details: `milestones/v1.0-ROADMAP.md`
 
 - [x] **Phase 4: Core + Frontend Audit** — Audit shared Core infrastructure and Frontend tab/shortcode layer (completed 2026-03-16)
 - [x] **Phase 5: Attendance Audit** — Audit the largest module (~18K lines) for all 4 metrics (completed 2026-03-16)
-- [x] **Phase 6: Leave Audit** — Audit Leave module including balance, request, and approval logic (completed 2026-03-16)
+- [x] **Phase 6: Leave Audit** — Audit Leave module including balance, request, and approval logic (completed 2026-03-16)
 - [ ] **Phase 7: Performance Audit** — Audit employee performance review and justification module
 - [x] **Phase 8: Loans Audit** — Audit Loans module including installment and repayment logic (completed 2026-03-16)
 - [x] **Phase 9: Payroll Audit** — Audit Payroll calculation, run, and export logic (completed 2026-03-16)
@@ -183,8 +183,8 @@ Plans:
   4. A findings report for Hiring exists with severity ratings and fix recommendations
 **Plans**: 2 plans
 Plans:
-- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
-- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
+- [ ] 13-01-PLAN.md -- HiringModule orchestrator audit (717 lines, 1 file)
+- [ ] 13-02-PLAN.md -- Hiring admin pages controller audit (1,746 lines, 1 file)
 
 ### Phase 14: Resignation Audit
 **Goal**: All security, performance, duplication, and logical issues in the Resignation module (~2.3K lines) are documented
@@ -288,7 +288,7 @@ Plans:
 | 10. Settlement Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 11. Assets Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 12. Employees Audit | 2/2 | Complete    | 2026-03-16 | — |
-| 13. Hiring Audit | v1.1 | 0/? | Not started | — |
+| 13. Hiring Audit | v1.1 | 0/2 | Planned | — |
 | 14. Resignation Audit | v1.1 | 0/? | Not started | — |
 | 15. Workforce_Status Audit | v1.1 | 0/? | Not started | — |
 | 16. Documents Audit | v1.1 | 0/? | Not started | — |
