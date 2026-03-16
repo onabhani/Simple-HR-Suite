@@ -30,7 +30,7 @@ Full details: `milestones/v1.0-ROADMAP.md`
 - [x] **Phase 11: Assets Audit** — Audit Assets assignment, tracking, and return logic (completed 2026-03-16)
 - [x] **Phase 12: Employees Audit** — Audit employee CRUD, profile, and status management (completed 2026-03-16)
 - [x] **Phase 13: Hiring Audit** — Audit Hiring module (applicants, pipeline, onboarding) (completed 2026-03-16)
-- [ ] **Phase 14: Resignation Audit** — Audit Resignation submission and approval workflow
+- [x] **Phase 14: Resignation Audit** — Audit Resignation submission and approval workflow (completed 2026-03-16)
 - [ ] **Phase 15: Workforce_Status Audit** — Audit workforce status tracking and dashboard
 - [ ] **Phase 16: Documents Audit** — Audit document upload, storage, and access control
 - [ ] **Phase 17: ShiftSwap Audit** — Audit shift swap request and approval workflow
@@ -289,7 +289,7 @@ Plans:
 | 11. Assets Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 12. Employees Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 13. Hiring Audit | 2/2 | Complete    | 2026-03-16 | — |
-| 14. Resignation Audit | 1/2 | In Progress|  | — |
+| 14. Resignation Audit | 2/2 | Complete   | 2026-03-16 | — |
 | 15. Workforce_Status Audit | v1.1 | 0/? | Not started | — |
 | 16. Documents Audit | v1.1 | 0/? | Not started | — |
 | 17. ShiftSwap Audit | v1.1 | 0/? | Not started | — |

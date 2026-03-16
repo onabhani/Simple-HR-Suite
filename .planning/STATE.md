@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 14-01-PLAN.md
-last_updated: "2026-03-16T18:52:36.672Z"
+stopped_at: Completed 14-02-PLAN.md
+last_updated: "2026-03-16T18:59:34.252Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
-  completed_phases: 10
+  completed_phases: 11
   total_plans: 23
-  completed_plans: 22
+  completed_plans: 23
   percent: 50
 ---
 
@@ -78,6 +78,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 13-hiring-audit P01 | 7 | 2 tasks | 1 files |
 | Phase 13-hiring-audit P02 | 4 | 2 tasks | 1 files |
 | Phase 14-resignation-audit P01 | 5 | 2 tasks | 1 files |
+| Phase 14-resignation-audit P02 | 5 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -161,6 +162,10 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 14-resignation-audit]: ResignationModule.php has no install() method — DDL delegated cleanly to Migrations.php (cleanest bootstrap in audit series)
 - [Phase 14-resignation-audit]: RES-SEC-001 Critical: Resignation_List render() has no outer capability guard — sfs_hr.view users with no managed depts see all-org resignation data (empty dept_ids skips filter)
 - [Phase 14-resignation-audit]: RADM-LOGIC-002 High: handle_approve() lacks conditional UPDATE guard — concurrent approvals at same level cause TOCTOU race (same pattern as Hiring Phase 13 HADM-LOGIC-001)
+- [Phase 14-resignation-audit]: Self-submission enforcement SAFE: handle_submit() derives employee_id from Helpers::current_employee_id() exclusively, not from POST params
+- [Phase 14-resignation-audit]: State machine VULNERABLE (High): handle_approve/reject/cancel use unconditional wpdb->update() with no WHERE status=expected — TOCTOU race confirmed
+- [Phase 14-resignation-audit]: RCRN-LOGIC-002 High: cron auto-terminates employees but never marks resignation status as completed — records stay approved indefinitely
+- [Phase 14-resignation-audit]: RNTF-DUP-001 Low: send_notification() uses dofs_ prefixed filters — cross-plugin dependency violation per CLAUDE.md; rename to sfs_hr_ namespace in v1.2
 
 ### Phase Structure
 
@@ -193,6 +198,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T18:52:36.669Z
-Stopped at: Completed 14-01-PLAN.md
+Last session: 2026-03-16T18:59:34.250Z
+Stopped at: Completed 14-02-PLAN.md
 Resume file: None
