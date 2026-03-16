@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-03-16T01:08:02.393Z"
+last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
+progress:
+  total_phases: 16
+  completed_phases: 0
+  total_plans: 2
+  completed_plans: 1
+  percent: 50
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.1
+milestone_name: Module-by-Module Code Audit
+status: roadmap_ready
 stopped_at: Phase 4 not started — roadmap written, awaiting plan-phase
 last_updated: "2026-03-16"
 last_activity: 2026-03-16 — Roadmap created for v1.1 (phases 4-19)
 progress:
-  total_phases: 16
+  [█████░░░░░] 50%
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -52,6 +68,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - Small modules batched into two phases: Departments+Surveys+Projects (Phase 18), Reminders+EmployeeExit+PWA (Phase 19)
 - Every finding must have severity rating: Critical / High / Medium / Low
 - Every finding must include a concrete fix recommendation
+- [Phase 04]: Core/ audit complete: 35 findings (3 Critical, 12 High, 14 Medium, 6 Low). Critical = ALTER TABLE in admin_init. High = N+1 org chart queries, dashboard without cache, information_schema on every load.
 
 ### Phase Structure
 
@@ -84,6 +101,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16
-Stopped at: Roadmap written — ready to start Phase 4
-Resume file: .planning/ROADMAP.md (Phase 4 detail section)
+Last session: 2026-03-16T01:07:54.987Z
+Stopped at: Completed 04-01-PLAN.md
+Resume file: None
