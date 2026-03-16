@@ -239,7 +239,7 @@ Plans:
 | 2. Migration Extraction | v1.0 | 1/1 | Complete | 2026-03-09 |
 | 3. Orchestrator Cleanup | v1.0 | 1/1 | Complete | 2026-03-10 |
 | 4. Core + Frontend Audit | 2/2 | Complete   | 2026-03-16 | — |
-| 5. Attendance Audit | v1.1 | 0/2 | Not started | — |
+| 5. Attendance Audit | 1/2 | In Progress|  | — |
 | 6. Leave Audit | v1.1 | 0/? | Not started | — |
 | 7. Performance Audit | v1.1 | 0/? | Not started | — |
 | 8. Loans Audit | v1.1 | 0/? | Not started | — |
