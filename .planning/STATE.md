@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: Auth & Access Control Fixes
-status: completed
-stopped_at: Milestone completed and archived
+milestone: v1.3
+milestone_name: Audit Fixes (SQL, Data, Performance, Logic)
+status: defining_requirements
+stopped_at: Defining requirements
 last_updated: "2026-03-17"
-last_activity: "2026-03-17 — v1.2 milestone completed and archived"
+last_activity: "2026-03-17 — Milestone v1.3 started"
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 8
-  completed_plans: 8
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -20,13 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-17)
 
 **Core value:** Reliable, secure HR operations for Saudi organizations
-**Current focus:** Planning next milestone
+**Current focus:** v1.3 Audit Fixes — defining requirements
 
 ## Current Position
 
-Milestone: v1.2 Auth & Access Control Fixes — COMPLETED
-All 5 phases (8 plans) shipped and archived.
-Requirements: 32/32 satisfied.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-17 — Milestone v1.3 started
 
 ## Accumulated Context
 
@@ -40,10 +41,10 @@ None.
 
 ### Blockers/Concerns
 
-- Settlement EOS formula (DATA-01) deferred to v1.3 — legal review needed before changing financial calculations
+- Settlement EOS formula (DATA-01) — legal review needed before changing financial calculations (carried from v1.2)
 
 ## Session Continuity
 
 Last session: 2026-03-17
-Stopped at: v1.2 milestone completed
+Stopped at: v1.3 milestone started, defining requirements
 Resume file: None

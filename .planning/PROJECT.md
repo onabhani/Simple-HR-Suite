@@ -34,11 +34,26 @@ Reliable, secure HR operations for Saudi organizations — built on WordPress wi
 
 ### Active
 
+## Current Milestone: v1.3 Audit Fixes (SQL, Data, Performance, Logic)
+
+**Goal:** Fix all remaining Critical/High findings from the v1.1 audit — SQL injection, data integrity, performance, and logic/workflow issues across all 19 modules.
+
+**Target fixes:**
+- SQL injection / prepared statement violations (11+ modules)
+- Data integrity bugs (Settlement EOS, Leave balance, Loans column, Leave tenure)
+- N+1 query patterns and unbounded queries (8+ modules)
+- TOCTOU races, state machine gaps, Saudi weekend bug (6+ modules)
+- Recurring antipatterns (information_schema on admin_init, bare ALTER TABLE, dofs_ hooks)
+- v1.2 tech debt (5 minor items)
+
 - [ ] Fix unprepared SQL queries across 11 modules (SQL-01 through SQL-04)
 - [ ] Correct Settlement EOS formula from UAE to Saudi Article 84 (DATA-01)
 - [ ] Fix Leave balance corruption on approval (DATA-02)
 - [ ] Fix Loans monthly_installment column missing (DATA-03)
+- [ ] Fix Leave tenure boundary evaluation at Jan 1 (DATA-04)
 - [ ] Fix N+1 query patterns across 8+ modules (PERF-01)
+- [ ] Fix unbounded queries without pagination (PERF-02)
+- [ ] Add caching for repeated dashboard queries (PERF-03)
 - [ ] Fix TOCTOU races in concurrent submissions (LOGIC-01)
 - [ ] Fix state machine gaps (LOGIC-02)
 - [ ] Fix Saudi weekend bug — Friday-only, missing Saturday (LOGIC-03)
@@ -90,4 +105,4 @@ Known tech debt from v1.2:
 - **No CI/CD** — manual deployments, changes must be low-risk
 
 ---
-*Last updated: 2026-03-17 after v1.2 milestone*
+*Last updated: 2026-03-17 after v1.3 milestone start*
