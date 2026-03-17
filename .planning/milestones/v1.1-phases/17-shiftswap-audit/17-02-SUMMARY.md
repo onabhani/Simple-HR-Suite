@@ -98,6 +98,13 @@ None - no external service configuration required.
 - Phase 18 (Departments + Surveys + Projects) can begin
 - Key cross-module note: REST `/shift-swaps` all-org scoping bug should be tracked alongside similar findings in Assets (Phase 11), Resignation (Phase 14), and Documents (Phase 16) — a systemic pattern requiring a shared fix approach
 
+## Self-Check: PASSED
+
+- FOUND: `.planning/phases/17-shiftswap-audit/17-02-shiftswap-admin-rest-findings.md`
+- FOUND: `.planning/phases/17-shiftswap-audit/17-02-SUMMARY.md`
+- FOUND: commit `bb19809` (task 1 — findings report)
+- FOUND: commit `525692c` (metadata — SUMMARY.md, STATE.md, ROADMAP.md)
+
 ---
 *Phase: 17-shiftswap-audit*
 *Completed: 2026-03-17*
