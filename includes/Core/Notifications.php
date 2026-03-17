@@ -45,7 +45,7 @@ class Notifications {
         // Attendance events
         add_action( 'sfs_hr_attendance_punch', [ __CLASS__, 'on_attendance_punch' ], 10, 3 );
         add_action( 'sfs_hr_attendance_late', [ __CLASS__, 'on_attendance_late' ], 10, 2 );
-        add_action( 'sfs_hr_attendance_early_leave', [ __CLASS__, 'on_early_leave' ], 10, 2 );
+        add_action( 'sfs_hr_early_leave_requested', [ __CLASS__, 'on_early_leave_requested' ], 10, 3 );
         add_action( 'sfs_hr_attendance_no_break_taken', [ __CLASS__, 'on_no_break_taken' ], 10, 2 );
         add_action( 'sfs_hr_attendance_break_delay', [ __CLASS__, 'on_break_delay' ], 10, 2 );
 
@@ -368,15 +368,20 @@ class Notifications {
     }
 
     /**
-     * Handle early leave request
+     * Handle early leave request creation (auto or manual).
      *
-     * @param int   $employee_id Employee ID
-     * @param array $data        Early leave data
+     * @param int      $request_id  Early leave request ID
+     * @param int      $employee_id Employee ID
+     * @param int|null $manager_id  Department manager user ID (may be null)
      */
-    public static function on_early_leave( int $employee_id, array $data ): void {
+    public static function on_early_leave_requested( int $request_id, int $employee_id, ?int $manager_id ): void {
         $settings = self::get_settings();
 
         if ( ! $settings['enabled'] || ! $settings['notify_early_leave'] ) {
+            return;
+        }
+
+        if ( ! $manager_id ) {
             return;
         }
 
@@ -385,26 +390,41 @@ class Notifications {
             return;
         }
 
-        // Notify manager
-        if ( $settings['manager_notification'] && $employee->manager_email ) {
-            $manager_user_id = isset( $employee->manager_user_id ) ? (int) $employee->manager_user_id : 0;
-            self::send_notification_localized( $employee->manager_email, function () use ( $employee, $data ) {
-                return [
-                    'subject' => sprintf(
-                        __( '[Early Leave] %s has requested early leave', 'sfs-hr' ),
-                        $employee->full_name
-                    ),
-                    'message' => self::get_email_template( 'early_leave_to_manager', [
-                        'manager_name'  => $employee->manager_name,
-                        'employee_name' => $employee->full_name,
-                        'employee_code' => $employee->employee_code,
-                        'date'          => wp_date( 'F j, Y' ),
-                        'reason'        => $data['reason'] ?? __( 'No reason provided', 'sfs-hr' ),
-                        'review_url'    => admin_url( 'admin.php?page=sfs_hr_attendance&tab=early-leave' ),
-                    ] ),
-                ];
-            }, '', $manager_user_id, 'early_leave' );
+        // Look up the manager's email directly from the passed manager user ID
+        // so we notify the correct department manager, not a generic lookup.
+        $manager_user = get_userdata( $manager_id );
+        if ( ! $manager_user || ! $manager_user->user_email ) {
+            return;
         }
+
+        global $wpdb;
+        $el_table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
+        $request  = $wpdb->get_row( $wpdb->prepare(
+            "SELECT request_number, reason_note, request_date FROM {$el_table} WHERE id = %d",
+            $request_id
+        ) );
+
+        $reason = $request->reason_note ?? __( 'No reason provided', 'sfs-hr' );
+        $date   = $request && $request->request_date
+            ? wp_date( 'F j, Y', strtotime( $request->request_date ) )
+            : wp_date( 'F j, Y' );
+
+        self::send_notification_localized( $manager_user->user_email, function () use ( $employee, $reason, $date ) {
+            return [
+                'subject' => sprintf(
+                    __( '[Early Leave] %s has requested early leave', 'sfs-hr' ),
+                    $employee->full_name
+                ),
+                'message' => self::get_email_template( 'early_leave_to_manager', [
+                    'manager_name'  => $employee->manager_name,
+                    'employee_name' => $employee->full_name,
+                    'employee_code' => $employee->employee_code,
+                    'date'          => $date,
+                    'reason'        => $reason,
+                    'review_url'    => admin_url( 'admin.php?page=sfs_hr_attendance&tab=early-leave' ),
+                ] ),
+            ];
+        }, '', $manager_id, 'early_leave' );
     }
 
     /**
