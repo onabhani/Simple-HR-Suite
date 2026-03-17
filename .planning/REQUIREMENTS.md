@@ -53,9 +53,9 @@ Requirements for auth & access control fix milestone. Each maps to roadmap phase
 
 ### Performance Auth
 
-- [ ] **PERF-AUTH-01**: `ajax_update_goal_progress` must check capability before processing
-- [ ] **PERF-AUTH-02**: `check_read_permission` must enforce department scope for managers
-- [ ] **PERF-AUTH-03**: `save_goal()` must check capability before saving
+- [x] **PERF-AUTH-01**: `ajax_update_goal_progress` must check capability before processing
+- [x] **PERF-AUTH-02**: `check_read_permission` must enforce department scope for managers
+- [x] **PERF-AUTH-03**: `save_goal()` must check capability before saving
 
 ### Resignation Auth
 
@@ -144,9 +144,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LOAN-AUTH-02 | Phase 22 | Complete |
 | LOAN-AUTH-03 | Phase 22 | Complete |
 | LOAN-AUTH-04 | Phase 22 | Complete |
-| PERF-AUTH-01 | Phase 22 | Pending |
-| PERF-AUTH-02 | Phase 22 | Pending |
-| PERF-AUTH-03 | Phase 22 | Pending |
+| PERF-AUTH-01 | Phase 22 | Complete |
+| PERF-AUTH-02 | Phase 22 | Complete |
+| PERF-AUTH-03 | Phase 22 | Complete |
 | RES-AUTH-01 | Phase 24 | Pending |
 | RES-AUTH-02 | Phase 24 | Pending |
 | RES-AUTH-03 | Phase 24 | Pending |
