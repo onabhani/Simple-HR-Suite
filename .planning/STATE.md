@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Module-by-Module Code Audit
-status: complete
-stopped_at: Milestone v1.1 shipped
+milestone: v1.2
+milestone_name: Critical/High Fix Implementation
+status: defining_requirements
+stopped_at: null
 last_updated: "2026-03-17"
-last_activity: 2026-03-17 — v1.1 milestone completed and archived
+last_activity: 2026-03-17 — Milestone v1.2 started
 progress:
-  total_phases: 16
-  completed_phases: 16
-  total_plans: 33
-  completed_plans: 33
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,16 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-17)
 
 **Core value:** Reliable, secure HR operations for Saudi organizations
-**Current focus:** Planning next milestone (audit fix implementation)
+**Current focus:** v1.2 — Fix Critical/High audit findings
 
 ## Current Position
 
-Phase: — (milestone complete)
+Phase: Not started (defining requirements)
 Plan: —
-Status: v1.1 shipped, awaiting next milestone
-Last activity: 2026-03-17 — v1.1 milestone archived
-
-Progress: `[████████████████] 16/16 phases — v1.1 SHIPPED`
+Status: Defining requirements
+Last activity: 2026-03-17 — Milestone v1.2 started
 
 ## Accumulated Context
 
@@ -40,14 +38,15 @@ Progress: `[████████████████] 16/16 phases — v
 - 662 findings across 19 modules + Core/Frontend
 - 7 recurring antipatterns identified across multiple modules
 - Settlement EOS formula uses UAE law — requires legal review before fix
-- Next milestone should prioritize Critical/High fixes
+- v1.2 focuses on Critical (20) and High (73) severity findings only
+- Medium/Low findings deferred to future milestone
 
 ### Blockers/Concerns
 
-None — milestone complete.
+None.
 
 ## Session Continuity
 
 Last session: 2026-03-17
-Stopped at: Milestone v1.1 shipped
+Stopped at: Defining requirements for v1.2
 Resume file: None

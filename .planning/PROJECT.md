@@ -8,16 +8,18 @@ A comprehensive WordPress HR plugin managing employees, departments, leave, atte
 
 Reliable, secure HR operations for Saudi organizations — built on WordPress with direct `$wpdb` queries, no ORM, no external dependencies.
 
-## Current State
+## Current Milestone: v1.2 Critical/High Fix Implementation
 
-**Shipped v1.1** — Full module-by-module code audit complete (2026-03-17).
+**Goal:** Fix all 93 Critical and High severity findings from the v1.1 audit — security gaps, data integrity bugs, and performance antipatterns across 11 modules.
 
-Key findings requiring action:
-- **Settlement EOS formula** uses UAE law (21 days) instead of Saudi Article 84 (15 days) — 40% overpayment for sub-5-year employees
-- **Hiring auth gaps** — any authenticated user can create employees via unguarded conversion methods
-- **Loans/Payroll integration broken** — `monthly_installment` column doesn't exist; loan deductions silently zero
-- **7 recurring antipatterns** across 9+ modules: information_schema on admin_init, bare ALTER TABLE, TOCTOU races, N+1 queries, wrong capability gates, missing current_user_can(), dofs_ namespace violations
-- **Saudi weekend bug** — Friday-only in Payroll/Workforce_Status, missing Saturday
+**Target features:**
+- Fix 20 Critical findings (auth gaps, unauthenticated endpoints, SQL injection, unprepared queries)
+- Fix 73 High findings (missing capability checks, N+1 queries, unprepared SQL, data corruption, TOCTOU races)
+- Correct Settlement EOS formula from UAE to Saudi Article 84
+- Fix Leave balance corruption on approval
+- Guard Hiring conversion methods with capability checks
+- Eliminate information_schema queries on admin_init across 9 modules
+- Replace bare ALTER TABLE with prepared statements
 
 ## Requirements
 
@@ -32,7 +34,13 @@ Key findings requiring action:
 
 ### Active
 
-(None — next milestone will define requirements via `/gsd:new-milestone`)
+- [ ] Fix 20 Critical severity findings across Core, Attendance, Leave, Loans, Assets, Hiring, Resignation
+- [ ] Fix 73 High severity findings across all 11 affected modules
+- [ ] Correct Settlement EOS formula to Saudi Article 84
+- [ ] Fix Leave balance corruption (opening/carried overwritten on approval)
+- [ ] Guard all unprotected endpoints and handlers with capability checks
+- [ ] Replace information_schema queries with proper migration patterns
+- [ ] Replace bare ALTER TABLE with $wpdb->prepare() or add_column_if_missing()
 
 ### Out of Scope
 
@@ -68,4 +76,4 @@ No CI/CD, no test suite, no Composer/npm.
 - **No CI/CD** — manual deployments, changes must be low-risk
 
 ---
-*Last updated: 2026-03-17 after v1.1 milestone*
+*Last updated: 2026-03-17 after v1.2 milestone started*
