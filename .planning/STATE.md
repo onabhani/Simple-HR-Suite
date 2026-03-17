@@ -2,15 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Audit Fixes (SQL, Data, Performance, Logic)
-status: ready_to_plan
-stopped_at: Roadmap created — Phase 25 ready to plan
-last_updated: "2026-03-17"
-last_activity: "2026-03-17 — v1.3 roadmap created (5 phases, 20 requirements mapped)"
+status: planning
+stopped_at: Completed 25-01-PLAN.md
+last_updated: "2026-03-17T19:41:22.117Z"
+last_activity: 2026-03-17 — v1.3 roadmap created, Phase 25 ready to plan
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
+  percent: 0
 ---
 
 # Project State
@@ -38,6 +39,7 @@ Progress: [░░░░░░░░░░] 0% (v1.3: 0/5 phases complete)
 - v1.3 phase order: SQL migration fixes first (Phase 25) so Phase 26 SQL injection work runs on clean migration infrastructure
 - DATA-01/06 (Settlement formula + trigger type) grouped in Phase 27 — legal review for EOS formula still advised before deployment
 - DEBT-01/DEBT-02 attached to the phases whose code they touch (Leave in Phase 27, capability check in Phase 26)
+- [Phase 25-01]: Used SHOW COLUMNS helper pattern for add_column_safe() in Core/Admin.php; added add_index_if_missing() to Attendance/Migration.php
 
 ### Pending Todos
 
@@ -49,6 +51,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-17
-Stopped at: Roadmap written, all 20 requirements mapped to Phases 25-29
+Last session: 2026-03-17T19:41:22.115Z
+Stopped at: Completed 25-01-PLAN.md
 Resume file: None
