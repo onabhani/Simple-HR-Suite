@@ -23,7 +23,15 @@ class Resignation_List {
         // Department scoping for non-HR managers
         $dept_ids = [];
         if (!current_user_can('sfs_hr.manage')) {
+            if (!current_user_can('sfs_hr.view')) {
+                echo '<p>' . esc_html__('You do not have permission to view resignations.', 'sfs-hr') . '</p>';
+                return;
+            }
             $dept_ids = Resignation_Service::get_manager_dept_ids(get_current_user_id());
+            if (empty($dept_ids)) {
+                echo '<p>' . esc_html__('No resignations found for your departments.', 'sfs-hr') . '</p>';
+                return;
+            }
         }
 
         $counts = Resignation_Service::get_status_counts($search, $dept_ids);
