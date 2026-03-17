@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 19-01-PLAN.md
-last_updated: "2026-03-17T02:32:40.870Z"
+stopped_at: Completed 19-02-PLAN.md
+last_updated: "2026-03-17T02:38:40.241Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
-  completed_phases: 15
+  completed_phases: 16
   total_plans: 33
-  completed_plans: 32
+  completed_plans: 33
   percent: 50
 ---
 
@@ -88,6 +88,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 18-departments-surveys-projects-audit P01 | 3 | 1 tasks | 1 files |
 | Phase 18-departments-surveys-projects-audit P02 | 179 | 1 tasks | 1 files |
 | Phase 19-reminders-employeeexit-pwa-audit P01 | 4 | 1 tasks | 1 files |
+| Phase 19-reminders-employeeexit-pwa-audit P02 | 15 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -210,6 +211,8 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 19-reminders-employeeexit-pwa-audit]: EX-SEC-001 Critical: sfs_hr.view gates full resignation+settlement hub -- financial settlement data exposed to dept managers; fix requires sfs_hr.manage gate
 - [Phase 19-reminders-employeeexit-pwa-audit]: REM-PERF-001 High: get_upcoming_birthdays() fires one query per offset (8 queries per call) -- fix with IN() predicate over MM-DD list
 - [Phase 19-reminders-employeeexit-pwa-audit]: Digest queue in Reminders cron (queue_for_digest) is dead code -- no consumer processes queued notifications
+- [Phase 19-reminders-employeeexit-pwa-audit]: PWAModule.php has 0 wpdb calls — cleanest module in audit series; push notification infrastructure is dead code (no VAPID keys, no subscription endpoint, no PHP sender)
+- [Phase 19-reminders-employeeexit-pwa-audit]: PWA: nopriv_ AJAX manifest endpoint exposes admin URL to unauthenticated callers (High); service worker scoped to '/' intercepts all site requests; dynamic HR pages cached without logout cache-clear
 
 ### Phase Structure
 
@@ -242,6 +245,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-17T02:32:40.867Z
-Stopped at: Completed 19-01-PLAN.md
+Last session: 2026-03-17T02:38:40.238Z
+Stopped at: Completed 19-02-PLAN.md
 Resume file: None

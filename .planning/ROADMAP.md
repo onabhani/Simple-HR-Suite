@@ -35,7 +35,7 @@ Full details: `milestones/v1.0-ROADMAP.md`
 - [x] **Phase 16: Documents Audit** — Audit document upload, storage, and access control (completed 2026-03-16)
 - [x] **Phase 17: ShiftSwap Audit** — Audit shift swap request and approval workflow (completed 2026-03-16)
 - [x] **Phase 18: Departments + Surveys + Projects Audit** — Batch audit of three small modules (~2.2K lines combined) (completed 2026-03-17)
-- [ ] **Phase 19: Reminders + EmployeeExit + PWA Audit** — Batch audit of three small modules (~1.8K lines combined)
+- [x] **Phase 19: Reminders + EmployeeExit + PWA Audit** — Batch audit of three small modules (~1.8K lines combined) (completed 2026-03-17)
 
 ## Phase Details
 
@@ -293,4 +293,4 @@ Plans:
 | 16. Documents Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 17. ShiftSwap Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 18. Departments + Surveys + Projects Audit | 2/2 | Complete    | 2026-03-17 | — |
-| 19. Reminders + EmployeeExit + PWA Audit | 1/2 | In Progress|  | — |
+| 19. Reminders + EmployeeExit + PWA Audit | 2/2 | Complete   | 2026-03-17 | — |

@@ -43,7 +43,7 @@ Requirements for module-by-module code audit. Each maps to roadmap phases.
 - [x] **SML-03**: Audit Projects module (~1.2K lines) — security, performance, duplication, logical issues
 - [x] **SML-04**: Audit Reminders module (~915 lines) — security, performance, duplication, logical issues
 - [x] **SML-05**: Audit EmployeeExit module (~490 lines) — security, performance, duplication, logical issues
-- [ ] **SML-06**: Audit PWA module (~414 lines) — security, performance, duplication, logical issues
+- [x] **SML-06**: Audit PWA module (~414 lines) — security, performance, duplication, logical issues
 
 ## Out of Scope
 
@@ -81,7 +81,7 @@ Requirements for module-by-module code audit. Each maps to roadmap phases.
 | SML-03 | Phase 18 | Complete |
 | SML-04 | Phase 19 | Complete |
 | SML-05 | Phase 19 | Complete |
-| SML-06 | Phase 19 | Pending |
+| SML-06 | Phase 19 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 23 total
