@@ -19,7 +19,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 class ProfileTab implements TabInterface {
 
     public function render( array $emp, int $emp_id ): void {
-        if ( ! is_user_logged_in() ) {
+        if ( ! is_user_logged_in() || (int) ( $emp['user_id'] ?? 0 ) !== get_current_user_id() ) {
+            echo '<p>' . esc_html__( 'You can only view your own profile.', 'sfs-hr' ) . '</p>';
             return;
         }
 
