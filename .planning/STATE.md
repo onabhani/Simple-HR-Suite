@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Audit Fixes (SQL, Data, Performance, Logic)
-status: planning
-stopped_at: Completed 25-01-PLAN.md
-last_updated: "2026-03-17T19:41:22.117Z"
-last_activity: 2026-03-17 — v1.3 roadmap created, Phase 25 ready to plan
+status: completed
+stopped_at: Completed 25-02-PLAN.md
+last_updated: "2026-03-17T22:04:56.697Z"
+last_activity: 2026-03-18 — Phase 25 complete; all information_schema queries replaced with SHOW TABLES LIKE / SHOW COLUMNS FROM
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
-  percent: 0
+  completed_plans: 2
+  percent: 20
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-17)
 
 **Core value:** Reliable, secure HR operations for Saudi organizations
-**Current focus:** v1.3 — Phase 25: Migration Pattern Fixes
+**Current focus:** v1.3 — Phase 25 complete, Phase 26 next (SQL Injection Fixes)
 
 ## Current Position
 
-Phase: 25 of 29 (Migration Pattern Fixes)
-Plan: — (not yet planned)
-Status: Ready to plan
-Last activity: 2026-03-17 — v1.3 roadmap created, Phase 25 ready to plan
+Phase: 25 of 29 (Migration Pattern Fixes) — COMPLETE
+Plan: 25-02 complete (2/2 plans done for this phase)
+Status: Phase 25 done, ready for Phase 26
+Last activity: 2026-03-18 — Phase 25 complete; all information_schema queries replaced with SHOW TABLES LIKE / SHOW COLUMNS FROM
 
-Progress: [░░░░░░░░░░] 0% (v1.3: 0/5 phases complete)
+Progress: [██░░░░░░░░] 20% (v1.3: 1/5 phases complete)
 
 ## Accumulated Context
 
@@ -40,6 +40,7 @@ Progress: [░░░░░░░░░░] 0% (v1.3: 0/5 phases complete)
 - DATA-01/06 (Settlement formula + trigger type) grouped in Phase 27 — legal review for EOS formula still advised before deployment
 - DEBT-01/DEBT-02 attached to the phases whose code they touch (Leave in Phase 27, capability check in Phase 26)
 - [Phase 25-01]: Used SHOW COLUMNS helper pattern for add_column_safe() in Core/Admin.php; added add_index_if_missing() to Attendance/Migration.php
+- [Phase 25-02]: information_schema.STATISTICS retained in migration-only index helpers (no SHOW equivalent for index names); information_schema.TABLE_CONSTRAINTS retained in option-gated FK migration; SHOW COLUMNS FROM row uses Type/Null fields (not COLUMN_TYPE/IS_NULLABLE)
 
 ### Pending Todos
 
@@ -51,6 +52,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-17T19:41:22.115Z
-Stopped at: Completed 25-01-PLAN.md
+Last session: 2026-03-17T22:04:56.695Z
+Stopped at: Completed 25-02-PLAN.md
 Resume file: None

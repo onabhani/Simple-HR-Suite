@@ -72,7 +72,7 @@ Full details: `milestones/v1.2-ROADMAP.md`
   2. No module queries `information_schema` at runtime or during `admin_init` — version-gated migration pattern used instead
   3. Plugin activation and admin page load produce no `ALTER TABLE` errors when tables already exist
   4. Running migrations twice on an already-current database produces zero DB errors
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 25-01-PLAN.md — Replace bare ALTER TABLE ADD COLUMN with add_column_if_missing() helpers
@@ -154,7 +154,7 @@ Plans:
 | 22. Loans + Performance Auth | v1.2 | 2/2 | Complete | 2026-03-17 |
 | 23. Frontend Tab Ownership | v1.2 | 1/1 | Complete | 2026-03-17 |
 | 24. Small Modules Auth Fixes | v1.2 | 2/2 | Complete | 2026-03-17 |
-| 25. Migration Pattern Fixes | 1/2 | In Progress|  | - |
+| 25. Migration Pattern Fixes | 2/2 | Complete   | 2026-03-17 | - |
 | 26. SQL Injection Fixes | v1.3 | 0/TBD | Not started | - |
 | 27. Data Integrity Fixes | v1.3 | 0/TBD | Not started | - |
 | 28. Performance Fixes | v1.3 | 0/TBD | Not started | - |
