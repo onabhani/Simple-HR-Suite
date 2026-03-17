@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Auth & Access Control Fixes
 status: in_progress
-stopped_at: Completed 24-01-PLAN.md
-last_updated: "2026-03-17T15:27:05.568Z"
+stopped_at: Completed 24-02-PLAN.md
+last_updated: "2026-03-17T15:31:26.910Z"
 last_activity: "2026-03-17 — Completed 20-01: attendance endpoint auth gates + HMAC kiosk roster"
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 ---
@@ -73,6 +73,7 @@ Progress: [█░░░░░░░░░] 13% (1/8 plans complete)
 - [Phase 24]: LIMIT 5000 chosen as safe upper bound for asset export to prevent memory exhaustion
 - [Phase 24]: sfs_hr.view included in sync dept gate because dept managers receive this cap dynamically via user_has_cap filter
 - [Phase 24]: handle_sync_dept_members: capability gate moved before POST read; check_admin_referer kept after dept_id parse as nonce depends on dept_id value
+- [Phase 24-small-modules-auth-fixes]: wp_validate_redirect with wp_unslash applied to resignation redirect; my-payslips uses sfs_hr.view cap; employee profile uses dotted sfs_hr.view cap format in both menu and render
 
 ### Pending Todos
 
@@ -84,6 +85,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-17T15:26:56.499Z
-Stopped at: Completed 24-01-PLAN.md
+Last session: 2026-03-17T15:31:26.908Z
+Stopped at: Completed 24-02-PLAN.md
 Resume file: None

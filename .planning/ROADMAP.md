@@ -51,7 +51,7 @@ Full details: `milestones/v1.1-ROADMAP.md`
 - [x] **Phase 21: Leave + Hiring Handler Authorization** - Enforce capability checks on leave approval/cancellation flows and all hiring conversion handlers; prevent role escalation and plaintext passwords (completed 2026-03-17)
 - [x] **Phase 22: Loans + Performance Auth Hardening** - Fix nonce scoping and read-before-verify ordering in Loans; add capability checks to all Performance goal handlers (completed 2026-03-17)
 - [x] **Phase 23: Frontend Tab Ownership Verification** - Enforce employee data ownership in OverviewTab and ProfileTab; fix TeamTab visibility for HR/GM roles (completed 2026-03-17)
-- [ ] **Phase 24: Small Modules Auth Fixes** - Patch capability checks and data ownership in Assets, Core, Resignation, Settlement, Payroll, and Employees
+- [x] **Phase 24: Small Modules Auth Fixes** - Patch capability checks and data ownership in Assets, Core, Resignation, Settlement, Payroll, and Employees (completed 2026-03-17)
 
 ## Phase Details
 
@@ -165,4 +165,4 @@ Phases execute in numeric order: 20 → 21 → 22 → 23 → 24
 | 21. Leave + Hiring Handler Auth | 2/2 | Complete    | 2026-03-17 | - |
 | 22. Loans + Performance Auth | 2/2 | Complete    | 2026-03-17 | - |
 | 23. Frontend Tab Ownership | 1/1 | Complete    | 2026-03-17 | - |
-| 24. Small Modules Auth Fixes | 1/2 | In Progress|  | - |
+| 24. Small Modules Auth Fixes | 2/2 | Complete   | 2026-03-17 | - |

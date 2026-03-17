@@ -59,21 +59,21 @@ Requirements for auth & access control fix milestone. Each maps to roadmap phase
 
 ### Resignation Auth
 
-- [ ] **RES-AUTH-01**: `Resignation_List::render()` must verify `sfs_hr.view` scoped to department
-- [ ] **RES-AUTH-02**: Redirect URL must be validated against allowed hosts
-- [ ] **RES-AUTH-03**: Department manager scope must be enforced on resignation views
+- [x] **RES-AUTH-01**: `Resignation_List::render()` must verify `sfs_hr.view` scoped to department
+- [x] **RES-AUTH-02**: Redirect URL must be validated against allowed hosts
+- [x] **RES-AUTH-03**: Department manager scope must be enforced on resignation views
 
 ### Settlement Auth
 
-- [ ] **SETT-AUTH-01**: `handle_update()` must verify settlement belongs to current user
+- [x] **SETT-AUTH-01**: `handle_update()` must verify settlement belongs to current user
 
 ### Payroll Auth
 
-- [ ] **PAY-AUTH-01**: `/payroll/my-payslips` must use proper capability check, not `is_user_logged_in()` fallback
+- [x] **PAY-AUTH-01**: `/payroll/my-payslips` must use proper capability check, not `is_user_logged_in()` fallback
 
 ### Employees Auth
 
-- [ ] **EMP-AUTH-01**: Menu capability must use dotted `sfs_hr.*` format, not role name
+- [x] **EMP-AUTH-01**: Menu capability must use dotted `sfs_hr.*` format, not role name
 
 ## Future Requirements
 
@@ -147,12 +147,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PERF-AUTH-01 | Phase 22 | Complete |
 | PERF-AUTH-02 | Phase 22 | Complete |
 | PERF-AUTH-03 | Phase 22 | Complete |
-| RES-AUTH-01 | Phase 24 | Pending |
-| RES-AUTH-02 | Phase 24 | Pending |
-| RES-AUTH-03 | Phase 24 | Pending |
-| SETT-AUTH-01 | Phase 24 | Pending |
-| PAY-AUTH-01 | Phase 24 | Pending |
-| EMP-AUTH-01 | Phase 24 | Pending |
+| RES-AUTH-01 | Phase 24 | Complete |
+| RES-AUTH-02 | Phase 24 | Complete |
+| RES-AUTH-03 | Phase 24 | Complete |
+| SETT-AUTH-01 | Phase 24 | Complete |
+| PAY-AUTH-01 | Phase 24 | Complete |
+| EMP-AUTH-01 | Phase 24 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 32 total
