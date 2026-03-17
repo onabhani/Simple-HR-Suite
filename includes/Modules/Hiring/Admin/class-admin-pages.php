@@ -1722,19 +1722,8 @@ class AdminPages {
                             'updated_at' => $now,
                         ], ['id' => $id]);
 
-                        // Send welcome email with credentials
-                        $site_name = get_bloginfo('name');
-                        $login_url = wp_login_url();
-
-                        $subject = sprintf(__('[%s] Your Trainee Account', 'sfs-hr'), $site_name);
-                        $message = sprintf(__('Welcome to %s!', 'sfs-hr'), $site_name) . "\n\n";
-                        $message .= __('Your trainee account has been created. Here are your login credentials:', 'sfs-hr') . "\n\n";
-                        $message .= sprintf(__('Username: %s', 'sfs-hr'), $username) . "\n";
-                        $message .= sprintf(__('Password: %s', 'sfs-hr'), $password) . "\n\n";
-                        $message .= sprintf(__('Login URL: %s', 'sfs-hr'), $login_url) . "\n\n";
-                        $message .= __('Please change your password after your first login.', 'sfs-hr') . "\n";
-
-                        wp_mail($email, $subject, $message);
+                        // Send welcome email with password reset link (no plaintext password)
+                        HiringModule::send_welcome_email( $user_id, $username, $password );
 
                         wp_redirect(admin_url('admin.php?page=sfs-hr-hiring&tab=trainees&action=view&id=' . $id . '&message=account_created'));
                         exit;
