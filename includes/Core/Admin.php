@@ -88,16 +88,29 @@ class Admin {
         exit;
     }
 
+    /**
+     * Idempotent column-add helper: adds a column only if it does not already exist.
+     *
+     * @param string $table  Full (prefixed) table name.
+     * @param string $column Column name to check/add.
+     * @param string $sql    Full ALTER TABLE statement to run when column is absent.
+     */
+    private function add_column_safe(string $table, string $column, string $sql): void {
+        global $wpdb;
+        $exists = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM `{$table}` LIKE %s", $column));
+        if (!$exists) {
+            $wpdb->query($sql);
+        }
+    }
+
     public function maybe_add_employee_photo_column(): void {
         global $wpdb;
-        $table = $wpdb->prefix.'sfs_hr_employees';
-        $exists = (int)$wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=%s AND column_name='photo_id'",
-            $table
-        ));
-        if (!$exists) {
-            $wpdb->query("ALTER TABLE {$table} ADD COLUMN photo_id BIGINT UNSIGNED NULL AFTER user_id");
-        }
+        $table = $wpdb->prefix . 'sfs_hr_employees';
+        $this->add_column_safe(
+            $table,
+            'photo_id',
+            "ALTER TABLE `{$table}` ADD COLUMN photo_id BIGINT UNSIGNED NULL AFTER user_id"
+        );
     }
 
     public function menu(): void {
@@ -192,79 +205,60 @@ class Admin {
         global $wpdb;
         $t = $wpdb->prefix . 'sfs_hr_employees';
 
-        $exists = (int)$wpdb->get_var($wpdb->prepare(
+        $table_exists = (int) $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
             $t
         ));
-        if (!$exists) return;
+        if (!$table_exists) return;
 
-        $need_qr_token = ! (int)$wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns
-             WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'qr_token'", $t));
-        $need_qr_enabled = ! (int)$wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns
-             WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'qr_enabled'", $t));
-        $need_qr_updated = ! (int)$wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns
-             WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'qr_updated_at'", $t));
-
-        if ($need_qr_token)   { $wpdb->query("ALTER TABLE {$t} ADD COLUMN qr_token VARCHAR(64) NULL"); }
-        if ($need_qr_enabled) { $wpdb->query("ALTER TABLE {$t} ADD COLUMN qr_enabled TINYINT(1) NOT NULL DEFAULT 1"); }
-        if ($need_qr_updated) { $wpdb->query("ALTER TABLE {$t} ADD COLUMN qr_updated_at DATETIME NULL"); }
+        $this->add_column_safe($t, 'qr_token',      "ALTER TABLE `{$t}` ADD COLUMN qr_token VARCHAR(64) NULL");
+        $this->add_column_safe($t, 'qr_enabled',    "ALTER TABLE `{$t}` ADD COLUMN qr_enabled TINYINT(1) NOT NULL DEFAULT 1");
+        $this->add_column_safe($t, 'qr_updated_at', "ALTER TABLE `{$t}` ADD COLUMN qr_updated_at DATETIME NULL");
     }
     
     public function maybe_install_employee_extra_cols(): void {
-    global $wpdb;
-    $t = $wpdb->prefix . 'sfs_hr_employees';
+        global $wpdb;
+        $t = $wpdb->prefix . 'sfs_hr_employees';
 
-    $exists = (int) $wpdb->get_var( $wpdb->prepare(
-        "SELECT COUNT(*) FROM information_schema.tables 
-         WHERE table_schema = DATABASE() AND table_name = %s",
-        $t
-    ) );
-    if ( ! $exists ) {
-        return;
-    }
+        $table_exists = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
+            $t
+        ));
+        if (!$table_exists) {
+            return;
+        }
 
-    $cols = [
-        'nationality'            => "ALTER TABLE {$t} ADD COLUMN nationality VARCHAR(100) NULL AFTER gender",
-        'marital_status'         => "ALTER TABLE {$t} ADD COLUMN marital_status VARCHAR(50) NULL AFTER nationality",
-        'date_of_birth'          => "ALTER TABLE {$t} ADD COLUMN date_of_birth DATE NULL AFTER marital_status",
+        $cols = [
+            'nationality'            => "ALTER TABLE `{$t}` ADD COLUMN nationality VARCHAR(100) NULL AFTER gender",
+            'marital_status'         => "ALTER TABLE `{$t}` ADD COLUMN marital_status VARCHAR(50) NULL AFTER nationality",
+            'date_of_birth'          => "ALTER TABLE `{$t}` ADD COLUMN date_of_birth DATE NULL AFTER marital_status",
 
-        'work_location'          => "ALTER TABLE {$t} ADD COLUMN work_location VARCHAR(191) NULL AFTER position",
-        'contract_type'          => "ALTER TABLE {$t} ADD COLUMN contract_type VARCHAR(50) NULL AFTER work_location",
-        'contract_start_date'    => "ALTER TABLE {$t} ADD COLUMN contract_start_date DATE NULL AFTER contract_type",
-        'contract_end_date'      => "ALTER TABLE {$t} ADD COLUMN contract_end_date DATE NULL AFTER contract_start_date",
-        'probation_end_date'     => "ALTER TABLE {$t} ADD COLUMN probation_end_date DATE NULL AFTER contract_end_date",
+            'work_location'          => "ALTER TABLE `{$t}` ADD COLUMN work_location VARCHAR(191) NULL AFTER position",
+            'contract_type'          => "ALTER TABLE `{$t}` ADD COLUMN contract_type VARCHAR(50) NULL AFTER work_location",
+            'contract_start_date'    => "ALTER TABLE `{$t}` ADD COLUMN contract_start_date DATE NULL AFTER contract_type",
+            'contract_end_date'      => "ALTER TABLE `{$t}` ADD COLUMN contract_end_date DATE NULL AFTER contract_start_date",
+            'probation_end_date'     => "ALTER TABLE `{$t}` ADD COLUMN probation_end_date DATE NULL AFTER contract_end_date",
 
-        'entry_date_ksa'         => "ALTER TABLE {$t} ADD COLUMN entry_date_ksa DATE NULL AFTER hired_at",
-        'residence_profession'   => "ALTER TABLE {$t} ADD COLUMN residence_profession VARCHAR(191) NULL AFTER entry_date_ksa",
+            'entry_date_ksa'         => "ALTER TABLE `{$t}` ADD COLUMN entry_date_ksa DATE NULL AFTER hired_at",
+            'residence_profession'   => "ALTER TABLE `{$t}` ADD COLUMN residence_profession VARCHAR(191) NULL AFTER entry_date_ksa",
 
-        'sponsor_name'           => "ALTER TABLE {$t} ADD COLUMN sponsor_name VARCHAR(191) NULL AFTER residence_profession",
-        'sponsor_id'             => "ALTER TABLE {$t} ADD COLUMN sponsor_id VARCHAR(50) NULL AFTER sponsor_name",
+            'sponsor_name'           => "ALTER TABLE `{$t}` ADD COLUMN sponsor_name VARCHAR(191) NULL AFTER residence_profession",
+            'sponsor_id'             => "ALTER TABLE `{$t}` ADD COLUMN sponsor_id VARCHAR(50) NULL AFTER sponsor_name",
 
-        'visa_number'            => "ALTER TABLE {$t} ADD COLUMN visa_number VARCHAR(50) NULL AFTER passport_no",
-        'visa_expiry'            => "ALTER TABLE {$t} ADD COLUMN visa_expiry DATE NULL AFTER visa_number",
+            'visa_number'            => "ALTER TABLE `{$t}` ADD COLUMN visa_number VARCHAR(50) NULL AFTER passport_no",
+            'visa_expiry'            => "ALTER TABLE `{$t}` ADD COLUMN visa_expiry DATE NULL AFTER visa_number",
 
-        'driving_license_has'    => "ALTER TABLE {$t} ADD COLUMN driving_license_has TINYINT(1) NOT NULL DEFAULT 0 AFTER visa_expiry",
-        'driving_license_number' => "ALTER TABLE {$t} ADD COLUMN driving_license_number VARCHAR(50) NULL AFTER driving_license_has",
-        'driving_license_expiry' => "ALTER TABLE {$t} ADD COLUMN driving_license_expiry DATE NULL AFTER driving_license_number",
+            'driving_license_has'    => "ALTER TABLE `{$t}` ADD COLUMN driving_license_has TINYINT(1) NOT NULL DEFAULT 0 AFTER visa_expiry",
+            'driving_license_number' => "ALTER TABLE `{$t}` ADD COLUMN driving_license_number VARCHAR(50) NULL AFTER driving_license_has",
+            'driving_license_expiry' => "ALTER TABLE `{$t}` ADD COLUMN driving_license_expiry DATE NULL AFTER driving_license_number",
 
-        'gosi_salary'            => "ALTER TABLE {$t} ADD COLUMN gosi_salary DECIMAL(10,2) NULL AFTER base_salary",
-    ];
+            'gosi_salary'            => "ALTER TABLE `{$t}` ADD COLUMN gosi_salary DECIMAL(10,2) NULL AFTER base_salary",
+        ];
 
-    foreach ( $cols as $col => $sql ) {
-        $has_col = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns
-             WHERE table_schema = DATABASE() AND table_name = %s AND column_name = %s",
-            $t,
-            $col
-        ) );
-        if ( ! $has_col ) {
-            $wpdb->query( $sql );
+        foreach ($cols as $col => $sql) {
+            $this->add_column_safe($t, $col, $sql);
         }
     }
-}
 
 
     public function render_dashboard(): void {
