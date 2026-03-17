@@ -5029,12 +5029,23 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
     /** Role→Department membership sync */
     public function handle_sync_dept_members(): void {
-        if ( ! current_user_can('sfs_hr.manage') ) {
-            $dept_id = isset($_POST['dept_id']) ? (int)$_POST['dept_id'] : 0;
-            if ($dept_id<=0) wp_die(esc_html__('Invalid department','sfs-hr'));
-            if ( ! $this->current_user_is_dept_manager($dept_id) ) wp_die(esc_html__('Permission denied','sfs-hr'));
+        // Check capability BEFORE reading any POST data
+        if ( ! current_user_can('sfs_hr.manage') && ! current_user_can('sfs_hr.view') ) {
+            wp_die( esc_html__( 'Permission denied', 'sfs-hr' ) );
         }
+
         $dept_id = isset($_POST['dept_id']) ? (int)$_POST['dept_id'] : 0;
+        if ( $dept_id <= 0 ) {
+            wp_die( esc_html__( 'Invalid department', 'sfs-hr' ) );
+        }
+
+        // Department managers need additional scope check
+        if ( ! current_user_can('sfs_hr.manage') ) {
+            if ( ! $this->current_user_is_dept_manager( $dept_id ) ) {
+                wp_die( esc_html__( 'Permission denied', 'sfs-hr' ) );
+            }
+        }
+
         check_admin_referer('sfs_hr_sync_dept_'.$dept_id);
 
         global $wpdb;
