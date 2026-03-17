@@ -278,7 +278,6 @@ public function render_requests(): void {
     $rows  = $wpdb->get_results($wpdb->prepare($sql, ...$params_rows), ARRAY_A);
     $pages = max(1, (int)ceil($total / $pp));
 
-    $nonceA = wp_create_nonce('sfs_hr_leave_approve');
     $nonceR = wp_create_nonce('sfs_hr_leave_reject');
 
     // Output styles
@@ -512,7 +511,7 @@ public function render_requests(): void {
 
     <script>
     function sfsEsc(s){if(typeof s!=='string')return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-    var sfsHrLeaveData = <?php echo wp_json_encode(array_values(array_map(function($r) use ($nonceA, $nonceR, $hr_user_ids, $gm_user_id, $managed_depts, $current_uid) {
+    var sfsHrLeaveData = <?php echo wp_json_encode(array_values(array_map(function($r) use ($nonceR, $hr_user_ids, $gm_user_id, $managed_depts, $current_uid) {
         $can_approve = false;
         if ($r['status'] === 'pending') {
             // Position-based HR or GM check
@@ -557,7 +556,7 @@ public function render_requests(): void {
             'approverName'  => $approver_name,
             'approverNote'  => $r['approver_note'] ?? '',
             'canApprove'    => $can_approve,
-            'nonceA'        => $nonceA,
+            'nonceA'        => wp_create_nonce( 'sfs_hr_leave_approve_' . (int) $r['id'] ),
             'nonceR'        => $nonceR,
             'history'       => $history_formatted,
         ];
@@ -1055,10 +1054,14 @@ private function guard_admin_cannot_approve_or_reject( int $current_uid, string 
 }
 
 public function handle_approve(): void {
-    check_admin_referer('sfs_hr_leave_approve');
+    if ( ! current_user_can( 'sfs_hr.leave.review' ) ) {
+        wp_die( __( 'You do not have permission to approve leave requests.', 'sfs-hr' ), 403 );
+    }
 
     $id   = isset($_POST['id']) ? (int) $_POST['id'] : 0;
     $note = isset($_POST['note']) ? sanitize_text_field($_POST['note']) : '';
+
+    check_admin_referer( 'sfs_hr_leave_approve_' . $id );
 
     $redirect_base = admin_url('admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending');
 
@@ -1759,6 +1762,10 @@ public function handle_reject(): void {
  * Handle leave request cancellation
  */
 public function handle_cancel(): void {
+    if ( ! current_user_can( 'sfs_hr.leave.review' ) && ! current_user_can( 'sfs_hr.view' ) ) {
+        wp_die( __( 'You do not have permission to cancel leave requests.', 'sfs-hr' ), 403 );
+    }
+
     $id = isset( $_POST['id'] ) ? (int) $_POST['id'] : 0;
     check_admin_referer( 'sfs_hr_leave_cancel_' . $id );
 
@@ -2010,9 +2017,14 @@ public function handle_cancellation_approve(): void {
     $managed_depts = $this->manager_dept_ids_for_user( $current_uid );
     $is_dept_manager = ! empty( $managed_depts ) && in_array( (int) ( $empInfo['dept_id'] ?? 0 ), $managed_depts, true );
 
-    // Prevent self-approval
+    // Prevent self-approval: the leave requester cannot approve their own cancellation
     if ( (int) ( $empInfo['user_id'] ?? 0 ) === $current_uid ) {
         Helpers::redirect_with_notice( $redirect_base, 'error', __( 'You cannot approve a cancellation for your own leave.', 'sfs-hr' ) );
+    }
+
+    // Also prevent the cancellation requester from approving their own cancellation request
+    if ( isset( $cancel['created_by'] ) && (int) $cancel['created_by'] === $current_uid ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'You cannot approve a cancellation you requested.', 'sfs-hr' ) );
     }
 
     $emp_name = trim( ( $empInfo['first_name'] ?? '' ) . ' ' . ( $empInfo['last_name'] ?? '' ) );
@@ -2575,10 +2587,6 @@ public function handle_update_leave_dates(): void {
 private function is_hr_user( int $user_id ): bool {
     $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
     if ( ! empty( $hr_user_ids ) && in_array( $user_id, array_map( 'intval', $hr_user_ids ), true ) ) {
-        return true;
-    }
-    $user = get_user_by( 'id', $user_id );
-    if ( $user && in_array( 'sfs_hr_manager', (array) $user->roles, true ) ) {
         return true;
     }
     return user_can( $user_id, 'sfs_hr.leave.manage' ) || user_can( $user_id, 'administrator' );
@@ -6875,7 +6883,7 @@ public function render_calendar(): void {
             $request_id
         ) );
 
-        $nonce_approve = wp_create_nonce( 'sfs_hr_leave_approve' );
+        $nonce_approve = wp_create_nonce( 'sfs_hr_leave_approve_' . $request_id );
         $nonce_reject = wp_create_nonce( 'sfs_hr_leave_reject' );
         $nonce_cancel = wp_create_nonce( 'sfs_hr_leave_cancel_' . $request_id );
 
@@ -7052,7 +7060,7 @@ public function render_calendar(): void {
                                 <?php if ( $can_approve ) : ?>
                                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap;">
                                         <input type="hidden" name="action" value="sfs_hr_leave_approve" />
-                                        <?php wp_nonce_field( 'sfs_hr_leave_approve', '_wpnonce' ); ?>
+                                        <?php wp_nonce_field( 'sfs_hr_leave_approve_' . $request_id, '_wpnonce' ); ?>
                                         <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
                                         <button type="submit" class="button button-primary"><?php esc_html_e( 'Approve (GM)', 'sfs-hr' ); ?></button>
                                         <input type="text" name="note" placeholder="<?php esc_attr_e( 'Note (optional)', 'sfs-hr' ); ?>" style="width:300px;" />
@@ -7075,7 +7083,7 @@ public function render_calendar(): void {
                                 <?php if ( $can_approve ) : ?>
                                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap;">
                                         <input type="hidden" name="action" value="sfs_hr_leave_approve" />
-                                        <?php wp_nonce_field( 'sfs_hr_leave_approve', '_wpnonce' ); ?>
+                                        <?php wp_nonce_field( 'sfs_hr_leave_approve_' . $request_id, '_wpnonce' ); ?>
                                         <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
                                         <button type="submit" class="button button-primary"><?php esc_html_e( 'Approve (Manager)', 'sfs-hr' ); ?></button>
                                         <input type="text" name="note" placeholder="<?php esc_attr_e( 'Note (optional)', 'sfs-hr' ); ?>" style="width:300px;" />
@@ -7107,7 +7115,7 @@ public function render_calendar(): void {
                                 <?php if ( $can_approve ) : ?>
                                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap;">
                                         <input type="hidden" name="action" value="sfs_hr_leave_approve" />
-                                        <?php wp_nonce_field( 'sfs_hr_leave_approve', '_wpnonce' ); ?>
+                                        <?php wp_nonce_field( 'sfs_hr_leave_approve_' . $request_id, '_wpnonce' ); ?>
                                         <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
                                         <button type="submit" class="button button-primary"><?php esc_html_e( 'Approve (HR)', 'sfs-hr' ); ?></button>
                                         <input type="text" name="note" placeholder="<?php esc_attr_e( 'Note (optional)', 'sfs-hr' ); ?>" style="width:300px;" />
@@ -7138,7 +7146,7 @@ public function render_calendar(): void {
                                 <?php if ( $can_approve ) : ?>
                                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap;">
                                         <input type="hidden" name="action" value="sfs_hr_leave_approve" />
-                                        <?php wp_nonce_field( 'sfs_hr_leave_approve', '_wpnonce' ); ?>
+                                        <?php wp_nonce_field( 'sfs_hr_leave_approve_' . $request_id, '_wpnonce' ); ?>
                                         <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
                                         <button type="submit" class="button button-primary"><?php esc_html_e( 'Approve (Finance)', 'sfs-hr' ); ?></button>
                                         <input type="text" name="note" placeholder="<?php esc_attr_e( 'Note (optional)', 'sfs-hr' ); ?>" style="width:300px;" />
