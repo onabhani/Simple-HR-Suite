@@ -24,10 +24,10 @@ Requirements for auth & access control fix milestone. Each maps to roadmap phase
 
 ### Hiring Auth
 
-- [ ] **HIR-AUTH-01**: Conversion methods must require `sfs_hr.manage` capability
-- [ ] **HIR-AUTH-02**: All 6 unguarded handlers must verify capability before nonce
-- [ ] **HIR-AUTH-03**: WP role assignment must use allowlist to prevent administrator escalation
-- [ ] **HIR-AUTH-04**: Welcome email must not send plaintext password
+- [x] **HIR-AUTH-01**: Conversion methods must require `sfs_hr.manage` capability
+- [x] **HIR-AUTH-02**: All 6 unguarded handlers must verify capability before nonce
+- [x] **HIR-AUTH-03**: WP role assignment must use allowlist to prevent administrator escalation
+- [x] **HIR-AUTH-04**: Welcome email must not send plaintext password
 
 ### Assets Auth
 
@@ -130,10 +130,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LV-AUTH-03 | Phase 21 | Complete |
 | LV-AUTH-04 | Phase 21 | Complete |
 | LV-AUTH-05 | Phase 21 | Complete |
-| HIR-AUTH-01 | Phase 21 | Pending |
-| HIR-AUTH-02 | Phase 21 | Pending |
-| HIR-AUTH-03 | Phase 21 | Pending |
-| HIR-AUTH-04 | Phase 21 | Pending |
+| HIR-AUTH-01 | Phase 21 | Complete |
+| HIR-AUTH-02 | Phase 21 | Complete |
+| HIR-AUTH-03 | Phase 21 | Complete |
+| HIR-AUTH-04 | Phase 21 | Complete |
 | AST-AUTH-01 | Phase 24 | Pending |
 | AST-AUTH-02 | Phase 24 | Pending |
 | FE-AUTH-01 | Phase 23 | Pending |

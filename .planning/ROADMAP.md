@@ -48,7 +48,7 @@ Full details: `milestones/v1.1-ROADMAP.md`
 **Milestone Goal:** Eliminate all auth/access-control security gaps found in the v1.1 audit — unauthenticated endpoints, missing capability checks, unsafe nonce patterns, and data ownership verification failures across 9 modules.
 
 - [x] **Phase 20: Attendance Endpoint Authentication** - Require auth on all attendance endpoints and remove token hash exposure from kiosk roster (completed 2026-03-17)
-- [ ] **Phase 21: Leave + Hiring Handler Authorization** - Enforce capability checks on leave approval/cancellation flows and all hiring conversion handlers; prevent role escalation and plaintext passwords
+- [x] **Phase 21: Leave + Hiring Handler Authorization** - Enforce capability checks on leave approval/cancellation flows and all hiring conversion handlers; prevent role escalation and plaintext passwords (completed 2026-03-17)
 - [ ] **Phase 22: Loans + Performance Auth Hardening** - Fix nonce scoping and read-before-verify ordering in Loans; add capability checks to all Performance goal handlers
 - [ ] **Phase 23: Frontend Tab Ownership Verification** - Enforce employee data ownership in OverviewTab and ProfileTab; fix TeamTab visibility for HR/GM roles
 - [ ] **Phase 24: Small Modules Auth Fixes** - Patch capability checks and data ownership in Assets, Core, Resignation, Settlement, Payroll, and Employees
@@ -162,7 +162,7 @@ Phases execute in numeric order: 20 → 21 → 22 → 23 → 24
 | 18. Departments + Surveys + Projects | v1.1 | 2/2 | Complete | 2026-03-17 |
 | 19. Reminders + EmployeeExit + PWA | v1.1 | 2/2 | Complete | 2026-03-17 |
 | 20. Attendance Endpoint Auth | 1/1 | Complete    | 2026-03-17 | - |
-| 21. Leave + Hiring Handler Auth | 1/2 | In Progress|  | - |
+| 21. Leave + Hiring Handler Auth | 2/2 | Complete   | 2026-03-17 | - |
 | 22. Loans + Performance Auth | v1.2 | 0/2 | Not started | - |
 | 23. Frontend Tab Ownership | v1.2 | 0/1 | Not started | - |
 | 24. Small Modules Auth Fixes | v1.2 | 0/2 | Not started | - |
