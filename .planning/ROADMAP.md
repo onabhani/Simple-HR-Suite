@@ -161,7 +161,7 @@ Phases execute in numeric order: 20 → 21 → 22 → 23 → 24
 | 17. ShiftSwap Audit | v1.1 | 2/2 | Complete | 2026-03-16 |
 | 18. Departments + Surveys + Projects | v1.1 | 2/2 | Complete | 2026-03-17 |
 | 19. Reminders + EmployeeExit + PWA | v1.1 | 2/2 | Complete | 2026-03-17 |
-| 20. Attendance Endpoint Auth | 1/1 | Complete   | 2026-03-17 | - |
+| 20. Attendance Endpoint Auth | 1/1 | Complete    | 2026-03-17 | - |
 | 21. Leave + Hiring Handler Auth | v1.2 | 0/2 | Not started | - |
 | 22. Loans + Performance Auth | v1.2 | 0/2 | Not started | - |
 | 23. Frontend Tab Ownership | v1.2 | 0/1 | Not started | - |
