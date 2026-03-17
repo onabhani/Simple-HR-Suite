@@ -67,7 +67,7 @@ Full details: `milestones/v1.1-ROADMAP.md`
 **Plans**: 1 plan
 
 Plans:
-- [ ] 20-01: Fix unauthenticated attendance REST endpoints and kiosk token hash exposure
+- [x] 20-01: Fix unauthenticated attendance REST endpoints and kiosk token hash exposure
 
 ### Phase 21: Leave + Hiring Handler Authorization
 **Goal**: Leave approval and cancellation handlers enforce capability and prevent self-approval; hiring conversion methods are capability-gated, use a role allowlist, and do not send plaintext passwords
@@ -84,8 +84,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 21-01: Fix Leave handler capability checks, nonce scoping, and self-approval prevention
-- [ ] 21-02: Fix Hiring capability gates, role allowlist, and plaintext password in welcome email
+- [x] 21-01: Fix Leave handler capability checks, nonce scoping, and self-approval prevention
+- [x] 21-02: Fix Hiring capability gates, role allowlist, and plaintext password in welcome email
 
 ### Phase 22: Loans + Performance Auth Hardening
 **Goal**: Loans nonce and capability checks execute in correct order with no DOM nonce exposure; Performance module goal handlers verify capability before writing
@@ -97,7 +97,7 @@ Plans:
   3. Installment action nonces are not present in DOM data attributes — they are not readable in page source
   4. A user without the required Performance capability cannot update goal progress or save a goal via `ajax_update_goal_progress` or `save_goal()` — the handler rejects before any database write
   5. A department manager calling `check_read_permission` can only read performance data for employees in departments they manage; cross-department reads are denied
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 - [ ] 22-01: Fix Loans nonce scoping, read-before-verify ordering, and DOM nonce exposure
