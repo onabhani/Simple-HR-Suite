@@ -59,32 +59,32 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SQL-01 | — | Pending |
-| SQL-02 | — | Pending |
-| SQL-03 | — | Pending |
-| SQL-04 | — | Pending |
-| DATA-01 | — | Pending |
-| DATA-02 | — | Pending |
-| DATA-03 | — | Pending |
-| DATA-04 | — | Pending |
-| DATA-05 | — | Pending |
-| DATA-06 | — | Pending |
-| PERF-01 | — | Pending |
-| PERF-02 | — | Pending |
-| PERF-03 | — | Pending |
-| LOGIC-01 | — | Pending |
-| LOGIC-02 | — | Pending |
-| LOGIC-03 | — | Pending |
-| LOGIC-04 | — | Pending |
-| LOGIC-05 | — | Pending |
-| DEBT-01 | — | Pending |
-| DEBT-02 | — | Pending |
+| SQL-01 | Phase 25 | Pending |
+| SQL-02 | Phase 25 | Pending |
+| SQL-03 | Phase 26 | Pending |
+| SQL-04 | Phase 26 | Pending |
+| DATA-01 | Phase 27 | Pending |
+| DATA-02 | Phase 27 | Pending |
+| DATA-03 | Phase 27 | Pending |
+| DATA-04 | Phase 27 | Pending |
+| DATA-05 | Phase 27 | Pending |
+| DATA-06 | Phase 27 | Pending |
+| PERF-01 | Phase 28 | Pending |
+| PERF-02 | Phase 28 | Pending |
+| PERF-03 | Phase 28 | Pending |
+| LOGIC-01 | Phase 29 | Pending |
+| LOGIC-02 | Phase 29 | Pending |
+| LOGIC-03 | Phase 29 | Pending |
+| LOGIC-04 | Phase 29 | Pending |
+| LOGIC-05 | Phase 29 | Pending |
+| DEBT-01 | Phase 27 | Pending |
+| DEBT-02 | Phase 26 | Pending |
 
 **Coverage:**
 - v1.3 requirements: 20 total
-- Mapped to phases: 0
-- Unmapped: 20
+- Mapped to phases: 20
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-17*
-*Last updated: 2026-03-17 after initial definition*
+*Last updated: 2026-03-17 after roadmap creation (v1.3 Phases 25-29)*
