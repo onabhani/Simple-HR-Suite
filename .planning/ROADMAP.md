@@ -293,4 +293,4 @@ Plans:
 | 16. Documents Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 17. ShiftSwap Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 18. Departments + Surveys + Projects Audit | 2/2 | Complete    | 2026-03-17 | — |
-| 19. Reminders + EmployeeExit + PWA Audit | v1.1 | 0/2 | Not started | — |
+| 19. Reminders + EmployeeExit + PWA Audit | 1/2 | In Progress|  | — |

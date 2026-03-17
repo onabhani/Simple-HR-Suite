@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 18-02-PLAN.md
-last_updated: "2026-03-17T01:50:36.407Z"
+stopped_at: Completed 19-01-PLAN.md
+last_updated: "2026-03-17T02:32:40.870Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
   completed_phases: 15
-  total_plans: 31
-  completed_plans: 31
+  total_plans: 33
+  completed_plans: 32
   percent: 50
 ---
 
@@ -87,6 +87,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 17-shiftswap-audit P02 | 3 | 1 tasks | 1 files |
 | Phase 18-departments-surveys-projects-audit P01 | 3 | 1 tasks | 1 files |
 | Phase 18-departments-surveys-projects-audit P02 | 179 | 1 tasks | 1 files |
+| Phase 19-reminders-employeeexit-pwa-audit P01 | 4 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -205,6 +206,10 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 18-departments-surveys-projects-audit]: Projects module POST handlers are all cleanly guarded — no Critical auth gaps found
 - [Phase 18-departments-surveys-projects-audit]: PROJ-SEC-001: information_schema antipattern in get_employee_project_on_date() is 6th recurrence across audit series
 - [Phase 18-departments-surveys-projects-audit]: Projects module has best transactional integrity in series: delete() and add_shift() use START TRANSACTION / COMMIT / ROLLBACK
+- [Phase 19-reminders-employeeexit-pwa-audit]: EmployeeExitModule has no EOS calculation logic -- zero UAE formula duplication; Phase 10 SETT-LOGIC-001 scope is Settlement module only
+- [Phase 19-reminders-employeeexit-pwa-audit]: EX-SEC-001 Critical: sfs_hr.view gates full resignation+settlement hub -- financial settlement data exposed to dept managers; fix requires sfs_hr.manage gate
+- [Phase 19-reminders-employeeexit-pwa-audit]: REM-PERF-001 High: get_upcoming_birthdays() fires one query per offset (8 queries per call) -- fix with IN() predicate over MM-DD list
+- [Phase 19-reminders-employeeexit-pwa-audit]: Digest queue in Reminders cron (queue_for_digest) is dead code -- no consumer processes queued notifications
 
 ### Phase Structure
 
@@ -237,6 +242,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-17T01:46:07.698Z
-Stopped at: Completed 18-02-PLAN.md
+Last session: 2026-03-17T02:32:40.867Z
+Stopped at: Completed 19-01-PLAN.md
 Resume file: None
