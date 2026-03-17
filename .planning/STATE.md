@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Auth & Access Control Fixes
-status: ready_to_plan
-stopped_at: null
+status: in_progress
+stopped_at: "Completed 20-01-PLAN.md"
 last_updated: "2026-03-17"
-last_activity: 2026-03-17 — v1.2 roadmap created, 5 phases defined, 32 requirements mapped
+last_activity: 2026-03-17 — Completed Phase 20 Plan 01 (attendance endpoint authentication)
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 8
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 13
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 ## Current Position
 
 Phase: 20 of 24 (Attendance Endpoint Authentication)
-Plan: Not yet planned
-Status: Ready to plan
-Last activity: 2026-03-17 — Roadmap created, ready to begin Phase 20
+Plan: 01 of 1 complete (20-01 done)
+Status: Phase 20 complete — ready for next phase
+Last activity: 2026-03-17 — Completed 20-01: attendance endpoint auth gates + HMAC kiosk roster
 
-Progress: [░░░░░░░░░░] 0% (0/8 plans complete)
+Progress: [█░░░░░░░░░] 13% (1/8 plans complete)
 
 ## Accumulated Context
 
@@ -40,6 +40,9 @@ Progress: [░░░░░░░░░░] 0% (0/8 plans complete)
 - Settlement EOS formula fix deferred — requires Saudi Article 84 legal confirmation before touching
 - Phases grouped by module similarity and fix pattern, not one-phase-per-module
 - Phase 20 is the highest-priority starting point — unauthenticated REST endpoints are the most exposed surface
+- Used is_user_logged_in (not a custom capability) for /status and /verify-pin — any authenticated operator is sufficient; capability checks are inside the handlers
+- Stored roster_nonce in employees IndexedDB store as a reserved __roster_meta__ record — avoids a DB version bump while keeping nonce retrievable
+- Left the token_hash IndexedDB index from v2 schema intact — unused but harmless; removing it requires a version bump with no functional benefit
 
 ### Pending Todos
 
@@ -52,5 +55,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-17
-Stopped at: Roadmap written, requirements mapped, ready for /gsd:plan-phase 20
+Stopped at: Completed 20-01-PLAN.md
 Resume file: None

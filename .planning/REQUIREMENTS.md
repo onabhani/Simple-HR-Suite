@@ -9,10 +9,10 @@ Requirements for auth & access control fix milestone. Each maps to roadmap phase
 
 ### Attendance Auth
 
-- [ ] **ATT-AUTH-01**: Unauthenticated `GET /attendance/status` endpoint must require authentication
-- [ ] **ATT-AUTH-02**: Unauthenticated `POST /attendance/verify-pin` endpoint must require authentication with rate limiting
-- [ ] **ATT-AUTH-03**: `handle_rebuild_sessions_day` must verify admin nonce before processing
-- [ ] **ATT-AUTH-04**: `kiosk_roster` endpoint must not expose SHA-256 token hashes
+- [x] **ATT-AUTH-01**: Unauthenticated `GET /attendance/status` endpoint must require authentication
+- [x] **ATT-AUTH-02**: Unauthenticated `POST /attendance/verify-pin` endpoint must require authentication with rate limiting
+- [x] **ATT-AUTH-03**: `handle_rebuild_sessions_day` must verify admin nonce before processing
+- [x] **ATT-AUTH-04**: `kiosk_roster` endpoint must not expose SHA-256 token hashes
 
 ### Leave Auth
 
@@ -121,10 +121,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ATT-AUTH-01 | Phase 20 | Pending |
-| ATT-AUTH-02 | Phase 20 | Pending |
-| ATT-AUTH-03 | Phase 20 | Pending |
-| ATT-AUTH-04 | Phase 20 | Pending |
+| ATT-AUTH-01 | Phase 20 | Complete |
+| ATT-AUTH-02 | Phase 20 | Complete |
+| ATT-AUTH-03 | Phase 20 | Complete |
+| ATT-AUTH-04 | Phase 20 | Complete |
 | LV-AUTH-01 | Phase 21 | Pending |
 | LV-AUTH-02 | Phase 21 | Pending |
 | LV-AUTH-03 | Phase 21 | Pending |
