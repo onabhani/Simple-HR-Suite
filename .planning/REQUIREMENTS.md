@@ -16,11 +16,11 @@ Requirements for auth & access control fix milestone. Each maps to roadmap phase
 
 ### Leave Auth
 
-- [ ] **LV-AUTH-01**: `handle_approve()` must check capability before processing approval
-- [ ] **LV-AUTH-02**: `handle_cancel()` must check capability before processing cancellation
-- [ ] **LV-AUTH-03**: `is_hr_user()` must not grant HR access to all sfs_hr_manager role users
-- [ ] **LV-AUTH-04**: Approval nonce must be scoped per-request, not shared across all requests
-- [ ] **LV-AUTH-05**: `handle_cancellation_approve()` must prevent HR self-approval at both stages
+- [x] **LV-AUTH-01**: `handle_approve()` must check capability before processing approval
+- [x] **LV-AUTH-02**: `handle_cancel()` must check capability before processing cancellation
+- [x] **LV-AUTH-03**: `is_hr_user()` must not grant HR access to all sfs_hr_manager role users
+- [x] **LV-AUTH-04**: Approval nonce must be scoped per-request, not shared across all requests
+- [x] **LV-AUTH-05**: `handle_cancellation_approve()` must prevent HR self-approval at both stages
 
 ### Hiring Auth
 
@@ -125,11 +125,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ATT-AUTH-02 | Phase 20 | Complete |
 | ATT-AUTH-03 | Phase 20 | Complete |
 | ATT-AUTH-04 | Phase 20 | Complete |
-| LV-AUTH-01 | Phase 21 | Pending |
-| LV-AUTH-02 | Phase 21 | Pending |
-| LV-AUTH-03 | Phase 21 | Pending |
-| LV-AUTH-04 | Phase 21 | Pending |
-| LV-AUTH-05 | Phase 21 | Pending |
+| LV-AUTH-01 | Phase 21 | Complete |
+| LV-AUTH-02 | Phase 21 | Complete |
+| LV-AUTH-03 | Phase 21 | Complete |
+| LV-AUTH-04 | Phase 21 | Complete |
+| LV-AUTH-05 | Phase 21 | Complete |
 | HIR-AUTH-01 | Phase 21 | Pending |
 | HIR-AUTH-02 | Phase 21 | Pending |
 | HIR-AUTH-03 | Phase 21 | Pending |

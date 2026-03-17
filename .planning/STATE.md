@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Auth & Access Control Fixes
 status: in_progress
-stopped_at: Completed 20-01-PLAN.md
-last_updated: "2026-03-17T04:35:53.829Z"
+stopped_at: Completed 21-01-PLAN.md
+last_updated: "2026-03-17T13:51:38.410Z"
 last_activity: "2026-03-17 — Completed 20-01: attendance endpoint auth gates + HMAC kiosk roster"
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
+  total_plans: 3
+  completed_plans: 2
 ---
 
 ---
@@ -58,6 +58,9 @@ Progress: [█░░░░░░░░░] 13% (1/8 plans complete)
 - Used is_user_logged_in (not a custom capability) for /status and /verify-pin — any authenticated operator is sufficient; capability checks are inside the handlers
 - Stored roster_nonce in employees IndexedDB store as a reserved __roster_meta__ record — avoids a DB version bump while keeping nonce retrievable
 - Left the token_hash IndexedDB index from v2 schema intact — unused but harmless; removing it requires a version bump with no functional benefit
+- [Phase 21]: Capability check placed before nonce check in leave handlers (handle_approve, handle_cancel) — fails fast for unauthorized users without revealing nonce validity
+- [Phase 21]: Bare sfs_hr_manager role removed from is_hr_user() — department managers must be explicitly assigned as HR approvers or have sfs_hr.leave.manage capability for HR-level access
+- [Phase 21]: Approve nonces scoped per-request as sfs_hr_leave_approve_{id} — prevents replay of a captured nonce against a different leave request
 
 ### Pending Todos
 
@@ -69,6 +72,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-17
-Stopped at: Completed 20-01-PLAN.md
+Last session: 2026-03-17T13:51:38.408Z
+Stopped at: Completed 21-01-PLAN.md
 Resume file: None
