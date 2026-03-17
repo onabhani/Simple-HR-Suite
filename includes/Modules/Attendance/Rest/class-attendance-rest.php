@@ -258,12 +258,16 @@ public static function scan( \WP_REST_Request $req ) {
 /**
  * GET /sfs-hr/v1/attendance/kiosk-roster
  *
- * Returns active, QR-enabled employees with SHA-256 hashed tokens
+ * Returns active, QR-enabled employees with HMAC-SHA-256 token values
  * for offline kiosk validation. Only includes employees visible to
  * the device's allowed department (if set).
  */
 public static function kiosk_roster( \WP_REST_Request $req ) {
     global $wpdb;
+
+    // Generate a cryptographically random per-roster nonce for HMAC signing.
+    // Sent to client alongside roster so offline validation can reproduce the HMAC.
+    $roster_nonce = wp_generate_password( 32, false );
 
     $device_id = (int) ( $req->get_param('device') ?: 0 );
     $empT = $wpdb->prefix . 'sfs_hr_employees';
@@ -318,8 +322,8 @@ public static function kiosk_roster( \WP_REST_Request $req ) {
             'id'         => (int) $r['id'],
             'code'       => (string) ( $r['employee_code'] ?? '' ),
             'name'       => $name,
-            // SHA-256 hash — client computes same hash on scanned token to verify
-            'token_hash' => hash( 'sha256', (string) $r['qr_token'] ),
+            // HMAC-SHA-256 bound to the per-roster nonce — not reversible without the nonce
+            'token_hmac' => hash_hmac( 'sha256', (string) $r['qr_token'], $roster_nonce ),
         ];
     }
 
@@ -328,6 +332,7 @@ public static function kiosk_roster( \WP_REST_Request $req ) {
     return rest_ensure_response( [
         'ok'           => true,
         'employees'    => $employees,
+        'roster_nonce' => $roster_nonce,
         'generated_at' => time(),
         'ttl'          => $ttl,
     ] );

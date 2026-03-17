@@ -1457,20 +1457,28 @@ async function handleQrFound(raw) {
       dbg('scan network error', e && e.message);
 
       // --- Offline fallback: validate QR against cached roster ---
-      if (OFFLINE_ENABLED && window.sfsHrPwa && window.sfsHrPwa.db && window.sfsHrPwa.sha256) {
+      if (OFFLINE_ENABLED && window.sfsHrPwa && window.sfsHrPwa.db && window.sfsHrPwa.hmacSha256) {
         try {
           const empId = parseInt(emp, 10);
           offlineEmpRecord = await window.sfsHrPwa.db.getEmployee(empId);
-          if (offlineEmpRecord && offlineEmpRecord.token_hash) {
-            const scannedHash = await window.sfsHrPwa.sha256(token);
-            if (scannedHash === offlineEmpRecord.token_hash) {
-              offlineFallback = true;
-              dbg('offline fallback: QR verified for employee', empId);
+          if (offlineEmpRecord && offlineEmpRecord.token_hmac) {
+            const rosterNonce = await window.sfsHrPwa.db.getRosterNonce();
+            if (rosterNonce) {
+              const scannedHmac = await window.sfsHrPwa.hmacSha256(token, rosterNonce);
+              if (scannedHmac === offlineEmpRecord.token_hmac) {
+                offlineFallback = true;
+                dbg('offline fallback: QR verified for employee', empId);
+              } else {
+                dbg('offline fallback: token hmac mismatch');
+                setStat(t.invalid_qr||'Invalid QR', 'error');
+                lastQrValue = raw; lastQrTs = Date.now();
+                throw new Error('offline_token_mismatch');
+              }
             } else {
-              dbg('offline fallback: token hash mismatch');
-              setStat(t.invalid_qr||'Invalid QR', 'error');
+              dbg('offline fallback: roster nonce missing, cache may be stale');
+              setStat(t.offline_employee_not_cached||'Offline — employee not recognized. Cache may be stale.', 'error');
               lastQrValue = raw; lastQrTs = Date.now();
-              throw new Error('offline_token_mismatch');
+              throw new Error('offline_employee_not_found');
             }
           } else {
             dbg('offline fallback: employee not in cached roster', empId);
