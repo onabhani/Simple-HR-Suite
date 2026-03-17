@@ -129,7 +129,7 @@ Plans:
   6. `handle_update()` in Settlement verifies the settlement record belongs to the currently authenticated user before writing any changes
   7. The `/payroll/my-payslips` endpoint uses an `sfs_hr.*` capability check — `is_user_logged_in()` alone no longer gates that endpoint
   8. The Employees admin menu capability is registered using dotted `sfs_hr.*` format, not a bare role name string
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 - [ ] 24-01: Fix Assets capability + MIME allowlist and Core department sync auth
