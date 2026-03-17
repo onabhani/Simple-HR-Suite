@@ -1264,6 +1264,9 @@ class AdminPages {
     // ========== Form Handlers ==========
 
     public function handle_add_candidate(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
+            wp_die( __( 'You do not have permission to perform this action.', 'sfs-hr' ), 403 );
+        }
         if (!wp_verify_nonce($_POST['_wpnonce'] ?? '', 'sfs_hr_candidate_form')) {
             wp_die(__('Security check failed', 'sfs-hr'));
         }
@@ -1299,6 +1302,9 @@ class AdminPages {
     }
 
     public function handle_update_candidate(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
+            wp_die( __( 'You do not have permission to perform this action.', 'sfs-hr' ), 403 );
+        }
         if (!wp_verify_nonce($_POST['_wpnonce'] ?? '', 'sfs_hr_candidate_form')) {
             wp_die(__('Security check failed', 'sfs-hr'));
         }
@@ -1329,6 +1335,9 @@ class AdminPages {
     }
 
     public function handle_candidate_action(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
+            wp_die( __( 'You do not have permission to perform this action.', 'sfs-hr' ), 403 );
+        }
         if (!wp_verify_nonce($_POST['_wpnonce'] ?? '', 'sfs_hr_candidate_action')) {
             wp_die(__('Security check failed', 'sfs-hr'));
         }
@@ -1510,6 +1519,9 @@ class AdminPages {
     }
 
     public function handle_add_trainee(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
+            wp_die( __( 'You do not have permission to perform this action.', 'sfs-hr' ), 403 );
+        }
         if (!wp_verify_nonce($_POST['_wpnonce'] ?? '', 'sfs_hr_trainee_form')) {
             wp_die(__('Security check failed', 'sfs-hr'));
         }
@@ -1583,6 +1595,9 @@ class AdminPages {
     }
 
     public function handle_update_trainee(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
+            wp_die( __( 'You do not have permission to perform this action.', 'sfs-hr' ), 403 );
+        }
         if (!wp_verify_nonce($_POST['_wpnonce'] ?? '', 'sfs_hr_trainee_form')) {
             wp_die(__('Security check failed', 'sfs-hr'));
         }
@@ -1613,6 +1628,9 @@ class AdminPages {
     }
 
     public function handle_trainee_action(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
+            wp_die( __( 'You do not have permission to perform this action.', 'sfs-hr' ), 403 );
+        }
         if (!wp_verify_nonce($_POST['_wpnonce'] ?? '', 'sfs_hr_trainee_action')) {
             wp_die(__('Security check failed', 'sfs-hr'));
         }
