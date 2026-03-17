@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 18-01-PLAN.md
-last_updated: "2026-03-17T01:40:16.798Z"
+stopped_at: Completed 18-02-PLAN.md
+last_updated: "2026-03-17T01:46:07.700Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
-  completed_phases: 14
+  completed_phases: 15
   total_plans: 31
-  completed_plans: 30
+  completed_plans: 31
   percent: 50
 ---
 
@@ -86,6 +86,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 17-shiftswap-audit P01 | 3 | 1 tasks | 1 files |
 | Phase 17-shiftswap-audit P02 | 3 | 1 tasks | 1 files |
 | Phase 18-departments-surveys-projects-audit P01 | 3 | 1 tasks | 1 files |
+| Phase 18-departments-surveys-projects-audit P02 | 179 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -201,6 +202,9 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 18-departments-surveys-projects-audit]: DepartmentsModule and SurveysModule CLEAN on the 5 recurring antipatterns (ALTER TABLE, information_schema, SHOW TABLES, wrong capability gate, __return_true REST)
 - [Phase 18-departments-surveys-projects-audit]: SURV-LOGIC-002: handle_survey_save() allows editing published surveys via crafted POST — same pattern as Phase 13 Hiring handlers; fix: add status guard before update
 - [Phase 18-departments-surveys-projects-audit]: DEPT-SEC-002: manager_user_id assignment grants dynamic sfs_hr.leave.review without checking if target user holds any HR role — fix: validate user role before accepting assignment
+- [Phase 18-departments-surveys-projects-audit]: Projects module POST handlers are all cleanly guarded — no Critical auth gaps found
+- [Phase 18-departments-surveys-projects-audit]: PROJ-SEC-001: information_schema antipattern in get_employee_project_on_date() is 6th recurrence across audit series
+- [Phase 18-departments-surveys-projects-audit]: Projects module has best transactional integrity in series: delete() and add_shift() use START TRANSACTION / COMMIT / ROLLBACK
 
 ### Phase Structure
 
@@ -233,6 +237,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-17T01:40:16.795Z
-Stopped at: Completed 18-01-PLAN.md
+Last session: 2026-03-17T01:46:07.698Z
+Stopped at: Completed 18-02-PLAN.md
 Resume file: None
