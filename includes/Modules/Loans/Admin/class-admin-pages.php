@@ -1038,8 +1038,7 @@ class AdminPages {
                                 data-status="<?php echo esc_attr( $inst->status ); ?>"
                                 data-remaining="<?php echo number_format( (float) $inst->remaining_balance, 2 ); ?>"
                                 data-currency="<?php echo esc_attr( $inst->currency ); ?>"
-                                data-max="<?php echo esc_attr( $inst->amount_planned ); ?>"
-                                data-nonce="<?php echo wp_create_nonce( 'sfs_hr_mark_installment_' . $inst->id ); ?>">
+                                data-max="<?php echo esc_attr( $inst->amount_planned ); ?>">
                                 <td>
                                     <?php $profile_url = admin_url( 'admin.php?page=sfs-hr-employee-profile&employee_id=' . (int) $inst->employee_id ); ?>
                                     <a href="<?php echo esc_url( $profile_url ); ?>" class="emp-name"><?php echo esc_html( $inst->employee_name ); ?></a>
@@ -1100,6 +1099,16 @@ class AdminPages {
 
         <script>
         (function() {
+            var sfsInstNonces = <?php
+                $nonce_map = [];
+                if ( ! empty( $installments ) ) {
+                    foreach ( $installments as $inst ) {
+                        $nonce_map[ (int) $inst->id ] = wp_create_nonce( 'sfs_hr_mark_installment_' . $inst->id );
+                    }
+                }
+                echo wp_json_encode( $nonce_map );
+            ?>;
+
             var modal = document.getElementById('sfs-hr-inst-modal');
             var modalBody = document.getElementById('sfs-hr-inst-modal-body');
             var modalActions = document.getElementById('sfs-hr-inst-modal-actions');
@@ -1136,8 +1145,7 @@ class AdminPages {
                     status: data.status,
                     remaining: data.remaining,
                     currency: data.currency,
-                    max: data.max,
-                    nonce: data.nonce
+                    max: data.max
                 };
 
                 var html = '';
@@ -1155,10 +1163,11 @@ class AdminPages {
 
                 // Actions based on status
                 if (currentInstData.status === 'planned' || currentInstData.status === 'partial') {
+                    var instNonce = sfsInstNonces[currentInstData.id] || '';
                     var actionsHtml = '';
-                    actionsHtml += '<form method="post" action="" style="flex:1;"><input type="hidden" name="_wpnonce" value="' + sfsEsc(currentInstData.nonce) + '" /><input type="hidden" name="action" value="mark_installment_paid" /><input type="hidden" name="payment_id" value="' + sfsEsc(currentInstData.id) + '" /><input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" /><button type="submit" class="button button-primary" style="width:100%;"><?php echo esc_js( __( 'Mark Paid', 'sfs-hr' ) ); ?></button></form>';
+                    actionsHtml += '<form method="post" action="" style="flex:1;"><input type="hidden" name="_wpnonce" value="' + sfsEsc(instNonce) + '" /><input type="hidden" name="action" value="mark_installment_paid" /><input type="hidden" name="payment_id" value="' + sfsEsc(currentInstData.id) + '" /><input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" /><button type="submit" class="button button-primary" style="width:100%;"><?php echo esc_js( __( 'Mark Paid', 'sfs-hr' ) ); ?></button></form>';
                     actionsHtml += '<button type="button" class="button" style="flex:1;" onclick="showModalPartial();"><?php echo esc_js( __( 'Partial', 'sfs-hr' ) ); ?></button>';
-                    actionsHtml += '<form method="post" action="" style="flex:1;" onsubmit="return confirm(\'<?php echo esc_js( __( 'Skip this payment?', 'sfs-hr' ) ); ?>\');"><input type="hidden" name="_wpnonce" value="' + sfsEsc(currentInstData.nonce) + '" /><input type="hidden" name="action" value="mark_installment_skipped" /><input type="hidden" name="payment_id" value="' + sfsEsc(currentInstData.id) + '" /><input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" /><button type="submit" class="button" style="width:100%;"><?php echo esc_js( __( 'Skip', 'sfs-hr' ) ); ?></button></form>';
+                    actionsHtml += '<form method="post" action="" style="flex:1;" onsubmit="return confirm(\'<?php echo esc_js( __( 'Skip this payment?', 'sfs-hr' ) ); ?>\');"><input type="hidden" name="_wpnonce" value="' + sfsEsc(instNonce) + '" /><input type="hidden" name="action" value="mark_installment_skipped" /><input type="hidden" name="payment_id" value="' + sfsEsc(currentInstData.id) + '" /><input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" /><button type="submit" class="button" style="width:100%;"><?php echo esc_js( __( 'Skip', 'sfs-hr' ) ); ?></button></form>';
                     modalActions.innerHTML = actionsHtml;
                     modalActions.style.display = 'flex';
                 } else {
@@ -1182,7 +1191,7 @@ class AdminPages {
             window.showModalPartial = function() {
                 if (!currentInstData) return;
                 document.getElementById('sfs-hr-inst-partial-id').value = currentInstData.id;
-                document.getElementById('sfs-hr-inst-partial-nonce').value = currentInstData.nonce;
+                document.getElementById('sfs-hr-inst-partial-nonce').value = sfsInstNonces[currentInstData.id] || '';
                 document.getElementById('sfs-hr-inst-partial-amount').max = currentInstData.max;
                 document.getElementById('sfs-hr-inst-modal-partial').style.display = 'block';
             };
