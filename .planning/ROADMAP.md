@@ -111,7 +111,7 @@ Plans:
   1. An employee accessing OverviewTab with a modified employee ID in the request receives an error or empty state — no other employee's data is rendered
   2. An employee accessing ProfileTab cannot view another employee's profile record by passing a different employee ID — the tab verifies ownership before rendering
   3. An HR user or GM accessing TeamTab sees all employees across all departments, not only direct reports of the current manager
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
 - [ ] 23-01: Fix OverviewTab and ProfileTab ownership verification; fix TeamTab role-based visibility
