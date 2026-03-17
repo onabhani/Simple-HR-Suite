@@ -254,8 +254,8 @@ Plans:
   5. A single findings report covering Departments, Surveys, and Projects exists with per-module severity ratings and fix recommendations
 **Plans**: 2 plans
 Plans:
-- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
-- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
+- [ ] 18-01-PLAN.md -- Departments + Surveys audit: DepartmentsModule, SurveysModule, SurveysTab (~2,068 lines, 3 files)
+- [ ] 18-02-PLAN.md -- Projects audit: ProjectsModule, Admin pages, Projects service (~1,160 lines, 3 files)
 
 ### Phase 19: Reminders + EmployeeExit + PWA Audit
 **Goal**: Security, performance, duplication, and logical issues in Reminders (~915 lines), EmployeeExit (~490 lines), and PWA (~414 lines) are documented
@@ -293,5 +293,5 @@ Plans:
 | 15. Workforce_Status Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 16. Documents Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 17. ShiftSwap Audit | 2/2 | Complete    | 2026-03-16 | — |
-| 18. Departments + Surveys + Projects Audit | v1.1 | 0/? | Not started | — |
+| 18. Departments + Surveys + Projects Audit | v1.1 | 0/2 | Not started | — |
 | 19. Reminders + EmployeeExit + PWA Audit | v1.1 | 0/? | Not started | — |
