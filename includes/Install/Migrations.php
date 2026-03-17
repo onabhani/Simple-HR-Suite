@@ -260,10 +260,7 @@ class Migrations {
 
         /** CANDIDATES – add columns for enhanced workflow */
         $candidates = $wpdb->prefix.'sfs_hr_candidates';
-        $cand_exists = (int)$wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s",
-            $candidates
-        ));
+        $cand_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $candidates));
         if ($cand_exists) {
             self::add_column_if_missing($candidates, 'request_number', "VARCHAR(50) NULL");
             self::add_unique_key_if_missing($candidates, 'request_number', 'request_number');
@@ -273,10 +270,8 @@ class Migrations {
             self::add_column_if_missing($candidates, 'hr_notes', "TEXT NULL");
 
             // Expand ENUM to include hr_reviewed status
-            $col_type = $wpdb->get_var($wpdb->prepare(
-                "SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'status'",
-                $candidates
-            ));
+            $col_row = $wpdb->get_row($wpdb->prepare("SHOW COLUMNS FROM `{$candidates}` LIKE %s", 'status'), ARRAY_A);
+            $col_type = $col_row ? $col_row['Type'] : null;
             if ($col_type && strpos($col_type, 'hr_reviewed') === false) {
                 $wpdb->query("ALTER TABLE `$candidates` MODIFY `status` ENUM('applied','screening','hr_reviewed','dept_pending','dept_approved','gm_pending','gm_approved','hired','rejected') NOT NULL DEFAULT 'applied'");
             }
@@ -571,10 +566,7 @@ class Migrations {
 
         /** ATTENDANCE SHIFTS — merge policy fields into shifts (v0.3.8) */
         $att_shifts = $wpdb->prefix . 'sfs_hr_attendance_shifts';
-        $shift_tbl_exists = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s",
-            $att_shifts
-        ) );
+        $shift_tbl_exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $att_shifts ) );
         if ( $shift_tbl_exists ) {
             self::add_column_if_missing( $att_shifts, 'clock_in_methods',  "VARCHAR(255) NULL DEFAULT NULL" );
             self::add_column_if_missing( $att_shifts, 'clock_out_methods', "VARCHAR(255) NULL DEFAULT NULL" );
@@ -587,10 +579,7 @@ class Migrations {
         }
 
         /** ATTENDANCE POLICIES — add break_methods column if missing */
-        $att_policies_tbl_exists = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s",
-            $att_policies
-        ) );
+        $att_policies_tbl_exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $att_policies ) );
         if ( $att_policies_tbl_exists ) {
             self::add_column_if_missing( $att_policies, 'break_methods', "VARCHAR(255) NULL DEFAULT NULL" );
         }
@@ -654,40 +643,26 @@ class Migrations {
 
     private static function add_column_if_missing(string $table, string $column, string $definition): void {
         global $wpdb;
-        $exists = (int)$wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.COLUMNS
-             WHERE table_schema = DATABASE() AND table_name = %s AND column_name = %s",
-            $table, $column
-        ));
-        if ($exists === 0) {
+        $exists = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM `{$table}` LIKE %s", $column));
+        if (!$exists) {
             $wpdb->query("ALTER TABLE `$table` ADD COLUMN `$column` $definition");
         }
     }
 
     private static function make_column_nullable_if_exists(string $table, string $column, string $type): void {
         global $wpdb;
-        $row = $wpdb->get_row($wpdb->prepare(
-            "SELECT IS_NULLABLE, DATA_TYPE, COLUMN_TYPE
-             FROM information_schema.COLUMNS
-             WHERE table_schema = DATABASE() AND table_name = %s AND column_name = %s",
-            $table, $column
-        ), ARRAY_A);
-        if ($row && strtoupper((string)$row['IS_NULLABLE']) === 'NO') {
+        $row = $wpdb->get_row($wpdb->prepare("SHOW COLUMNS FROM `{$table}` LIKE %s", $column), ARRAY_A);
+        if ($row && strtoupper((string)$row['Null']) === 'NO') {
             // Relax NOT NULL to NULL, preserving unsigned/length
-            $coltype = $row['COLUMN_TYPE'] ?: $type;
+            $coltype = $row['Type'] ?: $type;
             $wpdb->query("ALTER TABLE `$table` MODIFY `$column` $coltype NULL");
         }
     }
 
     private static function make_text_if_varchar255(string $table, string $column): void {
         global $wpdb;
-        $row = $wpdb->get_row($wpdb->prepare(
-            "SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
-             FROM information_schema.COLUMNS
-             WHERE table_schema = DATABASE() AND table_name = %s AND column_name = %s",
-            $table, $column
-        ), ARRAY_A);
-        if ($row && strtolower((string)$row['DATA_TYPE']) === 'varchar' && (int)$row['CHARACTER_MAXIMUM_LENGTH'] === 255) {
+        $row = $wpdb->get_row($wpdb->prepare("SHOW COLUMNS FROM `{$table}` LIKE %s", $column), ARRAY_A);
+        if ($row && stripos((string)$row['Type'], 'varchar(255)') === 0) {
             $wpdb->query("ALTER TABLE `$table` MODIFY `$column` TEXT NULL");
         }
     }
@@ -697,6 +672,7 @@ class Migrations {
      */
     private static function add_unique_key_if_missing(string $table, string $column, string $key_name): void {
         global $wpdb;
+        // information_schema acceptable here — migration-only, version-gated; no clean SHOW equivalent for index names
         $index_exists = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM information_schema.STATISTICS
              WHERE table_schema = DATABASE() AND table_name = %s AND index_name = %s",
@@ -704,12 +680,8 @@ class Migrations {
         ));
         if ((int)$index_exists === 0) {
             // Check if column exists first
-            $col_exists = (int)$wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM information_schema.COLUMNS
-                 WHERE table_schema = DATABASE() AND table_name = %s AND column_name = %s",
-                $table, $column
-            ));
-            if ($col_exists > 0) {
+            $col_exists = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM `{$table}` LIKE %s", $column));
+            if ($col_exists) {
                 $wpdb->query("ALTER TABLE `$table` ADD UNIQUE KEY `$key_name` (`$column`)");
             }
         }
@@ -839,6 +811,7 @@ class Migrations {
      */
     private static function add_index_if_missing(string $table, string $index_name, string $columns): void {
         global $wpdb;
+        // information_schema acceptable here — migration-only, version-gated; no clean SHOW equivalent for index names
         $exists = (int) $wpdb->get_var( $wpdb->prepare(
             "SELECT COUNT(*) FROM information_schema.STATISTICS
              WHERE table_schema = DATABASE() AND table_name = %s AND index_name = %s",
@@ -862,9 +835,7 @@ class Migrations {
 
         // Attendance punches (most critical for kiosk)
         $punches = $wpdb->prefix . 'sfs_hr_attendance_punches';
-        $tbl_exists = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s", $punches
-        ) );
+        $tbl_exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $punches ) );
         if ( $tbl_exists ) {
             self::add_index_if_missing( $punches, 'idx_employee_date',   '`employee_id`, `punch_time`' );
             self::add_index_if_missing( $punches, 'idx_date_type',       '`punch_time`, `punch_type`' );
@@ -873,9 +844,7 @@ class Migrations {
 
         // Shift assignments
         $assigns = $wpdb->prefix . 'sfs_hr_attendance_shift_assign';
-        $tbl_exists = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s", $assigns
-        ) );
+        $tbl_exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $assigns ) );
         if ( $tbl_exists ) {
             self::add_index_if_missing( $assigns, 'idx_emp_date',  '`employee_id`, `work_date`' );
             self::add_index_if_missing( $assigns, 'idx_shift_id',  '`shift_id`' );
@@ -884,9 +853,7 @@ class Migrations {
 
         // Sessions
         $sessions = $wpdb->prefix . 'sfs_hr_attendance_sessions';
-        $tbl_exists = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s", $sessions
-        ) );
+        $tbl_exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $sessions ) );
         if ( $tbl_exists ) {
             self::add_index_if_missing( $sessions, 'idx_emp_date',  '`employee_id`, `work_date`' );
             self::add_index_if_missing( $sessions, 'idx_work_date', '`work_date`' );
@@ -895,9 +862,7 @@ class Migrations {
 
         // Audit trail
         $audit = $wpdb->prefix . 'sfs_hr_audit_trail';
-        $tbl_exists = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s", $audit
-        ) );
+        $tbl_exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $audit ) );
         if ( $tbl_exists ) {
             self::add_index_if_missing( $audit, 'idx_entity_type', '`entity_type`' );
             self::add_index_if_missing( $audit, 'idx_action',      '`action`' );
@@ -907,9 +872,7 @@ class Migrations {
 
         // Early leave requests
         $early = $wpdb->prefix . 'sfs_hr_early_leave_requests';
-        $tbl_exists = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s", $early
-        ) );
+        $tbl_exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $early ) );
         if ( $tbl_exists ) {
             self::add_index_if_missing( $early, 'idx_status_created', '`status`, `created_at`' );
             self::add_index_if_missing( $early, 'idx_employee_id',    '`employee_id`' );
@@ -917,9 +880,7 @@ class Migrations {
 
         // Loans
         $loans = $wpdb->prefix . 'sfs_hr_loans';
-        $tbl_exists = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s", $loans
-        ) );
+        $tbl_exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $loans ) );
         if ( $tbl_exists ) {
             self::add_index_if_missing( $loans, 'idx_employee_id', '`employee_id`' );
             self::add_index_if_missing( $loans, 'idx_status',      '`status`' );
@@ -927,9 +888,7 @@ class Migrations {
 
         // Loan payments
         $loan_pay = $wpdb->prefix . 'sfs_hr_loan_payments';
-        $tbl_exists = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.TABLES WHERE table_schema = DATABASE() AND table_name = %s", $loan_pay
-        ) );
+        $tbl_exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $loan_pay ) );
         if ( $tbl_exists ) {
             self::add_index_if_missing( $loan_pay, 'idx_loan_id',  '`loan_id`' );
             self::add_index_if_missing( $loan_pay, 'idx_due_date', '`due_date`' );

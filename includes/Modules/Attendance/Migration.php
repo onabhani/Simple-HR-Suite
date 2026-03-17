@@ -322,10 +322,11 @@ $this->add_column_if_missing($wpdb, $t, 'break_enabled',           "break_enable
     /**
      * Add a non-unique index only if the named key does not already exist.
      *
-     * @param string $key_name  Name used in information_schema.STATISTICS (INDEX_NAME column).
+     * @param string $key_name  Index name to check.
      * @param string $ddl       Full ALTER TABLE … ADD KEY … statement to run when absent.
      */
     private function add_index_if_missing( \wpdb $wpdb, string $table, string $key_name, string $ddl ): void {
+        // information_schema acceptable here — migration-only, version-gated; no clean SHOW equivalent for index names
         $exists = (int) $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM information_schema.STATISTICS
              WHERE table_schema = DATABASE() AND table_name = %s AND index_name = %s",
@@ -341,6 +342,7 @@ $this->add_column_if_missing($wpdb, $t, 'break_enabled',           "break_enable
      * Add unique key if it doesn't exist
      */
     private function add_unique_key_if_missing( \wpdb $wpdb, string $table, string $key_name ): void {
+        // information_schema acceptable here — migration-only, version-gated; no clean SHOW equivalent for index names
         $index_exists = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM information_schema.STATISTICS
              WHERE table_schema = DATABASE() AND table_name = %s AND index_name = %s",
@@ -370,6 +372,7 @@ $this->add_column_if_missing($wpdb, $t, 'break_enabled',           "break_enable
         $elrT    = "{$p}sfs_hr_early_leave_requests";
 
         // Helper: check if a FK already exists on a table
+        // information_schema.TABLE_CONSTRAINTS acceptable here — migration-only, option-gated; no clean SHOW alternative for FK names
         $fk_exists = function( string $table, string $fk_name ) use ( $wpdb ): bool {
             return (bool) $wpdb->get_var( $wpdb->prepare(
                 "SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
@@ -383,11 +386,8 @@ $this->add_column_if_missing($wpdb, $t, 'break_enabled',           "break_enable
         // (required for FK constraints).
         $had_errors = false;
         foreach ( [ $empT, $punchT, $sessT, $shiftT, $assignT, $empShT, $flagT, $auditT, $elrT ] as $t ) {
-            $engine = $wpdb->get_var( $wpdb->prepare(
-                "SELECT ENGINE FROM information_schema.TABLES
-                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s",
-                $t
-            ) );
+            $row    = $wpdb->get_row( $wpdb->prepare( "SHOW TABLE STATUS LIKE %s", $t ), ARRAY_A );
+            $engine = $row ? $row['Engine'] : null;
             if ( $engine !== null && strcasecmp( $engine, 'InnoDB' ) !== 0 ) {
                 if ( $wpdb->query( "ALTER TABLE {$t} ENGINE = InnoDB" ) === false ) {
                     $had_errors = true;
