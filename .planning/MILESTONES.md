@@ -1,4 +1,30 @@
 # Milestones
+## v1.2 Auth & Access Control Fixes (Shipped: 2026-03-17)
+
+**Phases completed:** 5 phases, 8 plans
+**Requirements:** 32/32 satisfied
+**Timeline:** 1 day (2026-03-17), 20 commits
+
+**Key accomplishments:**
+- Gated attendance REST endpoints behind authentication and replaced SHA-256 token hashes with HMAC-SHA-256 bound to per-roster rotating nonces for offline kiosk security
+- Enforced capability checks on leave approval/cancellation with per-request scoped nonces, self-approval prevention, and fixed is_hr_user() to require explicit HR assignment
+- Secured hiring conversion handlers with capability gates, role allowlist blocking administrator escalation, and password reset links replacing plaintext passwords
+- Hardened Loans nonce ordering (nonce-before-data) and removed installment nonces from DOM; added Performance capability checks with department-scoped REST reads
+- Added frontend tab ownership guards — OverviewTab/ProfileTab verify employee identity, TeamTab shows org-wide data for HR/GM/Admin
+- Patched 6 remaining modules — asset export limits, MIME allowlist, Core sync auth, Resignation dept scoping + redirect validation, Settlement ownership, Payroll/Employees capability format
+
+**Stats:**
+- 20 files changed, +366/-135 lines
+- Git range: fix(20-01) → fix(24-02)
+- 20 commits (2026-03-17)
+
+**Known tech debt (accepted):**
+- Performance REST `get_managed_department_ids()` missing `AND active = 1` filter
+- `sfs_hr_payslip_view` capability declared but never assigned (dormant)
+- Stale docblock on `is_hr_user()`, CORE-AUTH-01 docs operator error
+
+---
+
 ## v1.1 Module-by-Module Code Audit (Shipped: 2026-03-17)
 
 **Phases completed:** 16 phases, 33 plans
