@@ -164,5 +164,5 @@ Phases execute in numeric order: 20 → 21 → 22 → 23 → 24
 | 20. Attendance Endpoint Auth | 1/1 | Complete    | 2026-03-17 | - |
 | 21. Leave + Hiring Handler Auth | 2/2 | Complete    | 2026-03-17 | - |
 | 22. Loans + Performance Auth | 2/2 | Complete    | 2026-03-17 | - |
-| 23. Frontend Tab Ownership | 1/1 | Complete   | 2026-03-17 | - |
+| 23. Frontend Tab Ownership | 1/1 | Complete    | 2026-03-17 | - |
 | 24. Small Modules Auth Fixes | v1.2 | 0/2 | Not started | - |
