@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Module-by-Module Code Audit
 status: roadmap_ready
-stopped_at: Completed 17-02-PLAN.md
-last_updated: "2026-03-16T22:16:25.835Z"
+stopped_at: Completed 18-01-PLAN.md
+last_updated: "2026-03-17T01:40:16.798Z"
 last_activity: 2026-03-16 — Roadmap created (phases 4-19, 16 phases, 23 requirements mapped)
 progress:
   total_phases: 16
   completed_phases: 14
-  total_plans: 29
-  completed_plans: 29
+  total_plans: 31
+  completed_plans: 30
   percent: 50
 ---
 
@@ -85,6 +85,7 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 | Phase 16-documents-audit P02 | 4 | 2 tasks | 1 files |
 | Phase 17-shiftswap-audit P01 | 3 | 1 tasks | 1 files |
 | Phase 17-shiftswap-audit P02 | 3 | 1 tasks | 1 files |
+| Phase 18-departments-surveys-projects-audit P01 | 3 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -197,6 +198,9 @@ Progress: `[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]`  0/1
 - [Phase 17-shiftswap-audit]: ShiftSwap admin tab is employee self-service (My Profile), not manager admin view -- absence of current_user_can() is by design, replaced by ownership check
 - [Phase 17-shiftswap-audit]: SSADM: REST /shift-swaps returns all-org data without department scoping -- Medium finding, same systemic pattern as Assets/Resignation/Documents phases
 - [Phase 17-shiftswap-audit]: SSADM: Zero direct wpdb calls in admin tab and REST files -- best delegation pattern in audit series; all DB access via ShiftSwap_Service
+- [Phase 18-departments-surveys-projects-audit]: DepartmentsModule and SurveysModule CLEAN on the 5 recurring antipatterns (ALTER TABLE, information_schema, SHOW TABLES, wrong capability gate, __return_true REST)
+- [Phase 18-departments-surveys-projects-audit]: SURV-LOGIC-002: handle_survey_save() allows editing published surveys via crafted POST — same pattern as Phase 13 Hiring handlers; fix: add status guard before update
+- [Phase 18-departments-surveys-projects-audit]: DEPT-SEC-002: manager_user_id assignment grants dynamic sfs_hr.leave.review without checking if target user holds any HR role — fix: validate user role before accepting assignment
 
 ### Phase Structure
 
@@ -229,6 +233,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T22:10:30.028Z
-Stopped at: Completed 17-02-PLAN.md
+Last session: 2026-03-17T01:40:16.795Z
+Stopped at: Completed 18-01-PLAN.md
 Resume file: None
