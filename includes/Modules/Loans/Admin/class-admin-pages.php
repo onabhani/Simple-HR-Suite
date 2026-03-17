@@ -2048,51 +2048,21 @@ class AdminPages {
             return;
         }
 
-        $action = $_POST['loan_action'];
-        $loan_id = isset( $_POST['loan_id'] ) ? (int) $_POST['loan_id'] : 0;
-
-        // Check capability based on action type
-        $allowed = false;
-        switch ( $action ) {
-            case 'approve_gm':
-                $allowed = \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm();
-                break;
-            case 'approve_finance':
-                $allowed = \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_finance();
-                break;
-            case 'reject_loan':
-                // GM or Finance can reject
-                $allowed = \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm()
-                        || \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_finance();
-                break;
-            case 'cancel_loan':
-                // GM or Administrator can cancel any loan
-                $allowed = \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm()
-                        || current_user_can( 'sfs_hr.manage' );
-                break;
-            case 'create_loan':
-            case 'update_loan':
-            case 'record_payment':
-                $allowed = current_user_can( 'sfs_hr.manage' ) || current_user_can( 'sfs_hr_loans_manage' );
-                break;
-            default:
-                return;
-        }
-
-        if ( ! $allowed ) {
-            return;
-        }
+        $action = sanitize_key( $_POST['loan_action'] );
 
         global $wpdb;
         $loans_table = $wpdb->prefix . 'sfs_hr_loans';
 
         switch ( $action ) {
             case 'approve_gm':
-                // Validate loan_id for this action
+                $loan_id = isset( $_POST['loan_id'] ) ? (int) $_POST['loan_id'] : 0;
                 if ( ! $loan_id ) {
-                    return;
+                    wp_die( esc_html__( 'Invalid request', 'sfs-hr' ) );
                 }
                 check_admin_referer( 'sfs_hr_loan_approve_gm_' . $loan_id );
+                if ( ! \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm() ) {
+                    wp_die( esc_html__( 'Unauthorized', 'sfs-hr' ) );
+                }
 
                 $approved_gm_amount = isset( $_POST['approved_gm_amount'] ) ? (float) $_POST['approved_gm_amount'] : null;
                 $approved_gm_note = isset( $_POST['approved_gm_note'] ) ? sanitize_textarea_field( $_POST['approved_gm_note'] ) : '';
@@ -2171,11 +2141,14 @@ class AdminPages {
                 exit;
 
             case 'approve_finance':
-                // Validate loan_id for this action
+                $loan_id = isset( $_POST['loan_id'] ) ? (int) $_POST['loan_id'] : 0;
                 if ( ! $loan_id ) {
-                    return;
+                    wp_die( esc_html__( 'Invalid request', 'sfs-hr' ) );
                 }
                 check_admin_referer( 'sfs_hr_loan_approve_finance_' . $loan_id );
+                if ( ! \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_finance() ) {
+                    wp_die( esc_html__( 'Unauthorized', 'sfs-hr' ) );
+                }
 
                 // Prevent duplicate approval: only process if loan is still pending_finance
                 $current_loan = $wpdb->get_row( $wpdb->prepare(
@@ -2264,11 +2237,15 @@ class AdminPages {
                 exit;
 
             case 'reject_loan':
-                // Validate loan_id for this action
+                $loan_id = isset( $_POST['loan_id'] ) ? (int) $_POST['loan_id'] : 0;
                 if ( ! $loan_id ) {
-                    return;
+                    wp_die( esc_html__( 'Invalid request', 'sfs-hr' ) );
                 }
                 check_admin_referer( 'sfs_hr_loan_reject_' . $loan_id );
+                if ( ! \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm()
+                    && ! \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_finance() ) {
+                    wp_die( esc_html__( 'Unauthorized', 'sfs-hr' ) );
+                }
 
                 // Prevent duplicate rejection: only process if loan is still in a pending state
                 $current_loan_rej = $wpdb->get_row( $wpdb->prepare(
@@ -2335,10 +2312,15 @@ class AdminPages {
                 exit;
 
             case 'cancel_loan':
+                $loan_id = isset( $_POST['loan_id'] ) ? (int) $_POST['loan_id'] : 0;
                 if ( ! $loan_id ) {
-                    return;
+                    wp_die( esc_html__( 'Invalid request', 'sfs-hr' ) );
                 }
                 check_admin_referer( 'sfs_hr_loan_cancel_' . $loan_id );
+                if ( ! \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm()
+                    && ! current_user_can( 'sfs_hr.manage' ) ) {
+                    wp_die( esc_html__( 'Unauthorized', 'sfs-hr' ) );
+                }
 
                 // Allow cancellation from any status except already completed or cancelled
                 $current_loan_cancel = $wpdb->get_row( $wpdb->prepare(
@@ -2418,6 +2400,9 @@ class AdminPages {
 
             case 'create_loan':
                 check_admin_referer( 'sfs_hr_loan_create' );
+                if ( ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'sfs_hr_loans_manage' ) ) {
+                    wp_die( esc_html__( 'Unauthorized', 'sfs-hr' ) );
+                }
 
                 // Validate inputs
                 $employee_id = isset( $_POST['employee_id'] ) ? (int) $_POST['employee_id'] : 0;
@@ -2675,6 +2660,18 @@ class AdminPages {
                     'updated' => '1',
                 ], admin_url( 'admin.php' ) ) );
                 exit;
+
+            case 'update_loan':
+            case 'record_payment':
+                check_admin_referer( 'sfs_hr_loan_' . $action );
+                if ( ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'sfs_hr_loans_manage' ) ) {
+                    wp_die( esc_html__( 'Unauthorized', 'sfs-hr' ) );
+                }
+                // Stub: not yet implemented
+                return;
+
+            default:
+                return;
         }
     }
 
