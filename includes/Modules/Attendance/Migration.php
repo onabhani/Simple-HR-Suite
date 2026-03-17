@@ -112,34 +112,22 @@ class Migration {
 
         // Migration: Add dept_id column if missing (for existing installations)
         $shifts_table = "{$p}sfs_hr_attendance_shifts";
-        $col_exists = $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'dept_id'",
-            $shifts_table
-        ) );
-        if ( ! $col_exists ) {
-            $wpdb->query( "ALTER TABLE {$shifts_table} ADD COLUMN dept_id BIGINT UNSIGNED NULL AFTER active" );
-            $wpdb->query( "ALTER TABLE {$shifts_table} ADD KEY dept_id (dept_id)" );
+        $dept_id_added = !$wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$shifts_table} LIKE %s", 'dept_id'));
+        $this->add_column_if_missing($wpdb, $shifts_table, 'dept_id', "dept_id BIGINT UNSIGNED NULL AFTER active");
+        if ($dept_id_added) {
+            $this->add_index_if_missing($wpdb, $shifts_table, 'dept_id', "ALTER TABLE {$shifts_table} ADD KEY dept_id (dept_id)");
         }
 
         // Migration: Add dept_ids column for multi-department support
-        $dept_ids_exists = $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'dept_ids'",
-            $shifts_table
-        ) );
-        if ( ! $dept_ids_exists ) {
-            $wpdb->query( "ALTER TABLE {$shifts_table} ADD COLUMN dept_ids TEXT NULL COMMENT 'JSON array of department IDs'" );
+        $dept_ids_added = !$wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$shifts_table} LIKE %s", 'dept_ids'));
+        $this->add_column_if_missing($wpdb, $shifts_table, 'dept_ids', "dept_ids TEXT NULL COMMENT 'JSON array of department IDs'");
+        if ($dept_ids_added) {
             // Migrate existing single dept_id to dept_ids JSON
-            $wpdb->query( "UPDATE {$shifts_table} SET dept_ids = CONCAT('[', dept_id, ']') WHERE dept_id IS NOT NULL AND dept_ids IS NULL" );
+            $wpdb->query("UPDATE {$shifts_table} SET dept_ids = CONCAT('[', dept_id, ']') WHERE dept_id IS NOT NULL AND dept_ids IS NULL");
         }
 
         // Migration: Add period_overrides column for date-range time overrides (Ramadan, etc.)
-        $period_ov_exists = $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'period_overrides'",
-            $shifts_table
-        ) );
-        if ( ! $period_ov_exists ) {
-            $wpdb->query( "ALTER TABLE {$shifts_table} ADD COLUMN period_overrides TEXT NULL COMMENT 'JSON array of date-range time overrides' AFTER weekly_overrides" );
-        }
+        $this->add_column_if_missing($wpdb, $shifts_table, 'period_overrides', "period_overrides TEXT NULL COMMENT 'JSON array of date-range time overrides' AFTER weekly_overrides");
 
                 // 4) daily assignments (rota)
         dbDelta("CREATE TABLE {$p}sfs_hr_attendance_shift_assign (
@@ -172,13 +160,10 @@ class Migration {
 
         // Migration: Add schedule_id column to emp_shifts for existing installations
         $emp_shifts_tbl = "{$p}sfs_hr_attendance_emp_shifts";
-        $sched_col_exists = $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'schedule_id'",
-            $emp_shifts_tbl
-        ) );
-        if ( ! $sched_col_exists ) {
-            $wpdb->query( "ALTER TABLE {$emp_shifts_tbl} ADD COLUMN schedule_id BIGINT UNSIGNED NULL COMMENT 'FK to shift_schedules' AFTER shift_id" );
-            $wpdb->query( "ALTER TABLE {$emp_shifts_tbl} ADD KEY schedule_id (schedule_id)" );
+        $sched_id_added = !$wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$emp_shifts_tbl} LIKE %s", 'schedule_id'));
+        $this->add_column_if_missing($wpdb, $emp_shifts_tbl, 'schedule_id', "schedule_id BIGINT UNSIGNED NULL COMMENT 'FK to shift_schedules' AFTER shift_id");
+        if ($sched_id_added) {
+            $this->add_index_if_missing($wpdb, $emp_shifts_tbl, 'schedule_id', "ALTER TABLE {$emp_shifts_tbl} ADD KEY schedule_id (schedule_id)");
         }
 
         // 5b) shift schedules (rotation patterns: week A/B, 4-on-4-off, etc.)
@@ -331,6 +316,24 @@ $this->add_column_if_missing($wpdb, $t, 'break_enabled',           "break_enable
         $exists = $wpdb->get_var( $wpdb->prepare("SHOW COLUMNS FROM {$table} LIKE %s", $col) );
         if ( ! $exists ) {
             $wpdb->query( "ALTER TABLE {$table} ADD COLUMN {$ddl}" );
+        }
+    }
+
+    /**
+     * Add a non-unique index only if the named key does not already exist.
+     *
+     * @param string $key_name  Name used in information_schema.STATISTICS (INDEX_NAME column).
+     * @param string $ddl       Full ALTER TABLE … ADD KEY … statement to run when absent.
+     */
+    private function add_index_if_missing( \wpdb $wpdb, string $table, string $key_name, string $ddl ): void {
+        $exists = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.STATISTICS
+             WHERE table_schema = DATABASE() AND table_name = %s AND index_name = %s",
+            $table,
+            $key_name
+        ));
+        if ($exists === 0) {
+            $wpdb->query($ddl);
         }
     }
 
