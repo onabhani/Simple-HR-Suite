@@ -212,13 +212,10 @@ class Projects_Service {
         $ps = $wpdb->prefix . 'sfs_hr_project_shifts';
 
         // Check table existence first (module may not be installed yet).
-        // Cache the result so repeated calls avoid hitting information_schema.
+        // Cache the result so repeated calls avoid the query overhead.
         static $table_exists_cache = [];
         if ( ! isset( $table_exists_cache[ $pe ] ) ) {
-            $table_exists_cache[ $pe ] = (bool) $wpdb->get_var( $wpdb->prepare(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-                $pe
-            ) );
+            $table_exists_cache[ $pe ] = (bool) $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $pe ) );
         }
         if ( ! $table_exists_cache[ $pe ] ) {
             return null;

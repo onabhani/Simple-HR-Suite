@@ -205,10 +205,7 @@ class Admin {
         global $wpdb;
         $t = $wpdb->prefix . 'sfs_hr_employees';
 
-        $table_exists = (int) $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-            $t
-        ));
+        $table_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $t));
         if (!$table_exists) return;
 
         $this->add_column_safe($t, 'qr_token',      "ALTER TABLE `{$t}` ADD COLUMN qr_token VARCHAR(64) NULL");
@@ -220,10 +217,7 @@ class Admin {
         global $wpdb;
         $t = $wpdb->prefix . 'sfs_hr_employees';
 
-        $table_exists = (int) $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-            $t
-        ));
+        $table_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $t));
         if (!$table_exists) {
             return;
         }
@@ -1586,10 +1580,7 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
     private function departments_map(): array {
         global $wpdb;
         $table = $wpdb->prefix.'sfs_hr_departments';
-        $exists = (int)$wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-            $table
-        ));
+        $exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table));
         if (!$exists) return [];
         $rows = $wpdb->get_results("SELECT id, name FROM {$table} WHERE active=1 ORDER BY name ASC", ARRAY_A);
         $map  = [];
@@ -1632,14 +1623,7 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
 
         $table = $wpdb->prefix . 'sfs_hr_attendance_shifts';
 
-        $exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM information_schema.tables
-                 WHERE table_schema = DATABASE()
-                   AND table_name   = %s",
-                $table
-            )
-        );
+        $exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table));
         if ( ! $exists ) {
             return [];
         }
@@ -1733,14 +1717,7 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
         $shifts_t = "{$p}sfs_hr_attendance_shifts";
         $map_t    = "{$p}sfs_hr_attendance_emp_shifts";
 
-        $exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM information_schema.tables
-                 WHERE table_schema = DATABASE()
-                   AND table_name   = %s",
-                $map_t
-            )
-        );
+        $exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $map_t));
         if ( ! $exists ) {
             return null;
         }
@@ -1780,14 +1757,7 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
         $shifts_t = "{$p}sfs_hr_attendance_shifts";
         $map_t    = "{$p}sfs_hr_attendance_emp_shifts";
 
-        $exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM information_schema.tables
-                 WHERE table_schema = DATABASE()
-                   AND table_name   = %s",
-                $map_t
-            )
-        );
+        $exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $map_t));
         if ( ! $exists ) {
             return [];
         }
@@ -3231,14 +3201,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
                 // Base attendance shift mapping
         $map_table = $wpdb->prefix . 'sfs_hr_attendance_emp_shifts';
-        $map_exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM information_schema.tables
-                 WHERE table_schema = DATABASE()
-                   AND table_name   = %s",
-                $map_table
-            )
-        );
+        $map_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $map_table));
 
         if ( $map_exists && $shift_id ) {
             // Use hire date if set; otherwise today.
@@ -4777,14 +4740,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
     if ( $shift_id ) {
         $map_table = $wpdb->prefix . 'sfs_hr_attendance_emp_shifts';
 
-        $map_exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM information_schema.tables
-                 WHERE table_schema = DATABASE()
-                   AND table_name   = %s",
-                $map_table
-            )
-        );
+        $map_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $map_table));
 
         if ( $map_exists ) {
             $start_raw = isset( $_POST['attendance_shift_start'] )
@@ -5098,10 +5054,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         if (!$uid) return [];
         global $wpdb;
         $dept_table = $wpdb->prefix.'sfs_hr_departments';
-        $exists = (int)$wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-            $dept_table
-        ));
+        $exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $dept_table));
         if (!$exists) return [];
         $ids = $wpdb->get_col( $wpdb->prepare("SELECT id FROM {$dept_table} WHERE manager_user_id=%d AND active=1", $uid) );
         return array_map('intval', $ids ?: []);

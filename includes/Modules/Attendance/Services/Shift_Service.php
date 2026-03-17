@@ -278,15 +278,7 @@ class Shift_Service {
         }
 
         // Bail quickly if mapping table is not installed yet.
-        $table_exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*)
-                 FROM information_schema.tables
-                 WHERE table_schema = DATABASE()
-                   AND table_name   = %s",
-                $emp_map_t
-            )
-        );
+        $table_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $emp_map_t));
 
         if ( ! $table_exists ) {
             return null;
@@ -356,12 +348,7 @@ class Shift_Service {
         $shiftT = "{$p}sfs_hr_attendance_shifts";
 
         // Check table exists.
-        $tbl_exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-                $schedT
-            )
-        );
+        $tbl_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $schedT));
         if ( ! $tbl_exists ) {
             return null;
         }

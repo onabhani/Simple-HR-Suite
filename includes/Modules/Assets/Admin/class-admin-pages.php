@@ -1984,15 +1984,7 @@ class Admin_Pages {
         $table = $wpdb->prefix . 'sfs_hr_asset_logs';
 
         // Hard-existence check; if no table → silently skip
-        $exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*)
-                 FROM information_schema.tables
-                 WHERE table_schema = DATABASE()
-                   AND table_name = %s",
-                $table
-            )
-        );
+        $exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table));
 
         if ( ! $exists ) {
             return;

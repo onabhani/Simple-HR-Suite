@@ -62,10 +62,7 @@ class DocumentsModule {
         $table = $wpdb->prefix . 'sfs_hr_employee_documents';
         $charset_collate = $wpdb->get_charset_collate();
 
-        $table_exists = (bool) $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-            $table
-        ));
+        $table_exists = (bool) $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table));
 
         if (!$table_exists) {
             $wpdb->query("CREATE TABLE IF NOT EXISTS {$table} (
@@ -104,11 +101,7 @@ class DocumentsModule {
     private function maybe_add_update_request_columns(string $table): void {
         global $wpdb;
 
-        $column_exists = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns
-             WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'update_requested_at'",
-            $table
-        ));
+        $column_exists = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM `{$table}` LIKE %s", 'update_requested_at'));
 
         if (!$column_exists) {
             $wpdb->query("ALTER TABLE {$table}

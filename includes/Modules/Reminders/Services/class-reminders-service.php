@@ -246,11 +246,7 @@ class Reminders_Service {
         global $wpdb;
         $emp_table = $wpdb->prefix . 'sfs_hr_employees';
 
-        return (bool)$wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns
-             WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'birth_date'",
-            $emp_table
-        ));
+        return (bool)$wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM `{$emp_table}` LIKE %s", 'birth_date'));
     }
 
     /**

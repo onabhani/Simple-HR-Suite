@@ -1549,10 +1549,7 @@ class Notifications {
      */
     private static function table_exists( string $table_name ): bool {
         global $wpdb;
-        return (bool) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-            $table_name
-        ) );
+        return (bool) $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $table_name ) );
     }
 
     // =========================================================================

@@ -292,10 +292,7 @@ class ReportsService {
 
     private static function generate_document_expiry($wpdb, $emp_t, $dept_t, $date_from, $date_to, $dept_where): array {
         $doc_t = $wpdb->prefix . 'sfs_hr_employee_documents';
-        $doc_exists = (bool) $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-            $doc_t
-        ));
+        $doc_exists = (bool) $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $doc_t));
 
         if (!$doc_exists) {
             return [
