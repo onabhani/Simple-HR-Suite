@@ -64,7 +64,7 @@ Full details: `milestones/v1.1-ROADMAP.md`
   2. An unauthenticated request to `POST /attendance/verify-pin` receives a 401 response; no rate-limit bypass is possible for logged-in users
   3. `handle_rebuild_sessions_day` rejects any request that does not include a valid admin nonce and returns a nonce-failure response without processing
   4. The `kiosk_roster` endpoint response contains no SHA-256 token hashes in any field for any employee
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
 - [ ] 20-01: Fix unauthenticated attendance REST endpoints and kiosk token hash exposure
