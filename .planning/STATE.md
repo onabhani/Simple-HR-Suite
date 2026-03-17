@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Auth & Access Control Fixes
 status: in_progress
-stopped_at: Completed 22-02-PLAN.md
-last_updated: "2026-03-17T14:43:12.566Z"
+stopped_at: Completed 23-01-PLAN.md
+last_updated: "2026-03-17T15:06:24.262Z"
 last_activity: "2026-03-17 — Completed 20-01: attendance endpoint auth gates + HMAC kiosk roster"
 progress:
   total_phases: 5
-  completed_phases: 3
-  total_plans: 5
-  completed_plans: 5
+  completed_phases: 4
+  total_plans: 6
+  completed_plans: 6
 ---
 
 ---
@@ -68,6 +68,8 @@ Progress: [█░░░░░░░░░] 13% (1/8 plans complete)
 - [Phase 22-01]: Installment nonces moved from DOM data-nonce attributes to inline sfsInstNonces JS object map; server-side check_admin_referer unchanged
 - [Phase 22]: ajax_update_goal_progress uses sfs_hr.manage only (write op = same as ajax_save_goal)
 - [Phase 22]: check_read_permission accepts WP_REST_Request nullable param; tiered model: manage/view=full, sfs_hr.view=dept-scoped
+- [Phase 23]: OverviewTab silently returns on ownership failure (landing tab UX); ProfileTab shows error message (PII content)
+- [Phase 23]: TeamTab level threshold 40: HR/GM/Admin see org-wide employees; manager (30) stays department-scoped
 
 ### Pending Todos
 
@@ -79,6 +81,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-17T14:39:41.321Z
-Stopped at: Completed 22-02-PLAN.md
+Last session: 2026-03-17T15:06:24.260Z
+Stopped at: Completed 23-01-PLAN.md
 Resume file: None

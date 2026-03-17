@@ -36,9 +36,9 @@ Requirements for auth & access control fix milestone. Each maps to roadmap phase
 
 ### Frontend Auth
 
-- [ ] **FE-AUTH-01**: OverviewTab must verify employee ownership before rendering data
-- [ ] **FE-AUTH-02**: ProfileTab must verify employee ownership before rendering data
-- [ ] **FE-AUTH-03**: TeamTab must allow HR/GM to see all employees, not just managers
+- [x] **FE-AUTH-01**: OverviewTab must verify employee ownership before rendering data
+- [x] **FE-AUTH-02**: ProfileTab must verify employee ownership before rendering data
+- [x] **FE-AUTH-03**: TeamTab must allow HR/GM to see all employees, not just managers
 
 ### Core Auth
 
@@ -136,9 +136,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HIR-AUTH-04 | Phase 21 | Complete |
 | AST-AUTH-01 | Phase 24 | Pending |
 | AST-AUTH-02 | Phase 24 | Pending |
-| FE-AUTH-01 | Phase 23 | Pending |
-| FE-AUTH-02 | Phase 23 | Pending |
-| FE-AUTH-03 | Phase 23 | Pending |
+| FE-AUTH-01 | Phase 23 | Complete |
+| FE-AUTH-02 | Phase 23 | Complete |
+| FE-AUTH-03 | Phase 23 | Complete |
 | CORE-AUTH-01 | Phase 24 | Pending |
 | LOAN-AUTH-01 | Phase 22 | Complete |
 | LOAN-AUTH-02 | Phase 22 | Complete |
