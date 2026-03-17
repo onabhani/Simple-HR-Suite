@@ -1316,9 +1316,22 @@ class Admin_Pages {
         if ( isset( $_FILES['invoice_file'] ) && ! empty( $_FILES['invoice_file']['name'] ) ) {
             require_once ABSPATH . 'wp-admin/includes/file.php';
 
+            $allowed_mimes = [
+                'jpg|jpeg|jpe' => 'image/jpeg',
+                'png'          => 'image/png',
+                'gif'          => 'image/gif',
+                'pdf'          => 'application/pdf',
+                'doc'          => 'application/msword',
+                'docx'         => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'xls'          => 'application/vnd.ms-excel',
+                'xlsx'         => 'application/vnd.openxmlformats-officedocument.spreadsheetml.document',
+            ];
             $upload = wp_handle_upload(
                 $_FILES['invoice_file'],
-                [ 'test_form' => false ]
+                [
+                    'test_form' => false,
+                    'mimes'     => $allowed_mimes,
+                ]
             );
 
             if ( isset( $upload['error'] ) && $upload['error'] ) {
@@ -1504,7 +1517,7 @@ class Admin_Pages {
         global $wpdb;
         $table = $wpdb->prefix . 'sfs_hr_assets';
 
-        $rows = $wpdb->get_results("SELECT * FROM {$table} ORDER BY id ASC", ARRAY_A);
+        $rows = $wpdb->get_results("SELECT * FROM {$table} ORDER BY id ASC LIMIT 5000", ARRAY_A);
 
         while ( ob_get_level() ) { ob_end_clean(); }
 
