@@ -81,7 +81,7 @@ Plans:
   5. A user without `sfs_hr.manage` cannot trigger any of the 6 hiring conversion handlers — capability is verified before nonce
   6. The hiring role assignment pathway uses an allowlist; assigning the `administrator` role via conversion is blocked
   7. New employee welcome emails contain a password reset link, not a plaintext password
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 - [ ] 21-01: Fix Leave handler capability checks, nonce scoping, and self-approval prevention
