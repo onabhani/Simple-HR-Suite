@@ -31,8 +31,8 @@ Requirements for auth & access control fix milestone. Each maps to roadmap phase
 
 ### Assets Auth
 
-- [ ] **AST-AUTH-01**: Asset export must enforce capability check and row limits
-- [ ] **AST-AUTH-02**: Invoice upload must enforce MIME type allowlist
+- [x] **AST-AUTH-01**: Asset export must enforce capability check and row limits
+- [x] **AST-AUTH-02**: Invoice upload must enforce MIME type allowlist
 
 ### Frontend Auth
 
@@ -42,7 +42,7 @@ Requirements for auth & access control fix milestone. Each maps to roadmap phase
 
 ### Core Auth
 
-- [ ] **CORE-AUTH-01**: `handle_sync_dept_members()` must check capability before reading POST data
+- [x] **CORE-AUTH-01**: `handle_sync_dept_members()` must check capability before reading POST data
 
 ### Loans Auth
 
@@ -134,12 +134,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HIR-AUTH-02 | Phase 21 | Complete |
 | HIR-AUTH-03 | Phase 21 | Complete |
 | HIR-AUTH-04 | Phase 21 | Complete |
-| AST-AUTH-01 | Phase 24 | Pending |
-| AST-AUTH-02 | Phase 24 | Pending |
+| AST-AUTH-01 | Phase 24 | Complete |
+| AST-AUTH-02 | Phase 24 | Complete |
 | FE-AUTH-01 | Phase 23 | Complete |
 | FE-AUTH-02 | Phase 23 | Complete |
 | FE-AUTH-03 | Phase 23 | Complete |
-| CORE-AUTH-01 | Phase 24 | Pending |
+| CORE-AUTH-01 | Phase 24 | Complete |
 | LOAN-AUTH-01 | Phase 22 | Complete |
 | LOAN-AUTH-02 | Phase 22 | Complete |
 | LOAN-AUTH-03 | Phase 22 | Complete |

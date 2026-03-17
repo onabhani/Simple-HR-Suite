@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Auth & Access Control Fixes
 status: in_progress
-stopped_at: Completed 23-01-PLAN.md
-last_updated: "2026-03-17T15:09:35.096Z"
+stopped_at: Completed 24-01-PLAN.md
+last_updated: "2026-03-17T15:27:05.568Z"
 last_activity: "2026-03-17 — Completed 20-01: attendance endpoint auth gates + HMAC kiosk roster"
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 8
+  completed_plans: 7
 ---
 
 ---
@@ -70,6 +70,9 @@ Progress: [█░░░░░░░░░] 13% (1/8 plans complete)
 - [Phase 22]: check_read_permission accepts WP_REST_Request nullable param; tiered model: manage/view=full, sfs_hr.view=dept-scoped
 - [Phase 23]: OverviewTab silently returns on ownership failure (landing tab UX); ProfileTab shows error message (PII content)
 - [Phase 23]: TeamTab level threshold 40: HR/GM/Admin see org-wide employees; manager (30) stays department-scoped
+- [Phase 24]: LIMIT 5000 chosen as safe upper bound for asset export to prevent memory exhaustion
+- [Phase 24]: sfs_hr.view included in sync dept gate because dept managers receive this cap dynamically via user_has_cap filter
+- [Phase 24]: handle_sync_dept_members: capability gate moved before POST read; check_admin_referer kept after dept_id parse as nonce depends on dept_id value
 
 ### Pending Todos
 
@@ -81,6 +84,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-17T15:06:24.260Z
-Stopped at: Completed 23-01-PLAN.md
+Last session: 2026-03-17T15:26:56.499Z
+Stopped at: Completed 24-01-PLAN.md
 Resume file: None
