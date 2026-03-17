@@ -269,9 +269,8 @@ Plans:
   5. A single findings report covering Reminders, EmployeeExit, and PWA exists with per-module severity ratings and fix recommendations
 **Plans**: 2 plans
 Plans:
-- [ ] 07-01-PLAN.md -- Services, Calculator, Cron audit (~3.5K lines, 6 files)
-- [ ] 07-02-PLAN.md -- Admin, REST, Module orchestrator audit (~2.6K lines, 3 files)
-
+- [ ] 19-01-PLAN.md -- Reminders + EmployeeExit audit: cron jobs, notifications, exit logic, Settlement overlap (~1,405 lines, 7 files)
+- [ ] 19-02-PLAN.md -- PWA audit: service worker, manifest, push subscriptions, data leakage (~414 lines, 1 file)
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -294,4 +293,4 @@ Plans:
 | 16. Documents Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 17. ShiftSwap Audit | 2/2 | Complete    | 2026-03-16 | — |
 | 18. Departments + Surveys + Projects Audit | 2/2 | Complete    | 2026-03-17 | — |
-| 19. Reminders + EmployeeExit + PWA Audit | v1.1 | 0/? | Not started | — |
+| 19. Reminders + EmployeeExit + PWA Audit | v1.1 | 0/2 | Not started | — |
