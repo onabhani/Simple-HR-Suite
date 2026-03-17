@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: Auth & Access Control Fixes
 status: in_progress
 stopped_at: Completed 22-02-PLAN.md
-last_updated: "2026-03-17T14:39:41.323Z"
+last_updated: "2026-03-17T14:43:12.566Z"
 last_activity: "2026-03-17 — Completed 20-01: attendance endpoint auth gates + HMAC kiosk roster"
 progress:
   total_phases: 5
