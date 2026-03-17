@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Auth & Access Control Fixes
 status: in_progress
-stopped_at: Completed 21-02-PLAN.md
-last_updated: "2026-03-17T14:01:52.880Z"
+stopped_at: Completed 22-01-PLAN.md
+last_updated: "2026-03-17T14:36:36.069Z"
 last_activity: "2026-03-17 — Completed 20-01: attendance endpoint auth gates + HMAC kiosk roster"
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 5
+  completed_plans: 4
 ---
 
 ---
@@ -64,6 +64,8 @@ Progress: [█░░░░░░░░░] 13% (1/8 plans complete)
 - [Phase 21]: Capability check before nonce in all 6 hiring handlers — fails fast without revealing nonce validity
 - [Phase 21]: Hiring role allowlist: sfs_hr_employee/manager/trainee/subscriber — blocks administrator and editor escalation during conversion
 - [Phase 21]: send_welcome_email() uses get_password_reset_key() — no plaintext password in any hiring email pathway
+- [Phase 22-01]: Removed top-level loan_id read and capability switch from handle_loan_actions; each case now reads loan_id, verifies nonce, checks capability independently
+- [Phase 22-01]: Installment nonces moved from DOM data-nonce attributes to inline sfsInstNonces JS object map; server-side check_admin_referer unchanged
 
 ### Pending Todos
 
@@ -75,6 +77,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-17T13:56:28.747Z
-Stopped at: Completed 21-02-PLAN.md
+Last session: 2026-03-17T14:36:36.067Z
+Stopped at: Completed 22-01-PLAN.md
 Resume file: None

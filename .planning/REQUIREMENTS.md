@@ -46,10 +46,10 @@ Requirements for auth & access control fix milestone. Each maps to roadmap phase
 
 ### Loans Auth
 
-- [ ] **LOAN-AUTH-01**: Nonce must not be scoped to user-supplied employee_id
-- [ ] **LOAN-AUTH-02**: AJAX handler must verify nonce before reading employee_id from POST
-- [ ] **LOAN-AUTH-03**: Nonce check must precede capability check in `handle_loan_actions()`
-- [ ] **LOAN-AUTH-04**: Installment action nonces must not be embedded in DOM data attributes
+- [x] **LOAN-AUTH-01**: Nonce must not be scoped to user-supplied employee_id
+- [x] **LOAN-AUTH-02**: AJAX handler must verify nonce before reading employee_id from POST
+- [x] **LOAN-AUTH-03**: Nonce check must precede capability check in `handle_loan_actions()`
+- [x] **LOAN-AUTH-04**: Installment action nonces must not be embedded in DOM data attributes
 
 ### Performance Auth
 
@@ -140,10 +140,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FE-AUTH-02 | Phase 23 | Pending |
 | FE-AUTH-03 | Phase 23 | Pending |
 | CORE-AUTH-01 | Phase 24 | Pending |
-| LOAN-AUTH-01 | Phase 22 | Pending |
-| LOAN-AUTH-02 | Phase 22 | Pending |
-| LOAN-AUTH-03 | Phase 22 | Pending |
-| LOAN-AUTH-04 | Phase 22 | Pending |
+| LOAN-AUTH-01 | Phase 22 | Complete |
+| LOAN-AUTH-02 | Phase 22 | Complete |
+| LOAN-AUTH-03 | Phase 22 | Complete |
+| LOAN-AUTH-04 | Phase 22 | Complete |
 | PERF-AUTH-01 | Phase 22 | Pending |
 | PERF-AUTH-02 | Phase 22 | Pending |
 | PERF-AUTH-03 | Phase 22 | Pending |

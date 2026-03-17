@@ -163,6 +163,6 @@ Phases execute in numeric order: 20 → 21 → 22 → 23 → 24
 | 19. Reminders + EmployeeExit + PWA | v1.1 | 2/2 | Complete | 2026-03-17 |
 | 20. Attendance Endpoint Auth | 1/1 | Complete    | 2026-03-17 | - |
 | 21. Leave + Hiring Handler Auth | 2/2 | Complete    | 2026-03-17 | - |
-| 22. Loans + Performance Auth | v1.2 | 0/2 | Not started | - |
+| 22. Loans + Performance Auth | 1/2 | In Progress|  | - |
 | 23. Frontend Tab Ownership | v1.2 | 0/1 | Not started | - |
 | 24. Small Modules Auth Fixes | v1.2 | 0/2 | Not started | - |
