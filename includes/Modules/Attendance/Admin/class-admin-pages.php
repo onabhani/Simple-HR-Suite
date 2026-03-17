@@ -6044,8 +6044,8 @@ private function get_status_label( string $status ): string {
 
 
 public function handle_rebuild_sessions_day(): void {
-    if ( ! current_user_can('sfs_hr_attendance_admin') ) { wp_die( esc_html__( 'Access denied', 'sfs-hr' ) ); }
     check_admin_referer('sfs_hr_att_rebuild_sessions_day');
+    if ( ! current_user_can('sfs_hr_attendance_admin') ) { wp_die( esc_html__( 'Access denied', 'sfs-hr' ) ); }
 
     global $wpdb;
 

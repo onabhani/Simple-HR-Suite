@@ -77,8 +77,8 @@ public static function routes(): void {
     register_rest_route('sfs-hr/v1', '/attendance/status', [
         'methods'  => 'GET',
         'callback' => [ __CLASS__, 'status' ],
-        // public JSON; we only include self snapshot when logged in
-        'permission_callback' => '__return_true',
+        // Requires authentication — device metadata and snapshots must not be exposed publicly
+        'permission_callback' => 'is_user_logged_in',
     ]);
 
     // GET /sfs-hr/v1/attendance/scan  (mint short-lived scan token for kiosk)
@@ -117,7 +117,7 @@ public static function routes(): void {
     register_rest_route('sfs-hr/v1', '/attendance/verify-pin', [
         'methods'  => 'POST',
         'callback' => [ __CLASS__, 'verify_pin' ],
-        'permission_callback' => '__return_true', // Public endpoint, PIN itself provides auth
+        'permission_callback' => 'is_user_logged_in', // Kiosk operator must be authenticated
         'args' => [
             'device_id' => [ 'type'=>'integer', 'required'=>true ],
             'pin'       => [ 'type'=>'string',  'required'=>true ],
