@@ -121,44 +121,44 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ATT-AUTH-01 | — | Pending |
-| ATT-AUTH-02 | — | Pending |
-| ATT-AUTH-03 | — | Pending |
-| ATT-AUTH-04 | — | Pending |
-| LV-AUTH-01 | — | Pending |
-| LV-AUTH-02 | — | Pending |
-| LV-AUTH-03 | — | Pending |
-| LV-AUTH-04 | — | Pending |
-| LV-AUTH-05 | — | Pending |
-| HIR-AUTH-01 | — | Pending |
-| HIR-AUTH-02 | — | Pending |
-| HIR-AUTH-03 | — | Pending |
-| HIR-AUTH-04 | — | Pending |
-| AST-AUTH-01 | — | Pending |
-| AST-AUTH-02 | — | Pending |
-| FE-AUTH-01 | — | Pending |
-| FE-AUTH-02 | — | Pending |
-| FE-AUTH-03 | — | Pending |
-| CORE-AUTH-01 | — | Pending |
-| LOAN-AUTH-01 | — | Pending |
-| LOAN-AUTH-02 | — | Pending |
-| LOAN-AUTH-03 | — | Pending |
-| LOAN-AUTH-04 | — | Pending |
-| PERF-AUTH-01 | — | Pending |
-| PERF-AUTH-02 | — | Pending |
-| PERF-AUTH-03 | — | Pending |
-| RES-AUTH-01 | — | Pending |
-| RES-AUTH-02 | — | Pending |
-| RES-AUTH-03 | — | Pending |
-| SETT-AUTH-01 | — | Pending |
-| PAY-AUTH-01 | — | Pending |
-| EMP-AUTH-01 | — | Pending |
+| ATT-AUTH-01 | Phase 20 | Pending |
+| ATT-AUTH-02 | Phase 20 | Pending |
+| ATT-AUTH-03 | Phase 20 | Pending |
+| ATT-AUTH-04 | Phase 20 | Pending |
+| LV-AUTH-01 | Phase 21 | Pending |
+| LV-AUTH-02 | Phase 21 | Pending |
+| LV-AUTH-03 | Phase 21 | Pending |
+| LV-AUTH-04 | Phase 21 | Pending |
+| LV-AUTH-05 | Phase 21 | Pending |
+| HIR-AUTH-01 | Phase 21 | Pending |
+| HIR-AUTH-02 | Phase 21 | Pending |
+| HIR-AUTH-03 | Phase 21 | Pending |
+| HIR-AUTH-04 | Phase 21 | Pending |
+| AST-AUTH-01 | Phase 24 | Pending |
+| AST-AUTH-02 | Phase 24 | Pending |
+| FE-AUTH-01 | Phase 23 | Pending |
+| FE-AUTH-02 | Phase 23 | Pending |
+| FE-AUTH-03 | Phase 23 | Pending |
+| CORE-AUTH-01 | Phase 24 | Pending |
+| LOAN-AUTH-01 | Phase 22 | Pending |
+| LOAN-AUTH-02 | Phase 22 | Pending |
+| LOAN-AUTH-03 | Phase 22 | Pending |
+| LOAN-AUTH-04 | Phase 22 | Pending |
+| PERF-AUTH-01 | Phase 22 | Pending |
+| PERF-AUTH-02 | Phase 22 | Pending |
+| PERF-AUTH-03 | Phase 22 | Pending |
+| RES-AUTH-01 | Phase 24 | Pending |
+| RES-AUTH-02 | Phase 24 | Pending |
+| RES-AUTH-03 | Phase 24 | Pending |
+| SETT-AUTH-01 | Phase 24 | Pending |
+| PAY-AUTH-01 | Phase 24 | Pending |
+| EMP-AUTH-01 | Phase 24 | Pending |
 
 **Coverage:**
 - v1.2 requirements: 32 total
-- Mapped to phases: 0
-- Unmapped: 32 ⚠️
+- Mapped to phases: 32
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-17*
-*Last updated: 2026-03-17 after initial definition*
+*Last updated: 2026-03-17 after roadmap creation*
