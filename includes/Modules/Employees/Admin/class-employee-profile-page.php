@@ -27,7 +27,7 @@ class Employee_Profile_Page {
             null,
             __( 'Employee Profile', 'sfs-hr' ),
             __( 'Employee Profile', 'sfs-hr' ),
-            'sfs_hr_attendance_view_team',
+            'sfs_hr.view',
             'sfs-hr-employee-profile',
             [ $this, 'render_page' ]
         );
@@ -96,7 +96,7 @@ class Employee_Profile_Page {
     }
 
     public function render_page(): void {
-    Helpers::require_cap( 'sfs_hr_attendance_view_team' );
+    Helpers::require_cap( 'sfs_hr.view' );
 
     // Handle WP user creation action
     if ( isset( $_GET['do_create_wp_user'] ) && current_user_can( 'create_users' ) ) {

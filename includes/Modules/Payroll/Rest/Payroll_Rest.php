@@ -48,7 +48,7 @@ class Payroll_Rest {
         register_rest_route( $ns, '/payroll/my-payslips', [
             'methods'             => 'GET',
             'callback'            => [ self::class, 'my_payslips' ],
-            'permission_callback' => fn() => current_user_can( 'sfs_hr_payslip_view' ) || is_user_logged_in(),
+            'permission_callback' => fn() => current_user_can( 'sfs_hr_payslip_view' ) || current_user_can( 'sfs_hr.view' ),
         ] );
 
         // Get salary components

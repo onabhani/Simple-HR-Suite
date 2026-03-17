@@ -79,6 +79,11 @@ class Settlement_Handlers {
             wp_die(__('Settlement not found or cannot be updated.', 'sfs-hr'));
         }
 
+        // Verify the settlement's employee_id maps to a valid, existing employee
+        if (empty($settlement['employee_id']) || (int)$settlement['employee_id'] <= 0) {
+            wp_die(__('Invalid settlement record.', 'sfs-hr'));
+        }
+
         global $wpdb;
         $table = $wpdb->prefix . 'sfs_hr_settlements';
 
