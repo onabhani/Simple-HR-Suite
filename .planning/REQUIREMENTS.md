@@ -17,9 +17,9 @@ Requirements for audit fix milestone. Each maps to roadmap phases.
 ### Data Integrity
 
 - [x] **DATA-01**: Correct Settlement EOS formula from UAE 21-day to Saudi Article 84 (15-day for first 5 years, 30-day after)
-- [ ] **DATA-02**: Fix Leave balance corruption — opening/carried_over zeroed on every approval; preserve existing values
+- [x] **DATA-02**: Fix Leave balance corruption — opening/carried_over zeroed on every approval; preserve existing values
 - [ ] **DATA-03**: Fix Loans column mismatch — Payroll reads monthly_installment but column is installment_amount (zero deductions)
-- [ ] **DATA-04**: Fix Leave tenure boundary evaluation — compute at employee anniversary, not Jan 1
+- [x] **DATA-04**: Fix Leave tenure boundary evaluation — compute at employee anniversary, not Jan 1
 - [ ] **DATA-05**: Fix Loans installment rounding imbalance — reconcile frontend vs admin calculation paths
 - [x] **DATA-06**: Add Settlement trigger_type parameter — resignation vs termination vs contract-end affects payout percentage per Saudi law
 
@@ -39,7 +39,7 @@ Requirements for audit fix milestone. Each maps to roadmap phases.
 
 ### Tech Debt
 
-- [ ] **DEBT-01**: Replace shared Leave approval nonce with per-request scoped nonce
+- [x] **DEBT-01**: Replace shared Leave approval nonce with per-request scoped nonce
 - [x] **DEBT-02**: Align Setup_Wizard and Company_Profile capability check to sfs_hr.manage instead of manage_options
 
 ## Out of Scope
@@ -64,9 +64,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SQL-03 | Phase 26 | Complete |
 | SQL-04 | Phase 26 | Complete |
 | DATA-01 | Phase 27 | Complete |
-| DATA-02 | Phase 27 | Pending |
+| DATA-02 | Phase 27 | Complete |
 | DATA-03 | Phase 27 | Pending |
-| DATA-04 | Phase 27 | Pending |
+| DATA-04 | Phase 27 | Complete |
 | DATA-05 | Phase 27 | Pending |
 | DATA-06 | Phase 27 | Complete |
 | PERF-01 | Phase 28 | Pending |
@@ -77,7 +77,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LOGIC-03 | Phase 29 | Pending |
 | LOGIC-04 | Phase 29 | Pending |
 | LOGIC-05 | Phase 29 | Pending |
-| DEBT-01 | Phase 27 | Pending |
+| DEBT-01 | Phase 27 | Complete |
 | DEBT-02 | Phase 26 | Complete |
 
 **Coverage:**
