@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Audit Fixes (SQL, Data, Performance, Logic)
 status: completed
-stopped_at: Completed 27-03-PLAN.md
-last_updated: "2026-03-18T02:57:00.738Z"
+stopped_at: Completed 28-01-PLAN.md
+last_updated: "2026-03-18T03:15:56.600Z"
 last_activity: 2026-03-18 — Phase 27 plan 01 complete; Settlement EOS formula corrected to Saudi Article 84 rates, trigger_type added
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 10
+  completed_plans: 8
   percent: 25
 ---
 
@@ -49,6 +49,9 @@ Progress: [███░░░░░░░] 25% (v1.3: 2/5 phases complete — Ph
 - [Phase 27]: Anniversary-based tenure: compute_quota_for_year uses hire_date MM-DD in target year; Mar 1 fallback for Feb 29 hire dates
 - [Phase 27]: Per-request reject nonce sfs_hr_leave_reject_{id} applied to all 6 nonce points including 4 detail view inline forms across all approval stages
 - [Phase 27]: installment_amount is the canonical column in sfs_hr_loans; frontend now computes round(principal/installments,2) to match admin approval path
+- [Phase 28-01]: Dashboard counters 60s transient with _today date-aware cache bust for today-scoped stats
+- [Phase 28-01]: Org chart N+1 eliminated via get_users(include) batch + single IN() query before foreach loops
+- [Phase 28-01]: Reminders upcoming count rewritten to CASE/WHEN batch query (2 queries total) replacing 16 per-offset queries
 
 ### Pending Todos
 
@@ -60,6 +63,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-18T02:53:26.123Z
-Stopped at: Completed 27-03-PLAN.md
+Last session: 2026-03-18T03:15:56.598Z
+Stopped at: Completed 28-01-PLAN.md
 Resume file: None
