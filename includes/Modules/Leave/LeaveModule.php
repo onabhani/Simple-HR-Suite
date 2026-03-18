@@ -13,6 +13,24 @@ require_once __DIR__ . '/class-leave-ui.php';
 
 class LeaveModule {
 
+    /**
+     * Allowed leave request status transitions.
+     * Key = current status, value = array of valid next statuses.
+     */
+    private const ALLOWED_TRANSITIONS = [
+        'pending'                => [ 'approved', 'rejected', 'cancelled', 'pending_gm', 'pending_hr' ],
+        'pending_gm'             => [ 'approved', 'rejected', 'pending_hr' ],
+        'pending_hr'             => [ 'approved', 'rejected' ],
+        'approved'               => [ 'on_leave', 'cancel_pending', 'cancelled' ],
+        'on_leave'               => [ 'returned', 'early_returned', 'cancel_pending', 'cancelled' ],
+        'cancel_pending'         => [ 'cancelled', 'cancellation_rejected' ],
+        'rejected'               => [],
+        'cancelled'              => [],
+        'returned'               => [],
+        'early_returned'         => [],
+        'cancellation_rejected'  => [ 'approved' ],
+    ];
+
     public const SUPPORTED_LANGS = [
         'ar'  => 'Arabic',
         'ur'  => 'Urdu',
@@ -1129,8 +1147,14 @@ public function handle_approve(): void {
         ARRAY_A
     );
 
-    if ( ! $row || $row['status'] !== 'pending' ) {
-        wp_safe_redirect($redirect_base);
+    if ( ! $row ) {
+        wp_safe_redirect( $redirect_base );
+        exit;
+    }
+    $current_status      = $row['status'];
+    $valid_approve_from  = [ 'pending', 'pending_gm', 'pending_hr' ];
+    if ( ! in_array( $current_status, $valid_approve_from, true ) ) {
+        wp_safe_redirect( $redirect_base . '&err=' . rawurlencode( __( 'Request is not in an approvable state.', 'sfs-hr' ) ) );
         exit;
     }
 
@@ -1774,7 +1798,7 @@ public function handle_reject(): void {
     $emp_t = $wpdb->prefix.'sfs_hr_employees';
 
     $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $req_t WHERE id=%d", $id), ARRAY_A);
-    if (!$row || $row['status']!=='pending') wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending'));
+    if (!$row || ! $this->is_valid_transition( $row['status'], 'rejected' ) ) wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending'));
 
     // Guard: dept manager scope + self reject
     $empInfo = $wpdb->get_row($wpdb->prepare("SELECT user_id, dept_id FROM $emp_t WHERE id=%d", (int)$row['employee_id']), ARRAY_A);
@@ -1839,7 +1863,7 @@ public function handle_cancel(): void {
     $emp_t = $wpdb->prefix . 'sfs_hr_employees';
 
     $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $req_t WHERE id=%d", $id ), ARRAY_A );
-    if ( ! $row || $row['status'] !== 'pending' ) {
+    if ( ! $row || ! $this->is_valid_transition( $row['status'], 'cancelled' ) ) {
         wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&err=' . rawurlencode( __( 'Request not found or already processed.', 'sfs-hr' ) ) ) );
         exit;
     }
@@ -1913,7 +1937,7 @@ public function handle_cancel_approved(): void {
 
     // Fetch the leave request
     $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $req_t WHERE id=%d", $id ), ARRAY_A );
-    if ( ! $row || ! in_array( $row['status'], [ 'approved', 'on_leave' ], true ) ) {
+    if ( ! $row || ! $this->is_valid_transition( $row['status'], 'cancel_pending' ) ) {
         Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Only approved or on-leave requests can be cancelled.', 'sfs-hr' ) );
     }
 
@@ -2056,6 +2080,11 @@ public function handle_cancellation_approve(): void {
     $leave = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $req_t WHERE id=%d", (int) $cancel['leave_request_id'] ), ARRAY_A );
     if ( ! $leave ) {
         Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Leave request not found.', 'sfs-hr' ) );
+    }
+
+    // Guard: leave request must still be in a cancellable state
+    if ( ! $this->is_valid_transition( $leave['status'], 'cancelled' ) ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Leave request is not in a state that can be cancelled.', 'sfs-hr' ) );
     }
 
     $empInfo = $wpdb->get_row( $wpdb->prepare(
@@ -2295,6 +2324,12 @@ public function handle_cancellation_reject(): void {
 
     // Permission check
     $leave = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $req_t WHERE id=%d", (int) $cancel['leave_request_id'] ), ARRAY_A );
+
+    // Guard: leave request must still be in a cancellable state
+    if ( ! $leave || ! $this->is_valid_transition( $leave['status'], 'cancelled' ) ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Leave request is not in a state that supports cancellation rejection.', 'sfs-hr' ) );
+    }
+
     $empInfo = $wpdb->get_row( $wpdb->prepare(
         "SELECT e.*, d.manager_user_id FROM $emp_t e LEFT JOIN $dept_t d ON d.id = e.dept_id WHERE e.id = %d",
         (int) $leave['employee_id']
@@ -4883,6 +4918,18 @@ if ( empty( $types ) ) {
     /** Dept ids managed by a user. */
     private function manager_dept_ids_for_user(int $uid): array {
         return LeaveCalculationService::manager_dept_ids_for_user($uid);
+    }
+
+    /**
+     * Check if a status transition is allowed.
+     *
+     * @param string $from Current status
+     * @param string $to   Target status
+     * @return bool
+     */
+    private function is_valid_transition( string $from, string $to ): bool {
+        $allowed = self::ALLOWED_TRANSITIONS[ $from ] ?? [];
+        return in_array( $to, $allowed, true );
     }
 
 /**
