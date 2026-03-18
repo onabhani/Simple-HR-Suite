@@ -1,4 +1,31 @@
 # Milestones
+## v1.3 Audit Fixes (SQL, Data, Performance, Logic) (Shipped: 2026-03-18)
+
+**Phases completed:** 6 phases, 14 plans
+**Requirements:** 20/20 satisfied
+**Audit:** Passed (re-audit after gap closure Phase 30)
+**Timeline:** 1 day (2026-03-18), 56 commits
+
+**Key accomplishments:**
+- Eliminated SQL injection vectors: all 50+ unprepared queries across 11 modules now use `$wpdb->prepare()`, LIKE clauses use `esc_like()`, migration helpers replaced bare ALTER TABLE with idempotent `add_column_if_missing()`
+- Corrected Settlement EOS formula from UAE 21-day to Saudi Article 84 (15/30-day), added trigger_type support for resignation/termination/contract-end payout percentages
+- Fixed Leave balance corruption (opening/carried_over preserved on approval), tenure anniversary-based entitlement, per-request reject nonce, and Payroll loan column mismatch
+- Eliminated N+1 query patterns across 14+ locations, added transient caching for dashboard/overview counters (60-300s TTL), and LIMIT/pagination on all unbounded queries
+- Closed TOCTOU race conditions with DB transactions and row locks on leave/loan creation and approval paths, atomic reference number generation via MySQL named locks
+- Added state machine transition guards to Leave (6 handlers), Settlement, and Performance modules with proper execution termination and cache invalidation on mutations
+
+**Stats:**
+- 44 files changed, +2500/-1688 lines
+- Codebase: ~92K lines PHP
+- Git range: fix(25-01) → docs(phase-30)
+- 56 commits (2026-03-18)
+
+**Residual tech debt (cosmetic only):**
+- LeaveModule.php line 5326: INFORMATION_SCHEMA.STATISTICS lacks migration-only annotation
+- handle_approve() uses inline $valid_approve_from instead of shared is_valid_transition() (functionally equivalent)
+
+---
+
 ## v1.2 Auth & Access Control Fixes (Shipped: 2026-03-17)
 
 **Phases completed:** 5 phases, 8 plans

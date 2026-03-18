@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A comprehensive WordPress HR plugin managing employees, departments, leave, attendance, payroll, loans, and more for Saudi/Arabic-speaking organizations. Through v1.0-v1.2, the plugin has been structurally refactored (Attendance module), fully audited (662 findings across 19 modules), and hardened against all Critical/High auth and access-control vulnerabilities.
+A comprehensive WordPress HR plugin managing employees, departments, leave, attendance, payroll, loans, and more for Saudi/Arabic-speaking organizations. Through v1.0-v1.3, the plugin has been structurally refactored (Attendance module), fully audited (662 findings across 19 modules), hardened against all Critical/High auth vulnerabilities, and all Critical/High SQL injection, data integrity, performance, and logic/workflow findings have been fixed.
 
 ## Core Value
 
@@ -31,32 +31,18 @@ Reliable, secure HR operations for Saudi organizations — built on WordPress wi
 - ✓ Asset export row-limited, invoice upload MIME-allowlisted — v1.2
 - ✓ Resignation views department-scoped, redirect URL validated — v1.2
 - ✓ Settlement, Payroll, Employees capability format fixed to dotted sfs_hr.* — v1.2
+- ✓ All SQL queries use $wpdb->prepare() — no raw string interpolation in SQL — v1.3
+- ✓ Migration helpers use idempotent SHOW-based patterns, no bare ALTER TABLE — v1.3
+- ✓ Settlement EOS formula corrected to Saudi Article 84 with trigger_type support — v1.3
+- ✓ Leave balance preserved on approval, tenure steps at anniversary — v1.3
+- ✓ Payroll loan deductions use correct column, installment rounding aligned — v1.3
+- ✓ N+1 queries eliminated, dashboard counters cached, all queries bounded — v1.3
+- ✓ TOCTOU races closed with transactions/row locks on leave and loan operations — v1.3
+- ✓ State machine guards block invalid transitions in Leave, Settlement, Performance — v1.3
 
 ### Active
 
-## Current Milestone: v1.3 Audit Fixes (SQL, Data, Performance, Logic)
-
-**Goal:** Fix all remaining Critical/High findings from the v1.1 audit — SQL injection, data integrity, performance, and logic/workflow issues across all 19 modules.
-
-**Target fixes:**
-- SQL injection / prepared statement violations (11+ modules)
-- Data integrity bugs (Settlement EOS, Leave balance, Loans column, Leave tenure)
-- N+1 query patterns and unbounded queries (8+ modules)
-- TOCTOU races, state machine gaps, Saudi weekend bug (6+ modules)
-- Recurring antipatterns (information_schema on admin_init, bare ALTER TABLE, dofs_ hooks)
-- v1.2 tech debt (5 minor items)
-
-- [ ] Fix unprepared SQL queries across 11 modules (SQL-01 through SQL-04)
-- [ ] Correct Settlement EOS formula from UAE to Saudi Article 84 (DATA-01)
-- [ ] Fix Leave balance corruption on approval (DATA-02)
-- [ ] Fix Loans monthly_installment column missing (DATA-03)
-- [ ] Fix Leave tenure boundary evaluation at Jan 1 (DATA-04)
-- [ ] Fix N+1 query patterns across 8+ modules (PERF-01)
-- [ ] Fix unbounded queries without pagination (PERF-02)
-- [ ] Add caching for repeated dashboard queries (PERF-03)
-- [ ] Fix TOCTOU races in concurrent submissions (LOGIC-01)
-- [ ] Fix state machine gaps (LOGIC-02)
-- [ ] Fix Saudi weekend bug — Friday-only, missing Saturday (LOGIC-03)
+(No active requirements — all Critical/High audit findings resolved. Define next milestone to add new requirements.)
 
 ### Out of Scope
 
@@ -69,17 +55,16 @@ Reliable, secure HR operations for Saudi organizations — built on WordPress wi
 
 ## Context
 
-Shipped v1.2 with 20 files changed across 9 modules.
+Shipped v1.3 with 44 files changed, +2500/-1688 lines across all 19 modules.
 Tech stack: WordPress, PHP 8.2+, `$wpdb` direct queries, no ORM.
 REST API namespace: `sfs-hr/v1`. Capabilities: dotted `sfs_hr.*` format.
-19 modules ranging from 414 lines (PWA) to 18,218 lines (Attendance).
-Core + Frontend shared code: ~25K lines.
+Codebase: ~92K lines PHP across 19 modules + Core/Frontend.
 No CI/CD, no test suite, no Composer/npm.
 
-Known tech debt from v1.2:
+Known tech debt (cosmetic only):
 - Performance REST `get_managed_department_ids()` missing `AND active = 1` filter
 - `sfs_hr_payslip_view` capability declared but never assigned to any role
-- Stale docblock on `is_hr_user()` mentioning removed sfs_hr_manager role
+- LeaveModule handle_approve() uses inline $valid_approve_from instead of shared is_valid_transition() (functionally equivalent)
 
 ## Key Decisions
 
@@ -89,12 +74,16 @@ Known tech debt from v1.2:
 | Review order by size/risk | Largest modules have most surface area | ✓ Good — found highest-severity issues in large modules first |
 | Batch small modules (Ph 18-19) | Under 1.3K lines each, efficient grouping | ✓ Good — covered 6 modules in 2 phases |
 | 4 metrics per module | Security + performance + duplication + logical | ✓ Good — comprehensive coverage |
-| Saudi Labor Law EOS formula wrong | Settlement uses UAE 21-day formula | ⚠️ Revisit — requires legal confirmation before fix |
+| Saudi Labor Law EOS formula wrong | Settlement uses UAE 21-day formula | ✓ Fixed v1.3 — Article 84 rates + trigger_type |
 | v1.2 scope: auth-only fixes | Focus on most critical security gaps first | ✓ Good — 32 auth gaps closed in 1 day |
 | Capability-before-nonce pattern | Fails fast without revealing nonce validity | ✓ Good — consistent across Leave, Hiring, Loans, Assets |
 | HMAC-SHA-256 for kiosk tokens | Prevents offline rainbow table attacks on QR tokens | ✓ Good — rotating nonce makes precomputation infeasible |
 | Role allowlist for hiring | Blocks administrator escalation during conversion | ✓ Good — simple, auditable security boundary |
 | TeamTab level < 40 threshold | HR/GM/Admin see org-wide; manager stays dept-scoped | ✓ Good — matches Role_Resolver level hierarchy |
+| SQL-first fix ordering | Migration helpers before SQL injection fixes | ✓ Good — clean infrastructure for Phase 26 |
+| Transient caching with 60s TTL | Dashboard/leave counters cached, no invalidation initially | ✓ Good — invalidation added in Phase 30 gap closure |
+| Named locks for ref numbers | GET_LOCK instead of FOR UPDATE (callers may be in transactions) | ✓ Good — avoids nested transaction issues |
+| Transaction-wrap approve path | Balance read-before-write race fixed in gap closure | ✓ Good — closes audit integration gap |
 
 ## Constraints
 
@@ -105,4 +94,4 @@ Known tech debt from v1.2:
 - **No CI/CD** — manual deployments, changes must be low-risk
 
 ---
-*Last updated: 2026-03-17 after v1.3 milestone start*
+*Last updated: 2026-03-18 after v1.3 milestone completion*

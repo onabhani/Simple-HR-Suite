@@ -140,6 +140,54 @@
 
 ---
 
+## Milestone: v1.3 — Audit Fixes (SQL, Data, Performance, Logic)
+
+**Shipped:** 2026-03-18
+**Phases:** 6 | **Plans:** 14 | **Sessions:** ~2
+
+### What Was Built
+- SQL injection elimination: 50+ unprepared queries fixed across 11 modules, LIKE clauses secured, migration helpers made idempotent
+- Saudi labor law compliance: Settlement EOS formula corrected to Article 84, trigger_type support for resignation/termination/contract-end
+- Data integrity fixes: Leave balance preserved on approval, tenure anniversary-based, Payroll loan column aligned, installment rounding reconciled
+- Performance optimization: N+1 patterns eliminated (14+ locations), transient caching for dashboard/overview/leave counters, all queries bounded with LIMIT
+- Concurrency safety: TOCTOU races closed with DB transactions and FOR UPDATE locks on leave/loan creation and approval, atomic ref numbers via named locks
+- State machine guards: ALLOWED_TRANSITIONS + is_valid_transition() in Leave (6 handlers), Settlement, Performance — with proper exit after redirect and cache invalidation
+
+### What Worked
+- Phase ordering (migration→SQL→data→perf→logic) created clean infrastructure for downstream phases
+- Integration checker caught 3 cross-phase gaps (missing exit, approve race, no cache invalidation) that per-phase verification missed
+- Gap closure cycle worked smoothly: audit→plan-milestone-gaps→plan-phase→execute→re-audit→passed in one session
+- Named locks for reference numbers avoided nested transaction issues (GET_LOCK instead of FOR UPDATE)
+- Phase 30 gap closure was clean and fast (1 plan, 2 tasks, all in one file)
+
+### What Was Inefficient
+- SUMMARY.md `one_liner` field null across all 14 plans — required manual accomplishment extraction at milestone completion
+- `requirements_completed` frontmatter populated for only 6 of 14 plans — same SUMMARY completeness issue as v1.2
+- Nyquist VALIDATION.md missing for all 6 phases — should either enforce or disable the setting
+- Phase 29 verification passed but missed the handle_reject() exit bug — per-phase verifiers don't catch cross-phase integration gaps
+- Progress table milestone column formatting inconsistent for phases 25-30 (missing v1.3 label in some rows)
+
+### Patterns Established
+- `ALLOWED_TRANSITIONS` private const + `is_valid_transition()` helper for state machine guards
+- `invalidate_leave_caches()` helper pattern for centralized cache bust on status mutations
+- `has_overlap_locked()` method alongside `has_overlap()` for backward-compatible transaction-safe variant
+- `REQUEST_TIME_FLOAT` as static cache key for per-request scope in PHP-FPM workers
+- Named MySQL locks (`GET_LOCK`/`RELEASE_LOCK`) for sequences that run inside existing transactions
+
+### Key Lessons
+1. Integration checkers find bugs that per-phase verifiers miss — always run milestone audit before shipping
+2. Gap closure cycle (audit→plan-gaps→execute→re-audit) is a reliable way to close integration gaps without scope creep
+3. Transaction scope matters: wrapping creation paths doesn't protect approval paths — each mutation path needs independent analysis
+4. Cache invalidation should be planned alongside cache creation, not as an afterthought — Phase 28 deferred it, Phase 30 had to fix it
+5. SUMMARY.md frontmatter completeness remains an unsolved process issue across 3 milestones
+
+### Cost Observations
+- Model mix: ~30% opus (orchestration), ~70% sonnet (execution/verification)
+- Sessions: ~2
+- Notable: 20 requirements fixed across 44 files in 1 day — fix milestones with audit-backed requirements are fast
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -149,6 +197,7 @@
 | v1.0 | ~2 | 3 | First milestone — established extraction patterns |
 | v1.1 | ~4 | 16 | Audit-only milestone — 662 findings across 87K lines |
 | v1.2 | ~2 | 5 | Auth-fix milestone — 32 security gaps closed across 9 modules |
+| v1.3 | ~2 | 6 | Fix milestone — 20 SQL/data/perf/logic issues + gap closure cycle |
 
 ### Cumulative Quality
 
@@ -157,6 +206,7 @@
 | v1.0 | 0 | 0% | — | +5400/-5391 (structural refactor) |
 | v1.1 | 0 | 0% | 662 | 0 (audit-only) |
 | v1.2 | 0 | 0% | 32 fixed | +366/-135 (auth hardening) |
+| v1.3 | 0 | 0% | 20 fixed | +2500/-1688 (SQL/data/perf/logic) |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -165,4 +215,6 @@
 3. Establishing taxonomy early (finding IDs, severity, wpdb accounting) pays compound dividends across later phases
 4. Cross-module wiring validation catches integration bugs that single-module reviews miss
 5. Grouping fix phases by pattern (not module) creates reusable patterns that compound across later phases (v1.2)
-6. Integration checker agents catch consistency issues (active filters, capability assignments) that per-phase verification misses (v1.2)
+6. Integration checker agents catch consistency issues (active filters, capability assignments, missing exit, approval race) that per-phase verification misses (v1.2, v1.3)
+7. Gap closure cycle (audit→plan-gaps→execute→re-audit) reliably closes integration gaps without scope creep (v1.3)
+8. Cache invalidation should be designed alongside cache creation — deferring it creates integration gaps (v1.3)

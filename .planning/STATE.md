@@ -4,7 +4,7 @@ milestone: v1.3
 milestone_name: Audit Fixes (SQL, Data, Performance, Logic)
 status: completed
 stopped_at: Completed 30-01-PLAN.md
-last_updated: "2026-03-18T05:24:31.521Z"
+last_updated: "2026-03-18T06:08:33.228Z"
 last_activity: 2026-03-18 — Phase 30 plan 01 complete; reject guard fall-through fixed, approve balance race fixed with DB transaction + FOR UPDATE, all 5 leave mutation handlers now invalidate transient caches
 progress:
   total_phases: 6
@@ -18,10 +18,10 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-17)
+See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Reliable, secure HR operations for Saudi organizations
-**Current focus:** v1.3 gap closure — Phase 30 complete (Leave Handler Safety Hardening)
+**Current focus:** v1.3 shipped — all Critical/High audit findings resolved. Planning next milestone.
 
 ## Current Position
 
