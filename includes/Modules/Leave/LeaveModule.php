@@ -278,8 +278,6 @@ public function render_requests(): void {
     $rows  = $wpdb->get_results($wpdb->prepare($sql, ...$params_rows), ARRAY_A);
     $pages = max(1, (int)ceil($total / $pp));
 
-    $nonceR = wp_create_nonce('sfs_hr_leave_reject');
-
     // Output styles
     $this->output_leave_requests_styles();
 
@@ -557,7 +555,7 @@ public function render_requests(): void {
             'approverNote'  => $r['approver_note'] ?? '',
             'canApprove'    => $can_approve,
             'nonceA'        => wp_create_nonce( 'sfs_hr_leave_approve_' . (int) $r['id'] ),
-            'nonceR'        => $nonceR,
+            'nonceR'        => wp_create_nonce( 'sfs_hr_leave_reject_' . (int) $r['id'] ),
             'history'       => $history_formatted,
         ];
     }, $rows))); ?>;
@@ -1709,9 +1707,8 @@ public function handle_approve(): void {
 
 public function handle_reject(): void {
     Helpers::require_cap('sfs_hr.leave.review');
-    check_admin_referer('sfs_hr_leave_reject');
-
     $id   = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+    check_admin_referer('sfs_hr_leave_reject_' . $id);
     $note = isset($_POST['note']) ? sanitize_text_field($_POST['note']) : '';
 
     // Require rejection reason
@@ -6923,7 +6920,7 @@ public function render_calendar(): void {
         ) );
 
         $nonce_approve = wp_create_nonce( 'sfs_hr_leave_approve_' . $request_id );
-        $nonce_reject = wp_create_nonce( 'sfs_hr_leave_reject' );
+        $nonce_reject = wp_create_nonce( 'sfs_hr_leave_reject_' . $request_id );
         $nonce_cancel = wp_create_nonce( 'sfs_hr_leave_cancel_' . $request_id );
 
         ?>
@@ -7106,7 +7103,7 @@ public function render_calendar(): void {
                                     </form>
                                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;margin-top:10px;" onsubmit="return sfsHrConfirmReject(this);">
                                         <input type="hidden" name="action" value="sfs_hr_leave_reject" />
-                                        <?php wp_nonce_field( 'sfs_hr_leave_reject', '_wpnonce' ); ?>
+                                        <?php wp_nonce_field( 'sfs_hr_leave_reject_' . $request_id, '_wpnonce' ); ?>
                                         <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
                                         <input type="text" name="note" class="reject-note-input" placeholder="<?php esc_attr_e( 'Reason (required)', 'sfs-hr' ); ?>" style="width:300px;" />
                                         <button type="submit" class="button"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>
@@ -7129,7 +7126,7 @@ public function render_calendar(): void {
                                     </form>
                                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;margin-top:10px;" onsubmit="return sfsHrConfirmReject(this);">
                                         <input type="hidden" name="action" value="sfs_hr_leave_reject" />
-                                        <?php wp_nonce_field( 'sfs_hr_leave_reject', '_wpnonce' ); ?>
+                                        <?php wp_nonce_field( 'sfs_hr_leave_reject_' . $request_id, '_wpnonce' ); ?>
                                         <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
                                         <input type="text" name="note" class="reject-note-input" placeholder="<?php esc_attr_e( 'Reason (required)', 'sfs-hr' ); ?>" style="width:300px;" />
                                         <button type="submit" class="button"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>
@@ -7161,7 +7158,7 @@ public function render_calendar(): void {
                                     </form>
                                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;margin-top:10px;" onsubmit="return sfsHrConfirmReject(this);">
                                         <input type="hidden" name="action" value="sfs_hr_leave_reject" />
-                                        <?php wp_nonce_field( 'sfs_hr_leave_reject', '_wpnonce' ); ?>
+                                        <?php wp_nonce_field( 'sfs_hr_leave_reject_' . $request_id, '_wpnonce' ); ?>
                                         <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
                                         <input type="text" name="note" class="reject-note-input" placeholder="<?php esc_attr_e( 'Reason (required)', 'sfs-hr' ); ?>" style="width:300px;" />
                                         <button type="submit" class="button"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>
@@ -7192,7 +7189,7 @@ public function render_calendar(): void {
                                     </form>
                                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;margin-top:10px;" onsubmit="return sfsHrConfirmReject(this);">
                                         <input type="hidden" name="action" value="sfs_hr_leave_reject" />
-                                        <?php wp_nonce_field( 'sfs_hr_leave_reject', '_wpnonce' ); ?>
+                                        <?php wp_nonce_field( 'sfs_hr_leave_reject_' . $request_id, '_wpnonce' ); ?>
                                         <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
                                         <input type="text" name="note" class="reject-note-input" placeholder="<?php esc_attr_e( 'Reason (required)', 'sfs-hr' ); ?>" style="width:300px;" />
                                         <button type="submit" class="button"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>
