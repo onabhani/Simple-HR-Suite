@@ -75,7 +75,8 @@ class Documents_Service {
              WHERE d.status = 'active'
                AND d.expiry_date IS NOT NULL
                AND d.expiry_date BETWEEN %s AND %s
-             ORDER BY d.expiry_date ASC",
+             ORDER BY d.expiry_date ASC
+             LIMIT 100",
             $today,
             $future_date
         ));

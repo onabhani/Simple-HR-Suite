@@ -4412,7 +4412,7 @@ public function render_exceptions(): void {
         if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) { wp_die( esc_html__( 'Access denied', 'sfs-hr' ) ); }
         global $wpdb; $t = $wpdb->prefix . 'sfs_hr_attendance_devices';
 
-        $rows = $wpdb->get_results( "SELECT * FROM {$t} ORDER BY active DESC, allowed_dept_id, label" );
+        $rows = $wpdb->get_results( "SELECT * FROM {$t} ORDER BY active DESC, allowed_dept_id, label LIMIT 200" );
         // Get departments from Departments module – build ID-keyed label map.
         $dept_list   = Helpers::get_departments_for_select( true );
         $dept_labels = [];
@@ -5213,7 +5213,7 @@ exit;
 $debug = !empty($_GET['debug']);
 
 
-  // 2) Employees for the dropdown (build BEFORE echoing the form)
+  // 2) Employees for the dropdown (build BEFORE echoing the form; capped at 500)
   $empRows = $wpdb->get_results("
     SELECT e.id,
            COALESCE(
@@ -5225,6 +5225,7 @@ $debug = !empty($_GET['debug']);
     LEFT JOIN {$uT} u ON u.ID = e.user_id
     WHERE e.status = 'active'
     ORDER BY name ASC
+    LIMIT 500
   ");
 
 // 3) Build WHERE — punch_time is stored UTC, convert local bounds to UTC
@@ -5718,7 +5719,7 @@ $rows = $wpdb->get_results("
     $nameParts[] = "NULLIF(TRIM(u.user_login),'')";
     $nameSQL = 'COALESCE(' . implode(',', $nameParts) . ", CONCAT('#', e.id)) AS name";
 
-    // Filter by active employees only (consistent with punches tab)
+    // Filter by active employees only (consistent with punches tab); capped at 500
     $statusFilter = $has('status') ? "WHERE e.status = 'active'" : "";
 
     $emps = $wpdb->get_results("
@@ -5727,6 +5728,7 @@ $rows = $wpdb->get_results("
         LEFT JOIN {$uT} u ON u.ID = e.user_id
         {$statusFilter}
         ORDER BY name ASC
+        LIMIT 500
     ");
 
     // Export URL (reuse existing export endpoint; pass 25th-range when in period mode, or single day)

@@ -144,7 +144,8 @@ class AdminPages {
                   FROM {$wpdb->prefix}sfs_hr_candidates c
                   LEFT JOIN {$wpdb->prefix}sfs_hr_departments d ON c.dept_id = d.id
                   $where
-                  ORDER BY c.created_at DESC";
+                  ORDER BY c.created_at DESC
+                  LIMIT 50";
 
         $candidates = $params ? $wpdb->get_results($wpdb->prepare($query, ...$params)) : $wpdb->get_results($query);
         $statuses = HiringModule::get_candidate_statuses();
@@ -774,7 +775,8 @@ class AdminPages {
                   LEFT JOIN {$wpdb->prefix}sfs_hr_departments d ON t.dept_id = d.id
                   LEFT JOIN {$wpdb->prefix}sfs_hr_employees e ON t.supervisor_id = e.id
                   $where
-                  ORDER BY t.created_at DESC";
+                  ORDER BY t.created_at DESC
+                  LIMIT 50";
 
         $trainees = $params ? $wpdb->get_results($wpdb->prepare($query, ...$params)) : $wpdb->get_results($query);
         $statuses = HiringModule::get_trainee_statuses();

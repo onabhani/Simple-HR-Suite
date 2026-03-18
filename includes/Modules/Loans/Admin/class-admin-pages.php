@@ -168,20 +168,34 @@ class AdminPages {
 
         $where_sql = implode( ' AND ', $where );
 
-        $query = "SELECT l.*,
-                         CONCAT(e.first_name, ' ', e.last_name) as employee_name,
-                         e.employee_code
-                  FROM {$table} l
-                  LEFT JOIN {$emp_table} e ON l.employee_id = e.id
-                  WHERE {$where_sql}
-                  ORDER BY l.created_at DESC";
+        // Pagination
+        $per_page    = 50;
+        $current_page = max( 1, isset( $_GET['paged'] ) ? (int) $_GET['paged'] : 1 );
 
-        if ( ! empty( $params ) ) {
-            $query = $wpdb->prepare( $query, ...$params );
-        }
+        // Count total for pagination
+        $count_query = "SELECT COUNT(*) FROM {$table} l LEFT JOIN {$emp_table} e ON l.employee_id = e.id WHERE {$where_sql}";
+        $total = ! empty( $params )
+            ? (int) $wpdb->get_var( $wpdb->prepare( $count_query, ...$params ) )
+            : (int) $wpdb->get_var( $count_query );
+
+        $total_pages  = max( 1, (int) ceil( $total / $per_page ) );
+        $current_page = min( $current_page, $total_pages );
+        $offset       = ( $current_page - 1 ) * $per_page;
+
+        $offset_params = array_merge( $params, [ $per_page, $offset ] );
+        $query = $wpdb->prepare(
+            "SELECT l.*,
+                     CONCAT(e.first_name, ' ', e.last_name) as employee_name,
+                     e.employee_code
+              FROM {$table} l
+              LEFT JOIN {$emp_table} e ON l.employee_id = e.id
+              WHERE {$where_sql}
+              ORDER BY l.created_at DESC
+              LIMIT %d OFFSET %d",
+            ...$offset_params
+        );
 
         $loans = $wpdb->get_results( $query );
-        $total = count( $loans );
 
         ?>
         <!-- Toolbar -->
@@ -288,6 +302,35 @@ class AdminPages {
                 </tbody>
             </table>
         </div>
+
+        <?php if ( $total_pages > 1 ) : ?>
+        <div class="tablenav bottom" style="margin-top:10px;">
+            <div class="tablenav-pages">
+                <span class="displaying-num">
+                    <?php echo esc_html( sprintf(
+                        /* translators: 1: total count */
+                        __( '%d items', 'sfs-hr' ),
+                        $total
+                    ) ); ?>
+                </span>
+                <?php
+                $base_url = add_query_arg( [
+                    'page'          => 'sfs-hr-loans',
+                    'filter_status' => $current_status !== '' ? $current_status : false,
+                    's'             => $search !== '' ? $search : false,
+                ], admin_url( 'admin.php' ) );
+                echo wp_kses_post( paginate_links( [
+                    'base'      => add_query_arg( 'paged', '%#%', $base_url ),
+                    'format'    => '',
+                    'current'   => $current_page,
+                    'total'     => $total_pages,
+                    'prev_text' => '&laquo;',
+                    'next_text' => '&raquo;',
+                ] ) );
+                ?>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <!-- Mobile Slide-up Modal -->
         <div id="sfs-hr-loan-modal" class="sfs-hr-loan-modal">
@@ -738,14 +781,15 @@ class AdminPages {
         $emp_table = $wpdb->prefix . 'sfs_hr_employees';
         $dept_table = $wpdb->prefix . 'sfs_hr_departments';
 
-        // Get all active employees
+        // Get active employees for dropdown (capped at 500)
         $employees = $wpdb->get_results(
             "SELECT e.id, e.employee_code, e.first_name, e.last_name,
                     COALESCE(d.name, 'N/A') as department
              FROM {$emp_table} e
              LEFT JOIN {$dept_table} d ON e.dept_id = d.id
              WHERE e.status = 'active'
-             ORDER BY e.first_name, e.last_name"
+             ORDER BY e.first_name, e.last_name
+             LIMIT 500"
         );
 
         ?>

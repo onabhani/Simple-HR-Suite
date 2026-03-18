@@ -132,7 +132,8 @@ class Alerts_Service {
              WHERE a.status = 'active' {$join_where}
              ORDER BY
                 CASE a.severity WHEN 'critical' THEN 1 WHEN 'warning' THEN 2 ELSE 3 END,
-                a.created_at DESC"
+                a.created_at DESC
+             LIMIT 100"
         );
     }
 
