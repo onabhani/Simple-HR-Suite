@@ -33,9 +33,9 @@ Requirements for audit fix milestone. Each maps to roadmap phases.
 
 - [ ] **LOGIC-01**: Fix TOCTOU races with DB transactions or row-level locks (Leave overlap, Loans fiscal year, Attendance ref numbers, Payroll lock — 6 locations)
 - [ ] **LOGIC-02**: Add state machine guards preventing invalid status transitions in Leave, Settlement, Performance (6 locations)
-- [ ] **LOGIC-03**: Fix Saudi weekend bug — exclude both Friday AND Saturday in Payroll working-day calculation
-- [ ] **LOGIC-04**: Fix duplicate early-leave notification suppression in Attendance deferred handlers
-- [ ] **LOGIC-05**: Fix dynamic capability caching — static cache must survive AJAX requests
+- [x] **LOGIC-03**: Fix Saudi weekend bug — exclude both Friday AND Saturday in Payroll working-day calculation
+- [x] **LOGIC-04**: Fix duplicate early-leave notification suppression in Attendance deferred handlers
+- [x] **LOGIC-05**: Fix dynamic capability caching — static cache must survive AJAX requests
 
 ### Tech Debt
 
@@ -74,9 +74,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PERF-03 | Phase 28 | Complete |
 | LOGIC-01 | Phase 29 | Pending |
 | LOGIC-02 | Phase 29 | Pending |
-| LOGIC-03 | Phase 29 | Pending |
-| LOGIC-04 | Phase 29 | Pending |
-| LOGIC-05 | Phase 29 | Pending |
+| LOGIC-03 | Phase 29 | Complete |
+| LOGIC-04 | Phase 29 | Complete |
+| LOGIC-05 | Phase 29 | Complete |
 | DEBT-01 | Phase 27 | Complete |
 | DEBT-02 | Phase 26 | Complete |
 

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Audit Fixes (SQL, Data, Performance, Logic)
 status: completed
-stopped_at: Completed 28-03-PLAN.md
-last_updated: "2026-03-18T03:42:09.355Z"
+stopped_at: Completed 29-01-PLAN.md
+last_updated: "2026-03-18T04:14:51.593Z"
 last_activity: 2026-03-18 — Phase 27 plan 01 complete; Settlement EOS formula corrected to Saudi Article 84 rates, trigger_type added
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
+  total_plans: 13
+  completed_plans: 11
   percent: 25
 ---
 
@@ -58,6 +58,8 @@ Progress: [███░░░░░░░] 25% (v1.3: 2/5 phases complete — Ph
 - [Phase 28]: WF Status batch shift resolution: falls back to resolve_shift_for_date() for employees with no assignment row
 - [Phase 28]: Absent_Notifications: send_all_absent_notifications() combined dispatch avoids double DB query in cron
 - [Phase 28]: ATT-API-PERF-001: dept_label_from_employee() never called in loop; assignments tab uses JOIN; no code change needed
+- [Phase 29-01]: Leave business_days() not changed (Article 109 calendar days minus Fridays only); only Payroll count_working_days needed Saturday skip
+- [Phase 29-01]: REQUEST_TIME_FLOAT used as capability cache key — constant per request, resets between requests in PHP-FPM workers
 
 ### Pending Todos
 
@@ -69,6 +71,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-18T03:37:22.800Z
-Stopped at: Completed 28-03-PLAN.md
+Last session: 2026-03-18T04:14:51.591Z
+Stopped at: Completed 29-01-PLAN.md
 Resume file: None
