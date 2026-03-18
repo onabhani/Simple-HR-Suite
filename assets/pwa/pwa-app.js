@@ -256,7 +256,8 @@
         if (!deviceId) return false;
 
         try {
-            var url = window.location.origin + '/wp-json/sfs-hr/v1/attendance/kiosk-roster?device=' + deviceId;
+            var restBase = (window.sfsHrPwa && window.sfsHrPwa.restUrl) ? window.sfsHrPwa.restUrl : window.location.origin + '/wp-json/';
+            var url = restBase + 'sfs-hr/v1/attendance/kiosk-roster?device=' + deviceId;
             var resp = await fetch(url, {
                 method: 'GET',
                 credentials: 'same-origin',

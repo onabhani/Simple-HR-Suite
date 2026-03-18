@@ -994,7 +994,7 @@ class Shortcodes {
 
                     function stopStream() {
                         if (stream) {
-                            try { stream.getTracks().forEach(function(t){ t.stop(); }); } catch(e) {}
+                            try { stream.getTracks().forEach(function(t){ t.stop(); }); } catch(e) { console.warn('[SFS HR]', e); }
                         }
                         stream = null;
                         if (video) {
@@ -1025,7 +1025,7 @@ class Shortcodes {
                                 if (playPromise && playPromise.catch) {
                                     playPromise.catch(function() {});
                                 }
-                            } catch (e) {}
+                            } catch (e) { console.warn('[SFS HR]', e); }
                         }
 
                         navigator.mediaDevices.getUserMedia(primaryConstraints)
@@ -1514,7 +1514,7 @@ class Shortcodes {
     .sfs-hr-alert {
         padding:12px;
         background:#fef3c7;
-        border:1px solid:#fde68a;
+        border:1px solid #fde68a;
         border-radius:8px;
         margin-bottom:10px;
     }
@@ -2069,7 +2069,6 @@ class Shortcodes {
         var pwaAppEl = document.getElementById(inst);
         if (pwaAppEl && document.body.classList.contains('admin-bar')) {
             var scrollThreshold = 10;
-            var lastScrollY = 0;
 
             function handleScroll() {
                 var currentScrollY = window.scrollY || window.pageYOffset;
@@ -2078,7 +2077,6 @@ class Shortcodes {
                 } else {
                     pwaAppEl.classList.remove('sfs-hr-scrolled');
                 }
-                lastScrollY = currentScrollY;
             }
 
             window.addEventListener('scroll', handleScroll, { passive: true });
@@ -2136,7 +2134,6 @@ class Shortcodes {
 
             // Translation cache - loaded from JSON files
             var translations = {};
-            var translationsLoaded = false;
 
             // Inline fallback translations (essential keys only)
             var fallbackTranslations = {
@@ -2160,7 +2157,6 @@ class Shortcodes {
                         })
                         .then(function(data) {
                             translations[lang] = data;
-                            translationsLoaded = true;
                             resolve(data);
                         })
                         .catch(function() {

@@ -412,12 +412,7 @@
 
     /* When admin bar is present, position header below it */
     .admin-bar .sfs-hr-pwa-app .sfs-hr-app-header {
-        top: 32px !important;
-    }
-    @media screen and (max-width: 782px) {
-        .admin-bar .sfs-hr-pwa-app .sfs-hr-app-header {
-            top: 46px !important;
-        }
+        top: 46px !important;
     }
 
     /* When scrolled, move header to absolute top and fill gap with header color */
@@ -447,12 +442,7 @@
 
     /* Extra padding when admin bar is present */
     .admin-bar .sfs-hr-pwa-app .sfs-hr-profile {
-        padding-top: 102px;
-    }
-    @media screen and (max-width: 782px) {
-        .admin-bar .sfs-hr-pwa-app .sfs-hr-profile {
-            padding-top: 116px;
-        }
+        padding-top: 116px;
     }
 
     /* Overview tab: reduce top gap so hero starts right after header */
@@ -462,11 +452,6 @@
     }
     .admin-bar .sfs-hr-pwa-app .sfs-hr-profile.sfs-hr-tab--overview {
         padding-top: 56px;
-    }
-    @media screen and (max-width: 782px) {
-        .admin-bar .sfs-hr-pwa-app .sfs-hr-profile.sfs-hr-tab--overview {
-            padding-top: 56px;
-        }
     }
 
     /* Profile header card on mobile - unified card style */
@@ -1091,12 +1076,6 @@ body:has(.sfs-hr-pwa-app) #masthead {
 .sfs-hr-pwa-app a,
 .sfs-hr-pwa-app button {
     transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
-}
-
-/* Pull to refresh indicator (visual only) */
-.sfs-hr-pwa-app::before {
-    content: '';
-    display: none;
 }
 
 /* Profile completion meter mobile */

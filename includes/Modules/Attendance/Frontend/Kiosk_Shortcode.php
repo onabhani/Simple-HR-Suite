@@ -982,12 +982,7 @@ const SUGGEST_TIMES = {
       const flashEl  = document.getElementById('sfs-kiosk-flash-<?php echo $inst; ?>');
       const camBadge = document.getElementById('sfs-kiosk-cam-badge-<?php echo $inst; ?>');
 
-      // QR elems
-      const qrWrap  = document.getElementById('sfs-kiosk-camwrap-<?php echo $inst; ?>');
-      const qrVid   = document.getElementById('sfs-kiosk-qr-video-<?php echo $inst; ?>');
-      
       // STOP button is now sfs-kiosk-stop (in scan header), handled via stopBtn below
-      const qrStop = null; // removed: old hidden "Stop Camera" button no longer exists
 
 
 
@@ -1056,13 +1051,12 @@ function exitToMenu(){
 
 // iOS inline playback hardening
 try {
-  qrVid.setAttribute('playsinline', '');
-  qrVid.setAttribute('webkit-playsinline', '');
-  qrVid.muted = true;
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
+  video.muted = true;
 } catch (_) {}
 
-// Debug flag for console logging (set to true to enable debug logs)
-const DBG = false;
+
 
 
 
@@ -1187,7 +1181,6 @@ if (laneRoot) {
       ROOT.dataset.view = 'scan';
 
       // 4) force camera wrapper visible (in case refresh()/stopQr() hid it)
-      if (qrWrap)  qrWrap.style.display  = '';
       if (camwrap) camwrap.style.display = 'grid';
 
       // 5) actually start the scanner
@@ -1744,7 +1737,6 @@ async function startQr(){
     dbg('startQr: jsQR loaded?', typeof window.jsQR === 'function');
     if (typeof window.jsQR !== 'function'){
       setStat(t.qr_engine_not_loaded||'QR engine not loaded. Please wait and press Start again.', 'error');
-      if (qrStop)  qrStop.disabled  = true;
       return;
     }
   }
@@ -1761,12 +1753,12 @@ async function startQr(){
   try {
     dbg('startQr: getUserMedia requesting…', constraints.video);
     qrStream = await navigator.mediaDevices.getUserMedia(constraints);
-    qrVid.srcObject = qrStream;
-    await new Promise(r => qrVid.onloadedmetadata = r);
-    dbg('startQr: stream ready', { w: qrVid.videoWidth, h: qrVid.videoHeight });
+    video.srcObject = qrStream;
+    await new Promise(r => video.onloadedmetadata = r);
+    dbg('startQr: stream ready', { w: video.videoWidth, h: video.videoHeight });
 
     try {
-      await qrVid.play();
+      await video.play();
     } catch(e) {
       dbg('startQr: play() err', e && e.message);
     }
@@ -1777,7 +1769,6 @@ async function startQr(){
     touchActivity();
     if (camwrap) camwrap.style.display = 'grid';
 
-    if (qrStop) qrStop.disabled = false;
     if (qrStat) qrStat.textContent = t.scanning||'Scanning…';
 
     // Start live selfie preview only if the selfie canvas exists
@@ -1793,8 +1784,8 @@ async function startQr(){
     const SCAN_INTERVAL_MS = 150; // throttle QR decode to ~7fps to reduce GC pressure
 
     const ensureCanvasSize = () => {
-      const w = qrVid.videoWidth  || 640;
-      const h = qrVid.videoHeight || 480;
+      const w = video.videoWidth  || 640;
+      const h = video.videoHeight || 480;
       if (w === 0 || h === 0) return false;
       if (scanCanvas.width !== w || scanCanvas.height !== h){
         scanCanvas.width = w;
@@ -1829,7 +1820,7 @@ async function startQr(){
           lastScanTs = now;
 
           const w = scanCanvas.width, h = scanCanvas.height;
-          sctx.drawImage(qrVid, 0, 0, w, h);
+          sctx.drawImage(video, 0, 0, w, h);
 
           // (A) BarcodeDetector path
           if (useBarcodeDetector && detector) {
@@ -1935,14 +1926,11 @@ function stopQr(){
   showScannerUI(false);
   if (qrLoop) { cancelAnimationFrame(qrLoop); qrLoop = null; }
   if (selfiePreviewLoop) { cancelAnimationFrame(selfiePreviewLoop); selfiePreviewLoop = null; }
-  if (qrStream) { try { qrStream.getTracks().forEach(t=>t.stop()); } catch(_) {} qrStream = null; }
-  if (qrVid) qrVid.srcObject = null;
+  if (qrStream) { try { qrStream.getTracks().forEach(track=>track.stop()); } catch(_) {} qrStream = null; }
+  if (video) video.srcObject = null;
 
   // Clear inline display styles so CSS [data-view="menu"] rules take effect
   if (camwrap) camwrap.style.display = '';
-  if (qrWrap) qrWrap.style.display = '';
-
-  if (qrStop)  qrStop.disabled  = true;
   if (qrStat)  qrStat.textContent = '';
   lastUIBeat = 0;
   uiMode = 'idle';
@@ -1988,8 +1976,6 @@ if (laneChip) {
 
      
      
-      qrStop  && qrStop.addEventListener('click',  stopQr);
-
       // helper: read ?emp= & ?token= from either a URL or raw text/JSON
 function _qrNormalize(s){
   // remove LTR/RTL & embedding marks; collapse whitespace
@@ -2367,92 +2353,6 @@ function showPunchError(msg, detail){
              (t.good_evening||'Good evening!');
 })();
 
-
-
-
-      async function punch(type){
-        if (!allowed[type]) {
-          let msg = t.invalid_action||'Invalid action.';
-          if (type==='out' && state==='break')             msg = t.employee_on_break||'Employee is on break. End the break before clocking out.';
-          else if (type==='out' && state!=='in')           msg = t.employee_not_clocked_in||'Employee is not clocked in.';
-          else if (type==='in'  && state!=='idle')         msg = t.already_clocked_in||'Already clocked in.';
-          else if (type==='break_start' && state!=='in')   msg = t.break_only_while_clocked_in||'Break can start only while clocked in.';
-          else if (type==='break_end'   && state!=='break')msg = t.no_active_break_to_end||'No active break to end.';
-          setStat((t.error_prefix||'Error:') + ' ' + msg, 'error');
-          return;
-        }
-
-
-                setStat(t.working_ellipsis||'Working…', 'busy');
-
-        let geo = null;
-        try {
-            geo = await getGeo(type);
-        } catch(e){
-            // geo_blocked → stop here
-            return;
-        }
-
-        let headers = {'X-WP-Nonce':nonce};
-
-        let body;
-
-        if (requiresSelfie) {
-          if (!lastBlob) { setStat((t.error_prefix||'Error:') + ' ' + (t.capture_selfie_first||'Please capture a selfie first.'), 'error'); return; }
-          const fd = new FormData();
-          fd.append('punch_type', String(type));
-          fd.append('source', 'kiosk');
-          fd.append('device', String(DEVICE_ID));
-          if (geo && typeof geo.lat==='number' && typeof geo.lng==='number') {
-            fd.append('geo_lat', String(geo.lat));
-            fd.append('geo_lng', String(geo.lng));
-            
-            if (typeof geo.acc==='number') fd.append('geo_accuracy_m', String(Math.round(geo.acc)));
-          }
-          // Use unique filename with timestamp and random component to prevent overwrites
-          const timestamp = Date.now();
-          const random = Math.random().toString(36).substring(7);
-          fd.append('selfie', lastBlob, `kiosk-selfie-${timestamp}-${random}.jpg`);
-          fd.append('employee_scan_token', employeeScanToken || '');
-          body = fd;
-        } else {
-          headers['Content-Type'] = 'application/json';
-          const payload = {
-  punch_type: String(type),
-  source: 'kiosk',
-  device: DEVICE_ID,
-  employee_scan_token: (employeeScanToken || '')
-};
-
-          if (geo && typeof geo.lat==='number' && typeof geo.lng==='number') {
-            payload.geo_lat = geo.lat;
-            payload.geo_lng = geo.lng;
-            if (typeof geo.acc==='number') payload.geo_accuracy_m = Math.round(geo.acc);
-          }
-          body = JSON.stringify(payload);
-        }
-
-        var kpCtrl = new AbortController();
-        var kpTimer = setTimeout(function(){ kpCtrl.abort(); }, requiresSelfie ? 30000 : 15000);
-        try{
-          const r = await fetch(punchUrl, { method:'POST', headers, credentials:'same-origin', body, signal: kpCtrl.signal });
-          const j = await r.json();
-          if (!r.ok) throw new Error(j.message || 'Punch failed');
-          setStat(j.label || t.done_label||'Done', 'ok');
-
-          lastBlob = null;
-          await refresh();
-          ROOT.querySelectorAll('button[data-action]').forEach(b=>b.disabled = true);
-          setTimeout(()=>ROOT.querySelectorAll('button[data-action]').forEach(b=>b.disabled = !allowed[b.getAttribute('data-type')]), 3000);
-        }catch(e){
-          var kpMsg = (e.name === 'AbortError')
-              ? ((t.error_prefix||'Error:') + ' ' + (t.request_timed_out || 'Request timed out. Please try again.'))
-              : ((t.error_prefix||'Error:') + ' ' + e.message);
-          setStat(kpMsg, 'error');
-        }finally{
-          clearTimeout(kpTimer);
-        }
-      }
 
 
 

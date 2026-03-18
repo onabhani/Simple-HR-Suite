@@ -2277,8 +2277,13 @@ public function render_shifts(): void {
                             var radIn = document.getElementById('sfs-shift-radius');
                             if (!mapEl) return;
 
+                            var _mapRetries = 0;
                             function initMap() {
-                                if (typeof L === 'undefined') { setTimeout(initMap, 200); return; }
+                                if (typeof L === 'undefined') {
+                                    if (++_mapRetries < 25) setTimeout(initMap, 200);
+                                    else console.warn('[SFS HR] Leaflet failed to load after 5 s');
+                                    return;
+                                }
                                 var lat = parseFloat(latIn.value) || 24.7136;
                                 var lng = parseFloat(lngIn.value) || 46.6753;
                                 var rad = parseInt(radIn.value) || 150;
@@ -3908,7 +3913,7 @@ $departments = $this->get_departments( $wpdb );
 
     <script>
     (function(){
-        const META = <?php echo $meta_json ? $meta_json : '{}'; ?>;
+        const META = <?php echo $meta_json; ?>;
         const sel  = document.getElementById('sfs-assign-shift');
         const box  = document.getElementById('sfs-shift-preview');
         function render(){
@@ -4729,8 +4734,13 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
                         var radIn = document.getElementById('sfs-device-radius');
                         if (!mapEl) return;
 
+                        var _mapRetries = 0;
                         function initMap() {
-                            if (typeof L === 'undefined') { setTimeout(initMap, 200); return; }
+                            if (typeof L === 'undefined') {
+                                if (++_mapRetries < 25) setTimeout(initMap, 200);
+                                else console.warn('[SFS HR] Leaflet failed to load after 5 s');
+                                return;
+                            }
                             var lat = parseFloat(latIn.value) || 24.7136;
                             var lng = parseFloat(lngIn.value) || 46.6753;
                             var rad = parseInt(radIn.value) || 150;

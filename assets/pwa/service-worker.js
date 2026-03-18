@@ -223,7 +223,13 @@ function updatePunch(db, id, fields) {
 // Push notifications
 self.addEventListener('push', (event) => {
     if (!event.data) return;
-    const data = event.data.json();
+    let data;
+    try {
+        data = event.data.json();
+    } catch (e) {
+        console.warn('[SFS HR] Failed to parse push data', e);
+        data = { title: 'HR Suite', body: 'You have a new notification.' };
+    }
     event.waitUntil(
         self.registration.showNotification(data.title || 'HR Suite', {
             body: data.body || '',

@@ -1888,9 +1888,14 @@ setInterval(tickClock, 1000);
         var geoRad = <?php echo (int) ( $geo_radius ?: 150 ); ?>;
         var hasGeofence = (geoLat !== 0 && geoLng !== 0);
         var map, circle, userMarker;
+        var _mapRetries = 0;
 
         function initMap() {
-            if (typeof L === 'undefined') { setTimeout(initMap, 200); return; }
+            if (typeof L === 'undefined') {
+                if (++_mapRetries < 25) setTimeout(initMap, 200);
+                else console.warn('[SFS HR] Leaflet failed to load after 5 s');
+                return;
+            }
 
             if (hasGeofence) {
                 map = L.map(mapEl, { zoomControl: false, attributionControl: false }).setView([geoLat, geoLng], 16);
@@ -1935,7 +1940,8 @@ setInterval(tickClock, 1000);
         });
 
         // Handle container resize
-        window.addEventListener('resize', function(){ if (map) map.invalidateSize(); });
+        var _resizeTimer;
+        window.addEventListener('resize', function(){ clearTimeout(_resizeTimer); _resizeTimer = setTimeout(function(){ if (map) map.invalidateSize(); }, 150); });
 
         // Locate-me button
         var locateBtn = document.getElementById('sfs-att-locate-<?php echo esc_js( $inst ); ?>');
