@@ -18,9 +18,9 @@ Requirements for audit fix milestone. Each maps to roadmap phases.
 
 - [x] **DATA-01**: Correct Settlement EOS formula from UAE 21-day to Saudi Article 84 (15-day for first 5 years, 30-day after)
 - [x] **DATA-02**: Fix Leave balance corruption — opening/carried_over zeroed on every approval; preserve existing values
-- [ ] **DATA-03**: Fix Loans column mismatch — Payroll reads monthly_installment but column is installment_amount (zero deductions)
+- [x] **DATA-03**: Fix Loans column mismatch — Payroll reads monthly_installment but column is installment_amount (zero deductions)
 - [x] **DATA-04**: Fix Leave tenure boundary evaluation — compute at employee anniversary, not Jan 1
-- [ ] **DATA-05**: Fix Loans installment rounding imbalance — reconcile frontend vs admin calculation paths
+- [x] **DATA-05**: Fix Loans installment rounding imbalance — reconcile frontend vs admin calculation paths
 - [x] **DATA-06**: Add Settlement trigger_type parameter — resignation vs termination vs contract-end affects payout percentage per Saudi law
 
 ### Performance
@@ -65,9 +65,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SQL-04 | Phase 26 | Complete |
 | DATA-01 | Phase 27 | Complete |
 | DATA-02 | Phase 27 | Complete |
-| DATA-03 | Phase 27 | Pending |
+| DATA-03 | Phase 27 | Complete |
 | DATA-04 | Phase 27 | Complete |
-| DATA-05 | Phase 27 | Pending |
+| DATA-05 | Phase 27 | Complete |
 | DATA-06 | Phase 27 | Complete |
 | PERF-01 | Phase 28 | Pending |
 | PERF-02 | Phase 28 | Pending |

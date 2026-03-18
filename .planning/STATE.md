@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Audit Fixes (SQL, Data, Performance, Logic)
 status: completed
-stopped_at: Completed 27-02-PLAN.md
-last_updated: "2026-03-18T02:50:22.125Z"
+stopped_at: Completed 27-03-PLAN.md
+last_updated: "2026-03-18T02:53:26.125Z"
 last_activity: 2026-03-18 — Phase 27 plan 01 complete; Settlement EOS formula corrected to Saudi Article 84 rates, trigger_type added
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
   percent: 25
 ---
 
@@ -48,6 +48,7 @@ Progress: [███░░░░░░░] 25% (v1.3: 2/5 phases complete — Ph
 - [Phase 27]: Read existing balance row before computing closing to preserve opening and carried_over in all 3 recalculation paths (handle_approve, cancellation_approve, early_return)
 - [Phase 27]: Anniversary-based tenure: compute_quota_for_year uses hire_date MM-DD in target year; Mar 1 fallback for Feb 29 hire dates
 - [Phase 27]: Per-request reject nonce sfs_hr_leave_reject_{id} applied to all 6 nonce points including 4 detail view inline forms across all approval stages
+- [Phase 27]: installment_amount is the canonical column in sfs_hr_loans; frontend now computes round(principal/installments,2) to match admin approval path
 
 ### Pending Todos
 
@@ -59,6 +60,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-18T02:50:22.123Z
-Stopped at: Completed 27-02-PLAN.md
+Last session: 2026-03-18T02:53:26.123Z
+Stopped at: Completed 27-03-PLAN.md
 Resume file: None

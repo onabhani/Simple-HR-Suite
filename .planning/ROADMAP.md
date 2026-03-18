@@ -105,7 +105,7 @@ Plans:
   5. Payroll deducts loan installments correctly — `monthly_installment` column exists and Payroll reads the right column name
   6. Loan installment amounts are consistent between the frontend display and the admin calculation path
   7. Leave approval uses a per-request scoped nonce — the shared approval nonce is replaced
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 27-01-PLAN.md — Fix Settlement EOS formula to Saudi Article 84 + add trigger_type support
@@ -165,6 +165,6 @@ Plans:
 | 24. Small Modules Auth Fixes | v1.2 | 2/2 | Complete | 2026-03-17 |
 | 25. Migration Pattern Fixes | 2/2 | Complete    | 2026-03-18 | - |
 | 26. SQL Injection Fixes | 2/2 | Complete    | 2026-03-18 | - |
-| 27. Data Integrity Fixes | 2/3 | In Progress|  | - |
+| 27. Data Integrity Fixes | 3/3 | Complete   | 2026-03-18 | - |
 | 28. Performance Fixes | v1.3 | 0/TBD | Not started | - |
 | 29. Logic and Workflow Fixes | v1.3 | 0/TBD | Not started | - |
