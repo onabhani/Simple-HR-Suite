@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Audit Fixes (SQL, Data, Performance, Logic)
 status: completed
-stopped_at: Completed 29-01-PLAN.md
-last_updated: "2026-03-18T04:14:51.593Z"
+stopped_at: Completed 29-02-PLAN.md
+last_updated: "2026-03-18T04:20:15.545Z"
 last_activity: 2026-03-18 — Phase 27 plan 01 complete; Settlement EOS formula corrected to Saudi Article 84 rates, trigger_type added
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 13
-  completed_plans: 11
+  completed_plans: 12
   percent: 25
 ---
 
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 
 ## Current Position
 
-Phase: 27 of 29 (Data Integrity Fixes) — IN PROGRESS
-Plan: 27-01 complete (1/1 plans done for this phase)
-Status: Phase 27 plan 01 done; Settlement EOS formula and trigger_type implemented
-Last activity: 2026-03-18 — Phase 27 plan 01 complete; Settlement EOS formula corrected to Saudi Article 84 rates, trigger_type added
+Phase: 29 of 29 (Logic and Workflow Fixes) — IN PROGRESS
+Plan: 29-02 complete (2/3 plans done for this phase)
+Status: Phase 29 plan 02 done; state machine transition guards added to Leave, Settlement, and Performance modules
+Last activity: 2026-03-18 — Phase 29 plan 02 complete; ALLOWED_TRANSITIONS guards prevent invalid status changes across three modules
 
-Progress: [███░░░░░░░] 25% (v1.3: 2/5 phases complete — Phase 25 + Phase 26 done, Phase 27 plan 01 done)
+Progress: [█████████░] 92% (v1.3: 4/5 phases complete — Phases 25-28 done, Phase 29 plan 02 done)
 
 ## Accumulated Context
 
@@ -60,6 +60,7 @@ Progress: [███░░░░░░░] 25% (v1.3: 2/5 phases complete — Ph
 - [Phase 28]: ATT-API-PERF-001: dept_label_from_employee() never called in loop; assignments tab uses JOIN; no code change needed
 - [Phase 29-01]: Leave business_days() not changed (Article 109 calendar days minus Fridays only); only Payroll count_working_days needed Saturday skip
 - [Phase 29-01]: REQUEST_TIME_FLOAT used as capability cache key — constant per request, resets between requests in PHP-FPM workers
+- [Phase 29]: Leave transition map extended: on_leave allows cancel_pending/cancelled; approved allows cancelled — matches real workflow where cancellation approval goes directly to cancelled DB state
 
 ### Pending Todos
 
@@ -71,6 +72,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-18T04:14:51.591Z
-Stopped at: Completed 29-01-PLAN.md
+Last session: 2026-03-18T04:20:15.543Z
+Stopped at: Completed 29-02-PLAN.md
 Resume file: None
