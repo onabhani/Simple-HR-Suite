@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Audit Fixes (SQL, Data, Performance, Logic)
 status: completed
-stopped_at: Completed 29-02-PLAN.md
-last_updated: "2026-03-18T04:20:15.545Z"
-last_activity: 2026-03-18 — Phase 27 plan 01 complete; Settlement EOS formula corrected to Saudi Article 84 rates, trigger_type added
+stopped_at: Completed 29-03-PLAN.md
+last_updated: "2026-03-18T04:27:49.052Z"
+last_activity: 2026-03-18 — Phase 29 plan 02 complete; ALLOWED_TRANSITIONS guards prevent invalid status changes across three modules
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 13
-  completed_plans: 12
-  percent: 25
+  completed_plans: 13
+  percent: 92
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 
 ## Current Position
 
-Phase: 29 of 29 (Logic and Workflow Fixes) — IN PROGRESS
-Plan: 29-02 complete (2/3 plans done for this phase)
-Status: Phase 29 plan 02 done; state machine transition guards added to Leave, Settlement, and Performance modules
-Last activity: 2026-03-18 — Phase 29 plan 02 complete; ALLOWED_TRANSITIONS guards prevent invalid status changes across three modules
+Phase: 29 of 29 (Logic and Workflow Fixes) — COMPLETE
+Plan: 29-03 complete (3/3 plans done — phase finished)
+Status: v1.3 milestone complete; all 5 phases and 13 plans executed
+Last activity: 2026-03-18 — Phase 29 plan 03 complete; TOCTOU race conditions fixed in leave overlap, loan fiscal year, and reference number generation via DB transactions and MySQL named locks
 
-Progress: [█████████░] 92% (v1.3: 4/5 phases complete — Phases 25-28 done, Phase 29 plan 02 done)
+Progress: [██████████] 100% (v1.3: 5/5 phases complete — Phases 25-29 all done)
 
 ## Accumulated Context
 
@@ -61,6 +61,8 @@ Progress: [█████████░] 92% (v1.3: 4/5 phases complete — Ph
 - [Phase 29-01]: Leave business_days() not changed (Article 109 calendar days minus Fridays only); only Payroll count_working_days needed Saturday skip
 - [Phase 29-01]: REQUEST_TIME_FLOAT used as capability cache key — constant per request, resets between requests in PHP-FPM workers
 - [Phase 29]: Leave transition map extended: on_leave allows cancel_pending/cancelled; approved allows cancelled — matches real workflow where cancellation approval goes directly to cancelled DB state
+- [Phase 29-03]: Named lock (GET_LOCK) chosen for generate_reference_number() instead of FOR UPDATE because callers may already be inside a transaction; nested transactions not supported in MySQL/InnoDB
+- [Phase 29-03]: has_overlap_locked() added as new method alongside has_overlap() to preserve backward compatibility; both leave creation paths use the locked variant
 
 ### Pending Todos
 
@@ -72,6 +74,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-18T04:20:15.543Z
-Stopped at: Completed 29-02-PLAN.md
+Last session: 2026-03-18T04:27:49.050Z
+Stopped at: Completed 29-03-PLAN.md
 Resume file: None

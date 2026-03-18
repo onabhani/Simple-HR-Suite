@@ -138,7 +138,7 @@ Plans:
   3. Payroll working-day calculation excludes both Friday and Saturday — a work week spanning Fri-Sat produces the correct reduced day count
   4. A single early-leave event triggers exactly one notification — duplicate deferred-handler notifications are suppressed
   5. Dynamic capabilities (`sfs_hr.leave.review`, `sfs_hr.view`) resolve correctly inside AJAX requests — static cache does not return stale false-negatives
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 29-01-PLAN.md — Fix Saudi weekend calc + early-leave notification dedup + capability AJAX cache
@@ -177,4 +177,4 @@ Plans:
 | 26. SQL Injection Fixes | 2/2 | Complete    | 2026-03-18 | - |
 | 27. Data Integrity Fixes | 3/3 | Complete    | 2026-03-18 | - |
 | 28. Performance Fixes | 3/3 | Complete    | 2026-03-18 | - |
-| 29. Logic and Workflow Fixes | 2/3 | In Progress|  | - |
+| 29. Logic and Workflow Fixes | 3/3 | Complete   | 2026-03-18 | - |
