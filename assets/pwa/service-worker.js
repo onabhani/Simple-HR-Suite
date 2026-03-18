@@ -133,8 +133,20 @@ async function syncPunches() {
                 // 409 = duplicate/invalid transition — remove from queue anyway
                 await deletePunch(db, punch.id);
                 synced++;
+            } else if (response.status === 401 || response.status === 403) {
+                // Nonce expired — keep for retry, but discard if too old or too many retries
+                const retryCount = (punch.retryCount || 0) + 1;
+                const ageMs = Date.now() - (punch.timestamp || 0);
+                const MAX_RETRIES = 10;
+                const MAX_AGE_MS = 48 * 60 * 60 * 1000; // 48 hours
+
+                if (retryCount > MAX_RETRIES || ageMs > MAX_AGE_MS) {
+                    console.log('[SW] Discarding stale punch:', punch.id, { retryCount, ageMs });
+                    await deletePunch(db, punch.id);
+                } else {
+                    await updatePunch(db, punch.id, { retryCount });
+                }
             }
-            // 401/403 = nonce expired — keep in queue for next sync attempt
         } catch (err) {
             console.log('[SW] Sync failed for punch:', punch.id, err);
             // Network still down — stop trying
@@ -188,6 +200,23 @@ function deletePunch(db, id) {
         const request = store.delete(id);
         request.onerror = () => reject(request.error);
         request.onsuccess = () => resolve();
+    });
+}
+
+function updatePunch(db, id, fields) {
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction('punches', 'readwrite');
+        const store = tx.objectStore('punches');
+        const getReq = store.get(id);
+        getReq.onerror = () => reject(getReq.error);
+        getReq.onsuccess = () => {
+            const punch = getReq.result;
+            if (!punch) { resolve(); return; }
+            Object.assign(punch, fields);
+            const putReq = store.put(punch);
+            putReq.onerror = () => reject(putReq.error);
+            putReq.onsuccess = () => resolve();
+        };
     });
 }
 

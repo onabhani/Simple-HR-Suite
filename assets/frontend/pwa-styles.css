@@ -530,7 +530,7 @@
         align-items: center;
         justify-content: center;
         padding: 4px 8px;
-        font-size: 10px;
+        font-size: 11px;
         border-radius: 8px;
         background: transparent;
         border: none;
@@ -2067,7 +2067,7 @@ body:has(.sfs-hr-pwa-app) #masthead {
 .sfs-hr-pwa-app .sfs-input:focus,
 .sfs-hr-pwa-app .sfs-select:focus,
 .sfs-hr-pwa-app .sfs-textarea:focus {
-    outline: none;
+    outline: 2px solid transparent;
     border-color: var(--sfs-primary);
     box-shadow: 0 0 0 3px rgba(15, 76, 92, 0.1);
 }

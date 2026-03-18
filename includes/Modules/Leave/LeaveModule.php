@@ -682,6 +682,13 @@ public function render_requests(): void {
             actionsDiv.innerHTML = '';
         }
 
+        // Prevent double-submit on approve/reject forms
+        Array.from(actionsDiv.querySelectorAll('form')).forEach(function(f){
+            f.addEventListener('submit', function(){
+                Array.from(f.querySelectorAll('button')).forEach(function(btn){ btn.disabled = true; });
+            });
+        });
+
         // Display history
         var historyDiv = document.getElementById('sfs-hr-leave-modal-history');
         var historyList = document.getElementById('sfs-hr-leave-modal-history-list');

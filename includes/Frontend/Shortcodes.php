@@ -1982,7 +1982,7 @@ class Shortcodes {
         }
 
         // Detect iOS Safari
-        var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.maxTouchPoints > 0 && /Macintosh/.test(navigator.userAgent));
         var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
         var isIOSSafari = isIOS && isSafari;
         var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;

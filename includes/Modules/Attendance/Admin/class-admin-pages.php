@@ -6817,11 +6817,12 @@ private function render_early_leave(): void {
             var action = $('#early-leave-action').val();
             var note = $('#early-leave-note').val();
             var $btn = $(this);
+            var btnOrigHtml = $btn.html();
 
             $btn.prop('disabled', true).text('<?php echo esc_js(__('Processing...', 'sfs-hr')); ?>');
 
             $.ajax({
-                url: '<?php echo esc_js(rest_url('sfs-hr/v1/early-leave/review/')); ?>' + id,
+                url: '<?php echo esc_js(rest_url('sfs-hr/v1/early-leave/review/')); ?>' + parseInt(id, 10),
                 method: 'POST',
                 beforeSend: function(xhr) {
                     xhr.setRequestHeader('X-WP-Nonce', '<?php echo wp_create_nonce('wp_rest'); ?>');
@@ -6835,7 +6836,7 @@ private function render_early_leave(): void {
                         location.reload();
                     } else {
                         alert(response.message || '<?php echo esc_js(__('An error occurred', 'sfs-hr')); ?>');
-                        $btn.prop('disabled', false).text('<?php echo esc_js(__('Submit', 'sfs-hr')); ?>');
+                        $btn.prop('disabled', false).html(btnOrigHtml);
                     }
                 },
                 error: function(xhr) {
@@ -6843,7 +6844,7 @@ private function render_early_leave(): void {
                         ? xhr.responseJSON.message
                         : '<?php echo esc_js(__('An error occurred', 'sfs-hr')); ?>';
                     alert(msg);
-                    $btn.prop('disabled', false).text('<?php echo esc_js(__('Submit', 'sfs-hr')); ?>');
+                    $btn.prop('disabled', false).html(btnOrigHtml);
                 }
             });
         });
