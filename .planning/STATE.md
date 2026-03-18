@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Audit Fixes (SQL, Data, Performance, Logic)
 status: completed
-stopped_at: Completed 25-02-PLAN.md
-last_updated: "2026-03-18T00:48:06.798Z"
+stopped_at: Completed 26-01-PLAN.md
+last_updated: "2026-03-18T01:45:36.741Z"
 last_activity: 2026-03-18 — Phase 25 complete; all information_schema queries replaced with SHOW TABLES LIKE / SHOW COLUMNS FROM
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 4
+  completed_plans: 3
   percent: 20
 ---
 
@@ -41,6 +41,8 @@ Progress: [██░░░░░░░░] 20% (v1.3: 1/5 phases complete)
 - DEBT-01/DEBT-02 attached to the phases whose code they touch (Leave in Phase 27, capability check in Phase 26)
 - [Phase 25-01]: Used SHOW COLUMNS helper pattern for add_column_safe() in Core/Admin.php; added add_index_if_missing() to Attendance/Migration.php
 - [Phase 25-02]: information_schema.STATISTICS retained in migration-only index helpers (no SHOW equivalent for index names); information_schema.TABLE_CONSTRAINTS retained in option-gated FK migration; SHOW COLUMNS FROM row uses Type/Null fields (not COLUMN_TYPE/IS_NULLABLE)
+- [Phase 26-01]: manage_options retained in LoansModule check_tables_notice and install_tables_action — these are admin-only actions intentionally gated to WordPress administrators, not in scope for DEBT-02
+- [Phase 26-01]: SHOW COLUMNS FROM table name interpolation retained ({loans_table} from wpdb->prefix) — safe as prefix is trusted infrastructure; only LIKE value moved to prepared %s placeholder
 
 ### Pending Todos
 
@@ -52,6 +54,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-17T22:04:56.695Z
-Stopped at: Completed 25-02-PLAN.md
+Last session: 2026-03-18T01:45:28.256Z
+Stopped at: Completed 26-01-PLAN.md
 Resume file: None

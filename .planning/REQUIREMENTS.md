@@ -11,7 +11,7 @@ Requirements for audit fix milestone. Each maps to roadmap phases.
 
 - [x] **SQL-01**: Replace all bare ALTER TABLE with add_column_if_missing() helper (Core, Attendance, Loans — ~25 calls)
 - [x] **SQL-02**: Replace information_schema queries with version-gated migration pattern (Core, Attendance, Notifications, Shift_Service — 9+ queries)
-- [ ] **SQL-03**: Fix all unprepared SELECT/COUNT/DELETE queries across 11 modules (~50+ queries)
+- [x] **SQL-03**: Fix all unprepared SELECT/COUNT/DELETE queries across 11 modules (~50+ queries)
 - [ ] **SQL-04**: Fix raw string interpolation in LIKE clauses (Hiring, Core)
 
 ### Data Integrity
@@ -40,7 +40,7 @@ Requirements for audit fix milestone. Each maps to roadmap phases.
 ### Tech Debt
 
 - [ ] **DEBT-01**: Replace shared Leave approval nonce with per-request scoped nonce
-- [ ] **DEBT-02**: Align Setup_Wizard and Company_Profile capability check to sfs_hr.manage instead of manage_options
+- [x] **DEBT-02**: Align Setup_Wizard and Company_Profile capability check to sfs_hr.manage instead of manage_options
 
 ## Out of Scope
 
@@ -61,7 +61,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | SQL-01 | Phase 25 | Complete |
 | SQL-02 | Phase 25 | Complete |
-| SQL-03 | Phase 26 | Pending |
+| SQL-03 | Phase 26 | Complete |
 | SQL-04 | Phase 26 | Pending |
 | DATA-01 | Phase 27 | Pending |
 | DATA-02 | Phase 27 | Pending |
@@ -78,7 +78,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LOGIC-04 | Phase 29 | Pending |
 | LOGIC-05 | Phase 29 | Pending |
 | DEBT-01 | Phase 27 | Pending |
-| DEBT-02 | Phase 26 | Pending |
+| DEBT-02 | Phase 26 | Complete |
 
 **Coverage:**
 - v1.3 requirements: 20 total

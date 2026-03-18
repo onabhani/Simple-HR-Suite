@@ -87,7 +87,7 @@ Plans:
   2. All `LIKE` clauses in Hiring and Core use `$wpdb->prepare()` with `$wpdb->esc_like()` for the search term
   3. Setup Wizard and Company Profile capability checks use `sfs_hr.manage` — not `manage_options`
   4. A search input containing SQL metacharacters (quotes, percent signs, underscores) produces no DB error and returns correct results
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 26-01-PLAN.md — Fix unprepared SHOW queries in Frontend tabs and Loans + align Setup Wizard/Company Profile capability to sfs_hr.manage
@@ -159,7 +159,7 @@ Plans:
 | 23. Frontend Tab Ownership | v1.2 | 1/1 | Complete | 2026-03-17 |
 | 24. Small Modules Auth Fixes | v1.2 | 2/2 | Complete | 2026-03-17 |
 | 25. Migration Pattern Fixes | 2/2 | Complete    | 2026-03-18 | - |
-| 26. SQL Injection Fixes | v1.3 | 0/2 | Not started | - |
+| 26. SQL Injection Fixes | 1/2 | In Progress|  | - |
 | 27. Data Integrity Fixes | v1.3 | 0/TBD | Not started | - |
 | 28. Performance Fixes | v1.3 | 0/TBD | Not started | - |
 | 29. Logic and Workflow Fixes | v1.3 | 0/TBD | Not started | - |
