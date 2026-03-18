@@ -71,9 +71,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DATA-06 | Phase 27 | Complete |
 | PERF-01 | Phase 28 | Complete |
 | PERF-02 | Phase 28 | Complete |
-| PERF-03 | Phase 28 | Complete |
-| LOGIC-01 | Phase 29 | Complete |
-| LOGIC-02 | Phase 29 | Complete |
+| PERF-03 | Phase 28, 30 | Complete |
+| LOGIC-01 | Phase 29, 30 | Complete |
+| LOGIC-02 | Phase 29, 30 | Complete |
 | LOGIC-03 | Phase 29 | Complete |
 | LOGIC-04 | Phase 29 | Complete |
 | LOGIC-05 | Phase 29 | Complete |
@@ -87,4 +87,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-17*
-*Last updated: 2026-03-17 after roadmap creation (v1.3 Phases 25-29)*
+*Last updated: 2026-03-18 after gap closure phase creation (v1.3 Phase 30)*

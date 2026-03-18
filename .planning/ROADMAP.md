@@ -5,7 +5,7 @@
 - ✅ **v1.0 Attendance Module Refactor Phase 2** — Phases 1-3 (shipped 2026-03-10)
 - ✅ **v1.1 Module-by-Module Code Audit** — Phases 4-19 (shipped 2026-03-17)
 - ✅ **v1.2 Auth & Access Control Fixes** — Phases 20-24 (shipped 2026-03-17)
-- 🚧 **v1.3 Audit Fixes (SQL, Data, Performance, Logic)** — Phases 25-29 (in progress)
+- 🚧 **v1.3 Audit Fixes (SQL, Data, Performance, Logic)** — Phases 25-30 (in progress)
 
 ## Phases
 
@@ -145,6 +145,20 @@ Plans:
 - [ ] 29-02-PLAN.md — Add state machine transition guards to Leave, Settlement, and Performance
 - [ ] 29-03-PLAN.md — Add DB transaction wrapping to Leave/Loan TOCTOU races + atomic ref numbers
 
+### Phase 30: Leave Handler Safety Hardening
+**Goal**: Leave status mutation handlers are fully guarded — transition guards terminate execution, approval balance updates are transaction-safe, and cached counters invalidate on mutation
+**Depends on**: Phase 29
+**Requirements**: LOGIC-01, LOGIC-02, PERF-03
+**Gap Closure**: Closes integration gaps from v1.3 audit
+**Success Criteria** (what must be TRUE):
+  1. `handle_reject()` transition guard terminates execution after redirect — invalid transition cannot fall through to rejection logic
+  2. `handle_approve()` balance read-before-write sequence is wrapped in a DB transaction with `FOR UPDATE` on the balance row — concurrent dual-approvals cannot race on balance updates
+  3. Every successful leave status mutation (`approve`, `reject`, `cancel`, `cancel_approved`, `cancellation_approve`, `cancellation_reject`) invalidates the `sfs_hr_leave_counts_*` and `sfs_hr_admin_dashboard_counts` transient caches
+**Plans:** 0/1 plans
+
+Plans:
+- [ ] 30-01-PLAN.md — Fix reject guard exit + transaction-wrap approve balance + add cache invalidation on mutations
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -178,3 +192,4 @@ Plans:
 | 27. Data Integrity Fixes | 3/3 | Complete    | 2026-03-18 | - |
 | 28. Performance Fixes | 3/3 | Complete    | 2026-03-18 | - |
 | 29. Logic and Workflow Fixes | 3/3 | Complete    | 2026-03-18 | - |
+| 30. Leave Handler Safety Hardening | v1.3 | 0/1 | Planned | - |
