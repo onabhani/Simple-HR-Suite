@@ -154,7 +154,7 @@ Plans:
 | 22. Loans + Performance Auth | v1.2 | 2/2 | Complete | 2026-03-17 |
 | 23. Frontend Tab Ownership | v1.2 | 1/1 | Complete | 2026-03-17 |
 | 24. Small Modules Auth Fixes | v1.2 | 2/2 | Complete | 2026-03-17 |
-| 25. Migration Pattern Fixes | 2/2 | Complete   | 2026-03-17 | - |
+| 25. Migration Pattern Fixes | 2/2 | Complete    | 2026-03-18 | - |
 | 26. SQL Injection Fixes | v1.3 | 0/TBD | Not started | - |
 | 27. Data Integrity Fixes | v1.3 | 0/TBD | Not started | - |
 | 28. Performance Fixes | v1.3 | 0/TBD | Not started | - |
