@@ -703,7 +703,7 @@ class MyProfileLoans {
 
         // ── All checks passed — insert loan ──
         $loan_number     = \SFS\HR\Modules\Loans\LoansModule::generate_loan_number();
-        $installment_amt = round( $monthly_amount, 2 );
+        $installment_amt = round( $principal / $installments, 2 );
 
         $result = $wpdb->insert( $loans_table, [
             'loan_number'        => $loan_number,
