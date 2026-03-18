@@ -24,7 +24,7 @@ class Employee_Profile_Page {
 
     public function menu(): void {
         add_submenu_page(
-            null,
+            '',
             __( 'Employee Profile', 'sfs-hr' ),
             __( 'Employee Profile', 'sfs-hr' ),
             'sfs_hr.view',
