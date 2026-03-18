@@ -60,9 +60,14 @@ class DashboardWidget {
     }
 
     /**
-     * Get comprehensive loan statistics
+     * Get comprehensive loan statistics (cached with 120-second transient)
      */
     private function get_loan_statistics(): array {
+        $cached = get_transient( 'sfs_hr_loans_dashboard_widget' );
+        if ( false !== $cached ) {
+            return $cached;
+        }
+
         global $wpdb;
         $loans_table = $wpdb->prefix . 'sfs_hr_loans';
 
@@ -107,7 +112,7 @@ class DashboardWidget {
             "SELECT SUM(principal_amount) FROM {$loans_table} WHERE status IN ('active', 'completed')"
         );
 
-        return [
+        $stats = [
             'active_count'          => $active_count,
             'outstanding_amount'    => $outstanding,
             'employees_with_loans'  => $employees_with_loans,
@@ -117,6 +122,10 @@ class DashboardWidget {
             'completed_count'       => $completed_count,
             'total_disbursed'       => $total_disbursed,
         ];
+
+        set_transient( 'sfs_hr_loans_dashboard_widget', $stats, 120 );
+
+        return $stats;
     }
 
     /**
