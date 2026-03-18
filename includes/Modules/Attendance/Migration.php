@@ -206,22 +206,22 @@ class Migration {
         ) $charset_collate;");
 
 
-// Harden upgrades: add columns if old table exists without them
-$t = "{$p}sfs_hr_attendance_devices";
-$this->add_column_if_missing($wpdb, $t, 'kiosk_enabled',     "kiosk_enabled TINYINT(1) NOT NULL DEFAULT 0");
-$this->add_column_if_missing($wpdb, $t, 'kiosk_offline',     "kiosk_offline TINYINT(1) NOT NULL DEFAULT 0");
-$this->add_column_if_missing($wpdb, $t, 'geo_lock_lat',      "geo_lock_lat DECIMAL(10,7) NULL");
-$this->add_column_if_missing($wpdb, $t, 'geo_lock_lng',      "geo_lock_lng DECIMAL(10,7) NULL");
-$this->add_column_if_missing($wpdb, $t, 'geo_lock_radius_m', "geo_lock_radius_m SMALLINT UNSIGNED NULL");
-$this->add_column_if_missing($wpdb, $t, 'allowed_dept_id',   "allowed_dept_id BIGINT UNSIGNED NULL");
-$this->add_column_if_missing($wpdb, $t, 'active',            "active TINYINT(1) NOT NULL DEFAULT 1");
-$this->add_column_if_missing($wpdb, $t, 'qr_enabled',        "qr_enabled TINYINT(1) NOT NULL DEFAULT 1");
-$this->add_column_if_missing($wpdb, $t, 'selfie_mode',       "selfie_mode ENUM('inherit','never','in_only','in_out','all') NOT NULL DEFAULT 'inherit'");
-$this->add_column_if_missing($wpdb, $t, 'suggest_in_time',         "suggest_in_time TIME NULL");
-$this->add_column_if_missing($wpdb, $t, 'suggest_break_start_time',"suggest_break_start_time TIME NULL");
-$this->add_column_if_missing($wpdb, $t, 'suggest_break_end_time',  "suggest_break_end_time TIME NULL");
-$this->add_column_if_missing($wpdb, $t, 'suggest_out_time',        "suggest_out_time TIME NULL");
-$this->add_column_if_missing($wpdb, $t, 'break_enabled',           "break_enabled TINYINT(1) NOT NULL DEFAULT 0");
+        // Harden upgrades: add columns if old table exists without them
+        $t = "{$p}sfs_hr_attendance_devices";
+        $this->add_column_if_missing($wpdb, $t, 'kiosk_enabled',     "kiosk_enabled TINYINT(1) NOT NULL DEFAULT 0");
+        $this->add_column_if_missing($wpdb, $t, 'kiosk_offline',     "kiosk_offline TINYINT(1) NOT NULL DEFAULT 0");
+        $this->add_column_if_missing($wpdb, $t, 'geo_lock_lat',      "geo_lock_lat DECIMAL(10,7) NULL");
+        $this->add_column_if_missing($wpdb, $t, 'geo_lock_lng',      "geo_lock_lng DECIMAL(10,7) NULL");
+        $this->add_column_if_missing($wpdb, $t, 'geo_lock_radius_m', "geo_lock_radius_m SMALLINT UNSIGNED NULL");
+        $this->add_column_if_missing($wpdb, $t, 'allowed_dept_id',   "allowed_dept_id BIGINT UNSIGNED NULL");
+        $this->add_column_if_missing($wpdb, $t, 'active',            "active TINYINT(1) NOT NULL DEFAULT 1");
+        $this->add_column_if_missing($wpdb, $t, 'qr_enabled',        "qr_enabled TINYINT(1) NOT NULL DEFAULT 1");
+        $this->add_column_if_missing($wpdb, $t, 'selfie_mode',       "selfie_mode ENUM('inherit','never','in_only','in_out','all') NOT NULL DEFAULT 'inherit'");
+        $this->add_column_if_missing($wpdb, $t, 'suggest_in_time',            "suggest_in_time TIME NULL");
+        $this->add_column_if_missing($wpdb, $t, 'suggest_break_start_time',   "suggest_break_start_time TIME NULL");
+        $this->add_column_if_missing($wpdb, $t, 'suggest_break_end_time',     "suggest_break_end_time TIME NULL");
+        $this->add_column_if_missing($wpdb, $t, 'suggest_out_time',           "suggest_out_time TIME NULL");
+        $this->add_column_if_missing($wpdb, $t, 'break_enabled',              "break_enabled TINYINT(1) NOT NULL DEFAULT 0");
 
 
         // 6) flags (exceptions)
@@ -306,8 +306,12 @@ $this->add_column_if_missing($wpdb, $t, 'break_enabled',           "break_enable
             $this->migrate_add_foreign_keys( $wpdb, $p );
         }
 
-        // Caps + defaults + seed kiosks
-        $this->register_caps();
+        // Caps (only on first run or version bump to avoid writing wp_options on every page load)
+        $caps_ver = get_option( 'sfs_hr_att_caps_ver', '' );
+        if ( $caps_ver !== \SFS_HR_VER ) {
+            $this->register_caps();
+            update_option( 'sfs_hr_att_caps_ver', \SFS_HR_VER, true );
+        }
         $this->maybe_seed_defaults();
         $this->maybe_seed_kiosks();
     }
@@ -485,7 +489,7 @@ $this->add_column_if_missing($wpdb, $t, 'break_enabled',           "break_enable
         }
 
         // Any role that already has the suite's master cap gets full attendance admin + self punch
-        foreach ( wp_roles()->roles as $role_key => $def ) {
+        foreach ( array_keys( wp_roles()->roles ) as $role_key ) {
             $r = get_role($role_key);
             if ( ! $r ) { continue; }
             if ( $r->has_cap('sfs_hr.manage') ) {
@@ -499,19 +503,20 @@ $this->add_column_if_missing($wpdb, $t, 'break_enabled',           "break_enable
         }
 
         // Make sure device/admin caps exist on key roles
-$caps_devices = ['sfs_hr_attendance_admin','sfs_hr_attendance_edit_devices'];
+        $caps_devices = ['sfs_hr_attendance_admin', 'sfs_hr_attendance_edit_devices'];
 
-if ($admin = get_role('administrator')) {
-    foreach (array_merge($caps_devices, ['sfs_hr_attendance_view_self','sfs_hr_attendance_clock_self','sfs_hr_attendance_clock_kiosk']) as $c) {
-        $admin->add_cap($c);
-    }
-}
-if ($mgr = get_role('sfs_hr_manager')) {
-    foreach ($caps_devices as $c) { $mgr->add_cap($c); }
-}
-
-
-
+        if ( $admin = get_role('administrator') ) {
+            $all_admin_caps = array_merge(
+                $caps_devices,
+                ['sfs_hr_attendance_view_self', 'sfs_hr_attendance_clock_self', 'sfs_hr_attendance_clock_kiosk']
+            );
+            foreach ( $all_admin_caps as $c ) {
+                $admin->add_cap($c);
+            }
+        }
+        if ( $mgr = get_role('sfs_hr_manager') ) {
+            foreach ( $caps_devices as $c ) { $mgr->add_cap($c); }
+        }
     }
 
     /** Seed global defaults (changeable later via Admin UI). */

@@ -261,6 +261,11 @@ class AttendanceModule {
         return Services\Shift_Service::build_segments_from_shift( $shift, $ymd );
     }
 
+    /** @deprecated Delegate to Shift_Service. */
+    public static function build_segments_for_date_from_dept( $dept_id_or_slug, string $ymd ): array {
+        return Services\Shift_Service::build_segments_for_date_from_dept( $dept_id_or_slug, $ymd );
+    }
+
     /** @deprecated Delegate to Session_Service. */
     public static function rebuild_sessions_for_date_static( string $date ): void {
         Services\Session_Service::rebuild_sessions_for_date_static( $date );

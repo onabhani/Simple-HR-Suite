@@ -163,13 +163,25 @@ class Widget_Shortcode {
         <!-- Action buttons -->
         <div class="sfs-att-actions" id="sfs-att-actions">
           <button type="button" data-type="in"
-                  class="sfs-att-btn sfs-att-btn--in" style="display:none" data-i18n-key="clock_in"><?php esc_html_e( 'Clock In', 'sfs-hr' ); ?></button>
+                  class="sfs-att-btn sfs-att-btn--in"
+                  style="display:none" data-i18n-key="clock_in"><?php
+                    esc_html_e( 'Clock In', 'sfs-hr' );
+          ?></button>
           <button type="button" data-type="out"
-                  class="sfs-att-btn sfs-att-btn--out" style="display:none" data-i18n-key="clock_out"><?php esc_html_e( 'Clock Out', 'sfs-hr' ); ?></button>
+                  class="sfs-att-btn sfs-att-btn--out"
+                  style="display:none" data-i18n-key="clock_out"><?php
+                    esc_html_e( 'Clock Out', 'sfs-hr' );
+          ?></button>
           <button type="button" data-type="break_start"
-                  class="sfs-att-btn sfs-att-btn--break" style="display:none" data-i18n-key="start_break"><?php esc_html_e( 'Start Break', 'sfs-hr' ); ?></button>
+                  class="sfs-att-btn sfs-att-btn--break"
+                  style="display:none" data-i18n-key="start_break"><?php
+                    esc_html_e( 'Start Break', 'sfs-hr' );
+          ?></button>
           <button type="button" data-type="break_end"
-                  class="sfs-att-btn sfs-att-btn--breakend" style="display:none" data-i18n-key="end_break"><?php esc_html_e( 'End Break', 'sfs-hr' ); ?></button>
+                  class="sfs-att-btn sfs-att-btn--breakend"
+                  style="display:none" data-i18n-key="end_break"><?php
+                    esc_html_e( 'End Break', 'sfs-hr' );
+          ?></button>
         </div>
 
         <!-- Today's Punch History -->
@@ -197,7 +209,9 @@ class Widget_Shortcode {
             <?php esc_html_e( 'Center your face, then tap "Capture & Submit".', 'sfs-hr' ); ?>
           </small>
           <div class="sfs-att-selfie-overlay__actions">
-            <button type="button" id="sfs-att-selfie-capture" class="sfs-att-selfie-btn sfs-att-selfie-btn--primary" data-i18n-key="capture_submit">
+            <button type="button" id="sfs-att-selfie-capture"
+                    class="sfs-att-selfie-btn sfs-att-selfie-btn--primary"
+                    data-i18n-key="capture_submit">
               <?php esc_html_e( 'Capture & Submit', 'sfs-hr' ); ?>
             </button>
             <button type="button" id="sfs-att-selfie-cancel" class="sfs-att-selfie-btn sfs-att-selfie-btn--cancel" data-i18n-key="cancel">

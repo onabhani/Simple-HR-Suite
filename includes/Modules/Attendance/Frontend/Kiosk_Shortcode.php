@@ -141,11 +141,15 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
         <span class="sfs-ab-dot"></span><?php esc_html_e( 'Clock In', 'sfs-hr' ); ?><span class="sfs-ab-arr">&#8250;</span>
       </button>
       <button type="button" data-action="out" class="sfs-ab sfs-ab--out sfs-lane-btn">
-        <span class="sfs-ab-dot"></span><?php esc_html_e( 'Clock Out', 'sfs-hr' ); ?><span class="sfs-ab-arr">&#8250;</span>
+        <span class="sfs-ab-dot"></span><?php
+          esc_html_e( 'Clock Out', 'sfs-hr' );
+        ?><span class="sfs-ab-arr">&#8250;</span>
       </button>
       <?php if ( ! empty( $device['break_enabled'] ) ) : ?>
       <button type="button" data-action="break_start" class="sfs-ab sfs-ab--brk sfs-lane-btn">
-        <span class="sfs-ab-dot"></span><?php esc_html_e( 'Start Break', 'sfs-hr' ); ?><span class="sfs-ab-arr">&#8250;</span>
+        <span class="sfs-ab-dot"></span><?php
+          esc_html_e( 'Start Break', 'sfs-hr' );
+        ?><span class="sfs-ab-arr">&#8250;</span>
       </button>
       <button type="button" data-action="break_end" class="sfs-ab sfs-ab--bend sfs-lane-btn">
         <span class="sfs-ab-dot"></span><?php esc_html_e( 'End Break', 'sfs-hr' ); ?><span class="sfs-ab-arr">&#8250;</span>
@@ -807,7 +811,9 @@ wp_enqueue_script('wp-api');
     network_error: <?php echo wp_json_encode( __( 'Network error', 'sfs-hr' ) ); ?>,
     scan_failed_invalid_reply: <?php echo wp_json_encode( __( 'Scan failed: invalid server reply', 'sfs-hr' ) ); ?>,
     scan_failed_no_token: <?php echo wp_json_encode( __( 'Scan failed: no token', 'sfs-hr' ) ); ?>,
-    keep_face_capture_selfie: <?php echo wp_json_encode( __( 'Keep face in frame and press "Capture Selfie".', 'sfs-hr' ) ); ?>,
+    keep_face_capture_selfie: <?php
+        echo wp_json_encode( __( 'Keep face in frame and press "Capture Selfie".', 'sfs-hr' ) );
+    ?>,
     no_shift_contact_hr: <?php echo wp_json_encode( __( 'No shift configured. Contact your Manager or HR.', 'sfs-hr' ) ); ?>,
     invalid_action_try_different: <?php echo wp_json_encode( __( 'Invalid action now. Try a different punch type.', 'sfs-hr' ) ); ?>,
     punch_failed_prefix: <?php echo wp_json_encode( __( 'Punch failed:', 'sfs-hr' ) ); ?>,

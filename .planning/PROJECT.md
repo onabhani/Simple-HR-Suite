@@ -42,13 +42,16 @@ Reliable, secure HR operations for Saudi organizations — built on WordPress wi
 
 ### Active
 
-(No active requirements — all Critical/High audit findings resolved. Define next milestone to add new requirements.)
+(No active requirements — define next milestone to scope.)
+
+### Planned for Future Milestones
+
+- [ ] **PHPUnit test suite** — unit tests for critical logic (Settlement EOS, Leave transitions, balance preservation, ref number generation) + integration tests for hardened paths (SQL injection defense, transaction wrapping, state guard termination)
+- [ ] **JavaScript/CSS audit** — v1.1 was PHP-only; frontend code has never been audited for security, performance, or quality issues
 
 ### Out of Scope
 
 - Medium/Low severity findings — address in future milestones as needed
-- JavaScript/CSS audit — v1.1 was PHP-only audit
-- Unit/integration test creation — separate effort
 - New feature development — fix-only milestones until stability
 - Third-party vendor code in `assets/vendor/` — not our code
 - Mobile app — web-first approach, PWA works on mobile

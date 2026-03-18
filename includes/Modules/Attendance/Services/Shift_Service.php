@@ -22,6 +22,12 @@ class Shift_Service {
      * 2) Dept identity for automation
      * 3) Department Automation
      * 4) Fallback by dept_id
+     *
+     * @param array  $settings        Unused — kept for API compatibility with AttendanceModule delegation.
+     * @param \wpdb  $wpdb_in         Optional wpdb override.
+     * @param bool   $include_off_days Whether to return off-day shifts.
+     *
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public static function resolve_shift_for_date(
         int $employee_id,
@@ -100,7 +106,9 @@ class Shift_Service {
             return null;
         }
 
-        $dept_id = null; $dept_name = null; $dept_slug = null;
+        $dept_id = null;
+        $dept_name = null;
+        $dept_slug = null;
         foreach (['dept_id','department_id'] as $c) {
             if (isset($emp->$c) && is_numeric($emp->$c)) {
                 $dept_id = (int)$emp->$c;
