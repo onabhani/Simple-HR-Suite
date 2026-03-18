@@ -241,6 +241,7 @@ class Migrations {
         self::add_column_if_missing($settle, 'asset_clearance_status', "VARCHAR(20) NOT NULL DEFAULT 'pending'");
         self::add_column_if_missing($settle, 'document_clearance_status', "VARCHAR(20) NOT NULL DEFAULT 'pending'");
         self::add_column_if_missing($settle, 'finance_clearance_status', "VARCHAR(20) NOT NULL DEFAULT 'pending'");
+        self::add_column_if_missing($settle, 'trigger_type', "VARCHAR(20) NOT NULL DEFAULT 'resignation'");
 
         /** ADD REFERENCE NUMBER COLUMNS TO ALL REQUEST TABLES */
         // Leave requests reference number

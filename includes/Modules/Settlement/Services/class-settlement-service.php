@@ -141,6 +141,7 @@ class Settlement_Service {
             'deductions'        => $data['deductions'],
             'deduction_notes'   => $data['deduction_notes'],
             'total_settlement'  => $data['total_settlement'],
+            'trigger_type'      => $data['trigger_type'] ?? 'resignation',
             'request_number'    => $request_number,
             'status'            => 'pending',
             'created_at'        => $now,
@@ -232,10 +233,22 @@ class Settlement_Service {
     }
 
     /**
+     * Get trigger type labels
+     */
+    public static function get_trigger_types(): array {
+        return [
+            'resignation'  => __('Resignation', 'sfs-hr'),
+            'termination'  => __('Termination', 'sfs-hr'),
+            'contract_end' => __('Contract End', 'sfs-hr'),
+        ];
+    }
+
+    /**
      * Calculate gratuity amount
-     * Based on Saudi Labor Law:
-     * - 21 days salary per year for first 5 years
-     * - 30 days salary per year beyond 5 years
+     * Based on Saudi Labor Law Article 84:
+     * - 15 days (half-month) salary per year for first 5 years
+     * - 30 days (full month) salary per year beyond 5 years
+     * Returns full gratuity before any trigger-type reduction.
      */
     public static function calculate_gratuity(float $basic_salary, float $years_of_service): float {
         if ($years_of_service <= 0 || $basic_salary <= 0) {
@@ -245,14 +258,34 @@ class Settlement_Service {
         $daily_rate = $basic_salary / 30;
 
         if ($years_of_service <= 5) {
-            return $daily_rate * 21 * $years_of_service;
+            return $daily_rate * 15 * $years_of_service;
         }
 
-        $first_5_years = $daily_rate * 21 * 5;
+        $first_5_years = $daily_rate * 15 * 5;
         $remaining_years = $years_of_service - 5;
         $after_5_years = $daily_rate * 30 * $remaining_years;
 
         return $first_5_years + $after_5_years;
+    }
+
+    /**
+     * Calculate gratuity with trigger-type multiplier per Saudi labor law.
+     * - resignation < 2 years: 0
+     * - resignation 2–5 years: 1/3 of full gratuity
+     * - resignation 5–10 years: 2/3 of full gratuity
+     * - resignation 10+ years: full gratuity
+     * - termination / contract_end: full gratuity regardless of tenure
+     */
+    public static function calculate_gratuity_with_trigger(float $basic_salary, float $years_of_service, string $trigger_type = 'termination'): float {
+        $full_gratuity = self::calculate_gratuity($basic_salary, $years_of_service);
+        if ($trigger_type === 'resignation') {
+            if ($years_of_service < 2) return 0;
+            if ($years_of_service < 5) return round($full_gratuity / 3, 2);
+            if ($years_of_service < 10) return round($full_gratuity * 2 / 3, 2);
+            return $full_gratuity; // 10+ years = full
+        }
+        // termination and contract_end = full gratuity
+        return $full_gratuity;
     }
 
     /**
