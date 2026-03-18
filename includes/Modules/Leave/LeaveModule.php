@@ -1646,6 +1646,8 @@ public function handle_approve(): void {
         ]
     );
 
+    $wpdb->query('START TRANSACTION');
+
     $wpdb->update(
         $req_t,
         [
@@ -1702,10 +1704,12 @@ public function handle_approve(): void {
         )
     );
 
-    // Read existing balance to preserve opening and carried_over
+    // Read existing balance to preserve opening and carried_over.
+    // FOR UPDATE locks the row during the transaction to prevent concurrent dual-approvals
+    // from corrupting the balance (LOGIC-01 race condition fix).
     $existing_bal = $wpdb->get_row(
         $wpdb->prepare(
-            "SELECT opening, accrued, carried_over FROM $bal_t WHERE employee_id=%d AND type_id=%d AND year=%d",
+            "SELECT opening, accrued, carried_over FROM $bal_t WHERE employee_id=%d AND type_id=%d AND year=%d FOR UPDATE",
             (int) $row['employee_id'],
             (int) $row['type_id'],
             $year
@@ -1759,6 +1763,8 @@ public function handle_approve(): void {
         );
     }
 
+    $wpdb->query('COMMIT');
+
     // Notify employee
     $this->notify_requester(
         (int) $row['employee_id'],
@@ -1791,14 +1797,20 @@ public function handle_reject(): void {
         exit;
     }
 
-    if ($id<=0) wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending'));
+    if ($id <= 0) {
+        wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending'));
+        exit;
+    }
 
     global $wpdb;
     $req_t = $wpdb->prefix.'sfs_hr_leave_requests';
     $emp_t = $wpdb->prefix.'sfs_hr_employees';
 
     $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $req_t WHERE id=%d", $id), ARRAY_A);
-    if (!$row || ! $this->is_valid_transition( $row['status'], 'rejected' ) ) wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending'));
+    if (!$row || ! $this->is_valid_transition( $row['status'], 'rejected' ) ) {
+        wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending'));
+        exit;
+    }
 
     // Guard: dept manager scope + self reject
     $empInfo = $wpdb->get_row($wpdb->prepare("SELECT user_id, dept_id FROM $emp_t WHERE id=%d", (int)$row['employee_id']), ARRAY_A);
