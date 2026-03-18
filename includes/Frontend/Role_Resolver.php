@@ -18,12 +18,23 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Role_Resolver {
 
     /**
+     * Per-request static cache for resolve() results.
+     * Keyed by user ID, reset on each PHP request.
+     *
+     * @var array<int, string>
+     */
+    private static $cache = [];
+
+    /**
      * Resolve the effective HR portal role for a user.
      *
      * Evaluation order (first match wins): admin → gm → hr → manager → employee → trainee → none.
      * WordPress administrators are checked first because admin has the highest portal
      * level (60) and broadest access — without this, an admin who is also assigned as
      * a department manager or HR responsible would lose Organization and System sections.
+     *
+     * Results are cached in a static property for the duration of the current PHP request
+     * to avoid repeated DB queries on portal pages that call resolve() multiple times.
      *
      * @param int $user_id WordPress user ID.
      * @return string One of: admin, gm, hr, manager, employee, trainee, none.
@@ -33,16 +44,22 @@ class Role_Resolver {
             return 'none';
         }
 
+        if ( isset( self::$cache[ $user_id ] ) ) {
+            return self::$cache[ $user_id ];
+        }
+
         // Admin: WordPress administrator — checked first because admin role (level 60)
         // has the broadest portal access. Without this priority, an admin who is also
         // a department manager would be resolved as 'manager' and lose Organization/System sections.
         if ( user_can( $user_id, 'manage_options' ) ) {
+            self::$cache[ $user_id ] = 'admin';
             return 'admin';
         }
 
         // GM: configured as the General Manager approver.
         $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
         if ( $gm_user_id > 0 && $gm_user_id === $user_id ) {
+            self::$cache[ $user_id ] = 'gm';
             return 'gm';
         }
 
@@ -63,6 +80,7 @@ class Role_Resolver {
         ) ) > 0;
 
         if ( $has_hr_role || $is_hr_approver || $is_hr_responsible ) {
+            self::$cache[ $user_id ] = 'hr';
             return 'hr';
         }
 
@@ -72,6 +90,7 @@ class Role_Resolver {
             $user_id
         ) );
         if ( $is_mgr > 0 ) {
+            self::$cache[ $user_id ] = 'manager';
             return 'manager';
         }
 
@@ -82,6 +101,7 @@ class Role_Resolver {
             $user_id
         ) );
         if ( $is_emp > 0 ) {
+            self::$cache[ $user_id ] = 'employee';
             return 'employee';
         }
 
@@ -92,9 +112,11 @@ class Role_Resolver {
             $user_id
         ) );
         if ( $is_trainee > 0 ) {
+            self::$cache[ $user_id ] = 'trainee';
             return 'trainee';
         }
 
+        self::$cache[ $user_id ] = 'none';
         return 'none';
     }
 
