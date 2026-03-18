@@ -83,7 +83,19 @@ class Capabilities {
         // Cache DB lookups per request — user_has_cap fires on every
         // current_user_can() call, but the employee/manager status won't
         // change mid-request.
-        static $cache = [];
+        //
+        // REQUEST_TIME_FLOAT is set once per HTTP request and stays constant,
+        // so the cache resets when PHP-FPM serves a new request (prevents
+        // stale false-negatives in persistent worker processes and AJAX).
+        static $cache      = [];
+        static $request_id = null;
+
+        $current_request_id = $_SERVER['REQUEST_TIME_FLOAT'] ?? microtime( true );
+        if ( $request_id !== $current_request_id ) {
+            $cache      = [];
+            $request_id = $current_request_id;
+        }
+
         if ( ! isset( $cache[ $uid ] ) ) {
             global $wpdb;
             $emp_tbl  = $wpdb->prefix . 'sfs_hr_employees';
