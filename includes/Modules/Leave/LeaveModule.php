@@ -1102,6 +1102,29 @@ private function output_leave_requests_styles(): void {
 }
 
 /**
+ * Invalidate leave-related transient caches after a status mutation.
+ *
+ * Clears:
+ * - sfs_hr_leave_counts_* (per-scope leave status counts from Phase 28)
+ * - sfs_hr_admin_dashboard_counts (admin dashboard counters from Phase 28)
+ *
+ * The leave counts transient key includes an md5 of the scope ('all' or dept IDs),
+ * so we must delete all matching transients via a LIKE query on the options table.
+ */
+private function invalidate_leave_caches(): void {
+    global $wpdb;
+
+    // Delete all sfs_hr_leave_counts_* transients (scope-dependent keys).
+    // WordPress stores transients in wp_options as _transient_{name} and _transient_timeout_{name}.
+    $wpdb->query(
+        "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_sfs_hr_leave_counts_%' OR option_name LIKE '_transient_timeout_sfs_hr_leave_counts_%'"
+    );
+
+    // Delete the fixed-key admin dashboard counts transient.
+    delete_transient( 'sfs_hr_admin_dashboard_counts' );
+}
+
+/**
  * Guard: pure WP admin (no HR/GM/manager assignment) cannot approve or reject.
  *
  * Resolves the user's role via Role_Resolver; if 'admin', redirects with the
@@ -1764,6 +1787,7 @@ public function handle_approve(): void {
     }
 
     $wpdb->query('COMMIT');
+    $this->invalidate_leave_caches();
 
     // Notify employee
     $this->notify_requester(
@@ -1847,6 +1871,8 @@ public function handle_reject(): void {
         'reason' => $note ?: __('Not specified', 'sfs-hr'),
     ]);
 
+    $this->invalidate_leave_caches();
+
     $this->notify_requester((int)$row['employee_id'], __('Leave Rejected','sfs-hr'),
         sprintf(__('Your leave request (%s → %s) has been rejected. Reason: %s','sfs-hr'),
             $row['start_date'], $row['end_date'], $note ?: __('Not specified','sfs-hr')));
@@ -1918,6 +1944,8 @@ public function handle_cancel(): void {
 
     // Fire hook for AuditTrail
     do_action( 'sfs_hr_leave_request_status_changed', $id, 'pending', 'cancelled' );
+
+    $this->invalidate_leave_caches();
 
     wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&ok=1' ) );
     exit;
@@ -2278,6 +2306,8 @@ public function handle_cancellation_approve(): void {
         'new_used'      => $used,
     ] );
 
+    $this->invalidate_leave_caches();
+
     // Notify employee
     $this->notify_requester(
         (int) $leave['employee_id'],
@@ -2385,6 +2415,8 @@ public function handle_cancellation_reject(): void {
         'rejected_by'     => $role,
         'reason'          => $note,
     ] );
+
+    $this->invalidate_leave_caches();
 
     // Notify HR about rejection
     $emp_name = trim( ( $empInfo['first_name'] ?? '' ) . ' ' . ( $empInfo['last_name'] ?? '' ) );
