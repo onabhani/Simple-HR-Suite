@@ -4591,7 +4591,11 @@ public function shortcode_request($atts = []): string {
                    '</p></div>' . $this->render_request_form($emp);
         }
 
-        if ($this->has_overlap((int)$emp['id'], $start, $end)) {
+        // Start transaction to prevent TOCTOU race on overlap check + insert.
+        $wpdb->query( 'START TRANSACTION' );
+
+        if ( LeaveCalculationService::has_overlap_locked( (int) $emp['id'], $start, $end ) ) {
+            $wpdb->query( 'ROLLBACK' );
             return $out . '<div class="notice notice-error"><p>' .
                    esc_html__('You already have a request overlapping these dates.', 'sfs-hr') .
                    '</p></div>' . $this->render_request_form($emp);
@@ -4620,11 +4624,13 @@ if ( ! empty( $_FILES['supporting_doc']['name'] ) ) {
     require_once ABSPATH.'wp-admin/includes/image.php';
     $attach_id = media_handle_upload('supporting_doc', 0);
     if (is_wp_error($attach_id)) {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Failed to upload the document.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
     }
 } elseif ( $needs_doc ) {
+    $wpdb->query( 'ROLLBACK' );
     return $out.'<div class="notice notice-error"><p>'.
         esc_html__('A supporting document is required for this leave type.','sfs-hr').
         '</p></div>'.$this->render_request_form($emp);
@@ -4632,6 +4638,7 @@ if ( ! empty( $_FILES['supporting_doc']['name'] ) ) {
 
 // ---- Marriage: up to 5 business days
 if ($special === 'MARRIAGE' && $days > 5) {
+    $wpdb->query( 'ROLLBACK' );
     return $out.'<div class="notice notice-error"><p>'.
         esc_html__('Marriage leave is limited to 5 business days.','sfs-hr').
         '</p></div>'.$this->render_request_form($emp);
@@ -4639,6 +4646,7 @@ if ($special === 'MARRIAGE' && $days > 5) {
 
 // ---- Bereavement: up to 5 business days
 if ($special === 'BEREAVEMENT' && $days > 5) {
+    $wpdb->query( 'ROLLBACK' );
     return $out.'<div class="notice notice-error"><p>'.
         esc_html__('Bereavement leave is limited to 5 business days.','sfs-hr').
         '</p></div>'.$this->render_request_form($emp);
@@ -4647,11 +4655,13 @@ if ($special === 'BEREAVEMENT' && $days > 5) {
 // ---- Paternity: up to 3 business days (male only)
 if ($special === 'PATERNITY') {
     if ($days > 3) {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Paternity leave is limited to 3 business days.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
     }
     if (strtolower((string)($emp['gender'] ?? '')) !== 'male') {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Paternity leave is available only to male employees.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
@@ -4662,6 +4672,7 @@ if ($special === 'PATERNITY') {
 if ($special === 'HAJJ') {
     // duration
     if ($cal_days < 10 || $cal_days > 15) {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Hajj leave must be between 10 and 15 calendar days.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
@@ -4678,6 +4689,7 @@ if ($special === 'HAJJ') {
         (int)$emp['id']
     ));
     if ($dup > 0 || !empty($emp['hajj_used_at'])) {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Hajj leave can be granted only once and cannot be split.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
@@ -4686,6 +4698,7 @@ if ($special === 'HAJJ') {
     // tenure ≥ 2 years as of start date
     $hire = $emp['hire_date'] ?? ($emp['hired_at'] ?? null);
     if (!$hire || (strtotime($start) - strtotime($hire)) < (2 * 365 * DAY_IN_SECONDS)) {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Hajj leave is available after completing 2 years of service.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
@@ -4695,17 +4708,20 @@ if ($special === 'HAJJ') {
 // ---- Sick (Short/Long) existing limits
 if ($special === 'SICK_SHORT') {
     if ($days > 29) {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Sick (Short) is limited to 29 business days.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
     }
 } elseif ($special === 'SICK_LONG') {
     if ($days < 30) {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Sick (Long) requires at least 30 business days.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
     }
     if ($days > 120) {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Sick (Long) is limited to 120 days.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
@@ -4715,11 +4731,13 @@ if ($special === 'SICK_SHORT') {
 // ---- Maternity: allow extension up to 100 calendar days (last 30 unpaid)
 if ($special === 'MATERNITY') {
     if (strtolower((string)($emp['gender'] ?? '')) !== 'female') {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Maternity leave is available only to female employees.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
     }
     if ($cal_days > 100) {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Maternity leave can be up to 100 calendar days (last 30 unpaid).','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
@@ -4732,6 +4750,7 @@ if ($special === 'MATERNITY') {
 
         if (!$type['allow_negative'] && $available < $days) {
             $msg = sprintf(__('Insufficient balance. Available: %d, requested: %d', 'sfs-hr'), $available, $days);
+            $wpdb->query( 'ROLLBACK' );
             return $out . '<div class="notice notice-error"><p>' . esc_html($msg) . '</p></div>' .
                    $this->render_request_form($emp);
         }
@@ -4755,9 +4774,11 @@ if ($special === 'MATERNITY') {
         if (!$target && function_exists('get_permalink')) $target = get_permalink();
 
         if ($ins === false) {
+            $wpdb->query( 'ROLLBACK' );
             error_log('[SFS HR] Leave request insert failed: ' . $wpdb->last_error);
             $target = add_query_arg('sfs_hr_err', rawurlencode($wpdb->last_error ?: __('Save failed', 'sfs-hr')), $target);
         } else {
+            $wpdb->query( 'COMMIT' );
             // Audit Trail: leave request created
             $new_request_id = $wpdb->insert_id;
             do_action('sfs_hr_leave_request_created', $new_request_id, [
@@ -6163,8 +6184,12 @@ public function handle_self_request(): void {
         $days = 1;
     }
 
+    // Start transaction to prevent TOCTOU race on overlap check + insert.
+    $wpdb->query( 'START TRANSACTION' );
+
     // Prevent duplicate requests for overlapping dates
-    if ( LeaveCalculationService::has_overlap( $employee_id, $start, $end ) ) {
+    if ( LeaveCalculationService::has_overlap_locked( $employee_id, $start, $end ) ) {
+        $wpdb->query( 'ROLLBACK' );
         $this->redirect_back_with_msg( 'leave_err', 'overlap' );
     }
 
@@ -6177,6 +6202,7 @@ public function handle_self_request(): void {
     );
 
     if ( ! $type_row ) {
+        $wpdb->query( 'ROLLBACK' );
         $this->redirect_back_with_msg( 'leave_err', 'invalid_type' );
     }
 
@@ -6190,6 +6216,7 @@ public function handle_self_request(): void {
             $employee_id
         ) ) );
         if ( $type_gender !== $emp_gender ) {
+            $wpdb->query( 'ROLLBACK' );
             $this->redirect_back_with_msg( 'leave_err', 'gender_mismatch' );
         }
     }
@@ -6209,10 +6236,12 @@ public function handle_self_request(): void {
 
         if ( is_wp_error( $attach_id ) ) {
             error_log( '[SFS HR] Leave doc upload failed: ' . $attach_id->get_error_message() );
+            $wpdb->query( 'ROLLBACK' );
             $this->redirect_back_with_msg( 'leave_err', 'doc_upload' );
         }
     } elseif ( $requires_doc ) {
         // Sick leave type but no file uploaded
+        $wpdb->query( 'ROLLBACK' );
         $this->redirect_back_with_msg( 'leave_err', 'doc_required' );
     }
 
@@ -6257,10 +6286,12 @@ public function handle_self_request(): void {
     $result = $wpdb->insert( $req_table, $insert_data );
 
     if ( $result === false ) {
+        $wpdb->query( 'ROLLBACK' );
         error_log( '[SFS HR] Leave request insert failed: ' . $wpdb->last_error );
         $this->redirect_back_with_msg( 'leave_err', 'db_error' );
     }
 
+    $wpdb->query( 'COMMIT' );
     $new_request_id = (int) $wpdb->insert_id;
 
     if ( $skip_mgr_gm ) {

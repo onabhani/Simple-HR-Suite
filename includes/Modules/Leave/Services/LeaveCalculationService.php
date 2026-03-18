@@ -103,6 +103,22 @@ class LeaveCalculationService {
     }
 
     /**
+     * Check overlap with row-level lock to prevent TOCTOU race.
+     * Must be called inside a transaction.
+     */
+    public static function has_overlap_locked(int $employee_id, string $start, string $end): bool {
+        global $wpdb;
+        $t = $wpdb->prefix . 'sfs_hr_leave_requests';
+        $sql = "SELECT COUNT(*) FROM $t
+                WHERE employee_id=%d
+                  AND status IN ('pending','approved')
+                  AND NOT (end_date < %s OR start_date > %s)
+                FOR UPDATE";
+        $cnt = (int)$wpdb->get_var($wpdb->prepare($sql, $employee_id, $start, $end));
+        return $cnt > 0;
+    }
+
+    /**
      * Validate leave request dates
      * @param string $special_code Optional leave type special code (e.g. SICK_SHORT, SICK_LONG)
      * @return string|null Error message or null if valid
