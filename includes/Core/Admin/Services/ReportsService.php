@@ -85,7 +85,7 @@ class ReportsService {
                 e.employee_code,
                 CONCAT(e.first_name, ' ', e.last_name) AS name,
                 d.name AS department,
-                SUM(CASE WHEN s.status = 'present' THEN 1 ELSE 0 END) AS present_days,
+                SUM(CASE WHEN s.status IN ('present','late','left_early','incomplete') THEN 1 ELSE 0 END) AS present_days,
                 SUM(CASE WHEN s.status = 'late' THEN 1 ELSE 0 END) AS late_days,
                 SUM(CASE WHEN s.status = 'absent' THEN 1 ELSE 0 END) AS absent_days,
                 SUM(CASE WHEN s.status = 'on_leave' THEN 1 ELSE 0 END) AS leave_days,

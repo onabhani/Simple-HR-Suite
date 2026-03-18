@@ -2349,6 +2349,11 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
   .sfs-hr-kebab-wrap {
     position: relative;
     display: inline-block;
+    z-index: 1;
+  }
+  tr:hover .sfs-hr-kebab-wrap,
+  .sfs-hr-kebab-wrap:focus-within {
+    z-index: 9999;
   }
   .sfs-hr-kebab-btn {
     background: none;
@@ -2378,7 +2383,7 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
     border: 1px solid #dcdcde;
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    z-index: 100;
+    z-index: 9999;
     padding: 4px 0;
   }
   .sfs-hr-kebab-menu.open {
@@ -2607,9 +2612,21 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
 
     /* Kebab menu stays the same on mobile */
 
-    /* Pagination mobile */
+    /* Pagination mobile — keep items inline, override WP admin mobile styles */
     .sfs-hr-pagination {
+      display: flex !important;
+      flex-direction: row !important;
+      flex-wrap: wrap;
       justify-content: center;
+      gap: 6px;
+      padding: 10px 12px;
+    }
+    .sfs-hr-pagination a,
+    .sfs-hr-pagination span {
+      display: inline-flex !important;
+      width: auto !important;
+      min-width: 32px;
+      flex: 0 0 auto;
     }
   }
 </style>

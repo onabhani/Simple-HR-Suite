@@ -6049,7 +6049,7 @@ private function get_status_label( string $status ): string {
         'incomplete' => __( 'Incomplete', 'sfs-hr' ),
         'on_leave'   => __( 'On Leave', 'sfs-hr' ),
         'holiday'    => __( 'Holiday', 'sfs-hr' ),
-        'day_off'    => __( 'No Shift Assigned', 'sfs-hr' ),
+        'day_off'    => __( 'Day Off', 'sfs-hr' ),
     ];
     return $labels[ $status ] ?? ucfirst( str_replace( '_', ' ', $status ) );
 }

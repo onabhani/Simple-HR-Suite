@@ -100,7 +100,7 @@ class TeamAttendanceTab implements TabInterface {
         // ── Employee attendance summary for period ──
         $emp_query = "SELECT e.id, e.first_name, e.last_name, e.employee_code,
                              d.name AS dept_name,
-                             SUM(CASE WHEN s.status IN ('present') THEN 1 ELSE 0 END) AS present_days,
+                             SUM(CASE WHEN s.status IN ('present','late','left_early','incomplete') THEN 1 ELSE 0 END) AS present_days,
                              SUM(CASE WHEN s.status = 'late' THEN 1 ELSE 0 END) AS late_days,
                              SUM(CASE WHEN s.status = 'absent' THEN 1 ELSE 0 END) AS absent_days,
                              SUM(CASE WHEN s.status IN ('on_leave','holiday','day_off') THEN 1 ELSE 0 END) AS off_days,
@@ -174,7 +174,7 @@ class TeamAttendanceTab implements TabInterface {
     }
 
     private function render_today_kpis( array $counts ): void {
-        $present  = ( $counts['present'] ?? 0 );
+        $present  = ( $counts['present'] ?? 0 ) + ( $counts['late'] ?? 0 ) + ( $counts['left_early'] ?? 0 ) + ( $counts['incomplete'] ?? 0 );
         $late     = ( $counts['late'] ?? 0 );
         $absent   = ( $counts['absent'] ?? 0 );
         $on_leave = ( $counts['on_leave'] ?? 0 ) + ( $counts['holiday'] ?? 0 );
@@ -204,7 +204,7 @@ class TeamAttendanceTab implements TabInterface {
     private function render_period_summary( array $counts, int $total ): void {
         if ( $total === 0 ) return;
 
-        $present  = ( $counts['present'] ?? 0 ) + ( $counts['late'] ?? 0 ) + ( $counts['left_early'] ?? 0 );
+        $present  = ( $counts['present'] ?? 0 ) + ( $counts['late'] ?? 0 ) + ( $counts['left_early'] ?? 0 ) + ( $counts['incomplete'] ?? 0 );
         $absent   = ( $counts['absent'] ?? 0 );
         $on_leave = ( $counts['on_leave'] ?? 0 );
         $att_rate = $total > 0 ? round( ( $present / $total ) * 100 ) : 0;
@@ -274,8 +274,7 @@ class TeamAttendanceTab implements TabInterface {
             $off      = (int) $e['off_days'];
             $avg_hrs  = $e['avg_minutes'] ? round( (int) $e['avg_minutes'] / 60, 1 ) : 0;
             $total    = (int) $e['total_days'];
-            $worked   = $present + $late;
-            $rate     = $total > 0 ? round( ( $worked / $total ) * 100 ) : 0;
+            $rate     = $total > 0 ? round( ( $present / $total ) * 100 ) : 0;
             $rate_color = $rate >= 80 ? '#059669' : ( $rate >= 60 ? '#d97706' : '#dc2626' );
 
             echo '<tr>';
@@ -301,8 +300,7 @@ class TeamAttendanceTab implements TabInterface {
             $late     = (int) $e['late_days'];
             $absent   = (int) $e['absent_days'];
             $total    = (int) $e['total_days'];
-            $worked   = $present + $late;
-            $rate     = $total > 0 ? round( ( $worked / $total ) * 100 ) : 0;
+            $rate     = $total > 0 ? round( ( $present / $total ) * 100 ) : 0;
             $rate_color = $rate >= 80 ? '#059669' : ( $rate >= 60 ? '#d97706' : '#dc2626' );
 
             echo '<div class="sfs-card" style="margin-bottom:8px;">';
