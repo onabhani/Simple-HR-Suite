@@ -654,9 +654,10 @@ if ( $is_off_day && empty( $rows ) ) {
     }
 
     // Fire notification hooks for late arrival and early leave
-    $was_late = in_array('late', $existing_flags, true);
-    $is_late = in_array('late', $flags, true);
-    $is_early = in_array('left_early', $flags, true);
+    $was_late  = in_array( 'late', $existing_flags, true );
+    $was_early = in_array( 'left_early', $existing_flags, true );
+    $is_late   = in_array( 'late', $flags, true );
+    $is_early  = in_array( 'left_early', $flags, true );
 
     if ($is_late && !$was_late) {
         $minutes_late = 0;
@@ -700,7 +701,8 @@ if ( $is_off_day && empty( $rows ) ) {
     }
 
     // Auto-create early leave request (fires sfs_hr_early_leave_requested → manager notification)
-    if ( $is_early && $minutes_early > 0 ) {
+    // Guard mirrors the late-arrival pattern: only fire on the first recalc that detects the flag.
+    if ( $is_early && ! $was_early && $minutes_early > 0 ) {
         Early_Leave_Service::maybe_create_early_leave_request(
             $employee_id,
             $ymd,

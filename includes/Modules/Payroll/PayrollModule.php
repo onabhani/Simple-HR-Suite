@@ -656,7 +656,7 @@ class PayrollModule {
     }
 
     /**
-     * Count working days between two dates (excludes Fridays)
+     * Count working days between two dates (excludes Fridays and Saturdays - Saudi weekend)
      */
     public static function count_working_days( string $start, string $end ): int {
         $start_date = new \DateTime( $start );
@@ -668,8 +668,8 @@ class PayrollModule {
 
         $working_days = 0;
         foreach ( $period as $date ) {
-            // Skip Fridays (5) - Saudi weekend
-            if ( $date->format( 'N' ) != 5 ) {
+            // Skip Fridays (5) and Saturdays (6) - Saudi weekend
+            if ( (int) $date->format( 'N' ) !== 5 && (int) $date->format( 'N' ) !== 6 ) {
                 $working_days++;
             }
         }
