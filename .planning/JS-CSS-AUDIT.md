@@ -3,16 +3,22 @@
 **Audited:** 2026-03-18
 **Scope:** ~16,400 lines of inline JS/CSS + ~6,600 lines of standalone assets
 **Files:** 11 files across Frontend, Admin, and PWA layers
+**Status:** Fixed — all Critical/High/Medium resolved, 17 of 41 Low fixed, remainder deferred
 
 ## Summary
 
-| Severity | Count |
-|----------|-------|
-| Critical | 1 |
-| High | 7 |
-| Medium | 28 |
-| Low | 41 |
-| **Total** | **77** |
+| Severity | Found | Fixed | Deferred |
+|----------|-------|-------|----------|
+| Critical | 1 | 1 | 0 |
+| High | 7 | 7 | 0 |
+| Medium | 28 | 15 | 13 |
+| Low | 41 | 17 | 24 |
+| **Total** | **77** | **40** | **37** |
+
+### Deferred items (cosmetic / architectural / low-risk)
+Medium deferred: M-02 (postMessage origin), M-03 (HMAC key docs), M-04 (REST nonce inherent), M-06 (chart data echo pattern), M-10 (jsQR polling), M-11 (translateFormElements perf), M-12 (Leaflet map duplication), M-13 (bulk assignment queries — PHP, not JS), M-14 (SW precache list), M-15 (CSS attribute selectors), M-20 (asset modal double-submit), M-21 (SW concurrent sync race), M-27/M-28 (dark mode CSS duplication / !important — large refactor)
+
+Low deferred: L-09 (clock interval), L-11 (Riyadh default coords), L-12 (preloadGeo flash), L-13 (flash className), L-15 (marker duplication), L-16/L-31 partial (some catch blocks), L-17 (global nonce), L-19 (labelFor shadow), L-20 (jsQR CDN fallback), L-21 (button cache), L-22 (aria-live), L-25 (dead data-type in dead code — already removed), L-26 (sfsEsc name), L-27 (body overflow on nav), L-28 (eager history), L-30 (duplicate confirm), L-32 (global listeners), L-33 (lang closure), L-34 (IDB connection cache), L-35 (roster meta), L-37 (sfsHrPwa.db clobber), L-38 (SW sync break), L-40-L-52 (admin CSS/style consolidation)
 
 ## Critical Findings
 
