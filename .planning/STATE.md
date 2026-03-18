@@ -4,14 +4,14 @@ milestone: v1.3
 milestone_name: Audit Fixes (SQL, Data, Performance, Logic)
 status: completed
 stopped_at: Completed 29-03-PLAN.md
-last_updated: "2026-03-18T04:27:49.052Z"
-last_activity: 2026-03-18 — Phase 29 plan 02 complete; ALLOWED_TRANSITIONS guards prevent invalid status changes across three modules
+last_updated: "2026-03-18T04:32:07.422Z"
+last_activity: 2026-03-18 — Phase 29 plan 03 complete; TOCTOU race conditions fixed in leave overlap, loan fiscal year, and reference number generation via DB transactions and MySQL named locks
 progress:
   total_phases: 5
   completed_phases: 5
   total_plans: 13
   completed_plans: 13
-  percent: 92
+  percent: 100
 ---
 
 # Project State
