@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3-gap-closure
-milestone_name: Leave Handler Safety Hardening (Gap Closure)
-status: in_progress
+milestone: v1.3
+milestone_name: Audit Fixes (SQL, Data, Performance, Logic)
+status: completed
 stopped_at: Completed 30-01-PLAN.md
-last_updated: "2026-03-18T05:20:09Z"
-last_activity: 2026-03-18 — Phase 30 plan 01 complete; 3 gap closures in LeaveModule — reject guard exit, approve transaction, cache invalidation
+last_updated: "2026-03-18T05:24:31.521Z"
+last_activity: 2026-03-18 — Phase 30 plan 01 complete; reject guard fall-through fixed, approve balance race fixed with DB transaction + FOR UPDATE, all 5 leave mutation handlers now invalidate transient caches
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 14
   completed_plans: 14
   percent: 100
