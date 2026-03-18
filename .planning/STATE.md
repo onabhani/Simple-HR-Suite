@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Audit Fixes (SQL, Data, Performance, Logic)
 status: completed
-stopped_at: Completed 28-02-PLAN.md
-last_updated: "2026-03-18T03:24:03.985Z"
+stopped_at: Completed 28-03-PLAN.md
+last_updated: "2026-03-18T03:37:22.802Z"
 last_activity: 2026-03-18 — Phase 27 plan 01 complete; Settlement EOS formula corrected to Saudi Article 84 rates, trigger_type added
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
   percent: 25
 ---
 
@@ -55,6 +55,9 @@ Progress: [███░░░░░░░] 25% (v1.3: 2/5 phases complete — Ph
 - [Phase 28]: OverviewTab today_shift excluded from 60s transient cache — real-time attendance state must not be stale
 - [Phase 28]: Leave status tab pending_* sub-states share the 'pending' DB GROUP BY count since they are PHP-derived from approval_level
 - [Phase 28]: Resignation GROUP BY uses both r.status and r.resignation_type to correctly derive final_exit count
+- [Phase 28]: WF Status batch shift resolution: falls back to resolve_shift_for_date() for employees with no assignment row
+- [Phase 28]: Absent_Notifications: send_all_absent_notifications() combined dispatch avoids double DB query in cron
+- [Phase 28]: ATT-API-PERF-001: dept_label_from_employee() never called in loop; assignments tab uses JOIN; no code change needed
 
 ### Pending Todos
 
@@ -66,6 +69,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-18T03:23:47.615Z
-Stopped at: Completed 28-02-PLAN.md
+Last session: 2026-03-18T03:37:22.800Z
+Stopped at: Completed 28-03-PLAN.md
 Resume file: None
