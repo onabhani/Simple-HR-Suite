@@ -188,7 +188,7 @@ private function dept_label_from_employee( \wpdb $wpdb, $row, array $map ): stri
 // Fetch departments (id, name) for the filter.
 private function get_departments( \wpdb $wpdb ): array {
     $deptT = $wpdb->prefix . 'sfs_hr_departments';
-    $rows  = $wpdb->get_results( "SHOW TABLES LIKE '{$deptT}'" );
+    $rows  = $wpdb->get_results( $wpdb->prepare( "SHOW TABLES LIKE %s", $deptT ) );
     if ( empty($rows) ) { return []; }
     $list  = $wpdb->get_results( "SELECT id, name FROM {$deptT} ORDER BY name", ARRAY_A ) ?: [];
     return $list;
