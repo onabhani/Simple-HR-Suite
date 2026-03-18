@@ -154,7 +154,7 @@ Plans:
   1. `handle_reject()` transition guard terminates execution after redirect — invalid transition cannot fall through to rejection logic
   2. `handle_approve()` balance read-before-write sequence is wrapped in a DB transaction with `FOR UPDATE` on the balance row — concurrent dual-approvals cannot race on balance updates
   3. Every successful leave status mutation (`approve`, `reject`, `cancel`, `cancel_approved`, `cancellation_approve`, `cancellation_reject`) invalidates the `sfs_hr_leave_counts_*` and `sfs_hr_admin_dashboard_counts` transient caches
-**Plans:** 0/1 plans
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 30-01-PLAN.md — Fix reject guard exit + transaction-wrap approve balance + add cache invalidation on mutations
@@ -192,4 +192,4 @@ Plans:
 | 27. Data Integrity Fixes | 3/3 | Complete    | 2026-03-18 | - |
 | 28. Performance Fixes | 3/3 | Complete    | 2026-03-18 | - |
 | 29. Logic and Workflow Fixes | 3/3 | Complete    | 2026-03-18 | - |
-| 30. Leave Handler Safety Hardening | v1.3 | 0/1 | Planned | - |
+| 30. Leave Handler Safety Hardening | 1/1 | Complete   | 2026-03-18 | - |

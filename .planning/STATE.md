@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3
-milestone_name: Audit Fixes (SQL, Data, Performance, Logic)
-status: completed
-stopped_at: Completed 29-03-PLAN.md
-last_updated: "2026-03-18T04:32:07.422Z"
-last_activity: 2026-03-18 — Phase 29 plan 03 complete; TOCTOU race conditions fixed in leave overlap, loan fiscal year, and reference number generation via DB transactions and MySQL named locks
+milestone: v1.3-gap-closure
+milestone_name: Leave Handler Safety Hardening (Gap Closure)
+status: in_progress
+stopped_at: Completed 30-01-PLAN.md
+last_updated: "2026-03-18T05:20:09Z"
+last_activity: 2026-03-18 — Phase 30 plan 01 complete; 3 gap closures in LeaveModule — reject guard exit, approve transaction, cache invalidation
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 5
-  total_plans: 13
-  completed_plans: 13
+  total_plans: 14
+  completed_plans: 14
   percent: 100
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-17)
 
 **Core value:** Reliable, secure HR operations for Saudi organizations
-**Current focus:** v1.3 — Phase 26 complete, Phase 27 in progress (Data Integrity Fixes)
+**Current focus:** v1.3 gap closure — Phase 30 complete (Leave Handler Safety Hardening)
 
 ## Current Position
 
-Phase: 29 of 29 (Logic and Workflow Fixes) — COMPLETE
-Plan: 29-03 complete (3/3 plans done — phase finished)
-Status: v1.3 milestone complete; all 5 phases and 13 plans executed
-Last activity: 2026-03-18 — Phase 29 plan 03 complete; TOCTOU race conditions fixed in leave overlap, loan fiscal year, and reference number generation via DB transactions and MySQL named locks
+Phase: 30 of 30 (Leave Handler Safety Hardening) — COMPLETE
+Plan: 30-01 complete (1/1 plans done — phase finished)
+Status: Phase 30 complete; all 3 gap closures (LOGIC-02, LOGIC-01, PERF-03) applied
+Last activity: 2026-03-18 — Phase 30 plan 01 complete; reject guard fall-through fixed, approve balance race fixed with DB transaction + FOR UPDATE, all 5 leave mutation handlers now invalidate transient caches
 
-Progress: [██████████] 100% (v1.3: 5/5 phases complete — Phases 25-29 all done)
+Progress: [██████████] 100% (v1.3+gap: 6/6 phases complete — Phases 25-30 all done)
 
 ## Accumulated Context
 
@@ -63,6 +63,10 @@ Progress: [██████████] 100% (v1.3: 5/5 phases complete — P
 - [Phase 29]: Leave transition map extended: on_leave allows cancel_pending/cancelled; approved allows cancelled — matches real workflow where cancellation approval goes directly to cancelled DB state
 - [Phase 29-03]: Named lock (GET_LOCK) chosen for generate_reference_number() instead of FOR UPDATE because callers may already be inside a transaction; nested transactions not supported in MySQL/InnoDB
 - [Phase 29-03]: has_overlap_locked() added as new method alongside has_overlap() to preserve backward compatibility; both leave creation paths use the locked variant
+- [Phase 30-01]: COMMIT placed after balance insert/update block; no ROLLBACK handler added — MySQL auto-rollbacks uncommitted transactions on connection close (matches Phase 29 pattern)
+- [Phase 30-01]: START TRANSACTION placed before final status UPDATE so status change and balance update are atomic
+- [Phase 30-01]: invalidate_leave_caches() uses direct DELETE LIKE for sfs_hr_leave_counts_* because key is md5-scoped; uses delete_transient() for fixed-key dashboard counts
+- [Phase 30-01]: handle_cancel_approved() correctly skipped for cache invalidation — it only creates a cancellation record, not a leave status change
 
 ### Pending Todos
 
@@ -74,6 +78,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-18T04:27:49.050Z
-Stopped at: Completed 29-03-PLAN.md
+Last session: 2026-03-18T05:20:09Z
+Stopped at: Completed 30-01-PLAN.md
 Resume file: None
