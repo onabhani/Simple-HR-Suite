@@ -128,19 +128,15 @@ class Early_Leave_Service {
     public static function backfill_early_leave_request_numbers( \wpdb $wpdb ): void {
         $table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
         $missing = $wpdb->get_results(
-            "SELECT id, created_at FROM `$table` WHERE request_number IS NULL OR request_number = '' ORDER BY id ASC"
+            $wpdb->prepare(
+                "SELECT id, created_at FROM `{$table}` WHERE request_number IS NULL OR request_number = %s ORDER BY id ASC",
+                ''
+            )
         );
-        foreach ($missing as $row) {
-            $year = $row->created_at ? date('Y', strtotime($row->created_at)) : wp_date('Y');
-            $count = (int)$wpdb->get_var(
-                $wpdb->prepare(
-                    "SELECT COUNT(*) FROM `$table` WHERE request_number LIKE %s",
-                    'EL-' . $year . '-%'
-                )
-            );
-            $sequence = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
-            $number = 'EL-' . $year . '-' . $sequence;
-            $wpdb->update($table, ['request_number' => $number], ['id' => $row->id]);
+        foreach ( $missing as $row ) {
+            $year = $row->created_at ? date( 'Y', strtotime( $row->created_at ) ) : wp_date( 'Y' );
+            $number = \SFS\HR\Core\Helpers::generate_reference_number( 'EL', $table, 'request_number', $row->created_at );
+            $wpdb->update( $table, [ 'request_number' => $number ], [ 'id' => $row->id ] );
         }
     }
 }

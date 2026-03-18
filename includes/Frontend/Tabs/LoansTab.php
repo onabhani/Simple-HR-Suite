@@ -36,7 +36,7 @@ class LoansTab implements TabInterface {
         $payments_table = $wpdb->prefix . 'sfs_hr_loan_payments';
 
         $loans = $wpdb->get_results( $wpdb->prepare(
-            "SELECT * FROM {$loans_table} WHERE employee_id = %d ORDER BY created_at DESC",
+            "SELECT * FROM {$loans_table} WHERE employee_id = %d ORDER BY created_at DESC LIMIT 20",
             $emp_id
         ) );
 

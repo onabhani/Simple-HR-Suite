@@ -1,72 +1,101 @@
-# Attendance Module Refactor — Phase 2
+# Simple HR Suite — Code Quality & Fixes
 
 ## What This Is
 
-A structural refactor of the AttendanceModule god-class in Simple HR Suite. Phase 1 (pre-existing) extracted 5 service classes. Phase 2 (v1.0) extracted shortcode views and migration logic, reducing AttendanceModule.php from ~5390 lines to a 434-line clean orchestrator.
+A comprehensive WordPress HR plugin managing employees, departments, leave, attendance, payroll, loans, and more for Saudi/Arabic-speaking organizations. Through v1.0-v1.3, the plugin has been structurally refactored (Attendance module), fully audited (662 findings across 19 modules), hardened against all Critical/High auth vulnerabilities, and all Critical/High SQL injection, data integrity, performance, and logic/workflow findings have been fixed.
 
 ## Core Value
 
-AttendanceModule.php is a clean orchestrator that delegates to focused classes, making the attendance module maintainable and each piece independently testable.
+Reliable, secure HR operations for Saudi organizations — built on WordPress with direct `$wpdb` queries, no ORM, no external dependencies.
 
 ## Requirements
 
 ### Validated
 
-- ✓ Period_Service extracted — existing
-- ✓ Shift_Service extracted — existing
-- ✓ Early_Leave_Service extracted — existing
-- ✓ Session_Service extracted — existing
-- ✓ Policy_Service extracted — existing
-- ✓ Extract shortcode_widget() into Frontend/Widget_Shortcode.php — v1.0
-- ✓ Extract shortcode_kiosk() into Frontend/Kiosk_Shortcode.php — v1.0
-- ✓ All inline JS/CSS preserved as-is — v1.0
-- ✓ Shortcode methods become thin delegates — v1.0
-- ✓ Extract maybe_install() into Migration.php — v1.0
-- ✓ Migration follows CREATE TABLE + add_column_if_missing pattern — v1.0
-- ✓ AttendanceModule calls Migration from existing hook — v1.0
-- ✓ Remove orphaned helper/delegate methods — v1.0
-- ✓ AttendanceModule.php under 500 lines — v1.0
-- ✓ Zero behavior change — v1.0
+- ✓ AttendanceModule extracted to clean 434-line orchestrator — v1.0
+- ✓ Full security audit of Core + Frontend (~25K lines) — v1.1
+- ✓ Full audit of all 19 modules for security, performance, duplication, logical issues — v1.1
+- ✓ 662 findings documented with severity ratings (Critical/High/Medium/Low) and fix recommendations — v1.1
+- ✓ Cross-module finding wiring validated — v1.1
+- ✓ 7 recurring antipatterns catalogued with recurrence counts — v1.1
+- ✓ All attendance REST endpoints require authentication — v1.2
+- ✓ Kiosk token hashes replaced with HMAC-SHA-256 rotating nonces — v1.2
+- ✓ Leave approval/cancellation handlers enforce capability with scoped nonces — v1.2
+- ✓ is_hr_user() requires explicit HR assignment, not bare manager role — v1.2
+- ✓ Hiring handlers capability-gated with role allowlist blocking admin escalation — v1.2
+- ✓ Welcome emails use password reset links, no plaintext passwords — v1.2
+- ✓ Loans nonce-before-data ordering enforced, DOM nonce exposure eliminated — v1.2
+- ✓ Performance REST endpoints enforce department scope for managers — v1.2
+- ✓ Frontend tabs verify employee ownership before rendering PII — v1.2
+- ✓ TeamTab shows org-wide data for HR/GM/Admin roles — v1.2
+- ✓ Asset export row-limited, invoice upload MIME-allowlisted — v1.2
+- ✓ Resignation views department-scoped, redirect URL validated — v1.2
+- ✓ Settlement, Payroll, Employees capability format fixed to dotted sfs_hr.* — v1.2
+- ✓ All SQL queries use $wpdb->prepare() — no raw string interpolation in SQL — v1.3
+- ✓ Migration helpers use idempotent SHOW-based patterns, no bare ALTER TABLE — v1.3
+- ✓ Settlement EOS formula corrected to Saudi Article 84 with trigger_type support — v1.3
+- ✓ Leave balance preserved on approval, tenure steps at anniversary — v1.3
+- ✓ Payroll loan deductions use correct column, installment rounding aligned — v1.3
+- ✓ N+1 queries eliminated, dashboard counters cached, all queries bounded — v1.3
+- ✓ TOCTOU races closed with transactions/row locks on leave and loan operations — v1.3
+- ✓ State machine guards block invalid transitions in Leave, Settlement, Performance — v1.3
 
 ### Active
 
-(None — next milestone not yet defined)
+(No active requirements — define next milestone to scope.)
+
+### Planned for Future Milestones
+
+- [ ] **PHPUnit test suite** — unit tests for critical logic (Settlement EOS, Leave transitions, balance preservation, ref number generation) + integration tests for hardened paths (SQL injection defense, transaction wrapping, state guard termination)
+- [ ] **JavaScript/CSS audit** — v1.1 was PHP-only; frontend code has never been audited for security, performance, or quality issues
 
 ### Out of Scope
 
-- Extracting JS/CSS to separate asset files — high risk of breakage, deferred
-- Unit/integration tests — separate effort
-- Refactoring other modules — this project is Attendance-only
-- Changing user-facing behavior — pure structural refactor
+- Medium/Low severity findings — address in future milestones as needed
+- New feature development — fix-only milestones until stability
+- Third-party vendor code in `assets/vendor/` — not our code
+- Mobile app — web-first approach, PWA works on mobile
 
 ## Context
 
-Shipped v1.0 with 18,094 LOC PHP across the Attendance module.
-Tech stack: WordPress, PHP 8.2+, `$wpdb` direct queries.
-AttendanceModule.php is now 434 lines — a thin orchestrator delegating to:
-- `Services/` — Period, Shift, Early_Leave, Session, Policy
-- `Frontend/` — Widget_Shortcode, Kiosk_Shortcode
-- `Migration.php` — table creation, capabilities, seed data
+Shipped v1.3 with 44 files changed, +2500/-1688 lines across all 19 modules.
+Tech stack: WordPress, PHP 8.2+, `$wpdb` direct queries, no ORM.
+REST API namespace: `sfs-hr/v1`. Capabilities: dotted `sfs_hr.*` format.
+Codebase: ~92K lines PHP across 19 modules + Core/Frontend.
+No CI/CD, no test suite, no Composer/npm.
+
+Known tech debt (cosmetic only):
+(None — all cosmetic items resolved)
+
+Known tech debt (structural — needs dedicated phase):
+- **Attendance capability format migration**: Attendance module uses underscore caps (`sfs_hr_attendance_clock_self`, `sfs_hr_attendance_admin`, etc.) while the rest of the plugin uses dotted format (`sfs_hr.manage`, `sfs_hr.leave.review`). Requires: (1) register new dotted caps alongside old ones, (2) rename 60+ `current_user_can()` checks across 8+ files (Migration.php, Admin pages, REST endpoints, Frontend shortcodes, plus Documents, Workforce_Status, ShiftSwap, Core), (3) DB migration to copy stored caps from old → new for existing users, (4) eventually remove old underscore caps. High risk — must not break access for existing installations.
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Frontend/ subdirectory for views | Matches existing module pattern | ✓ Good |
-| Module-local Migration.php | Keeps module self-contained | ✓ Good |
-| Keep inline JS/CSS | Minimal risk — move code as-is | ✓ Good |
-| Phase 1 service extraction | Already validated in commit ea325b3 | ✓ Good |
-| Verbatim extraction, no refactoring | Zero behavior change guarantee | ✓ Good |
-| self:: → AttendanceModule:: in extracted classes | Required for correct static dispatch outside original class | ✓ Good |
-| Instance methods on Migration class | Cleaner than static helpers for extraction | ✓ Good |
-| Eliminate middleman delegates | backfill_early_leave calls Early_Leave_Service directly | ✓ Good |
+| Audit-only v1.1, no fixes | Keep scope manageable | ✓ Good — completed full audit in 2 days |
+| Review order by size/risk | Largest modules have most surface area | ✓ Good — found highest-severity issues in large modules first |
+| Batch small modules (Ph 18-19) | Under 1.3K lines each, efficient grouping | ✓ Good — covered 6 modules in 2 phases |
+| 4 metrics per module | Security + performance + duplication + logical | ✓ Good — comprehensive coverage |
+| Saudi Labor Law EOS formula wrong | Settlement uses UAE 21-day formula | ✓ Fixed v1.3 — Article 84 rates + trigger_type |
+| v1.2 scope: auth-only fixes | Focus on most critical security gaps first | ✓ Good — 32 auth gaps closed in 1 day |
+| Capability-before-nonce pattern | Fails fast without revealing nonce validity | ✓ Good — consistent across Leave, Hiring, Loans, Assets |
+| HMAC-SHA-256 for kiosk tokens | Prevents offline rainbow table attacks on QR tokens | ✓ Good — rotating nonce makes precomputation infeasible |
+| Role allowlist for hiring | Blocks administrator escalation during conversion | ✓ Good — simple, auditable security boundary |
+| TeamTab level < 40 threshold | HR/GM/Admin see org-wide; manager stays dept-scoped | ✓ Good — matches Role_Resolver level hierarchy |
+| SQL-first fix ordering | Migration helpers before SQL injection fixes | ✓ Good — clean infrastructure for Phase 26 |
+| Transient caching with 60s TTL | Dashboard/leave counters cached, no invalidation initially | ✓ Good — invalidation added in Phase 30 gap closure |
+| Named locks for ref numbers | GET_LOCK instead of FOR UPDATE (callers may be in transactions) | ✓ Good — avoids nested transaction issues |
+| Transaction-wrap approve path | Balance read-before-write race fixed in gap closure | ✓ Good — closes audit integration gap |
 
 ## Constraints
 
-- **Zero behavior change**: Pure structural refactor
-- **Inline assets preserved**: JS/CSS remain inline in view output
-- **Migration pattern**: CREATE TABLE IF NOT EXISTS + add_column_if_missing()
-- **PHP namespace**: SFS\HR\Modules\Attendance\*
+- **PHP 8.2+** target
+- **No Composer/npm** — vendor assets committed directly
+- **Saudi labor law** — Settlement, Leave tenure, weekend calculations must comply
+- **Backward compatibility** — dual hire_date/hired_at, existing hooks/filters preserved
+- **No CI/CD** — manual deployments, changes must be low-risk
 
 ---
-*Last updated: 2026-03-10 after v1.0 milestone*
+*Last updated: 2026-03-18 after v1.3 milestone completion*

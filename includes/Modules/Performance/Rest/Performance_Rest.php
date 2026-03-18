@@ -275,8 +275,80 @@ class Performance_Rest {
     // Permission Callbacks
     // =========================================================================
 
-    public function check_read_permission(): bool {
-        return current_user_can( 'sfs_hr_performance_view' );
+    public function check_read_permission( \WP_REST_Request $request = null ): bool {
+        // Full admin access -- can read all performance data.
+        if ( current_user_can( 'sfs_hr.manage' ) ) {
+            return true;
+        }
+
+        // Dedicated performance view capability -- unrestricted read access.
+        if ( current_user_can( 'sfs_hr_performance_view' ) ) {
+            return true;
+        }
+
+        // Department managers (sfs_hr.view) -- scoped to their managed departments.
+        if ( current_user_can( 'sfs_hr.view' ) ) {
+            // If no request context, allow basic access; endpoint callbacks enforce further scoping.
+            if ( ! $request ) {
+                return true;
+            }
+
+            // Employee-specific endpoints: verify the employee is in a managed department.
+            $employee_id = $request->get_param( 'employee_id' ) ?: $request->get_param( 'id' );
+            if ( $employee_id ) {
+                return $this->is_employee_in_managed_department( (int) $employee_id );
+            }
+
+            // Department-specific endpoints: verify the department is managed by this user.
+            $dept_id = $request->get_param( 'dept_id' );
+            if ( $dept_id ) {
+                return $this->is_managed_department( (int) $dept_id );
+            }
+
+            // Summary/listing endpoints without specific employee/dept: allow at permission level;
+            // the endpoint callback should filter to managed departments.
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if an employee belongs to a department managed by the current user.
+     */
+    private function is_employee_in_managed_department( int $employee_id ): bool {
+        global $wpdb;
+        $managed_depts = $this->get_managed_department_ids();
+        if ( empty( $managed_depts ) ) {
+            return false;
+        }
+        $placeholders = implode( ',', array_fill( 0, count( $managed_depts ), '%d' ) );
+        $query = $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}sfs_hr_employees WHERE id = %d AND dept_id IN ({$placeholders})",
+            array_merge( [ $employee_id ], $managed_depts )
+        );
+        return (int) $wpdb->get_var( $query ) > 0;
+    }
+
+    /**
+     * Check if a department is managed by the current user.
+     */
+    private function is_managed_department( int $dept_id ): bool {
+        $managed_depts = $this->get_managed_department_ids();
+        return in_array( $dept_id, $managed_depts, true );
+    }
+
+    /**
+     * Get department IDs managed by the current user.
+     */
+    private function get_managed_department_ids(): array {
+        global $wpdb;
+        $user_id = get_current_user_id();
+        $results = $wpdb->get_col( $wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}sfs_hr_departments WHERE manager_user_id = %d AND active = 1",
+            $user_id
+        ) );
+        return array_map( 'intval', $results );
     }
 
     public function check_write_permission(): bool {

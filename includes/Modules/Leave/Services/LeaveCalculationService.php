@@ -34,13 +34,21 @@ class LeaveCalculationService {
     /**
      * Compute tenure-aware quota for a year using policy options.
      * Falls back to type.annual_quota if tenure not applicable.
+     * Tenure computed at employee's anniversary date within the year, not January 1.
      */
     public static function compute_quota_for_year(array $type_row, ?string $hire_date, int $year): int {
         $quota = (int)($type_row['annual_quota'] ?? 0);
         if (empty($type_row['is_annual'])) return $quota;
         if (empty($hire_date)) return $quota;
 
-        $as_of = strtotime($year . '-01-01');
+        // Compute tenure at employee's anniversary date in the given year
+        $hire_md = substr($hire_date, 5); // MM-DD portion
+        $anniversary_in_year = $year . '-' . $hire_md;
+        $as_of = strtotime($anniversary_in_year);
+        if (!$as_of) {
+            // Handle Feb 29 edge case: fall back to Mar 1
+            $as_of = strtotime($year . '-03-01');
+        }
         $hd = strtotime($hire_date);
         if (!$hd) return $quota;
 
@@ -90,6 +98,22 @@ class LeaveCalculationService {
                 WHERE employee_id=%d
                   AND status IN ('pending','approved')
                   AND NOT (end_date < %s OR start_date > %s)";
+        $cnt = (int)$wpdb->get_var($wpdb->prepare($sql, $employee_id, $start, $end));
+        return $cnt > 0;
+    }
+
+    /**
+     * Check overlap with row-level lock to prevent TOCTOU race.
+     * Must be called inside a transaction.
+     */
+    public static function has_overlap_locked(int $employee_id, string $start, string $end): bool {
+        global $wpdb;
+        $t = $wpdb->prefix . 'sfs_hr_leave_requests';
+        $sql = "SELECT COUNT(*) FROM $t
+                WHERE employee_id=%d
+                  AND status IN ('pending','approved')
+                  AND NOT (end_date < %s OR start_date > %s)
+                FOR UPDATE";
         $cnt = (int)$wpdb->get_var($wpdb->prepare($sql, $employee_id, $start, $end));
         return $cnt > 0;
     }

@@ -1085,7 +1085,8 @@ class Notifications {
              LEFT JOIN {$emp_table} m ON e.manager_id = m.id
              LEFT JOIN {$wpdb->users} mu ON m.user_id = mu.ID
              WHERE lr.status = 'pending'
-             ORDER BY lr.created_at ASC"
+             ORDER BY lr.created_at ASC
+             LIMIT 200"
         );
         if ( ! empty( $pending_leaves ) ) {
             $hr_pending_items['leave_requests'] = [
@@ -1111,7 +1112,8 @@ class Notifications {
                  FROM {$loans_table} l
                  LEFT JOIN {$emp_table} e ON l.employee_id = e.id
                  WHERE l.status IN ('pending_gm', 'pending_finance')
-                 ORDER BY l.created_at ASC"
+                 ORDER BY l.created_at ASC
+                 LIMIT 200"
             );
             if ( ! empty( $pending_loans ) ) {
                 $hr_pending_items['loans'] = [
@@ -1151,7 +1153,8 @@ class Notifications {
                  LEFT JOIN {$emp_table} m ON e.manager_id = m.id
                  LEFT JOIN {$wpdb->users} mu ON m.user_id = mu.ID
                  WHERE r.status = 'pending'
-                 ORDER BY r.submitted_date ASC"
+                 ORDER BY r.submitted_date ASC
+                 LIMIT 200"
             );
             if ( ! empty( $pending_resignations ) ) {
                 $hr_pending_items['resignations'] = [
@@ -1181,7 +1184,8 @@ class Notifications {
                  LEFT JOIN {$emp_table} e2 ON s.target_employee_id = e2.id
                  LEFT JOIN {$wpdb->users} u2 ON e2.user_id = u2.ID
                  WHERE s.status IN ('pending', 'accepted')
-                 ORDER BY s.created_at ASC"
+                 ORDER BY s.created_at ASC
+                 LIMIT 200"
             );
             if ( ! empty( $pending_swaps ) ) {
                 $hr_pending_items['shift_swaps'] = [
@@ -1213,7 +1217,8 @@ class Notifications {
                  LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
                  LEFT JOIN {$wpdb->prefix}sfs_hr_assets a ON aa.asset_id = a.id
                  WHERE aa.status IN ('pending_employee_approval', 'return_requested')
-                 ORDER BY aa.created_at ASC"
+                 ORDER BY aa.created_at ASC
+                 LIMIT 200"
             );
             if ( ! empty( $pending_assets ) ) {
                 $hr_pending_items['assets'] = [
@@ -1240,7 +1245,8 @@ class Notifications {
                         c.department
                  FROM {$candidates_table} c
                  WHERE c.status IN ('applied', 'screening', 'dept_pending', 'gm_pending', 'gm_approved')
-                 ORDER BY c.created_at ASC"
+                 ORDER BY c.created_at ASC
+                 LIMIT 200"
             );
             if ( ! empty( $pending_candidates ) ) {
                 $hr_pending_items['hiring'] = [
@@ -1549,10 +1555,7 @@ class Notifications {
      */
     private static function table_exists( string $table_name ): bool {
         global $wpdb;
-        return (bool) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-            $table_name
-        ) );
+        return (bool) $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $table_name ) );
     }
 
     // =========================================================================

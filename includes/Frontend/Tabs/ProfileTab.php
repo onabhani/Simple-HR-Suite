@@ -19,7 +19,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 class ProfileTab implements TabInterface {
 
     public function render( array $emp, int $emp_id ): void {
-        if ( ! is_user_logged_in() ) {
+        if ( ! is_user_logged_in() || (int) ( $emp['user_id'] ?? 0 ) !== get_current_user_id() ) {
+            echo '<p>' . esc_html__( 'You can only view your own profile.', 'sfs-hr' ) . '</p>';
             return;
         }
 
@@ -388,7 +389,7 @@ class ProfileTab implements TabInterface {
         $assign_table = $wpdb->prefix . 'sfs_hr_asset_assignments';
         $asset_table  = $wpdb->prefix . 'sfs_hr_assets';
 
-        if ( $wpdb->get_var( "SHOW TABLES LIKE '{$assign_table}'" ) !== $assign_table ) {
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $assign_table ) ) !== $assign_table ) {
             return;
         }
 

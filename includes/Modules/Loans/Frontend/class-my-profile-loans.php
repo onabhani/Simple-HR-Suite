@@ -650,6 +650,9 @@ class MyProfileLoans {
             }
         }
 
+        // Start transaction to prevent TOCTOU race on fiscal year / active loan checks + insert.
+        $wpdb->query( 'START TRANSACTION' );
+
         // ── One loan per fiscal year ──
         if ( ! empty( $settings['one_loan_per_fiscal_year'] ) ) {
             $loans_table = $wpdb->prefix . 'sfs_hr_loans';
@@ -673,11 +676,13 @@ class MyProfileLoans {
                 "SELECT COUNT(*) FROM {$loans_table}
                  WHERE employee_id = %d
                    AND status NOT IN ('rejected','cancelled')
-                   AND created_at >= %s AND created_at < %s",
+                   AND created_at >= %s AND created_at < %s
+                 FOR UPDATE",
                 $employee_id, $fy_start, $fy_end
             ) );
 
             if ( $existing > 0 ) {
+                $wpdb->query( 'ROLLBACK' );
                 return [ 'success' => false, 'message' => sprintf(
                     __( 'You already have a loan in the current fiscal year (%s to %s).', 'sfs-hr' ),
                     wp_date( 'M Y', strtotime( $fy_start ) ),
@@ -691,10 +696,12 @@ class MyProfileLoans {
         $max_active  = (int) ( $settings['max_active_loans_per_employee'] ?? 1 );
         $active_count = (int) $wpdb->get_var( $wpdb->prepare(
             "SELECT COUNT(*) FROM {$loans_table}
-             WHERE employee_id = %d AND status IN ('active','pending_gm','pending_finance')",
+             WHERE employee_id = %d AND status IN ('active','pending_gm','pending_finance')
+             FOR UPDATE",
             $employee_id
         ) );
         if ( $active_count >= $max_active ) {
+            $wpdb->query( 'ROLLBACK' );
             return [ 'success' => false, 'message' => sprintf(
                 __( 'You already have %d active/pending loan(s). Maximum allowed: %d.', 'sfs-hr' ),
                 $active_count, $max_active
@@ -703,7 +710,7 @@ class MyProfileLoans {
 
         // ── All checks passed — insert loan ──
         $loan_number     = \SFS\HR\Modules\Loans\LoansModule::generate_loan_number();
-        $installment_amt = round( $monthly_amount, 2 );
+        $installment_amt = round( $principal / $installments, 2 );
 
         $result = $wpdb->insert( $loans_table, [
             'loan_number'        => $loan_number,
@@ -723,10 +730,12 @@ class MyProfileLoans {
         ] );
 
         if ( $result === false ) {
+            $wpdb->query( 'ROLLBACK' );
             error_log( 'SFS HR Loans: Failed to insert loan request. Error: ' . $wpdb->last_error );
             return [ 'success' => false, 'message' => __( 'Failed to submit request. Please try again.', 'sfs-hr' ) ];
         }
 
+        $wpdb->query( 'COMMIT' );
         $loan_id = $wpdb->insert_id;
 
         \SFS\HR\Modules\Loans\LoansModule::log_event( $loan_id, 'loan_created', [

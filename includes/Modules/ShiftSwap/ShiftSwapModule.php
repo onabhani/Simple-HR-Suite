@@ -64,10 +64,7 @@ class ShiftSwapModule {
         $table = $wpdb->prefix . 'sfs_hr_shift_swaps';
         $charset_collate = $wpdb->get_charset_collate();
 
-        $table_exists = (bool) $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-            $table
-        ));
+        $table_exists = (bool) $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table));
 
         if (!$table_exists) {
             $wpdb->query("CREATE TABLE IF NOT EXISTS {$table} (
@@ -117,6 +114,7 @@ class ShiftSwapModule {
      * Add unique key if missing
      */
     private static function add_unique_key_if_missing(\wpdb $wpdb, string $table, string $key_name): void {
+        // information_schema acceptable here — migration-only, version-gated; no clean SHOW equivalent for index names
         $index_exists = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE table_schema = DATABASE() AND table_name = %s AND index_name = %s",
             $table, $key_name

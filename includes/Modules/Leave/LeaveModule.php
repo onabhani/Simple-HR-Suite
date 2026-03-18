@@ -13,6 +13,24 @@ require_once __DIR__ . '/class-leave-ui.php';
 
 class LeaveModule {
 
+    /**
+     * Allowed leave request status transitions.
+     * Key = current status, value = array of valid next statuses.
+     */
+    private const ALLOWED_TRANSITIONS = [
+        'pending'                => [ 'approved', 'rejected', 'cancelled', 'pending_gm', 'pending_hr' ],
+        'pending_gm'             => [ 'approved', 'rejected', 'pending_hr' ],
+        'pending_hr'             => [ 'approved', 'rejected' ],
+        'approved'               => [ 'on_leave', 'cancel_pending', 'cancelled' ],
+        'on_leave'               => [ 'returned', 'early_returned', 'cancel_pending', 'cancelled' ],
+        'cancel_pending'         => [ 'cancelled', 'cancellation_rejected' ],
+        'rejected'               => [],
+        'cancelled'              => [],
+        'returned'               => [],
+        'early_returned'         => [],
+        'cancellation_rejected'  => [ 'approved' ],
+    ];
+
     public const SUPPORTED_LANGS = [
         'ar'  => 'Arabic',
         'ur'  => 'Urdu',
@@ -243,23 +261,50 @@ public function render_requests(): void {
         $params = array_merge($params, array_map('intval', $managed_depts));
     }
 
-    // Count by status for tabs
-    $counts = [];
-    $count_where = '1=1';
+    // Count by status for tabs — single GROUP BY query instead of N separate COUNTs.
+    // Scoping key for transient cache includes department IDs if manager-scoped.
+    $counts      = [];
+    $count_where  = '1=1';
     $count_params = [];
     if ( ! $is_hr_or_gm_for_view && ! empty($managed_depts) ) {
         $placeholders = implode(',', array_fill(0, count($managed_depts), '%d'));
-        $count_where = "e.dept_id IN ($placeholders)";
+        $count_where  = "e.dept_id IN ($placeholders)";
         $count_params = array_map('intval', $managed_depts);
     }
+
+    $scope_key         = $is_hr_or_gm_for_view ? 'all' : implode( '_', $count_params );
+    $counts_cache_key  = 'sfs_hr_leave_counts_' . md5( $scope_key );
+    $cached_counts     = get_transient( $counts_cache_key );
+
+    if ( false === $cached_counts ) {
+        // Single GROUP BY query for per-status counts.
+        $sql_group = "SELECT r.status, COUNT(*) as cnt FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id"
+            . ( $count_where !== '1=1' ? " WHERE $count_where" : '' )
+            . " GROUP BY r.status";
+        $group_rows = $count_params
+            ? $wpdb->get_results( $wpdb->prepare( $sql_group, ...$count_params ), ARRAY_A )
+            : $wpdb->get_results( $sql_group, ARRAY_A );
+
+        $cached_counts = [];
+        $total_all     = 0;
+        foreach ( $group_rows as $gr ) {
+            $cached_counts[ $gr['status'] ] = (int) $gr['cnt'];
+            $total_all += (int) $gr['cnt'];
+        }
+        $cached_counts['all'] = $total_all;
+
+        set_transient( $counts_cache_key, $cached_counts, 60 );
+    }
+
+    // Build $counts for all display tabs; unknown sub-statuses (pending_manager etc.) use 'pending' count.
     foreach ( array_keys( $status_tabs ) as $s ) {
         if ( $s === 'all' ) {
-            $sql_count = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id" . ($count_where !== '1=1' ? " WHERE $count_where" : "");
-            $counts['all'] = $count_params ? (int) $wpdb->get_var($wpdb->prepare($sql_count, ...$count_params)) : (int) $wpdb->get_var($sql_count);
+            $counts['all'] = $cached_counts['all'] ?? 0;
+        } elseif ( in_array( $s, [ 'pending_manager', 'pending_hr', 'pending_gm', 'pending_finance' ], true ) ) {
+            // These are display-only sub-states derived from approval_level; share the 'pending' DB count.
+            $counts[ $s ] = $cached_counts['pending'] ?? 0;
         } else {
-            $sql_count = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id WHERE r.status = %s" . ($count_where !== '1=1' ? " AND $count_where" : "");
-            $c_params = array_merge([$s], $count_params);
-            $counts[$s] = (int) $wpdb->get_var($wpdb->prepare($sql_count, ...$c_params));
+            $counts[ $s ] = $cached_counts[ $s ] ?? 0;
         }
     }
 
@@ -278,8 +323,31 @@ public function render_requests(): void {
     $rows  = $wpdb->get_results($wpdb->prepare($sql, ...$params_rows), ARRAY_A);
     $pages = max(1, (int)ceil($total / $pp));
 
-    $nonceA = wp_create_nonce('sfs_hr_leave_approve');
-    $nonceR = wp_create_nonce('sfs_hr_leave_reject');
+    // Batch-fetch approver display names to avoid N+1 get_user_by() calls in the row loop.
+    $approver_names = [];
+    if ( $rows ) {
+        $approver_ids = array_unique( array_filter( array_map(
+            function( $r ) {
+                return ( in_array( $r['status'], [ 'approved', 'rejected' ], true ) && ! empty( $r['approver_id'] ) )
+                    ? (int) $r['approver_id']
+                    : 0;
+            },
+            $rows
+        ) ) );
+        if ( ! empty( $approver_ids ) ) {
+            $id_placeholders    = implode( ',', array_fill( 0, count( $approver_ids ), '%d' ) );
+            $approver_rows      = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT ID, display_name FROM {$wpdb->users} WHERE ID IN ($id_placeholders)",
+                    ...$approver_ids
+                ),
+                ARRAY_A
+            );
+            foreach ( $approver_rows as $au ) {
+                $approver_names[ (int) $au['ID'] ] = $au['display_name'];
+            }
+        }
+    }
 
     // Output styles
     $this->output_leave_requests_styles();
@@ -511,8 +579,9 @@ public function render_requests(): void {
     </div>
 
     <script>
-    function sfsEsc(s){if(typeof s!=='string')return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-    var sfsHrLeaveData = <?php echo wp_json_encode(array_values(array_map(function($r) use ($nonceA, $nonceR, $hr_user_ids, $gm_user_id, $managed_depts, $current_uid) {
+    (function(){
+    function sfsEsc(s){if(typeof s!=='string')return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+    var sfsHrLeaveData = <?php echo wp_json_encode(array_values(array_map(function($r) use ($hr_user_ids, $gm_user_id, $managed_depts, $current_uid, $approver_names) {
         $can_approve = false;
         if ($r['status'] === 'pending') {
             // Position-based HR or GM check
@@ -527,13 +596,10 @@ public function render_requests(): void {
                 $can_approve = false;
             }
         }
-        // Get approver name for approved/rejected requests
+        // Look up approver name from pre-fetched batch (no per-row DB query).
         $approver_name = '';
         if (in_array($r['status'], ['approved', 'rejected'], true) && !empty($r['approver_id'])) {
-            $approver_user = get_user_by('id', (int)$r['approver_id']);
-            if ($approver_user) {
-                $approver_name = $approver_user->display_name;
-            }
+            $approver_name = $approver_names[ (int) $r['approver_id'] ] ?? '';
         }
         // Get history for this request
         $history = LeaveModule::get_history((int)$r['id']);
@@ -557,8 +623,8 @@ public function render_requests(): void {
             'approverName'  => $approver_name,
             'approverNote'  => $r['approver_note'] ?? '',
             'canApprove'    => $can_approve,
-            'nonceA'        => $nonceA,
-            'nonceR'        => $nonceR,
+            'nonceA'        => wp_create_nonce( 'sfs_hr_leave_approve_' . (int) $r['id'] ),
+            'nonceR'        => wp_create_nonce( 'sfs_hr_leave_reject_' . (int) $r['id'] ),
             'history'       => $history_formatted,
         ];
     }, $rows))); ?>;
@@ -616,6 +682,13 @@ public function render_requests(): void {
             actionsDiv.innerHTML = '';
         }
 
+        // Prevent double-submit on approve/reject forms
+        Array.from(actionsDiv.querySelectorAll('form')).forEach(function(f){
+            f.addEventListener('submit', function(){
+                Array.from(f.querySelectorAll('button')).forEach(function(btn){ btn.disabled = true; });
+            });
+        });
+
         // Display history
         var historyDiv = document.getElementById('sfs-hr-leave-modal-history');
         var historyList = document.getElementById('sfs-hr-leave-modal-history-list');
@@ -628,10 +701,10 @@ public function render_requests(): void {
                 historyHtml += '<div style="font-size:12px;color:#555;">' + sfsEsc(h.user) + '</div>';
                 if (h.meta && Object.keys(h.meta).length > 0) {
                     historyHtml += '<div style="font-size:11px;margin-top:4px;background:#fff;padding:4px;border-radius:2px;">';
-                    for (var key in h.meta) {
+                    Object.keys(h.meta).forEach(function(key) {
                         var label = key.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
-                        historyHtml += '<strong>' + sfsEsc(label) + ':</strong> ' + sfsEsc(h.meta[key]) + '<br>';
-                    }
+                        historyHtml += '<strong>' + sfsEsc(label) + ':</strong> ' + sfsEsc(String(h.meta[key])) + '<br>';
+                    });
                     historyHtml += '</div>';
                 }
                 historyHtml += '</div>';
@@ -670,6 +743,12 @@ public function render_requests(): void {
             sfsHrCloseLeaveModal();
         }
     });
+
+    // Expose only the functions needed by inline onclick handlers
+    window.sfsHrShowLeaveModal = sfsHrShowLeaveModal;
+    window.sfsHrCloseLeaveModal = sfsHrCloseLeaveModal;
+    window.sfsHrPromptRejectReason = sfsHrPromptRejectReason;
+    })();
     </script>
     <?php
 }
@@ -1037,6 +1116,29 @@ private function output_leave_requests_styles(): void {
 }
 
 /**
+ * Invalidate leave-related transient caches after a status mutation.
+ *
+ * Clears:
+ * - sfs_hr_leave_counts_* (per-scope leave status counts from Phase 28)
+ * - sfs_hr_admin_dashboard_counts (admin dashboard counters from Phase 28)
+ *
+ * The leave counts transient key includes an md5 of the scope ('all' or dept IDs),
+ * so we must delete all matching transients via a LIKE query on the options table.
+ */
+private function invalidate_leave_caches(): void {
+    global $wpdb;
+
+    // Delete all sfs_hr_leave_counts_* transients (scope-dependent keys).
+    // WordPress stores transients in wp_options as _transient_{name} and _transient_timeout_{name}.
+    $wpdb->query(
+        "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_sfs_hr_leave_counts_%' OR option_name LIKE '_transient_timeout_sfs_hr_leave_counts_%'"
+    );
+
+    // Delete the fixed-key admin dashboard counts transient.
+    delete_transient( 'sfs_hr_admin_dashboard_counts' );
+}
+
+/**
  * Guard: pure WP admin (no HR/GM/manager assignment) cannot approve or reject.
  *
  * Resolves the user's role via Role_Resolver; if 'admin', redirects with the
@@ -1055,10 +1157,14 @@ private function guard_admin_cannot_approve_or_reject( int $current_uid, string 
 }
 
 public function handle_approve(): void {
-    check_admin_referer('sfs_hr_leave_approve');
+    if ( ! current_user_can( 'sfs_hr.leave.review' ) ) {
+        wp_die( __( 'You do not have permission to approve leave requests.', 'sfs-hr' ), 403 );
+    }
 
     $id   = isset($_POST['id']) ? (int) $_POST['id'] : 0;
     $note = isset($_POST['note']) ? sanitize_text_field($_POST['note']) : '';
+
+    check_admin_referer( 'sfs_hr_leave_approve_' . $id );
 
     $redirect_base = admin_url('admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending');
 
@@ -1078,8 +1184,13 @@ public function handle_approve(): void {
         ARRAY_A
     );
 
-    if ( ! $row || $row['status'] !== 'pending' ) {
-        wp_safe_redirect($redirect_base);
+    if ( ! $row ) {
+        wp_safe_redirect( $redirect_base );
+        exit;
+    }
+    $current_status = $row['status'];
+    if ( ! $this->is_valid_transition( $current_status, 'approved' ) ) {
+        wp_safe_redirect( $redirect_base . '&err=' . rawurlencode( __( 'Request is not in an approvable state.', 'sfs-hr' ) ) );
         exit;
     }
 
@@ -1571,6 +1682,8 @@ public function handle_approve(): void {
         ]
     );
 
+    $wpdb->query('START TRANSACTION');
+
     $wpdb->update(
         $req_t,
         [
@@ -1627,9 +1740,24 @@ public function handle_approve(): void {
         )
     );
 
-    $opening = 0;
-    $carried = 0;
-    $accrued = $quota;
+    // Read existing balance to preserve opening and carried_over.
+    // FOR UPDATE locks the row during the transaction to prevent concurrent dual-approvals
+    // from corrupting the balance (LOGIC-01 race condition fix).
+    $existing_bal = $wpdb->get_row(
+        $wpdb->prepare(
+            "SELECT opening, accrued, carried_over FROM $bal_t WHERE employee_id=%d AND type_id=%d AND year=%d FOR UPDATE",
+            (int) $row['employee_id'],
+            (int) $row['type_id'],
+            $year
+        ),
+        ARRAY_A
+    );
+    $opening = (int) ($existing_bal['opening'] ?? 0);
+    $carried = (int) ($existing_bal['carried_over'] ?? 0);
+    $accrued = (int) ($existing_bal['accrued'] ?? 0);
+    if ($accrued === 0) {
+        $accrued = $quota;
+    }
     $closing = $opening + $accrued + $carried - $used;
 
     $bal_id = $wpdb->get_var(
@@ -1671,6 +1799,9 @@ public function handle_approve(): void {
         );
     }
 
+    $wpdb->query('COMMIT');
+    $this->invalidate_leave_caches();
+
     // Notify employee
     $this->notify_requester(
         (int) $row['employee_id'],
@@ -1693,9 +1824,8 @@ public function handle_approve(): void {
 
 public function handle_reject(): void {
     Helpers::require_cap('sfs_hr.leave.review');
-    check_admin_referer('sfs_hr_leave_reject');
-
     $id   = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+    check_admin_referer('sfs_hr_leave_reject_' . $id);
     $note = isset($_POST['note']) ? sanitize_text_field($_POST['note']) : '';
 
     // Require rejection reason
@@ -1704,14 +1834,20 @@ public function handle_reject(): void {
         exit;
     }
 
-    if ($id<=0) wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending'));
+    if ($id <= 0) {
+        wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending'));
+        exit;
+    }
 
     global $wpdb;
     $req_t = $wpdb->prefix.'sfs_hr_leave_requests';
     $emp_t = $wpdb->prefix.'sfs_hr_employees';
 
     $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $req_t WHERE id=%d", $id), ARRAY_A);
-    if (!$row || $row['status']!=='pending') wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending'));
+    if (!$row || ! $this->is_valid_transition( $row['status'], 'rejected' ) ) {
+        wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending'));
+        exit;
+    }
 
     // Guard: dept manager scope + self reject
     $empInfo = $wpdb->get_row($wpdb->prepare("SELECT user_id, dept_id FROM $emp_t WHERE id=%d", (int)$row['employee_id']), ARRAY_A);
@@ -1748,6 +1884,8 @@ public function handle_reject(): void {
         'reason' => $note ?: __('Not specified', 'sfs-hr'),
     ]);
 
+    $this->invalidate_leave_caches();
+
     $this->notify_requester((int)$row['employee_id'], __('Leave Rejected','sfs-hr'),
         sprintf(__('Your leave request (%s → %s) has been rejected. Reason: %s','sfs-hr'),
             $row['start_date'], $row['end_date'], $note ?: __('Not specified','sfs-hr')));
@@ -1759,6 +1897,10 @@ public function handle_reject(): void {
  * Handle leave request cancellation
  */
 public function handle_cancel(): void {
+    if ( ! current_user_can( 'sfs_hr.leave.review' ) && ! current_user_can( 'sfs_hr.view' ) ) {
+        wp_die( __( 'You do not have permission to cancel leave requests.', 'sfs-hr' ), 403 );
+    }
+
     $id = isset( $_POST['id'] ) ? (int) $_POST['id'] : 0;
     check_admin_referer( 'sfs_hr_leave_cancel_' . $id );
 
@@ -1772,7 +1914,7 @@ public function handle_cancel(): void {
     $emp_t = $wpdb->prefix . 'sfs_hr_employees';
 
     $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $req_t WHERE id=%d", $id ), ARRAY_A );
-    if ( ! $row || $row['status'] !== 'pending' ) {
+    if ( ! $row || ! $this->is_valid_transition( $row['status'], 'cancelled' ) ) {
         wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&err=' . rawurlencode( __( 'Request not found or already processed.', 'sfs-hr' ) ) ) );
         exit;
     }
@@ -1816,6 +1958,8 @@ public function handle_cancel(): void {
     // Fire hook for AuditTrail
     do_action( 'sfs_hr_leave_request_status_changed', $id, 'pending', 'cancelled' );
 
+    $this->invalidate_leave_caches();
+
     wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&ok=1' ) );
     exit;
 }
@@ -1846,7 +1990,7 @@ public function handle_cancel_approved(): void {
 
     // Fetch the leave request
     $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $req_t WHERE id=%d", $id ), ARRAY_A );
-    if ( ! $row || ! in_array( $row['status'], [ 'approved', 'on_leave' ], true ) ) {
+    if ( ! $row || ! $this->is_valid_transition( $row['status'], 'cancel_pending' ) ) {
         Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Only approved or on-leave requests can be cancelled.', 'sfs-hr' ) );
     }
 
@@ -1991,6 +2135,11 @@ public function handle_cancellation_approve(): void {
         Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Leave request not found.', 'sfs-hr' ) );
     }
 
+    // Guard: leave request must still be in a cancellable state
+    if ( ! $this->is_valid_transition( $leave['status'], 'cancelled' ) ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Leave request is not in a state that can be cancelled.', 'sfs-hr' ) );
+    }
+
     $empInfo = $wpdb->get_row( $wpdb->prepare(
         "SELECT e.*, d.manager_user_id FROM $emp_t e LEFT JOIN $dept_t d ON d.id = e.dept_id WHERE e.id = %d",
         (int) $leave['employee_id']
@@ -2010,9 +2159,14 @@ public function handle_cancellation_approve(): void {
     $managed_depts = $this->manager_dept_ids_for_user( $current_uid );
     $is_dept_manager = ! empty( $managed_depts ) && in_array( (int) ( $empInfo['dept_id'] ?? 0 ), $managed_depts, true );
 
-    // Prevent self-approval
+    // Prevent self-approval: the leave requester cannot approve their own cancellation
     if ( (int) ( $empInfo['user_id'] ?? 0 ) === $current_uid ) {
         Helpers::redirect_with_notice( $redirect_base, 'error', __( 'You cannot approve a cancellation for your own leave.', 'sfs-hr' ) );
+    }
+
+    // Also prevent the cancellation requester from approving their own cancellation request
+    if ( isset( $cancel['created_by'] ) && (int) $cancel['created_by'] === $current_uid ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'You cannot approve a cancellation you requested.', 'sfs-hr' ) );
     }
 
     $emp_name = trim( ( $empInfo['first_name'] ?? '' ) . ' ' . ( $empInfo['last_name'] ?? '' ) );
@@ -2134,9 +2288,22 @@ public function handle_cancellation_approve(): void {
         $year
     ) );
 
-    $opening = 0;
-    $carried = 0;
-    $accrued = $quota;
+    // Read existing balance to preserve opening and carried_over
+    $existing_bal = $wpdb->get_row(
+        $wpdb->prepare(
+            "SELECT opening, accrued, carried_over FROM $bal_t WHERE employee_id=%d AND type_id=%d AND year=%d",
+            (int) $leave['employee_id'],
+            (int) $leave['type_id'],
+            $year
+        ),
+        ARRAY_A
+    );
+    $opening = (int) ($existing_bal['opening'] ?? 0);
+    $carried = (int) ($existing_bal['carried_over'] ?? 0);
+    $accrued = (int) ($existing_bal['accrued'] ?? 0);
+    if ($accrued === 0) {
+        $accrued = $quota;
+    }
     $closing = $opening + $accrued + $carried - $used;
 
     if ( $bal_id ) {
@@ -2151,6 +2318,8 @@ public function handle_cancellation_approve(): void {
         'days_restored' => (int) $leave['days'],
         'new_used'      => $used,
     ] );
+
+    $this->invalidate_leave_caches();
 
     // Notify employee
     $this->notify_requester(
@@ -2210,6 +2379,12 @@ public function handle_cancellation_reject(): void {
 
     // Permission check
     $leave = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $req_t WHERE id=%d", (int) $cancel['leave_request_id'] ), ARRAY_A );
+
+    // Guard: leave request must still be in a cancellable state
+    if ( ! $leave || ! $this->is_valid_transition( $leave['status'], 'cancelled' ) ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'Leave request is not in a state that supports cancellation rejection.', 'sfs-hr' ) );
+    }
+
     $empInfo = $wpdb->get_row( $wpdb->prepare(
         "SELECT e.*, d.manager_user_id FROM $emp_t e LEFT JOIN $dept_t d ON d.id = e.dept_id WHERE e.id = %d",
         (int) $leave['employee_id']
@@ -2253,6 +2428,8 @@ public function handle_cancellation_reject(): void {
         'rejected_by'     => $role,
         'reason'          => $note,
     ] );
+
+    $this->invalidate_leave_caches();
 
     // Notify HR about rejection
     $emp_name = trim( ( $empInfo['first_name'] ?? '' ) . ' ' . ( $empInfo['last_name'] ?? '' ) );
@@ -2575,10 +2752,6 @@ public function handle_update_leave_dates(): void {
 private function is_hr_user( int $user_id ): bool {
     $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
     if ( ! empty( $hr_user_ids ) && in_array( $user_id, array_map( 'intval', $hr_user_ids ), true ) ) {
-        return true;
-    }
-    $user = get_user_by( 'id', $user_id );
-    if ( $user && in_array( 'sfs_hr_manager', (array) $user->roles, true ) ) {
         return true;
     }
     return user_can( $user_id, 'sfs_hr.leave.manage' ) || user_can( $user_id, 'administrator' );
@@ -4475,7 +4648,11 @@ public function shortcode_request($atts = []): string {
                    '</p></div>' . $this->render_request_form($emp);
         }
 
-        if ($this->has_overlap((int)$emp['id'], $start, $end)) {
+        // Start transaction to prevent TOCTOU race on overlap check + insert.
+        $wpdb->query( 'START TRANSACTION' );
+
+        if ( LeaveCalculationService::has_overlap_locked( (int) $emp['id'], $start, $end ) ) {
+            $wpdb->query( 'ROLLBACK' );
             return $out . '<div class="notice notice-error"><p>' .
                    esc_html__('You already have a request overlapping these dates.', 'sfs-hr') .
                    '</p></div>' . $this->render_request_form($emp);
@@ -4504,11 +4681,13 @@ if ( ! empty( $_FILES['supporting_doc']['name'] ) ) {
     require_once ABSPATH.'wp-admin/includes/image.php';
     $attach_id = media_handle_upload('supporting_doc', 0);
     if (is_wp_error($attach_id)) {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Failed to upload the document.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
     }
 } elseif ( $needs_doc ) {
+    $wpdb->query( 'ROLLBACK' );
     return $out.'<div class="notice notice-error"><p>'.
         esc_html__('A supporting document is required for this leave type.','sfs-hr').
         '</p></div>'.$this->render_request_form($emp);
@@ -4516,6 +4695,7 @@ if ( ! empty( $_FILES['supporting_doc']['name'] ) ) {
 
 // ---- Marriage: up to 5 business days
 if ($special === 'MARRIAGE' && $days > 5) {
+    $wpdb->query( 'ROLLBACK' );
     return $out.'<div class="notice notice-error"><p>'.
         esc_html__('Marriage leave is limited to 5 business days.','sfs-hr').
         '</p></div>'.$this->render_request_form($emp);
@@ -4523,6 +4703,7 @@ if ($special === 'MARRIAGE' && $days > 5) {
 
 // ---- Bereavement: up to 5 business days
 if ($special === 'BEREAVEMENT' && $days > 5) {
+    $wpdb->query( 'ROLLBACK' );
     return $out.'<div class="notice notice-error"><p>'.
         esc_html__('Bereavement leave is limited to 5 business days.','sfs-hr').
         '</p></div>'.$this->render_request_form($emp);
@@ -4531,11 +4712,13 @@ if ($special === 'BEREAVEMENT' && $days > 5) {
 // ---- Paternity: up to 3 business days (male only)
 if ($special === 'PATERNITY') {
     if ($days > 3) {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Paternity leave is limited to 3 business days.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
     }
     if (strtolower((string)($emp['gender'] ?? '')) !== 'male') {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Paternity leave is available only to male employees.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
@@ -4546,6 +4729,7 @@ if ($special === 'PATERNITY') {
 if ($special === 'HAJJ') {
     // duration
     if ($cal_days < 10 || $cal_days > 15) {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Hajj leave must be between 10 and 15 calendar days.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
@@ -4562,6 +4746,7 @@ if ($special === 'HAJJ') {
         (int)$emp['id']
     ));
     if ($dup > 0 || !empty($emp['hajj_used_at'])) {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Hajj leave can be granted only once and cannot be split.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
@@ -4570,6 +4755,7 @@ if ($special === 'HAJJ') {
     // tenure ≥ 2 years as of start date
     $hire = $emp['hire_date'] ?? ($emp['hired_at'] ?? null);
     if (!$hire || (strtotime($start) - strtotime($hire)) < (2 * 365 * DAY_IN_SECONDS)) {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Hajj leave is available after completing 2 years of service.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
@@ -4579,17 +4765,20 @@ if ($special === 'HAJJ') {
 // ---- Sick (Short/Long) existing limits
 if ($special === 'SICK_SHORT') {
     if ($days > 29) {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Sick (Short) is limited to 29 business days.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
     }
 } elseif ($special === 'SICK_LONG') {
     if ($days < 30) {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Sick (Long) requires at least 30 business days.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
     }
     if ($days > 120) {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Sick (Long) is limited to 120 days.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
@@ -4599,11 +4788,13 @@ if ($special === 'SICK_SHORT') {
 // ---- Maternity: allow extension up to 100 calendar days (last 30 unpaid)
 if ($special === 'MATERNITY') {
     if (strtolower((string)($emp['gender'] ?? '')) !== 'female') {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Maternity leave is available only to female employees.','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
     }
     if ($cal_days > 100) {
+        $wpdb->query( 'ROLLBACK' );
         return $out.'<div class="notice notice-error"><p>'.
             esc_html__('Maternity leave can be up to 100 calendar days (last 30 unpaid).','sfs-hr').
             '</p></div>'.$this->render_request_form($emp);
@@ -4616,6 +4807,7 @@ if ($special === 'MATERNITY') {
 
         if (!$type['allow_negative'] && $available < $days) {
             $msg = sprintf(__('Insufficient balance. Available: %d, requested: %d', 'sfs-hr'), $available, $days);
+            $wpdb->query( 'ROLLBACK' );
             return $out . '<div class="notice notice-error"><p>' . esc_html($msg) . '</p></div>' .
                    $this->render_request_form($emp);
         }
@@ -4639,9 +4831,11 @@ if ($special === 'MATERNITY') {
         if (!$target && function_exists('get_permalink')) $target = get_permalink();
 
         if ($ins === false) {
+            $wpdb->query( 'ROLLBACK' );
             error_log('[SFS HR] Leave request insert failed: ' . $wpdb->last_error);
             $target = add_query_arg('sfs_hr_err', rawurlencode($wpdb->last_error ?: __('Save failed', 'sfs-hr')), $target);
         } else {
+            $wpdb->query( 'COMMIT' );
             // Audit Trail: leave request created
             $new_request_id = $wpdb->insert_id;
             do_action('sfs_hr_leave_request_created', $new_request_id, [
@@ -4802,6 +4996,18 @@ if ( empty( $types ) ) {
     /** Dept ids managed by a user. */
     private function manager_dept_ids_for_user(int $uid): array {
         return LeaveCalculationService::manager_dept_ids_for_user($uid);
+    }
+
+    /**
+     * Check if a status transition is allowed.
+     *
+     * @param string $from Current status
+     * @param string $to   Target status
+     * @return bool
+     */
+    private function is_valid_transition( string $from, string $to ): bool {
+        $allowed = self::ALLOWED_TRANSITIONS[ $from ] ?? [];
+        return in_array( $to, $allowed, true );
     }
 
 /**
@@ -5609,9 +5815,22 @@ if ($new_days <= 0) {
     );
     $quota = (int) ( $type['annual_quota'] ?? 0 );
 
-    $opening = 0;
-    $carried = 0;
-    $accrued = $quota;
+    // Read existing balance to preserve opening and carried_over
+    $existing_bal = $wpdb->get_row(
+        $wpdb->prepare(
+            "SELECT opening, accrued, carried_over FROM $bal_t WHERE employee_id=%d AND type_id=%d AND year=%d",
+            (int) $row['employee_id'],
+            (int) $row['type_id'],
+            $year
+        ),
+        ARRAY_A
+    );
+    $opening = (int) ($existing_bal['opening'] ?? 0);
+    $carried = (int) ($existing_bal['carried_over'] ?? 0);
+    $accrued = (int) ($existing_bal['accrued'] ?? 0);
+    if ($accrued === 0) {
+        $accrued = $quota;
+    }
     $closing = $opening + $accrued + $carried - $used;
 
     $bal_id = $wpdb->get_var(
@@ -5755,7 +5974,7 @@ if ($new_days <= 0) {
         LEFT JOIN {$type_table} t ON t.id = r.type_id
         WHERE r.employee_id = %d
         ORDER BY r.created_at DESC, r.id DESC
-        LIMIT 100
+        LIMIT 50
         ",
         (int) $employee->id
     )
@@ -6022,8 +6241,12 @@ public function handle_self_request(): void {
         $days = 1;
     }
 
+    // Start transaction to prevent TOCTOU race on overlap check + insert.
+    $wpdb->query( 'START TRANSACTION' );
+
     // Prevent duplicate requests for overlapping dates
-    if ( LeaveCalculationService::has_overlap( $employee_id, $start, $end ) ) {
+    if ( LeaveCalculationService::has_overlap_locked( $employee_id, $start, $end ) ) {
+        $wpdb->query( 'ROLLBACK' );
         $this->redirect_back_with_msg( 'leave_err', 'overlap' );
     }
 
@@ -6036,6 +6259,7 @@ public function handle_self_request(): void {
     );
 
     if ( ! $type_row ) {
+        $wpdb->query( 'ROLLBACK' );
         $this->redirect_back_with_msg( 'leave_err', 'invalid_type' );
     }
 
@@ -6049,6 +6273,7 @@ public function handle_self_request(): void {
             $employee_id
         ) ) );
         if ( $type_gender !== $emp_gender ) {
+            $wpdb->query( 'ROLLBACK' );
             $this->redirect_back_with_msg( 'leave_err', 'gender_mismatch' );
         }
     }
@@ -6068,10 +6293,12 @@ public function handle_self_request(): void {
 
         if ( is_wp_error( $attach_id ) ) {
             error_log( '[SFS HR] Leave doc upload failed: ' . $attach_id->get_error_message() );
+            $wpdb->query( 'ROLLBACK' );
             $this->redirect_back_with_msg( 'leave_err', 'doc_upload' );
         }
     } elseif ( $requires_doc ) {
         // Sick leave type but no file uploaded
+        $wpdb->query( 'ROLLBACK' );
         $this->redirect_back_with_msg( 'leave_err', 'doc_required' );
     }
 
@@ -6116,10 +6343,12 @@ public function handle_self_request(): void {
     $result = $wpdb->insert( $req_table, $insert_data );
 
     if ( $result === false ) {
+        $wpdb->query( 'ROLLBACK' );
         error_log( '[SFS HR] Leave request insert failed: ' . $wpdb->last_error );
         $this->redirect_back_with_msg( 'leave_err', 'db_error' );
     }
 
+    $wpdb->query( 'COMMIT' );
     $new_request_id = (int) $wpdb->insert_id;
 
     if ( $skip_mgr_gm ) {
@@ -6875,8 +7104,8 @@ public function render_calendar(): void {
             $request_id
         ) );
 
-        $nonce_approve = wp_create_nonce( 'sfs_hr_leave_approve' );
-        $nonce_reject = wp_create_nonce( 'sfs_hr_leave_reject' );
+        $nonce_approve = wp_create_nonce( 'sfs_hr_leave_approve_' . $request_id );
+        $nonce_reject = wp_create_nonce( 'sfs_hr_leave_reject_' . $request_id );
         $nonce_cancel = wp_create_nonce( 'sfs_hr_leave_cancel_' . $request_id );
 
         ?>
@@ -7052,14 +7281,14 @@ public function render_calendar(): void {
                                 <?php if ( $can_approve ) : ?>
                                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap;">
                                         <input type="hidden" name="action" value="sfs_hr_leave_approve" />
-                                        <?php wp_nonce_field( 'sfs_hr_leave_approve', '_wpnonce' ); ?>
+                                        <?php wp_nonce_field( 'sfs_hr_leave_approve_' . $request_id, '_wpnonce' ); ?>
                                         <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
                                         <button type="submit" class="button button-primary"><?php esc_html_e( 'Approve (GM)', 'sfs-hr' ); ?></button>
                                         <input type="text" name="note" placeholder="<?php esc_attr_e( 'Note (optional)', 'sfs-hr' ); ?>" style="width:300px;" />
                                     </form>
                                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;margin-top:10px;" onsubmit="return sfsHrConfirmReject(this);">
                                         <input type="hidden" name="action" value="sfs_hr_leave_reject" />
-                                        <?php wp_nonce_field( 'sfs_hr_leave_reject', '_wpnonce' ); ?>
+                                        <?php wp_nonce_field( 'sfs_hr_leave_reject_' . $request_id, '_wpnonce' ); ?>
                                         <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
                                         <input type="text" name="note" class="reject-note-input" placeholder="<?php esc_attr_e( 'Reason (required)', 'sfs-hr' ); ?>" style="width:300px;" />
                                         <button type="submit" class="button"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>
@@ -7075,14 +7304,14 @@ public function render_calendar(): void {
                                 <?php if ( $can_approve ) : ?>
                                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap;">
                                         <input type="hidden" name="action" value="sfs_hr_leave_approve" />
-                                        <?php wp_nonce_field( 'sfs_hr_leave_approve', '_wpnonce' ); ?>
+                                        <?php wp_nonce_field( 'sfs_hr_leave_approve_' . $request_id, '_wpnonce' ); ?>
                                         <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
                                         <button type="submit" class="button button-primary"><?php esc_html_e( 'Approve (Manager)', 'sfs-hr' ); ?></button>
                                         <input type="text" name="note" placeholder="<?php esc_attr_e( 'Note (optional)', 'sfs-hr' ); ?>" style="width:300px;" />
                                     </form>
                                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;margin-top:10px;" onsubmit="return sfsHrConfirmReject(this);">
                                         <input type="hidden" name="action" value="sfs_hr_leave_reject" />
-                                        <?php wp_nonce_field( 'sfs_hr_leave_reject', '_wpnonce' ); ?>
+                                        <?php wp_nonce_field( 'sfs_hr_leave_reject_' . $request_id, '_wpnonce' ); ?>
                                         <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
                                         <input type="text" name="note" class="reject-note-input" placeholder="<?php esc_attr_e( 'Reason (required)', 'sfs-hr' ); ?>" style="width:300px;" />
                                         <button type="submit" class="button"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>
@@ -7107,14 +7336,14 @@ public function render_calendar(): void {
                                 <?php if ( $can_approve ) : ?>
                                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap;">
                                         <input type="hidden" name="action" value="sfs_hr_leave_approve" />
-                                        <?php wp_nonce_field( 'sfs_hr_leave_approve', '_wpnonce' ); ?>
+                                        <?php wp_nonce_field( 'sfs_hr_leave_approve_' . $request_id, '_wpnonce' ); ?>
                                         <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
                                         <button type="submit" class="button button-primary"><?php esc_html_e( 'Approve (HR)', 'sfs-hr' ); ?></button>
                                         <input type="text" name="note" placeholder="<?php esc_attr_e( 'Note (optional)', 'sfs-hr' ); ?>" style="width:300px;" />
                                     </form>
                                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;margin-top:10px;" onsubmit="return sfsHrConfirmReject(this);">
                                         <input type="hidden" name="action" value="sfs_hr_leave_reject" />
-                                        <?php wp_nonce_field( 'sfs_hr_leave_reject', '_wpnonce' ); ?>
+                                        <?php wp_nonce_field( 'sfs_hr_leave_reject_' . $request_id, '_wpnonce' ); ?>
                                         <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
                                         <input type="text" name="note" class="reject-note-input" placeholder="<?php esc_attr_e( 'Reason (required)', 'sfs-hr' ); ?>" style="width:300px;" />
                                         <button type="submit" class="button"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>
@@ -7138,14 +7367,14 @@ public function render_calendar(): void {
                                 <?php if ( $can_approve ) : ?>
                                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap;">
                                         <input type="hidden" name="action" value="sfs_hr_leave_approve" />
-                                        <?php wp_nonce_field( 'sfs_hr_leave_approve', '_wpnonce' ); ?>
+                                        <?php wp_nonce_field( 'sfs_hr_leave_approve_' . $request_id, '_wpnonce' ); ?>
                                         <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
                                         <button type="submit" class="button button-primary"><?php esc_html_e( 'Approve (Finance)', 'sfs-hr' ); ?></button>
                                         <input type="text" name="note" placeholder="<?php esc_attr_e( 'Note (optional)', 'sfs-hr' ); ?>" style="width:300px;" />
                                     </form>
                                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;margin-top:10px;" onsubmit="return sfsHrConfirmReject(this);">
                                         <input type="hidden" name="action" value="sfs_hr_leave_reject" />
-                                        <?php wp_nonce_field( 'sfs_hr_leave_reject', '_wpnonce' ); ?>
+                                        <?php wp_nonce_field( 'sfs_hr_leave_reject_' . $request_id, '_wpnonce' ); ?>
                                         <input type="hidden" name="id" value="<?php echo (int) $request_id; ?>" />
                                         <input type="text" name="note" class="reject-note-input" placeholder="<?php esc_attr_e( 'Reason (required)', 'sfs-hr' ); ?>" style="width:300px;" />
                                         <button type="submit" class="button"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>

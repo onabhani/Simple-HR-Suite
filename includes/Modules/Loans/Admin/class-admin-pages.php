@@ -168,20 +168,34 @@ class AdminPages {
 
         $where_sql = implode( ' AND ', $where );
 
-        $query = "SELECT l.*,
-                         CONCAT(e.first_name, ' ', e.last_name) as employee_name,
-                         e.employee_code
-                  FROM {$table} l
-                  LEFT JOIN {$emp_table} e ON l.employee_id = e.id
-                  WHERE {$where_sql}
-                  ORDER BY l.created_at DESC";
+        // Pagination
+        $per_page    = 50;
+        $current_page = max( 1, isset( $_GET['paged'] ) ? (int) $_GET['paged'] : 1 );
 
-        if ( ! empty( $params ) ) {
-            $query = $wpdb->prepare( $query, ...$params );
-        }
+        // Count total for pagination
+        $count_query = "SELECT COUNT(*) FROM {$table} l LEFT JOIN {$emp_table} e ON l.employee_id = e.id WHERE {$where_sql}";
+        $total = ! empty( $params )
+            ? (int) $wpdb->get_var( $wpdb->prepare( $count_query, ...$params ) )
+            : (int) $wpdb->get_var( $count_query );
+
+        $total_pages  = max( 1, (int) ceil( $total / $per_page ) );
+        $current_page = min( $current_page, $total_pages );
+        $offset       = ( $current_page - 1 ) * $per_page;
+
+        $offset_params = array_merge( $params, [ $per_page, $offset ] );
+        $query = $wpdb->prepare(
+            "SELECT l.*,
+                     CONCAT(e.first_name, ' ', e.last_name) as employee_name,
+                     e.employee_code
+              FROM {$table} l
+              LEFT JOIN {$emp_table} e ON l.employee_id = e.id
+              WHERE {$where_sql}
+              ORDER BY l.created_at DESC
+              LIMIT %d OFFSET %d",
+            ...$offset_params
+        );
 
         $loans = $wpdb->get_results( $query );
-        $total = count( $loans );
 
         ?>
         <!-- Toolbar -->
@@ -288,6 +302,35 @@ class AdminPages {
                 </tbody>
             </table>
         </div>
+
+        <?php if ( $total_pages > 1 ) : ?>
+        <div class="tablenav bottom" style="margin-top:10px;">
+            <div class="tablenav-pages">
+                <span class="displaying-num">
+                    <?php echo esc_html( sprintf(
+                        /* translators: 1: total count */
+                        __( '%d items', 'sfs-hr' ),
+                        $total
+                    ) ); ?>
+                </span>
+                <?php
+                $base_url = add_query_arg( [
+                    'page'          => 'sfs-hr-loans',
+                    'filter_status' => $current_status !== '' ? $current_status : false,
+                    's'             => $search !== '' ? $search : false,
+                ], admin_url( 'admin.php' ) );
+                echo wp_kses_post( paginate_links( [
+                    'base'      => add_query_arg( 'paged', '%#%', $base_url ),
+                    'format'    => '',
+                    'current'   => $current_page,
+                    'total'     => $total_pages,
+                    'prev_text' => '&laquo;',
+                    'next_text' => '&raquo;',
+                ] ) );
+                ?>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <!-- Mobile Slide-up Modal -->
         <div id="sfs-hr-loan-modal" class="sfs-hr-loan-modal">
@@ -738,14 +781,15 @@ class AdminPages {
         $emp_table = $wpdb->prefix . 'sfs_hr_employees';
         $dept_table = $wpdb->prefix . 'sfs_hr_departments';
 
-        // Get all active employees
+        // Get active employees for dropdown (capped at 500)
         $employees = $wpdb->get_results(
             "SELECT e.id, e.employee_code, e.first_name, e.last_name,
                     COALESCE(d.name, 'N/A') as department
              FROM {$emp_table} e
              LEFT JOIN {$dept_table} d ON e.dept_id = d.id
              WHERE e.status = 'active'
-             ORDER BY e.first_name, e.last_name"
+             ORDER BY e.first_name, e.last_name
+             LIMIT 500"
         );
 
         ?>
@@ -1038,8 +1082,7 @@ class AdminPages {
                                 data-status="<?php echo esc_attr( $inst->status ); ?>"
                                 data-remaining="<?php echo number_format( (float) $inst->remaining_balance, 2 ); ?>"
                                 data-currency="<?php echo esc_attr( $inst->currency ); ?>"
-                                data-max="<?php echo esc_attr( $inst->amount_planned ); ?>"
-                                data-nonce="<?php echo wp_create_nonce( 'sfs_hr_mark_installment_' . $inst->id ); ?>">
+                                data-max="<?php echo esc_attr( $inst->amount_planned ); ?>">
                                 <td>
                                     <?php $profile_url = admin_url( 'admin.php?page=sfs-hr-employee-profile&employee_id=' . (int) $inst->employee_id ); ?>
                                     <a href="<?php echo esc_url( $profile_url ); ?>" class="emp-name"><?php echo esc_html( $inst->employee_name ); ?></a>
@@ -1100,6 +1143,16 @@ class AdminPages {
 
         <script>
         (function() {
+            var sfsInstNonces = <?php
+                $nonce_map = [];
+                if ( ! empty( $installments ) ) {
+                    foreach ( $installments as $inst ) {
+                        $nonce_map[ (int) $inst->id ] = wp_create_nonce( 'sfs_hr_mark_installment_' . $inst->id );
+                    }
+                }
+                echo wp_json_encode( $nonce_map );
+            ?>;
+
             var modal = document.getElementById('sfs-hr-inst-modal');
             var modalBody = document.getElementById('sfs-hr-inst-modal-body');
             var modalActions = document.getElementById('sfs-hr-inst-modal-actions');
@@ -1136,8 +1189,7 @@ class AdminPages {
                     status: data.status,
                     remaining: data.remaining,
                     currency: data.currency,
-                    max: data.max,
-                    nonce: data.nonce
+                    max: data.max
                 };
 
                 var html = '';
@@ -1155,10 +1207,11 @@ class AdminPages {
 
                 // Actions based on status
                 if (currentInstData.status === 'planned' || currentInstData.status === 'partial') {
+                    var instNonce = sfsInstNonces[currentInstData.id] || '';
                     var actionsHtml = '';
-                    actionsHtml += '<form method="post" action="" style="flex:1;"><input type="hidden" name="_wpnonce" value="' + sfsEsc(currentInstData.nonce) + '" /><input type="hidden" name="action" value="mark_installment_paid" /><input type="hidden" name="payment_id" value="' + sfsEsc(currentInstData.id) + '" /><input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" /><button type="submit" class="button button-primary" style="width:100%;"><?php echo esc_js( __( 'Mark Paid', 'sfs-hr' ) ); ?></button></form>';
+                    actionsHtml += '<form method="post" action="" style="flex:1;"><input type="hidden" name="_wpnonce" value="' + sfsEsc(instNonce) + '" /><input type="hidden" name="action" value="mark_installment_paid" /><input type="hidden" name="payment_id" value="' + sfsEsc(currentInstData.id) + '" /><input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" /><button type="submit" class="button button-primary" style="width:100%;"><?php echo esc_js( __( 'Mark Paid', 'sfs-hr' ) ); ?></button></form>';
                     actionsHtml += '<button type="button" class="button" style="flex:1;" onclick="showModalPartial();"><?php echo esc_js( __( 'Partial', 'sfs-hr' ) ); ?></button>';
-                    actionsHtml += '<form method="post" action="" style="flex:1;" onsubmit="return confirm(\'<?php echo esc_js( __( 'Skip this payment?', 'sfs-hr' ) ); ?>\');"><input type="hidden" name="_wpnonce" value="' + sfsEsc(currentInstData.nonce) + '" /><input type="hidden" name="action" value="mark_installment_skipped" /><input type="hidden" name="payment_id" value="' + sfsEsc(currentInstData.id) + '" /><input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" /><button type="submit" class="button" style="width:100%;"><?php echo esc_js( __( 'Skip', 'sfs-hr' ) ); ?></button></form>';
+                    actionsHtml += '<form method="post" action="" style="flex:1;" onsubmit="return confirm(\'<?php echo esc_js( __( 'Skip this payment?', 'sfs-hr' ) ); ?>\');"><input type="hidden" name="_wpnonce" value="' + sfsEsc(instNonce) + '" /><input type="hidden" name="action" value="mark_installment_skipped" /><input type="hidden" name="payment_id" value="' + sfsEsc(currentInstData.id) + '" /><input type="hidden" name="month" value="<?php echo esc_attr( $selected_month ); ?>" /><button type="submit" class="button" style="width:100%;"><?php echo esc_js( __( 'Skip', 'sfs-hr' ) ); ?></button></form>';
                     modalActions.innerHTML = actionsHtml;
                     modalActions.style.display = 'flex';
                 } else {
@@ -1182,7 +1235,7 @@ class AdminPages {
             window.showModalPartial = function() {
                 if (!currentInstData) return;
                 document.getElementById('sfs-hr-inst-partial-id').value = currentInstData.id;
-                document.getElementById('sfs-hr-inst-partial-nonce').value = currentInstData.nonce;
+                document.getElementById('sfs-hr-inst-partial-nonce').value = sfsInstNonces[currentInstData.id] || '';
                 document.getElementById('sfs-hr-inst-partial-amount').max = currentInstData.max;
                 document.getElementById('sfs-hr-inst-modal-partial').style.display = 'block';
             };
@@ -2048,51 +2101,21 @@ class AdminPages {
             return;
         }
 
-        $action = $_POST['loan_action'];
-        $loan_id = isset( $_POST['loan_id'] ) ? (int) $_POST['loan_id'] : 0;
-
-        // Check capability based on action type
-        $allowed = false;
-        switch ( $action ) {
-            case 'approve_gm':
-                $allowed = \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm();
-                break;
-            case 'approve_finance':
-                $allowed = \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_finance();
-                break;
-            case 'reject_loan':
-                // GM or Finance can reject
-                $allowed = \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm()
-                        || \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_finance();
-                break;
-            case 'cancel_loan':
-                // GM or Administrator can cancel any loan
-                $allowed = \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm()
-                        || current_user_can( 'sfs_hr.manage' );
-                break;
-            case 'create_loan':
-            case 'update_loan':
-            case 'record_payment':
-                $allowed = current_user_can( 'sfs_hr.manage' ) || current_user_can( 'sfs_hr_loans_manage' );
-                break;
-            default:
-                return;
-        }
-
-        if ( ! $allowed ) {
-            return;
-        }
+        $action = sanitize_key( $_POST['loan_action'] );
 
         global $wpdb;
         $loans_table = $wpdb->prefix . 'sfs_hr_loans';
 
         switch ( $action ) {
             case 'approve_gm':
-                // Validate loan_id for this action
+                $loan_id = isset( $_POST['loan_id'] ) ? (int) $_POST['loan_id'] : 0;
                 if ( ! $loan_id ) {
-                    return;
+                    wp_die( esc_html__( 'Invalid request', 'sfs-hr' ) );
                 }
                 check_admin_referer( 'sfs_hr_loan_approve_gm_' . $loan_id );
+                if ( ! \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm() ) {
+                    wp_die( esc_html__( 'Unauthorized', 'sfs-hr' ) );
+                }
 
                 $approved_gm_amount = isset( $_POST['approved_gm_amount'] ) ? (float) $_POST['approved_gm_amount'] : null;
                 $approved_gm_note = isset( $_POST['approved_gm_note'] ) ? sanitize_textarea_field( $_POST['approved_gm_note'] ) : '';
@@ -2171,11 +2194,14 @@ class AdminPages {
                 exit;
 
             case 'approve_finance':
-                // Validate loan_id for this action
+                $loan_id = isset( $_POST['loan_id'] ) ? (int) $_POST['loan_id'] : 0;
                 if ( ! $loan_id ) {
-                    return;
+                    wp_die( esc_html__( 'Invalid request', 'sfs-hr' ) );
                 }
                 check_admin_referer( 'sfs_hr_loan_approve_finance_' . $loan_id );
+                if ( ! \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_finance() ) {
+                    wp_die( esc_html__( 'Unauthorized', 'sfs-hr' ) );
+                }
 
                 // Prevent duplicate approval: only process if loan is still pending_finance
                 $current_loan = $wpdb->get_row( $wpdb->prepare(
@@ -2264,11 +2290,15 @@ class AdminPages {
                 exit;
 
             case 'reject_loan':
-                // Validate loan_id for this action
+                $loan_id = isset( $_POST['loan_id'] ) ? (int) $_POST['loan_id'] : 0;
                 if ( ! $loan_id ) {
-                    return;
+                    wp_die( esc_html__( 'Invalid request', 'sfs-hr' ) );
                 }
                 check_admin_referer( 'sfs_hr_loan_reject_' . $loan_id );
+                if ( ! \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm()
+                    && ! \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_finance() ) {
+                    wp_die( esc_html__( 'Unauthorized', 'sfs-hr' ) );
+                }
 
                 // Prevent duplicate rejection: only process if loan is still in a pending state
                 $current_loan_rej = $wpdb->get_row( $wpdb->prepare(
@@ -2335,10 +2365,15 @@ class AdminPages {
                 exit;
 
             case 'cancel_loan':
+                $loan_id = isset( $_POST['loan_id'] ) ? (int) $_POST['loan_id'] : 0;
                 if ( ! $loan_id ) {
-                    return;
+                    wp_die( esc_html__( 'Invalid request', 'sfs-hr' ) );
                 }
                 check_admin_referer( 'sfs_hr_loan_cancel_' . $loan_id );
+                if ( ! \SFS\HR\Modules\Loans\LoansModule::current_user_can_approve_as_gm()
+                    && ! current_user_can( 'sfs_hr.manage' ) ) {
+                    wp_die( esc_html__( 'Unauthorized', 'sfs-hr' ) );
+                }
 
                 // Allow cancellation from any status except already completed or cancelled
                 $current_loan_cancel = $wpdb->get_row( $wpdb->prepare(
@@ -2418,6 +2453,9 @@ class AdminPages {
 
             case 'create_loan':
                 check_admin_referer( 'sfs_hr_loan_create' );
+                if ( ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'sfs_hr_loans_manage' ) ) {
+                    wp_die( esc_html__( 'Unauthorized', 'sfs-hr' ) );
+                }
 
                 // Validate inputs
                 $employee_id = isset( $_POST['employee_id'] ) ? (int) $_POST['employee_id'] : 0;
@@ -2675,6 +2713,18 @@ class AdminPages {
                     'updated' => '1',
                 ], admin_url( 'admin.php' ) ) );
                 exit;
+
+            case 'update_loan':
+            case 'record_payment':
+                check_admin_referer( 'sfs_hr_loan_' . $action );
+                if ( ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'sfs_hr_loans_manage' ) ) {
+                    wp_die( esc_html__( 'Unauthorized', 'sfs-hr' ) );
+                }
+                // Stub: not yet implemented
+                return;
+
+            default:
+                return;
         }
     }
 

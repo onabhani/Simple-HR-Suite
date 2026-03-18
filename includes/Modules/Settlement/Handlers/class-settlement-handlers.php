@@ -31,6 +31,10 @@ class Settlement_Handlers {
         check_admin_referer('sfs_hr_settlement_create');
         Helpers::require_cap('sfs_hr.manage');
 
+        $valid_triggers = ['resignation', 'termination', 'contract_end'];
+        $raw_trigger    = sanitize_text_field($_POST['trigger_type'] ?? 'resignation');
+        $trigger_type   = in_array($raw_trigger, $valid_triggers, true) ? $raw_trigger : 'resignation';
+
         $data = [
             'employee_id'       => intval($_POST['employee_id'] ?? 0),
             'resignation_id'    => intval($_POST['resignation_id'] ?? 0),
@@ -45,7 +49,15 @@ class Settlement_Handlers {
             'deductions'        => floatval($_POST['deductions'] ?? 0),
             'deduction_notes'   => sanitize_textarea_field($_POST['deduction_notes'] ?? ''),
             'total_settlement'  => floatval($_POST['total_settlement'] ?? 0),
+            'trigger_type'      => $trigger_type,
         ];
+
+        // Recalculate gratuity server-side to prevent client-side tampering
+        $data['gratuity_amount'] = Settlement_Service::calculate_gratuity_with_trigger(
+            $data['basic_salary'],
+            $data['years_of_service'],
+            $trigger_type
+        );
 
         $settlement_id = Settlement_Service::create_settlement($data);
 
@@ -77,6 +89,11 @@ class Settlement_Handlers {
         $settlement = Settlement_Service::get_settlement($settlement_id);
         if (!$settlement || $settlement['status'] !== 'pending') {
             wp_die(__('Settlement not found or cannot be updated.', 'sfs-hr'));
+        }
+
+        // Verify the settlement's employee_id maps to a valid, existing employee
+        if (empty($settlement['employee_id']) || (int)$settlement['employee_id'] <= 0) {
+            wp_die(__('Invalid settlement record.', 'sfs-hr'));
         }
 
         global $wpdb;

@@ -412,12 +412,7 @@
 
     /* When admin bar is present, position header below it */
     .admin-bar .sfs-hr-pwa-app .sfs-hr-app-header {
-        top: 32px !important;
-    }
-    @media screen and (max-width: 782px) {
-        .admin-bar .sfs-hr-pwa-app .sfs-hr-app-header {
-            top: 46px !important;
-        }
+        top: 46px !important;
     }
 
     /* When scrolled, move header to absolute top and fill gap with header color */
@@ -447,12 +442,7 @@
 
     /* Extra padding when admin bar is present */
     .admin-bar .sfs-hr-pwa-app .sfs-hr-profile {
-        padding-top: 102px;
-    }
-    @media screen and (max-width: 782px) {
-        .admin-bar .sfs-hr-pwa-app .sfs-hr-profile {
-            padding-top: 116px;
-        }
+        padding-top: 116px;
     }
 
     /* Overview tab: reduce top gap so hero starts right after header */
@@ -462,11 +452,6 @@
     }
     .admin-bar .sfs-hr-pwa-app .sfs-hr-profile.sfs-hr-tab--overview {
         padding-top: 56px;
-    }
-    @media screen and (max-width: 782px) {
-        .admin-bar .sfs-hr-pwa-app .sfs-hr-profile.sfs-hr-tab--overview {
-            padding-top: 56px;
-        }
     }
 
     /* Profile header card on mobile - unified card style */
@@ -530,7 +515,7 @@
         align-items: center;
         justify-content: center;
         padding: 4px 8px;
-        font-size: 10px;
+        font-size: 11px;
         border-radius: 8px;
         background: transparent;
         border: none;
@@ -1090,13 +1075,7 @@ body:has(.sfs-hr-pwa-app) #masthead {
 }
 .sfs-hr-pwa-app a,
 .sfs-hr-pwa-app button {
-    transition: all 0.15s ease;
-}
-
-/* Pull to refresh indicator (visual only) */
-.sfs-hr-pwa-app::before {
-    content: '';
-    display: none;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
 }
 
 /* Profile completion meter mobile */
@@ -2067,7 +2046,7 @@ body:has(.sfs-hr-pwa-app) #masthead {
 .sfs-hr-pwa-app .sfs-input:focus,
 .sfs-hr-pwa-app .sfs-select:focus,
 .sfs-hr-pwa-app .sfs-textarea:focus {
-    outline: none;
+    outline: 2px solid transparent;
     border-color: var(--sfs-primary);
     box-shadow: 0 0 0 3px rgba(15, 76, 92, 0.1);
 }

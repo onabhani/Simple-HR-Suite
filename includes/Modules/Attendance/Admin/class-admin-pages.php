@@ -188,7 +188,7 @@ private function dept_label_from_employee( \wpdb $wpdb, $row, array $map ): stri
 // Fetch departments (id, name) for the filter.
 private function get_departments( \wpdb $wpdb ): array {
     $deptT = $wpdb->prefix . 'sfs_hr_departments';
-    $rows  = $wpdb->get_results( "SHOW TABLES LIKE '{$deptT}'" );
+    $rows  = $wpdb->get_results( $wpdb->prepare( "SHOW TABLES LIKE %s", $deptT ) );
     if ( empty($rows) ) { return []; }
     $list  = $wpdb->get_results( "SELECT id, name FROM {$deptT} ORDER BY name", ARRAY_A ) ?: [];
     return $list;
@@ -2277,8 +2277,13 @@ public function render_shifts(): void {
                             var radIn = document.getElementById('sfs-shift-radius');
                             if (!mapEl) return;
 
+                            var _mapRetries = 0;
                             function initMap() {
-                                if (typeof L === 'undefined') { setTimeout(initMap, 200); return; }
+                                if (typeof L === 'undefined') {
+                                    if (++_mapRetries < 25) setTimeout(initMap, 200);
+                                    else console.warn('[SFS HR] Leaflet failed to load after 5 s');
+                                    return;
+                                }
                                 var lat = parseFloat(latIn.value) || 24.7136;
                                 var lng = parseFloat(lngIn.value) || 46.6753;
                                 var rad = parseInt(radIn.value) || 150;
@@ -3908,7 +3913,7 @@ $departments = $this->get_departments( $wpdb );
 
     <script>
     (function(){
-        const META = <?php echo $meta_json ? $meta_json : '{}'; ?>;
+        const META = <?php echo $meta_json; ?>;
         const sel  = document.getElementById('sfs-assign-shift');
         const box  = document.getElementById('sfs-shift-preview');
         function render(){
@@ -4412,7 +4417,7 @@ public function render_exceptions(): void {
         if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) { wp_die( esc_html__( 'Access denied', 'sfs-hr' ) ); }
         global $wpdb; $t = $wpdb->prefix . 'sfs_hr_attendance_devices';
 
-        $rows = $wpdb->get_results( "SELECT * FROM {$t} ORDER BY active DESC, allowed_dept_id, label" );
+        $rows = $wpdb->get_results( "SELECT * FROM {$t} ORDER BY active DESC, allowed_dept_id, label LIMIT 200" );
         // Get departments from Departments module – build ID-keyed label map.
         $dept_list   = Helpers::get_departments_for_select( true );
         $dept_labels = [];
@@ -4729,8 +4734,13 @@ $selfie_mode = $editing ? (string)($editing->selfie_mode ?? 'inherit') : 'inheri
                         var radIn = document.getElementById('sfs-device-radius');
                         if (!mapEl) return;
 
+                        var _mapRetries = 0;
                         function initMap() {
-                            if (typeof L === 'undefined') { setTimeout(initMap, 200); return; }
+                            if (typeof L === 'undefined') {
+                                if (++_mapRetries < 25) setTimeout(initMap, 200);
+                                else console.warn('[SFS HR] Leaflet failed to load after 5 s');
+                                return;
+                            }
                             var lat = parseFloat(latIn.value) || 24.7136;
                             var lng = parseFloat(lngIn.value) || 46.6753;
                             var rad = parseInt(radIn.value) || 150;
@@ -5213,7 +5223,7 @@ exit;
 $debug = !empty($_GET['debug']);
 
 
-  // 2) Employees for the dropdown (build BEFORE echoing the form)
+  // 2) Employees for the dropdown (build BEFORE echoing the form; capped at 500)
   $empRows = $wpdb->get_results("
     SELECT e.id,
            COALESCE(
@@ -5225,6 +5235,7 @@ $debug = !empty($_GET['debug']);
     LEFT JOIN {$uT} u ON u.ID = e.user_id
     WHERE e.status = 'active'
     ORDER BY name ASC
+    LIMIT 500
   ");
 
 // 3) Build WHERE — punch_time is stored UTC, convert local bounds to UTC
@@ -5718,7 +5729,7 @@ $rows = $wpdb->get_results("
     $nameParts[] = "NULLIF(TRIM(u.user_login),'')";
     $nameSQL = 'COALESCE(' . implode(',', $nameParts) . ", CONCAT('#', e.id)) AS name";
 
-    // Filter by active employees only (consistent with punches tab)
+    // Filter by active employees only (consistent with punches tab); capped at 500
     $statusFilter = $has('status') ? "WHERE e.status = 'active'" : "";
 
     $emps = $wpdb->get_results("
@@ -5727,6 +5738,7 @@ $rows = $wpdb->get_results("
         LEFT JOIN {$uT} u ON u.ID = e.user_id
         {$statusFilter}
         ORDER BY name ASC
+        LIMIT 500
     ");
 
     // Export URL (reuse existing export endpoint; pass 25th-range when in period mode, or single day)
@@ -6044,8 +6056,8 @@ private function get_status_label( string $status ): string {
 
 
 public function handle_rebuild_sessions_day(): void {
-    if ( ! current_user_can('sfs_hr_attendance_admin') ) { wp_die( esc_html__( 'Access denied', 'sfs-hr' ) ); }
     check_admin_referer('sfs_hr_att_rebuild_sessions_day');
+    if ( ! current_user_can('sfs_hr_attendance_admin') ) { wp_die( esc_html__( 'Access denied', 'sfs-hr' ) ); }
 
     global $wpdb;
 
@@ -6693,7 +6705,7 @@ private function render_early_leave(): void {
         </div>
 
     <script>
-    function sfsElEsc(s){if(typeof s!=='string')return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+    function sfsElEsc(s){if(typeof s!=='string')return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
     jQuery(function($) {
         var $modal = $('#sfs-el-review-modal');
 
@@ -6815,11 +6827,12 @@ private function render_early_leave(): void {
             var action = $('#early-leave-action').val();
             var note = $('#early-leave-note').val();
             var $btn = $(this);
+            var btnOrigHtml = $btn.html();
 
             $btn.prop('disabled', true).text('<?php echo esc_js(__('Processing...', 'sfs-hr')); ?>');
 
             $.ajax({
-                url: '<?php echo esc_js(rest_url('sfs-hr/v1/early-leave/review/')); ?>' + id,
+                url: '<?php echo esc_js(rest_url('sfs-hr/v1/early-leave/review/')); ?>' + parseInt(id, 10),
                 method: 'POST',
                 beforeSend: function(xhr) {
                     xhr.setRequestHeader('X-WP-Nonce', '<?php echo wp_create_nonce('wp_rest'); ?>');
@@ -6833,7 +6846,7 @@ private function render_early_leave(): void {
                         location.reload();
                     } else {
                         alert(response.message || '<?php echo esc_js(__('An error occurred', 'sfs-hr')); ?>');
-                        $btn.prop('disabled', false).text('<?php echo esc_js(__('Submit', 'sfs-hr')); ?>');
+                        $btn.prop('disabled', false).html(btnOrigHtml);
                     }
                 },
                 error: function(xhr) {
@@ -6841,7 +6854,7 @@ private function render_early_leave(): void {
                         ? xhr.responseJSON.message
                         : '<?php echo esc_js(__('An error occurred', 'sfs-hr')); ?>';
                     alert(msg);
-                    $btn.prop('disabled', false).text('<?php echo esc_js(__('Submit', 'sfs-hr')); ?>');
+                    $btn.prop('disabled', false).html(btnOrigHtml);
                 }
             });
         });

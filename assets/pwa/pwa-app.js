@@ -128,16 +128,24 @@
 
         /**
          * Replace entire employee roster with fresh data from server.
-         * @param {Array} employees - Array of { id, code, name, token_hash }
+         * @param {Array} employees - Array of { id, code, name, token_hmac }
          * @param {number} generatedAt - Server timestamp (seconds)
          * @param {number} ttl - Cache TTL in seconds
+         * @param {string} rosterNonce - Per-roster HMAC nonce from server
          */
-        replaceRoster: async function(employees, generatedAt, ttl) {
+        replaceRoster: async function(employees, generatedAt, ttl, rosterNonce) {
             var db = await this.open();
             return new Promise(function(resolve, reject) {
                 var tx = db.transaction('employees', 'readwrite');
                 var store = tx.objectStore('employees');
                 store.clear(); // wipe old roster
+                // Store roster metadata (nonce, timestamps) as a reserved record
+                store.put({
+                    id: '__roster_meta__',
+                    roster_nonce: rosterNonce || '',
+                    _cached_at: generatedAt,
+                    _ttl: ttl
+                });
                 for (var i = 0; i < employees.length; i++) {
                     store.put(Object.assign({}, employees[i], {
                         _cached_at: generatedAt,
@@ -146,6 +154,24 @@
                 }
                 tx.oncomplete = function() { resolve(); };
                 tx.onerror = function() { reject(tx.error); };
+            });
+        },
+
+        /**
+         * Retrieve the roster nonce stored during the last replaceRoster call.
+         * Returns the nonce string, or null if not found.
+         */
+        getRosterNonce: async function() {
+            var db = await this.open();
+            return new Promise(function(resolve, reject) {
+                var tx = db.transaction('employees', 'readonly');
+                var store = tx.objectStore('employees');
+                var request = store.get('__roster_meta__');
+                request.onerror = function() { reject(request.error); };
+                request.onsuccess = function() {
+                    var meta = request.result;
+                    resolve((meta && meta.roster_nonce) ? meta.roster_nonce : null);
+                };
             });
         },
 
@@ -203,6 +229,19 @@
         return hashArray.map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
     };
 
+    // ---- HMAC-SHA-256 helper using Web Crypto API (for offline kiosk roster validation) ----
+
+    window.sfsHrPwa.hmacSha256 = async function(message, key) {
+        var enc = new TextEncoder();
+        var keyData = await crypto.subtle.importKey(
+            'raw', enc.encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+        );
+        var sig = await crypto.subtle.sign('HMAC', keyData, enc.encode(message));
+        return Array.from(new Uint8Array(sig)).map(function(b) {
+            return b.toString(16).padStart(2, '0');
+        }).join('');
+    };
+
     // ---- Roster refresh logic ----
 
     /**
@@ -217,7 +256,8 @@
         if (!deviceId) return false;
 
         try {
-            var url = window.location.origin + '/wp-json/sfs-hr/v1/attendance/kiosk-roster?device=' + deviceId;
+            var restBase = (window.sfsHrPwa && window.sfsHrPwa.restUrl) ? window.sfsHrPwa.restUrl : window.location.origin + '/wp-json/';
+            var url = restBase + 'sfs-hr/v1/attendance/kiosk-roster?device=' + deviceId;
             var resp = await fetch(url, {
                 method: 'GET',
                 credentials: 'same-origin',
@@ -231,7 +271,8 @@
             await window.sfsHrPwa.db.replaceRoster(
                 data.employees,
                 data.generated_at || Math.floor(Date.now() / 1000),
-                data.ttl || 1800
+                data.ttl || 1800,
+                data.roster_nonce || ''
             );
             console.log('[PWA] Roster cached:', data.employees.length, 'employees');
             return true;

@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class OverviewTab implements TabInterface {
 
     public function render( array $emp, int $emp_id ): void {
-        if ( ! is_user_logged_in() ) {
+        if ( ! is_user_logged_in() || (int) ( $emp['user_id'] ?? 0 ) !== get_current_user_id() ) {
             return;
         }
 
@@ -51,147 +51,219 @@ class OverviewTab implements TabInterface {
         $year  = (int) current_time( 'Y' );
         $today = current_time( 'Y-m-d' );
 
-        // ── Leave data ────────────────────────────────────────────
-        $req_table  = $wpdb->prefix . 'sfs_hr_leave_requests';
-        $type_table = $wpdb->prefix . 'sfs_hr_leave_types';
-        $bal_table  = $wpdb->prefix . 'sfs_hr_leave_balances';
+        // ── Counter data (cached per-employee, 60 second TTL) ─────
+        $cache_key      = 'sfs_hr_overview_tab_' . $emp_id;
+        $cached_data    = get_transient( $cache_key );
 
-        $balances = $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT b.*, t.name, t.is_annual
-                 FROM {$bal_table} b
-                 JOIN {$type_table} t ON t.id = b.type_id
-                 WHERE b.employee_id = %d AND b.year = %d
-                 ORDER BY t.is_annual DESC, t.name ASC",
-                $emp_id,
-                $year
-            ),
-            ARRAY_A
-        );
+        if ( false === $cached_data ) {
+            // ── Leave data ────────────────────────────────────────────
+            $req_table  = $wpdb->prefix . 'sfs_hr_leave_requests';
+            $type_table = $wpdb->prefix . 'sfs_hr_leave_types';
+            $bal_table  = $wpdb->prefix . 'sfs_hr_leave_balances';
 
-        $annual_balance = 0;
-        $total_used     = 0;
-        foreach ( $balances as $b ) {
-            $total_used += (int) ( $b['used'] ?? 0 );
-            if ( $annual_balance === 0 && ! empty( $b['is_annual'] ) ) {
-                $annual_balance = (int) ( $b['closing'] ?? 0 );
+            $balances = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT b.*, t.name, t.is_annual
+                     FROM {$bal_table} b
+                     JOIN {$type_table} t ON t.id = b.type_id
+                     WHERE b.employee_id = %d AND b.year = %d
+                     ORDER BY t.is_annual DESC, t.name ASC",
+                    $emp_id,
+                    $year
+                ),
+                ARRAY_A
+            );
+
+            $annual_balance = 0;
+            $total_used     = 0;
+            foreach ( $balances as $b ) {
+                $total_used += (int) ( $b['used'] ?? 0 );
+                if ( $annual_balance === 0 && ! empty( $b['is_annual'] ) ) {
+                    $annual_balance = (int) ( $b['closing'] ?? 0 );
+                }
             }
-        }
 
-        $requests_count = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$req_table} WHERE employee_id = %d AND YEAR(start_date) = %d",
-                $emp_id,
-                $year
-            )
-        );
-
-        $pending_count = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$req_table} WHERE employee_id = %d AND status = 'pending'",
-                $emp_id
-            )
-        );
-
-        // Next approved leave.
-        $next_leave = $wpdb->get_row(
-            $wpdb->prepare(
-                "SELECT r.*, t.name AS type_name, t.name_translations AS type_name_translations
-                 FROM {$req_table} r
-                 LEFT JOIN {$type_table} t ON t.id = r.type_id
-                 WHERE r.employee_id = %d AND r.status = 'approved' AND r.start_date >= %s
-                 ORDER BY r.start_date ASC LIMIT 1",
-                $emp_id,
-                $today
-            )
-        );
-
-        // Pending leave requests (waiting for approval).
-        $pending_leaves = $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT r.*, t.name AS type_name, t.name_translations AS type_name_translations
-                 FROM {$req_table} r
-                 LEFT JOIN {$type_table} t ON t.id = r.type_id
-                 WHERE r.employee_id = %d AND r.status = 'pending'
-                 ORDER BY r.created_at DESC
-                 LIMIT 5",
-                $emp_id
-            )
-        );
-
-        // Upcoming approved leaves (future).
-        $upcoming_leaves = $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT r.*, t.name AS type_name, t.name_translations AS type_name_translations
-                 FROM {$req_table} r
-                 LEFT JOIN {$type_table} t ON t.id = r.type_id
-                 WHERE r.employee_id = %d AND r.status = 'approved' AND r.start_date >= %s
-                 ORDER BY r.start_date ASC
-                 LIMIT 5",
-                $emp_id,
-                $today
-            )
-        );
-
-        // ── Loan data ─────────────────────────────────────────────
-        $loans_table   = $wpdb->prefix . 'sfs_hr_loans';
-        $pending_loans = [];
-        $active_loans  = [];
-        if ( $wpdb->get_var( "SHOW TABLES LIKE '{$loans_table}'" ) === $loans_table ) {
-            $pending_loans = $wpdb->get_results(
+            $requests_count = (int) $wpdb->get_var(
                 $wpdb->prepare(
-                    "SELECT * FROM {$loans_table} WHERE employee_id = %d AND status = 'pending' ORDER BY created_at DESC LIMIT 5",
+                    "SELECT COUNT(*) FROM {$req_table} WHERE employee_id = %d AND YEAR(start_date) = %d",
+                    $emp_id,
+                    $year
+                )
+            );
+
+            $pending_count = (int) $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$req_table} WHERE employee_id = %d AND status = 'pending'",
                     $emp_id
                 )
             );
-            $active_loans = $wpdb->get_results(
+
+            // Next approved leave.
+            $next_leave = $wpdb->get_row(
                 $wpdb->prepare(
-                    "SELECT * FROM {$loans_table} WHERE employee_id = %d AND status = 'active' ORDER BY created_at DESC LIMIT 3",
+                    "SELECT r.*, t.name AS type_name, t.name_translations AS type_name_translations
+                     FROM {$req_table} r
+                     LEFT JOIN {$type_table} t ON t.id = r.type_id
+                     WHERE r.employee_id = %d AND r.status = 'approved' AND r.start_date >= %s
+                     ORDER BY r.start_date ASC LIMIT 1",
+                    $emp_id,
+                    $today
+                )
+            );
+
+            // Pending leave requests (waiting for approval).
+            $pending_leaves = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT r.*, t.name AS type_name, t.name_translations AS type_name_translations
+                     FROM {$req_table} r
+                     LEFT JOIN {$type_table} t ON t.id = r.type_id
+                     WHERE r.employee_id = %d AND r.status = 'pending'
+                     ORDER BY r.created_at DESC
+                     LIMIT 5",
                     $emp_id
                 )
             );
+
+            // Upcoming approved leaves (future).
+            $upcoming_leaves = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT r.*, t.name AS type_name, t.name_translations AS type_name_translations
+                     FROM {$req_table} r
+                     LEFT JOIN {$type_table} t ON t.id = r.type_id
+                     WHERE r.employee_id = %d AND r.status = 'approved' AND r.start_date >= %s
+                     ORDER BY r.start_date ASC
+                     LIMIT 5",
+                    $emp_id,
+                    $today
+                )
+            );
+
+            // ── Loan data ─────────────────────────────────────────────
+            $loans_table   = $wpdb->prefix . 'sfs_hr_loans';
+            $pending_loans = [];
+            $active_loans  = [];
+            if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $loans_table ) ) === $loans_table ) {
+                $pending_loans = $wpdb->get_results(
+                    $wpdb->prepare(
+                        "SELECT * FROM {$loans_table} WHERE employee_id = %d AND status = 'pending' ORDER BY created_at DESC LIMIT 5",
+                        $emp_id
+                    )
+                );
+                $active_loans = $wpdb->get_results(
+                    $wpdb->prepare(
+                        "SELECT * FROM {$loans_table} WHERE employee_id = %d AND status = 'active' ORDER BY created_at DESC LIMIT 3",
+                        $emp_id
+                    )
+                );
+            }
+
+            // ── Attendance this month ─────────────────────────────────
+            $sess_table  = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+            $month_start = wp_date( 'Y-m-01' );
+            $month_end   = wp_date( 'Y-m-t' );
+
+            $att_present = 0;
+            $att_absent  = 0;
+            $att_late    = 0;
+
+            if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $sess_table ) ) === $sess_table ) {
+                $att_present = (int) $wpdb->get_var(
+                    $wpdb->prepare(
+                        "SELECT COUNT(*) FROM {$sess_table}
+                         WHERE employee_id = %d AND work_date BETWEEN %s AND %s AND status = 'present'",
+                        $emp_id,
+                        $month_start,
+                        $month_end
+                    )
+                );
+                $att_absent = (int) $wpdb->get_var(
+                    $wpdb->prepare(
+                        "SELECT COUNT(*) FROM {$sess_table}
+                         WHERE employee_id = %d AND work_date BETWEEN %s AND %s AND status IN ('absent','not_clocked_in')",
+                        $emp_id,
+                        $month_start,
+                        $month_end
+                    )
+                );
+                $att_late = (int) $wpdb->get_var(
+                    $wpdb->prepare(
+                        "SELECT COUNT(*) FROM {$sess_table}
+                         WHERE employee_id = %d AND work_date BETWEEN %s AND %s AND status = 'late'",
+                        $emp_id,
+                        $month_start,
+                        $month_end
+                    )
+                );
+            }
+
+            // ── Action required items ─────────────────────────────────
+            $pending_assets     = 0;
+            $missing_docs_count = 0;
+            $expired_docs_count = 0;
+            $doc_total_count    = 0;
+
+            // Assets pending employee approval.
+            $assign_table = $wpdb->prefix . 'sfs_hr_asset_assignments';
+            if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $assign_table ) ) === $assign_table ) {
+                $pending_assets = (int) $wpdb->get_var(
+                    $wpdb->prepare(
+                        "SELECT COUNT(*) FROM {$assign_table} WHERE employee_id = %d AND status = 'pending_employee_approval'",
+                        $emp_id
+                    )
+                );
+            }
+
+            // Missing documents.
+            if ( class_exists( '\SFS\HR\Modules\Documents\Services\Documents_Service' ) ) {
+                $doc_svc            = '\SFS\HR\Modules\Documents\Services\Documents_Service';
+                $missing_docs       = $doc_svc::get_missing_required_documents( $emp_id );
+                $missing_docs_count = count( $missing_docs );
+                $doc_total_count    = $doc_svc::get_document_count( $emp_id );
+                $doc_status         = $doc_svc::get_employee_document_status( $emp_id );
+                $expired_docs_count = $doc_status ? (int) ( $doc_status['expired_count'] ?? 0 ) : 0;
+            }
+
+            $cached_data = [
+                'annual_balance'     => $annual_balance,
+                'total_used'         => $total_used,
+                'requests_count'     => $requests_count,
+                'pending_count'      => $pending_count,
+                'next_leave'         => $next_leave,
+                'pending_leaves'     => $pending_leaves,
+                'upcoming_leaves'    => $upcoming_leaves,
+                'pending_loans'      => $pending_loans,
+                'active_loans'       => $active_loans,
+                'att_present'        => $att_present,
+                'att_absent'         => $att_absent,
+                'att_late'           => $att_late,
+                'pending_assets'     => $pending_assets,
+                'missing_docs_count' => $missing_docs_count,
+                'expired_docs_count' => $expired_docs_count,
+                'doc_total_count'    => $doc_total_count,
+            ];
+
+            set_transient( $cache_key, $cached_data, 60 );
         }
 
-        // ── Attendance this month ─────────────────────────────────
-        $sess_table  = $wpdb->prefix . 'sfs_hr_attendance_sessions';
-        $month_start = wp_date( 'Y-m-01' );
-        $month_end   = wp_date( 'Y-m-t' );
+        // Extract cached values.
+        $annual_balance     = $cached_data['annual_balance'];
+        $total_used         = $cached_data['total_used'];
+        $requests_count     = $cached_data['requests_count'];
+        $pending_count      = $cached_data['pending_count'];
+        $next_leave         = $cached_data['next_leave'];
+        $pending_leaves     = $cached_data['pending_leaves'];
+        $upcoming_leaves    = $cached_data['upcoming_leaves'];
+        $pending_loans      = $cached_data['pending_loans'];
+        $active_loans       = $cached_data['active_loans'];
+        $att_present        = $cached_data['att_present'];
+        $att_absent         = $cached_data['att_absent'];
+        $att_late           = $cached_data['att_late'];
+        $pending_assets     = $cached_data['pending_assets'];
+        $missing_docs_count = $cached_data['missing_docs_count'];
+        $expired_docs_count = $cached_data['expired_docs_count'];
+        $doc_total_count    = $cached_data['doc_total_count'];
 
-        $att_present = 0;
-        $att_absent  = 0;
-        $att_late    = 0;
-
-        if ( $wpdb->get_var( "SHOW TABLES LIKE '{$sess_table}'" ) === $sess_table ) {
-            $att_present = (int) $wpdb->get_var(
-                $wpdb->prepare(
-                    "SELECT COUNT(*) FROM {$sess_table}
-                     WHERE employee_id = %d AND work_date BETWEEN %s AND %s AND status = 'present'",
-                    $emp_id,
-                    $month_start,
-                    $month_end
-                )
-            );
-            $att_absent = (int) $wpdb->get_var(
-                $wpdb->prepare(
-                    "SELECT COUNT(*) FROM {$sess_table}
-                     WHERE employee_id = %d AND work_date BETWEEN %s AND %s AND status IN ('absent','not_clocked_in')",
-                    $emp_id,
-                    $month_start,
-                    $month_end
-                )
-            );
-            $att_late = (int) $wpdb->get_var(
-                $wpdb->prepare(
-                    "SELECT COUNT(*) FROM {$sess_table}
-                     WHERE employee_id = %d AND work_date BETWEEN %s AND %s AND status = 'late'",
-                    $emp_id,
-                    $month_start,
-                    $month_end
-                )
-            );
-        }
-
-        // ── Today's shift ─────────────────────────────────────────
+        // ── Today's shift (not cached — real-time attendance state) ──
         $today_shift = null;
         if ( class_exists( '\SFS\HR\Modules\Attendance\AttendanceModule' ) ) {
             $today_shift = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( $emp_id, $today );
@@ -200,38 +272,15 @@ class OverviewTab implements TabInterface {
         // ── Action required items ─────────────────────────────────
         $action_items = [];
 
-        // Assets pending employee approval.
-        $assign_table = $wpdb->prefix . 'sfs_hr_asset_assignments';
-        if ( $wpdb->get_var( "SHOW TABLES LIKE '{$assign_table}'" ) === $assign_table ) {
-            $pending_assets = (int) $wpdb->get_var(
-                $wpdb->prepare(
-                    "SELECT COUNT(*) FROM {$assign_table} WHERE employee_id = %d AND status = 'pending_employee_approval'",
-                    $emp_id
-                )
-            );
-            if ( $pending_assets > 0 ) {
-                $action_items[] = [
-                    'icon'    => 'package',
-                    'color'   => '#8b5cf6',
-                    'bg'      => '#ede9fe',
-                    'text'    => sprintf( _n( '%d asset awaiting your approval', '%d assets awaiting your approval', $pending_assets, 'sfs-hr' ), $pending_assets ),
-                    'tab'     => 'profile',
-                    'i18n'    => 'asset_approval',
-                ];
-            }
-        }
-
-        // Missing documents.
-        $missing_docs_count = 0;
-        $expired_docs_count = 0;
-        $doc_total_count    = 0;
-        if ( class_exists( '\SFS\HR\Modules\Documents\Services\Documents_Service' ) ) {
-            $doc_svc            = '\SFS\HR\Modules\Documents\Services\Documents_Service';
-            $missing_docs       = $doc_svc::get_missing_required_documents( $emp_id );
-            $missing_docs_count = count( $missing_docs );
-            $doc_total_count    = $doc_svc::get_document_count( $emp_id );
-            $doc_status         = $doc_svc::get_employee_document_status( $emp_id );
-            $expired_docs_count = $doc_status ? (int) ( $doc_status['expired_count'] ?? 0 ) : 0;
+        if ( $pending_assets > 0 ) {
+            $action_items[] = [
+                'icon'    => 'package',
+                'color'   => '#8b5cf6',
+                'bg'      => '#ede9fe',
+                'text'    => sprintf( _n( '%d asset awaiting your approval', '%d assets awaiting your approval', $pending_assets, 'sfs-hr' ), $pending_assets ),
+                'tab'     => 'profile',
+                'i18n'    => 'asset_approval',
+            ];
         }
         if ( $missing_docs_count > 0 ) {
             $action_items[] = [

@@ -567,7 +567,7 @@ class PayrollModule {
         $loan_deduction = 0;
         if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $loans_table ) ) ) {
             $loans = $wpdb->get_results( $wpdb->prepare(
-                "SELECT l.id, l.monthly_installment, l.remaining_balance
+                "SELECT l.id, l.installment_amount, l.remaining_balance
                  FROM {$loans_table} l
                  WHERE l.employee_id = %d
                    AND l.status = 'active'
@@ -577,7 +577,7 @@ class PayrollModule {
             ) );
 
             foreach ( $loans as $loan ) {
-                $installment = min( (float) $loan->monthly_installment, (float) $loan->remaining_balance );
+                $installment = min( (float) $loan->installment_amount, (float) $loan->remaining_balance );
                 $loan_deduction += $installment;
             }
 
@@ -656,7 +656,7 @@ class PayrollModule {
     }
 
     /**
-     * Count working days between two dates (excludes Fridays)
+     * Count working days between two dates (excludes Fridays and Saturdays - Saudi weekend)
      */
     public static function count_working_days( string $start, string $end ): int {
         $start_date = new \DateTime( $start );
@@ -668,8 +668,8 @@ class PayrollModule {
 
         $working_days = 0;
         foreach ( $period as $date ) {
-            // Skip Fridays (5) - Saudi weekend
-            if ( $date->format( 'N' ) != 5 ) {
+            // Skip Fridays (5) and Saturdays (6) - Saudi weekend
+            if ( (int) $date->format( 'N' ) !== 5 && (int) $date->format( 'N' ) !== 6 ) {
                 $working_days++;
             }
         }

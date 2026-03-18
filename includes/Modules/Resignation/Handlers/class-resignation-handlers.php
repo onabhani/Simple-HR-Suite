@@ -74,7 +74,10 @@ class Resignation_Handlers {
         Resignation_Notifications::notify_new_submission($resignation_id);
 
         // Redirect back
-        $redirect_url = isset($_POST['_wp_http_referer']) ? $_POST['_wp_http_referer'] : admin_url('admin.php?page=sfs-hr-my-profile');
+        $default_url = admin_url('admin.php?page=sfs-hr-my-profile');
+        $redirect_url = isset($_POST['_wp_http_referer'])
+            ? wp_validate_redirect( wp_unslash( $_POST['_wp_http_referer'] ), $default_url )
+            : $default_url;
         Helpers::redirect_with_notice(
             $redirect_url,
             'success',

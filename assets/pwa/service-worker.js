@@ -51,10 +51,16 @@ self.addEventListener('fetch', (event) => {
     // Skip WP admin pages — don't cache them
     if (url.pathname.includes('/wp-admin/')) return;
 
+    // Only cache static assets (CSS, JS, images, fonts) — never cache HTML pages
+    // which may contain authenticated content / PII.
+    const ext = url.pathname.split('.').pop().toLowerCase();
+    const cacheableExts = ['css','js','png','jpg','jpeg','gif','svg','ico','woff','woff2','ttf','eot'];
+    const isCacheable = cacheableExts.indexOf(ext) !== -1;
+
     event.respondWith(
         fetch(event.request)
             .then((response) => {
-                if (response.status === 200) {
+                if (response.status === 200 && isCacheable) {
                     const responseClone = response.clone();
                     caches.open(CACHE_NAME).then((cache) => {
                         cache.put(event.request, responseClone);
@@ -127,8 +133,20 @@ async function syncPunches() {
                 // 409 = duplicate/invalid transition — remove from queue anyway
                 await deletePunch(db, punch.id);
                 synced++;
+            } else if (response.status === 401 || response.status === 403) {
+                // Nonce expired — keep for retry, but discard if too old or too many retries
+                const retryCount = (punch.retryCount || 0) + 1;
+                const ageMs = Date.now() - (punch.timestamp || 0);
+                const MAX_RETRIES = 10;
+                const MAX_AGE_MS = 48 * 60 * 60 * 1000; // 48 hours
+
+                if (retryCount > MAX_RETRIES || ageMs > MAX_AGE_MS) {
+                    console.log('[SW] Discarding stale punch:', punch.id, { retryCount, ageMs });
+                    await deletePunch(db, punch.id);
+                } else {
+                    await updatePunch(db, punch.id, { retryCount });
+                }
             }
-            // 401/403 = nonce expired — keep in queue for next sync attempt
         } catch (err) {
             console.log('[SW] Sync failed for punch:', punch.id, err);
             // Network still down — stop trying
@@ -185,10 +203,33 @@ function deletePunch(db, id) {
     });
 }
 
+function updatePunch(db, id, fields) {
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction('punches', 'readwrite');
+        const store = tx.objectStore('punches');
+        const getReq = store.get(id);
+        getReq.onerror = () => reject(getReq.error);
+        getReq.onsuccess = () => {
+            const punch = getReq.result;
+            if (!punch) { resolve(); return; }
+            Object.assign(punch, fields);
+            const putReq = store.put(punch);
+            putReq.onerror = () => reject(putReq.error);
+            putReq.onsuccess = () => resolve();
+        };
+    });
+}
+
 // Push notifications
 self.addEventListener('push', (event) => {
     if (!event.data) return;
-    const data = event.data.json();
+    let data;
+    try {
+        data = event.data.json();
+    } catch (e) {
+        console.warn('[SFS HR] Failed to parse push data', e);
+        data = { title: 'HR Suite', body: 'You have a new notification.' };
+    }
     event.waitUntil(
         self.registration.showNotification(data.title || 'HR Suite', {
             body: data.body || '',

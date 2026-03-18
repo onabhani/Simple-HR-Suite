@@ -79,8 +79,8 @@ class Widget_Shortcode {
 
     ob_start(); ?>
     <!-- Always load Leaflet so the map can show the user's current location -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="" defer></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous" defer></script>
     <?php if ( $immersive ): ?>
       <script>
         document.documentElement.classList.add('sfs-att-immersive');
@@ -163,13 +163,25 @@ class Widget_Shortcode {
         <!-- Action buttons -->
         <div class="sfs-att-actions" id="sfs-att-actions">
           <button type="button" data-type="in"
-                  class="sfs-att-btn sfs-att-btn--in" style="display:none" data-i18n-key="clock_in"><?php esc_html_e( 'Clock In', 'sfs-hr' ); ?></button>
+                  class="sfs-att-btn sfs-att-btn--in"
+                  style="display:none" data-i18n-key="clock_in"><?php
+                    esc_html_e( 'Clock In', 'sfs-hr' );
+          ?></button>
           <button type="button" data-type="out"
-                  class="sfs-att-btn sfs-att-btn--out" style="display:none" data-i18n-key="clock_out"><?php esc_html_e( 'Clock Out', 'sfs-hr' ); ?></button>
+                  class="sfs-att-btn sfs-att-btn--out"
+                  style="display:none" data-i18n-key="clock_out"><?php
+                    esc_html_e( 'Clock Out', 'sfs-hr' );
+          ?></button>
           <button type="button" data-type="break_start"
-                  class="sfs-att-btn sfs-att-btn--break" style="display:none" data-i18n-key="start_break"><?php esc_html_e( 'Start Break', 'sfs-hr' ); ?></button>
+                  class="sfs-att-btn sfs-att-btn--break"
+                  style="display:none" data-i18n-key="start_break"><?php
+                    esc_html_e( 'Start Break', 'sfs-hr' );
+          ?></button>
           <button type="button" data-type="break_end"
-                  class="sfs-att-btn sfs-att-btn--breakend" style="display:none" data-i18n-key="end_break"><?php esc_html_e( 'End Break', 'sfs-hr' ); ?></button>
+                  class="sfs-att-btn sfs-att-btn--breakend"
+                  style="display:none" data-i18n-key="end_break"><?php
+                    esc_html_e( 'End Break', 'sfs-hr' );
+          ?></button>
         </div>
 
         <!-- Today's Punch History -->
@@ -197,7 +209,9 @@ class Widget_Shortcode {
             <?php esc_html_e( 'Center your face, then tap "Capture & Submit".', 'sfs-hr' ); ?>
           </small>
           <div class="sfs-att-selfie-overlay__actions">
-            <button type="button" id="sfs-att-selfie-capture" class="sfs-att-selfie-btn sfs-att-selfie-btn--primary" data-i18n-key="capture_submit">
+            <button type="button" id="sfs-att-selfie-capture"
+                    class="sfs-att-selfie-btn sfs-att-selfie-btn--primary"
+                    data-i18n-key="capture_submit">
               <?php esc_html_e( 'Capture & Submit', 'sfs-hr' ); ?>
             </button>
             <button type="button" id="sfs-att-selfie-cancel" class="sfs-att-selfie-btn sfs-att-selfie-btn--cancel" data-i18n-key="cancel">
@@ -717,7 +731,14 @@ window.sfsAttI18n = window.sfsAttI18n || {
     todays_activity: '<?php echo esc_js( __( "Today\'s Activity", 'sfs-hr' ) ); ?>',
     // Off-day / stale session
     day_off: '<?php echo esc_js( __( 'Day Off', 'sfs-hr' ) ); ?>',
-    stale_session_contact_hr: '<?php echo esc_js( __( 'Your previous shift was not closed. Please contact HR.', 'sfs-hr' ) ); ?>'
+    stale_session_contact_hr: '<?php echo esc_js( __( 'Your previous shift was not closed. Please contact HR.', 'sfs-hr' ) ); ?>',
+    // Punch validation messages
+    invalid_action: '<?php echo esc_js( __( 'Invalid action.', 'sfs-hr' ) ); ?>',
+    end_break_first: '<?php echo esc_js( __( 'You are on break. End the break before clocking out.', 'sfs-hr' ) ); ?>',
+    not_clocked_in_yet: '<?php echo esc_js( __( 'You are not clocked in.', 'sfs-hr' ) ); ?>',
+    already_clocked_in: '<?php echo esc_js( __( 'Already clocked in.', 'sfs-hr' ) ); ?>',
+    break_only_while_in: '<?php echo esc_js( __( 'You can start a break only while clocked in.', 'sfs-hr' ) ); ?>',
+    no_active_break: '<?php echo esc_js( __( 'You have no active break to end.', 'sfs-hr' ) ); ?>'
 };
 
 // Language switching support for attendance widget
@@ -983,7 +1004,7 @@ window.sfsAttI18n = window.sfsAttI18n || {
         let cachedGeo      = null;   // { lat, lng, acc, ts }
 
         // Flash + tone feedback
-        const flashEl = document.getElementById('sfs-att-flash-<?php echo $inst; ?>');
+        const flashEl = document.getElementById('sfs-att-flash-<?php echo esc_js( $inst ); ?>');
 
         function flash(kind) {
             if (!flashEl) return;
@@ -992,10 +1013,23 @@ window.sfsAttI18n = window.sfsAttI18n || {
             flashEl.classList.add('show');
             setTimeout(() => flashEl.classList.remove('show'), 400);
         }
+        let _audioCtx = null;
+        function getAudioCtx() {
+            if (!_audioCtx || _audioCtx.state === 'closed') {
+                _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            return _audioCtx;
+        }
+        window.addEventListener('beforeunload', function() {
+            if (_audioCtx && _audioCtx.state !== 'closed') {
+                _audioCtx.close();
+                _audioCtx = null;
+            }
+        });
         async function playActionTone(kind) {
             const freq = { in: 920, out: 420, break_start: 680, break_end: 560 }[kind] || 750;
             try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const ctx = getAudioCtx();
                 if (ctx.state === 'suspended') await ctx.resume();
                 const o = ctx.createOscillator(), g = ctx.createGain();
                 o.type = 'sine'; o.frequency.value = freq;
@@ -1003,7 +1037,7 @@ window.sfsAttI18n = window.sfsAttI18n || {
                 g.gain.value = 0.25;
                 o.start();
                 g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
-                setTimeout(() => { o.stop(); ctx.close(); }, 260);
+                setTimeout(() => { o.stop(); }, 260);
             } catch(_) {}
         }
 
@@ -1032,8 +1066,8 @@ window.sfsAttI18n = window.sfsAttI18n || {
 }
 
 
-const clockEl = document.getElementById('sfs-att-clock-<?php echo $inst; ?>');
-const dateEl  = document.getElementById('sfs-att-date-<?php echo $inst; ?>');
+const clockEl = document.getElementById('sfs-att-clock-<?php echo esc_js( $inst ); ?>');
+const dateEl  = document.getElementById('sfs-att-date-<?php echo esc_js( $inst ); ?>');
 
 function tickClock(){
     if (!clockEl) return;
@@ -1086,10 +1120,10 @@ setInterval(tickClock, 1000);
         var progressWorkingSec = 0;
         var progressTargetSec = 0;
         var progressTimerInterval = null;
-        var progressBar = document.getElementById('sfs-att-progress-bar-<?php echo $inst; ?>');
-        var workedEl    = document.getElementById('sfs-att-worked-<?php echo $inst; ?>');
-        var targetEl    = document.getElementById('sfs-att-target-<?php echo $inst; ?>');
-        var progressWrap = document.getElementById('sfs-att-progress-<?php echo $inst; ?>');
+        var progressBar = document.getElementById('sfs-att-progress-bar-<?php echo esc_js( $inst ); ?>');
+        var workedEl    = document.getElementById('sfs-att-worked-<?php echo esc_js( $inst ); ?>');
+        var targetEl    = document.getElementById('sfs-att-target-<?php echo esc_js( $inst ); ?>');
+        var progressWrap = document.getElementById('sfs-att-progress-<?php echo esc_js( $inst ); ?>');
         var CIRCUMFERENCE = 2 * Math.PI * 52; // ~326.7
 
         function formatHM(seconds) {
@@ -1136,7 +1170,7 @@ setInterval(tickClock, 1000);
         }
 
         // ===== Punch History =====
-        var punchListEl = document.getElementById('sfs-att-punch-list-<?php echo $inst; ?>');
+        var punchListEl = document.getElementById('sfs-att-punch-list-<?php echo esc_js( $inst ); ?>');
         var punchIcons = {
             'in':          '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
             'out':         '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 21 3 21 3 15"/><line x1="14" y1="10" x2="3" y2="21"/></svg>',
@@ -1144,26 +1178,48 @@ setInterval(tickClock, 1000);
             'break_end':   '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
         };
 
+        function escapeHtml(s) {
+            if (typeof s !== 'string') return '';
+            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+        }
+
+        var validPunchTypes = ['in','out','break_start','break_end'];
+
         function updatePunchHistory(punches) {
             if (!punchListEl) return;
             if (!punches || punches.length === 0) {
-                punchListEl.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:12px 0;">'
-                    + (i18n.no_activity_yet || 'No activity yet') + '</div>';
+                punchListEl.textContent = '';
+                var emptyDiv = document.createElement('div');
+                emptyDiv.style.cssText = 'text-align:center;color:#9ca3af;font-size:13px;padding:12px 0;';
+                emptyDiv.textContent = i18n.no_activity_yet || 'No activity yet';
+                punchListEl.appendChild(emptyDiv);
                 return;
             }
-            var html = '';
+            punchListEl.textContent = '';
             for (var i = 0; i < punches.length; i++) {
                 var p = punches[i];
+                var safeType = validPunchTypes.indexOf(p.type) !== -1 ? p.type : 'in';
                 var label = punchTypeLabel(p.type);
-                html += '<div class="sfs-att-punch-item">'
-                    + '<div class="sfs-att-punch-badge sfs-att-punch-badge--' + p.type + '">'
-                    + (punchIcons[p.type] || '')
-                    + '</div>'
-                    + '<span class="sfs-att-punch-label">' + label + '</span>'
-                    + '<span class="sfs-att-punch-time">' + p.time + '</span>'
-                    + '</div>';
+                var item = document.createElement('div');
+                item.className = 'sfs-att-punch-item';
+
+                var badge = document.createElement('div');
+                badge.className = 'sfs-att-punch-badge sfs-att-punch-badge--' + safeType;
+                if (punchIcons[safeType]) badge.innerHTML = punchIcons[safeType];
+                item.appendChild(badge);
+
+                var labelEl = document.createElement('span');
+                labelEl.className = 'sfs-att-punch-label';
+                labelEl.textContent = label;
+                item.appendChild(labelEl);
+
+                var timeEl = document.createElement('span');
+                timeEl.className = 'sfs-att-punch-time';
+                timeEl.textContent = p.time || '';
+                item.appendChild(timeEl);
+
+                punchListEl.appendChild(item);
             }
-            punchListEl.innerHTML = html;
         }
 
         // Check if an action is truly available (state + policy)
@@ -1622,12 +1678,12 @@ setInterval(tickClock, 1000);
             // The UI state from the last refresh is recent enough for button visibility.
 
             if (!allowed[type]) {
-                let msg = 'Invalid action.';
-                if (type==='out' && state==='break')        msg = 'You are on break. End the break before clocking out.';
-                else if (type==='out' && state!=='in')      msg = 'You are not clocked in.';
-                else if (type==='in'  && state!=='idle')    msg = 'Already clocked in.';
-                else if (type==='break_start' && state!=='in')  msg = 'You can start a break only while clocked in.';
-                else if (type==='break_end'   && state!=='break')msg = 'You have no active break to end.';
+                let msg = i18n.invalid_action || 'Invalid action.';
+                if (type==='out' && state==='break')        msg = i18n.end_break_first || 'You are on break. End the break before clocking out.';
+                else if (type==='out' && state!=='in')      msg = i18n.not_clocked_in_yet || 'You are not clocked in.';
+                else if (type==='in'  && state!=='idle')    msg = i18n.already_clocked_in || 'Already clocked in.';
+                else if (type==='break_start' && state!=='in')  msg = i18n.break_only_while_in || 'You can start a break only while clocked in.';
+                else if (type==='break_end'   && state!=='break')msg = i18n.no_active_break || 'You have no active break to end.';
                 setStat(i18n.error_prefix + ' ' + msg, 'error');
                 punchInProgress = false;
                 // Re-enable allowed buttons
@@ -1832,9 +1888,14 @@ setInterval(tickClock, 1000);
         var geoRad = <?php echo (int) ( $geo_radius ?: 150 ); ?>;
         var hasGeofence = (geoLat !== 0 && geoLng !== 0);
         var map, circle, userMarker;
+        var _mapRetries = 0;
 
         function initMap() {
-            if (typeof L === 'undefined') { setTimeout(initMap, 200); return; }
+            if (typeof L === 'undefined') {
+                if (++_mapRetries < 25) setTimeout(initMap, 200);
+                else console.warn('[SFS HR] Leaflet failed to load after 5 s');
+                return;
+            }
 
             if (hasGeofence) {
                 map = L.map(mapEl, { zoomControl: false, attributionControl: false }).setView([geoLat, geoLng], 16);
@@ -1852,9 +1913,10 @@ setInterval(tickClock, 1000);
             updateUserPos();
         }
 
+        var _geoWatchId = null;
         function updateUserPos() {
             if (!navigator.geolocation) return;
-            navigator.geolocation.watchPosition(function(pos) {
+            _geoWatchId = navigator.geolocation.watchPosition(function(pos) {
                 var ll = [pos.coords.latitude, pos.coords.longitude];
                 if (!userMarker) {
                     var pulseIcon = L.divIcon({
@@ -1870,9 +1932,16 @@ setInterval(tickClock, 1000);
                 }
             }, function(){}, { enableHighAccuracy: true, maximumAge: 10000 });
         }
+        window.addEventListener('beforeunload', function() {
+            if (_geoWatchId !== null) {
+                navigator.geolocation.clearWatch(_geoWatchId);
+                _geoWatchId = null;
+            }
+        });
 
         // Handle container resize
-        window.addEventListener('resize', function(){ if (map) map.invalidateSize(); });
+        var _resizeTimer;
+        window.addEventListener('resize', function(){ clearTimeout(_resizeTimer); _resizeTimer = setTimeout(function(){ if (map) map.invalidateSize(); }, 150); });
 
         // Locate-me button
         var locateBtn = document.getElementById('sfs-att-locate-<?php echo esc_js( $inst ); ?>');

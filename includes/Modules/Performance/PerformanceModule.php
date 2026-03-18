@@ -185,6 +185,10 @@ class PerformanceModule {
     public function ajax_update_goal_progress(): void {
         check_ajax_referer( 'sfs_hr_performance', 'nonce' );
 
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
+            wp_send_json_error( [ 'message' => __( 'Permission denied', 'sfs-hr' ) ] );
+        }
+
         $goal_id  = isset( $_POST['goal_id'] ) ? (int) $_POST['goal_id'] : 0;
         $progress = isset( $_POST['progress'] ) ? (int) $_POST['progress'] : 0;
 

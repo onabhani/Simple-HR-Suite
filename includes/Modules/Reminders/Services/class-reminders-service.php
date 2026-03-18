@@ -230,13 +230,66 @@ class Reminders_Service {
     }
 
     /**
-     * Get upcoming events count
+     * Get upcoming events count — batch query replacing N+1 per-offset queries.
+     * Result cached for 300 seconds (5 minutes).
      */
     public static function get_upcoming_count(int $days = 7): int {
-        $birthdays = self::get_upcoming_birthdays(range(0, $days));
-        $anniversaries = self::get_upcoming_anniversaries(range(0, $days));
+        $cache_key = 'sfs_hr_reminders_upcoming_counts_' . $days;
+        $cached    = get_transient( $cache_key );
+        if ( false !== $cached ) {
+            return (int) $cached;
+        }
 
-        return count($birthdays) + count($anniversaries);
+        global $wpdb;
+        $emp_table = $wpdb->prefix . 'sfs_hr_employees';
+
+        // Build a single batch query using CASE/WHEN to count birthdays and anniversaries
+        // across the entire [today, today+$days] date window in one pass.
+        $date_cases_birth = [];
+        $date_cases_anniv = [];
+        $today_ts         = current_time( 'timestamp', true );
+
+        for ( $offset = 0; $offset <= $days; $offset++ ) {
+            $md = gmdate( 'm-d', $today_ts + $offset * DAY_IN_SECONDS );
+            // Birthday case: matches birth_date month-day
+            $date_cases_birth[] = $wpdb->prepare(
+                "WHEN DATE_FORMAT(e.birth_date, '%%m-%%d') = %s THEN 1",
+                $md
+            );
+            // Anniversary case: matches hire_date month-day
+            $date_cases_anniv[] = $wpdb->prepare(
+                "WHEN DATE_FORMAT(e.hired_at, '%%m-%%d') = %s THEN 1",
+                $md
+            );
+        }
+
+        $has_birth_col = self::has_birth_date_column();
+
+        $birth_sum = 0;
+        if ( $has_birth_col && ! empty( $date_cases_birth ) ) {
+            $cases_sql = implode( ' ', $date_cases_birth );
+            $birth_sum = (int) $wpdb->get_var(
+                "SELECT SUM(CASE {$cases_sql} ELSE 0 END)
+                 FROM {$emp_table} e
+                 WHERE e.status = 'active' AND e.birth_date IS NOT NULL"
+            );
+        }
+
+        $anniv_sum = 0;
+        if ( ! empty( $date_cases_anniv ) ) {
+            $cases_sql = implode( ' ', $date_cases_anniv );
+            $anniv_sum = (int) $wpdb->get_var(
+                "SELECT SUM(CASE {$cases_sql} ELSE 0 END)
+                 FROM {$emp_table} e
+                 WHERE e.status = 'active' AND e.hired_at IS NOT NULL
+                   AND TIMESTAMPDIFF(YEAR, e.hired_at, CURDATE()) >= 0"
+            );
+        }
+
+        $count = $birth_sum + $anniv_sum;
+        set_transient( $cache_key, $count, 300 );
+
+        return $count;
     }
 
     /**
@@ -246,11 +299,7 @@ class Reminders_Service {
         global $wpdb;
         $emp_table = $wpdb->prefix . 'sfs_hr_employees';
 
-        return (bool)$wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns
-             WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'birth_date'",
-            $emp_table
-        ));
+        return (bool)$wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM `{$emp_table}` LIKE %s", 'birth_date'));
     }
 
     /**

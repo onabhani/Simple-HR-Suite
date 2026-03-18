@@ -845,6 +845,15 @@ public static function asset_status_badge( string $status ): string {
         $year = $created_at ? date( 'Y', strtotime( $created_at ) ) : wp_date( 'Y' );
         $like_pattern = $prefix . '-' . $year . '-%';
 
+        // Use a named lock to serialize reference number generation per prefix+year.
+        // This is safer than a transaction since callers may already be inside one.
+        $lock_name = 'sfs_hr_ref_' . $prefix . '_' . $year;
+        $got_lock  = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 5)', $lock_name ) );
+
+        if ( ! $got_lock ) {
+            error_log( sprintf( '[SFS HR] generate_reference_number: failed to acquire lock %s', $lock_name ) );
+        }
+
         // Use MAX of the numeric suffix to avoid collisions when rows are
         // deleted.  The old COUNT(*) approach would re-use existing numbers
         // if any request was removed, violating the UNIQUE constraint.
@@ -863,7 +872,14 @@ public static function asset_status_badge( string $status ): string {
         }
 
         $sequence = str_pad( $next, 4, '0', STR_PAD_LEFT );
-        return $prefix . '-' . $year . '-' . $sequence;
+        $result = $prefix . '-' . $year . '-' . $sequence;
+
+        // Release the named lock
+        if ( $got_lock ) {
+            $wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock_name ) );
+        }
+
+        return $result;
     }
 
     // =========================================================================

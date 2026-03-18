@@ -141,11 +141,15 @@ $geo_radius = isset( $device['geo_lock_radius_m'] ) ? trim( (string) $device['ge
         <span class="sfs-ab-dot"></span><?php esc_html_e( 'Clock In', 'sfs-hr' ); ?><span class="sfs-ab-arr">&#8250;</span>
       </button>
       <button type="button" data-action="out" class="sfs-ab sfs-ab--out sfs-lane-btn">
-        <span class="sfs-ab-dot"></span><?php esc_html_e( 'Clock Out', 'sfs-hr' ); ?><span class="sfs-ab-arr">&#8250;</span>
+        <span class="sfs-ab-dot"></span><?php
+          esc_html_e( 'Clock Out', 'sfs-hr' );
+        ?><span class="sfs-ab-arr">&#8250;</span>
       </button>
       <?php if ( ! empty( $device['break_enabled'] ) ) : ?>
       <button type="button" data-action="break_start" class="sfs-ab sfs-ab--brk sfs-lane-btn">
-        <span class="sfs-ab-dot"></span><?php esc_html_e( 'Start Break', 'sfs-hr' ); ?><span class="sfs-ab-arr">&#8250;</span>
+        <span class="sfs-ab-dot"></span><?php
+          esc_html_e( 'Start Break', 'sfs-hr' );
+        ?><span class="sfs-ab-arr">&#8250;</span>
       </button>
       <button type="button" data-action="break_end" class="sfs-ab sfs-ab--bend sfs-lane-btn">
         <span class="sfs-ab-dot"></span><?php esc_html_e( 'End Break', 'sfs-hr' ); ?><span class="sfs-ab-arr">&#8250;</span>
@@ -774,7 +778,7 @@ body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
 }
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" integrity="sha256-vEDIoVGWI2sjFNsIVvcsoLSZgM1UE7jIUqc0n1/uCFk=" crossorigin="anonymous" defer></script>
 <?php
 // Make sure WP exposes a nonce helper on the front-end
 wp_enqueue_script('wp-api');
@@ -807,7 +811,9 @@ wp_enqueue_script('wp-api');
     network_error: <?php echo wp_json_encode( __( 'Network error', 'sfs-hr' ) ); ?>,
     scan_failed_invalid_reply: <?php echo wp_json_encode( __( 'Scan failed: invalid server reply', 'sfs-hr' ) ); ?>,
     scan_failed_no_token: <?php echo wp_json_encode( __( 'Scan failed: no token', 'sfs-hr' ) ); ?>,
-    keep_face_capture_selfie: <?php echo wp_json_encode( __( 'Keep face in frame and press "Capture Selfie".', 'sfs-hr' ) ); ?>,
+    keep_face_capture_selfie: <?php
+        echo wp_json_encode( __( 'Keep face in frame and press "Capture Selfie".', 'sfs-hr' ) );
+    ?>,
     no_shift_contact_hr: <?php echo wp_json_encode( __( 'No shift configured. Contact your Manager or HR.', 'sfs-hr' ) ); ?>,
     invalid_action_try_different: <?php echo wp_json_encode( __( 'Invalid action now. Try a different punch type.', 'sfs-hr' ) ); ?>,
     punch_failed_prefix: <?php echo wp_json_encode( __( 'Punch failed:', 'sfs-hr' ) ); ?>,
@@ -843,6 +849,18 @@ wp_enqueue_script('wp-api');
                 console.log('[SFS-ATT]', ...args);
             }
         };
+
+        // Track all interval IDs for cleanup
+        const _kioskIntervalIds = [];
+        function kioskSetInterval(fn, ms) {
+            const id = setInterval(fn, ms);
+            _kioskIntervalIds.push(id);
+            return id;
+        }
+        window.addEventListener('beforeunload', function() {
+            _kioskIntervalIds.forEach(function(id) { clearInterval(id); });
+            _kioskIntervalIds.length = 0;
+        });
         
 async function attemptPunch(type, scanToken, selfieBlob, geox) {
   const fd = new FormData();
@@ -957,23 +975,14 @@ const SUGGEST_TIMES = {
 
       // Elements
       const ROOT      = document.getElementById('<?php echo esc_js($root_id); ?>');
-      const statusBox = document.getElementById('sfs-kiosk-status-<?php echo $inst; ?>');
       const video     = document.getElementById('sfs-kiosk-qr-video-<?php echo $inst; ?>');
-     
-      const capture   = document.getElementById('sfs-kiosk-capture-<?php echo $inst; ?>');
       const camwrap   = document.getElementById('sfs-kiosk-camwrap-<?php echo $inst; ?>');
       const clockEl  = document.getElementById('sfs-kiosk-clock-<?php echo $inst; ?>');
       const dateEl  = document.getElementById('sfs-kiosk-date-<?php echo $inst; ?>');
-      const empEl    = document.getElementById('sfs-kiosk-emp-<?php echo $inst; ?>');
       const flashEl  = document.getElementById('sfs-kiosk-flash-<?php echo $inst; ?>');
       const camBadge = document.getElementById('sfs-kiosk-cam-badge-<?php echo $inst; ?>');
 
-      // QR elems
-      const qrWrap  = document.getElementById('sfs-kiosk-camwrap-<?php echo $inst; ?>');
-      const qrVid   = document.getElementById('sfs-kiosk-qr-video-<?php echo $inst; ?>');
-      
       // STOP button is now sfs-kiosk-stop (in scan header), handled via stopBtn below
-      const qrStop = null; // removed: old hidden "Stop Camera" button no longer exists
 
 
 
@@ -1026,45 +1035,6 @@ const BACKOFF_MS_ERR = 1500;   // generic non-429/non-409 error
 
 
 
-if (capture) {
-  capture.addEventListener('click', async () => {
-    try {
-      if (!pendingPunch || !pendingPunch.scanToken) {
-        setStat(t.no_pending_scan||'No pending scan. Scan QR again.', 'error');
-        return;
-      }
-      const blob = await captureSelfieFromQrVideo();
-      if (!blob) {
-        setStat(t.no_camera_frame||'No camera frame yet. Keep face in frame and try again.', 'error');
-        return;
-      }
-      setStat(t.attempting_punch||'Attempting punch…', 'busy');
-      const r = await attemptPunch(currentAction, pendingPunch.scanToken, blob, pendingPunch.geox);
-      if (r.ok) {
-  playActionTone(currentAction);
-  flashPunchSuccess('ok');    // halo flash here too
-  flash(currentAction, '');   // full-screen color flash
-
-  if (!sessionStartTs) startSession();
-  addScanLog('', currentAction, true);
-
-  setStat((r.data?.label || t.done_label||'Done') + ' — ' + (t.next_label||'Next'), 'ok');
-  touchActivity();
-  pendingPunch = null;
-  manualSelfieMode = false;
-  if (capture) capture.style.display = 'none';
-  await refresh();
-  setTimeout(() => { if (uiMode !== 'error') setStat(t.scanning||'Scanning…', 'scanning'); }, 400);
-} else {
-        playErrorTone();
-        setStat(r.data?.message || (t.punch_failed_prefix||'Punch failed:') + ` (HTTP ${r.status})`, 'error');
-      }
-    } catch (e) {
-      playErrorTone();
-      setStat((t.error_prefix||'Error:') + ' ' + (e.message || e), 'error');
-    }
-  });
-}
 
 
 // ----- View state + idle timer -----
@@ -1096,13 +1066,12 @@ function exitToMenu(){
 
 // iOS inline playback hardening
 try {
-  qrVid.setAttribute('playsinline', '');
-  qrVid.setAttribute('webkit-playsinline', '');
-  qrVid.muted = true;
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
+  video.muted = true;
 } catch (_) {}
 
-// Debug flag for console logging (set to true to enable debug logs)
-const DBG = false;
+
 
 
 
@@ -1227,7 +1196,6 @@ if (laneRoot) {
       ROOT.dataset.view = 'scan';
 
       // 4) force camera wrapper visible (in case refresh()/stopQr() hid it)
-      if (qrWrap)  qrWrap.style.display  = '';
       if (camwrap) camwrap.style.display = 'grid';
 
       // 5) actually start the scanner
@@ -1285,7 +1253,7 @@ function updateTimeSuggestions() {
 
 // Update suggestions on load and every minute
 updateTimeSuggestions();
-setInterval(updateTimeSuggestions, 60000);
+kioskSetInterval(updateTimeSuggestions, 60000);
 
 // Initial lane
 setAction('in');
@@ -1477,20 +1445,28 @@ async function handleQrFound(raw) {
       dbg('scan network error', e && e.message);
 
       // --- Offline fallback: validate QR against cached roster ---
-      if (OFFLINE_ENABLED && window.sfsHrPwa && window.sfsHrPwa.db && window.sfsHrPwa.sha256) {
+      if (OFFLINE_ENABLED && window.sfsHrPwa && window.sfsHrPwa.db && window.sfsHrPwa.hmacSha256) {
         try {
           const empId = parseInt(emp, 10);
           offlineEmpRecord = await window.sfsHrPwa.db.getEmployee(empId);
-          if (offlineEmpRecord && offlineEmpRecord.token_hash) {
-            const scannedHash = await window.sfsHrPwa.sha256(token);
-            if (scannedHash === offlineEmpRecord.token_hash) {
-              offlineFallback = true;
-              dbg('offline fallback: QR verified for employee', empId);
+          if (offlineEmpRecord && offlineEmpRecord.token_hmac) {
+            const rosterNonce = await window.sfsHrPwa.db.getRosterNonce();
+            if (rosterNonce) {
+              const scannedHmac = await window.sfsHrPwa.hmacSha256(token, rosterNonce);
+              if (scannedHmac === offlineEmpRecord.token_hmac) {
+                offlineFallback = true;
+                dbg('offline fallback: QR verified for employee', empId);
+              } else {
+                dbg('offline fallback: token hmac mismatch');
+                setStat(t.invalid_qr||'Invalid QR', 'error');
+                lastQrValue = raw; lastQrTs = Date.now();
+                throw new Error('offline_token_mismatch');
+              }
             } else {
-              dbg('offline fallback: token hash mismatch');
-              setStat(t.invalid_qr||'Invalid QR', 'error');
+              dbg('offline fallback: roster nonce missing, cache may be stale');
+              setStat(t.offline_employee_not_cached||'Offline — employee not recognized. Cache may be stale.', 'error');
               lastQrValue = raw; lastQrTs = Date.now();
-              throw new Error('offline_token_mismatch');
+              throw new Error('offline_employee_not_found');
             }
           } else {
             dbg('offline fallback: employee not in cached roster', empId);
@@ -1523,7 +1499,6 @@ async function handleQrFound(raw) {
       setStat(`⚡ ${empName} — ${t.offline_mode||'Offline mode'}`, 'ok');
       dbg('offline scan accepted', { emp, name: empName });
 
-      if (empEl) { empEl.textContent = empName; }
     } else {
       // Online mode: parse server response
       // Try parse JSON; WP may return HTML on error
@@ -1559,7 +1534,6 @@ async function handleQrFound(raw) {
       setStat(`✓ ${empName} — ${t.validating_ellipsis||'Validating…'}`, 'ok');
       dbg('scan ok', data);
 
-      if (empEl) { empEl.textContent = empName; }
     }
 
 
@@ -1592,7 +1566,6 @@ async function handleQrFound(raw) {
     if (requiresSelfie && !selfieBlob) {
       manualSelfieMode = true;
       pendingPunch = { scanToken, geox };
-      if (capture) capture.style.display = '';
       setStat(t.keep_face_capture_selfie||'Keep face in frame and press "Capture Selfie".', 'error');
       lastQrValue = raw;
       lastQrTs    = Date.now() + (BACKOFF_MS_SLF - QR_COOLDOWN_MS);
@@ -1792,7 +1765,6 @@ async function startQr(){
     dbg('startQr: jsQR loaded?', typeof window.jsQR === 'function');
     if (typeof window.jsQR !== 'function'){
       setStat(t.qr_engine_not_loaded||'QR engine not loaded. Please wait and press Start again.', 'error');
-      if (qrStop)  qrStop.disabled  = true;
       return;
     }
   }
@@ -1814,17 +1786,17 @@ async function startQr(){
     // release the stream we just acquired and bail out.
     if (myEpoch !== qrEpoch) {
       dbg('startQr: aborted after getUserMedia');
-      try { qrStream.getTracks().forEach(t=>t.stop()); } catch(_) {}
+      try { qrStream.getTracks().forEach(track=>track.stop()); } catch(_) {}
       qrStream = null;
       return;
     }
 
-    qrVid.srcObject = qrStream;
-    await new Promise(r => qrVid.onloadedmetadata = r);
-    dbg('startQr: stream ready', { w: qrVid.videoWidth, h: qrVid.videoHeight });
+    video.srcObject = qrStream;
+    await new Promise(r => video.onloadedmetadata = r);
+    dbg('startQr: stream ready', { w: video.videoWidth, h: video.videoHeight });
 
     try {
-      await qrVid.play();
+      await video.play();
     } catch(e) {
       dbg('startQr: play() err', e && e.message);
     }
@@ -1844,11 +1816,10 @@ async function startQr(){
     touchActivity();
     if (camwrap) camwrap.style.display = 'grid';
 
-    if (qrStop) qrStop.disabled = false;
     if (qrStat) qrStat.textContent = t.scanning||'Scanning…';
 
     // Start live selfie preview only if the selfie canvas exists
-    if (document.getElementById('sfs-kiosk-canvas-<?php echo $inst; ?>')) {
+    if (document.getElementById('sfs-kiosk-selfie-<?php echo $inst; ?>')) {
       startSelfiePreview();
       if (requiresSelfie) dbg('startQr: selfie preview active');
     }
@@ -1860,8 +1831,8 @@ async function startQr(){
     const SCAN_INTERVAL_MS = 150; // throttle QR decode to ~7fps to reduce GC pressure
 
     const ensureCanvasSize = () => {
-      const w = qrVid.videoWidth  || 640;
-      const h = qrVid.videoHeight || 480;
+      const w = video.videoWidth  || 640;
+      const h = video.videoHeight || 480;
       if (w === 0 || h === 0) return false;
       if (scanCanvas.width !== w || scanCanvas.height !== h){
         scanCanvas.width = w;
@@ -1898,7 +1869,7 @@ async function startQr(){
           lastScanTs = now;
 
           const w = scanCanvas.width, h = scanCanvas.height;
-          sctx.drawImage(qrVid, 0, 0, w, h);
+          sctx.drawImage(video, 0, 0, w, h);
 
           // (A) BarcodeDetector path
           if (useBarcodeDetector && detector) {
@@ -2010,14 +1981,11 @@ function stopQr(){
   showScannerUI(false);
   if (qrLoop) { cancelAnimationFrame(qrLoop); qrLoop = null; }
   if (selfiePreviewLoop) { cancelAnimationFrame(selfiePreviewLoop); selfiePreviewLoop = null; }
-  if (qrStream) { try { qrStream.getTracks().forEach(t=>t.stop()); } catch(_) {} qrStream = null; }
-  if (qrVid) qrVid.srcObject = null;
+  if (qrStream) { try { qrStream.getTracks().forEach(track=>track.stop()); } catch(_) {} qrStream = null; }
+  if (video) video.srcObject = null;
 
   // Clear inline display styles so CSS [data-view="menu"] rules take effect
   if (camwrap) camwrap.style.display = '';
-  if (qrWrap) qrWrap.style.display = '';
-
-  if (qrStop)  qrStop.disabled  = true;
   if (qrStat)  qrStat.textContent = '';
   lastUIBeat = 0;
   uiMode = 'idle';
@@ -2052,11 +2020,6 @@ if (laneChip) {
 
 
 
-    // CSS view toggle handles visibility; only update capture button
-    const inScan = (ROOT && ROOT.dataset.view === 'scan');
-    if (capture) {
-      capture.style.display = (qrOn && requiresSelfie && manualSelfieMode && inScan) ? '' : 'none';
-    }
 
 
 
@@ -2068,8 +2031,6 @@ if (laneChip) {
 
      
      
-      qrStop  && qrStop.addEventListener('click',  stopQr);
-
       // helper: read ?emp= & ?token= from either a URL or raw text/JSON
 function _qrNormalize(s){
   // remove LTR/RTL & embedding marks; collapse whitespace
@@ -2132,7 +2093,7 @@ function startSession(){
   if (countEl) countEl.textContent = '0';
   if (logList) logList.innerHTML = '';
   if (sessionTimer) clearInterval(sessionTimer);
-  sessionTimer = setInterval(tickSessionTime, 1000);
+  sessionTimer = kioskSetInterval(tickSessionTime, 1000);
   tickSessionTime();
 }
 
@@ -2166,24 +2127,48 @@ function addScanLog(name, action, ok){
   scanLog.unshift({ name, action, time, ok });
   if (scanLog.length > 50) scanLog.length = 50;
 
-  const safeName = (name||'\u2014').replace(/</g,'&lt;');
+  const safeName = name || '\u2014';
   const cls = ok ? 'ok' : 'err';
   // Action-specific color class for dots and initials
-  const actionCls = 'action-' + (action || 'in');
+  const validActions = ['in','out','break_start','break_end'];
+  const actionCls = 'action-' + (validActions.indexOf(action) !== -1 ? action : 'in');
 
-  // Build log item HTML with action-specific colors
-  function buildLogHtml(){
-    return '<span class="sfs-log-initials ' + cls + ' ' + actionCls + '">' + getInitials(name) + '</span>'
-      + '<div class="sfs-log-info"><span class="sfs-log-name">' + safeName + '</span>'
-      + '<span class="sfs-log-meta"><span class="sfs-log-dot ' + cls + ' ' + actionCls + '"></span> '
-      + labelFor(action) + ' \u2022 ' + time + '</span></div>'
-      + '<span class="sfs-log-time">' + time + '</span>';
+  // Build log item via DOM construction (safe from XSS)
+  function buildLogItem(){
+    const frag = document.createDocumentFragment();
+
+    const initials = document.createElement('span');
+    initials.className = 'sfs-log-initials ' + cls + ' ' + actionCls;
+    initials.textContent = getInitials(name);
+    frag.appendChild(initials);
+
+    const info = document.createElement('div');
+    info.className = 'sfs-log-info';
+    const nameEl = document.createElement('span');
+    nameEl.className = 'sfs-log-name';
+    nameEl.textContent = safeName;
+    info.appendChild(nameEl);
+    const meta = document.createElement('span');
+    meta.className = 'sfs-log-meta';
+    const dot = document.createElement('span');
+    dot.className = 'sfs-log-dot ' + cls + ' ' + actionCls;
+    meta.appendChild(dot);
+    meta.appendChild(document.createTextNode(' ' + labelFor(action) + ' \u2022 ' + time));
+    info.appendChild(meta);
+    frag.appendChild(info);
+
+    const timeEl = document.createElement('span');
+    timeEl.className = 'sfs-log-time';
+    timeEl.textContent = time;
+    frag.appendChild(timeEl);
+
+    return frag;
   }
 
   // Update desktop/tablet activity log
   if (logList) {
     const li = document.createElement('li');
-    li.innerHTML = buildLogHtml();
+    li.appendChild(buildLogItem());
     logList.prepend(li);
     while (logList.children.length > 50) logList.removeChild(logList.lastChild);
   }
@@ -2192,7 +2177,7 @@ function addScanLog(name, action, ok){
   const modalList = document.getElementById('sfs-log-modal-list-<?php echo $inst; ?>');
   if (modalList) {
     const li = document.createElement('li');
-    li.innerHTML = buildLogHtml();
+    li.appendChild(buildLogItem());
     modalList.prepend(li);
     while (modalList.children.length > 50) modalList.removeChild(modalList.lastChild);
   }
@@ -2202,8 +2187,11 @@ function addScanLog(name, action, ok){
   const triggerLast  = document.getElementById('sfs-log-modal-last-<?php echo $inst; ?>');
   if (triggerCount) triggerCount.textContent = String(sessionCount);
   if (triggerLast) {
-    triggerLast.innerHTML = '<span class="sfs-log-dot ' + actionCls + '"></span> '
-      + safeName + ' — ' + labelFor(action);
+    triggerLast.textContent = '';
+    const trigDot = document.createElement('span');
+    trigDot.className = 'sfs-log-dot ' + actionCls;
+    triggerLast.appendChild(trigDot);
+    triggerLast.appendChild(document.createTextNode(' ' + safeName + ' \u2014 ' + labelFor(action)));
   }
 }
 
@@ -2260,7 +2248,7 @@ function getGeoFast({timeout=2000, maxAge=120000} = {}) {
 
 
 function startSelfiePreview(){
-  const cnv = document.getElementById('sfs-kiosk-canvas-<?php echo $inst; ?>');
+  const cnv = document.getElementById('sfs-kiosk-selfie-<?php echo $inst; ?>');
   const vid = document.getElementById('sfs-kiosk-qr-video-<?php echo $inst; ?>');
   if (!cnv || !vid) return; // preview is optional
 
@@ -2325,39 +2313,6 @@ function captureSelfieFromQrVideo() {
 
 
 
-function parseEmployeeQR(payload){
-  // Normalize entities (&amp;, &#038;, &#x26;) → &
-  const norm = (function(s){
-    if (typeof s !== 'string') s = String(s || '');
-    s = s.replace(/&amp;|&#0*38;|&#x0*26;/gi, '&');
-    const el = document.createElement('textarea');
-    el.innerHTML = s;
-    return el.value.trim();
-  })(payload);
-
-  // URL form
-  try {
-    const u = new URL(norm, window.location.origin);
-    const emp   = u.searchParams.get('emp') || u.searchParams.get('employee') || u.searchParams.get('id');
-    const token = u.searchParams.get('token') || u.searchParams.get('t');
-    if (emp && token) return { emp: parseInt(emp,10), token };
-  } catch(_) {}
-
-  // raw querystring
-  const m = norm.match(/(?:^|[?&])emp=(\d+).*?(?:^|[?&])token=([A-Za-z0-9_\.\-]+)/i);
-  if (m) return { emp: parseInt(m[1],10), token: m[2] };
-
-  // JSON
-  try {
-    const o = JSON.parse(norm);
-    const emp   = o.emp || o.employee_id || o.id;
-    const token = o.token || o.qr_token;
-    if (emp && token) return { emp: parseInt(emp,10), token };
-  } catch(_) {}
-
-  return null;
-}
-
 
       function tickClock(){
         try {
@@ -2365,7 +2320,7 @@ function parseEmployeeQR(payload){
           clockEl && (clockEl.textContent = d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
         } catch(_) {}
       }
-      tickClock(); setInterval(tickClock, 1000);
+      tickClock(); kioskSetInterval(tickClock, 1000);
 
 
 function tickDate(){
@@ -2396,7 +2351,7 @@ tickDate();
     }
   }
   tickScanInfo();
-  setInterval(tickScanInfo, 1000);
+  kioskSetInterval(tickScanInfo, 1000);
 })();
 
 // ── Slide-up modal for Recent Scans (mobile) ──
@@ -2456,92 +2411,6 @@ function showPunchError(msg, detail){
 
 
 
-      async function punch(type){
-        if (!allowed[type]) {
-          let msg = t.invalid_action||'Invalid action.';
-          if (type==='out' && state==='break')             msg = t.employee_on_break||'Employee is on break. End the break before clocking out.';
-          else if (type==='out' && state!=='in')           msg = t.employee_not_clocked_in||'Employee is not clocked in.';
-          else if (type==='in'  && state!=='idle')         msg = t.already_clocked_in||'Already clocked in.';
-          else if (type==='break_start' && state!=='in')   msg = t.break_only_while_clocked_in||'Break can start only while clocked in.';
-          else if (type==='break_end'   && state!=='break')msg = t.no_active_break_to_end||'No active break to end.';
-          setStat((t.error_prefix||'Error:') + ' ' + msg, 'error');
-          return;
-        }
-
-
-                setStat(t.working_ellipsis||'Working…', 'busy');
-
-        let geo = null;
-        try {
-            geo = await getGeo(type);
-        } catch(e){
-            // geo_blocked → stop here
-            return;
-        }
-
-        let headers = {'X-WP-Nonce':nonce};
-
-        let body;
-
-        if (requiresSelfie) {
-          if (!lastBlob) { setStat((t.error_prefix||'Error:') + ' ' + (t.capture_selfie_first||'Please capture a selfie first.'), 'error'); return; }
-          const fd = new FormData();
-          fd.append('punch_type', String(type));
-          fd.append('source', 'kiosk');
-          fd.append('device', String(DEVICE_ID));
-          if (geo && typeof geo.lat==='number' && typeof geo.lng==='number') {
-            fd.append('geo_lat', String(geo.lat));
-            fd.append('geo_lng', String(geo.lng));
-            
-            if (typeof geo.acc==='number') fd.append('geo_accuracy_m', String(Math.round(geo.acc)));
-          }
-          // Use unique filename with timestamp and random component to prevent overwrites
-          const timestamp = Date.now();
-          const random = Math.random().toString(36).substring(7);
-          fd.append('selfie', lastBlob, `kiosk-selfie-${timestamp}-${random}.jpg`);
-          fd.append('employee_scan_token', employeeScanToken || '');
-          body = fd;
-        } else {
-          headers['Content-Type'] = 'application/json';
-          const payload = {
-  punch_type: String(type),
-  source: 'kiosk',
-  device: DEVICE_ID,
-  employee_scan_token: (employeeScanToken || '')
-};
-
-          if (geo && typeof geo.lat==='number' && typeof geo.lng==='number') {
-            payload.geo_lat = geo.lat;
-            payload.geo_lng = geo.lng;
-            if (typeof geo.acc==='number') payload.geo_accuracy_m = Math.round(geo.acc);
-          }
-          body = JSON.stringify(payload);
-        }
-
-        var kpCtrl = new AbortController();
-        var kpTimer = setTimeout(function(){ kpCtrl.abort(); }, requiresSelfie ? 30000 : 15000);
-        try{
-          const r = await fetch(punchUrl, { method:'POST', headers, credentials:'same-origin', body, signal: kpCtrl.signal });
-          const j = await r.json();
-          if (!r.ok) throw new Error(j.message || 'Punch failed');
-          setStat(j.label || t.done_label||'Done', 'ok');
-
-          lastBlob = null;
-          await refresh();
-          ROOT.querySelectorAll('button[data-action]').forEach(b=>b.disabled = true);
-          setTimeout(()=>ROOT.querySelectorAll('button[data-action]').forEach(b=>b.disabled = !allowed[b.getAttribute('data-type')]), 3000);
-        }catch(e){
-          var kpMsg = (e.name === 'AbortError')
-              ? ((t.error_prefix||'Error:') + ' ' + (t.request_timed_out || 'Request timed out. Please try again.'))
-              : ((t.error_prefix||'Error:') + ' ' + e.message);
-          setStat(kpMsg, 'error');
-        }finally{
-          clearTimeout(kpTimer);
-        }
-      }
-
-
-
 ROOT.dataset.view = 'menu';
 setMode('menu');
       refresh();
@@ -2553,7 +2422,7 @@ setMode('menu');
           dbg('roster initial cache:', ok ? 'success' : 'skipped/failed');
         });
         // Periodic refresh every 15 minutes (while page is open)
-        setInterval(() => {
+        kioskSetInterval(() => {
           if (navigator.onLine) {
             window.sfsHrPwa.refreshRoster(DEVICE_ID, nonce).then(ok => {
               dbg('roster periodic refresh:', ok ? 'success' : 'skipped/failed');

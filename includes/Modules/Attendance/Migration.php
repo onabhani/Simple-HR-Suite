@@ -112,34 +112,22 @@ class Migration {
 
         // Migration: Add dept_id column if missing (for existing installations)
         $shifts_table = "{$p}sfs_hr_attendance_shifts";
-        $col_exists = $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'dept_id'",
-            $shifts_table
-        ) );
-        if ( ! $col_exists ) {
-            $wpdb->query( "ALTER TABLE {$shifts_table} ADD COLUMN dept_id BIGINT UNSIGNED NULL AFTER active" );
-            $wpdb->query( "ALTER TABLE {$shifts_table} ADD KEY dept_id (dept_id)" );
+        $dept_id_added = !$wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$shifts_table} LIKE %s", 'dept_id'));
+        $this->add_column_if_missing($wpdb, $shifts_table, 'dept_id', "dept_id BIGINT UNSIGNED NULL AFTER active");
+        if ($dept_id_added) {
+            $this->add_index_if_missing($wpdb, $shifts_table, 'dept_id', "ALTER TABLE {$shifts_table} ADD KEY dept_id (dept_id)");
         }
 
         // Migration: Add dept_ids column for multi-department support
-        $dept_ids_exists = $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'dept_ids'",
-            $shifts_table
-        ) );
-        if ( ! $dept_ids_exists ) {
-            $wpdb->query( "ALTER TABLE {$shifts_table} ADD COLUMN dept_ids TEXT NULL COMMENT 'JSON array of department IDs'" );
+        $dept_ids_added = !$wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$shifts_table} LIKE %s", 'dept_ids'));
+        $this->add_column_if_missing($wpdb, $shifts_table, 'dept_ids', "dept_ids TEXT NULL COMMENT 'JSON array of department IDs'");
+        if ($dept_ids_added) {
             // Migrate existing single dept_id to dept_ids JSON
-            $wpdb->query( "UPDATE {$shifts_table} SET dept_ids = CONCAT('[', dept_id, ']') WHERE dept_id IS NOT NULL AND dept_ids IS NULL" );
+            $wpdb->query("UPDATE {$shifts_table} SET dept_ids = CONCAT('[', dept_id, ']') WHERE dept_id IS NOT NULL AND dept_ids IS NULL");
         }
 
         // Migration: Add period_overrides column for date-range time overrides (Ramadan, etc.)
-        $period_ov_exists = $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'period_overrides'",
-            $shifts_table
-        ) );
-        if ( ! $period_ov_exists ) {
-            $wpdb->query( "ALTER TABLE {$shifts_table} ADD COLUMN period_overrides TEXT NULL COMMENT 'JSON array of date-range time overrides' AFTER weekly_overrides" );
-        }
+        $this->add_column_if_missing($wpdb, $shifts_table, 'period_overrides', "period_overrides TEXT NULL COMMENT 'JSON array of date-range time overrides' AFTER weekly_overrides");
 
                 // 4) daily assignments (rota)
         dbDelta("CREATE TABLE {$p}sfs_hr_attendance_shift_assign (
@@ -172,13 +160,10 @@ class Migration {
 
         // Migration: Add schedule_id column to emp_shifts for existing installations
         $emp_shifts_tbl = "{$p}sfs_hr_attendance_emp_shifts";
-        $sched_col_exists = $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'schedule_id'",
-            $emp_shifts_tbl
-        ) );
-        if ( ! $sched_col_exists ) {
-            $wpdb->query( "ALTER TABLE {$emp_shifts_tbl} ADD COLUMN schedule_id BIGINT UNSIGNED NULL COMMENT 'FK to shift_schedules' AFTER shift_id" );
-            $wpdb->query( "ALTER TABLE {$emp_shifts_tbl} ADD KEY schedule_id (schedule_id)" );
+        $sched_id_added = !$wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$emp_shifts_tbl} LIKE %s", 'schedule_id'));
+        $this->add_column_if_missing($wpdb, $emp_shifts_tbl, 'schedule_id', "schedule_id BIGINT UNSIGNED NULL COMMENT 'FK to shift_schedules' AFTER shift_id");
+        if ($sched_id_added) {
+            $this->add_index_if_missing($wpdb, $emp_shifts_tbl, 'schedule_id', "ALTER TABLE {$emp_shifts_tbl} ADD KEY schedule_id (schedule_id)");
         }
 
         // 5b) shift schedules (rotation patterns: week A/B, 4-on-4-off, etc.)
@@ -221,22 +206,22 @@ class Migration {
         ) $charset_collate;");
 
 
-// Harden upgrades: add columns if old table exists without them
-$t = "{$p}sfs_hr_attendance_devices";
-$this->add_column_if_missing($wpdb, $t, 'kiosk_enabled',     "kiosk_enabled TINYINT(1) NOT NULL DEFAULT 0");
-$this->add_column_if_missing($wpdb, $t, 'kiosk_offline',     "kiosk_offline TINYINT(1) NOT NULL DEFAULT 0");
-$this->add_column_if_missing($wpdb, $t, 'geo_lock_lat',      "geo_lock_lat DECIMAL(10,7) NULL");
-$this->add_column_if_missing($wpdb, $t, 'geo_lock_lng',      "geo_lock_lng DECIMAL(10,7) NULL");
-$this->add_column_if_missing($wpdb, $t, 'geo_lock_radius_m', "geo_lock_radius_m SMALLINT UNSIGNED NULL");
-$this->add_column_if_missing($wpdb, $t, 'allowed_dept_id',   "allowed_dept_id BIGINT UNSIGNED NULL");
-$this->add_column_if_missing($wpdb, $t, 'active',            "active TINYINT(1) NOT NULL DEFAULT 1");
-$this->add_column_if_missing($wpdb, $t, 'qr_enabled',        "qr_enabled TINYINT(1) NOT NULL DEFAULT 1");
-$this->add_column_if_missing($wpdb, $t, 'selfie_mode',       "selfie_mode ENUM('inherit','never','in_only','in_out','all') NOT NULL DEFAULT 'inherit'");
-$this->add_column_if_missing($wpdb, $t, 'suggest_in_time',         "suggest_in_time TIME NULL");
-$this->add_column_if_missing($wpdb, $t, 'suggest_break_start_time',"suggest_break_start_time TIME NULL");
-$this->add_column_if_missing($wpdb, $t, 'suggest_break_end_time',  "suggest_break_end_time TIME NULL");
-$this->add_column_if_missing($wpdb, $t, 'suggest_out_time',        "suggest_out_time TIME NULL");
-$this->add_column_if_missing($wpdb, $t, 'break_enabled',           "break_enabled TINYINT(1) NOT NULL DEFAULT 0");
+        // Harden upgrades: add columns if old table exists without them
+        $t = "{$p}sfs_hr_attendance_devices";
+        $this->add_column_if_missing($wpdb, $t, 'kiosk_enabled',     "kiosk_enabled TINYINT(1) NOT NULL DEFAULT 0");
+        $this->add_column_if_missing($wpdb, $t, 'kiosk_offline',     "kiosk_offline TINYINT(1) NOT NULL DEFAULT 0");
+        $this->add_column_if_missing($wpdb, $t, 'geo_lock_lat',      "geo_lock_lat DECIMAL(10,7) NULL");
+        $this->add_column_if_missing($wpdb, $t, 'geo_lock_lng',      "geo_lock_lng DECIMAL(10,7) NULL");
+        $this->add_column_if_missing($wpdb, $t, 'geo_lock_radius_m', "geo_lock_radius_m SMALLINT UNSIGNED NULL");
+        $this->add_column_if_missing($wpdb, $t, 'allowed_dept_id',   "allowed_dept_id BIGINT UNSIGNED NULL");
+        $this->add_column_if_missing($wpdb, $t, 'active',            "active TINYINT(1) NOT NULL DEFAULT 1");
+        $this->add_column_if_missing($wpdb, $t, 'qr_enabled',        "qr_enabled TINYINT(1) NOT NULL DEFAULT 1");
+        $this->add_column_if_missing($wpdb, $t, 'selfie_mode',       "selfie_mode ENUM('inherit','never','in_only','in_out','all') NOT NULL DEFAULT 'inherit'");
+        $this->add_column_if_missing($wpdb, $t, 'suggest_in_time',            "suggest_in_time TIME NULL");
+        $this->add_column_if_missing($wpdb, $t, 'suggest_break_start_time',   "suggest_break_start_time TIME NULL");
+        $this->add_column_if_missing($wpdb, $t, 'suggest_break_end_time',     "suggest_break_end_time TIME NULL");
+        $this->add_column_if_missing($wpdb, $t, 'suggest_out_time',           "suggest_out_time TIME NULL");
+        $this->add_column_if_missing($wpdb, $t, 'break_enabled',              "break_enabled TINYINT(1) NOT NULL DEFAULT 0");
 
 
         // 6) flags (exceptions)
@@ -321,8 +306,12 @@ $this->add_column_if_missing($wpdb, $t, 'break_enabled',           "break_enable
             $this->migrate_add_foreign_keys( $wpdb, $p );
         }
 
-        // Caps + defaults + seed kiosks
-        $this->register_caps();
+        // Caps (only on first run or version bump to avoid writing wp_options on every page load)
+        $caps_ver = get_option( 'sfs_hr_att_caps_ver', '' );
+        if ( $caps_ver !== \SFS_HR_VER ) {
+            $this->register_caps();
+            update_option( 'sfs_hr_att_caps_ver', \SFS_HR_VER, true );
+        }
         $this->maybe_seed_defaults();
         $this->maybe_seed_kiosks();
     }
@@ -335,9 +324,29 @@ $this->add_column_if_missing($wpdb, $t, 'break_enabled',           "break_enable
     }
 
     /**
+     * Add a non-unique index only if the named key does not already exist.
+     *
+     * @param string $key_name  Index name to check.
+     * @param string $ddl       Full ALTER TABLE … ADD KEY … statement to run when absent.
+     */
+    private function add_index_if_missing( \wpdb $wpdb, string $table, string $key_name, string $ddl ): void {
+        // information_schema acceptable here — migration-only, version-gated; no clean SHOW equivalent for index names
+        $exists = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.STATISTICS
+             WHERE table_schema = DATABASE() AND table_name = %s AND index_name = %s",
+            $table,
+            $key_name
+        ));
+        if ($exists === 0) {
+            $wpdb->query($ddl);
+        }
+    }
+
+    /**
      * Add unique key if it doesn't exist
      */
     private function add_unique_key_if_missing( \wpdb $wpdb, string $table, string $key_name ): void {
+        // information_schema acceptable here — migration-only, version-gated; no clean SHOW equivalent for index names
         $index_exists = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM information_schema.STATISTICS
              WHERE table_schema = DATABASE() AND table_name = %s AND index_name = %s",
@@ -367,6 +376,7 @@ $this->add_column_if_missing($wpdb, $t, 'break_enabled',           "break_enable
         $elrT    = "{$p}sfs_hr_early_leave_requests";
 
         // Helper: check if a FK already exists on a table
+        // information_schema.TABLE_CONSTRAINTS acceptable here — migration-only, option-gated; no clean SHOW alternative for FK names
         $fk_exists = function( string $table, string $fk_name ) use ( $wpdb ): bool {
             return (bool) $wpdb->get_var( $wpdb->prepare(
                 "SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
@@ -380,11 +390,8 @@ $this->add_column_if_missing($wpdb, $t, 'break_enabled',           "break_enable
         // (required for FK constraints).
         $had_errors = false;
         foreach ( [ $empT, $punchT, $sessT, $shiftT, $assignT, $empShT, $flagT, $auditT, $elrT ] as $t ) {
-            $engine = $wpdb->get_var( $wpdb->prepare(
-                "SELECT ENGINE FROM information_schema.TABLES
-                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s",
-                $t
-            ) );
+            $row    = $wpdb->get_row( $wpdb->prepare( "SHOW TABLE STATUS LIKE %s", $t ), ARRAY_A );
+            $engine = $row ? $row['Engine'] : null;
             if ( $engine !== null && strcasecmp( $engine, 'InnoDB' ) !== 0 ) {
                 if ( $wpdb->query( "ALTER TABLE {$t} ENGINE = InnoDB" ) === false ) {
                     $had_errors = true;
@@ -482,7 +489,7 @@ $this->add_column_if_missing($wpdb, $t, 'break_enabled',           "break_enable
         }
 
         // Any role that already has the suite's master cap gets full attendance admin + self punch
-        foreach ( wp_roles()->roles as $role_key => $def ) {
+        foreach ( array_keys( wp_roles()->roles ) as $role_key ) {
             $r = get_role($role_key);
             if ( ! $r ) { continue; }
             if ( $r->has_cap('sfs_hr.manage') ) {
@@ -496,19 +503,20 @@ $this->add_column_if_missing($wpdb, $t, 'break_enabled',           "break_enable
         }
 
         // Make sure device/admin caps exist on key roles
-$caps_devices = ['sfs_hr_attendance_admin','sfs_hr_attendance_edit_devices'];
+        $caps_devices = ['sfs_hr_attendance_admin', 'sfs_hr_attendance_edit_devices'];
 
-if ($admin = get_role('administrator')) {
-    foreach (array_merge($caps_devices, ['sfs_hr_attendance_view_self','sfs_hr_attendance_clock_self','sfs_hr_attendance_clock_kiosk']) as $c) {
-        $admin->add_cap($c);
-    }
-}
-if ($mgr = get_role('sfs_hr_manager')) {
-    foreach ($caps_devices as $c) { $mgr->add_cap($c); }
-}
-
-
-
+        if ( $admin = get_role('administrator') ) {
+            $all_admin_caps = array_merge(
+                $caps_devices,
+                ['sfs_hr_attendance_view_self', 'sfs_hr_attendance_clock_self', 'sfs_hr_attendance_clock_kiosk']
+            );
+            foreach ( $all_admin_caps as $c ) {
+                $admin->add_cap($c);
+            }
+        }
+        if ( $mgr = get_role('sfs_hr_manager') ) {
+            foreach ( $caps_devices as $c ) { $mgr->add_cap($c); }
+        }
     }
 
     /** Seed global defaults (changeable later via Admin UI). */

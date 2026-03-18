@@ -87,6 +87,9 @@ class Absent_Notifications {
         ) );
         $on_leave_map = array_flip( $on_leave );
 
+        // Batch-resolve day-off status for all employees at once (avoids N+1 shift queries)
+        $day_off_map = self::batch_resolve_day_off( $emp_ids, $date );
+
         // Build absent employees list by department
         $absent_by_dept = [];
 
@@ -103,8 +106,8 @@ class Absent_Notifications {
                 continue;
             }
 
-            // Check shift-specific day off
-            if ( self::is_employee_day_off( $emp_id, $date ) ) {
+            // Skip if it's a day off for this employee
+            if ( $day_off_map[ $emp_id ] ?? false ) {
                 continue;
             }
 
@@ -131,6 +134,104 @@ class Absent_Notifications {
         }
 
         return array_values( $absent_by_dept );
+    }
+
+    /**
+     * Batch-resolve day-off status for all provided employee IDs.
+     *
+     * Returns a map of employee_id => bool (true = day off, should be skipped).
+     * Uses a single DB query for shift assignments instead of one per employee.
+     *
+     * @param int[]  $emp_ids Array of employee IDs.
+     * @param string $ymd     Date in Y-m-d format.
+     * @return array<int,bool> Map of employee_id => is_day_off.
+     */
+    private static function batch_resolve_day_off( array $emp_ids, string $ymd ): array {
+        if ( empty( $emp_ids ) ) {
+            return [];
+        }
+
+        global $wpdb;
+
+        // Check global weekly off days first
+        $tz       = wp_timezone();
+        $date_obj = new \DateTimeImmutable( $ymd . ' 00:00:00', $tz );
+        $dow      = (int) $date_obj->format( 'w' ); // 0=Sun...6=Sat
+
+        $att_settings = get_option( 'sfs_hr_attendance_settings' ) ?: [];
+        $off_days     = $att_settings['weekly_off_days'] ?? [ 5 ]; // Default: Friday
+        if ( ! is_array( $off_days ) ) {
+            $off_days = [ 5 ];
+        }
+        $off_days = array_map( 'intval', $off_days );
+
+        // If today is a global day off, all employees are off
+        if ( in_array( $dow, $off_days, true ) ) {
+            return array_fill_keys( $emp_ids, true );
+        }
+
+        // Use shift assignments to batch-check per-employee day off
+        $day_off_map = array_fill_keys( $emp_ids, false );
+
+        if ( ! class_exists( '\SFS\HR\Modules\Attendance\AttendanceModule' ) ) {
+            return $day_off_map;
+        }
+
+        $emp_shifts_table = $wpdb->prefix . 'sfs_hr_attendance_employee_shifts';
+        $shifts_table     = $wpdb->prefix . 'sfs_hr_attendance_shifts';
+
+        // Check tables exist
+        if ( ! $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $emp_shifts_table ) ) ) {
+            return $day_off_map;
+        }
+
+        $int_ids      = array_map( 'intval', $emp_ids );
+        $placeholders = implode( ',', array_fill( 0, count( $int_ids ), '%d' ) );
+
+        // Get the latest shift assignment per employee effective on or before $ymd
+        $shift_rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT es.employee_id, s.days_off
+                 FROM {$emp_shifts_table} es
+                 INNER JOIN {$shifts_table} s ON s.id = es.shift_id
+                 INNER JOIN (
+                     SELECT employee_id, MAX(effective_date) AS max_date
+                     FROM {$emp_shifts_table}
+                     WHERE employee_id IN ({$placeholders})
+                       AND effective_date <= %s
+                     GROUP BY employee_id
+                 ) latest ON latest.employee_id = es.employee_id
+                            AND latest.max_date = es.effective_date
+                 WHERE es.employee_id IN ({$placeholders})",
+                array_merge( $int_ids, [ $ymd ], $int_ids )
+            ),
+            ARRAY_A
+        );
+
+        // Employees with no assignment row have no shift = day off
+        $assigned_ids = [];
+        foreach ( $shift_rows as $row ) {
+            $emp_id = (int) $row['employee_id'];
+            $assigned_ids[] = $emp_id;
+
+            $days_off_arr = [];
+            if ( ! empty( $row['days_off'] ) ) {
+                $decoded = json_decode( $row['days_off'], true );
+                if ( is_array( $decoded ) ) {
+                    $days_off_arr = array_map( 'intval', $decoded );
+                }
+            }
+            $day_off_map[ $emp_id ] = in_array( $dow, $days_off_arr, true );
+        }
+
+        // Employees with no assignment row: no shift = day off
+        foreach ( $int_ids as $emp_id ) {
+            if ( ! in_array( $emp_id, $assigned_ids, true ) ) {
+                $day_off_map[ $emp_id ] = true;
+            }
+        }
+
+        return $day_off_map;
     }
 
     /**
@@ -205,6 +306,84 @@ class Absent_Notifications {
         }
 
         return false;
+    }
+
+    /**
+     * Send all absent notifications (managers + employees) using a single DB query.
+     *
+     * Replaces calling send_absent_notifications() + send_employee_absent_notifications()
+     * separately, which would run get_absent_employees_by_department() twice.
+     *
+     * @param string $date Date in Y-m-d format.
+     * @return array{manager_sent: int, employee_sent: int}
+     */
+    public static function send_all_absent_notifications( string $date ): array {
+        $absent_by_dept = self::get_absent_employees_by_department( $date );
+
+        $manager_sent  = 0;
+        $employee_sent = 0;
+
+        if ( empty( $absent_by_dept ) ) {
+            return compact( 'manager_sent', 'employee_sent' );
+        }
+
+        $settings       = self::get_settings();
+        $formatted_date = wp_date( 'l, F j, Y', strtotime( $date ) );
+        $leave_url      = home_url( '/my-profile/?sfs_hr_tab=leave' );
+        $site_name      = get_bloginfo( 'name' );
+
+        foreach ( $absent_by_dept as $dept ) {
+            // Notify the department manager
+            $manager = get_userdata( $dept['manager_user_id'] );
+            if ( $manager && $manager->user_email ) {
+                $absent_count = count( $dept['employees'] );
+                $subject = sprintf(
+                    /* translators: 1: number of employees, 2: department name, 3: date */
+                    __( '[Attendance] %1$d employee(s) absent in %2$s on %3$s', 'sfs-hr' ),
+                    $absent_count,
+                    $dept['dept_name'],
+                    $formatted_date
+                );
+                $message = self::build_notification_message( $dept, $date, $formatted_date, $manager );
+                if ( apply_filters( 'sfs_hr_manager_wants_absent_notification', true, $manager->ID, $dept['dept_id'] ) ) {
+                    Helpers::send_mail( $manager->user_email, $subject, $message );
+                    $manager_sent++;
+                    do_action( 'sfs_hr_absent_notification_sent', [
+                        'manager_id'    => $manager->ID,
+                        'manager_email' => $manager->user_email,
+                        'dept_id'       => $dept['dept_id'],
+                        'dept_name'     => $dept['dept_name'],
+                        'date'          => $date,
+                        'absent_count'  => $absent_count,
+                    ] );
+                }
+            }
+
+            // Notify absent employees (if enabled)
+            if ( $settings['notify_employees'] ?? true ) {
+                foreach ( $dept['employees'] as $emp ) {
+                    $email = $emp['wp_email'] ?? $emp['email'] ?? '';
+                    if ( ! $email || ! is_email( $email ) ) {
+                        continue;
+                    }
+                    $emp_subject = sprintf(
+                        /* translators: 1: date */
+                        __( '[Absence Notice] You were marked absent on %s', 'sfs-hr' ),
+                        $formatted_date
+                    );
+                    $emp_message = self::build_employee_absent_message( $emp, $date, $formatted_date, $leave_url, $site_name );
+                    Helpers::send_mail( $email, $emp_subject, $emp_message );
+                    $employee_sent++;
+                    do_action( 'sfs_hr_employee_absent_notification_sent', [
+                        'employee_id' => $emp['id'],
+                        'email'       => $email,
+                        'date'        => $date,
+                    ] );
+                }
+            }
+        }
+
+        return compact( 'manager_sent', 'employee_sent' );
     }
 
     /**

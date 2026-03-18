@@ -238,7 +238,8 @@ $rows = $wpdb->get_results( $wpdb->prepare(
     $employee_id, $startUtc, $endUtc
 ) );
 
-$firstIn = null; $lastOut = null;
+$firstIn = null;
+$lastOut = null;
 $leadingOuts = [];
 foreach ($rows as $r) {
     if ($r->punch_type === 'in'  && $firstIn === null) $firstIn = $r->punch_time;
@@ -328,7 +329,6 @@ if ( $is_off_day && empty( $rows ) ) {
     // ---- Break deduction logic ----
     $shift_break_minutes = $shift ? (int) ( $shift->unpaid_break_minutes ?? 0 ) : 0;
     $shift_break_policy  = $shift ? ( $shift->break_policy ?? 'none' ) : 'none';
-    $shift_break_start   = $shift ? ( $shift->break_start_time ?? null ) : null;
     $has_mandatory_break = ( $shift_break_policy !== 'none' && $shift_break_minutes > 0 );
     $shift_no_break = ( $shift !== null && $shift_break_policy === 'none' );
 
@@ -382,8 +382,7 @@ if ( $is_off_day && empty( $rows ) ) {
     $net = (int) $ev['worked_total'] - $break_deduction;
     $net = max( 0, $net );
 
-    // ---- Total-hours mode ----
-    $is_total_hours = Policy_Service::is_total_hours_mode( $employee_id, $shift );
+    // ---- Total-hours mode (reuses $is_total_hours from dayCap block above) ----
     $policy_break   = Policy_Service::get_break_settings( $employee_id, $shift );
 
     if ( $is_total_hours && $policy_break['enabled'] && $policy_break['duration_minutes'] > 0 && ! $has_mandatory_break && ! $shift_no_break ) {
@@ -490,7 +489,8 @@ if ( $is_off_day && empty( $rows ) ) {
     }
 
     // Geo/selfie counters
-    $outside_geo = 0; $no_selfie = 0;
+    $outside_geo = 0;
+    $no_selfie = 0;
     foreach ($rows as $r) {
         if ((int)$r->valid_geo === 0 && ($r->source ?? '') !== 'kiosk') $outside_geo++;
         if ((int)$r->valid_selfie === 0) $no_selfie++;
@@ -654,9 +654,10 @@ if ( $is_off_day && empty( $rows ) ) {
     }
 
     // Fire notification hooks for late arrival and early leave
-    $was_late = in_array('late', $existing_flags, true);
-    $is_late = in_array('late', $flags, true);
-    $is_early = in_array('left_early', $flags, true);
+    $was_late  = in_array( 'late', $existing_flags, true );
+    $was_early = in_array( 'left_early', $existing_flags, true );
+    $is_late   = in_array( 'late', $flags, true );
+    $is_early  = in_array( 'left_early', $flags, true );
 
     if ($is_late && !$was_late) {
         $minutes_late = 0;
@@ -700,7 +701,8 @@ if ( $is_off_day && empty( $rows ) ) {
     }
 
     // Auto-create early leave request (fires sfs_hr_early_leave_requested → manager notification)
-    if ( $is_early && $minutes_early > 0 ) {
+    // Guard mirrors the late-arrival pattern: only fire on the first recalc that detects the flag.
+    if ( $is_early && ! $was_early && $minutes_early > 0 ) {
         Early_Leave_Service::maybe_create_early_leave_request(
             $employee_id,
             $ymd,
@@ -916,7 +918,10 @@ if ( $is_off_day && empty( $rows ) ) {
                 if ($open===null) $open = $t;
             } elseif ($r->punch_type === 'out') {
                 if ($open!==null && $t > $open) {
-                    $intervals[] = [$open, $t];
+                    $end = ( $dayEndUtcTs > 0 ) ? min( $t, $dayEndUtcTs ) : $t;
+                    if ( $end > $open ) {
+                        $intervals[] = [$open, $end];
+                    }
                     $open = null;
                 }
             }
@@ -954,7 +959,9 @@ if ( $is_off_day && empty( $rows ) ) {
             $E = strtotime($seg['end_utc'].' UTC');
             $scheduled_total += $seg['minutes'];
 
-            $ovMin = 0; $firstIn = null; $lastOut = null;
+            $ovMin = 0;
+            $firstIn = null;
+            $lastOut = null;
             foreach ($intervals as [$a,$b]) {
                 $start = max($a,$S);
                 $end   = min($b,$E);
@@ -1017,10 +1024,13 @@ if ( $is_off_day && empty( $rows ) ) {
         $eT = $wpdb->prefix . 'sfs_hr_employees';
 
         list( $utc_start, $utc_end ) = AttendanceModule::local_day_window_to_utc( $date );
-        $punched = $wpdb->get_col( $wpdb->prepare(
-            "SELECT DISTINCT employee_id FROM {$pT} WHERE punch_time >= %s AND punch_time < %s",
-            $utc_start, $utc_end
-        ) );
+        $punched = $wpdb->get_col(
+            $wpdb->prepare(
+                "SELECT DISTINCT employee_id FROM {$pT} WHERE punch_time >= %s AND punch_time < %s",
+                $utc_start,
+                $utc_end
+            )
+        );
         $punched = array_map( 'intval', (array) $punched );
 
         $all_active = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$eT} WHERE status = %s", 'active' ) );

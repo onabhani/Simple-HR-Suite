@@ -49,7 +49,7 @@ class Setup_Wizard {
             '',
             __( 'Setup Wizard', 'sfs-hr' ),
             __( 'Setup Wizard', 'sfs-hr' ),
-            'manage_options',
+            'sfs_hr.manage',
             'sfs-hr-setup-wizard',
             [ $this, 'render' ]
         );
@@ -58,7 +58,7 @@ class Setup_Wizard {
     /* ───────── admin notice ───────── */
 
     public function nudge_notice(): void {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
             return;
         }
         if ( get_option( self::OPT_COMPLETED ) || get_option( self::OPT_DISMISSED ) ) {
@@ -83,7 +83,7 @@ class Setup_Wizard {
     }
 
     public function handle_dismiss(): void {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
             wp_die( 'Unauthorized' );
         }
         check_admin_referer( 'sfs_hr_wizard_dismiss' );
@@ -93,7 +93,7 @@ class Setup_Wizard {
     }
 
     public function handle_finish(): void {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
             wp_die( 'Unauthorized' );
         }
         check_admin_referer( 'sfs_hr_wizard_finish' );
@@ -105,7 +105,7 @@ class Setup_Wizard {
     /* ───────── step save router ───────── */
 
     public function handle_save(): void {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
             wp_die( 'Unauthorized' );
         }
         check_admin_referer( 'sfs_hr_wizard', '_sfs_wiz_nonce' );
@@ -308,7 +308,7 @@ class Setup_Wizard {
     /* ───────── render: main ───────── */
 
     public function render(): void {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
             wp_die( 'Unauthorized' );
         }
 

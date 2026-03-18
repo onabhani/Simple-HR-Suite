@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Simple HR Suite
  * Description: Simple HR Suite – employees, departments, leave, balances, approvals.
- * Version: 2.0.3
+ * Version: 2.1.0
  * Author: hdqah.com
  * Author URI: https://hdqah.com
  * Requires at least: 6.4
@@ -15,7 +15,7 @@
 
 if (!defined('ABSPATH')) { exit; }
 
-define('SFS_HR_VER', '2.0.3');
+define('SFS_HR_VER', '2.1.0');
 define('SFS_HR_DIR', plugin_dir_path(__FILE__));
 define('SFS_HR_URL', plugin_dir_url(__FILE__));
 define('SFS_HR_PLUGIN_FILE', __FILE__);
@@ -174,17 +174,11 @@ add_action('admin_init', function(){
     $att_policy_roles_table  = $wpdb->prefix . 'sfs_hr_attendance_policy_roles';
 
     $table_exists = function(string $table) use ($wpdb){
-        return (bool) $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-            $table
-        ));
+        return (bool) $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table));
     };
 
     $column_exists = function(string $table, string $column) use ($wpdb){
-        return (bool) $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = %s AND column_name = %s",
-            $table, $column
-        ));
+        return (bool) $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM `{$table}` LIKE %s", $column));
     };
 
     $stored          = get_option('sfs_hr_db_ver', '0');
@@ -285,11 +279,8 @@ add_action('admin_init', function(){
 
         // Migrate attendance sessions ENUM to include 'day_off'
         if ($table_exists($sessions_table)) {
-            $col_type = $wpdb->get_var($wpdb->prepare(
-                "SELECT COLUMN_TYPE FROM information_schema.columns
-                 WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'status'",
-                $sessions_table
-            ));
+            $col_row = $wpdb->get_row($wpdb->prepare("SHOW COLUMNS FROM `{$sessions_table}` LIKE %s", 'status'), ARRAY_A);
+            $col_type = $col_row ? $col_row['Type'] : null;
             if ($col_type && strpos($col_type, "'day_off'") === false) {
                 $wpdb->query("ALTER TABLE {$sessions_table}
                               MODIFY COLUMN status ENUM('present','late','left_early','absent','incomplete','on_leave','holiday','day_off')
@@ -534,18 +525,9 @@ add_action('admin_notices', function(){
     $dept   = $wpdb->prefix . 'sfs_hr_departments';
     $assets = $wpdb->prefix . 'sfs_hr_assets';
 
-    $ok_req = $wpdb->get_var($wpdb->prepare(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-        $req
-    ));
-    $ok_dept = $wpdb->get_var($wpdb->prepare(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-        $dept
-    ));
-    $ok_assets = $wpdb->get_var($wpdb->prepare(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-        $assets
-    ));
+    $ok_req    = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $req));
+    $ok_dept   = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $dept));
+    $ok_assets = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $assets));
 
     if (!$ok_req || !$ok_dept || !$ok_assets) {
         echo '<div class="notice notice-error"><p><strong>HR Suite:</strong> database tables not found. Deactivate → activate the plugin, or reload this page to let self-healing run.</p></div>';

@@ -104,39 +104,58 @@ class Resignation_Service {
     }
 
     /**
-     * Get counts for each status tab
+     * Get counts for each status tab — single GROUP BY query instead of 6 separate COUNTs.
      */
     public static function get_status_counts(string $search = '', array $dept_ids = []): array {
         global $wpdb;
         $table = $wpdb->prefix . 'sfs_hr_resignations';
         $emp_t = $wpdb->prefix . 'sfs_hr_employees';
 
-        $dept_where = '';
-        $dept_params = [];
+        $extra_where  = '';
+        $extra_params = [];
+
         if (!empty($dept_ids)) {
-            $placeholders = implode(',', array_fill(0, count($dept_ids), '%d'));
-            $dept_where = " AND e.dept_id IN ($placeholders)";
-            $dept_params = array_map('intval', $dept_ids);
+            $placeholders  = implode(',', array_fill(0, count($dept_ids), '%d'));
+            $extra_where  .= " AND e.dept_id IN ($placeholders)";
+            $extra_params  = array_merge($extra_params, array_map('intval', $dept_ids));
         }
 
-        $search_where = '';
-        $search_params = [];
         if ($search !== '') {
-            $search_where = " AND (e.first_name LIKE %s OR e.last_name LIKE %s OR e.employee_code LIKE %s)";
-            $like = '%' . $wpdb->esc_like($search) . '%';
-            $search_params = [$like, $like, $like];
+            $extra_where  .= " AND (e.first_name LIKE %s OR e.last_name LIKE %s OR e.employee_code LIKE %s)";
+            $like          = '%' . $wpdb->esc_like($search) . '%';
+            $extra_params  = array_merge($extra_params, [$like, $like, $like]);
+        }
+
+        // Single GROUP BY query covering all status values.
+        $sql_group = "SELECT r.status, r.resignation_type, COUNT(*) as cnt
+                      FROM $table r
+                      JOIN $emp_t e ON e.id = r.employee_id
+                      WHERE 1=1 $extra_where
+                      GROUP BY r.status, r.resignation_type";
+
+        $group_rows = empty($extra_params)
+            ? $wpdb->get_results($sql_group, ARRAY_A)
+            : $wpdb->get_results($wpdb->prepare($sql_group, ...$extra_params), ARRAY_A);
+
+        // Aggregate into tab counts.
+        $by_status = [];
+        $final_exit_count = 0;
+        foreach ($group_rows as $gr) {
+            $st  = $gr['status'];
+            $cnt = (int) $gr['cnt'];
+            $by_status[ $st ] = ( $by_status[ $st ] ?? 0 ) + $cnt;
+            if ($gr['resignation_type'] === 'final_exit') {
+                $final_exit_count += $cnt;
+            }
         }
 
         $counts = [];
         foreach (array_keys(self::get_status_tabs()) as $st) {
             if ($st === 'final_exit') {
-                $count_sql = "SELECT COUNT(*) FROM $table r JOIN $emp_t e ON e.id = r.employee_id WHERE r.resignation_type = 'final_exit' $dept_where $search_where";
-                $count_params = array_merge($dept_params, $search_params);
+                $counts[$st] = $final_exit_count;
             } else {
-                $count_sql = "SELECT COUNT(*) FROM $table r JOIN $emp_t e ON e.id = r.employee_id WHERE r.status = %s $dept_where $search_where";
-                $count_params = array_merge([$st], $dept_params, $search_params);
+                $counts[$st] = $by_status[$st] ?? 0;
             }
-            $counts[$st] = empty($count_params) ? (int)$wpdb->get_var($count_sql) : (int)$wpdb->get_var($wpdb->prepare($count_sql, ...$count_params));
         }
 
         return $counts;

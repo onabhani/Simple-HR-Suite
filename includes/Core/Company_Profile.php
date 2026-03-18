@@ -47,7 +47,7 @@ class Company_Profile {
             'sfs-hr',
             __( 'Company Profile', 'sfs-hr' ),
             __( 'Company Profile', 'sfs-hr' ),
-            'manage_options',
+            'sfs_hr.manage',
             'sfs-hr-company-profile',
             [ $this, 'render_page' ]
         );
@@ -98,7 +98,7 @@ class Company_Profile {
     /* ───────── save handler ───────── */
 
     public function handle_save(): void {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
             wp_die( esc_html__( 'Permission denied.', 'sfs-hr' ) );
         }
         check_admin_referer( 'sfs_hr_company_profile', '_sfs_nonce' );
@@ -124,7 +124,7 @@ class Company_Profile {
     /* ───────── render ───────── */
 
     public function render_page(): void {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
             wp_die( esc_html__( 'Permission denied.', 'sfs-hr' ) );
         }
 

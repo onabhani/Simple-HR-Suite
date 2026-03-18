@@ -24,10 +24,10 @@ class Employee_Profile_Page {
 
     public function menu(): void {
         add_submenu_page(
-            null,
+            '',
             __( 'Employee Profile', 'sfs-hr' ),
             __( 'Employee Profile', 'sfs-hr' ),
-            'sfs_hr_attendance_view_team',
+            'sfs_hr.view',
             'sfs-hr-employee-profile',
             [ $this, 'render_page' ]
         );
@@ -96,7 +96,7 @@ class Employee_Profile_Page {
     }
 
     public function render_page(): void {
-    Helpers::require_cap( 'sfs_hr_attendance_view_team' );
+    Helpers::require_cap( 'sfs_hr.view' );
 
     // Handle WP user creation action
     if ( isset( $_GET['do_create_wp_user'] ) && current_user_can( 'create_users' ) ) {
@@ -226,12 +226,7 @@ class Employee_Profile_Page {
     $dept_name  = '';
     $dept_map   = [];
     $dept_table = $wpdb->prefix . 'sfs_hr_departments';
-    $dept_exists = (int) $wpdb->get_var(
-        $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-            $dept_table
-        )
-    );
+    $dept_exists = (bool) $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $dept_table));
     if ( $dept_exists ) {
         if ( $dept_id > 0 ) {
             $dept_name = (string) $wpdb->get_var(
@@ -1209,29 +1204,13 @@ class Employee_Profile_Page {
     $assign_table = $wpdb->prefix . 'sfs_hr_asset_assignments';
 
     // Make sure assets table exists; if not, bail silently.
-    $assets_exists = (int) $wpdb->get_var(
-        $wpdb->prepare(
-            "SELECT COUNT(*) 
-             FROM information_schema.tables 
-             WHERE table_schema = DATABASE() 
-               AND table_name = %s",
-            $assets_table
-        )
-    );
+    $assets_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $assets_table));
     if ( ! $assets_exists ) {
         return;
     }
 
     // Also make sure assignments table exists.
-    $assign_exists = (int) $wpdb->get_var(
-        $wpdb->prepare(
-            "SELECT COUNT(*) 
-             FROM information_schema.tables 
-             WHERE table_schema = DATABASE() 
-               AND table_name = %s",
-            $assign_table
-        )
-    );
+    $assign_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $assign_table));
     if ( ! $assign_exists ) {
         return;
     }
@@ -1562,12 +1541,7 @@ class Employee_Profile_Page {
         $doc_table = $wpdb->prefix . 'sfs_hr_employee_documents';
 
         // Check if documents table exists
-        $table_exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-                $doc_table
-            )
-        );
+        $table_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $doc_table));
 
         if ( ! $table_exists ) {
             return;
@@ -1689,12 +1663,7 @@ class Employee_Profile_Page {
         $leave_table = $wpdb->prefix . 'sfs_hr_leave_requests';
         $leave_types_table = $wpdb->prefix . 'sfs_hr_leave_types';
 
-        $leave_exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-                $leave_table
-            )
-        );
+        $leave_exists = (bool) $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $leave_table));
 
         if ( $leave_exists ) {
             $leaves = $wpdb->get_results(
@@ -1739,12 +1708,7 @@ class Employee_Profile_Page {
         // ---- Loan Requests ----
         $loan_table = $wpdb->prefix . 'sfs_hr_loans';
 
-        $loan_exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-                $loan_table
-            )
-        );
+        $loan_exists = (bool) $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $loan_table));
 
         if ( $loan_exists ) {
             $loans = $wpdb->get_results(
@@ -1775,12 +1739,7 @@ class Employee_Profile_Page {
         // ---- Resignation Requests ----
         $resignation_table = $wpdb->prefix . 'sfs_hr_resignations';
 
-        $resignation_exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-                $resignation_table
-            )
-        );
+        $resignation_exists = (bool) $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $resignation_table));
 
         if ( $resignation_exists ) {
             $resignations = $wpdb->get_results(
@@ -1829,12 +1788,7 @@ class Employee_Profile_Page {
         // ---- Settlement Requests ----
         $settlement_table = $wpdb->prefix . 'sfs_hr_settlements';
 
-        $settlement_exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-                $settlement_table
-            )
-        );
+        $settlement_exists = (bool) $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $settlement_table));
 
         if ( $settlement_exists ) {
             $settlements = $wpdb->get_results(

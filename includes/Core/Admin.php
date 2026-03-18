@@ -88,16 +88,29 @@ class Admin {
         exit;
     }
 
+    /**
+     * Idempotent column-add helper: adds a column only if it does not already exist.
+     *
+     * @param string $table  Full (prefixed) table name.
+     * @param string $column Column name to check/add.
+     * @param string $sql    Full ALTER TABLE statement to run when column is absent.
+     */
+    private function add_column_safe(string $table, string $column, string $sql): void {
+        global $wpdb;
+        $exists = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM `{$table}` LIKE %s", $column));
+        if (!$exists) {
+            $wpdb->query($sql);
+        }
+    }
+
     public function maybe_add_employee_photo_column(): void {
         global $wpdb;
-        $table = $wpdb->prefix.'sfs_hr_employees';
-        $exists = (int)$wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=%s AND column_name='photo_id'",
-            $table
-        ));
-        if (!$exists) {
-            $wpdb->query("ALTER TABLE {$table} ADD COLUMN photo_id BIGINT UNSIGNED NULL AFTER user_id");
-        }
+        $table = $wpdb->prefix . 'sfs_hr_employees';
+        $this->add_column_safe(
+            $table,
+            'photo_id',
+            "ALTER TABLE `{$table}` ADD COLUMN photo_id BIGINT UNSIGNED NULL AFTER user_id"
+        );
     }
 
     public function menu(): void {
@@ -192,79 +205,54 @@ class Admin {
         global $wpdb;
         $t = $wpdb->prefix . 'sfs_hr_employees';
 
-        $exists = (int)$wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-            $t
-        ));
-        if (!$exists) return;
+        $table_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $t));
+        if (!$table_exists) return;
 
-        $need_qr_token = ! (int)$wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns
-             WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'qr_token'", $t));
-        $need_qr_enabled = ! (int)$wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns
-             WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'qr_enabled'", $t));
-        $need_qr_updated = ! (int)$wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns
-             WHERE table_schema = DATABASE() AND table_name = %s AND column_name = 'qr_updated_at'", $t));
-
-        if ($need_qr_token)   { $wpdb->query("ALTER TABLE {$t} ADD COLUMN qr_token VARCHAR(64) NULL"); }
-        if ($need_qr_enabled) { $wpdb->query("ALTER TABLE {$t} ADD COLUMN qr_enabled TINYINT(1) NOT NULL DEFAULT 1"); }
-        if ($need_qr_updated) { $wpdb->query("ALTER TABLE {$t} ADD COLUMN qr_updated_at DATETIME NULL"); }
+        $this->add_column_safe($t, 'qr_token',      "ALTER TABLE `{$t}` ADD COLUMN qr_token VARCHAR(64) NULL");
+        $this->add_column_safe($t, 'qr_enabled',    "ALTER TABLE `{$t}` ADD COLUMN qr_enabled TINYINT(1) NOT NULL DEFAULT 1");
+        $this->add_column_safe($t, 'qr_updated_at', "ALTER TABLE `{$t}` ADD COLUMN qr_updated_at DATETIME NULL");
     }
     
     public function maybe_install_employee_extra_cols(): void {
-    global $wpdb;
-    $t = $wpdb->prefix . 'sfs_hr_employees';
+        global $wpdb;
+        $t = $wpdb->prefix . 'sfs_hr_employees';
 
-    $exists = (int) $wpdb->get_var( $wpdb->prepare(
-        "SELECT COUNT(*) FROM information_schema.tables 
-         WHERE table_schema = DATABASE() AND table_name = %s",
-        $t
-    ) );
-    if ( ! $exists ) {
-        return;
-    }
+        $table_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $t));
+        if (!$table_exists) {
+            return;
+        }
 
-    $cols = [
-        'nationality'            => "ALTER TABLE {$t} ADD COLUMN nationality VARCHAR(100) NULL AFTER gender",
-        'marital_status'         => "ALTER TABLE {$t} ADD COLUMN marital_status VARCHAR(50) NULL AFTER nationality",
-        'date_of_birth'          => "ALTER TABLE {$t} ADD COLUMN date_of_birth DATE NULL AFTER marital_status",
+        $cols = [
+            'nationality'            => "ALTER TABLE `{$t}` ADD COLUMN nationality VARCHAR(100) NULL AFTER gender",
+            'marital_status'         => "ALTER TABLE `{$t}` ADD COLUMN marital_status VARCHAR(50) NULL AFTER nationality",
+            'date_of_birth'          => "ALTER TABLE `{$t}` ADD COLUMN date_of_birth DATE NULL AFTER marital_status",
 
-        'work_location'          => "ALTER TABLE {$t} ADD COLUMN work_location VARCHAR(191) NULL AFTER position",
-        'contract_type'          => "ALTER TABLE {$t} ADD COLUMN contract_type VARCHAR(50) NULL AFTER work_location",
-        'contract_start_date'    => "ALTER TABLE {$t} ADD COLUMN contract_start_date DATE NULL AFTER contract_type",
-        'contract_end_date'      => "ALTER TABLE {$t} ADD COLUMN contract_end_date DATE NULL AFTER contract_start_date",
-        'probation_end_date'     => "ALTER TABLE {$t} ADD COLUMN probation_end_date DATE NULL AFTER contract_end_date",
+            'work_location'          => "ALTER TABLE `{$t}` ADD COLUMN work_location VARCHAR(191) NULL AFTER position",
+            'contract_type'          => "ALTER TABLE `{$t}` ADD COLUMN contract_type VARCHAR(50) NULL AFTER work_location",
+            'contract_start_date'    => "ALTER TABLE `{$t}` ADD COLUMN contract_start_date DATE NULL AFTER contract_type",
+            'contract_end_date'      => "ALTER TABLE `{$t}` ADD COLUMN contract_end_date DATE NULL AFTER contract_start_date",
+            'probation_end_date'     => "ALTER TABLE `{$t}` ADD COLUMN probation_end_date DATE NULL AFTER contract_end_date",
 
-        'entry_date_ksa'         => "ALTER TABLE {$t} ADD COLUMN entry_date_ksa DATE NULL AFTER hired_at",
-        'residence_profession'   => "ALTER TABLE {$t} ADD COLUMN residence_profession VARCHAR(191) NULL AFTER entry_date_ksa",
+            'entry_date_ksa'         => "ALTER TABLE `{$t}` ADD COLUMN entry_date_ksa DATE NULL AFTER hired_at",
+            'residence_profession'   => "ALTER TABLE `{$t}` ADD COLUMN residence_profession VARCHAR(191) NULL AFTER entry_date_ksa",
 
-        'sponsor_name'           => "ALTER TABLE {$t} ADD COLUMN sponsor_name VARCHAR(191) NULL AFTER residence_profession",
-        'sponsor_id'             => "ALTER TABLE {$t} ADD COLUMN sponsor_id VARCHAR(50) NULL AFTER sponsor_name",
+            'sponsor_name'           => "ALTER TABLE `{$t}` ADD COLUMN sponsor_name VARCHAR(191) NULL AFTER residence_profession",
+            'sponsor_id'             => "ALTER TABLE `{$t}` ADD COLUMN sponsor_id VARCHAR(50) NULL AFTER sponsor_name",
 
-        'visa_number'            => "ALTER TABLE {$t} ADD COLUMN visa_number VARCHAR(50) NULL AFTER passport_no",
-        'visa_expiry'            => "ALTER TABLE {$t} ADD COLUMN visa_expiry DATE NULL AFTER visa_number",
+            'visa_number'            => "ALTER TABLE `{$t}` ADD COLUMN visa_number VARCHAR(50) NULL AFTER passport_no",
+            'visa_expiry'            => "ALTER TABLE `{$t}` ADD COLUMN visa_expiry DATE NULL AFTER visa_number",
 
-        'driving_license_has'    => "ALTER TABLE {$t} ADD COLUMN driving_license_has TINYINT(1) NOT NULL DEFAULT 0 AFTER visa_expiry",
-        'driving_license_number' => "ALTER TABLE {$t} ADD COLUMN driving_license_number VARCHAR(50) NULL AFTER driving_license_has",
-        'driving_license_expiry' => "ALTER TABLE {$t} ADD COLUMN driving_license_expiry DATE NULL AFTER driving_license_number",
+            'driving_license_has'    => "ALTER TABLE `{$t}` ADD COLUMN driving_license_has TINYINT(1) NOT NULL DEFAULT 0 AFTER visa_expiry",
+            'driving_license_number' => "ALTER TABLE `{$t}` ADD COLUMN driving_license_number VARCHAR(50) NULL AFTER driving_license_has",
+            'driving_license_expiry' => "ALTER TABLE `{$t}` ADD COLUMN driving_license_expiry DATE NULL AFTER driving_license_number",
 
-        'gosi_salary'            => "ALTER TABLE {$t} ADD COLUMN gosi_salary DECIMAL(10,2) NULL AFTER base_salary",
-    ];
+            'gosi_salary'            => "ALTER TABLE `{$t}` ADD COLUMN gosi_salary DECIMAL(10,2) NULL AFTER base_salary",
+        ];
 
-    foreach ( $cols as $col => $sql ) {
-        $has_col = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.columns
-             WHERE table_schema = DATABASE() AND table_name = %s AND column_name = %s",
-            $t,
-            $col
-        ) );
-        if ( ! $has_col ) {
-            $wpdb->query( $sql );
+        foreach ($cols as $col => $sql) {
+            $this->add_column_safe($t, $col, $sql);
         }
     }
-}
 
 
     public function render_dashboard(): void {
@@ -280,127 +268,168 @@ class Admin {
 
     $today = wp_date( 'Y-m-d' );
 
-    // --- Employees ---
-    $total_employees  = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$emp_t}" );
-    $active_employees = (int) $wpdb->get_var(
-        $wpdb->prepare(
-            "SELECT COUNT(*) FROM {$emp_t} WHERE status = %s",
-            'active'
-        )
-    );
+    // --- Dashboard counters: cached for 60 seconds (operational data, short TTL) ---
+    $dashboard_counts = get_transient( 'sfs_hr_admin_dashboard_counts' );
+    if ( false === $dashboard_counts || ( isset( $dashboard_counts['_today'] ) && $dashboard_counts['_today'] !== $today ) ) {
+        // --- Employees ---
+        $total_employees  = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$emp_t}" );
+        $active_employees = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$emp_t} WHERE status = %s",
+                'active'
+            )
+        );
 
-    // --- Leave: pending + currently on leave (from leave requests) ---
-    $pending_leaves = (int) $wpdb->get_var(
-        "SELECT COUNT(*) FROM {$req_t} WHERE status = 'pending'"
-    );
+        // --- Leave: pending + currently on leave (from leave requests) ---
+        $pending_leaves = (int) $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$req_t} WHERE status = 'pending'"
+        );
 
-    $on_leave_employees = (int) $wpdb->get_var(
-        $wpdb->prepare(
-            "SELECT COUNT(DISTINCT employee_id)
-             FROM {$req_t}
-             WHERE status = 'approved'
-               AND %s BETWEEN start_date AND end_date",
+        $on_leave_employees = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(DISTINCT employee_id)
+                 FROM {$req_t}
+                 WHERE status = 'approved'
+                   AND %s BETWEEN start_date AND end_date",
+                $today
+            )
+        );
+
+        // --- Departments count (guard table exists) ---
+        $departments_count = 0;
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $dept_t ) ) ) {
+            $departments_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$dept_t}" );
+        }
+
+        // --- Contracts expiring within notice period ---
+        $notice_period      = (int) get_option( 'sfs_hr_resignation_notice_period', 30 );
+        $contract_threshold = $notice_period + 5;
+        $contract_cutoff    = date( 'Y-m-d', strtotime( "+{$contract_threshold} days", strtotime( $today ) ) );
+        $expiring_contracts = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$emp_t}
+             WHERE status = 'active'
+               AND contract_end_date IS NOT NULL
+               AND contract_end_date BETWEEN %s AND %s",
+            $today,
+            $contract_cutoff
+        ) );
+        $expired_contracts  = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$emp_t}
+             WHERE status = 'active'
+               AND contract_end_date IS NOT NULL
+               AND contract_end_date < %s",
             $today
-        )
-    );
+        ) );
+        $total_contract_alerts = $expiring_contracts + $expired_contracts;
 
-    // --- Departments count (guard table exists) ---
-    $departments_count = 0;
-    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $dept_t ) ) ) {
-        $departments_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$dept_t}" );
+        // --- Attendance: active shifts ---
+        $active_shifts = 0;
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $shift_t ) ) ) {
+            $active_shifts = (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM {$shift_t} WHERE active = 1"
+            );
+        }
+
+        // --- Workforce / sessions: today stats ---
+        $today_sessions      = 0;
+        $clocked_in_now      = 0;
+        $absent_today        = 0;
+        $late_today          = 0;
+        $incomplete_sessions = 0;
+        $holiday_today       = 0;
+
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $sessions_t ) ) ) {
+            $today_sessions = (int) $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$sessions_t} WHERE work_date = %s",
+                    $today
+                )
+            );
+
+            $clocked_in_now = (int) $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$sessions_t}
+                     WHERE work_date = %s
+                       AND in_time IS NOT NULL
+                       AND out_time IS NULL",
+                    $today
+                )
+            );
+
+            $absent_today = (int) $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$sessions_t}
+                     WHERE work_date = %s
+                       AND status = 'absent'",
+                    $today
+                )
+            );
+
+            $late_today = (int) $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$sessions_t}
+                     WHERE work_date = %s
+                       AND status = 'late'",
+                    $today
+                )
+            );
+
+            $incomplete_sessions = (int) $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$sessions_t}
+                     WHERE work_date = %s
+                       AND status = 'incomplete'",
+                    $today
+                )
+            );
+
+            $holiday_today = (int) $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$sessions_t}
+                     WHERE work_date = %s
+                       AND status = 'holiday'",
+                    $today
+                )
+            );
+        }
+
+        $dashboard_counts = [
+            '_today'               => $today,
+            'total_employees'      => $total_employees,
+            'active_employees'     => $active_employees,
+            'pending_leaves'       => $pending_leaves,
+            'on_leave_employees'   => $on_leave_employees,
+            'departments_count'    => $departments_count,
+            'expiring_contracts'   => $expiring_contracts,
+            'expired_contracts'    => $expired_contracts,
+            'total_contract_alerts'=> $total_contract_alerts,
+            'active_shifts'        => $active_shifts,
+            'today_sessions'       => $today_sessions,
+            'clocked_in_now'       => $clocked_in_now,
+            'absent_today'         => $absent_today,
+            'late_today'           => $late_today,
+            'incomplete_sessions'  => $incomplete_sessions,
+            'holiday_today'        => $holiday_today,
+        ];
+        set_transient( 'sfs_hr_admin_dashboard_counts', $dashboard_counts, 60 );
     }
 
-    // --- Contracts expiring within notice period ---
-    $notice_period       = (int) get_option( 'sfs_hr_resignation_notice_period', 30 );
-    $contract_threshold  = $notice_period + 5;
-    $contract_cutoff     = date( 'Y-m-d', strtotime( "+{$contract_threshold} days", strtotime( $today ) ) );
-    $expiring_contracts  = (int) $wpdb->get_var( $wpdb->prepare(
-        "SELECT COUNT(*) FROM {$emp_t}
-         WHERE status = 'active'
-           AND contract_end_date IS NOT NULL
-           AND contract_end_date BETWEEN %s AND %s",
-        $today,
-        $contract_cutoff
-    ) );
-    $expired_contracts   = (int) $wpdb->get_var( $wpdb->prepare(
-        "SELECT COUNT(*) FROM {$emp_t}
-         WHERE status = 'active'
-           AND contract_end_date IS NOT NULL
-           AND contract_end_date < %s",
-        $today
-    ) );
-    $total_contract_alerts = $expiring_contracts + $expired_contracts;
-
-    // --- Attendance: active shifts ---
-    $active_shifts = 0;
-    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $shift_t ) ) ) {
-        $active_shifts = (int) $wpdb->get_var(
-            "SELECT COUNT(*) FROM {$shift_t} WHERE active = 1"
-        );
-    }
-
-    // --- Workforce / sessions: today stats ---
-    $today_sessions      = 0;
-    $clocked_in_now      = 0;
-    $absent_today        = 0;
-    $late_today          = 0;
-    $incomplete_sessions = 0;
-    $holiday_today       = 0;
-
-    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $sessions_t ) ) ) {
-        $today_sessions = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$sessions_t} WHERE work_date = %s",
-                $today
-            )
-        );
-
-        $clocked_in_now = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$sessions_t}
-                 WHERE work_date = %s
-                   AND in_time IS NOT NULL
-                   AND out_time IS NULL",
-                $today
-            )
-        );
-
-        $absent_today = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$sessions_t}
-                 WHERE work_date = %s
-                   AND status = 'absent'",
-                $today
-            )
-        );
-
-        $late_today = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$sessions_t}
-                 WHERE work_date = %s
-                   AND status = 'late'",
-                $today
-            )
-        );
-
-        $incomplete_sessions = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$sessions_t}
-                 WHERE work_date = %s
-                   AND status = 'incomplete'",
-                $today
-            )
-        );
-
-        $holiday_today = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$sessions_t}
-                 WHERE work_date = %s
-                   AND status = 'holiday'",
-                $today
-            )
-        );
-    }
+    // Unpack cached counters into local variables for template use below.
+    $total_employees       = $dashboard_counts['total_employees'];
+    $active_employees      = $dashboard_counts['active_employees'];
+    $pending_leaves        = $dashboard_counts['pending_leaves'];
+    $on_leave_employees    = $dashboard_counts['on_leave_employees'];
+    $departments_count     = $dashboard_counts['departments_count'];
+    $expiring_contracts    = $dashboard_counts['expiring_contracts'];
+    $expired_contracts     = $dashboard_counts['expired_contracts'];
+    $total_contract_alerts = $dashboard_counts['total_contract_alerts'];
+    $active_shifts         = $dashboard_counts['active_shifts'];
+    $today_sessions        = $dashboard_counts['today_sessions'];
+    $clocked_in_now        = $dashboard_counts['clocked_in_now'];
+    $absent_today          = $dashboard_counts['absent_today'];
+    $late_today            = $dashboard_counts['late_today'];
+    $incomplete_sessions   = $dashboard_counts['incomplete_sessions'];
+    $holiday_today         = $dashboard_counts['holiday_today'];
 
     echo '<div class="wrap sfs-hr-wrap">';
     echo '<h1>' . esc_html__( 'HR Dashboard', 'sfs-hr' ) . '</h1>';
@@ -1592,10 +1621,7 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
     private function departments_map(): array {
         global $wpdb;
         $table = $wpdb->prefix.'sfs_hr_departments';
-        $exists = (int)$wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-            $table
-        ));
+        $exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table));
         if (!$exists) return [];
         $rows = $wpdb->get_results("SELECT id, name FROM {$table} WHERE active=1 ORDER BY name ASC", ARRAY_A);
         $map  = [];
@@ -1638,14 +1664,7 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
 
         $table = $wpdb->prefix . 'sfs_hr_attendance_shifts';
 
-        $exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM information_schema.tables
-                 WHERE table_schema = DATABASE()
-                   AND table_name   = %s",
-                $table
-            )
-        );
+        $exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table));
         if ( ! $exists ) {
             return [];
         }
@@ -1739,14 +1758,7 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
         $shifts_t = "{$p}sfs_hr_attendance_shifts";
         $map_t    = "{$p}sfs_hr_attendance_emp_shifts";
 
-        $exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM information_schema.tables
-                 WHERE table_schema = DATABASE()
-                   AND table_name   = %s",
-                $map_t
-            )
-        );
+        $exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $map_t));
         if ( ! $exists ) {
             return null;
         }
@@ -1786,14 +1798,7 @@ private function render_overtime_alerts_section( $wpdb, string $emp_t, string $t
         $shifts_t = "{$p}sfs_hr_attendance_shifts";
         $map_t    = "{$p}sfs_hr_attendance_emp_shifts";
 
-        $exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM information_schema.tables
-                 WHERE table_schema = DATABASE()
-                   AND table_name   = %s",
-                $map_t
-            )
-        );
+        $exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $map_t));
         if ( ! $exists ) {
             return [];
         }
@@ -1852,55 +1857,70 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
         return;
     }
 
-    // --- Data: Department Headcount ---
-    $dept_headcount = [];
-    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $dept_t ) ) ) {
-        $dept_headcount = $wpdb->get_results(
-            "SELECT d.name AS dept_name, COUNT(e.id) AS count
-             FROM {$dept_t} d
-             LEFT JOIN {$emp_t} e ON e.dept_id = d.id AND e.status = 'active'
-             GROUP BY d.id, d.name
-             ORDER BY count DESC
-             LIMIT 10",
-            ARRAY_A
-        );
+    // --- Analytics data: cached for 300 seconds (aggregate data changes slowly) ---
+    $analytics_cache = get_transient( 'sfs_hr_admin_analytics' );
+    if ( false === $analytics_cache ) {
+        // --- Data: Department Headcount ---
+        $dept_headcount = [];
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $dept_t ) ) ) {
+            $dept_headcount = $wpdb->get_results(
+                "SELECT d.name AS dept_name, COUNT(e.id) AS count
+                 FROM {$dept_t} d
+                 LEFT JOIN {$emp_t} e ON e.dept_id = d.id AND e.status = 'active'
+                 GROUP BY d.id, d.name
+                 ORDER BY count DESC
+                 LIMIT 10",
+                ARRAY_A
+            );
+        }
+
+        // --- Data: Attendance Trend (Last 7 days) ---
+        $attendance_trend = [];
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $sessions_t ) ) ) {
+            $attendance_trend = $wpdb->get_results(
+                "SELECT
+                    work_date,
+                    SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) AS present,
+                    SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) AS late,
+                    SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) AS absent
+                 FROM {$sessions_t}
+                 WHERE work_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                 GROUP BY work_date
+                 ORDER BY work_date ASC",
+                ARRAY_A
+            );
+        }
+
+        // --- Data: Leave Trend (Last 30 days by week) ---
+        $leave_trend = [];
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $req_t ) ) ) {
+            $leave_trend = $wpdb->get_results(
+                "SELECT
+                    YEARWEEK(start_date, 1) AS week_num,
+                    MIN(start_date) AS week_start,
+                    COUNT(*) AS total_requests,
+                    SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) AS approved,
+                    SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) AS rejected,
+                    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending
+                 FROM {$req_t}
+                 WHERE start_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                 GROUP BY YEARWEEK(start_date, 1)
+                 ORDER BY week_num ASC",
+                ARRAY_A
+            );
+        }
+
+        $analytics_cache = [
+            'dept_headcount'   => $dept_headcount,
+            'attendance_trend' => $attendance_trend,
+            'leave_trend'      => $leave_trend,
+        ];
+        set_transient( 'sfs_hr_admin_analytics', $analytics_cache, 300 );
     }
 
-    // --- Data: Attendance Trend (Last 7 days) ---
-    $attendance_trend = [];
-    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $sessions_t ) ) ) {
-        $attendance_trend = $wpdb->get_results(
-            "SELECT
-                work_date,
-                SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) AS present,
-                SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) AS late,
-                SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) AS absent
-             FROM {$sessions_t}
-             WHERE work_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-             GROUP BY work_date
-             ORDER BY work_date ASC",
-            ARRAY_A
-        );
-    }
-
-    // --- Data: Leave Trend (Last 30 days by week) ---
-    $leave_trend = [];
-    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $req_t ) ) ) {
-        $leave_trend = $wpdb->get_results(
-            "SELECT
-                YEARWEEK(start_date, 1) AS week_num,
-                MIN(start_date) AS week_start,
-                COUNT(*) AS total_requests,
-                SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) AS approved,
-                SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) AS rejected,
-                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending
-             FROM {$req_t}
-             WHERE start_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-             GROUP BY YEARWEEK(start_date, 1)
-             ORDER BY week_num ASC",
-            ARRAY_A
-        );
-    }
+    $dept_headcount   = $analytics_cache['dept_headcount'];
+    $attendance_trend = $analytics_cache['attendance_trend'];
+    $leave_trend      = $analytics_cache['leave_trend'];
 
     // Skip if no data available
     if ( empty( $dept_headcount ) && empty( $attendance_trend ) && empty( $leave_trend ) ) {
@@ -3254,14 +3274,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
                 // Base attendance shift mapping
         $map_table = $wpdb->prefix . 'sfs_hr_attendance_emp_shifts';
-        $map_exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM information_schema.tables
-                 WHERE table_schema = DATABASE()
-                   AND table_name   = %s",
-                $map_table
-            )
-        );
+        $map_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $map_table));
 
         if ( $map_exists && $shift_id ) {
             // Use hire date if set; otherwise today.
@@ -3889,6 +3902,42 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             ARRAY_A
         );
 
+        // --- Batch pre-fetch manager users and employee records (org chart N+1 fix) ---
+        // Collect all manager user IDs from departments in one pass.
+        $all_manager_user_ids = array_values( array_unique( array_filter(
+            array_column( $departments ?: [], 'manager_user_id' ),
+            static function ( $v ) { return (int) $v > 0; }
+        ) ) );
+
+        // Batch-fetch WP user objects keyed by user ID.
+        $mgr_users_map = [];
+        if ( ! empty( $all_manager_user_ids ) ) {
+            $user_objects = get_users( [
+                'include' => $all_manager_user_ids,
+                'fields'  => 'all',
+            ] );
+            foreach ( $user_objects as $u ) {
+                $mgr_users_map[ (int) $u->ID ] = $u;
+            }
+        }
+
+        // Batch-fetch employee records for all manager user IDs.
+        $mgr_employees_map = [];
+        if ( ! empty( $all_manager_user_ids ) ) {
+            $placeholders = implode( ',', array_fill( 0, count( $all_manager_user_ids ), '%d' ) );
+            // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+            $mgr_emp_rows = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT id, user_id, photo_id, position, employee_code FROM {$emp_t} WHERE user_id IN ({$placeholders})",
+                    ...$all_manager_user_ids
+                ),
+                ARRAY_A
+            );
+            foreach ( $mgr_emp_rows as $row ) {
+                $mgr_employees_map[ (int) $row['user_id'] ] = $row;
+            }
+        }
+
         // Get GM info for org chart
         $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
         if ( ! $gm_user_id ) {
@@ -3899,13 +3948,18 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         $gm_info = null;
         $gm_employee = null;
         if ( $gm_user_id ) {
-            $gm_user = get_user_by( 'id', $gm_user_id );
+            // Use batch-fetched map if available, fall back to direct lookup for GM (who may not be a dept manager).
+            $gm_user = $mgr_users_map[ $gm_user_id ] ?? get_user_by( 'id', $gm_user_id );
             if ( $gm_user ) {
                 $gm_info = $gm_user;
-                $gm_employee = $wpdb->get_row( $wpdb->prepare(
-                    "SELECT id, photo_id, position FROM {$emp_t} WHERE user_id = %d",
-                    $gm_user_id
-                ), ARRAY_A );
+                if ( isset( $mgr_employees_map[ $gm_user_id ] ) ) {
+                    $gm_employee = $mgr_employees_map[ $gm_user_id ];
+                } else {
+                    $gm_employee = $wpdb->get_row( $wpdb->prepare(
+                        "SELECT id, photo_id, position FROM {$emp_t} WHERE user_id = %d",
+                        $gm_user_id
+                    ), ARRAY_A );
+                }
             }
         }
 
@@ -4431,11 +4485,9 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                                     $manager = null;
                                     $manager_employee = null;
                                     if (!empty($dept['manager_user_id'])) {
-                                        $manager = get_user_by('id', $dept['manager_user_id']);
-                                        $manager_employee = $wpdb->get_row($wpdb->prepare(
-                                            "SELECT id, photo_id, position FROM {$emp_t} WHERE user_id = %d",
-                                            $dept['manager_user_id']
-                                        ), ARRAY_A);
+                                        $mgr_uid = (int) $dept['manager_user_id'];
+                                        $manager = $mgr_users_map[ $mgr_uid ] ?? null;
+                                        $manager_employee = $mgr_employees_map[ $mgr_uid ] ?? null;
                                     }
 
                                     // Get employees in this department (excluding manager)
@@ -4512,16 +4564,13 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                 <!-- Cards View -->
                 <div class="sfs-hr-org-grid">
                     <?php foreach ($departments as $dept):
-                        // Get manager info
+                        // Get manager info — use pre-fetched maps to avoid per-department queries.
                         $manager = null;
                         $manager_employee = null;
                         if (!empty($dept['manager_user_id'])) {
-                            $manager = get_user_by('id', $dept['manager_user_id']);
-                            // Try to get employee record for manager
-                            $manager_employee = $wpdb->get_row($wpdb->prepare(
-                                "SELECT id, photo_id, position, employee_code FROM {$emp_t} WHERE user_id = %d",
-                                $dept['manager_user_id']
-                            ), ARRAY_A);
+                            $mgr_uid = (int) $dept['manager_user_id'];
+                            $manager = $mgr_users_map[ $mgr_uid ] ?? null;
+                            $manager_employee = $mgr_employees_map[ $mgr_uid ] ?? null;
                         }
 
                         // Get employees in this department (excluding manager)
@@ -4800,14 +4849,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
     if ( $shift_id ) {
         $map_table = $wpdb->prefix . 'sfs_hr_attendance_emp_shifts';
 
-        $map_exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM information_schema.tables
-                 WHERE table_schema = DATABASE()
-                   AND table_name   = %s",
-                $map_table
-            )
-        );
+        $map_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $map_table));
 
         if ( $map_exists ) {
             $start_raw = isset( $_POST['attendance_shift_start'] )
@@ -5046,12 +5088,23 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
 
     /** Role→Department membership sync */
     public function handle_sync_dept_members(): void {
-        if ( ! current_user_can('sfs_hr.manage') ) {
-            $dept_id = isset($_POST['dept_id']) ? (int)$_POST['dept_id'] : 0;
-            if ($dept_id<=0) wp_die(esc_html__('Invalid department','sfs-hr'));
-            if ( ! $this->current_user_is_dept_manager($dept_id) ) wp_die(esc_html__('Permission denied','sfs-hr'));
+        // Check capability BEFORE reading any POST data
+        if ( ! current_user_can('sfs_hr.manage') && ! current_user_can('sfs_hr.view') ) {
+            wp_die( esc_html__( 'Permission denied', 'sfs-hr' ) );
         }
+
         $dept_id = isset($_POST['dept_id']) ? (int)$_POST['dept_id'] : 0;
+        if ( $dept_id <= 0 ) {
+            wp_die( esc_html__( 'Invalid department', 'sfs-hr' ) );
+        }
+
+        // Department managers need additional scope check
+        if ( ! current_user_can('sfs_hr.manage') ) {
+            if ( ! $this->current_user_is_dept_manager( $dept_id ) ) {
+                wp_die( esc_html__( 'Permission denied', 'sfs-hr' ) );
+            }
+        }
+
         check_admin_referer('sfs_hr_sync_dept_'.$dept_id);
 
         global $wpdb;
@@ -5110,10 +5163,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
         if (!$uid) return [];
         global $wpdb;
         $dept_table = $wpdb->prefix.'sfs_hr_departments';
-        $exists = (int)$wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-            $dept_table
-        ));
+        $exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $dept_table));
         if (!$exists) return [];
         $ids = $wpdb->get_col( $wpdb->prepare("SELECT id FROM {$dept_table} WHERE manager_user_id=%d AND active=1", $uid) );
         return array_map('intval', $ids ?: []);

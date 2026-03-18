@@ -346,9 +346,12 @@ class HiringModule {
         // Generate employee code
         $prefix = "USR-";
         $last = $wpdb->get_var(
-            "SELECT employee_code FROM {$wpdb->prefix}sfs_hr_employees
-             WHERE employee_code LIKE '{$prefix}%'
-             ORDER BY id DESC LIMIT 1"
+            $wpdb->prepare(
+                "SELECT employee_code FROM {$wpdb->prefix}sfs_hr_employees
+                 WHERE employee_code LIKE %s
+                 ORDER BY id DESC LIMIT 1",
+                $wpdb->esc_like( $prefix ) . '%'
+            )
         );
         $num = $last ? ((int) substr($last, -4) + 1) : 1;
         $employee_code = $prefix . $num;
@@ -398,14 +401,15 @@ class HiringModule {
         }
 
         // Assign role based on department's auto_role, fallback to sfs_hr_employee
+        // Role is validated against allowlist to prevent escalation to administrator
         $wp_role = 'sfs_hr_employee';
         if ($trainee->dept_id) {
             $dept_role = $wpdb->get_var($wpdb->prepare(
                 "SELECT auto_role FROM {$wpdb->prefix}sfs_hr_departments WHERE id = %d AND active = 1",
                 $trainee->dept_id
             ));
-            if ($dept_role && wp_roles()->is_role($dept_role)) {
-                $wp_role = $dept_role;
+            if ( $dept_role ) {
+                $wp_role = self::sanitize_hire_role( $dept_role );
             }
         }
         $wp_user = new \WP_User($user_id);
@@ -532,9 +536,12 @@ class HiringModule {
         // Generate employee code
         $prefix = "USR-";
         $last = $wpdb->get_var(
-            "SELECT employee_code FROM {$wpdb->prefix}sfs_hr_employees
-             WHERE employee_code LIKE '{$prefix}%'
-             ORDER BY id DESC LIMIT 1"
+            $wpdb->prepare(
+                "SELECT employee_code FROM {$wpdb->prefix}sfs_hr_employees
+                 WHERE employee_code LIKE %s
+                 ORDER BY id DESC LIMIT 1",
+                $wpdb->esc_like( $prefix ) . '%'
+            )
         );
         $num = $last ? ((int) substr($last, -4) + 1) : 1;
         $employee_code = $prefix . $num;
@@ -568,14 +575,15 @@ class HiringModule {
         ]);
 
         // Assign role based on department's auto_role, fallback to sfs_hr_employee
+        // Role is validated against allowlist to prevent escalation to administrator
         $wp_role = 'sfs_hr_employee';
         if ($candidate->dept_id) {
             $dept_role = $wpdb->get_var($wpdb->prepare(
                 "SELECT auto_role FROM {$wpdb->prefix}sfs_hr_departments WHERE id = %d AND active = 1",
                 $candidate->dept_id
             ));
-            if ($dept_role && wp_roles()->is_role($dept_role)) {
-                $wp_role = $dept_role;
+            if ( $dept_role ) {
+                $wp_role = self::sanitize_hire_role( $dept_role );
             }
         }
         $user = new \WP_User($user_id);
@@ -672,25 +680,58 @@ class HiringModule {
     }
 
     /**
-     * Send welcome email to new employee
+     * Get the allowlist of roles that can be assigned during hiring conversion.
+     * Prevents escalation to administrator or other privileged WordPress roles.
+     *
+     * @return string[]
      */
-    private static function send_welcome_email(int $user_id, string $username, string $password): void {
-        $user = get_userdata($user_id);
-        if (!$user) return;
+    private static function get_allowed_hire_roles(): array {
+        return [
+            'sfs_hr_employee',
+            'sfs_hr_manager',
+            'sfs_hr_trainee',
+            'subscriber',
+        ];
+    }
 
-        $site_name = get_bloginfo('name');
-        $login_url = wp_login_url();
+    /**
+     * Validate and sanitize a role for hiring assignment.
+     * Returns the role if allowed, otherwise falls back to sfs_hr_employee.
+     */
+    private static function sanitize_hire_role( string $role ): string {
+        $allowed = self::get_allowed_hire_roles();
+        return in_array( $role, $allowed, true ) ? $role : 'sfs_hr_employee';
+    }
 
-        $subject = sprintf(__('[%s] Your Employee Account', 'sfs-hr'), $site_name);
+    /**
+     * Send welcome email to new employee with a password reset link.
+     * The $password parameter is kept for backward compatibility but is NOT sent in the email.
+     */
+    public static function send_welcome_email( int $user_id, string $username, string $password ): void {
+        $user = get_userdata( $user_id );
+        if ( ! $user ) return;
 
-        $message = sprintf(__('Welcome to %s!', 'sfs-hr'), $site_name) . "\n\n";
-        $message .= __('Your employee account has been created. Here are your login credentials:', 'sfs-hr') . "\n\n";
-        $message .= sprintf(__('Username: %s', 'sfs-hr'), $username) . "\n";
-        $message .= sprintf(__('Password: %s', 'sfs-hr'), $password) . "\n\n";
-        $message .= sprintf(__('Login URL: %s', 'sfs-hr'), $login_url) . "\n\n";
-        $message .= __('Please change your password after your first login.', 'sfs-hr') . "\n";
+        $site_name = get_bloginfo( 'name' );
 
-        wp_mail($user->user_email, $subject, $message);
+        // Generate password reset key
+        $reset_key = get_password_reset_key( $user );
+        if ( is_wp_error( $reset_key ) ) {
+            // Fallback: still send welcome but without reset link
+            return;
+        }
+
+        $reset_url = network_site_url( 'wp-login.php?action=rp&key=' . $reset_key . '&login=' . rawurlencode( $user->user_login ), 'login' );
+
+        $subject = sprintf( __( '[%s] Your Employee Account', 'sfs-hr' ), $site_name );
+
+        $message  = sprintf( __( 'Welcome to %s!', 'sfs-hr' ), $site_name ) . "\n\n";
+        $message .= __( 'Your employee account has been created.', 'sfs-hr' ) . "\n\n";
+        $message .= sprintf( __( 'Username: %s', 'sfs-hr' ), $username ) . "\n\n";
+        $message .= __( 'To set your password, visit the following link:', 'sfs-hr' ) . "\n";
+        $message .= $reset_url . "\n\n";
+        $message .= __( 'This link will expire in 24 hours.', 'sfs-hr' ) . "\n";
+
+        wp_mail( $user->user_email, $subject, $message );
     }
 
     /**

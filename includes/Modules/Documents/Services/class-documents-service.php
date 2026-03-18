@@ -75,7 +75,8 @@ class Documents_Service {
              WHERE d.status = 'active'
                AND d.expiry_date IS NOT NULL
                AND d.expiry_date BETWEEN %s AND %s
-             ORDER BY d.expiry_date ASC",
+             ORDER BY d.expiry_date ASC
+             LIMIT 100",
             $today,
             $future_date
         ));
@@ -362,20 +363,77 @@ class Documents_Service {
     /**
      * Get document types available for employee to upload
      * Returns only types that employee is allowed to upload (missing, expired, or update requested)
+     *
+     * Uses a single batch query to fetch all active documents for the employee,
+     * then determines uploadability in PHP — avoiding N+1 per-type queries.
      */
     public static function get_uploadable_document_types_for_employee(int $employee_id): array {
         $all_types = self::get_document_types();
+
+        if (empty($all_types)) {
+            return [];
+        }
+
+        // Batch-fetch all active documents for this employee in one query
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_employee_documents';
+        $today = wp_date('Y-m-d');
+
+        $existing_docs = $wpdb->get_results($wpdb->prepare(
+            "SELECT document_type, expiry_date, update_requested_at, id, created_at
+             FROM {$table}
+             WHERE employee_id = %d AND status = 'active'
+             ORDER BY created_at DESC",
+            $employee_id
+        ));
+
+        // Build a map: document_type => most recent active doc object
+        $docs_by_type = [];
+        foreach ($existing_docs as $doc) {
+            // Keep only the most recent doc per type (query is ordered by created_at DESC)
+            if (!isset($docs_by_type[$doc->document_type])) {
+                $docs_by_type[$doc->document_type] = $doc;
+            }
+        }
+
         $uploadable = [];
 
         foreach ($all_types as $type_key => $type_label) {
-            $check = self::can_employee_upload_document_type($employee_id, $type_key);
-            if ($check['allowed']) {
+            $existing = $docs_by_type[$type_key] ?? null;
+
+            if (!$existing) {
                 $uploadable[$type_key] = [
-                    'label' => $type_label,
-                    'reason' => $check['reason'],
-                    'existing_doc' => $check['existing_doc'],
+                    'label'        => $type_label,
+                    'reason'       => 'no_existing',
+                    'existing_doc' => null,
                 ];
+                continue;
             }
+
+            // Check if expired
+            $is_expired = $existing->expiry_date
+                && strtotime($existing->expiry_date) < strtotime($today);
+
+            if ($is_expired) {
+                $uploadable[$type_key] = [
+                    'label'        => $type_label,
+                    'reason'       => 'expired',
+                    'existing_doc' => $existing,
+                ];
+                continue;
+            }
+
+            // Check if update requested
+            if (!empty($existing->update_requested_at)) {
+                $uploadable[$type_key] = [
+                    'label'        => $type_label,
+                    'reason'       => 'update_requested',
+                    'existing_doc' => $existing,
+                ];
+                continue;
+            }
+
+            // Document exists, is valid, no update requested — not uploadable
         }
 
         return $uploadable;

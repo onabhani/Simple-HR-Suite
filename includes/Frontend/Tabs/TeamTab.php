@@ -33,16 +33,21 @@ class TeamTab implements TabInterface {
         $emp_table  = $wpdb->prefix . 'sfs_hr_employees';
         $dept_table = $wpdb->prefix . 'sfs_hr_departments';
 
-        // Determine scope — always filter by managed departments (direct reports only).
-        $dept_ids = Role_Resolver::get_manager_dept_ids( $user_id );
-        if ( empty( $dept_ids ) ) {
-            echo '<div class="sfs-empty-state">';
-            echo '<p class="sfs-empty-state-title">' . esc_html__( 'No departments assigned.', 'sfs-hr' ) . '</p>';
-            echo '<p class="sfs-empty-state-text">' . esc_html__( 'You are not currently managing any departments.', 'sfs-hr' ) . '</p>';
-            echo '</div>';
-            return;
+        // Determine scope: HR+ roles (level >= 40) see all employees org-wide;
+        // managers (level 30) see only their managed departments.
+        $is_manager_only = ( $level < 40 );
+
+        $dept_ids = [];
+        if ( $is_manager_only ) {
+            $dept_ids = Role_Resolver::get_manager_dept_ids( $user_id );
+            if ( empty( $dept_ids ) ) {
+                echo '<div class="sfs-empty-state">';
+                echo '<p class="sfs-empty-state-title">' . esc_html__( 'No departments assigned.', 'sfs-hr' ) . '</p>';
+                echo '<p class="sfs-empty-state-text">' . esc_html__( 'You are not currently managing any departments.', 'sfs-hr' ) . '</p>';
+                echo '</div>';
+                return;
+            }
         }
-        $is_manager_only = true; // Always scope to direct reports
 
         // Get all departments for filter (HR+).
         $departments = [];

@@ -857,7 +857,8 @@ class Admin_Pages {
         $sql = "SELECT id, employee_code, first_name, last_name, email, dept_id
                 FROM {$emp_t}
                 WHERE {$where}
-                ORDER BY first_name ASC, last_name ASC, id ASC";
+                ORDER BY first_name ASC, last_name ASC, id ASC
+                LIMIT 500";
 
         $employees = $params
             ? $wpdb->get_results( $wpdb->prepare( $sql, ...$params ), ARRAY_A )
@@ -1179,22 +1180,93 @@ $risk_flag = $risk_map[ $emp_id ] ?? '';
 
         // Use AttendanceModule to resolve shifts if available
         if ( class_exists( '\SFS\HR\Modules\Attendance\AttendanceModule' ) ) {
-            foreach ( $emp_ids as $emp_id ) {
-                $shift = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( (int) $emp_id, $ymd );
+            // Batch-resolve shifts: fetch the most recent effective shift assignment for
+            // each employee on or before $ymd, then JOIN to get shift details.
+            global $wpdb;
+            $emp_shifts_table = $wpdb->prefix . 'sfs_hr_attendance_employee_shifts';
+            $shifts_table     = $wpdb->prefix . 'sfs_hr_attendance_shifts';
 
-                if ( $shift === null ) {
-                    // No shift assigned = day off for this employee
-                    $map[ $emp_id ] = [
-                        'shift'      => null,
-                        'is_day_off' => true,
-                        'start_time' => null,
+            $int_ids      = array_map( 'intval', $emp_ids );
+            $placeholders = implode( ',', array_fill( 0, count( $int_ids ), '%d' ) );
+
+            // Get the latest shift assignment per employee that is effective on or before $ymd
+            $shift_rows = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT es.employee_id, es.shift_id,
+                            s.start_time, s.end_time, s.name, s.days_off
+                     FROM {$emp_shifts_table} es
+                     INNER JOIN {$shifts_table} s ON s.id = es.shift_id
+                     INNER JOIN (
+                         SELECT employee_id, MAX(effective_date) AS max_date
+                         FROM {$emp_shifts_table}
+                         WHERE employee_id IN ({$placeholders})
+                           AND effective_date <= %s
+                         GROUP BY employee_id
+                     ) latest ON latest.employee_id = es.employee_id
+                                AND latest.max_date = es.effective_date
+                     WHERE es.employee_id IN ({$placeholders})",
+                    array_merge( $int_ids, [ $ymd ], $int_ids )
+                ),
+                ARRAY_A
+            );
+
+            // Build a map from the batch result
+            $shift_by_emp = [];
+            if ( ! empty( $shift_rows ) ) {
+                $tz  = wp_timezone();
+                $dt  = new \DateTimeImmutable( $ymd . ' 00:00:00', $tz );
+                $dow = (int) $dt->format( 'w' ); // 0=Sun...6=Sat
+
+                foreach ( $shift_rows as $row ) {
+                    $emp_id = (int) $row['employee_id'];
+
+                    // Determine if today is a day off for this shift
+                    $days_off = [];
+                    if ( ! empty( $row['days_off'] ) ) {
+                        $decoded = json_decode( $row['days_off'], true );
+                        if ( is_array( $decoded ) ) {
+                            $days_off = array_map( 'intval', $decoded );
+                        }
+                    }
+                    $is_day_off = in_array( $dow, $days_off, true );
+
+                    $shift_obj             = new \stdClass();
+                    $shift_obj->id         = (int) $row['shift_id'];
+                    $shift_obj->name       = $row['name'];
+                    $shift_obj->start_time = $row['start_time'];
+                    $shift_obj->end_time   = $row['end_time'];
+
+                    $shift_by_emp[ $emp_id ] = [
+                        'shift'      => $is_day_off ? null : $shift_obj,
+                        'is_day_off' => $is_day_off,
+                        'start_time' => $is_day_off ? null : ( $row['start_time'] ?? null ),
                     ];
+                }
+            }
+
+            // Fall back to resolve_shift_for_date() only for employees not covered
+            // by the batch query (e.g., no assignment row yet).
+            $is_friday = $this->is_friday( $ymd );
+            foreach ( $emp_ids as $emp_id ) {
+                $emp_id = (int) $emp_id;
+                if ( isset( $shift_by_emp[ $emp_id ] ) ) {
+                    $map[ $emp_id ] = $shift_by_emp[ $emp_id ];
                 } else {
-                    $map[ $emp_id ] = [
-                        'shift'      => $shift,
-                        'is_day_off' => false,
-                        'start_time' => $shift->start_time ?? null,
-                    ];
+                    // No assignment found: try resolve_shift_for_date as fallback
+                    $shift = \SFS\HR\Modules\Attendance\AttendanceModule::resolve_shift_for_date( $emp_id, $ymd );
+                    if ( $shift === null ) {
+                        $map[ $emp_id ] = [
+                            'shift'      => null,
+                            'is_day_off' => true,
+                            'start_time' => null,
+                        ];
+                    } else {
+                        $map[ $emp_id ] = [
+                            'shift'      => $shift,
+                            'is_day_off' => false,
+                            'start_time' => $shift->start_time ?? null,
+                        ];
+                    }
                 }
             }
         } else {

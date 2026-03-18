@@ -61,7 +61,7 @@ class LoansModule {
     public static function check_tables_notice(): void {
         global $wpdb;
         $loans_table = $wpdb->prefix . 'sfs_hr_loans';
-        $table_exists = $wpdb->get_var( "SHOW TABLES LIKE '{$loans_table}'" ) === $loans_table;
+        $table_exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $loans_table ) ) === $loans_table;
 
         if ( ! $table_exists && current_user_can( 'manage_options' ) ) {
             $install_url = wp_nonce_url(
@@ -122,13 +122,13 @@ class LoansModule {
         $loans_table = $wpdb->prefix . 'sfs_hr_loans';
 
         // Ensure the table exists before trying to alter it
-        $table_exists = $wpdb->get_var( "SHOW TABLES LIKE '{$loans_table}'" ) === $loans_table;
+        $table_exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $loans_table ) ) === $loans_table;
         if ( ! $table_exists ) {
             return;
         }
 
         // v1.1: Add cancellation_reason column for loan cancellation feature
-        $col = $wpdb->get_results( "SHOW COLUMNS FROM {$loans_table} LIKE 'cancellation_reason'" );
+        $col = $wpdb->get_results( $wpdb->prepare( "SHOW COLUMNS FROM {$loans_table} LIKE %s", 'cancellation_reason' ) );
         if ( empty( $col ) ) {
             $wpdb->query(
                 "ALTER TABLE {$loans_table}
@@ -151,12 +151,12 @@ class LoansModule {
         $history_table = $wpdb->prefix . 'sfs_hr_loan_history';
 
         // Check if loans table exists and if loan_number column exists
-        $table_exists = $wpdb->get_var( "SHOW TABLES LIKE '{$loans_table}'" ) === $loans_table;
+        $table_exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $loans_table ) ) === $loans_table;
 
         if ( $table_exists ) {
             // Check if loan_number column exists
             $column_exists = $wpdb->get_results(
-                "SHOW COLUMNS FROM {$loans_table} LIKE 'loan_number'"
+                $wpdb->prepare( "SHOW COLUMNS FROM {$loans_table} LIKE %s", 'loan_number' )
             );
 
             // Add loan_number column if it doesn't exist
@@ -170,7 +170,7 @@ class LoansModule {
 
             // Add approved_gm_amount column if it doesn't exist (GM can approve with different amount)
             $gm_amount_exists = $wpdb->get_results(
-                "SHOW COLUMNS FROM {$loans_table} LIKE 'approved_gm_amount'"
+                $wpdb->prepare( "SHOW COLUMNS FROM {$loans_table} LIKE %s", 'approved_gm_amount' )
             );
             if ( empty( $gm_amount_exists ) ) {
                 $wpdb->query(
@@ -181,7 +181,7 @@ class LoansModule {
 
             // Add approved_gm_note column if it doesn't exist
             $gm_note_exists = $wpdb->get_results(
-                "SHOW COLUMNS FROM {$loans_table} LIKE 'approved_gm_note'"
+                $wpdb->prepare( "SHOW COLUMNS FROM {$loans_table} LIKE %s", 'approved_gm_note' )
             );
             if ( empty( $gm_note_exists ) ) {
                 $wpdb->query(
@@ -192,7 +192,7 @@ class LoansModule {
 
             // Add approved_finance_note column if it doesn't exist
             $finance_note_exists = $wpdb->get_results(
-                "SHOW COLUMNS FROM {$loans_table} LIKE 'approved_finance_note'"
+                $wpdb->prepare( "SHOW COLUMNS FROM {$loans_table} LIKE %s", 'approved_finance_note' )
             );
             if ( empty( $finance_note_exists ) ) {
                 $wpdb->query(
@@ -203,7 +203,7 @@ class LoansModule {
 
             // Add cancellation_reason column if it doesn't exist
             $cancel_reason_exists = $wpdb->get_results(
-                "SHOW COLUMNS FROM {$loans_table} LIKE 'cancellation_reason'"
+                $wpdb->prepare( "SHOW COLUMNS FROM {$loans_table} LIKE %s", 'cancellation_reason' )
             );
             if ( empty( $cancel_reason_exists ) ) {
                 $wpdb->query(

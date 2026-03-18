@@ -100,10 +100,11 @@ class Absent_Cron {
             return;
         }
 
-        // Send notifications for today
-        $today = current_time( 'Y-m-d' );
-        $manager_sent = Absent_Notifications::send_absent_notifications( $today );
-        $employee_sent = Absent_Notifications::send_employee_absent_notifications( $today );
+        // Send notifications for today — use combined method to query absent employees once
+        $today  = current_time( 'Y-m-d' );
+        $result = Absent_Notifications::send_all_absent_notifications( $today );
+        $manager_sent  = $result['manager_sent'];
+        $employee_sent = $result['employee_sent'];
 
         // Log the run
         do_action( 'sfs_hr_absent_cron_completed', [
@@ -135,10 +136,9 @@ class Absent_Cron {
             $date = current_time( 'Y-m-d' );
         }
 
-        $manager_sent  = Absent_Notifications::send_absent_notifications( $date );
-        $employee_sent = Absent_Notifications::send_employee_absent_notifications( $date );
+        $result = Absent_Notifications::send_all_absent_notifications( $date );
 
-        return $manager_sent + $employee_sent;
+        return $result['manager_sent'] + $result['employee_sent'];
     }
 
     /**

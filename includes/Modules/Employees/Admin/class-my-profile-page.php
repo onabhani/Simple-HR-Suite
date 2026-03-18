@@ -559,28 +559,12 @@ $this->render_attendance_block( $employee );
         $asset_table  = $wpdb->prefix . 'sfs_hr_assets';
 
         // Check if Assets tables exist; if not, bail silently
-        $assets_exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*)
-                 FROM information_schema.tables
-                 WHERE table_schema = DATABASE()
-                   AND table_name = %s",
-                $asset_table
-            )
-        );
+        $assets_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $asset_table));
         if ( ! $assets_exists ) {
             return;
         }
 
-        $assign_exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*)
-                 FROM information_schema.tables
-                 WHERE table_schema = DATABASE()
-                   AND table_name = %s",
-                $assign_table
-            )
-        );
+        $assign_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $assign_table));
         if ( ! $assign_exists ) {
             return;
         }
@@ -895,10 +879,7 @@ private function render_early_leave_section( \stdClass $employee ): void {
     $table = $wpdb->prefix . 'sfs_hr_early_leave_requests';
 
     // Check if table exists
-    $table_exists = $wpdb->get_var( $wpdb->prepare(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-        $table
-    ) );
+    $table_exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $table ) );
 
     if ( ! $table_exists ) {
         return;

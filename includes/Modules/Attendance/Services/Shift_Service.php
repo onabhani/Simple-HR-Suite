@@ -22,6 +22,12 @@ class Shift_Service {
      * 2) Dept identity for automation
      * 3) Department Automation
      * 4) Fallback by dept_id
+     *
+     * @param array  $settings        Unused — kept for API compatibility with AttendanceModule delegation.
+     * @param \wpdb  $wpdb_in         Optional wpdb override.
+     * @param bool   $include_off_days Whether to return off-day shifts.
+     *
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public static function resolve_shift_for_date(
         int $employee_id,
@@ -53,7 +59,6 @@ class Shift_Service {
                 $emp = $wpdb->get_row($wpdb->prepare("SELECT dept_id FROM {$empT} WHERE id=%d", $employee_id));
                 $row->dept_id = $emp && ! empty( $emp->dept_id ) ? (int) $emp->dept_id : null;
             }
-            error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=1_assignment shift_id=%d wo=%s', $employee_id, $ymd, $row->id ?? 0, $row->weekly_overrides ?? '(empty)' ) );
             $row = self::apply_weekly_override( $row, $ymd, $wpdb, $include_off_days );
             return self::apply_period_override( $row, $ymd, $include_off_days );
         }
@@ -69,7 +74,6 @@ class Shift_Service {
             $emp_shift->__virtual  = 0;
             $emp_shift->is_holiday = 0;
 
-            error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=1.5_emp_shift shift_id=%d wo=%s', $employee_id, $ymd, $emp_shift->id ?? 0, $emp_shift->weekly_overrides ?? '(empty)' ) );
             $emp_shift = self::apply_weekly_override( $emp_shift, $ymd, $wpdb, $include_off_days );
             return self::apply_period_override( $emp_shift, $ymd, $include_off_days );
         }
@@ -89,7 +93,6 @@ class Shift_Service {
                     $psh->dept_id    = $emp_row && ! empty( $emp_row->dept_id ) ? (int) $emp_row->dept_id : null;
                     $psh->__virtual  = 0;
                     $psh->is_holiday = 0;
-                    error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=1.7_project project=%d shift_id=%d', $employee_id, $ymd, $prj->id, $psh->id ?? 0 ) );
                     $psh = self::apply_weekly_override( $psh, $ymd, $wpdb, $include_off_days );
                     return self::apply_period_override( $psh, $ymd, $include_off_days );
                 }
@@ -103,7 +106,9 @@ class Shift_Service {
             return null;
         }
 
-        $dept_id = null; $dept_name = null; $dept_slug = null;
+        $dept_id = null;
+        $dept_name = null;
+        $dept_slug = null;
         foreach (['dept_id','department_id'] as $c) {
             if (isset($emp->$c) && is_numeric($emp->$c)) {
                 $dept_id = (int)$emp->$c;
@@ -170,7 +175,6 @@ class Shift_Service {
                     $sh->__virtual  = 1;
                     $sh->is_holiday = 0;
                     $sh->dept_id    = $dept_id;
-                    error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=3_dept_auto shift_id=%d wo=%s', $employee_id, $ymd, $sh->id ?? 0, $sh->weekly_overrides ?? '(empty)' ) );
                     $sh = self::apply_weekly_override( $sh, $ymd, $wpdb, $include_off_days );
                     return self::apply_period_override( $sh, $ymd, $include_off_days );
                 }
@@ -204,13 +208,11 @@ class Shift_Service {
             if ($fb) {
                 $fb->__virtual  = 1;
                 $fb->is_holiday = 0;
-                error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=4_fallback shift_id=%d wo=%s', $employee_id, $ymd, $fb->id ?? 0, $fb->weekly_overrides ?? '(empty)' ) );
                 $fb = self::apply_weekly_override( $fb, $ymd, $wpdb, $include_off_days );
                 return self::apply_period_override( $fb, $ymd, $include_off_days );
             }
         }
 
-        error_log( sprintf( '[SFS ATT RESOLVE] emp=%d date=%s step=none (no shift found)', $employee_id, $ymd ) );
         return null;
     }
 
@@ -278,15 +280,7 @@ class Shift_Service {
         }
 
         // Bail quickly if mapping table is not installed yet.
-        $table_exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*)
-                 FROM information_schema.tables
-                 WHERE table_schema = DATABASE()
-                   AND table_name   = %s",
-                $emp_map_t
-            )
-        );
+        $table_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $emp_map_t));
 
         if ( ! $table_exists ) {
             return null;
@@ -356,12 +350,7 @@ class Shift_Service {
         $shiftT = "{$p}sfs_hr_attendance_shifts";
 
         // Check table exists.
-        $tbl_exists = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
-                $schedT
-            )
-        );
+        $tbl_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $schedT));
         if ( ! $tbl_exists ) {
             return null;
         }

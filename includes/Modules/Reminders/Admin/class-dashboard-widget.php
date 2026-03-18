@@ -22,8 +22,19 @@ class Dashboard_Widget {
      * Render the widget
      */
     public function render(): void {
-        $birthdays = Reminders_Service::get_upcoming_birthdays([0, 1, 2, 3, 4, 5, 6, 7]);
-        $anniversaries = Reminders_Service::get_upcoming_anniversaries([0, 1, 2, 3, 4, 5, 6, 7]);
+        // Use cached results (300-second TTL) to avoid 16 per-offset queries on every dashboard load.
+        $cached = get_transient( 'sfs_hr_reminders_upcoming_counts' );
+        if ( false !== $cached && isset( $cached['birthdays'], $cached['anniversaries'] ) ) {
+            $birthdays     = $cached['birthdays'];
+            $anniversaries = $cached['anniversaries'];
+        } else {
+            $birthdays     = Reminders_Service::get_upcoming_birthdays( [ 0, 1, 2, 3, 4, 5, 6, 7 ] );
+            $anniversaries = Reminders_Service::get_upcoming_anniversaries( [ 0, 1, 2, 3, 4, 5, 6, 7 ] );
+            set_transient( 'sfs_hr_reminders_upcoming_counts', [
+                'birthdays'     => $birthdays,
+                'anniversaries' => $anniversaries,
+            ], 300 );
+        }
 
         if (empty($birthdays) && empty($anniversaries)) {
             return;
