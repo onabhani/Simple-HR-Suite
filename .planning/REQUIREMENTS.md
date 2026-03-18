@@ -26,7 +26,7 @@ Requirements for audit fix milestone. Each maps to roadmap phases.
 ### Performance
 
 - [x] **PERF-01**: Fix N+1 query patterns across 9 modules (14+ locations — batch or JOIN instead of loop queries)
-- [ ] **PERF-02**: Add LIMIT/pagination to unbounded queries across 8 modules (10+ locations)
+- [x] **PERF-02**: Add LIMIT/pagination to unbounded queries across 8 modules (10+ locations)
 - [x] **PERF-03**: Add transient caching for dashboard/overview counter queries (Core admin 13+, Frontend OverviewTab 14, Leave status counts 11)
 
 ### Logic & Workflow
@@ -70,7 +70,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DATA-05 | Phase 27 | Complete |
 | DATA-06 | Phase 27 | Complete |
 | PERF-01 | Phase 28 | Complete |
-| PERF-02 | Phase 28 | Pending |
+| PERF-02 | Phase 28 | Complete |
 | PERF-03 | Phase 28 | Complete |
 | LOGIC-01 | Phase 29 | Pending |
 | LOGIC-02 | Phase 29 | Pending |

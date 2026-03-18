@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Audit Fixes (SQL, Data, Performance, Logic)
 status: completed
-stopped_at: Completed 28-01-PLAN.md
-last_updated: "2026-03-18T03:15:56.600Z"
+stopped_at: Completed 28-02-PLAN.md
+last_updated: "2026-03-18T03:24:03.985Z"
 last_activity: 2026-03-18 — Phase 27 plan 01 complete; Settlement EOS formula corrected to Saudi Article 84 rates, trigger_type added
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 10
-  completed_plans: 8
+  completed_plans: 9
   percent: 25
 ---
 
@@ -52,6 +52,9 @@ Progress: [███░░░░░░░] 25% (v1.3: 2/5 phases complete — Ph
 - [Phase 28-01]: Dashboard counters 60s transient with _today date-aware cache bust for today-scoped stats
 - [Phase 28-01]: Org chart N+1 eliminated via get_users(include) batch + single IN() query before foreach loops
 - [Phase 28-01]: Reminders upcoming count rewritten to CASE/WHEN batch query (2 queries total) replacing 16 per-offset queries
+- [Phase 28]: OverviewTab today_shift excluded from 60s transient cache — real-time attendance state must not be stale
+- [Phase 28]: Leave status tab pending_* sub-states share the 'pending' DB GROUP BY count since they are PHP-derived from approval_level
+- [Phase 28]: Resignation GROUP BY uses both r.status and r.resignation_type to correctly derive final_exit count
 
 ### Pending Todos
 
@@ -63,6 +66,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-18T03:15:56.598Z
-Stopped at: Completed 28-01-PLAN.md
+Last session: 2026-03-18T03:23:47.615Z
+Stopped at: Completed 28-02-PLAN.md
 Resume file: None

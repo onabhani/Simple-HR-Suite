@@ -121,7 +121,7 @@ Plans:
   2. Every list or count query that previously had no LIMIT now includes pagination or an explicit cap — unbounded queries eliminated at 10+ identified locations
   3. Core admin dashboard, Frontend OverviewTab, and Leave status count queries are served from transient cache on repeated loads — query count drops to near zero on cache hit
   4. Admin dashboard page load time is visibly faster on a dataset of 50+ employees
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 28-01-PLAN.md — Cache admin dashboard counters + fix org chart N+1 + Loans/Reminders widget caching
@@ -171,5 +171,5 @@ Plans:
 | 25. Migration Pattern Fixes | 2/2 | Complete    | 2026-03-18 | - |
 | 26. SQL Injection Fixes | 2/2 | Complete    | 2026-03-18 | - |
 | 27. Data Integrity Fixes | 3/3 | Complete    | 2026-03-18 | - |
-| 28. Performance Fixes | 1/3 | In Progress|  | - |
+| 28. Performance Fixes | 2/3 | In Progress|  | - |
 | 29. Logic and Workflow Fixes | v1.3 | 0/TBD | Not started | - |
