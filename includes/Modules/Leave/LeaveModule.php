@@ -1188,9 +1188,8 @@ public function handle_approve(): void {
         wp_safe_redirect( $redirect_base );
         exit;
     }
-    $current_status      = $row['status'];
-    $valid_approve_from  = [ 'pending', 'pending_gm', 'pending_hr' ];
-    if ( ! in_array( $current_status, $valid_approve_from, true ) ) {
+    $current_status = $row['status'];
+    if ( ! $this->is_valid_transition( $current_status, 'approved' ) ) {
         wp_safe_redirect( $redirect_base . '&err=' . rawurlencode( __( 'Request is not in an approvable state.', 'sfs-hr' ) ) );
         exit;
     }

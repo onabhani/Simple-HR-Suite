@@ -345,7 +345,7 @@ class Performance_Rest {
         global $wpdb;
         $user_id = get_current_user_id();
         $results = $wpdb->get_col( $wpdb->prepare(
-            "SELECT id FROM {$wpdb->prefix}sfs_hr_departments WHERE manager_user_id = %d",
+            "SELECT id FROM {$wpdb->prefix}sfs_hr_departments WHERE manager_user_id = %d AND active = 1",
             $user_id
         ) );
         return array_map( 'intval', $results );

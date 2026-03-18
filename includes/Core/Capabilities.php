@@ -26,6 +26,7 @@ class Capabilities {
         ];
         $caps_employee = [
             'sfs_hr.leave.request'  => true, // submit requests
+            'sfs_hr_payslip_view'   => true, // view own payslips
         ];
 
         // Trainee caps (limited - mainly attendance tracking)
