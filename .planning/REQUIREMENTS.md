@@ -12,7 +12,7 @@ Requirements for audit fix milestone. Each maps to roadmap phases.
 - [x] **SQL-01**: Replace all bare ALTER TABLE with add_column_if_missing() helper (Core, Attendance, Loans — ~25 calls)
 - [x] **SQL-02**: Replace information_schema queries with version-gated migration pattern (Core, Attendance, Notifications, Shift_Service — 9+ queries)
 - [x] **SQL-03**: Fix all unprepared SELECT/COUNT/DELETE queries across 11 modules (~50+ queries)
-- [ ] **SQL-04**: Fix raw string interpolation in LIKE clauses (Hiring, Core)
+- [x] **SQL-04**: Fix raw string interpolation in LIKE clauses (Hiring, Core)
 
 ### Data Integrity
 
@@ -62,7 +62,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SQL-01 | Phase 25 | Complete |
 | SQL-02 | Phase 25 | Complete |
 | SQL-03 | Phase 26 | Complete |
-| SQL-04 | Phase 26 | Pending |
+| SQL-04 | Phase 26 | Complete |
 | DATA-01 | Phase 27 | Pending |
 | DATA-02 | Phase 27 | Pending |
 | DATA-03 | Phase 27 | Pending |
