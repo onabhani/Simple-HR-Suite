@@ -346,9 +346,12 @@ class HiringModule {
         // Generate employee code
         $prefix = "USR-";
         $last = $wpdb->get_var(
-            "SELECT employee_code FROM {$wpdb->prefix}sfs_hr_employees
-             WHERE employee_code LIKE '{$prefix}%'
-             ORDER BY id DESC LIMIT 1"
+            $wpdb->prepare(
+                "SELECT employee_code FROM {$wpdb->prefix}sfs_hr_employees
+                 WHERE employee_code LIKE %s
+                 ORDER BY id DESC LIMIT 1",
+                $wpdb->esc_like( $prefix ) . '%'
+            )
         );
         $num = $last ? ((int) substr($last, -4) + 1) : 1;
         $employee_code = $prefix . $num;
@@ -533,9 +536,12 @@ class HiringModule {
         // Generate employee code
         $prefix = "USR-";
         $last = $wpdb->get_var(
-            "SELECT employee_code FROM {$wpdb->prefix}sfs_hr_employees
-             WHERE employee_code LIKE '{$prefix}%'
-             ORDER BY id DESC LIMIT 1"
+            $wpdb->prepare(
+                "SELECT employee_code FROM {$wpdb->prefix}sfs_hr_employees
+                 WHERE employee_code LIKE %s
+                 ORDER BY id DESC LIMIT 1",
+                $wpdb->esc_like( $prefix ) . '%'
+            )
         );
         $num = $last ? ((int) substr($last, -4) + 1) : 1;
         $employee_code = $prefix . $num;
