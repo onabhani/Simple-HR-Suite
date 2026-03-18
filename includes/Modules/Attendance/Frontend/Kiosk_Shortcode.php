@@ -2125,24 +2125,48 @@ function addScanLog(name, action, ok){
   scanLog.unshift({ name, action, time, ok });
   if (scanLog.length > 50) scanLog.length = 50;
 
-  const safeName = (name||'\u2014').replace(/</g,'&lt;');
+  const safeName = name || '\u2014';
   const cls = ok ? 'ok' : 'err';
   // Action-specific color class for dots and initials
-  const actionCls = 'action-' + (action || 'in');
+  const validActions = ['in','out','break_start','break_end'];
+  const actionCls = 'action-' + (validActions.indexOf(action) !== -1 ? action : 'in');
 
-  // Build log item HTML with action-specific colors
-  function buildLogHtml(){
-    return '<span class="sfs-log-initials ' + cls + ' ' + actionCls + '">' + getInitials(name) + '</span>'
-      + '<div class="sfs-log-info"><span class="sfs-log-name">' + safeName + '</span>'
-      + '<span class="sfs-log-meta"><span class="sfs-log-dot ' + cls + ' ' + actionCls + '"></span> '
-      + labelFor(action) + ' \u2022 ' + time + '</span></div>'
-      + '<span class="sfs-log-time">' + time + '</span>';
+  // Build log item via DOM construction (safe from XSS)
+  function buildLogItem(){
+    const frag = document.createDocumentFragment();
+
+    const initials = document.createElement('span');
+    initials.className = 'sfs-log-initials ' + cls + ' ' + actionCls;
+    initials.textContent = getInitials(name);
+    frag.appendChild(initials);
+
+    const info = document.createElement('div');
+    info.className = 'sfs-log-info';
+    const nameEl = document.createElement('span');
+    nameEl.className = 'sfs-log-name';
+    nameEl.textContent = safeName;
+    info.appendChild(nameEl);
+    const meta = document.createElement('span');
+    meta.className = 'sfs-log-meta';
+    const dot = document.createElement('span');
+    dot.className = 'sfs-log-dot ' + cls + ' ' + actionCls;
+    meta.appendChild(dot);
+    meta.appendChild(document.createTextNode(' ' + labelFor(action) + ' \u2022 ' + time));
+    info.appendChild(meta);
+    frag.appendChild(info);
+
+    const timeEl = document.createElement('span');
+    timeEl.className = 'sfs-log-time';
+    timeEl.textContent = time;
+    frag.appendChild(timeEl);
+
+    return frag;
   }
 
   // Update desktop/tablet activity log
   if (logList) {
     const li = document.createElement('li');
-    li.innerHTML = buildLogHtml();
+    li.appendChild(buildLogItem());
     logList.prepend(li);
     while (logList.children.length > 50) logList.removeChild(logList.lastChild);
   }
@@ -2151,7 +2175,7 @@ function addScanLog(name, action, ok){
   const modalList = document.getElementById('sfs-log-modal-list-<?php echo $inst; ?>');
   if (modalList) {
     const li = document.createElement('li');
-    li.innerHTML = buildLogHtml();
+    li.appendChild(buildLogItem());
     modalList.prepend(li);
     while (modalList.children.length > 50) modalList.removeChild(modalList.lastChild);
   }
@@ -2161,8 +2185,11 @@ function addScanLog(name, action, ok){
   const triggerLast  = document.getElementById('sfs-log-modal-last-<?php echo $inst; ?>');
   if (triggerCount) triggerCount.textContent = String(sessionCount);
   if (triggerLast) {
-    triggerLast.innerHTML = '<span class="sfs-log-dot ' + actionCls + '"></span> '
-      + safeName + ' — ' + labelFor(action);
+    triggerLast.textContent = '';
+    const trigDot = document.createElement('span');
+    trigDot.className = 'sfs-log-dot ' + actionCls;
+    triggerLast.appendChild(trigDot);
+    triggerLast.appendChild(document.createTextNode(' ' + safeName + ' \u2014 ' + labelFor(action)));
   }
 }
 
@@ -2283,39 +2310,6 @@ function captureSelfieFromQrVideo() {
 }
 
 
-
-function parseEmployeeQR(payload){
-  // Normalize entities (&amp;, &#038;, &#x26;) → &
-  const norm = (function(s){
-    if (typeof s !== 'string') s = String(s || '');
-    s = s.replace(/&amp;|&#0*38;|&#x0*26;/gi, '&');
-    const el = document.createElement('textarea');
-    el.innerHTML = s;
-    return el.value.trim();
-  })(payload);
-
-  // URL form
-  try {
-    const u = new URL(norm, window.location.origin);
-    const emp   = u.searchParams.get('emp') || u.searchParams.get('employee') || u.searchParams.get('id');
-    const token = u.searchParams.get('token') || u.searchParams.get('t');
-    if (emp && token) return { emp: parseInt(emp,10), token };
-  } catch(_) {}
-
-  // raw querystring
-  const m = norm.match(/(?:^|[?&])emp=(\d+).*?(?:^|[?&])token=([A-Za-z0-9_\.\-]+)/i);
-  if (m) return { emp: parseInt(m[1],10), token: m[2] };
-
-  // JSON
-  try {
-    const o = JSON.parse(norm);
-    const emp   = o.emp || o.employee_id || o.id;
-    const token = o.token || o.qr_token;
-    if (emp && token) return { emp: parseInt(emp,10), token };
-  } catch(_) {}
-
-  return null;
-}
 
 
       function tickClock(){

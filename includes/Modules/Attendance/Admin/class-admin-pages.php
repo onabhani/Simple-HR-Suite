@@ -6695,7 +6695,7 @@ private function render_early_leave(): void {
         </div>
 
     <script>
-    function sfsElEsc(s){if(typeof s!=='string')return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+    function sfsElEsc(s){if(typeof s!=='string')return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
     jQuery(function($) {
         var $modal = $('#sfs-el-review-modal');
 

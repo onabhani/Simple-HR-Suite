@@ -579,7 +579,8 @@ public function render_requests(): void {
     </div>
 
     <script>
-    function sfsEsc(s){if(typeof s!=='string')return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+    (function(){
+    function sfsEsc(s){if(typeof s!=='string')return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
     var sfsHrLeaveData = <?php echo wp_json_encode(array_values(array_map(function($r) use ($hr_user_ids, $gm_user_id, $managed_depts, $current_uid, $approver_names) {
         $can_approve = false;
         if ($r['status'] === 'pending') {
@@ -693,10 +694,10 @@ public function render_requests(): void {
                 historyHtml += '<div style="font-size:12px;color:#555;">' + sfsEsc(h.user) + '</div>';
                 if (h.meta && Object.keys(h.meta).length > 0) {
                     historyHtml += '<div style="font-size:11px;margin-top:4px;background:#fff;padding:4px;border-radius:2px;">';
-                    for (var key in h.meta) {
+                    Object.keys(h.meta).forEach(function(key) {
                         var label = key.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
-                        historyHtml += '<strong>' + sfsEsc(label) + ':</strong> ' + sfsEsc(h.meta[key]) + '<br>';
-                    }
+                        historyHtml += '<strong>' + sfsEsc(label) + ':</strong> ' + sfsEsc(String(h.meta[key])) + '<br>';
+                    });
                     historyHtml += '</div>';
                 }
                 historyHtml += '</div>';
@@ -735,6 +736,12 @@ public function render_requests(): void {
             sfsHrCloseLeaveModal();
         }
     });
+
+    // Expose only the functions needed by inline onclick handlers
+    window.sfsHrShowLeaveModal = sfsHrShowLeaveModal;
+    window.sfsHrCloseLeaveModal = sfsHrCloseLeaveModal;
+    window.sfsHrPromptRejectReason = sfsHrPromptRejectReason;
+    })();
     </script>
     <?php
 }

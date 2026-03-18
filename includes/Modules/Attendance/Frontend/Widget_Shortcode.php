@@ -1158,26 +1158,48 @@ setInterval(tickClock, 1000);
             'break_end':   '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
         };
 
+        function escapeHtml(s) {
+            if (typeof s !== 'string') return '';
+            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+        }
+
+        var validPunchTypes = ['in','out','break_start','break_end'];
+
         function updatePunchHistory(punches) {
             if (!punchListEl) return;
             if (!punches || punches.length === 0) {
-                punchListEl.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:12px 0;">'
-                    + (i18n.no_activity_yet || 'No activity yet') + '</div>';
+                punchListEl.textContent = '';
+                var emptyDiv = document.createElement('div');
+                emptyDiv.style.cssText = 'text-align:center;color:#9ca3af;font-size:13px;padding:12px 0;';
+                emptyDiv.textContent = i18n.no_activity_yet || 'No activity yet';
+                punchListEl.appendChild(emptyDiv);
                 return;
             }
-            var html = '';
+            punchListEl.textContent = '';
             for (var i = 0; i < punches.length; i++) {
                 var p = punches[i];
+                var safeType = validPunchTypes.indexOf(p.type) !== -1 ? p.type : 'in';
                 var label = punchTypeLabel(p.type);
-                html += '<div class="sfs-att-punch-item">'
-                    + '<div class="sfs-att-punch-badge sfs-att-punch-badge--' + p.type + '">'
-                    + (punchIcons[p.type] || '')
-                    + '</div>'
-                    + '<span class="sfs-att-punch-label">' + label + '</span>'
-                    + '<span class="sfs-att-punch-time">' + p.time + '</span>'
-                    + '</div>';
+                var item = document.createElement('div');
+                item.className = 'sfs-att-punch-item';
+
+                var badge = document.createElement('div');
+                badge.className = 'sfs-att-punch-badge sfs-att-punch-badge--' + safeType;
+                if (punchIcons[safeType]) badge.innerHTML = punchIcons[safeType];
+                item.appendChild(badge);
+
+                var labelEl = document.createElement('span');
+                labelEl.className = 'sfs-att-punch-label';
+                labelEl.textContent = label;
+                item.appendChild(labelEl);
+
+                var timeEl = document.createElement('span');
+                timeEl.className = 'sfs-att-punch-time';
+                timeEl.textContent = p.time || '';
+                item.appendChild(timeEl);
+
+                punchListEl.appendChild(item);
             }
-            punchListEl.innerHTML = html;
         }
 
         // Check if an action is truly available (state + policy)

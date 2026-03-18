@@ -51,10 +51,16 @@ self.addEventListener('fetch', (event) => {
     // Skip WP admin pages — don't cache them
     if (url.pathname.includes('/wp-admin/')) return;
 
+    // Only cache static assets (CSS, JS, images, fonts) — never cache HTML pages
+    // which may contain authenticated content / PII.
+    const ext = url.pathname.split('.').pop().toLowerCase();
+    const cacheableExts = ['css','js','png','jpg','jpeg','gif','svg','ico','woff','woff2','ttf','eot'];
+    const isCacheable = cacheableExts.indexOf(ext) !== -1;
+
     event.respondWith(
         fetch(event.request)
             .then((response) => {
-                if (response.status === 200) {
+                if (response.status === 200 && isCacheable) {
                     const responseClone = response.clone();
                     caches.open(CACHE_NAME).then((cache) => {
                         cache.put(event.request, responseClone);
