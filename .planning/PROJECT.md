@@ -69,6 +69,9 @@ Known tech debt (cosmetic only):
 - `sfs_hr_payslip_view` capability declared but never assigned to any role
 - LeaveModule handle_approve() uses inline $valid_approve_from instead of shared is_valid_transition() (functionally equivalent)
 
+Known tech debt (structural — needs dedicated phase):
+- **Attendance capability format migration**: Attendance module uses underscore caps (`sfs_hr_attendance_clock_self`, `sfs_hr_attendance_admin`, etc.) while the rest of the plugin uses dotted format (`sfs_hr.manage`, `sfs_hr.leave.review`). Requires: (1) register new dotted caps alongside old ones, (2) rename 60+ `current_user_can()` checks across 8+ files (Migration.php, Admin pages, REST endpoints, Frontend shortcodes, plus Documents, Workforce_Status, ShiftSwap, Core), (3) DB migration to copy stored caps from old → new for existing users, (4) eventually remove old underscore caps. High risk — must not break access for existing installations.
+
 ## Key Decisions
 
 | Decision | Rationale | Outcome |

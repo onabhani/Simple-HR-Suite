@@ -778,7 +778,7 @@ body.sfs-kiosk-immersive #wpadminbar{ display:none !important; }
 }
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" integrity="sha256-vEDIoVGWI2sjFNsIVvcsoLSZgM1UE7jIUqc0n1/uCFk=" crossorigin="anonymous" defer></script>
 <?php
 // Make sure WP exposes a nonce helper on the front-end
 wp_enqueue_script('wp-api');
