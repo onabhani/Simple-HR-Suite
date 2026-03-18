@@ -78,6 +78,16 @@ class Settlement_Form {
                             <td><input type="number" name="basic_salary" id="basic_salary" step="0.01" required style="width:200px;" onchange="calculateSettlement()"></td>
                         </tr>
                         <tr>
+                            <th><label for="trigger_type"><?php esc_html_e('Settlement Trigger:', 'sfs-hr'); ?></label></th>
+                            <td>
+                                <select name="trigger_type" id="trigger_type" onchange="calculateGratuity()" style="width:200px;">
+                                    <option value="resignation"><?php esc_html_e('Resignation', 'sfs-hr'); ?></option>
+                                    <option value="termination"><?php esc_html_e('Termination', 'sfs-hr'); ?></option>
+                                    <option value="contract_end"><?php esc_html_e('Contract End', 'sfs-hr'); ?></option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
                             <th><label for="gratuity_amount"><?php esc_html_e('Gratuity Amount:', 'sfs-hr'); ?></label></th>
                             <td>
                                 <input type="number" name="gratuity_amount" id="gratuity_amount" step="0.01" readonly style="width:200px;background:#f5f5f5;">
@@ -187,18 +197,26 @@ class Settlement_Form {
             const yearsOfService = parseFloat(document.getElementById('years_of_service').value) || 0;
             const baseSalary = parseFloat(document.getElementById('basic_salary').value) || 0;
 
-            // Gratuity calculation per Saudi Labor Law:
-            // 21 days salary for each year of service (for first 5 years)
-            // 30 days salary for each year beyond 5 years
+            // Gratuity calculation per Saudi Labor Law Article 84:
+            // 15 days (half-month) salary per year for first 5 years
+            // 30 days (full month) salary per year beyond 5 years
             let gratuity = 0;
 
             if (yearsOfService <= 5) {
-                gratuity = (baseSalary / 30) * 21 * yearsOfService;
+                gratuity = (baseSalary / 30) * 15 * yearsOfService;
             } else {
-                const first5Years = (baseSalary / 30) * 21 * 5;
+                const first5Years = (baseSalary / 30) * 15 * 5;
                 const remainingYears = yearsOfService - 5;
                 const afterYears = (baseSalary / 30) * 30 * remainingYears;
                 gratuity = first5Years + afterYears;
+            }
+
+            // Apply trigger-type reduction per Saudi labor law
+            var triggerType = document.getElementById('trigger_type').value;
+            if (triggerType === 'resignation') {
+                if (yearsOfService < 2) gratuity = 0;
+                else if (yearsOfService < 5) gratuity = gratuity / 3;
+                else if (yearsOfService < 10) gratuity = gratuity * 2 / 3;
             }
 
             document.getElementById('gratuity_amount').value = gratuity.toFixed(2);
