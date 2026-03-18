@@ -243,23 +243,50 @@ public function render_requests(): void {
         $params = array_merge($params, array_map('intval', $managed_depts));
     }
 
-    // Count by status for tabs
-    $counts = [];
-    $count_where = '1=1';
+    // Count by status for tabs — single GROUP BY query instead of N separate COUNTs.
+    // Scoping key for transient cache includes department IDs if manager-scoped.
+    $counts      = [];
+    $count_where  = '1=1';
     $count_params = [];
     if ( ! $is_hr_or_gm_for_view && ! empty($managed_depts) ) {
         $placeholders = implode(',', array_fill(0, count($managed_depts), '%d'));
-        $count_where = "e.dept_id IN ($placeholders)";
+        $count_where  = "e.dept_id IN ($placeholders)";
         $count_params = array_map('intval', $managed_depts);
     }
+
+    $scope_key         = $is_hr_or_gm_for_view ? 'all' : implode( '_', $count_params );
+    $counts_cache_key  = 'sfs_hr_leave_counts_' . md5( $scope_key );
+    $cached_counts     = get_transient( $counts_cache_key );
+
+    if ( false === $cached_counts ) {
+        // Single GROUP BY query for per-status counts.
+        $sql_group = "SELECT r.status, COUNT(*) as cnt FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id"
+            . ( $count_where !== '1=1' ? " WHERE $count_where" : '' )
+            . " GROUP BY r.status";
+        $group_rows = $count_params
+            ? $wpdb->get_results( $wpdb->prepare( $sql_group, ...$count_params ), ARRAY_A )
+            : $wpdb->get_results( $sql_group, ARRAY_A );
+
+        $cached_counts = [];
+        $total_all     = 0;
+        foreach ( $group_rows as $gr ) {
+            $cached_counts[ $gr['status'] ] = (int) $gr['cnt'];
+            $total_all += (int) $gr['cnt'];
+        }
+        $cached_counts['all'] = $total_all;
+
+        set_transient( $counts_cache_key, $cached_counts, 60 );
+    }
+
+    // Build $counts for all display tabs; unknown sub-statuses (pending_manager etc.) use 'pending' count.
     foreach ( array_keys( $status_tabs ) as $s ) {
         if ( $s === 'all' ) {
-            $sql_count = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id" . ($count_where !== '1=1' ? " WHERE $count_where" : "");
-            $counts['all'] = $count_params ? (int) $wpdb->get_var($wpdb->prepare($sql_count, ...$count_params)) : (int) $wpdb->get_var($sql_count);
+            $counts['all'] = $cached_counts['all'] ?? 0;
+        } elseif ( in_array( $s, [ 'pending_manager', 'pending_hr', 'pending_gm', 'pending_finance' ], true ) ) {
+            // These are display-only sub-states derived from approval_level; share the 'pending' DB count.
+            $counts[ $s ] = $cached_counts['pending'] ?? 0;
         } else {
-            $sql_count = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id WHERE r.status = %s" . ($count_where !== '1=1' ? " AND $count_where" : "");
-            $c_params = array_merge([$s], $count_params);
-            $counts[$s] = (int) $wpdb->get_var($wpdb->prepare($sql_count, ...$c_params));
+            $counts[ $s ] = $cached_counts[ $s ] ?? 0;
         }
     }
 
@@ -277,6 +304,32 @@ public function render_requests(): void {
     $params_rows = $params ? array_merge($params, [$pp, $offset]) : [$pp, $offset];
     $rows  = $wpdb->get_results($wpdb->prepare($sql, ...$params_rows), ARRAY_A);
     $pages = max(1, (int)ceil($total / $pp));
+
+    // Batch-fetch approver display names to avoid N+1 get_user_by() calls in the row loop.
+    $approver_names = [];
+    if ( $rows ) {
+        $approver_ids = array_unique( array_filter( array_map(
+            function( $r ) {
+                return ( in_array( $r['status'], [ 'approved', 'rejected' ], true ) && ! empty( $r['approver_id'] ) )
+                    ? (int) $r['approver_id']
+                    : 0;
+            },
+            $rows
+        ) ) );
+        if ( ! empty( $approver_ids ) ) {
+            $id_placeholders    = implode( ',', array_fill( 0, count( $approver_ids ), '%d' ) );
+            $approver_rows      = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT ID, display_name FROM {$wpdb->users} WHERE ID IN ($id_placeholders)",
+                    ...$approver_ids
+                ),
+                ARRAY_A
+            );
+            foreach ( $approver_rows as $au ) {
+                $approver_names[ (int) $au['ID'] ] = $au['display_name'];
+            }
+        }
+    }
 
     // Output styles
     $this->output_leave_requests_styles();
@@ -509,7 +562,7 @@ public function render_requests(): void {
 
     <script>
     function sfsEsc(s){if(typeof s!=='string')return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-    var sfsHrLeaveData = <?php echo wp_json_encode(array_values(array_map(function($r) use ($nonceR, $hr_user_ids, $gm_user_id, $managed_depts, $current_uid) {
+    var sfsHrLeaveData = <?php echo wp_json_encode(array_values(array_map(function($r) use ($hr_user_ids, $gm_user_id, $managed_depts, $current_uid, $approver_names) {
         $can_approve = false;
         if ($r['status'] === 'pending') {
             // Position-based HR or GM check
@@ -524,13 +577,10 @@ public function render_requests(): void {
                 $can_approve = false;
             }
         }
-        // Get approver name for approved/rejected requests
+        // Look up approver name from pre-fetched batch (no per-row DB query).
         $approver_name = '';
         if (in_array($r['status'], ['approved', 'rejected'], true) && !empty($r['approver_id'])) {
-            $approver_user = get_user_by('id', (int)$r['approver_id']);
-            if ($approver_user) {
-                $approver_name = $approver_user->display_name;
-            }
+            $approver_name = $approver_names[ (int) $r['approver_id'] ] ?? '';
         }
         // Get history for this request
         $history = LeaveModule::get_history((int)$r['id']);
@@ -5799,7 +5849,7 @@ if ($new_days <= 0) {
         LEFT JOIN {$type_table} t ON t.id = r.type_id
         WHERE r.employee_id = %d
         ORDER BY r.created_at DESC, r.id DESC
-        LIMIT 100
+        LIMIT 50
         ",
         (int) $employee->id
     )
