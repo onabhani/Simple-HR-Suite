@@ -10,6 +10,17 @@ if (!defined('ABSPATH')) { exit; }
 class Settlement_Service {
 
     /**
+     * Allowed status transitions.
+     * Key = current status, value = array of valid next statuses.
+     */
+    private const ALLOWED_TRANSITIONS = [
+        'pending'  => [ 'approved', 'rejected' ],
+        'approved' => [ 'paid' ],
+        'rejected' => [],           // terminal
+        'paid'     => [],           // terminal
+    ];
+
+    /**
      * Get status labels
      */
     public static function get_status_labels(): array {
@@ -169,6 +180,17 @@ class Settlement_Service {
 
         // Get old status for audit trail
         $old_status = $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$table} WHERE id = %d", $settlement_id ) );
+
+        // Guard: reject invalid state transitions
+        $old     = $old_status ?: 'pending';
+        $allowed = self::ALLOWED_TRANSITIONS[ $old ] ?? [];
+        if ( ! in_array( $status, $allowed, true ) ) {
+            error_log( sprintf(
+                '[SFS HR] Settlement #%d: blocked invalid transition %s -> %s',
+                $settlement_id, $old, $status
+            ) );
+            return false;
+        }
 
         $data = array_merge([
             'status'     => $status,

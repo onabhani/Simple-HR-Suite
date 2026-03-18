@@ -16,6 +16,33 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 class Reviews_Service {
 
     /**
+     * Allowed review status transitions.
+     * Key = current status, value = array of valid next statuses.
+     */
+    private const ALLOWED_TRANSITIONS = [
+        'draft'        => [ 'pending', 'submitted' ],
+        'pending'      => [ 'submitted' ],
+        'submitted'    => [ 'acknowledged' ],
+        'acknowledged' => [],   // terminal
+    ];
+
+    /**
+     * Validate a status transition is allowed.
+     *
+     * @return true|\WP_Error
+     */
+    private static function validate_transition( string $from, string $to ) {
+        $allowed = self::ALLOWED_TRANSITIONS[ $from ] ?? [];
+        if ( ! in_array( $to, $allowed, true ) ) {
+            return new \WP_Error(
+                'invalid_transition',
+                sprintf( __( 'Cannot change review status from %s to %s.', 'sfs-hr' ), $from, $to )
+            );
+        }
+        return true;
+    }
+
+    /**
      * Save a review (create or update).
      *
      * @param array $data Review data
@@ -232,8 +259,9 @@ class Reviews_Service {
             return new \WP_Error( 'forbidden', __( 'You cannot acknowledge this review', 'sfs-hr' ) );
         }
 
-        if ( $review->status !== 'submitted' ) {
-            return new \WP_Error( 'invalid_status', __( 'Review is not ready for acknowledgment', 'sfs-hr' ) );
+        $check = self::validate_transition( $review->status, 'acknowledged' );
+        if ( is_wp_error( $check ) ) {
+            return $check;
         }
 
         $wpdb->update(
@@ -267,8 +295,9 @@ class Reviews_Service {
             return new \WP_Error( 'not_found', __( 'Review not found', 'sfs-hr' ) );
         }
 
-        if ( $review->status !== 'draft' && $review->status !== 'pending' ) {
-            return new \WP_Error( 'invalid_status', __( 'Review cannot be submitted', 'sfs-hr' ) );
+        $check = self::validate_transition( $review->status, 'submitted' );
+        if ( is_wp_error( $check ) ) {
+            return $check;
         }
 
         $wpdb->update(
