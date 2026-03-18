@@ -389,7 +389,7 @@ class ProfileTab implements TabInterface {
         $assign_table = $wpdb->prefix . 'sfs_hr_asset_assignments';
         $asset_table  = $wpdb->prefix . 'sfs_hr_assets';
 
-        if ( $wpdb->get_var( "SHOW TABLES LIKE '{$assign_table}'" ) !== $assign_table ) {
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $assign_table ) ) !== $assign_table ) {
             return;
         }
 

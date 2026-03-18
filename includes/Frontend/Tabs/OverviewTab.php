@@ -137,7 +137,7 @@ class OverviewTab implements TabInterface {
         $loans_table   = $wpdb->prefix . 'sfs_hr_loans';
         $pending_loans = [];
         $active_loans  = [];
-        if ( $wpdb->get_var( "SHOW TABLES LIKE '{$loans_table}'" ) === $loans_table ) {
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $loans_table ) ) === $loans_table ) {
             $pending_loans = $wpdb->get_results(
                 $wpdb->prepare(
                     "SELECT * FROM {$loans_table} WHERE employee_id = %d AND status = 'pending' ORDER BY created_at DESC LIMIT 5",
@@ -161,7 +161,7 @@ class OverviewTab implements TabInterface {
         $att_absent  = 0;
         $att_late    = 0;
 
-        if ( $wpdb->get_var( "SHOW TABLES LIKE '{$sess_table}'" ) === $sess_table ) {
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $sess_table ) ) === $sess_table ) {
             $att_present = (int) $wpdb->get_var(
                 $wpdb->prepare(
                     "SELECT COUNT(*) FROM {$sess_table}
@@ -202,7 +202,7 @@ class OverviewTab implements TabInterface {
 
         // Assets pending employee approval.
         $assign_table = $wpdb->prefix . 'sfs_hr_asset_assignments';
-        if ( $wpdb->get_var( "SHOW TABLES LIKE '{$assign_table}'" ) === $assign_table ) {
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $assign_table ) ) === $assign_table ) {
             $pending_assets = (int) $wpdb->get_var(
                 $wpdb->prepare(
                     "SELECT COUNT(*) FROM {$assign_table} WHERE employee_id = %d AND status = 'pending_employee_approval'",

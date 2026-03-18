@@ -35,7 +35,7 @@ class PayslipsTab implements TabInterface {
         $periods_table  = $wpdb->prefix . 'sfs_hr_payroll_periods';
 
         // Check table exists.
-        if ( $wpdb->get_var( "SHOW TABLES LIKE '{$payslips_table}'" ) !== $payslips_table ) {
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $payslips_table ) ) !== $payslips_table ) {
             $this->render_empty_state();
             return;
         }
