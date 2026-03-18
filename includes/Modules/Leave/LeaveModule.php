@@ -1630,9 +1630,22 @@ public function handle_approve(): void {
         )
     );
 
-    $opening = 0;
-    $carried = 0;
-    $accrued = $quota;
+    // Read existing balance to preserve opening and carried_over
+    $existing_bal = $wpdb->get_row(
+        $wpdb->prepare(
+            "SELECT opening, accrued, carried_over FROM $bal_t WHERE employee_id=%d AND type_id=%d AND year=%d",
+            (int) $row['employee_id'],
+            (int) $row['type_id'],
+            $year
+        ),
+        ARRAY_A
+    );
+    $opening = (int) ($existing_bal['opening'] ?? 0);
+    $carried = (int) ($existing_bal['carried_over'] ?? 0);
+    $accrued = (int) ($existing_bal['accrued'] ?? 0);
+    if ($accrued === 0) {
+        $accrued = $quota;
+    }
     $closing = $opening + $accrued + $carried - $used;
 
     $bal_id = $wpdb->get_var(
@@ -2146,9 +2159,22 @@ public function handle_cancellation_approve(): void {
         $year
     ) );
 
-    $opening = 0;
-    $carried = 0;
-    $accrued = $quota;
+    // Read existing balance to preserve opening and carried_over
+    $existing_bal = $wpdb->get_row(
+        $wpdb->prepare(
+            "SELECT opening, accrued, carried_over FROM $bal_t WHERE employee_id=%d AND type_id=%d AND year=%d",
+            (int) $leave['employee_id'],
+            (int) $leave['type_id'],
+            $year
+        ),
+        ARRAY_A
+    );
+    $opening = (int) ($existing_bal['opening'] ?? 0);
+    $carried = (int) ($existing_bal['carried_over'] ?? 0);
+    $accrued = (int) ($existing_bal['accrued'] ?? 0);
+    if ($accrued === 0) {
+        $accrued = $quota;
+    }
     $closing = $opening + $accrued + $carried - $used;
 
     if ( $bal_id ) {
@@ -5617,9 +5643,22 @@ if ($new_days <= 0) {
     );
     $quota = (int) ( $type['annual_quota'] ?? 0 );
 
-    $opening = 0;
-    $carried = 0;
-    $accrued = $quota;
+    // Read existing balance to preserve opening and carried_over
+    $existing_bal = $wpdb->get_row(
+        $wpdb->prepare(
+            "SELECT opening, accrued, carried_over FROM $bal_t WHERE employee_id=%d AND type_id=%d AND year=%d",
+            (int) $row['employee_id'],
+            (int) $row['type_id'],
+            $year
+        ),
+        ARRAY_A
+    );
+    $opening = (int) ($existing_bal['opening'] ?? 0);
+    $carried = (int) ($existing_bal['carried_over'] ?? 0);
+    $accrued = (int) ($existing_bal['accrued'] ?? 0);
+    if ($accrued === 0) {
+        $accrued = $quota;
+    }
     $closing = $opening + $accrued + $carried - $used;
 
     $bal_id = $wpdb->get_var(
