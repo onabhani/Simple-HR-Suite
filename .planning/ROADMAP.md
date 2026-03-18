@@ -57,7 +57,7 @@ Full details: `milestones/v1.2-ROADMAP.md`
 
 </details>
 
-### 🚧 v1.3 Audit Fixes (SQL, Data, Performance, Logic) (In Progress)
+### v1.3 Audit Fixes (SQL, Data, Performance, Logic) (In Progress)
 
 **Milestone Goal:** Fix all remaining Critical/High findings from the v1.1 audit — SQL injection, data integrity, performance, and logic/workflow issues across all 19 modules.
 
@@ -138,7 +138,12 @@ Plans:
   3. Payroll working-day calculation excludes both Friday and Saturday — a work week spanning Fri-Sat produces the correct reduced day count
   4. A single early-leave event triggers exactly one notification — duplicate deferred-handler notifications are suppressed
   5. Dynamic capabilities (`sfs_hr.leave.review`, `sfs_hr.view`) resolve correctly inside AJAX requests — static cache does not return stale false-negatives
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 29-01-PLAN.md — Fix Saudi weekend calc + early-leave notification dedup + capability AJAX cache
+- [ ] 29-02-PLAN.md — Add state machine transition guards to Leave, Settlement, and Performance
+- [ ] 29-03-PLAN.md — Add DB transaction wrapping to Leave/Loan TOCTOU races + atomic ref numbers
 
 ## Progress
 
@@ -172,4 +177,4 @@ Plans:
 | 26. SQL Injection Fixes | 2/2 | Complete    | 2026-03-18 | - |
 | 27. Data Integrity Fixes | 3/3 | Complete    | 2026-03-18 | - |
 | 28. Performance Fixes | 3/3 | Complete    | 2026-03-18 | - |
-| 29. Logic and Workflow Fixes | v1.3 | 0/TBD | Not started | - |
+| 29. Logic and Workflow Fixes | v1.3 | 0/3 | Not started | - |
