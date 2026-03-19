@@ -439,6 +439,11 @@ add_action( 'init', function () {
     add_filter( 'gettext_sfs-hr', function ( $translation, $text ) use ( $map ) {
         return $map[ $text ] ?? $translation;
     }, 10, 2 );
+
+    // Also handle _n() pluralization calls.
+    add_filter( 'ngettext_sfs-hr', function ( $translation ) use ( $map ) {
+        return $map[ $translation ] ?? $translation;
+    }, 10, 1 );
 }, 1 );
 
 /**

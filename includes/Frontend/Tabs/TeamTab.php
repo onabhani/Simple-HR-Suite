@@ -120,7 +120,7 @@ class TeamTab implements TabInterface {
 
         echo '<div class="sfs-section">';
         echo '<h2 class="sfs-section-title" data-i18n-key="my_team">' . esc_html( $title ) . '</h2>';
-        echo '<p class="sfs-section-subtitle">'
+        echo '<p class="sfs-section-subtitle" data-i18n-key="n_members" data-i18n-count="' . (int) $count . '">'
             . esc_html( sprintf( _n( '%d member', '%d members', $count, 'sfs-hr' ), $count ) )
             . '</p>';
         echo '</div>';
@@ -169,7 +169,7 @@ class TeamTab implements TabInterface {
         ];
         foreach ( $statuses as $val => $label ) {
             $sel = ( $val === $selected_status ) ? ' selected' : '';
-            echo '<option value="' . esc_attr( $val ) . '"' . $sel . '>' . esc_html( $label ) . '</option>';
+            echo '<option value="' . esc_attr( $val ) . '"' . $sel . ' data-i18n-key="' . esc_attr( $val ) . '">' . esc_html( $label ) . '</option>';
         }
         echo '</select>';
         echo '</div>';

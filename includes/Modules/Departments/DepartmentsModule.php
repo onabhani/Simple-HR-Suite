@@ -362,19 +362,18 @@ class DepartmentsModule {
                               <button type="submit" class="button button-primary"><?php esc_html_e( 'Save Changes', 'sfs-hr' ); ?></button>
                               <button type="button" class="button" onclick="sfsHrToggleDeptEdit(<?php echo (int) $r['id']; ?>);"><?php esc_html_e( 'Cancel', 'sfs-hr' ); ?></button>
                             </div>
-                            <div class="sfs-hr-dept-form-actions-right">
-                              <?php if ( ! empty( $r['auto_role'] ) ) : ?>
-                                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
-                                  <input type="hidden" name="action" value="sfs_hr_dept_sync" />
-                                  <input type="hidden" name="_wpnonce" value="<?php echo esc_attr( $nonce_sync ); ?>" />
-                                  <input type="hidden" name="id" value="<?php echo (int) $r['id']; ?>" />
-                                  <input type="hidden" name="missing_only" value="1" />
-                                  <button type="submit" class="sfs-hr-dept-action-btn"><?php esc_html_e( 'Sync Members', 'sfs-hr' ); ?></button>
-                                </form>
-                              <?php endif; ?>
-                            </div>
                           </div>
                         </form>
+
+                        <?php if ( ! empty( $r['auto_role'] ) ) : ?>
+                          <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;text-align:right;margin-top:8px;">
+                            <input type="hidden" name="action" value="sfs_hr_dept_sync" />
+                            <input type="hidden" name="_wpnonce" value="<?php echo esc_attr( $nonce_sync ); ?>" />
+                            <input type="hidden" name="id" value="<?php echo (int) $r['id']; ?>" />
+                            <input type="hidden" name="missing_only" value="1" />
+                            <button type="submit" class="sfs-hr-dept-action-btn"><?php esc_html_e( 'Sync Members', 'sfs-hr' ); ?></button>
+                          </form>
+                        <?php endif; ?>
 
                         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Delete this department?', 'sfs-hr' ) ); ?>');" style="margin-top: 10px; text-align: right;">
                           <input type="hidden" name="action" value="sfs_hr_dept_del" />

@@ -818,6 +818,7 @@ wp_enqueue_script('wp-api');
     invalid_action_try_different: <?php echo wp_json_encode( __( 'Invalid action now. Try a different punch type.', 'sfs-hr' ) ); ?>,
     punch_failed_prefix: <?php echo wp_json_encode( __( 'Punch failed:', 'sfs-hr' ) ); ?>,
     unknown_error: <?php echo wp_json_encode( __( 'Unknown error', 'sfs-hr' ) ); ?>,
+    no_camera: <?php echo wp_json_encode( __( 'No Camera', 'sfs-hr' ) ); ?>,
     no_camera_found: <?php echo wp_json_encode( __( 'No camera found on this device.', 'sfs-hr' ) ); ?>,
     no_camera_api: <?php echo wp_json_encode( __( 'No camera API available.', 'sfs-hr' ) ); ?>,
     loading_qr_engine: <?php echo wp_json_encode( __( 'Loading QR engine…', 'sfs-hr' ) ); ?>,

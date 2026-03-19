@@ -2385,6 +2385,15 @@ class Shortcodes {
                 container.querySelectorAll('[data-i18n-key]').forEach(function(el) {
                     var key = el.dataset.i18nKey;
                     if (key && strings[key]) {
+                        var text = strings[key];
+                        // Handle %d substitution when data-i18n-count is present
+                        if (el.dataset.i18nCount) {
+                            text = text.replace('%d', el.dataset.i18nCount);
+                        }
+                        // Handle prefix pattern: "{number} {word}" (e.g. "62 days")
+                        if (el.dataset.i18nPrefix) {
+                            text = el.dataset.i18nPrefix + ' ' + text;
+                        }
                         // Handle <option> elements inside <select> (document type dropdown, etc.)
                         if (el.tagName === 'OPTION') {
                             var reason = el.dataset.reason || '';
@@ -2394,7 +2403,7 @@ class Shortcodes {
                             } else if (reason === 'update_requested' && strings['update_requested_by_hr']) {
                                 hint = ' (' + strings['update_requested_by_hr'] + ')';
                             }
-                            el.textContent = strings[key] + hint;
+                            el.textContent = text + hint;
                         }
                         // Handle elements with child nodes (e.g. buttons with SVG icons)
                         else if (el.querySelector('*') && !el.classList.contains('sfs-hr-missing-field')) {
@@ -2403,17 +2412,17 @@ class Shortcodes {
                             var replaced = false;
                             for (var i = 0; i < childNodes.length; i++) {
                                 if (childNodes[i].nodeType === 3 && childNodes[i].textContent.trim()) {
-                                    childNodes[i].textContent = strings[key];
+                                    childNodes[i].textContent = text;
                                     replaced = true;
                                     break;
                                 }
                             }
                             if (!replaced) {
-                                el.appendChild(document.createTextNode(strings[key]));
+                                el.appendChild(document.createTextNode(text));
                             }
                         }
                         else {
-                            el.textContent = strings[key];
+                            el.textContent = text;
                         }
                     }
                 });
@@ -2461,6 +2470,71 @@ class Shortcodes {
                         greetingName.textContent = greetingName.dataset.nameAr;
                     } else {
                         greetingName.textContent = greetingName.dataset.nameEn;
+                    }
+                }
+
+                // Format hero date locale-aware
+                var heroDate = container.querySelector('.sfs-overview-hero-date[data-date-iso]');
+                if (heroDate) {
+                    var currLang2 = (typeof lang !== 'undefined' && lang) ? lang : (localStorage.getItem('sfs_hr_lang') || 'en');
+                    var localeMap = {ar:'ar-SA',ur:'ur-PK',fil:'fil-PH',en:'en-US'};
+                    var loc = localeMap[currLang2] || 'en-US';
+                    try {
+                        var d = new Date(heroDate.dataset.dateIso + 'T12:00:00');
+                        heroDate.textContent = d.toLocaleDateString(loc, {weekday:'long',day:'numeric',month:'short',year:'numeric'});
+                    } catch(e) {}
+                }
+
+                // Format dashboard date locale-aware
+                container.querySelectorAll('.sfs-dashboard-date[data-date-iso]').forEach(function(el) {
+                    var currLangD = (typeof lang !== 'undefined' && lang) ? lang : (localStorage.getItem('sfs_hr_lang') || 'en');
+                    var localeMapD = {ar:'ar-SA',ur:'ur-PK',fil:'fil-PH',en:'en-US'};
+                    var locD = localeMapD[currLangD] || 'en-US';
+                    try {
+                        var dd = new Date(el.dataset.dateIso + 'T12:00:00');
+                        el.textContent = dd.toLocaleDateString(locD, {weekday:'long',month:'long',day:'numeric',year:'numeric'});
+                    } catch(e) {}
+                });
+
+                // Format date ranges locale-aware (team attendance)
+                container.querySelectorAll('[data-date-range-start]').forEach(function(el) {
+                    var currLangR = (typeof lang !== 'undefined' && lang) ? lang : (localStorage.getItem('sfs_hr_lang') || 'en');
+                    var localeMapR = {ar:'ar-SA',ur:'ur-PK',fil:'fil-PH',en:'en-US'};
+                    var locR = localeMapR[currLangR] || 'en-US';
+                    try {
+                        var ds = new Date(el.dataset.dateRangeStart + 'T12:00:00');
+                        var de = new Date(el.dataset.dateRangeEnd + 'T12:00:00');
+                        var fs = ds.toLocaleDateString(locR, {month:'short',day:'numeric'});
+                        var fe = de.toLocaleDateString(locR, {month:'short',day:'numeric',year:'numeric'});
+                        el.textContent = fs + ' – ' + fe;
+                    } catch(e) {}
+                });
+
+                // Format sick leave reminder dates locale-aware
+                container.querySelectorAll('[data-sick-dates]').forEach(function(el) {
+                    var currLang3 = (typeof lang !== 'undefined' && lang) ? lang : (localStorage.getItem('sfs_hr_lang') || 'en');
+                    var localeMap2 = {ar:'ar-SA',ur:'ur-PK',fil:'fil-PH',en:'en-US'};
+                    var loc2 = localeMap2[currLang3] || 'en-US';
+                    var tplKey = 'you_were_marked_absent_on_s_without_a_leave_request_do_you_h';
+                    var tpl = strings[tplKey];
+                    if (!tpl) return;
+                    try {
+                        var rawDates = JSON.parse(el.dataset.sickDates);
+                        var formatted = rawDates.map(function(ds) {
+                            var dt = new Date(ds + 'T12:00:00');
+                            return dt.toLocaleDateString(loc2, {month:'short',day:'numeric'});
+                        });
+                        var joined = '<strong>' + formatted.join(', ') + '</strong>';
+                        el.innerHTML = tpl.replace('%s', joined);
+                    } catch(e) {}
+                });
+
+                // Update working time abbreviations
+                var wEl = document.getElementById('sfs-hero-working');
+                if (wEl && wEl.textContent.match(/\d+[a-zA-Zء-ي]+\s+\d+[a-zA-Zء-ي]+/)) {
+                    var parts = wEl.textContent.match(/(\d+)[^\d]+(\d+)/);
+                    if (parts) {
+                        wEl.textContent = parts[1] + (strings.hour_short || 'h') + ' ' + parts[2] + (strings.minute_short || 'm');
                     }
                 }
             }
