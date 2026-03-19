@@ -406,6 +406,7 @@ class OverviewTab implements TabInterface {
 
         // ── 1. Unified Hero Card ─────────────────────────────────
         $today_display = wp_date( 'l, j M Y' );
+        $today_iso     = wp_date( 'Y-m-d' );
         $name_ar       = trim( $first_name_ar . ' ' . ( $emp['last_name_ar'] ?? '' ) ) ?: $full_name;
 
         echo '<div class="sfs-overview-hero">';
@@ -433,7 +434,7 @@ class OverviewTab implements TabInterface {
         echo '<div class="sfs-overview-hero-text">';
         echo '<span class="sfs-overview-greeting-label" data-i18n-key="' . esc_attr( $greeting_key ) . '">' . esc_html( $greeting ) . '</span>';
         echo '<h2 class="sfs-overview-greeting-name" data-name-en="' . esc_attr( $full_name ) . '" data-name-ar="' . esc_attr( $name_ar ) . '">' . esc_html( $full_name ) . '</h2>';
-        echo '<span class="sfs-overview-hero-date">' . esc_html( $today_display ) . '</span>';
+        echo '<span class="sfs-overview-hero-date" data-date-iso="' . esc_attr( $today_iso ) . '">' . esc_html( $today_display ) . '</span>';
         echo '</div>';
 
         // Attendance button (only if allowed)
@@ -492,7 +493,8 @@ class OverviewTab implements TabInterface {
             echo 'var wEl=document.getElementById("sfs-hero-working");';
             echo 'if(wEl&&typeof d.working_seconds==="number"){';
             echo 'var s=d.working_seconds,h=Math.floor(s/3600),m=Math.floor((s%3600)/60);';
-            echo 'wEl.textContent=h+"h "+m+"m";';
+            echo 'var _s=window._sfsStrings||{};';
+            echo 'wEl.textContent=h+(_s.hour_short||"h")+" "+m+(_s.minute_short||"m");';
             echo '}';
             echo '}';
             echo '}).catch(function(){});';

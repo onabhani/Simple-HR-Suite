@@ -732,6 +732,7 @@ window.sfsAttI18n = window.sfsAttI18n || {
     // Off-day / stale session
     day_off: '<?php echo esc_js( __( 'Day Off', 'sfs-hr' ) ); ?>',
     stale_session_contact_hr: '<?php echo esc_js( __( 'Your previous shift was not closed. Please contact HR.', 'sfs-hr' ) ); ?>',
+    stale_session_note: '<?php echo esc_js( __( 'Note: a previous shift was not closed and is marked incomplete.', 'sfs-hr' ) ); ?>',
     // Punch validation messages
     invalid_action: '<?php echo esc_js( __( 'Invalid action.', 'sfs-hr' ) ); ?>',
     end_break_first: '<?php echo esc_js( __( 'You are on break. End the break before clocking out.', 'sfs-hr' ) ); ?>',
@@ -781,7 +782,7 @@ window.sfsAttI18n = window.sfsAttI18n || {
                 'clock_in', 'clock_out', 'start_break', 'end_break', 'break_start', 'break_end',
                 'please_wait', 'seconds_short',
                 'no_activity_yet', 'hours_worked', 'todays_activity', 'locate_me',
-                'day_off', 'stale_session_contact_hr'];
+                'day_off', 'stale_session_contact_hr', 'stale_session_note', 'target_word'];
 
             keys.forEach(function(key) {
                 if (strings[key]) {
@@ -1374,7 +1375,7 @@ setInterval(tickClock, 1000);
                     // Stale session: the backend already returns the correct
                     // allow flags (in=true, out=false) so we just show the
                     // informational message without overriding button state.
-                    setStat(j.stale_session_msg, 'warning');
+                    setStat(i18n.stale_session_note || j.stale_session_msg, 'warning');
                     hint && (hint.textContent = '');
                     if (progressWrap) progressWrap.style.display = '';
                 } else {

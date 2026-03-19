@@ -148,7 +148,7 @@ class ApprovalsTab implements TabInterface {
     private function render_header( int $total ): void {
         echo '<div class="sfs-section">';
         echo '<h2 class="sfs-section-title" data-i18n-key="pending_approvals">' . esc_html__( 'Pending Approvals', 'sfs-hr' ) . '</h2>';
-        echo '<p class="sfs-section-subtitle">'
+        echo '<p class="sfs-section-subtitle" data-i18n-key="n_items_pending" data-i18n-count="' . (int) $total . '">'
             . esc_html( sprintf( _n( '%d item pending', '%d items pending', $total, 'sfs-hr' ), $total ) )
             . '</p>';
         echo '</div>';
@@ -228,7 +228,7 @@ class ApprovalsTab implements TabInterface {
             echo '</div>';
             echo '<div>';
             echo '<div style="font-size:14px;font-weight:600;color:var(--sfs-text);">' . $period . '</div>';
-            echo '<div style="font-size:12px;color:var(--sfs-text-muted);">' . $days . ' ' . esc_html( _n( 'day', 'days', $days, 'sfs-hr' ) ) . '</div>';
+            echo '<div style="font-size:12px;color:var(--sfs-text-muted);"><span data-i18n-prefix="' . (int) $days . '" data-i18n-key="days">' . $days . ' ' . esc_html( _n( 'day', 'days', $days, 'sfs-hr' ) ) . '</span></div>';
             echo '</div>';
             echo '</div>';
             if ( $req_num ) {

@@ -112,7 +112,7 @@ class EmployeesTab implements TabInterface {
     private function render_header( int $total, array $stats ): void {
         echo '<div class="sfs-section">';
         echo '<h2 class="sfs-section-title" data-i18n-key="employee_directory">' . esc_html__( 'Employee Directory', 'sfs-hr' ) . '</h2>';
-        echo '<p class="sfs-section-subtitle">' . esc_html( sprintf( __( '%d employees found', 'sfs-hr' ), $total ) ) . '</p>';
+        echo '<p class="sfs-section-subtitle" data-i18n-key="employees_found_fmt" data-i18n-count="' . (int) $total . '">' . esc_html( sprintf( __( '%d employees found', 'sfs-hr' ), $total ) ) . '</p>';
         echo '</div>';
 
         $active     = $stats['active'] ?? 0;
@@ -151,7 +151,7 @@ class EmployeesTab implements TabInterface {
         // Search.
         echo '<div class="sfs-form-group" style="flex:2;min-width:180px;margin:0;">';
         echo '<label class="sfs-form-label" style="font-size:12px;margin-bottom:4px;" data-i18n-key="search">' . esc_html__( 'Search', 'sfs-hr' ) . '</label>';
-        echo '<input type="text" name="emp_search" class="sfs-input" style="padding:8px 10px;font-size:13px;" placeholder="' . esc_attr__( 'Name, code, or email...', 'sfs-hr' ) . '" value="' . esc_attr( $search ) . '" />';
+        echo '<input type="text" name="emp_search" class="sfs-input" style="padding:8px 10px;font-size:13px;" placeholder="' . esc_attr__( 'Name, code, or email...', 'sfs-hr' ) . '" data-i18n-placeholder="search_placeholder" value="' . esc_attr( $search ) . '" />';
         echo '</div>';
 
         // Department.
@@ -178,7 +178,7 @@ class EmployeesTab implements TabInterface {
         ];
         foreach ( $statuses as $val => $label ) {
             $sel = ( $val === $status ) ? ' selected' : '';
-            echo '<option value="' . esc_attr( $val ) . '"' . $sel . '>' . esc_html( $label ) . '</option>';
+            echo '<option value="' . esc_attr( $val ) . '"' . $sel . ' data-i18n-key="' . esc_attr( $val ) . '">' . esc_html( $label ) . '</option>';
         }
         echo '</select>';
         echo '</div>';

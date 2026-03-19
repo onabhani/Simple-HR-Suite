@@ -138,7 +138,7 @@ class TeamAttendanceTab implements TabInterface {
     private function render_header( string $start, string $end ): void {
         echo '<div class="sfs-section">';
         echo '<h2 class="sfs-section-title" data-i18n-key="team_attendance">' . esc_html__( 'Team Attendance', 'sfs-hr' ) . '</h2>';
-        echo '<p class="sfs-section-subtitle">'
+        echo '<p class="sfs-section-subtitle" data-date-range-start="' . esc_attr( $start ) . '" data-date-range-end="' . esc_attr( $end ) . '">'
             . esc_html( wp_date( 'M j', strtotime( $start ) ) . ' – ' . wp_date( 'M j, Y', strtotime( $end ) ) )
             . '</p>';
         echo '</div>';

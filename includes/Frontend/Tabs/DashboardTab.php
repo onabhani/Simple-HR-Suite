@@ -308,9 +308,9 @@ class DashboardTab implements TabInterface {
         echo '<div class="sfs-section">';
         echo '<h2 class="sfs-section-title" data-i18n-key="attendance_dashboard">' . esc_html__( 'Attendance Dashboard', 'sfs-hr' ) . '</h2>';
         echo '<p class="sfs-section-subtitle">'
-            . esc_html( wp_date( 'l, F j, Y', strtotime( $today ) ) )
+            . '<span class="sfs-dashboard-date" data-date-iso="' . esc_attr( $today ) . '">' . esc_html( wp_date( 'l, F j, Y', strtotime( $today ) ) ) . '</span>'
             . ' &middot; '
-            . esc_html( sprintf( __( '%d active employees', 'sfs-hr' ), $total ) )
+            . '<span data-i18n-key="active_employees_count" data-i18n-count="' . (int) $total . '">' . esc_html( sprintf( __( '%d active employees', 'sfs-hr' ), $total ) ) . '</span>'
             . '</p>';
         echo '</div>';
     }
