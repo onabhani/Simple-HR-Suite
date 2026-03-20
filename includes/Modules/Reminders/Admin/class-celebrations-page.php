@@ -23,7 +23,7 @@ class Celebrations_Page {
      */
     public function add_menu(): void {
         add_submenu_page(
-            null,
+            '',
             __('Upcoming Celebrations', 'sfs-hr'),
             __('Celebrations', 'sfs-hr'),
             'sfs_hr.view',
