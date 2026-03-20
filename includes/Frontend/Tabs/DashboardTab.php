@@ -310,7 +310,7 @@ class DashboardTab implements TabInterface {
         echo '<p class="sfs-section-subtitle">'
             . '<span class="sfs-dashboard-date" data-date-iso="' . esc_attr( $today ) . '">' . esc_html( wp_date( 'l, F j, Y', strtotime( $today ) ) ) . '</span>'
             . ' &middot; '
-            . '<span data-i18n-key="active_employees_count" data-i18n-count="' . (int) $total . '">' . esc_html( sprintf( __( '%d active employees', 'sfs-hr' ), $total ) ) . '</span>'
+            . '<span data-i18n-key="active_employees_count" data-i18n-count="' . (int) $total . '">' . esc_html( sprintf( _n( '%d active employee', '%d active employees', $total, 'sfs-hr' ), $total ) ) . '</span>'
             . '</p>';
         echo '</div>';
     }

@@ -2273,7 +2273,7 @@ class Shortcodes {
                 });
 
                 // Translate form labels and buttons
-                translateFormElements(pwaApp, langStrings);
+                translateFormElements(pwaApp, langStrings, lang);
 
                 // Expose current translations globally for inline JS (calculator, AJAX scripts)
                 window._sfsStrings = langStrings;
@@ -2282,7 +2282,7 @@ class Shortcodes {
                 document.dispatchEvent(new CustomEvent('sfs-hr-language-changed', { detail: { lang: lang } }));
             }
 
-            function translateFormElements(container, strings) {
+            function translateFormElements(container, strings, lang) {
                 // Map of English text to translation keys
                 var textMap = {
                     // Leave form
@@ -2473,48 +2473,46 @@ class Shortcodes {
                     }
                 }
 
+                // Shared locale resolution for date formatting blocks
+                var LOCALE_MAP = {ar:'ar-SA',ur:'ur-PK',fil:'fil-PH',en:'en-US'};
+                var currentLocale = LOCALE_MAP[lang || localStorage.getItem('sfs_hr_lang') || 'en'] || 'en-US';
+
                 // Format hero date locale-aware
                 var heroDate = container.querySelector('.sfs-overview-hero-date[data-date-iso]');
                 if (heroDate) {
-                    var currLang2 = (typeof lang !== 'undefined' && lang) ? lang : (localStorage.getItem('sfs_hr_lang') || 'en');
-                    var localeMap = {ar:'ar-SA',ur:'ur-PK',fil:'fil-PH',en:'en-US'};
-                    var loc = localeMap[currLang2] || 'en-US';
                     try {
                         var d = new Date(heroDate.dataset.dateIso + 'T12:00:00');
-                        heroDate.textContent = d.toLocaleDateString(loc, {weekday:'long',day:'numeric',month:'short',year:'numeric'});
-                    } catch(e) {}
+                        heroDate.textContent = d.toLocaleDateString(currentLocale, {weekday:'long',day:'numeric',month:'short',year:'numeric'});
+                    } catch(e) {
+                        console.error('Hero date formatting failed:', e);
+                    }
                 }
 
                 // Format dashboard date locale-aware
                 container.querySelectorAll('.sfs-dashboard-date[data-date-iso]').forEach(function(el) {
-                    var currLangD = (typeof lang !== 'undefined' && lang) ? lang : (localStorage.getItem('sfs_hr_lang') || 'en');
-                    var localeMapD = {ar:'ar-SA',ur:'ur-PK',fil:'fil-PH',en:'en-US'};
-                    var locD = localeMapD[currLangD] || 'en-US';
                     try {
                         var dd = new Date(el.dataset.dateIso + 'T12:00:00');
-                        el.textContent = dd.toLocaleDateString(locD, {weekday:'long',month:'long',day:'numeric',year:'numeric'});
-                    } catch(e) {}
+                        el.textContent = dd.toLocaleDateString(currentLocale, {weekday:'long',month:'long',day:'numeric',year:'numeric'});
+                    } catch(e) {
+                        console.error('Dashboard date formatting failed:', e);
+                    }
                 });
 
                 // Format date ranges locale-aware (team attendance)
                 container.querySelectorAll('[data-date-range-start]').forEach(function(el) {
-                    var currLangR = (typeof lang !== 'undefined' && lang) ? lang : (localStorage.getItem('sfs_hr_lang') || 'en');
-                    var localeMapR = {ar:'ar-SA',ur:'ur-PK',fil:'fil-PH',en:'en-US'};
-                    var locR = localeMapR[currLangR] || 'en-US';
                     try {
                         var ds = new Date(el.dataset.dateRangeStart + 'T12:00:00');
                         var de = new Date(el.dataset.dateRangeEnd + 'T12:00:00');
-                        var fs = ds.toLocaleDateString(locR, {month:'short',day:'numeric'});
-                        var fe = de.toLocaleDateString(locR, {month:'short',day:'numeric',year:'numeric'});
+                        var fs = ds.toLocaleDateString(currentLocale, {month:'short',day:'numeric'});
+                        var fe = de.toLocaleDateString(currentLocale, {month:'short',day:'numeric',year:'numeric'});
                         el.textContent = fs + ' – ' + fe;
-                    } catch(e) {}
+                    } catch(e) {
+                        console.error('Date range formatting failed:', e);
+                    }
                 });
 
                 // Format sick leave reminder dates locale-aware
                 container.querySelectorAll('[data-sick-dates]').forEach(function(el) {
-                    var currLang3 = (typeof lang !== 'undefined' && lang) ? lang : (localStorage.getItem('sfs_hr_lang') || 'en');
-                    var localeMap2 = {ar:'ar-SA',ur:'ur-PK',fil:'fil-PH',en:'en-US'};
-                    var loc2 = localeMap2[currLang3] || 'en-US';
                     var tplKey = 'you_were_marked_absent_on_s_without_a_leave_request_do_you_h';
                     var tpl = strings[tplKey];
                     if (!tpl) return;
@@ -2522,14 +2520,20 @@ class Shortcodes {
                         var rawDates = JSON.parse(el.dataset.sickDates);
                         var formatted = rawDates.map(function(ds) {
                             var dt = new Date(ds + 'T12:00:00');
-                            return dt.toLocaleDateString(loc2, {month:'short',day:'numeric'});
+                            return dt.toLocaleDateString(currentLocale, {month:'short',day:'numeric'});
                         });
                         var joined = '<strong>' + formatted.join(', ') + '</strong>';
                         el.innerHTML = tpl.replace('%s', joined);
-                    } catch(e) {}
+                    } catch(e) {
+                        console.error('Sick dates formatting failed:', e);
+                    }
                 });
 
                 // Update working time abbreviations
+                // Expects format "digits+unit space digits+unit" (e.g. "5h 30m" or Arabic "٥س ٣٠د").
+                // Parses two numeric groups via match(/(\d+)[^\d]+(\d+)/) into parts[1] (hours)
+                // and parts[2] (minutes), then replaces unit suffixes with translated hour_short/minute_short.
+                // If server-side rendering changes this pattern, update the regex here accordingly.
                 var wEl = document.getElementById('sfs-hero-working');
                 if (wEl && wEl.textContent.match(/\d+[a-zA-Zء-ي]+\s+\d+[a-zA-Zء-ي]+/)) {
                     var parts = wEl.textContent.match(/(\d+)[^\d]+(\d+)/);
