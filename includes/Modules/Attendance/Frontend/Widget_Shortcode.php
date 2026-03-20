@@ -1003,6 +1003,7 @@ window.sfsAttI18n = window.sfsAttI18n || {
         let punchInProgress = false; // Prevent duplicate submissions
         let lastRefreshAt  = 0;      // timestamp of last successful refresh
         let cachedGeo      = null;   // { lat, lng, acc, ts }
+        let hasStaleSession = false; // tracks stale-session state for i18n re-render
 
         // Flash + tone feedback
         const flashEl = document.getElementById('sfs-att-flash-<?php echo esc_js( $inst ); ?>');
@@ -1368,6 +1369,7 @@ setInterval(tickClock, 1000);
 
                 // --- Off-day / stale session messaging ---
                 if (j.is_off_day) {
+                    hasStaleSession = false;
                     setStat(i18n.day_off || 'Day Off', 'off_day');
                     hint && (hint.textContent = '');
                     if (progressWrap) progressWrap.style.display = 'none';
@@ -1375,10 +1377,12 @@ setInterval(tickClock, 1000);
                     // Stale session: the backend already returns the correct
                     // allow flags (in=true, out=false) so we just show the
                     // informational message without overriding button state.
+                    hasStaleSession = true;
                     setStat(i18n.stale_session_note || j.stale_session_msg, 'warning');
                     hint && (hint.textContent = '');
                     if (progressWrap) progressWrap.style.display = '';
                 } else {
+                    hasStaleSession = false;
                     // If ALL state-allowed actions are method-blocked, show why
                     var blockedMsg = null;
                     var allAllowedBlocked = true;
@@ -1871,6 +1875,10 @@ setInterval(tickClock, 1000);
                     var key = btn.dataset.i18nKey;
                     if (key && i18n[key]) btn.textContent = i18n[key];
                 });
+            }
+            // Re-apply stale session warning with updated translation
+            if (hasStaleSession) {
+                setStat(i18n.stale_session_note, 'warning');
             }
             // Re-render date in new locale
             if (typeof tickDate === 'function') tickDate();

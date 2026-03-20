@@ -20,7 +20,7 @@ class My_Profile_Page {
 
     public function menu(): void {
         add_submenu_page(
-            null,
+            '',
             __( 'My Profile', 'sfs-hr' ),
             __( 'My Profile', 'sfs-hr' ),
             'read',                         // any logged-in user
