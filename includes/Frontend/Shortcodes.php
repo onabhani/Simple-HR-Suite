@@ -2273,7 +2273,7 @@ class Shortcodes {
                 });
 
                 // Translate form labels and buttons
-                translateFormElements(pwaApp, langStrings);
+                translateFormElements(pwaApp, langStrings, lang);
 
                 // Expose current translations globally for inline JS (calculator, AJAX scripts)
                 window._sfsStrings = langStrings;
@@ -2282,7 +2282,7 @@ class Shortcodes {
                 document.dispatchEvent(new CustomEvent('sfs-hr-language-changed', { detail: { lang: lang } }));
             }
 
-            function translateFormElements(container, strings) {
+            function translateFormElements(container, strings, lang) {
                 // Map of English text to translation keys
                 var textMap = {
                     // Leave form
@@ -2475,7 +2475,7 @@ class Shortcodes {
 
                 // Shared locale resolution for date formatting blocks
                 var LOCALE_MAP = {ar:'ar-SA',ur:'ur-PK',fil:'fil-PH',en:'en-US'};
-                var currentLocale = LOCALE_MAP[(typeof lang !== 'undefined' && lang) ? lang : (localStorage.getItem('sfs_hr_lang') || 'en')] || 'en-US';
+                var currentLocale = LOCALE_MAP[lang || localStorage.getItem('sfs_hr_lang') || 'en'] || 'en-US';
 
                 // Format hero date locale-aware
                 var heroDate = container.querySelector('.sfs-overview-hero-date[data-date-iso]');
