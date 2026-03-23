@@ -3939,5 +3939,8 @@
     "elr_approved": "ELR Approved",
     "elr_approved_hint": "Notify employee when their early leave request is approved.",
     "elr_rejected": "ELR Rejected",
-    "elr_rejected_hint": "Notify employee when their early leave request is rejected."
+    "elr_rejected_hint": "Notify employee when their early leave request is rejected.",
+    "1_day_off": "1 day off",
+    "x_days_off": "%d days off",
+    "this_holiday_repeats_every_year": "This holiday repeats every year."
 }
