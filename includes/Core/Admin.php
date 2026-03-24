@@ -2315,6 +2315,7 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
     border: none;
     border-radius: 6px;
     margin: 0;
+    overflow: visible;
   }
   .sfs-hr-emp-table .widefat th {
     background: #f8f9fa;
@@ -2328,6 +2329,12 @@ private function render_analytics_section( $wpdb, string $emp_t, string $dept_t,
   .sfs-hr-emp-table .widefat td {
     padding: 12px 16px;
     vertical-align: middle;
+  }
+  .sfs-hr-emp-table .widefat thead,
+  .sfs-hr-emp-table .widefat tbody,
+  .sfs-hr-emp-table .widefat tr,
+  .sfs-hr-emp-table .widefat td {
+    overflow: visible;
   }
   .sfs-hr-emp-table .widefat tbody tr:hover {
     background: #f8f9fa;

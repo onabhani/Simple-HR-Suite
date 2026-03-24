@@ -1062,8 +1062,10 @@ if ( $punch_id === 0 ) {
     );
 }
 
-// Flush object cache so the subsequent status query sees the new punch
-wp_cache_flush();
+// No cache flush needed: subsequent status queries use fresh $wpdb calls
+// which bypass the object cache. A full wp_cache_flush() here was
+// destroying the entire WP object cache on every punch, slowing down
+// all subsequent requests site-wide.
 
     // ---- Audit (insert before attachment meta so rollback is clean)
     $auditT = $wpdb->prefix . 'sfs_hr_attendance_audit';

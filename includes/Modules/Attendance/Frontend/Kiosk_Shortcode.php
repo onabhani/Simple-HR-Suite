@@ -1420,6 +1420,11 @@ async function handleQrFound(raw) {
     // Track employee ID for offline queueing in attemptPunch()
     scannedEmpId = parseInt(emp, 10) || null;
 
+    // Start selfie capture early (runs in parallel with scan request)
+    // This shaves ~50-150ms off total flow since canvas+toBlob happens
+    // while we wait for the network scan response.
+    const earlySelfiePromise = captureSelfieFromQrVideo();
+
     // --- Hit /attendance/scan to mint/use a short-lived scan_token
     // If the server is unreachable and offline mode is enabled, fall back
     // to validating the QR against the cached employee roster.
@@ -1428,10 +1433,13 @@ async function handleQrFound(raw) {
     let offlineEmpRecord = null;
 
     try {
+      // Cache-bust: append unique timestamp to prevent browser/CDN caching stale scan tokens
+      url.searchParams.set('_ts', String(Date.now()));
       resp = await fetch(url.toString(), {
         method: 'GET',
         credentials: 'same-origin',
         headers: { 'Accept': 'application/json', 'X-WP-Nonce': nonce },
+        cache: 'no-store',
       });
       text = await resp.text();
     } catch (e) {
@@ -1553,8 +1561,8 @@ async function handleQrFound(raw) {
         if (qrStat) qrStat.textContent = requiresSelfie ? '1/2 ' + (t.capturing_photo||'Capturing photo…') : '1/1 ' + (t.recording_punch||'Recording punch…');
     }
 
-    // 2) Capture selfie frame (if needed)
-    const selfieBlob = await captureSelfieFromQrVideo();
+    // 2) Await the selfie frame started earlier (already captured in parallel with scan)
+    const selfieBlob = await earlySelfiePromise;
 
     if (requiresSelfie && !selfieBlob) {
       manualSelfieMode = true;
