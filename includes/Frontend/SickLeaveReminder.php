@@ -16,6 +16,7 @@ namespace SFS\HR\Frontend;
 
 use SFS\HR\Core\Helpers;
 use SFS\HR\Core\Notifications;
+use SFS\HR\Modules\Attendance\Services\Shift_Service;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -110,6 +111,11 @@ class SickLeaveReminder {
             }
             $key = $emp_id . ':' . $d;
             if ( isset( $dismissed_set[ $key ] ) ) {
+                continue;
+            }
+            // Don't flag a date until at least 60 minutes after the last shift ends,
+            // so employees aren't notified before their workday is actually over.
+            if ( self::is_too_early_to_flag( $emp_id, $d ) ) {
                 continue;
             }
             $uncovered[] = $d;
@@ -272,6 +278,51 @@ class SickLeaveReminder {
                 echo '}</script>';
             }
         }
+    }
+
+    /**
+     * Check whether it's too early to flag a date as an unexcused absence.
+     *
+     * Returns true if the employee's last shift on $date hasn't ended yet
+     * (plus a 60-minute grace buffer).  For past dates where no shift can be
+     * resolved, returns false so the date is still flagged.
+     *
+     * @param int    $emp_id Employee ID.
+     * @param string $date   Date in Y-m-d format.
+     */
+    private static function is_too_early_to_flag( int $emp_id, string $date ): bool {
+        $now_local = current_time( 'Y-m-d H:i:s' );
+        $today     = current_time( 'Y-m-d' );
+
+        // Past dates are never "too early".
+        if ( $date < $today ) {
+            return false;
+        }
+
+        // Resolve the employee's shift for this date.
+        $shift = Shift_Service::resolve_shift_for_date( $emp_id, $date );
+
+        if ( ! $shift || empty( $shift->end_time ) ) {
+            // No shift found — use end-of-day (23:59) + 60 min as a safe default.
+            $cutoff = $date . ' 23:59:00';
+        } else {
+            $tz       = wp_timezone();
+            $end_time = $shift->end_time; // e.g. '17:00:00'
+            $end_dt   = new \DateTimeImmutable( $date . ' ' . $end_time, $tz );
+
+            // Handle overnight shifts: end_time < start_time means shift ends next day.
+            if ( ! empty( $shift->start_time ) && $end_time < $shift->start_time ) {
+                $end_dt = $end_dt->modify( '+1 day' );
+            }
+
+            $cutoff = $end_dt->format( 'Y-m-d H:i:s' );
+        }
+
+        // Add 60-minute grace period after shift end.
+        $cutoff_ts = strtotime( $cutoff ) + 3600;
+        $now_ts    = strtotime( $now_local );
+
+        return $now_ts < $cutoff_ts;
     }
 
     /**
