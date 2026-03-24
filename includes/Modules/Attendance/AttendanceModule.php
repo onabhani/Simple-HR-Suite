@@ -85,6 +85,10 @@ class AttendanceModule {
 
         add_shortcode('sfs_hr_attendance_widget', [ $this, 'shortcode_widget' ]);
 
+        // Ensure Permissions-Policy allows geolocation for attendance pages.
+        // Cloudflare or server-level headers may block geolocation silently.
+        add_filter( 'wp_headers', [ $this, 'allow_geolocation_header' ] );
+
         // Auto-reject early leave requests after 72 hours of no action
         ( new \SFS\HR\Modules\Attendance\Cron\Early_Leave_Auto_Reject() )->hooks();
 
@@ -96,10 +100,29 @@ class AttendanceModule {
     }
 
     /**
+     * Add Permissions-Policy header allowing geolocation on attendance pages.
+     *
+     * Cloudflare (especially Full Strict SSL) may send a restrictive
+     * Permissions-Policy that silently blocks navigator.geolocation.
+     */
+    public function allow_geolocation_header( array $headers ): array {
+        // Only add on front-end pages that contain our shortcodes
+        global $post;
+        if ( $post && (
+            has_shortcode( $post->post_content, 'sfs_hr_attendance_widget' ) ||
+            has_shortcode( $post->post_content, 'sfs_hr_kiosk' )
+        ) ) {
+            $headers['Permissions-Policy'] = 'geolocation=(self)';
+        }
+        return $headers;
+    }
+
+    /**
      * Minimal employee widget (shortcode) with nonce + REST calls.
      * Place on a page restricted to logged-in employees.
      */
     public function shortcode_widget( $atts = [] ): string {
+        self::send_geolocation_header();
         return Frontend\Widget_Shortcode::render( (array) $atts );
     }
 
@@ -107,7 +130,18 @@ class AttendanceModule {
      * Kiosk Widget
      */
     public function shortcode_kiosk( $atts = [] ): string {
+        self::send_geolocation_header();
         return Frontend\Kiosk_Shortcode::render( $atts );
+    }
+
+    /**
+     * Send Permissions-Policy header allowing geolocation.
+     * Called from shortcode callbacks as a fallback in case wp_headers didn't fire.
+     */
+    private static function send_geolocation_header(): void {
+        if ( ! headers_sent() ) {
+            header( 'Permissions-Policy: geolocation=(self)', true );
+        }
     }
 
     /**
