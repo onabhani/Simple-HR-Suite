@@ -1265,14 +1265,6 @@ let inflight = false;
 
 
 // Short beep on success (no <audio> tag needed)
-// Shared AudioContext — reused across punches to avoid resource accumulation
-let _sharedAudioCtx = null;
-function getAudioCtx(){
-  if (!_sharedAudioCtx || _sharedAudioCtx.state === 'closed') {
-    _sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  return _sharedAudioCtx;
-}
 async function playActionTone(kind){
   const freq = { in: 920, out: 420, break_start: 680, break_end: 560 }[kind] || 750;
   try {
