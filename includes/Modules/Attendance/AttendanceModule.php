@@ -112,7 +112,9 @@ class AttendanceModule {
             has_shortcode( $post->post_content, 'sfs_hr_attendance_widget' ) ||
             has_shortcode( $post->post_content, 'sfs_hr_kiosk' )
         ) ) {
-            $headers['Permissions-Policy'] = 'geolocation=(self)';
+            $headers['Permissions-Policy'] = self::merge_geolocation_directive(
+                $headers['Permissions-Policy'] ?? ''
+            );
         }
         return $headers;
     }
@@ -139,9 +141,43 @@ class AttendanceModule {
      * Called from shortcode callbacks as a fallback in case wp_headers didn't fire.
      */
     private static function send_geolocation_header(): void {
-        if ( ! headers_sent() ) {
-            header( 'Permissions-Policy: geolocation=(self)', true );
+        if ( headers_sent() ) {
+            return;
         }
+        // Read any existing Permissions-Policy header so we only replace the
+        // geolocation directive instead of discarding other directives.
+        $existing = '';
+        foreach ( headers_list() as $h ) {
+            if ( stripos( $h, 'Permissions-Policy:' ) === 0 ) {
+                $existing = trim( substr( $h, strlen( 'Permissions-Policy:' ) ) );
+                break;
+            }
+        }
+        header( 'Permissions-Policy: ' . self::merge_geolocation_directive( $existing ), true );
+    }
+
+    /**
+     * Merge geolocation=(self) into an existing Permissions-Policy value,
+     * preserving all other directives.
+     */
+    private static function merge_geolocation_directive( string $existing ): string {
+        if ( $existing === '' ) {
+            return 'geolocation=(self)';
+        }
+        // Split on comma-separated directives, replace or append geolocation.
+        $directives = array_map( 'trim', explode( ',', $existing ) );
+        $found      = false;
+        foreach ( $directives as &$d ) {
+            if ( preg_match( '/^geolocation\s*=/', $d ) ) {
+                $d     = 'geolocation=(self)';
+                $found = true;
+            }
+        }
+        unset( $d );
+        if ( ! $found ) {
+            $directives[] = 'geolocation=(self)';
+        }
+        return implode( ', ', $directives );
     }
 
     /**
