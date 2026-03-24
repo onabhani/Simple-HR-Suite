@@ -885,17 +885,15 @@ window.sfsAttI18n = window.sfsAttI18n || {
     function requireInside(root, onAllow, onReject, punchType) {
         const cfg = getGeoConfig(root, punchType);
 
-        // Always try to collect GPS for logging, even if geofence is not configured/enforced
+        // Always try to collect GPS for logging, even if geofence is not configured/enforced.
+        // IMPORTANT: GPS *failure* (permission denied, unavailable, timeout) must NEVER
+        // block the punch — only being definitively OUTSIDE the radius should block.
+        // The server records valid_geo as a flag; HR can review punches with valid_geo=0.
+        // Before the module restructuring there was no client-side blocking at all, and
+        // employees clocked in fine even without GPS. This preserves that behaviour.
         if (!navigator.geolocation) {
-            if (cfg.enabled && cfg.enforce) {
-                onReject && onReject(
-                    i18n.location_required_not_supported || 'Location is required but this browser does not support it.',
-                    'NO_GEO'
-                );
-            } else {
-                // No geolocation support but not enforcing → allow without coords
-                onAllow && onAllow(null);
-            }
+            // No geolocation support → allow without coords (server records valid_geo=0)
+            onAllow && onAllow(null);
             return;
         }
 
@@ -911,7 +909,7 @@ window.sfsAttI18n = window.sfsAttI18n || {
                     });
                 },
                 () => {
-                    // GPS failed but not enforcing → allow without coords
+                    // GPS failed but no geofence → allow without coords
                     onAllow && onAllow(null);
                 },
                 { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
@@ -925,7 +923,9 @@ window.sfsAttI18n = window.sfsAttI18n || {
                 const lng = pos.coords.longitude;
                 const dist = haversineMeters(cfg.lat, cfg.lng, lat, lng);
 
-                // Only block when enforcement is on and user is outside radius
+                // Only block when enforcement is on and user is OUTSIDE radius.
+                // This is the only hard-block: we have proof the employee is not
+                // at the workplace. Everything else (GPS errors) is a soft pass.
                 if (cfg.enforce && dist > cfg.radius) {
                     onReject && onReject(
                         i18n.outside_allowed_area || 'You are outside the allowed area. Please move closer to the workplace and try again.',
@@ -941,23 +941,11 @@ window.sfsAttI18n = window.sfsAttI18n || {
                 });
             },
             err => {
-                // When enforcement is off, GPS failure should not block the punch
-                if (!cfg.enforce) {
-                    onAllow && onAllow(null);
-                    return;
-                }
-
-                let msg;
-                if (err.code === err.PERMISSION_DENIED) {
-                    msg = i18n.location_permission_denied || 'Location permission was denied. Enable it to use attendance.';
-                } else if (err.code === err.POSITION_UNAVAILABLE) {
-                    msg = i18n.location_unavailable || 'Location is unavailable. Check GPS or network.';
-                } else if (err.code === err.TIMEOUT) {
-                    msg = i18n.location_timeout || 'Timed out while getting location. Try again.';
-                } else {
-                    msg = i18n.location_error_generic || 'Could not get your location. Try again.';
-                }
-                onReject && onReject(msg, 'GEO_ERROR_' + err.code);
+                // GPS failure should NEVER block the punch — the server accepts the
+                // punch regardless and records valid_geo=0. Only being definitively
+                // outside the radius (success callback above) is a hard block.
+                // Allow through with null coords so the employee can still work.
+                onAllow && onAllow(null);
             },
             { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
         );
