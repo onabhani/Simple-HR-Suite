@@ -307,10 +307,12 @@ class Migration {
         }
 
         // Caps (only on first run or version bump to avoid writing wp_options on every page load)
+        // Bump the suffix when register_caps() logic changes (e.g. adding trainee role).
+        $caps_tag = \SFS_HR_VER . '-b';
         $caps_ver = get_option( 'sfs_hr_att_caps_ver', '' );
-        if ( $caps_ver !== \SFS_HR_VER ) {
+        if ( $caps_ver !== $caps_tag ) {
             $this->register_caps();
-            update_option( 'sfs_hr_att_caps_ver', \SFS_HR_VER, true );
+            update_option( 'sfs_hr_att_caps_ver', $caps_tag, true );
         }
         $this->maybe_seed_defaults();
         $this->maybe_seed_kiosks();
@@ -480,6 +482,11 @@ class Migration {
 
         // Employee
         if ( $role = get_role('sfs_hr_employee') ) {
+            foreach ( array_merge($caps_self, $caps_kiosk) as $c ) { $role->add_cap($c); }
+        }
+
+        // Trainee (same attendance caps as employee — they need to clock in/out)
+        if ( $role = get_role('sfs_hr_trainee') ) {
             foreach ( array_merge($caps_self, $caps_kiosk) as $c ) { $role->add_cap($c); }
         }
 

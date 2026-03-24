@@ -129,13 +129,17 @@ class Policy_Service {
         }
 
         // Geofence
+        // Geofence: default to 'none' (log-only) when neither shift nor role
+        // policy explicitly configures enforcement. This prevents blocking
+        // employees who never had geofence enforcement configured — enforcement
+        // should be opt-in, not opt-out.
         $p->clock_in_geofence  = ( isset( $shift->geofence_in )  && $shift->geofence_in  !== null )
             ? $shift->geofence_in
-            : ( $role_policy->clock_in_geofence ?? 'enforced' );
+            : ( $role_policy->clock_in_geofence ?? 'none' );
 
         $p->clock_out_geofence = ( isset( $shift->geofence_out ) && $shift->geofence_out !== null )
             ? $shift->geofence_out
-            : ( $role_policy->clock_out_geofence ?? 'enforced' );
+            : ( $role_policy->clock_out_geofence ?? 'none' );
 
         // Calculation mode
         // When start_time == end_time (e.g. 00:00–00:00), the shift has no
@@ -313,9 +317,12 @@ class Policy_Service {
     public static function should_enforce_geofence( int $employee_id, string $punch_type, ?object $shift = null ): bool {
         $policy = self::resolve_effective_policy( $employee_id, $shift );
 
-        // No policy → enforce (default behaviour)
+        // No policy → do NOT enforce geofence. Enforcement should be opt-in:
+        // only block employees when a policy or shift explicitly says 'enforced'.
+        // Defaulting to enforced caused mass clock-in failures for employees
+        // whose browsers deny GPS permission (especially after module restructuring).
         if ( ! $policy ) {
-            return true;
+            return false;
         }
 
         if ( $punch_type === 'in' || $punch_type === 'break_start' || $punch_type === 'break_end' ) {
