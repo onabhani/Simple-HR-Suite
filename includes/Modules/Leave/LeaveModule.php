@@ -5369,21 +5369,64 @@ private function email_approvers_for_employee(int $employee_id, string $subject,
         }
 
         $repeat_html = $repeat
-            ? '<div style="margin-top:8px;font-size:13px;color:#6b7280;">' . esc_html__('This holiday repeats every year.', 'sfs-hr') . '</div>'
+            ? '<div style="margin-top:16px;text-align:center;font-size:13px;color:#6b7280;">'
+              . '<span style="display:inline-block;vertical-align:middle;margin-right:4px;">&#128260;</span> '
+              . esc_html__('This holiday repeats every year.', 'sfs-hr')
+              . '</div>'
             : '';
 
-        $body = '<table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1f2937;">'
-            . '<tr><td style="background:#2563eb;padding:24px 28px;border-radius:8px 8px 0 0;">'
-            .   '<h1 style="margin:0;font-size:20px;font-weight:600;color:#ffffff;">' . esc_html__('Company Holiday', 'sfs-hr') . '</h1>'
+        // Company logo
+        $profile  = \SFS\HR\Core\Company_Profile::get();
+        $logo_html = '';
+        if ( ! empty( $profile['logo_id'] ) ) {
+            $logo_url = wp_get_attachment_image_url( (int) $profile['logo_id'], 'medium' );
+            if ( $logo_url ) {
+                $logo_html = '<img src="' . esc_url( $logo_url ) . '" alt="' . esc_attr( $site ) . '" style="max-height:48px;max-width:160px;display:block;margin-bottom:16px;" />';
+            }
+        }
+
+        // Calculate number of days
+        $ts_start = strtotime($start);
+        $ts_end   = ($end && $end !== $start) ? strtotime($end) : $ts_start;
+        $num_days = (int) round( ( $ts_end - $ts_start ) / DAY_IN_SECONDS ) + 1;
+        $days_label = $num_days > 1
+            ? sprintf( esc_html__( '%d days off', 'sfs-hr' ), $num_days )
+            : esc_html__( '1 day off', 'sfs-hr' );
+
+        $body = '<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1f2937;border-collapse:collapse;">'
+            // Decorative top accent bar
+            . '<tr><td style="background:linear-gradient(135deg,#2563eb,#7c3aed);height:6px;border-radius:12px 12px 0 0;font-size:0;line-height:0;">&nbsp;</td></tr>'
+            // Header with icon and title
+            . '<tr><td style="background:#f8fafc;padding:32px 36px 24px;text-align:center;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;">'
+            .   $logo_html
+            .   '<div style="display:inline-block;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#7c3aed);text-align:center;line-height:56px;font-size:26px;color:#ffffff;">&#127881;</div>'
+            .   '<h1 style="margin:16px 0 0;font-size:22px;font-weight:700;color:#1e293b;">' . esc_html__('Company Holiday', 'sfs-hr') . '</h1>'
             . '</td></tr>'
-            . '<tr><td style="background:#ffffff;padding:28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">'
-            .   '<div style="font-size:22px;font-weight:700;color:#1e40af;margin-bottom:4px;">' . $h_name . '</div>'
-            .   '<div style="font-size:15px;color:#374151;margin-top:12px;">'
-            .     '<span style="display:inline-block;vertical-align:middle;margin-right:6px;">&#128197;</span> '
-            .     $date_display
+            // Body
+            . '<tr><td style="background:#ffffff;padding:0 36px 32px;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;">'
+            // Holiday name card
+            .   '<div style="background:linear-gradient(135deg,#eff6ff,#f5f3ff);border-radius:12px;padding:24px;text-align:center;border:1px solid #dbeafe;">'
+            .     '<div style="font-size:24px;font-weight:700;color:#1e40af;margin-bottom:8px;">' . $h_name . '</div>'
+            .     '<div style="display:inline-block;background:#ffffff;border-radius:20px;padding:6px 16px;font-size:13px;font-weight:600;color:#7c3aed;border:1px solid #e9d5ff;">' . $days_label . '</div>'
             .   '</div>'
+            // Date details
+            .   '<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-collapse:collapse;">'
+            .     '<tr>'
+            .       '<td style="padding:14px 16px;background:#f8fafc;border-radius:8px;border:1px solid #f1f5f9;">'
+            .         '<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><tr>'
+            .           '<td style="vertical-align:middle;padding-right:12px;font-size:22px;">&#128197;</td>'
+            .           '<td style="vertical-align:middle;">'
+            .             '<div style="font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">' . esc_html__('Date', 'sfs-hr') . '</div>'
+            .             '<div style="font-size:15px;font-weight:600;color:#1e293b;">' . $date_display . '</div>'
+            .           '</td>'
+            .         '</tr></table>'
+            .       '</td>'
+            .     '</tr>'
+            .   '</table>'
             .   $repeat_html
-            .   '<hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0 16px;">'
+            . '</td></tr>'
+            // Footer
+            . '<tr><td style="background:#f8fafc;padding:20px 36px;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;border-top:none;text-align:center;">'
             .   '<div style="font-size:13px;color:#9ca3af;">' . $site . '</div>'
             . '</td></tr>'
             . '</table>';
