@@ -49,8 +49,8 @@ class Widget_Shortcode {
     $geo_lat     = '';
     $geo_lng     = '';
     $geo_radius  = '';
-    $geo_enforce_in  = '1'; // default: enforce geofence
-    $geo_enforce_out = '1';
+    $geo_enforce_in  = '0'; // default: do NOT enforce — enforcement is opt-in via policy/shift
+    $geo_enforce_out = '0';
 
     $employee_id = \SFS\HR\Modules\Attendance\AttendanceModule::employee_id_from_user( get_current_user_id() );
     if ( $employee_id ) {
