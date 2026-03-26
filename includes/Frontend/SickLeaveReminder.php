@@ -302,7 +302,13 @@ class SickLeaveReminder {
      * blocks the page load.  Throttled per employee via a transient.
      */
     public static function backfill_missing_sessions( int $emp_id, string $start, string $end ): void {
-        $transient_key = 'sfs_hr_backfill_' . $emp_id;
+        // Guard: invalid range (e.g. 1st of the month where month_start > yesterday).
+        if ( strtotime( $end ) < strtotime( $start ) ) {
+            return;
+        }
+
+        // Range-specific transient so different windows don't suppress each other.
+        $transient_key = 'sfs_hr_backfill_' . $emp_id . '_' . $start . '_' . $end;
         if ( get_transient( $transient_key ) ) {
             return;
         }
