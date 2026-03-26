@@ -1373,11 +1373,11 @@ $risk_flag = $risk_map[ $emp_id ] ?? '';
         if ( ! $date ) {
             return '—';
         }
-        $ts = strtotime( $date );
-        if ( ! $ts ) {
+        $dt = \DateTimeImmutable::createFromFormat( '!Y-m-d', $date, wp_timezone() );
+        if ( ! $dt ) {
             return '—';
         }
-        return wp_date( get_option( 'date_format' ), $ts );
+        return wp_date( get_option( 'date_format' ), $dt->getTimestamp() );
     }
 
     protected function format_time( ?string $mysql ): string {
