@@ -12,6 +12,7 @@
 namespace SFS\HR\Frontend\Tabs;
 
 use SFS\HR\Core\Helpers;
+use SFS\HR\Frontend\SickLeaveReminder;
 use SFS\HR\Modules\Attendance\Rest\Public_REST as Attendance_Public_REST;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -161,6 +162,10 @@ class OverviewTab implements TabInterface {
             $sess_table  = $wpdb->prefix . 'sfs_hr_attendance_sessions';
             $month_start = wp_date( 'Y-m-01' );
             $month_end   = wp_date( 'Y-m-t' );
+            $yesterday   = wp_date( 'Y-m-d', strtotime( '-1 day' ) );
+
+            // Ensure sessions exist for the whole month (cron only covers yesterday+today).
+            SickLeaveReminder::backfill_missing_sessions( $emp_id, $month_start, $yesterday );
 
             $att_present = 0;
             $att_absent  = 0;

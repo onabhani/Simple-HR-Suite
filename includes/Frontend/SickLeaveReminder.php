@@ -16,6 +16,7 @@ namespace SFS\HR\Frontend;
 
 use SFS\HR\Core\Helpers;
 use SFS\HR\Core\Notifications;
+use SFS\HR\Modules\Attendance\Services\Session_Service;
 use SFS\HR\Modules\Attendance\Services\Shift_Service;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -35,6 +36,7 @@ class SickLeaveReminder {
      */
     public static function init(): void {
         add_action( 'wp_ajax_sfs_hr_dismiss_sick_reminder', [ __CLASS__, 'ajax_dismiss' ] );
+        add_action( 'sfs_hr_backfill_sessions', [ __CLASS__, 'run_backfill' ], 10, 3 );
     }
 
     /**
@@ -54,7 +56,9 @@ class SickLeaveReminder {
         $sess_table = $wpdb->prefix . 'sfs_hr_attendance_sessions';
         $req_table  = $wpdb->prefix . 'sfs_hr_leave_requests';
 
-        $today = current_time( 'Y-m-d' );
+        $today     = current_time( 'Y-m-d' );
+        // Only flag completed days — today is still in progress.
+        $yesterday = wp_date( 'Y-m-d', strtotime( $today . ' -1 day' ) );
 
         // Look back to the employee's hire date (fall back to 90 days ago).
         $hire_date = $wpdb->get_var( $wpdb->prepare(
@@ -63,7 +67,17 @@ class SickLeaveReminder {
         ) );
         $lookback = $hire_date ?: wp_date( 'Y-m-d', strtotime( '-90 days', strtotime( $today ) ) );
 
-        // Absent dates in the window.
+        // Cap lookback at 60 days for performance.
+        $max_lookback = wp_date( 'Y-m-d', strtotime( '-60 days', strtotime( $today ) ) );
+        if ( $lookback < $max_lookback ) {
+            $lookback = $max_lookback;
+        }
+
+        // Backfill any dates without a session record so absences aren't
+        // invisible just because the cron hadn't run on those days.
+        self::backfill_missing_sessions( $emp_id, $lookback, $yesterday );
+
+        // Absent dates in the window (up to yesterday, NOT today).
         $absent_dates = $wpdb->get_col( $wpdb->prepare(
             "SELECT DISTINCT work_date FROM {$sess_table}
              WHERE employee_id = %d
@@ -72,7 +86,7 @@ class SickLeaveReminder {
              ORDER BY work_date ASC",
             $emp_id,
             $lookback,
-            $today
+            $yesterday
         ) );
 
         if ( empty( $absent_dates ) ) {
@@ -88,7 +102,7 @@ class SickLeaveReminder {
                AND COALESCE(end_date, start_date) >= %s AND start_date <= %s",
             $emp_id,
             $lookback,
-            $today
+            $yesterday
         ) );
 
         foreach ( $leave_rows as $lr ) {
@@ -277,6 +291,79 @@ class SickLeaveReminder {
                 echo 'fetch(' . wp_json_encode( $ajax_url ) . ',{method:"POST",credentials:"same-origin",body:fd});';
                 echo '}</script>';
             }
+        }
+    }
+
+    /**
+     * Ensure missing attendance sessions are backfilled for an employee.
+     *
+     * Checks for gaps quickly (single query).  If gaps exist, schedules a
+     * background WP-Cron single event so the heavy recalculation never
+     * blocks the page load.  Throttled per employee via a transient.
+     */
+    public static function backfill_missing_sessions( int $emp_id, string $start, string $end ): void {
+        // Guard: invalid range (e.g. 1st of the month where month_start > yesterday).
+        if ( strtotime( $end ) < strtotime( $start ) ) {
+            return;
+        }
+
+        // Range-specific transient so different windows don't suppress each other.
+        $transient_key = 'sfs_hr_backfill_' . $emp_id . '_' . $start . '_' . $end;
+        if ( get_transient( $transient_key ) ) {
+            return;
+        }
+
+        global $wpdb;
+        $sess_table = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+
+        // Quick check: count existing sessions vs expected calendar days.
+        $existing_count = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(DISTINCT work_date) FROM {$sess_table}
+             WHERE employee_id = %d AND work_date BETWEEN %s AND %s",
+            $emp_id,
+            $start,
+            $end
+        ) );
+
+        $expected_days = (int) ( ( strtotime( $end ) - strtotime( $start ) ) / 86400 ) + 1;
+
+        if ( $existing_count >= $expected_days ) {
+            // No gaps — mark as done and skip.
+            set_transient( $transient_key, time(), 6 * HOUR_IN_SECONDS );
+            return;
+        }
+
+        // Gaps exist — schedule background job (deduplicated by args).
+        if ( ! wp_next_scheduled( 'sfs_hr_backfill_sessions', [ $emp_id, $start, $end ] ) ) {
+            wp_schedule_single_event( time(), 'sfs_hr_backfill_sessions', [ $emp_id, $start, $end ] );
+        }
+
+        // Set transient now to prevent re-scheduling on the next page load.
+        set_transient( $transient_key, time(), 6 * HOUR_IN_SECONDS );
+    }
+
+    /**
+     * WP-Cron callback: actually perform the backfill (runs in background).
+     */
+    public static function run_backfill( int $emp_id, string $start, string $end ): void {
+        global $wpdb;
+        $sess_table = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+
+        $existing = $wpdb->get_col( $wpdb->prepare(
+            "SELECT DISTINCT work_date FROM {$sess_table}
+             WHERE employee_id = %d AND work_date BETWEEN %s AND %s",
+            $emp_id,
+            $start,
+            $end
+        ) );
+        $existing_set = array_flip( $existing );
+
+        $cur = $start;
+        while ( $cur <= $end ) {
+            if ( ! isset( $existing_set[ $cur ] ) ) {
+                Session_Service::recalc_session_for( $emp_id, $cur );
+            }
+            $cur = wp_date( 'Y-m-d', strtotime( $cur . ' +1 day' ) );
         }
     }
 
