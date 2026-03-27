@@ -576,6 +576,7 @@ class Admin_Pages {
                     <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
                     <th class="hide-mobile"><?php esc_html_e( 'Since', 'sfs-hr' ); ?></th>
                     <th class="hide-mobile"><?php esc_html_e( 'Leave', 'sfs-hr' ); ?></th>
+                    <th class="hide-mobile"><?php esc_html_e( 'Leave End', 'sfs-hr' ); ?></th>
                     <th class="hide-mobile"><?php esc_html_e( 'Last punch', 'sfs-hr' ); ?></th>
                     <th class="hide-mobile"><?php esc_html_e( 'Risk', 'sfs-hr' ); ?></th>
                     <th class="show-mobile" style="width:50px;"></th>
@@ -584,7 +585,7 @@ class Admin_Pages {
                 <tbody>
                 <?php if ( empty( $rows ) ) : ?>
                     <tr>
-                        <td colspan="8">
+                        <td colspan="9">
                             <?php esc_html_e( 'No employees match the selected filters for today.', 'sfs-hr' ); ?>
                         </td>
                     </tr>
@@ -601,8 +602,9 @@ class Admin_Pages {
                             </td>
                             <td class="hide-mobile"><?php echo esc_html( $r['department'] ); ?></td>
                             <td><?php echo $this->render_status_badge( $r['status_key'], $r['status_label'] ); ?></td>
-                            <td class="hide-mobile"><?php echo esc_html( $this->format_time( $r['since'] ) ); ?></td>
+                            <td class="hide-mobile"><?php echo esc_html( $r['status_key'] === 'on_leave' ? $this->format_date( $r['since'] ) : $this->format_time( $r['since'] ) ); ?></td>
                             <td class="hide-mobile"><?php echo $this->render_leave_badge( $r['leave_label'] ); ?></td>
+                            <td class="hide-mobile"><?php echo esc_html( $this->format_date( $r['leave_end'] ) ); ?></td>
                             <td class="hide-mobile"><?php echo esc_html( $this->format_time( $r['last_punch'] ) ); ?></td>
                             <td class="hide-mobile">
                                 <?php if ( ! empty( $r['risk_flag'] ) ) : ?>
@@ -679,6 +681,10 @@ class Admin_Pages {
                     <span class="sfs-hr-workforce-modal-value" id="sfs-hr-modal-leave"></span>
                 </div>
                 <div class="sfs-hr-workforce-modal-row">
+                    <span class="sfs-hr-workforce-modal-label"><?php esc_html_e( 'Leave End', 'sfs-hr' ); ?></span>
+                    <span class="sfs-hr-workforce-modal-value" id="sfs-hr-modal-leave-end"></span>
+                </div>
+                <div class="sfs-hr-workforce-modal-row">
                     <span class="sfs-hr-workforce-modal-label"><?php esc_html_e( 'Last Punch', 'sfs-hr' ); ?></span>
                     <span class="sfs-hr-workforce-modal-value" id="sfs-hr-modal-punch"></span>
                 </div>
@@ -701,8 +707,9 @@ class Admin_Pages {
                 'code'       => $r['employee_code'] ?: '—',
                 'department' => $r['department'],
                 'status'     => $r['status_label'],
-                'since'      => $this->format_time( $r['since'] ),
+                'since'      => $r['status_key'] === 'on_leave' ? $this->format_date( $r['since'] ) : $this->format_time( $r['since'] ),
                 'leave'      => $r['leave_label'],
+                'leaveEnd'   => $this->format_date( $r['leave_end'] ),
                 'punch'      => $this->format_time( $r['last_punch'] ),
                 'risk'       => $r['risk_flag'] ?: '—',
                 'profileUrl' => $this->get_employee_edit_url( $r['employee_id'] ),
@@ -719,6 +726,7 @@ class Admin_Pages {
             document.getElementById( 'sfs-hr-modal-status' ).textContent = data.status;
             document.getElementById( 'sfs-hr-modal-since' ).textContent = data.since;
             document.getElementById( 'sfs-hr-modal-leave' ).textContent = data.leave;
+            document.getElementById( 'sfs-hr-modal-leave-end' ).textContent = data.leaveEnd;
             document.getElementById( 'sfs-hr-modal-punch' ).textContent = data.punch;
             document.getElementById( 'sfs-hr-modal-risk' ).textContent = data.risk;
             document.getElementById( 'sfs-hr-modal-profile-link' ).href = data.profileUrl;
@@ -900,11 +908,15 @@ if ( $last ) {
 }
 
 // Leave label for today
-$leave_label = $leave_map[ $emp_id ] ?? __( 'On duty', 'sfs-hr' );
+$leave_info  = $leave_map[ $emp_id ] ?? null;
+$leave_label = $leave_info ? $leave_info['label'] : __( 'On duty', 'sfs-hr' );
+$leave_start = $leave_info['start_date'] ?? null;
+$leave_end   = $leave_info['end_date']   ?? null;
 
-// If on leave today → force into "on_leave" tab
-if ( isset( $leave_map[ $emp_id ] ) ) {
+// If on leave today → force into "on_leave" tab and use leave start as "since"
+if ( $leave_info ) {
     $status_key = 'on_leave';
+    $since      = $leave_start;
 }
 
 // Check if it's a working day for this specific employee (shift-based)
@@ -947,6 +959,7 @@ $risk_flag = $risk_map[ $emp_id ] ?? '';
                 'status_label'  => $tabs[ $status_key ]['label'],
                 'since'         => $since,
                 'leave_label'   => $leave_label,
+                'leave_end'     => $leave_end,
                 'last_punch'    => $last_p,
                 'risk_flag'     => $risk_flag,
             ];
@@ -1084,7 +1097,7 @@ $risk_flag = $risk_map[ $emp_id ] ?? '';
         $placeholders = implode( ',', array_fill( 0, count( $emp_ids ), '%d' ) );
         $params       = array_merge( $emp_ids, [ $today, $today ] );
 
-        $sql = "SELECT r.employee_id, t.name AS type_name
+        $sql = "SELECT r.employee_id, t.name AS type_name, r.start_date, r.end_date
                 FROM {$req_t} r
                 JOIN {$type_t} t ON t.id = r.type_id
                 WHERE r.status = 'approved'
@@ -1098,7 +1111,11 @@ $risk_flag = $risk_map[ $emp_id ] ?? '';
         foreach ( $rows as $r ) {
             $eid   = (int) $r['employee_id'];
             $label = sprintf( __( 'On leave (%s)', 'sfs-hr' ), $r['type_name'] );
-            $map[ $eid ] = $label;
+            $map[ $eid ] = [
+                'label'      => $label,
+                'start_date' => $r['start_date'],
+                'end_date'   => $r['end_date'],
+            ];
         }
 
         return $map;
@@ -1350,6 +1367,17 @@ $risk_flag = $risk_map[ $emp_id ] ?? '';
             $out[ $k ] = 0;
         }
         return $out;
+    }
+
+    protected function format_date( ?string $date ): string {
+        if ( ! $date ) {
+            return '—';
+        }
+        $dt = \DateTimeImmutable::createFromFormat( '!Y-m-d', $date, wp_timezone() );
+        if ( ! $dt ) {
+            return '—';
+        }
+        return wp_date( get_option( 'date_format' ), $dt->getTimestamp() );
     }
 
     protected function format_time( ?string $mysql ): string {
