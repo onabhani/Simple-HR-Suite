@@ -509,9 +509,6 @@ class OverviewTab implements TabInterface {
         // ── Sick leave reminder (uncovered absences) ─────────────
         \SFS\HR\Frontend\SickLeaveReminder::render( $emp_id, get_current_user_id(), $leave_url );
 
-        // ── Government support reminder (Saudi employees) ────────
-        \SFS\HR\Frontend\GovSupportReminder::render( $emp_id, $emp );
-
         // ── Profile Completion Banner ────────────────────────────
         if ( $profile_completion_pct < 100 ) {
             echo '<a href="' . esc_url( $profile_url ) . '" class="sfs-overview-profile-banner">';
