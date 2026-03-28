@@ -568,13 +568,14 @@ class OverviewTab implements TabInterface {
             echo '</div>';
         }
 
-        // ── 4. Monthly Attendance Summary ─────────────────────────
-        $month_num = (int) wp_date( 'n' );
-        $year_num  = (int) wp_date( 'Y' );
+        // ── 4. Attendance Summary (current period) ─────────────────
+        $period_label = wp_date( get_option( 'date_format' ), strtotime( $month_start ) )
+                      . ' – '
+                      . wp_date( get_option( 'date_format' ), strtotime( $month_end ) );
         echo '<div class="sfs-overview-block">';
         echo '<div class="sfs-overview-section">';
         echo '<h3 class="sfs-overview-section-title" data-i18n-key="attendance_this_month">' . esc_html__( 'Attendance This Month', 'sfs-hr' ) . '</h3>';
-        echo '<span class="sfs-overview-section-sub" data-month="' . $month_num . '" data-year="' . $year_num . '">' . esc_html( wp_date( 'F Y' ) ) . '</span>';
+        echo '<span class="sfs-overview-section-sub">' . esc_html( $period_label ) . '</span>';
         echo '</div>';
 
         echo '<div class="sfs-overview-att-grid">';
@@ -804,6 +805,10 @@ class OverviewTab implements TabInterface {
 
         $sess_table = $wpdb->prefix . 'sfs_hr_attendance_sessions';
 
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $sess_table ) ) !== $sess_table ) {
+            return;
+        }
+
         $att_period  = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period();
         $period_start = $att_period['start'];
         $period_end   = $att_period['end'];
@@ -866,6 +871,9 @@ class OverviewTab implements TabInterface {
             $date_str = $date_ts ? wp_date( $date_fmt, $date_ts ) : $raw_date;
             $time_in  = self::format_punch_time( $row['in_time'] ?? '' );
             $time_out = self::format_punch_time( $row['out_time'] ?? '' );
+            if ( $time_in === '' ) {
+                $time_in = '–';
+            }
             if ( $time_out === '' ) {
                 $time_out = '–';
             }
