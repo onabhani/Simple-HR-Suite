@@ -512,6 +512,20 @@ class OverviewTab implements TabInterface {
         // ── Government support reminder (Saudi employees) ────────
         \SFS\HR\Frontend\GovSupportReminder::render( $emp_id, $emp );
 
+        // ── Profile Completion Banner ────────────────────────────
+        if ( $profile_completion_pct < 100 ) {
+            echo '<a href="' . esc_url( $profile_url ) . '" class="sfs-overview-profile-banner">';
+            echo '<div class="sfs-overview-profile-banner-text">';
+            echo '<span class="sfs-overview-profile-banner-title" data-i18n-key="complete_your_profile">' . esc_html__( 'Complete Your Profile', 'sfs-hr' ) . '</span>';
+            echo '<span class="sfs-overview-profile-banner-sub">' . esc_html( $profile_completion_pct ) . '%</span>';
+            echo '</div>';
+            echo '<div class="sfs-overview-profile-banner-bar">';
+            echo '<div class="sfs-overview-profile-banner-fill" style="width:' . esc_attr( $profile_completion_pct ) . '%"></div>';
+            echo '</div>';
+            echo '<svg class="sfs-overview-profile-banner-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+            echo '</a>';
+        }
+
         // ── 2. Action Required ──────────────────────────────────
         if ( ! empty( $action_items ) ) {
             echo '<div class="sfs-overview-block">';
@@ -754,19 +768,8 @@ class OverviewTab implements TabInterface {
             echo '</div></div>';
         }
 
-        // ── 9. Profile Completion Banner ──────────────────────────
-        if ( $profile_completion_pct < 100 ) {
-            echo '<a href="' . esc_url( $profile_url ) . '" class="sfs-overview-profile-banner">';
-            echo '<div class="sfs-overview-profile-banner-text">';
-            echo '<span class="sfs-overview-profile-banner-title" data-i18n-key="complete_your_profile">' . esc_html__( 'Complete Your Profile', 'sfs-hr' ) . '</span>';
-            echo '<span class="sfs-overview-profile-banner-sub">' . esc_html( $profile_completion_pct ) . '%</span>';
-            echo '</div>';
-            echo '<div class="sfs-overview-profile-banner-bar">';
-            echo '<div class="sfs-overview-profile-banner-fill" style="width:' . esc_attr( $profile_completion_pct ) . '%"></div>';
-            echo '</div>';
-            echo '<svg class="sfs-overview-profile-banner-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
-            echo '</a>';
-        }
+        // ── 9. Monthly Attendance History ────────────────────────
+        $this->render_attendance_history( $emp_id );
 
         // ── 10. Floating "+ Request" button ──────────────────────
         echo '<div class="sfs-fab-container" id="sfs-fab-request">';
@@ -793,6 +796,158 @@ class OverviewTab implements TabInterface {
         echo '<div class="sfs-fab-backdrop" onclick="document.getElementById(\'sfs-fab-request\').classList.remove(\'sfs-fab-open\');"></div>';
 
         echo '</div>'; // .sfs-overview
+    }
+
+    /**
+     * Render full monthly attendance history table at the bottom of the overview.
+     */
+    private function render_attendance_history( int $emp_id ): void {
+        global $wpdb;
+
+        $sess_table = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+
+        $att_period  = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period();
+        $period_start = $att_period['start'];
+        $period_end   = $att_period['end'];
+
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT work_date, status, in_time, out_time
+             FROM {$sess_table}
+             WHERE employee_id = %d AND work_date BETWEEN %s AND %s
+             ORDER BY work_date DESC",
+            $emp_id,
+            $period_start,
+            $period_end
+        ), ARRAY_A );
+
+        // Chip styles (scoped output, only once per page).
+        static $chip_css = false;
+        if ( ! $chip_css ) {
+            $chip_css = true;
+            echo '<style>'
+                . '.sfs-hr-status-chip{display:inline-block;padding:1px 8px;font-size:11px;line-height:1.4;border-radius:999px;border:1px solid #e5e7eb;background:#f3f4f6;color:#374151;white-space:nowrap;}'
+                . '.sfs-hr-status-chip--present{background:#ecfdf3;border-color:#bbf7d0;color:#166534;}'
+                . '.sfs-hr-status-chip--late{background:#fee2e2;border-color:#fecaca;color:#b91c1c;}'
+                . '.sfs-hr-status-chip--absent{background:#fee2e2;border-color:#fecaca;color:#b91c1c;}'
+                . '.sfs-hr-status-chip--incomplete{background:#fef9c3;border-color:#fef08a;color:#92400e;}'
+                . '.sfs-hr-status-chip--on-leave{background:#e0f2fe;border-color:#bae6fd;color:#075985;}'
+                . '.sfs-hr-status-chip--neutral{background:#f3f4f6;border-color:#e5e7eb;color:#374151;}'
+                . '.sfs-hr-show-more-days{padding:6px 14px;font-size:12px;border-radius:999px;border:1px solid #c4b5fd;background:#ede9fe;color:#4c1d95;cursor:pointer;}'
+                . '.sfs-hr-show-more-days:hover{background:#ddd6fe;}'
+                . '</style>';
+        }
+
+        echo '<div class="sfs-overview-block">';
+        echo '<div class="sfs-overview-section">';
+        echo '<h3 class="sfs-overview-section-title" data-i18n-key="attendance_history">' . esc_html__( 'Attendance History', 'sfs-hr' ) . '</h3>';
+        echo '</div>';
+
+        if ( empty( $rows ) ) {
+            echo '<p class="description" data-i18n-key="no_attendance_records">' . esc_html__( 'No attendance records for this period.', 'sfs-hr' ) . '</p>';
+            echo '</div>';
+            return;
+        }
+
+        echo '<table class="sfs-hr-table sfs-hr-attendance-table" style="width:100%;">';
+        echo '<thead><tr>';
+        echo '<th data-i18n-key="date">' . esc_html__( 'Date', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="time_in">' . esc_html__( 'Time in', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="time_out">' . esc_html__( 'Time out', 'sfs-hr' ) . '</th>';
+        echo '<th data-i18n-key="status">' . esc_html__( 'Status', 'sfs-hr' ) . '</th>';
+        echo '</tr></thead><tbody>';
+
+        $max_visible = 7;
+        $has_more    = count( $rows ) > $max_visible;
+
+        foreach ( $rows as $idx => $row ) {
+            $date    = $row['work_date'] ?? '';
+            $st      = (string) ( $row['status'] ?? '' );
+            $time_in = self::format_punch_time( $row['in_time'] ?? '' );
+            $time_out = self::format_punch_time( $row['out_time'] ?? '' );
+            if ( $time_out === '' ) {
+                $time_out = '–';
+            }
+
+            $extra = ( $has_more && $idx >= $max_visible )
+                ? ' class="sfs-hr-att-hist-extra" style="display:none;"'
+                : '';
+
+            echo "<tr{$extra}>";
+            echo '<td>' . esc_html( $date ) . '</td>';
+            echo '<td>' . esc_html( $time_in ) . '</td>';
+            echo '<td>' . esc_html( $time_out ) . '</td>';
+            echo '<td>' . self::status_chip( $st ) . '</td>';
+            echo '</tr>';
+        }
+
+        echo '</tbody></table>';
+
+        if ( $has_more ) {
+            echo '<p style="text-align:right;margin-top:8px;">';
+            echo '<button type="button" class="sfs-hr-show-more-days" data-target="sfs-hr-att-hist-extra" data-i18n-key="show_more_days">';
+            echo esc_html__( 'Show more days', 'sfs-hr' );
+            echo '</button>';
+            echo '</p>';
+            echo '<script>(function(){';
+            echo 'document.addEventListener("click",function(e){';
+            echo 'if(!e.target.classList.contains("sfs-hr-show-more-days"))return;';
+            echo 'var t=e.target.getAttribute("data-target");if(!t)return;';
+            echo 'document.querySelectorAll("."+t).forEach(function(r){r.style.display="table-row";});';
+            echo 'e.target.style.display="none";';
+            echo '});})();</script>';
+        }
+
+        echo '</div>';
+    }
+
+    /**
+     * Format a UTC punch time to local time string.
+     */
+    private static function format_punch_time( ?string $mysql ): string {
+        $mysql = (string) $mysql;
+        if ( $mysql === '' || $mysql === '0000-00-00 00:00:00' ) {
+            return '';
+        }
+        $ts_utc = strtotime( $mysql . ' UTC' );
+        if ( ! $ts_utc ) {
+            return '';
+        }
+        return wp_date( 'g:i a', $ts_utc );
+    }
+
+    /**
+     * Render a status chip with color styling.
+     */
+    private static function status_chip( string $st ): string {
+        $labels = [
+            'present'       => __( 'Present', 'sfs-hr' ),
+            'late'          => __( 'Late', 'sfs-hr' ),
+            'left_early'    => __( 'Left early', 'sfs-hr' ),
+            'incomplete'    => __( 'Incomplete', 'sfs-hr' ),
+            'on_leave'      => __( 'On leave', 'sfs-hr' ),
+            'not_clocked_in'=> __( 'Not Clocked-IN', 'sfs-hr' ),
+            'absent'        => __( 'Absent', 'sfs-hr' ),
+            'holiday'       => __( 'Holiday', 'sfs-hr' ),
+            'day_off'       => __( 'Day off', 'sfs-hr' ),
+        ];
+        $label = $labels[ $st ] ?? ucfirst( str_replace( '_', ' ', $st ) );
+        if ( $label === '' ) {
+            return '';
+        }
+
+        $mod = match ( $st ) {
+            'present'                 => 'present',
+            'late', 'left_early'      => 'late',
+            'absent', 'not_clocked_in'=> 'absent',
+            'incomplete'              => 'incomplete',
+            'on_leave'                => 'on-leave',
+            'holiday', 'day_off'      => 'neutral',
+            default                   => 'neutral',
+        };
+
+        return '<span class="sfs-hr-status-chip sfs-hr-status-chip--' . esc_attr( $mod ) . '" data-i18n-key="' . esc_attr( $st ) . '">'
+             . esc_html( $label )
+             . '</span>';
     }
 
     /**
