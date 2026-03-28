@@ -175,7 +175,7 @@ class OverviewTab implements TabInterface {
                 $att_present = (int) $wpdb->get_var(
                     $wpdb->prepare(
                         "SELECT COUNT(*) FROM {$sess_table}
-                         WHERE employee_id = %d AND work_date BETWEEN %s AND %s AND status = 'present'",
+                         WHERE employee_id = %d AND work_date BETWEEN %s AND %s AND status IN ('present','late','left_early','incomplete')",
                         $emp_id,
                         $month_start,
                         $month_end
@@ -184,7 +184,7 @@ class OverviewTab implements TabInterface {
                 $att_absent = (int) $wpdb->get_var(
                     $wpdb->prepare(
                         "SELECT COUNT(*) FROM {$sess_table}
-                         WHERE employee_id = %d AND work_date BETWEEN %s AND %s AND status IN ('absent','not_clocked_in')",
+                         WHERE employee_id = %d AND work_date BETWEEN %s AND %s AND status = 'absent'",
                         $emp_id,
                         $month_start,
                         $month_end
