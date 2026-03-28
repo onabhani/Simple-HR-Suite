@@ -257,6 +257,7 @@
     "break_start_at": "بدء الاستراحة: %s",
     "break_end_at": "انتهاء الاستراحة: %s",
     "no_attendance_records": "لا توجد سجلات حضور للأيام الأخيرة.",
+    "no_attendance_records_period": "لا توجد سجلات حضور لهذه الفترة.",
     "must_be_logged_in_attendance": "يجب تسجيل الدخول لعرض حضورك.",
     "_comment_attendance_widget": "Attendance Widget (Self Attendance)",
     "current": "الحالي",

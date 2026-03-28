@@ -158,13 +158,14 @@ class OverviewTab implements TabInterface {
                 );
             }
 
-            // ── Attendance this month ─────────────────────────────────
+            // ── Attendance this period ────────────────────────────────
             $sess_table  = $wpdb->prefix . 'sfs_hr_attendance_sessions';
-            $month_start = wp_date( 'Y-m-01' );
-            $month_end   = wp_date( 'Y-m-t' );
+            $att_period  = \SFS\HR\Modules\Attendance\AttendanceModule::get_current_period();
+            $month_start = $att_period['start'];
+            $month_end   = $att_period['end'];
             $yesterday   = wp_date( 'Y-m-d', strtotime( '-1 day' ) );
 
-            // Ensure sessions exist for the whole month (cron only covers yesterday+today).
+            // Ensure sessions exist for the period (cron only covers yesterday+today).
             SickLeaveReminder::backfill_missing_sessions( $emp_id, $month_start, $yesterday );
 
             $att_present = 0;
@@ -840,7 +841,7 @@ class OverviewTab implements TabInterface {
         echo '</div>';
 
         if ( empty( $rows ) ) {
-            echo '<p class="description" data-i18n-key="no_attendance_records">' . esc_html__( 'No attendance records for this period.', 'sfs-hr' ) . '</p>';
+            echo '<p class="description" data-i18n-key="no_attendance_records_period">' . esc_html__( 'No attendance records for this period.', 'sfs-hr' ) . '</p>';
             echo '</div>';
             return;
         }
@@ -856,10 +857,14 @@ class OverviewTab implements TabInterface {
         $max_visible = 7;
         $has_more    = count( $rows ) > $max_visible;
 
+        $date_fmt = get_option( 'date_format' );
+
         foreach ( $rows as $idx => $row ) {
-            $date    = $row['work_date'] ?? '';
-            $st      = (string) ( $row['status'] ?? '' );
-            $time_in = self::format_punch_time( $row['in_time'] ?? '' );
+            $raw_date = $row['work_date'] ?? '';
+            $st       = (string) ( $row['status'] ?? '' );
+            $date_ts  = strtotime( $raw_date );
+            $date_str = $date_ts ? wp_date( $date_fmt, $date_ts ) : $raw_date;
+            $time_in  = self::format_punch_time( $row['in_time'] ?? '' );
             $time_out = self::format_punch_time( $row['out_time'] ?? '' );
             if ( $time_out === '' ) {
                 $time_out = '–';
@@ -870,7 +875,7 @@ class OverviewTab implements TabInterface {
                 : '';
 
             echo "<tr{$extra}>";
-            echo '<td>' . esc_html( $date ) . '</td>';
+            echo '<td>' . esc_html( $date_str ) . '</td>';
             echo '<td>' . esc_html( $time_in ) . '</td>';
             echo '<td>' . esc_html( $time_out ) . '</td>';
             echo '<td>' . self::status_chip( $st ) . '</td>';
@@ -909,7 +914,7 @@ class OverviewTab implements TabInterface {
         if ( ! $ts_utc ) {
             return '';
         }
-        return wp_date( 'g:i a', $ts_utc );
+        return wp_date( get_option( 'time_format' ), $ts_utc );
     }
 
     /**
