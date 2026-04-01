@@ -112,7 +112,7 @@ class Navigation {
                 'slug'    => 'approvals',
                 'label'   => __( 'Approvals', 'sfs-hr' ),
                 'icon'    => 'check-circle',
-                'roles'   => [ 'manager', 'hr', 'gm', 'admin' ],
+                'roles'   => [ 'manager', 'finance', 'hr', 'gm', 'admin' ],
                 'section' => 'team',
             ],
             [
