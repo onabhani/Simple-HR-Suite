@@ -2,7 +2,7 @@
 /**
  * Role Resolver — detects the effective HR portal role for a user.
  *
- * Evaluation order: admin → gm → hr → manager → employee → trainee → none
+ * Evaluation order: admin → gm → finance → hr → manager → employee → trainee → none
  * The first match wins. WordPress administrators are always resolved as 'admin'
  * (highest portal level) so they never lose Organization/System sidebar sections.
  *
@@ -28,7 +28,7 @@ class Role_Resolver {
     /**
      * Resolve the effective HR portal role for a user.
      *
-     * Evaluation order (first match wins): admin → gm → hr → manager → employee → trainee → none.
+     * Evaluation order (first match wins): admin → gm → finance → hr → manager → employee → trainee → none.
      * WordPress administrators are checked first because admin has the highest portal
      * level (60) and broadest access — without this, an admin who is also assigned as
      * a department manager or HR responsible would lose Organization and System sections.
@@ -37,7 +37,7 @@ class Role_Resolver {
      * to avoid repeated DB queries on portal pages that call resolve() multiple times.
      *
      * @param int $user_id WordPress user ID.
-     * @return string One of: admin, gm, hr, manager, employee, trainee, none.
+     * @return string One of: admin, gm, finance, hr, manager, employee, trainee, none.
      */
     public static function resolve( int $user_id ): string {
         if ( ! $user_id ) {
@@ -63,12 +63,25 @@ class Role_Resolver {
             return 'gm';
         }
 
+        // Fetch user data once — reused by finance and HR checks below.
+        $user_obj = get_userdata( $user_id );
+
+        // Finance: designated leave finance approver or has the sfs_hr_finance_approver role.
+        $finance_approver_id = (int) get_option( 'sfs_hr_leave_finance_approver', 0 );
+        if ( $finance_approver_id > 0 && $finance_approver_id === $user_id ) {
+            self::$cache[ $user_id ] = 'finance';
+            return 'finance';
+        }
+        if ( $user_obj && in_array( 'sfs_hr_finance_approver', (array) $user_obj->roles, true ) ) {
+            self::$cache[ $user_id ] = 'finance';
+            return 'finance';
+        }
+
         // HR: has the sfs_hr_manager role, is in HR approvers list, or is hr_responsible.
         // Note: checking role/assignment — NOT sfs_hr.manage capability (admins inherit that).
         global $wpdb;
         $dept_table = $wpdb->prefix . 'sfs_hr_departments';
 
-        $user_obj    = get_userdata( $user_id );
         $has_hr_role = $user_obj && in_array( 'sfs_hr_manager', (array) $user_obj->roles, true );
 
         $hr_approvers   = array_map( 'intval', (array) get_option( 'sfs_hr_leave_hr_approvers', [] ) );
@@ -152,6 +165,7 @@ class Role_Resolver {
             'admin'    => 60,
             'gm'       => 50,
             'hr'       => 40,
+            'finance'  => 35,
             'manager'  => 30,
             'employee' => 20,
             'trainee'  => 10,

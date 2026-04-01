@@ -54,6 +54,10 @@ class ApprovalsTab implements TabInterface {
                 $leave_where[] = "e.dept_id IN ({$placeholders})";
                 $leave_params = $dept_ids;
             }
+        } elseif ( $role === 'finance' ) {
+            // Finance: level 3 approvals (pending finance sign-off).
+            $leave_where[] = "r.status = 'pending'";
+            $leave_where[] = "r.approval_level >= 3";
         } elseif ( $role === 'hr' ) {
             // HR: level 2 approvals (all departments).
             $leave_where[] = "r.status = 'pending'";
@@ -99,8 +103,8 @@ class ApprovalsTab implements TabInterface {
                  LIMIT 100",
                 ARRAY_A
             );
-        } elseif ( $role === 'hr' ) {
-            // HR sees pending_finance.
+        } elseif ( $role === 'hr' || $role === 'finance' ) {
+            // HR / Finance sees pending_finance.
             $pending_loans = $wpdb->get_results(
                 "SELECT l.*, e.first_name, e.last_name, e.employee_code,
                         d.name AS dept_name
@@ -196,11 +200,17 @@ class ApprovalsTab implements TabInterface {
                 $days = $diff > 0 ? (int) floor( $diff / DAY_IN_SECONDS ) + 1 : 1;
             }
             $req_id = (int) ( $r['id'] ?? 0 );
-            $is_mgr_level = (int) ( $r['approval_level'] ?? 1 ) <= 1;
-            $level_text = $is_mgr_level
-                ? __( 'Manager Approval', 'sfs-hr' )
-                : __( 'HR Approval', 'sfs-hr' );
-            $level_key = $is_mgr_level ? 'manager_approval' : 'hr_approval';
+            $req_approval_level = (int) ( $r['approval_level'] ?? 1 );
+            if ( $req_approval_level >= 3 ) {
+                $level_text = __( 'Finance Approval', 'sfs-hr' );
+                $level_key  = 'finance_approval';
+            } elseif ( $req_approval_level >= 2 ) {
+                $level_text = __( 'HR Approval', 'sfs-hr' );
+                $level_key  = 'hr_approval';
+            } else {
+                $level_text = __( 'Manager Approval', 'sfs-hr' );
+                $level_key  = 'manager_approval';
+            }
 
             echo '<div class="sfs-card sfs-approval-card" data-category="leave" data-dept="' . esc_attr( $r['dept_name'] ?? '' ) . '" style="margin-bottom:12px;">';
             echo '<div class="sfs-card-body">';
@@ -355,7 +365,7 @@ class ApprovalsTab implements TabInterface {
             if ( $role !== 'admin' ) {
                 if ( $is_gm_stage && in_array( $role, [ 'gm' ], true ) ) {
                     $can_act = true;
-                } elseif ( ! $is_gm_stage && in_array( $role, [ 'hr', 'gm' ], true ) ) {
+                } elseif ( ! $is_gm_stage && in_array( $role, [ 'finance', 'hr', 'gm' ], true ) ) {
                     $can_act = true;
                 }
             }
