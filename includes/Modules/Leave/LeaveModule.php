@@ -216,7 +216,22 @@ public function render_requests(): void {
     $where  = '1=1';
     $params = [];
 
-    if ( $status !== 'all' ) {
+    // Map pending sub-statuses to actual DB status + approval_level conditions.
+    $pending_sub = [ 'pending_manager', 'pending_hr', 'pending_gm', 'pending_finance' ];
+    if ( in_array( $status, $pending_sub, true ) ) {
+        $where .= " AND r.status = 'pending'";
+        if ( $status === 'pending_finance' ) {
+            $where .= " AND r.approval_level >= 3";
+        } elseif ( $status === 'pending_hr' ) {
+            $where .= " AND r.approval_level = 2";
+        } elseif ( $status === 'pending_gm' ) {
+            // Level 1 where requester is a department manager
+            $where .= " AND r.approval_level = 1 AND e.user_id IN (SELECT manager_user_id FROM {$wpdb->prefix}sfs_hr_departments WHERE active = 1 AND manager_user_id > 0)";
+        } else {
+            // pending_manager: level 1 where requester is NOT a department manager
+            $where .= " AND r.approval_level = 1 AND e.user_id NOT IN (SELECT manager_user_id FROM {$wpdb->prefix}sfs_hr_departments WHERE active = 1 AND manager_user_id > 0)";
+        }
+    } elseif ( $status !== 'all' ) {
         $where   .= " AND r.status = %s";
         $params[] = $status;
     }
@@ -240,9 +255,12 @@ public function render_requests(): void {
         $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
         $gm_user_id = ! empty( $gm_user_ids ) ? (int) $gm_user_ids[0] : 0;
     }
+    $finance_approver_id = (int) get_option( 'sfs_hr_leave_finance_approver', 0 );
+    $is_assigned_finance = ( $finance_approver_id > 0 && $current_uid === $finance_approver_id );
     $is_hr_or_gm_for_view = current_user_can('sfs_hr.manage')
         || ( ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true ) )
-        || ( $gm_user_id > 0 && $current_uid === $gm_user_id );
+        || ( $gm_user_id > 0 && $current_uid === $gm_user_id )
+        || $is_assigned_finance;
     $managed_depts = [];
 
     if ( ! $is_hr_or_gm_for_view ) {
@@ -293,19 +311,42 @@ public function render_requests(): void {
         }
         $cached_counts['all'] = $total_all;
 
+        // Compute actual pending sub-status counts using approval_level.
+        $dept_t = $wpdb->prefix . 'sfs_hr_departments';
+        $pending_where = ( $count_where !== '1=1' )
+            ? "WHERE r.status = 'pending' AND $count_where"
+            : "WHERE r.status = 'pending'";
+
+        // pending_finance: approval_level >= 3
+        $sql_pf = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id $pending_where AND r.approval_level >= 3";
+        $cached_counts['pending_finance'] = $count_params
+            ? (int) $wpdb->get_var( $wpdb->prepare( $sql_pf, ...$count_params ) )
+            : (int) $wpdb->get_var( $sql_pf );
+
+        // pending_hr: approval_level = 2
+        $sql_ph = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id $pending_where AND r.approval_level = 2";
+        $cached_counts['pending_hr'] = $count_params
+            ? (int) $wpdb->get_var( $wpdb->prepare( $sql_ph, ...$count_params ) )
+            : (int) $wpdb->get_var( $sql_ph );
+
+        // pending_gm: approval_level = 1, requester IS a dept manager
+        $sql_pg = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id $pending_where AND r.approval_level = 1 AND e.user_id IN (SELECT manager_user_id FROM {$dept_t} WHERE active = 1 AND manager_user_id > 0)";
+        $cached_counts['pending_gm'] = $count_params
+            ? (int) $wpdb->get_var( $wpdb->prepare( $sql_pg, ...$count_params ) )
+            : (int) $wpdb->get_var( $sql_pg );
+
+        // pending_manager: approval_level = 1, requester is NOT a dept manager
+        $sql_pm = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id $pending_where AND r.approval_level = 1 AND e.user_id NOT IN (SELECT manager_user_id FROM {$dept_t} WHERE active = 1 AND manager_user_id > 0)";
+        $cached_counts['pending_manager'] = $count_params
+            ? (int) $wpdb->get_var( $wpdb->prepare( $sql_pm, ...$count_params ) )
+            : (int) $wpdb->get_var( $sql_pm );
+
         set_transient( $counts_cache_key, $cached_counts, 60 );
     }
 
-    // Build $counts for all display tabs; unknown sub-statuses (pending_manager etc.) use 'pending' count.
+    // Build $counts for all display tabs.
     foreach ( array_keys( $status_tabs ) as $s ) {
-        if ( $s === 'all' ) {
-            $counts['all'] = $cached_counts['all'] ?? 0;
-        } elseif ( in_array( $s, [ 'pending_manager', 'pending_hr', 'pending_gm', 'pending_finance' ], true ) ) {
-            // These are display-only sub-states derived from approval_level; share the 'pending' DB count.
-            $counts[ $s ] = $cached_counts['pending'] ?? 0;
-        } else {
-            $counts[ $s ] = $cached_counts[ $s ] ?? 0;
-        }
+        $counts[ $s ] = $cached_counts[ $s ] ?? 0;
     }
 
     $sql_total = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id WHERE $where";
@@ -421,10 +462,15 @@ public function render_requests(): void {
                     // Detailed approval logic is in render_detail_page; this is just for UI hints
                     $can_approve = false;
                     if ($r['status'] === 'pending') {
+                        $row_level = (int) ( $r['approval_level'] ?? 1 );
                         // Position-based HR or GM can approve
                         $is_hr_position = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
                         $is_gm_position = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
                         if ($is_hr_position || $is_gm_position) {
+                            $can_approve = true;
+                        }
+                        // Finance approver can approve finance-stage requests
+                        elseif ( $is_assigned_finance && $row_level >= 3 ) {
                             $can_approve = true;
                         }
                         // Department managers can approve requests from their departments
@@ -581,13 +627,16 @@ public function render_requests(): void {
     <script>
     (function(){
     function sfsEsc(s){if(typeof s!=='string')return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
-    var sfsHrLeaveData = <?php echo wp_json_encode(array_values(array_map(function($r) use ($hr_user_ids, $gm_user_id, $managed_depts, $current_uid, $approver_names) {
+    var sfsHrLeaveData = <?php echo wp_json_encode(array_values(array_map(function($r) use ($hr_user_ids, $gm_user_id, $managed_depts, $current_uid, $approver_names, $is_assigned_finance) {
         $can_approve = false;
         if ($r['status'] === 'pending') {
+            $row_level = (int) ( $r['approval_level'] ?? 1 );
             // Position-based HR or GM check
             $is_hr_position = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
             $is_gm_position = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
             if ($is_hr_position || $is_gm_position) {
+                $can_approve = true;
+            } elseif ( $is_assigned_finance && $row_level >= 3 ) {
                 $can_approve = true;
             } elseif (!empty($managed_depts) && in_array((int)$r['dept_id'], $managed_depts, true)) {
                 $can_approve = true;
