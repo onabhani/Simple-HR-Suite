@@ -2652,9 +2652,11 @@ function sfsHrToggleKebab(btn) {
   if (!isOpen) {
     menu.classList.add('open');
     btn.setAttribute('aria-expanded','true');
-    // Flip upward if menu would overflow the viewport bottom.
+    // Flip upward if menu would overflow the viewport or table container.
     var rect = menu.getBoundingClientRect();
-    if (rect.bottom > window.innerHeight) {
+    var table = btn.closest('.sfs-hr-emp-table');
+    var tableBottom = table ? table.getBoundingClientRect().bottom : window.innerHeight;
+    if (rect.bottom > window.innerHeight || rect.bottom > tableBottom) {
       menu.classList.add('open-up');
     }
   } else {
