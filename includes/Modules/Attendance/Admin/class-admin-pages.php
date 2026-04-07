@@ -4434,33 +4434,52 @@ private function queryOvertimeRows(
     $dT  = $wpdb->prefix . 'sfs_hr_departments';
     $uT  = $wpdb->users;
 
-    $where  = $wpdb->prepare(
+    // Schema-tolerant column resolution
+    $sCols = array_map('strval', $wpdb->get_col("SHOW COLUMNS FROM {$sT}", 0) ?: []);
+    $hasS  = static fn($c) => in_array($c, $sCols, true);
+
+    $otCol  = $hasS('overtime_minutes') ? 's.overtime_minutes'
+        : ($hasS('ot_minutes') ? 's.ot_minutes' : '0');
+    $inCol  = $hasS('in_time')  ? 's.in_time'  : 'NULL';
+    $outCol = $hasS('out_time') ? 's.out_time' : 'NULL';
+
+    $eCols = array_map('strval', $wpdb->get_col("SHOW COLUMNS FROM {$eT}", 0) ?: []);
+    $hasE  = static fn($c) => in_array($c, $eCols, true);
+
+    $empCodeCol  = $hasE('employee_code') ? 'e.employee_code' : "''";
+    $deptIdCol   = $hasE('dept_id') ? 'e.dept_id'
+        : ($hasE('department_id') ? 'e.department_id' : 'NULL');
+    $salaryCol   = $hasE('base_salary') ? 'e.base_salary' : '0';
+
+    $where = $wpdb->prepare(
         "s.work_date BETWEEN %s AND %s",
         $from,
         $to
     );
-    $where .= " AND s.overtime_minutes > 0";
+    $where .= " AND {$otCol} > 0";
     $where .= " AND COALESCE(e.hidden_from_attendance, 0) = 0";
-    $where .= " AND e.status = 'active'";
     if ($deptId > 0) {
-        $where .= $wpdb->prepare(" AND e.dept_id = %d", $deptId);
+        $where .= $wpdb->prepare(" AND {$deptIdCol} = %d", $deptId);
     }
 
     $limitSQL = $limit > 0 ? "LIMIT {$limit}" : '';
 
     return $wpdb->get_results(
-        "SELECT s.work_date, s.employee_id, e.employee_code,
+        "SELECT s.work_date, s.employee_id,
+                {$empCodeCol} AS employee_code,
                 u.display_name AS employee_name,
                 d.name AS department,
                 sh.name AS shift_name,
                 sh.start_time AS shift_start,
                 sh.end_time AS shift_end,
-                s.in_time, s.out_time,
-                s.overtime_minutes, e.base_salary
+                {$inCol} AS in_time,
+                {$outCol} AS out_time,
+                {$otCol} AS overtime_minutes,
+                {$salaryCol} AS base_salary
          FROM {$sT} s
          LEFT JOIN {$eT} e   ON e.id = s.employee_id
          LEFT JOIN {$uT} u   ON u.ID = e.user_id
-         LEFT JOIN {$dT} d   ON d.id = e.dept_id
+         LEFT JOIN {$dT} d   ON d.id = {$deptIdCol}
          LEFT JOIN {$saT} sa ON sa.employee_id = s.employee_id
                             AND sa.work_date = s.work_date
          LEFT JOIN {$shT} sh ON sh.id = COALESCE(sa.shift_id, s.shift_assign_id)
@@ -4475,14 +4494,20 @@ private function queryOvertimeRows(
  */
 private static function computeOvertimeRow(
     object $r,
-    int $workingDays,
-    float $otMultiplier
+    int $workingDays
 ): array {
     $otHours = round((int) $r->overtime_minutes / 60, 2);
-    $hourly  = ($workingDays > 0 && (float) $r->base_salary > 0)
+
+    $otMultiplier = (float) apply_filters(
+        'sfs_hr_overtime_multiplier',
+        1.5,
+        (int) $r->employee_id,
+        0
+    );
+    $hourly = ($workingDays > 0 && (float) $r->base_salary > 0)
         ? (float) $r->base_salary / ($workingDays * 8)
         : 0;
-    $amount  = round($otHours * $hourly * $otMultiplier, 2);
+    $amount = round($otHours * $hourly * $otMultiplier, 2);
 
     $otFrom = $r->shift_end ?: '';
     $otTo   = !empty($r->out_time)
@@ -4516,10 +4541,11 @@ private function renderOvertimeExport(): void
         ? (string) $_GET['to'] : $att_period['end'];
     $dept_id = isset($_GET['dept_id']) ? (int) $_GET['dept_id'] : 0;
 
+    $dT = $wpdb->prefix . 'sfs_hr_departments';
+    $dCols = array_map('strval', $wpdb->get_col("SHOW COLUMNS FROM {$dT}", 0) ?: []);
+    $deptActiveFilter = in_array('active', $dCols, true) ? 'WHERE active = 1' : '';
     $departments = $wpdb->get_results(
-        "SELECT id, name
-         FROM {$wpdb->prefix}sfs_hr_departments
-         WHERE active = 1 ORDER BY name"
+        "SELECT id, name FROM {$dT} {$deptActiveFilter} ORDER BY name"
     );
 
     $export_url = esc_url(wp_nonce_url(
@@ -4534,8 +4560,7 @@ private function renderOvertimeExport(): void
 
     $rows = $this->queryOvertimeRows($from, $to, $dept_id, 500);
 
-    $workingDays  = \SFS\HR\Modules\Payroll\PayrollModule::count_working_days($from, $to);
-    $otMultiplier = (float) apply_filters('sfs_hr_overtime_multiplier', 1.5, 0, 0);
+    $workingDays = \SFS\HR\Modules\Payroll\PayrollModule::count_working_days($from, $to);
     ?>
 
     <h2><?php esc_html_e('Overtime Export', 'sfs-hr'); ?></h2>
@@ -4588,7 +4613,7 @@ private function renderOvertimeExport(): void
         </thead>
         <tbody>
         <?php foreach ($rows as $r) :
-            $c = self::computeOvertimeRow($r, $workingDays, $otMultiplier);
+            $c = self::computeOvertimeRow($r, $workingDays);
             $shiftLabel = $r->shift_name ?: '—';
             if ($r->shift_start && $r->shift_end) {
                 $shiftLabel .= ' (' . substr($r->shift_start, 0, 5)
@@ -4642,8 +4667,7 @@ public function handleExportOvertimeCsv(): void
 
     $rows = $this->queryOvertimeRows($from, $to, $dept_id);
 
-    $workingDays  = \SFS\HR\Modules\Payroll\PayrollModule::count_working_days($from, $to);
-    $otMultiplier = (float) apply_filters('sfs_hr_overtime_multiplier', 1.5, 0, 0);
+    $workingDays = \SFS\HR\Modules\Payroll\PayrollModule::count_working_days($from, $to);
 
     while (ob_get_level()) {
         ob_end_clean();
@@ -4665,7 +4689,7 @@ public function handleExportOvertimeCsv(): void
     ]);
 
     foreach ((array) $rows as $r) {
-        $c = self::computeOvertimeRow($r, $workingDays, $otMultiplier);
+        $c = self::computeOvertimeRow($r, $workingDays);
 
         fputcsv($out, [
             $r->work_date,
