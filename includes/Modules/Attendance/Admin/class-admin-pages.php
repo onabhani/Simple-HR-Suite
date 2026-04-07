@@ -43,6 +43,7 @@ class Admin_Pages {
     add_action( 'admin_post_sfs_hr_att_device_delete', [ $this, 'handle_device_delete' ] );
     add_action( 'admin_post_sfs_hr_att_save_automation', [ $this, 'handle_save_automation' ] );
     add_action( 'admin_post_sfs_hr_att_export_csv', [ $this, 'handle_export_csv' ] );
+    add_action( 'admin_post_sfs_hr_att_export_overtime_csv', [ $this, 'handle_export_overtime_csv' ] );
     add_action( 'admin_post_sfs_hr_att_rebuild_sessions_day', [ $this, 'handle_rebuild_sessions_day' ] );
     add_action( 'admin_post_sfs_hr_att_rebuild_sessions_period', [ $this, 'handle_rebuild_sessions_period' ] );
     add_action( 'admin_post_sfs_hr_att_fix_offday_absences', [ $this, 'handle_fix_offday_absences' ] );
@@ -494,6 +495,7 @@ public function render_attendance_hub(): void {
         'devices'     => __( 'Devices (Kiosk)', 'sfs-hr' ),
         'punches'     => __( 'Punches', 'sfs-hr' ),
         'sessions'    => __( 'Sessions', 'sfs-hr' ),
+        'overtime'    => __( 'Overtime Export', 'sfs-hr' ),
     ];
 
     if ( $is_admin ) {
@@ -540,6 +542,7 @@ public function render_attendance_hub(): void {
             case 'sessions': $this->render_sessions(); break;
             case 'early_leave': $this->render_early_leave(); break;
             case 'schedules':  $this->render_schedules(); break;
+            case 'overtime':   $this->render_overtime_export(); break;
     }
     echo '</div>';
 }
@@ -4411,9 +4414,276 @@ public function render_exceptions(): void {
     exit;
 }
 
- 
-    
-    
+/* ========================= OVERTIME EXPORT ========================= */
+
+/**
+ * Render the Overtime Export tab UI with department and date range filters.
+ */
+private function render_overtime_export(): void {
+    if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
+        wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
+    }
+    global $wpdb;
+
+    $this->output_attendance_styles();
+
+    $att_period = AttendanceModule::get_current_period();
+    $from    = isset( $_GET['from'] ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) $_GET['from'] ) ? (string) $_GET['from'] : $att_period['start'];
+    $to      = isset( $_GET['to'] )   && preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) $_GET['to'] )   ? (string) $_GET['to']   : $att_period['end'];
+    $dept_id = isset( $_GET['dept_id'] ) ? (int) $_GET['dept_id'] : 0;
+
+    // Get departments
+    $departments = $wpdb->get_results(
+        "SELECT id, name FROM {$wpdb->prefix}sfs_hr_departments WHERE active = 1 ORDER BY name"
+    );
+
+    // Build export URL
+    $export_url = esc_url( wp_nonce_url(
+        add_query_arg( [
+            'action'  => 'sfs_hr_att_export_overtime_csv',
+            'from'    => $from,
+            'to'      => $to,
+            'dept_id' => $dept_id,
+        ], admin_url( 'admin-post.php' ) ),
+        'sfs_hr_att_export_overtime_csv'
+    ) );
+
+    // Preview: fetch overtime rows for display
+    $eT = $wpdb->prefix . 'sfs_hr_employees';
+    $sT = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+    $shT = $wpdb->prefix . 'sfs_hr_attendance_shifts';
+    $dT = $wpdb->prefix . 'sfs_hr_departments';
+    $uT = $wpdb->users;
+
+    $where  = $wpdb->prepare( "s.work_date BETWEEN %s AND %s", $from, $to );
+    $where .= " AND s.overtime_minutes > 0";
+    $where .= " AND COALESCE(e.hidden_from_attendance, 0) = 0";
+    $where .= " AND e.status = 'active'";
+    if ( $dept_id > 0 ) {
+        $where .= $wpdb->prepare( " AND e.dept_id = %d", $dept_id );
+    }
+
+    $rows = $wpdb->get_results( "
+        SELECT
+            s.work_date,
+            s.employee_id,
+            e.employee_code,
+            u.display_name AS employee_name,
+            d.name AS department,
+            sh.name AS shift_name,
+            sh.start_time AS shift_start,
+            sh.end_time AS shift_end,
+            s.in_time,
+            s.out_time,
+            s.overtime_minutes,
+            e.base_salary
+        FROM {$sT} s
+        LEFT JOIN {$eT} e  ON e.id  = s.employee_id
+        LEFT JOIN {$uT} u  ON u.ID  = e.user_id
+        LEFT JOIN {$dT} d  ON d.id  = e.dept_id
+        LEFT JOIN {$wpdb->prefix}sfs_hr_attendance_shift_assign sa ON sa.employee_id = s.employee_id AND sa.work_date = s.work_date
+        LEFT JOIN {$shT} sh ON sh.id = COALESCE(sa.shift_id, s.shift_assign_id)
+        WHERE {$where}
+        ORDER BY d.name ASC, u.display_name ASC, s.work_date ASC
+        LIMIT 500
+    " );
+
+    // Count working days for hourly rate
+    $working_days_full = \SFS\HR\Modules\Payroll\PayrollModule::count_working_days( $from, $to );
+    $ot_multiplier     = (float) apply_filters( 'sfs_hr_overtime_multiplier', 1.5, 0, 0 );
+    ?>
+
+    <h2><?php esc_html_e( 'Overtime Export', 'sfs-hr' ); ?></h2>
+
+    <form method="get" style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:20px;">
+        <input type="hidden" name="page" value="sfs_hr_attendance">
+        <input type="hidden" name="tab" value="overtime">
+        <label>
+            <?php esc_html_e( 'Department:', 'sfs-hr' ); ?><br>
+            <select name="dept_id">
+                <option value="0"><?php esc_html_e( 'All Departments', 'sfs-hr' ); ?></option>
+                <?php foreach ( $departments as $d ) : ?>
+                <option value="<?php echo (int) $d->id; ?>" <?php selected( $dept_id, $d->id ); ?>>
+                    <?php echo esc_html( $d->name ); ?>
+                </option>
+                <?php endforeach; ?>
+            </select>
+        </label>
+        <label>
+            <?php esc_html_e( 'From:', 'sfs-hr' ); ?><br>
+            <input type="date" name="from" value="<?php echo esc_attr( $from ); ?>">
+        </label>
+        <label>
+            <?php esc_html_e( 'To:', 'sfs-hr' ); ?><br>
+            <input type="date" name="to" value="<?php echo esc_attr( $to ); ?>">
+        </label>
+        <button type="submit" class="button"><?php esc_html_e( 'Filter', 'sfs-hr' ); ?></button>
+        <a href="<?php echo $export_url; ?>" class="button button-primary"><?php esc_html_e( 'Download CSV', 'sfs-hr' ); ?></a>
+    </form>
+
+    <?php if ( empty( $rows ) ) : ?>
+        <p><em><?php esc_html_e( 'No overtime records found for the selected period.', 'sfs-hr' ); ?></em></p>
+    <?php else : ?>
+    <table class="widefat striped">
+        <thead>
+            <tr>
+                <th><?php esc_html_e( 'Date', 'sfs-hr' ); ?></th>
+                <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
+                <th><?php esc_html_e( 'Department', 'sfs-hr' ); ?></th>
+                <th><?php esc_html_e( 'Shift', 'sfs-hr' ); ?></th>
+                <th><?php esc_html_e( 'OT From', 'sfs-hr' ); ?></th>
+                <th><?php esc_html_e( 'OT To', 'sfs-hr' ); ?></th>
+                <th><?php esc_html_e( 'OT Hours', 'sfs-hr' ); ?></th>
+                <th><?php esc_html_e( 'Amount', 'sfs-hr' ); ?></th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php
+        foreach ( $rows as $r ) {
+            $ot_hours = round( (int) $r->overtime_minutes / 60, 2 );
+            $hourly   = $working_days_full > 0 && (float) $r->base_salary > 0
+                ? (float) $r->base_salary / ( $working_days_full * 8 )
+                : 0;
+            $amount   = round( $ot_hours * $hourly * $ot_multiplier, 2 );
+
+            // OT start = shift end (or in_time for holiday/off-day work)
+            $ot_from = $r->shift_end ? $r->shift_end : '';
+            $ot_to   = ! empty( $r->out_time ) ? AttendanceModule::fmt_local( $r->out_time ) : '';
+            // If no shift end available, derive from in_time
+            if ( ! $ot_from && ! empty( $r->in_time ) ) {
+                $ot_from = AttendanceModule::fmt_local( $r->in_time );
+            }
+            ?>
+            <tr>
+                <td><?php echo esc_html( $r->work_date ); ?></td>
+                <td><?php echo esc_html( $r->employee_name ); ?> <small style="color:#666;">(<?php echo esc_html( $r->employee_code ); ?>)</small></td>
+                <td><?php echo esc_html( $r->department ?: '—' ); ?></td>
+                <td><?php echo esc_html( $r->shift_name ?: '—' ); ?> <?php if ( $r->shift_start && $r->shift_end ) : ?><small style="color:#666;">(<?php echo esc_html( substr( $r->shift_start, 0, 5 ) . '–' . substr( $r->shift_end, 0, 5 ) ); ?>)</small><?php endif; ?></td>
+                <td><?php echo esc_html( $ot_from ); ?></td>
+                <td><?php echo esc_html( $ot_to ); ?></td>
+                <td><?php echo esc_html( number_format( $ot_hours, 2 ) ); ?></td>
+                <td><?php echo esc_html( number_format( $amount, 2 ) ); ?></td>
+            </tr>
+            <?php
+        }
+        ?>
+        </tbody>
+    </table>
+    <?php endif;
+}
+
+/**
+ * Handle overtime CSV export download.
+ */
+public function handle_export_overtime_csv(): void {
+    if ( ! current_user_can( 'sfs_hr_attendance_admin' ) ) {
+        wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
+    }
+    check_admin_referer( 'sfs_hr_att_export_overtime_csv' );
+
+    global $wpdb;
+
+    $att_period = AttendanceModule::get_current_period();
+    $from    = isset( $_GET['from'] ) ? sanitize_text_field( $_GET['from'] ) : $att_period['start'];
+    $to      = isset( $_GET['to'] )   ? sanitize_text_field( $_GET['to'] )   : $att_period['end'];
+    $dept_id = isset( $_GET['dept_id'] ) ? (int) $_GET['dept_id'] : 0;
+
+    if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $from ) || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $to ) || $to < $from ) {
+        wp_die( esc_html__( 'Invalid date range', 'sfs-hr' ) );
+    }
+
+    $eT  = $wpdb->prefix . 'sfs_hr_employees';
+    $sT  = $wpdb->prefix . 'sfs_hr_attendance_sessions';
+    $shT = $wpdb->prefix . 'sfs_hr_attendance_shifts';
+    $dT  = $wpdb->prefix . 'sfs_hr_departments';
+    $uT  = $wpdb->users;
+
+    $where  = $wpdb->prepare( "s.work_date BETWEEN %s AND %s", $from, $to );
+    $where .= " AND s.overtime_minutes > 0";
+    $where .= " AND COALESCE(e.hidden_from_attendance, 0) = 0";
+    $where .= " AND e.status = 'active'";
+    if ( $dept_id > 0 ) {
+        $where .= $wpdb->prepare( " AND e.dept_id = %d", $dept_id );
+    }
+
+    $rows = $wpdb->get_results( "
+        SELECT
+            s.work_date,
+            s.employee_id,
+            e.employee_code,
+            u.display_name AS employee_name,
+            d.name AS department,
+            sh.name AS shift_name,
+            sh.start_time AS shift_start,
+            sh.end_time AS shift_end,
+            s.in_time,
+            s.out_time,
+            s.overtime_minutes,
+            e.base_salary
+        FROM {$sT} s
+        LEFT JOIN {$eT} e  ON e.id  = s.employee_id
+        LEFT JOIN {$uT} u  ON u.ID  = e.user_id
+        LEFT JOIN {$dT} d  ON d.id  = e.dept_id
+        LEFT JOIN {$wpdb->prefix}sfs_hr_attendance_shift_assign sa ON sa.employee_id = s.employee_id AND sa.work_date = s.work_date
+        LEFT JOIN {$shT} sh ON sh.id = COALESCE(sa.shift_id, s.shift_assign_id)
+        WHERE {$where}
+        ORDER BY d.name ASC, u.display_name ASC, s.work_date ASC
+    " );
+
+    $working_days_full = \SFS\HR\Modules\Payroll\PayrollModule::count_working_days( $from, $to );
+    $ot_multiplier     = (float) apply_filters( 'sfs_hr_overtime_multiplier', 1.5, 0, 0 );
+
+    // Output CSV
+    while ( ob_get_level() ) { ob_end_clean(); }
+    nocache_headers();
+
+    $dept_suffix = $dept_id > 0 ? '_dept' . $dept_id : '';
+    header( 'Content-Type: text/csv; charset=UTF-8' );
+    header( 'Content-Disposition: attachment; filename=overtime' . $dept_suffix . '_' . $from . '_' . $to . '.csv' );
+
+    $out = fopen( 'php://output', 'w' );
+    fwrite( $out, "\xEF\xBB\xBF" ); // UTF-8 BOM
+
+    fputcsv( $out, [
+        'date', 'employee_code', 'employee_name', 'department',
+        'shift_name', 'shift_start', 'shift_end',
+        'ot_from', 'ot_to', 'ot_minutes', 'ot_hours', 'ot_amount',
+    ] );
+
+    foreach ( (array) $rows as $r ) {
+        $ot_hours = round( (int) $r->overtime_minutes / 60, 2 );
+        $hourly   = $working_days_full > 0 && (float) $r->base_salary > 0
+            ? (float) $r->base_salary / ( $working_days_full * 8 )
+            : 0;
+        $amount   = round( $ot_hours * $hourly * $ot_multiplier, 2 );
+
+        $ot_from = $r->shift_end ?: '';
+        $ot_to   = ! empty( $r->out_time ) ? AttendanceModule::fmt_local( $r->out_time ) : '';
+        if ( ! $ot_from && ! empty( $r->in_time ) ) {
+            $ot_from = AttendanceModule::fmt_local( $r->in_time );
+        }
+
+        fputcsv( $out, [
+            $r->work_date,
+            (string) $r->employee_code,
+            (string) $r->employee_name,
+            (string) ( $r->department ?: '' ),
+            (string) ( $r->shift_name ?: '' ),
+            $r->shift_start ? substr( $r->shift_start, 0, 5 ) : '',
+            $r->shift_end   ? substr( $r->shift_end, 0, 5 )   : '',
+            $ot_from,
+            $ot_to,
+            (int) $r->overtime_minutes,
+            number_format( $ot_hours, 2 ),
+            number_format( $amount, 2 ),
+        ] );
+    }
+
+    fclose( $out );
+    exit;
+}
+
+
     /* ========================= DEVICES (KIOSK) ========================= */
 
     public function render_devices(): void {
