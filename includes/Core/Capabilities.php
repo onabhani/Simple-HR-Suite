@@ -134,6 +134,13 @@ class Capabilities {
             $allcaps['sfs_hr_performance_view']     = true;
         }
 
+        // Finance approver needs leave review access to view and act on finance-stage requests.
+        $finance_approver_id = (int) get_option( 'sfs_hr_leave_finance_approver', 0 );
+        if ( $finance_approver_id > 0 && $uid === $finance_approver_id ) {
+            $allcaps['sfs_hr.view']         = true;
+            $allcaps['sfs_hr.leave.review'] = true;
+        }
+
         return $allcaps;
     }
 }

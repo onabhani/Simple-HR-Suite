@@ -4325,6 +4325,9 @@ public function render_exceptions(): void {
         $params[] = $employee_id;
     }
 
+    // Exclude employees hidden from attendance
+    $where .= " AND COALESCE(e.hidden_from_attendance, 0) = 0";
+
     $rows = $wpdb->get_results( $wpdb->prepare("
         SELECT
             s.work_date,
@@ -5682,6 +5685,9 @@ private function render_sessions(): void {
         $where .= $wpdb->prepare(" AND s.employee_id=%d", $emp);
     }
 
+    // Exclude employees hidden from attendance
+    $where .= " AND COALESCE(e.hidden_from_attendance, 0) = 0";
+
     // Sessions rows (+ employee_code column) — stable sort
 $sortName = "COALESCE(NULLIF(TRIM(u.display_name),''), NULLIF(TRIM(e.employee_code),''), CONCAT('#', s.employee_id))";
 $orderSQL = ($mode === 'period_25')
@@ -5730,7 +5736,8 @@ $rows = $wpdb->get_results("
     $nameSQL = 'COALESCE(' . implode(',', $nameParts) . ", CONCAT('#', e.id)) AS name";
 
     // Filter by active employees only (consistent with punches tab); capped at 500
-    $statusFilter = $has('status') ? "WHERE e.status = 'active'" : "";
+    // Also exclude employees hidden from attendance
+    $statusFilter = $has('status') ? "WHERE e.status = 'active' AND COALESCE(e.hidden_from_attendance, 0) = 0" : "WHERE COALESCE(e.hidden_from_attendance, 0) = 0";
 
     $emps = $wpdb->get_results("
         SELECT e.id, {$nameSQL}

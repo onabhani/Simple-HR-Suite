@@ -3945,5 +3945,8 @@
     "elr_rejected_hint": "Notify employee when their early leave request is rejected.",
     "1_day_off": "1 day off",
     "x_days_off": "%d days off",
-    "this_holiday_repeats_every_year": "This holiday repeats every year."
+    "this_holiday_repeats_every_year": "This holiday repeats every year.",
+    "attendance_visibility": "Attendance Visibility",
+    "hidden_from_attendance": "Hidden from attendance",
+    "hide_employee_from_attendance_hint": "Hide this employee from attendance sessions and performance reports"
 }

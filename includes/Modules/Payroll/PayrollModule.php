@@ -383,9 +383,12 @@ class PayrollModule {
             $end_date
         ) );
 
+        // Employees hidden from attendance are exempt from absence/late penalties
+        $hidden_from_att = ! empty( $employee->hidden_from_attendance );
+
         $days_worked = (int) ( $attendance->days_worked ?? 0 );
-        $raw_days_absent = (int) ( $attendance->days_absent ?? 0 );
-        $days_late = (int) ( $attendance->days_late ?? 0 );
+        $raw_days_absent = $hidden_from_att ? 0 : (int) ( $attendance->days_absent ?? 0 );
+        $days_late = $hidden_from_att ? 0 : (int) ( $attendance->days_late ?? 0 );
         $days_leave = (int) ( $attendance->days_leave ?? 0 );
         $overtime_minutes = (int) ( $attendance->total_overtime_minutes ?? 0 );
         $overtime_hours = round( $overtime_minutes / 60, 2 );
