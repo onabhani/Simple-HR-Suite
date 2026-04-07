@@ -4513,7 +4513,15 @@ private static function computeOvertimeRow(
     $otTo   = !empty($r->out_time)
         ? AttendanceModule::fmt_local($r->out_time)
         : '';
-    if (!$otFrom && !empty($r->in_time)) {
+    // When shift_end is missing (holiday/off-day), derive OT start from
+    // out_time minus overtime_minutes instead of using in_time which
+    // would incorrectly show OT spanning the entire work day.
+    if (!$otFrom && !empty($r->out_time) && (int) $r->overtime_minutes > 0) {
+        $outTs  = strtotime($r->out_time . ' UTC');
+        $otFrom = AttendanceModule::fmt_local(
+            gmdate('Y-m-d H:i:s', $outTs - (int) $r->overtime_minutes * 60)
+        );
+    } elseif (!$otFrom && !empty($r->in_time)) {
         $otFrom = AttendanceModule::fmt_local($r->in_time);
     }
 
@@ -4688,15 +4696,23 @@ public function handleExportOvertimeCsv(): void
         'ot_from', 'ot_to', 'ot_minutes', 'ot_hours', 'ot_amount',
     ]);
 
+    // Sanitize strings to prevent CSV formula injection in Excel/Sheets
+    $safe = static function (string $v): string {
+        if ($v !== '' && in_array($v[0], ['=', '+', '-', '@'], true)) {
+            return "'" . $v;
+        }
+        return $v;
+    };
+
     foreach ((array) $rows as $r) {
         $c = self::computeOvertimeRow($r, $workingDays);
 
         fputcsv($out, [
             $r->work_date,
-            (string) $r->employee_code,
-            (string) $r->employee_name,
-            (string) ($r->department ?: ''),
-            (string) ($r->shift_name ?: ''),
+            $safe((string) $r->employee_code),
+            $safe((string) $r->employee_name),
+            $safe((string) ($r->department ?: '')),
+            $safe((string) ($r->shift_name ?: '')),
             $r->shift_start ? substr($r->shift_start, 0, 5) : '',
             $r->shift_end   ? substr($r->shift_end, 0, 5)   : '',
             $c['otFrom'],
