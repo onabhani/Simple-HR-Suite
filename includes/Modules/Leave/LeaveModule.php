@@ -225,11 +225,11 @@ public function render_requests(): void {
         } elseif ( $status === 'pending_hr' ) {
             $where .= " AND r.approval_level = 2";
         } elseif ( $status === 'pending_gm' ) {
-            // Level 1 where requester is a department manager
-            $where .= " AND r.approval_level = 1 AND e.user_id IN (SELECT manager_user_id FROM {$wpdb->prefix}sfs_hr_departments WHERE active = 1 AND manager_user_id > 0)";
+            // Level 1 where requester is manager of their own department
+            $where .= " AND r.approval_level = 1 AND EXISTS (SELECT 1 FROM {$wpdb->prefix}sfs_hr_departments d WHERE d.active = 1 AND d.manager_user_id = e.user_id AND d.id = e.dept_id)";
         } else {
-            // pending_manager: level 1 where requester is NOT a department manager
-            $where .= " AND r.approval_level = 1 AND e.user_id NOT IN (SELECT manager_user_id FROM {$wpdb->prefix}sfs_hr_departments WHERE active = 1 AND manager_user_id > 0)";
+            // pending_manager: level 1 where requester is NOT manager of their own department
+            $where .= " AND r.approval_level = 1 AND NOT EXISTS (SELECT 1 FROM {$wpdb->prefix}sfs_hr_departments d WHERE d.active = 1 AND d.manager_user_id = e.user_id AND d.id = e.dept_id)";
         }
     } elseif ( $status !== 'all' ) {
         $where   .= " AND r.status = %s";
@@ -329,14 +329,14 @@ public function render_requests(): void {
             ? (int) $wpdb->get_var( $wpdb->prepare( $sql_ph, ...$count_params ) )
             : (int) $wpdb->get_var( $sql_ph );
 
-        // pending_gm: approval_level = 1, requester IS a dept manager
-        $sql_pg = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id $pending_where AND r.approval_level = 1 AND e.user_id IN (SELECT manager_user_id FROM {$dept_t} WHERE active = 1 AND manager_user_id > 0)";
+        // pending_gm: approval_level = 1, requester IS manager of their own dept
+        $sql_pg = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id $pending_where AND r.approval_level = 1 AND EXISTS (SELECT 1 FROM {$dept_t} d WHERE d.active = 1 AND d.manager_user_id = e.user_id AND d.id = e.dept_id)";
         $cached_counts['pending_gm'] = $count_params
             ? (int) $wpdb->get_var( $wpdb->prepare( $sql_pg, ...$count_params ) )
             : (int) $wpdb->get_var( $sql_pg );
 
-        // pending_manager: approval_level = 1, requester is NOT a dept manager
-        $sql_pm = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id $pending_where AND r.approval_level = 1 AND e.user_id NOT IN (SELECT manager_user_id FROM {$dept_t} WHERE active = 1 AND manager_user_id > 0)";
+        // pending_manager: approval_level = 1, requester is NOT manager of their own dept
+        $sql_pm = "SELECT COUNT(*) FROM $req_t r JOIN $emp_t e ON e.id = r.employee_id $pending_where AND r.approval_level = 1 AND NOT EXISTS (SELECT 1 FROM {$dept_t} d WHERE d.active = 1 AND d.manager_user_id = e.user_id AND d.id = e.dept_id)";
         $cached_counts['pending_manager'] = $count_params
             ? (int) $wpdb->get_var( $wpdb->prepare( $sql_pm, ...$count_params ) )
             : (int) $wpdb->get_var( $sql_pm );
@@ -458,27 +458,39 @@ public function render_requests(): void {
                 <?php if (!$rows): ?>
                     <tr><td colspan="9"><?php esc_html_e('No requests found.', 'sfs-hr'); ?></td></tr>
                 <?php else: foreach ($rows as $idx => $r):
-                    // Check if current user can approve this specific request (position-based)
-                    // Detailed approval logic is in render_detail_page; this is just for UI hints
+                    // Compute approval level and requester-is-manager for both can_approve and status chip.
+                    $row_level = (int) ( $r['approval_level'] ?? 1 );
+                    $is_requester_mgr = false;
+                    if ( $r['status'] === 'pending' && ! empty( $r['dept_id'] ) ) {
+                        $mgr_uid_check = (int) $wpdb->get_var( $wpdb->prepare(
+                            "SELECT manager_user_id FROM {$wpdb->prefix}sfs_hr_departments WHERE id=%d AND active=1",
+                            (int) $r['dept_id']
+                        ) );
+                        if ( $mgr_uid_check > 0 && (int) ( $r['emp_user_id'] ?? 0 ) === $mgr_uid_check ) {
+                            $is_requester_mgr = true;
+                        }
+                    }
+
+                    // Stage-aware approval check (mirrors render_leave_detail logic)
                     $can_approve = false;
-                    if ($r['status'] === 'pending') {
-                        $row_level = (int) ( $r['approval_level'] ?? 1 );
-                        // Position-based HR or GM can approve
-                        $is_hr_position = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
-                        $is_gm_position = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
-                        if ($is_hr_position || $is_gm_position) {
-                            $can_approve = true;
-                        }
-                        // Finance approver can approve finance-stage requests
-                        elseif ( $is_assigned_finance && $row_level >= 3 ) {
-                            $can_approve = true;
-                        }
-                        // Department managers can approve requests from their departments
-                        elseif (!empty($managed_depts) && in_array((int)$r['dept_id'], $managed_depts, true)) {
-                            $can_approve = true;
+                    if ( $r['status'] === 'pending' ) {
+                        if ( $row_level >= 3 ) {
+                            // Finance stage — only finance approver
+                            $can_approve = $is_assigned_finance;
+                        } elseif ( $row_level >= 2 ) {
+                            // HR stage — only HR approvers
+                            $is_hr_position = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
+                            $can_approve = $is_hr_position || current_user_can( 'sfs_hr.leave.manage' );
+                        } elseif ( $is_requester_mgr ) {
+                            // GM stage — only GM
+                            $is_gm_position = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
+                            $can_approve = $is_gm_position;
+                        } else {
+                            // Manager stage — dept manager for this employee's dept
+                            $can_approve = ! empty( $managed_depts ) && in_array( (int) $r['dept_id'], $managed_depts, true );
                         }
                         // Cannot approve own request
-                        if ((int)($r['emp_user_id'] ?? 0) === $current_uid) {
+                        if ( (int) ( $r['emp_user_id'] ?? 0 ) === $current_uid ) {
                             $can_approve = false;
                         }
                     }
@@ -501,21 +513,9 @@ public function render_requests(): void {
 
                     $status_key = (string) $r['status'];
                     if ($status_key === 'pending') {
-                        $level = (int)($r['approval_level'] ?? 1);
-                        // Check if requester is a department manager
-                        $is_requester_mgr = false;
-                        if (!empty($r['dept_id'])) {
-                            $mgr_uid_check = (int)$wpdb->get_var($wpdb->prepare(
-                                "SELECT manager_user_id FROM {$wpdb->prefix}sfs_hr_departments WHERE id=%d AND active=1",
-                                (int)$r['dept_id']
-                            ));
-                            if ($mgr_uid_check > 0 && (int)($r['emp_user_id'] ?? 0) === $mgr_uid_check) {
-                                $is_requester_mgr = true;
-                            }
-                        }
-                        if ($level >= 3) {
+                        if ($row_level >= 3) {
                             $status_key = 'pending_finance';
-                        } elseif ($level >= 2) {
+                        } elseif ($row_level >= 2) {
                             $status_key = 'pending_hr';
                         } elseif ($is_requester_mgr) {
                             $status_key = 'pending_gm';
@@ -627,19 +627,29 @@ public function render_requests(): void {
     <script>
     (function(){
     function sfsEsc(s){if(typeof s!=='string')return '';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
-    var sfsHrLeaveData = <?php echo wp_json_encode(array_values(array_map(function($r) use ($hr_user_ids, $gm_user_id, $managed_depts, $current_uid, $approver_names, $is_assigned_finance) {
+    var sfsHrLeaveData = <?php echo wp_json_encode(array_values(array_map(function($r) use ($hr_user_ids, $gm_user_id, $managed_depts, $current_uid, $approver_names, $is_assigned_finance, $wpdb) {
         $can_approve = false;
         if ($r['status'] === 'pending') {
             $row_level = (int) ( $r['approval_level'] ?? 1 );
-            // Position-based HR or GM check
-            $is_hr_position = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
-            $is_gm_position = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
-            if ($is_hr_position || $is_gm_position) {
-                $can_approve = true;
-            } elseif ( $is_assigned_finance && $row_level >= 3 ) {
-                $can_approve = true;
-            } elseif (!empty($managed_depts) && in_array((int)$r['dept_id'], $managed_depts, true)) {
-                $can_approve = true;
+            // Check if requester is manager of their own dept (for stage routing)
+            $is_req_mgr = false;
+            if ( ! empty( $r['dept_id'] ) ) {
+                $mgr_check = (int) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT manager_user_id FROM {$wpdb->prefix}sfs_hr_departments WHERE id=%d AND active=1",
+                    (int) $r['dept_id']
+                ) );
+                $is_req_mgr = ( $mgr_check > 0 && (int) ( $r['emp_user_id'] ?? 0 ) === $mgr_check );
+            }
+            // Stage-aware approval (mirrors render_leave_detail logic)
+            if ( $row_level >= 3 ) {
+                $can_approve = $is_assigned_finance;
+            } elseif ( $row_level >= 2 ) {
+                $is_hr_position = ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true );
+                $can_approve = $is_hr_position || current_user_can( 'sfs_hr.leave.manage' );
+            } elseif ( $is_req_mgr ) {
+                $can_approve = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
+            } else {
+                $can_approve = ! empty( $managed_depts ) && in_array( (int) $r['dept_id'], $managed_depts, true );
             }
             if ((int)($r['emp_user_id'] ?? 0) === $current_uid) {
                 $can_approve = false;
@@ -1699,7 +1709,7 @@ public function handle_approve(): void {
         $is_finance = current_user_can('sfs_hr_loans_finance_approve');
         $is_assigned_finance = ( $current_uid === $finance_approver_id );
 
-        if ( ! $is_finance && ! $is_assigned_finance && ! $is_hr ) {
+        if ( ! $is_finance && ! $is_assigned_finance ) {
             wp_safe_redirect(
                 add_query_arg(
                     'err',
@@ -1910,12 +1920,48 @@ public function handle_reject(): void {
         admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending' ),
         __( 'Administrators cannot reject leave requests. Use cancel instead.', 'sfs-hr' )
     );
-    // HR users or GM users can reject any request
-    if ( ! current_user_can('sfs_hr.manage') && ! current_user_can('sfs_hr_loans_gm_approve') ) {
-        $managed = $this->manager_dept_ids_for_user($current_uid);
-        if (empty($managed) || !in_array((int)($empInfo['dept_id'] ?? 0), $managed, true)) {
-            wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending&err='.rawurlencode(__('You can only review requests in your department.','sfs-hr')))); exit;
+    // Stage-aware rejection: only the role responsible for the current stage can reject.
+    $approval_level = (int) ( $row['approval_level'] ?? 1 );
+    $reject_allowed = false;
+
+    if ( $approval_level >= 3 ) {
+        // Finance stage — only finance approver
+        $finance_approver_id = (int) get_option( 'sfs_hr_leave_finance_approver', 0 );
+        $reject_allowed = ( $finance_approver_id > 0 && $current_uid === $finance_approver_id )
+                          || current_user_can( 'sfs_hr_loans_finance_approve' );
+    } elseif ( $approval_level >= 2 ) {
+        // HR stage — HR approvers
+        $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
+        $reject_allowed = ( ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true ) )
+                          || current_user_can( 'sfs_hr.leave.manage' );
+    } else {
+        // Manager/GM stage
+        $dept_t = $wpdb->prefix . 'sfs_hr_departments';
+        $mgr_uid = ! empty( $empInfo['dept_id'] ) ? (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT manager_user_id FROM $dept_t WHERE id=%d AND active=1",
+            (int) $empInfo['dept_id']
+        ) ) : 0;
+        $requester_is_dept_mgr = ( $mgr_uid > 0 && (int) ( $empInfo['user_id'] ?? 0 ) === $mgr_uid );
+
+        if ( $requester_is_dept_mgr ) {
+            // GM stage
+            $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
+            if ( ! $gm_user_id ) {
+                $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
+                $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
+                $gm_user_id = ! empty( $gm_user_ids ) ? (int) $gm_user_ids[0] : 0;
+            }
+            $reject_allowed = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
+        } else {
+            // Manager stage — dept manager of employee's dept
+            $managed = $this->manager_dept_ids_for_user( $current_uid );
+            $reject_allowed = ! empty( $managed ) && in_array( (int) ( $empInfo['dept_id'] ?? 0 ), $managed, true );
         }
+    }
+
+    if ( ! $reject_allowed ) {
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending&err=' . rawurlencode( __( 'You do not have permission to reject this request at its current stage.', 'sfs-hr' ) ) ) );
+        exit;
     }
 
     $wpdb->update($req_t, [

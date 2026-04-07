@@ -294,6 +294,9 @@ class Migrations {
         /** EMPLOYEES – language preference (synced to WP user locale) */
         self::add_column_if_missing($emp, 'language', "VARCHAR(10) NULL DEFAULT NULL");
 
+        /** EMPLOYEES – hide from attendance sessions & performance reports */
+        self::add_column_if_missing($emp, 'hidden_from_attendance', "TINYINT(1) NOT NULL DEFAULT 0");
+
         /** LEAVE REQUEST HISTORY (audit trail) */
         $leave_history = $wpdb->prefix.'sfs_hr_leave_request_history';
         $wpdb->query("CREATE TABLE IF NOT EXISTS `$leave_history` (

@@ -4791,6 +4791,11 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
     // Driving license checkbox (separate from loop)
     $payload['driving_license_has'] = ! empty( $_POST['driving_license_has'] ) ? 1 : 0;
 
+    // Hidden from attendance — only administrators can toggle
+    if ( current_user_can( 'administrator' ) ) {
+        $payload['hidden_from_attendance'] = ! empty( $_POST['hidden_from_attendance'] ) ? 1 : 0;
+    }
+
     // Department
     $dept_in = isset($_POST['dept_id']) ? $_POST['dept_id'] : '';
     $payload['dept_id'] = $this->validate_dept_id($dept_in);

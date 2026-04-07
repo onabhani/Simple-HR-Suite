@@ -248,8 +248,8 @@ class Performance_Calculator {
             if ( empty( $end_date ) )   { $end_date   = $att_period['end']; }
         }
 
-        // Get active employees
-        $where = "WHERE status = 'active'";
+        // Get active employees (exclude those hidden from attendance)
+        $where = "WHERE status = 'active' AND COALESCE(hidden_from_attendance, 0) = 0";
         if ( $dept_id > 0 ) {
             $where .= $wpdb->prepare( " AND dept_id = %d", $dept_id );
         }

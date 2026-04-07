@@ -3962,5 +3962,8 @@
     "elr_rejected_hint": "إشعار الموظف عند رفض طلب المغادرة المبكرة.",
     "1_day_off": "يوم إجازة واحد",
     "x_days_off": "%d أيام إجازة",
-    "this_holiday_repeats_every_year": "تتكرر هذه الإجازة كل عام."
+    "this_holiday_repeats_every_year": "تتكرر هذه الإجازة كل عام.",
+    "attendance_visibility": "ظهور الحضور",
+    "hidden_from_attendance": "مخفي من الحضور",
+    "hide_employee_from_attendance_hint": "إخفاء هذا الموظف من جلسات الحضور وتقارير الأداء"
 }

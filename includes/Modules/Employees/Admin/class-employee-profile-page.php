@@ -209,6 +209,7 @@ class Employee_Profile_Page {
     $dl_has          = ! empty( $emp['driving_license_has'] );
     $dl_number       = $emp['driving_license_number'] ?? '';
     $dl_expiry       = $emp['driving_license_expiry'] ?? '';
+    $hidden_att      = ! empty( $emp['hidden_from_attendance'] );
     $language        = $emp['language'] ?? '';
 
     // QR data
@@ -525,6 +526,13 @@ class Employee_Profile_Page {
                 <tr><th><?php esc_html_e( 'License number', 'sfs-hr' ); ?></th><td><input type="text" name="driving_license_number" class="regular-text" value="<?php echo esc_attr( $dl_number ); ?>" /></td></tr>
                 <tr><th><?php esc_html_e( 'License expiry', 'sfs-hr' ); ?></th><td><input type="text" name="driving_license_expiry" class="regular-text sfs-hr-date" placeholder="dd/mm/yyyy" value="<?php echo esc_attr( $fmt_input( $dl_expiry ) ); ?>" /></td></tr>
             </tbody></table></div>
+
+            <?php if ( current_user_can( 'administrator' ) ) : ?>
+            <div class="sfs-ep-card"><h3><?php esc_html_e( 'Attendance Visibility', 'sfs-hr' ); ?></h3><table class="sfs-ep-form-table"><tbody>
+                <tr><th><?php esc_html_e( 'Hidden from attendance', 'sfs-hr' ); ?></th><td><label><input type="checkbox" name="hidden_from_attendance" value="1" <?php checked( $hidden_att ); ?> /> <?php esc_html_e( 'Hide this employee from attendance sessions and performance reports', 'sfs-hr' ); ?></label></td></tr>
+            </tbody></table></div>
+            <?php endif; ?>
+
             </div><!-- .sfs-ep-edit-grid -->
 
             <?php submit_button( __( 'Save Changes', 'sfs-hr' ) ); ?>
