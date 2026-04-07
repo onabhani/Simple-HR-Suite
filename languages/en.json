@@ -3948,5 +3948,11 @@
     "this_holiday_repeats_every_year": "This holiday repeats every year.",
     "attendance_visibility": "Attendance Visibility",
     "hidden_from_attendance": "Hidden from attendance",
-    "hide_employee_from_attendance_hint": "Hide this employee from attendance sessions and performance reports"
+    "hide_employee_from_attendance_hint": "Hide this employee from attendance sessions and performance reports",
+    "overtime_export": "Overtime Export",
+    "download_csv": "Download CSV",
+    "no_overtime_records": "No overtime records found for the selected period.",
+    "ot_from": "OT From",
+    "ot_to": "OT To",
+    "ot_hours": "OT Hours"
 }

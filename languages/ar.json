@@ -3965,5 +3965,11 @@
     "this_holiday_repeats_every_year": "تتكرر هذه الإجازة كل عام.",
     "attendance_visibility": "ظهور الحضور",
     "hidden_from_attendance": "مخفي من الحضور",
-    "hide_employee_from_attendance_hint": "إخفاء هذا الموظف من جلسات الحضور وتقارير الأداء"
+    "hide_employee_from_attendance_hint": "إخفاء هذا الموظف من جلسات الحضور وتقارير الأداء",
+    "overtime_export": "تصدير الوقت الإضافي",
+    "download_csv": "تحميل CSV",
+    "no_overtime_records": "لا توجد سجلات وقت إضافي للفترة المحددة.",
+    "ot_from": "بداية الإضافي",
+    "ot_to": "نهاية الإضافي",
+    "ot_hours": "ساعات إضافية"
 }
