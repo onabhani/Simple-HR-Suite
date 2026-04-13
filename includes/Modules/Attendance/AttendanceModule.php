@@ -192,6 +192,9 @@ class AttendanceModule {
      * Create / upgrade tables and initialize caps & defaults.
      */
     public function maybe_install(): void {
+        if ( version_compare( (string) get_option( 'sfs_hr_db_ver', '0' ), SFS_HR_VER, '>=' ) ) {
+            return;
+        }
         ( new Migration() )->run();
     }
 
