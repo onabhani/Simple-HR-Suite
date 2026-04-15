@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Simple HR Suite
  * Description: Simple HR Suite – employees, departments, leave, balances, approvals.
- * Version: 2.2.5
+ * Version: 2.2.6
  * Author: hdqah.com
  * Author URI: https://hdqah.com
  * Requires at least: 6.4
@@ -15,7 +15,7 @@
 
 if (!defined('ABSPATH')) { exit; }
 
-define('SFS_HR_VER', '2.2.5');
+define('SFS_HR_VER', '2.2.6');
 define('SFS_HR_DIR', plugin_dir_path(__FILE__));
 define('SFS_HR_URL', plugin_dir_url(__FILE__));
 define('SFS_HR_PLUGIN_FILE', __FILE__);
@@ -51,6 +51,10 @@ register_activation_hook(__FILE__, function(){
 
     // Install Leave module
     (new \SFS\HR\Modules\Leave\LeaveModule())->install();
+
+    // Install Attendance module (tables, FKs, caps, seeds)
+    (new \SFS\HR\Modules\Attendance\Migration())->run();
+    update_option('sfs_hr_attendance_db_ver', SFS_HR_VER, true);
 
     // Create Assets tables directly
     $assets_table    = $wpdb->prefix . 'sfs_hr_assets';

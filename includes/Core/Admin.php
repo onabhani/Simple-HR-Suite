@@ -103,7 +103,17 @@ class Admin {
         }
     }
 
+    /**
+     * True only when the stored DB version is older than the plugin version.
+     * Used to short-circuit admin_init column-install helpers on steady-state
+     * requests so they don't issue SHOW TABLES / SHOW COLUMNS probes every load.
+     */
+    private function needs_schema_upgrade(): bool {
+        return version_compare( (string) get_option( 'sfs_hr_db_ver', '0' ), SFS_HR_VER, '<' );
+    }
+
     public function maybe_add_employee_photo_column(): void {
+        if ( ! $this->needs_schema_upgrade() ) { return; }
         global $wpdb;
         $table = $wpdb->prefix . 'sfs_hr_employees';
         $this->add_column_safe(
@@ -202,6 +212,7 @@ class Admin {
     }
 
     public function maybe_install_qr_cols(): void {
+        if ( ! $this->needs_schema_upgrade() ) { return; }
         global $wpdb;
         $t = $wpdb->prefix . 'sfs_hr_employees';
 
@@ -212,8 +223,9 @@ class Admin {
         $this->add_column_safe($t, 'qr_enabled',    "ALTER TABLE `{$t}` ADD COLUMN qr_enabled TINYINT(1) NOT NULL DEFAULT 1");
         $this->add_column_safe($t, 'qr_updated_at', "ALTER TABLE `{$t}` ADD COLUMN qr_updated_at DATETIME NULL");
     }
-    
+
     public function maybe_install_employee_extra_cols(): void {
+        if ( ! $this->needs_schema_upgrade() ) { return; }
         global $wpdb;
         $t = $wpdb->prefix . 'sfs_hr_employees';
 
