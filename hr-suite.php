@@ -52,6 +52,10 @@ register_activation_hook(__FILE__, function(){
     // Install Leave module
     (new \SFS\HR\Modules\Leave\LeaveModule())->install();
 
+    // Install Attendance module (tables, FKs, caps, seeds)
+    (new \SFS\HR\Modules\Attendance\Migration())->run();
+    update_option('sfs_hr_attendance_db_ver', SFS_HR_VER, true);
+
     // Create Assets tables directly
     $assets_table    = $wpdb->prefix . 'sfs_hr_assets';
     $assign_table    = $wpdb->prefix . 'sfs_hr_asset_assignments';
