@@ -463,6 +463,24 @@ class PayrollModule {
         // Get salary components
         $components = self::get_employee_components( $employee_id, $end_date );
 
+        // Common inputs for every formula evaluation in this payslip. Per-call
+        // extras (gross_salary, default_amount, employee_amount) are merged on
+        // top of this base at each callsite via the union operator.
+        $formula_vars_base = [
+            'employee'          => $employee,
+            'period'            => $period,
+            'base_salary'       => $base_salary,
+            'pro_rata'          => $pro_rata,
+            'working_days'      => $working_days,
+            'working_days_full' => $working_days_full,
+            'days_worked'       => $days_worked,
+            'days_absent'       => $days_absent,
+            'days_late'         => $days_late,
+            'days_leave'        => $days_leave,
+            'overtime_hours'    => $overtime_hours,
+            'overtime_minutes'  => $overtime_minutes,
+        ];
+
         // Calculate earnings (accumulate unrounded, round only at the end)
         $total_earnings = 0;
         $component_details = [];
@@ -505,29 +523,14 @@ class PayrollModule {
 
                     // Admin-defined formula takes precedence over hardcoded
                     // component codes. This is the v1.2.0 formula engine path.
-                    if ( ! empty( $comp['formula_expression'] ) ) {
-                        $ctx = self::build_formula_context( [
-                            'employee'          => $employee,
-                            'period'            => $period,
-                            'base_salary'       => $base_salary,
-                            'gross_salary'      => 0, // earnings loop — gross not yet known
-                            'pro_rata'          => $pro_rata,
-                            'working_days'      => $working_days,
-                            'working_days_full' => $working_days_full,
-                            'days_worked'       => $days_worked,
-                            'days_absent'       => $days_absent,
-                            'days_late'         => $days_late,
-                            'days_leave'        => $days_leave,
-                            'overtime_hours'    => $overtime_hours,
-                            'overtime_minutes'  => $overtime_minutes,
-                            'default_amount'    => (float) ( $comp['default_amount'] ?? 0 ),
-                            'employee_amount'   => (float) $use_amount,
-                        ] );
-
-                        if ( self::formula_condition_passes( $comp['formula_condition'] ?? null, $ctx ) ) {
-                            $amount = (float) Services\Formula_Evaluator::evaluate( (string) $comp['formula_expression'], $ctx );
-                            $amount = max( 0.0, $amount );
-                        }
+                    // Earnings loop runs before gross is known — pass 0.
+                    $formula_amount = self::evaluate_component_formula( $comp, [
+                        'gross_salary'    => 0,
+                        'default_amount'  => (float) ( $comp['default_amount'] ?? 0 ),
+                        'employee_amount' => (float) $use_amount,
+                    ] + $formula_vars_base );
+                    if ( $formula_amount !== null ) {
+                        $amount = $formula_amount;
                         break;
                     }
 
@@ -601,30 +604,14 @@ class PayrollModule {
 
                 case 'formula':
                     // Admin-defined formula takes precedence over hardcoded
-                    // component codes. This is the v1.2.0 formula engine path.
-                    if ( ! empty( $comp['formula_expression'] ) ) {
-                        $ctx = self::build_formula_context( [
-                            'employee'          => $employee,
-                            'period'            => $period,
-                            'base_salary'       => $base_salary,
-                            'gross_salary'      => $gross_salary,
-                            'pro_rata'          => $pro_rata,
-                            'working_days'      => $working_days,
-                            'working_days_full' => $working_days_full,
-                            'days_worked'       => $days_worked,
-                            'days_absent'       => $days_absent,
-                            'days_late'         => $days_late,
-                            'days_leave'        => $days_leave,
-                            'overtime_hours'    => $overtime_hours,
-                            'overtime_minutes'  => $overtime_minutes,
-                            'default_amount'    => (float) ( $comp['default_amount'] ?? 0 ),
-                            'employee_amount'   => (float) $use_amount,
-                        ] );
-
-                        if ( self::formula_condition_passes( $comp['formula_condition'] ?? null, $ctx ) ) {
-                            $amount = (float) Services\Formula_Evaluator::evaluate( (string) $comp['formula_expression'], $ctx );
-                            $amount = max( 0.0, $amount );
-                        }
+                    // component codes. Deductions run after gross is known.
+                    $formula_amount = self::evaluate_component_formula( $comp, [
+                        'gross_salary'    => $gross_salary,
+                        'default_amount'  => (float) ( $comp['default_amount'] ?? 0 ),
+                        'employee_amount' => (float) $use_amount,
+                    ] + $formula_vars_base );
+                    if ( $formula_amount !== null ) {
+                        $amount = $formula_amount;
                         break;
                     }
 
@@ -838,6 +825,38 @@ class PayrollModule {
         }
 
         return $ctx;
+    }
+
+    /**
+     * Run an admin-authored formula for a salary component.
+     *
+     * Centralises the formula dispatch so earning and deduction loops share a
+     * single code path: build context, check the optional gate condition,
+     * evaluate, clamp to ≥ 0.
+     *
+     * @param array<string,mixed> $comp Salary component row. Must carry
+     *                                  `formula_expression` and (optionally)
+     *                                  `formula_condition`.
+     * @param array<string,mixed> $vars Raw context inputs — forwarded to
+     *                                  {@see build_formula_context()}. Must
+     *                                  already include the loop-specific
+     *                                  overrides (gross_salary, default_amount,
+     *                                  employee_amount).
+     *
+     * @return float|null Evaluated amount, or null when the component has no
+     *                    formula expression or its condition is falsy. Callers
+     *                    fall back to legacy hardcoded formulas in that case.
+     */
+    private static function evaluate_component_formula( array $comp, array $vars ): ?float {
+        if ( empty( $comp['formula_expression'] ) ) {
+            return null;
+        }
+        $ctx = self::build_formula_context( $vars );
+        if ( ! self::formula_condition_passes( $comp['formula_condition'] ?? null, $ctx ) ) {
+            return null;
+        }
+        $amount = (float) Services\Formula_Evaluator::evaluate( (string) $comp['formula_expression'], $ctx );
+        return max( 0.0, $amount );
     }
 
     /**

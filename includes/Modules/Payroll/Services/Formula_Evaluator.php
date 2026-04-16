@@ -36,6 +36,21 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  *
  * Constants: true = 1, false = 0
  *
+ * Evaluation semantics — IMPORTANT for formula authors:
+ *   - if(cond, a, b) uses EAGER evaluation. Both `a` and `b` are fully
+ *     evaluated before the condition is tested, then one is returned.
+ *     Do NOT rely on short-circuiting — e.g. `if(denom != 0, numer/denom, 0)`
+ *     will still compute `numer/denom` when `denom` is 0.
+ *   - The `and` / `or` operators are likewise non-short-circuiting; both
+ *     sides are evaluated before the boolean is combined.
+ *   - Division and modulo by zero are handled SAFELY: `x / 0` and `x % 0`
+ *     both return 0 instead of raising. This is why the eager `if()`
+ *     pattern above is still correct — the unused branch cannot crash the
+ *     evaluator, only waste cycles.
+ *   - Unknown identifiers resolve to 0 (for resilience across employee
+ *     records with sparse data). Use validate() during admin entry to
+ *     catch typos at save time.
+ *
  * Return value of evaluate() is always a float (booleans → 1.0/0.0).
  */
 class Formula_Evaluator {
