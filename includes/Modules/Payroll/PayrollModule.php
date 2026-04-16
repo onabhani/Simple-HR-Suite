@@ -6,7 +6,7 @@
  * deductions, payslip generation, and bank exports.
  *
  * @package SFS\HR\Modules\Payroll
- * @version 1.2.0
+ * @version 1.3.0
  */
 
 namespace SFS\HR\Modules\Payroll;
@@ -60,7 +60,7 @@ class PayrollModule {
         global $wpdb;
 
         $installed_version = get_option( 'sfs_hr_payroll_db_version', '0' );
-        $current_version   = '1.2.0';
+        $current_version   = '1.3.0';
 
         if ( version_compare( $installed_version, $current_version, '>=' ) ) {
             return;
@@ -211,8 +211,50 @@ class PayrollModule {
             UNIQUE KEY payslip_number (payslip_number)
         ) $charset_collate;" );
 
+        // 7) Tax Brackets - Progressive income tax slabs, scoped by country and year.
+        //    A single "bracket set" is identified by (country_code, tax_year). Each
+        //    row within the set is one slab; bracket_from <= taxable_income < bracket_to.
+        //    bracket_to = NULL means "and above" (the top bracket).
+        dbDelta( "CREATE TABLE {$p}sfs_hr_tax_brackets (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            country_code VARCHAR(3) NOT NULL DEFAULT 'SA',
+            tax_year SMALLINT UNSIGNED NOT NULL,
+            bracket_from DECIMAL(15,2) NOT NULL DEFAULT 0,
+            bracket_to DECIMAL(15,2) NULL,
+            rate_percent DECIMAL(6,3) NOT NULL DEFAULT 0,
+            flat_base DECIMAL(15,2) NOT NULL DEFAULT 0,
+            description VARCHAR(255) NULL,
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            KEY country_year (country_code, tax_year, is_active),
+            KEY bracket_range (country_code, tax_year, bracket_from)
+        ) $charset_collate;" );
+
+        // 8) Tax Exemptions - Per-employee exemption amounts that reduce taxable income.
+        //    Supports effective-dated records so mid-year changes (marriage, dependents,
+        //    allowance revocation) don't break historical payroll runs.
+        dbDelta( "CREATE TABLE {$p}sfs_hr_tax_exemptions (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            employee_id BIGINT UNSIGNED NOT NULL,
+            exemption_type VARCHAR(50) NOT NULL,
+            annual_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+            effective_from DATE NOT NULL,
+            effective_to DATE NULL,
+            notes TEXT NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            KEY employee_active (employee_id, effective_from, effective_to),
+            KEY exemption_type (exemption_type)
+        ) $charset_collate;" );
+
         // Insert default salary components
         self::insert_default_components();
+
+        // Seed default statutory settings (GOSI rates + tax toggle).
+        self::seed_statutory_defaults();
 
         update_option( 'sfs_hr_payroll_db_version', $current_version );
     }
@@ -241,11 +283,13 @@ class PayrollModule {
         $table = $wpdb->prefix . 'sfs_hr_salary_components';
         $now   = current_time( 'mysql' );
 
-        // Check if components already exist
+        // Fresh install (empty table) → seed all defaults. Existing install
+        // (one or more rows already) → only backfill codes added in later
+        // versions so admins don't lose their customisations. Codes added in
+        // v1.3.0 and later are listed in $backfill_codes below.
         $count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
-        if ( $count > 0 ) {
-            return;
-        }
+        $is_fresh = ( $count === 0 );
+        $backfill_codes = [ 'INCOME_TAX' ];
 
         $defaults = [
             // Earnings
@@ -260,11 +304,16 @@ class PayrollModule {
 
             // Deductions
             [ 'GOSI_EMP', 'GOSI Employee Share', 'deduction', 'percentage', 9.75, 'gross_salary', 0, 1, 10 ],
-            [ 'ABSENCE', 'Absence Deduction', 'deduction', 'formula', 0, null, 0, 1, 11 ],
-            [ 'LATE', 'Late Arrival Deduction', 'deduction', 'formula', 0, null, 0, 1, 12 ],
-            [ 'LOAN', 'Loan Deduction', 'deduction', 'fixed', 0, null, 0, 1, 13 ],
-            [ 'ADVANCE', 'Salary Advance', 'deduction', 'fixed', 0, null, 0, 1, 14 ],
-            [ 'OTHER_DED', 'Other Deductions', 'deduction', 'fixed', 0, null, 0, 1, 15 ],
+            // INCOME_TAX is calculation_type=formula with no expression —
+            // the payroll dispatch routes this code to Tax_Service before
+            // the formula fallback runs. Inactive by default (0) so existing
+            // fresh installs behave unchanged until an admin enables tax.
+            [ 'INCOME_TAX', 'Income Tax', 'deduction', 'formula', 0, null, 0, 0, 11 ],
+            [ 'ABSENCE', 'Absence Deduction', 'deduction', 'formula', 0, null, 0, 1, 12 ],
+            [ 'LATE', 'Late Arrival Deduction', 'deduction', 'formula', 0, null, 0, 1, 13 ],
+            [ 'LOAN', 'Loan Deduction', 'deduction', 'fixed', 0, null, 0, 1, 14 ],
+            [ 'ADVANCE', 'Salary Advance', 'deduction', 'fixed', 0, null, 0, 1, 15 ],
+            [ 'OTHER_DED', 'Other Deductions', 'deduction', 'fixed', 0, null, 0, 1, 16 ],
 
             // Benefits (employer contributions, informational)
             [ 'GOSI_COMP', 'GOSI Company Share', 'benefit', 'percentage', 11.75, 'gross_salary', 0, 1, 20 ],
@@ -272,8 +321,25 @@ class PayrollModule {
         ];
 
         foreach ( $defaults as $comp ) {
+            $code = $comp[0];
+
+            if ( ! $is_fresh ) {
+                // Only backfill codes introduced after the initial release.
+                if ( ! in_array( $code, $backfill_codes, true ) ) {
+                    continue;
+                }
+                // Skip if the admin already created this code manually.
+                $exists = $wpdb->get_var( $wpdb->prepare(
+                    "SELECT id FROM {$table} WHERE code = %s",
+                    $code
+                ) );
+                if ( $exists ) {
+                    continue;
+                }
+            }
+
             $wpdb->insert( $table, [
-                'code'             => $comp[0],
+                'code'             => $code,
                 'name'             => $comp[1],
                 'type'             => $comp[2],
                 'calculation_type' => $comp[3],
@@ -284,6 +350,41 @@ class PayrollModule {
                 'display_order'    => $comp[8],
                 'created_at'       => $now,
                 'updated_at'       => $now,
+            ] );
+        }
+    }
+
+    /**
+     * Seed default statutory settings (GOSI rates + tax enablement).
+     *
+     * Idempotent — only writes option keys that don't already exist. Admins
+     * can override any of these from the Statutory Settings admin tab; this
+     * method is for first-install seeding only.
+     */
+    private static function seed_statutory_defaults(): void {
+        // GOSI rates: 9.75% employee / 11.75% company is the Saudi 2024 default
+        // for Saudi nationals. Foreign employees historically carry a reduced
+        // 2% occupational hazard rate (employer only) — admins can configure
+        // per-nationality overrides from the UI.
+        if ( false === get_option( 'sfs_hr_statutory_settings', false ) ) {
+            add_option( 'sfs_hr_statutory_settings', [
+                'gosi_enabled'           => 1,
+                'gosi_employee_rate'     => 9.75,
+                'gosi_company_rate'      => 11.75,
+                'gosi_foreign_rate'      => 2.00,
+                'gosi_applies_to'        => 'saudi_only', // saudi_only | all | none
+                'gosi_ceiling'           => 45000.00,     // SAR monthly cap
+                'gosi_base_includes'     => 'base_salary,housing', // comma list of component codes
+            ] );
+        }
+
+        if ( false === get_option( 'sfs_hr_tax_settings', false ) ) {
+            add_option( 'sfs_hr_tax_settings', [
+                'tax_enabled'            => 0, // off by default — SA has no income tax
+                'tax_country'            => 'SA',
+                'tax_year'               => (int) wp_date( 'Y' ),
+                'tax_applies_to'         => 'all', // all | foreign_only | saudi_only
+                'period_annualize'       => 12, // months per year for annualization
             ] );
         }
     }
@@ -615,8 +716,18 @@ class PayrollModule {
                         break;
                     }
 
-                    // Backward-compat: legacy hardcoded formulas for ABSENCE and LATE.
-                    if ( $comp['code'] === 'ABSENCE' && $days_absent > 0 && $working_days_full > 0 ) {
+                    // Backward-compat & built-in dispatch for statutory codes.
+                    // INCOME_TAX is routed through Tax_Service which reads the
+                    // admin-configured bracket schedule + per-employee
+                    // exemptions. Inactive by default; admins must enable tax
+                    // and activate the component for any deduction to occur.
+                    if ( $comp['code'] === 'INCOME_TAX' ) {
+                        $amount = (float) Services\Tax_Service::calculate_income_tax(
+                            $employee,
+                            $gross_salary,
+                            $end_date
+                        );
+                    } elseif ( $comp['code'] === 'ABSENCE' && $days_absent > 0 && $working_days_full > 0 ) {
                         $daily_rate = $base_salary / $working_days_full;
                         $amount = $days_absent * $daily_rate;
                     } elseif ( $comp['code'] === 'LATE' && $days_late > 0 && $working_days_full > 0 ) {

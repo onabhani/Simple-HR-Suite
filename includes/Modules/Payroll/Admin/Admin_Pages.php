@@ -22,6 +22,9 @@ class Admin_Pages {
         add_action( 'admin_post_sfs_hr_payroll_approve_run', [ $this, 'handle_approve_run' ] );
         add_action( 'admin_post_sfs_hr_payroll_save_component', [ $this, 'handle_save_component' ] );
         add_action( 'admin_post_sfs_hr_payroll_toggle_component', [ $this, 'handle_toggle_component' ] );
+        add_action( 'admin_post_sfs_hr_payroll_save_tax_settings', [ $this, 'handle_save_tax_settings' ] );
+        add_action( 'admin_post_sfs_hr_payroll_save_tax_bracket', [ $this, 'handle_save_tax_bracket' ] );
+        add_action( 'admin_post_sfs_hr_payroll_delete_tax_bracket', [ $this, 'handle_delete_tax_bracket' ] );
         add_action( 'admin_post_sfs_hr_payroll_export_bank', [ $this, 'handle_export_bank' ] );
         add_action( 'admin_post_sfs_hr_payroll_export_attendance', [ $this, 'handle_export_attendance' ] );
         add_action( 'admin_post_sfs_hr_payroll_export_wps', [ $this, 'handle_export_wps' ] );
@@ -50,6 +53,9 @@ class Admin_Pages {
                 break;
             case 'export':
                 $this->render_export();
+                break;
+            case 'tax':
+                $this->render_tax();
                 break;
             default:
                 $this->render_overview();
@@ -88,6 +94,7 @@ class Admin_Pages {
             'runs'       => __( 'Payroll Runs', 'sfs-hr' ),
             'components' => __( 'Salary Components', 'sfs-hr' ),
             'payslips'   => __( 'Payslips', 'sfs-hr' ),
+            'tax'        => __( 'Tax & Statutory', 'sfs-hr' ),
             'export'     => __( 'Export', 'sfs-hr' ),
         ];
 
@@ -121,6 +128,9 @@ class Admin_Pages {
                 break;
             case 'payslips':
                 $this->render_payslips();
+                break;
+            case 'tax':
+                $this->render_tax();
                 break;
             case 'export':
                 $this->render_export();
@@ -1795,6 +1805,389 @@ class Admin_Pages {
         }
 
         wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=components&toggled=1' ) );
+        exit;
+    }
+
+    /* ================================================================== *
+     *                   Tax & Statutory admin (M1.2)                      *
+     * ================================================================== */
+
+    /**
+     * Render the Tax & Statutory tab: GOSI/statutory settings + tax settings
+     * + progressive bracket CRUD. Purely an admin view — all calc happens in
+     * Tax_Service at payroll time.
+     */
+    private function render_tax(): void {
+        global $wpdb;
+
+        $statutory = get_option( 'sfs_hr_statutory_settings', [] );
+        $tax       = get_option( 'sfs_hr_tax_settings', [] );
+        if ( ! is_array( $statutory ) ) { $statutory = []; }
+        if ( ! is_array( $tax ) ) { $tax = []; }
+
+        $country = isset( $_GET['bracket_country'] ) ? strtoupper( sanitize_text_field( (string) $_GET['bracket_country'] ) ) : strtoupper( (string) ( $tax['tax_country'] ?? 'SA' ) );
+        $year    = isset( $_GET['bracket_year'] ) ? (int) $_GET['bracket_year'] : (int) ( $tax['tax_year'] ?? wp_date( 'Y' ) );
+
+        $brackets_table = $wpdb->prefix . 'sfs_hr_tax_brackets';
+        $brackets = [];
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $brackets_table ) ) ) {
+            $brackets = $wpdb->get_results( $wpdb->prepare(
+                "SELECT * FROM {$brackets_table} WHERE country_code = %s AND tax_year = %d ORDER BY bracket_from ASC",
+                $country,
+                $year
+            ) );
+        }
+
+        $notice = isset( $_GET['saved'] ) ? __( 'Settings saved.', 'sfs-hr' ) : '';
+        if ( isset( $_GET['bracket_saved'] ) )  { $notice = __( 'Bracket saved.', 'sfs-hr' ); }
+        if ( isset( $_GET['bracket_deleted'] ) ) { $notice = __( 'Bracket deleted.', 'sfs-hr' ); }
+        $error = isset( $_GET['error'] ) ? sanitize_text_field( (string) $_GET['error'] ) : '';
+
+        ?>
+        <div class="sfs-hr-tax-admin" style="max-width:1100px;">
+            <?php if ( $notice ) : ?>
+                <div class="notice notice-success is-dismissible"><p><?php echo esc_html( $notice ); ?></p></div>
+            <?php endif; ?>
+            <?php if ( $error ) : ?>
+                <div class="notice notice-error is-dismissible"><p><?php echo esc_html( $error ); ?></p></div>
+            <?php endif; ?>
+
+            <h2><?php esc_html_e( 'Statutory Deductions (GOSI)', 'sfs-hr' ); ?></h2>
+            <p class="description">
+                <?php esc_html_e( 'Configure Saudi GOSI rates and coverage. Changes apply to payroll runs calculated after saving.', 'sfs-hr' ); ?>
+            </p>
+
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                <?php wp_nonce_field( 'sfs_hr_payroll_save_tax_settings' ); ?>
+                <input type="hidden" name="action" value="sfs_hr_payroll_save_tax_settings" />
+
+                <table class="form-table">
+                    <tr>
+                        <th><label for="gosi_enabled"><?php esc_html_e( 'GOSI Enabled', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="gosi_enabled" id="gosi_enabled" value="1" <?php checked( ! empty( $statutory['gosi_enabled'] ) ); ?> />
+                                <?php esc_html_e( 'Deduct GOSI during payroll calculation', 'sfs-hr' ); ?>
+                            </label>
+                            <p class="description"><?php esc_html_e( 'When disabled, no GOSI deduction is applied regardless of component activation.', 'sfs-hr' ); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="gosi_applies_to"><?php esc_html_e( 'Applies To', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <select name="gosi_applies_to" id="gosi_applies_to">
+                                <option value="saudi_only" <?php selected( (string) ( $statutory['gosi_applies_to'] ?? 'saudi_only' ), 'saudi_only' ); ?>><?php esc_html_e( 'Saudi nationals only', 'sfs-hr' ); ?></option>
+                                <option value="all" <?php selected( (string) ( $statutory['gosi_applies_to'] ?? '' ), 'all' ); ?>><?php esc_html_e( 'All employees (reduced rate for foreigners)', 'sfs-hr' ); ?></option>
+                                <option value="none" <?php selected( (string) ( $statutory['gosi_applies_to'] ?? '' ), 'none' ); ?>><?php esc_html_e( 'Do not apply', 'sfs-hr' ); ?></option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="gosi_employee_rate"><?php esc_html_e( 'Employee Rate (Saudi)', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <input type="number" name="gosi_employee_rate" id="gosi_employee_rate" step="0.001" min="0" max="100" value="<?php echo esc_attr( number_format( (float) ( $statutory['gosi_employee_rate'] ?? 9.75 ), 3, '.', '' ) ); ?>" /> %
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="gosi_company_rate"><?php esc_html_e( 'Company Rate (Saudi)', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <input type="number" name="gosi_company_rate" id="gosi_company_rate" step="0.001" min="0" max="100" value="<?php echo esc_attr( number_format( (float) ( $statutory['gosi_company_rate'] ?? 11.75 ), 3, '.', '' ) ); ?>" /> %
+                            <p class="description"><?php esc_html_e( 'Informational only — recorded as a benefit component, not deducted from net.', 'sfs-hr' ); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="gosi_foreign_rate"><?php esc_html_e( 'Foreign Employee Rate', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <input type="number" name="gosi_foreign_rate" id="gosi_foreign_rate" step="0.001" min="0" max="100" value="<?php echo esc_attr( number_format( (float) ( $statutory['gosi_foreign_rate'] ?? 2.00 ), 3, '.', '' ) ); ?>" /> %
+                            <p class="description"><?php esc_html_e( 'Only used when "Applies To" = All employees.', 'sfs-hr' ); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="gosi_ceiling"><?php esc_html_e( 'Monthly Base Ceiling', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <input type="number" name="gosi_ceiling" id="gosi_ceiling" step="0.01" min="0" value="<?php echo esc_attr( number_format( (float) ( $statutory['gosi_ceiling'] ?? 45000 ), 2, '.', '' ) ); ?>" />
+                            <p class="description"><?php esc_html_e( 'Maximum monthly base subject to GOSI. Set 0 to disable the ceiling.', 'sfs-hr' ); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="gosi_base_includes"><?php esc_html_e( 'Base Includes', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <input type="text" name="gosi_base_includes" id="gosi_base_includes" class="regular-text" value="<?php echo esc_attr( (string) ( $statutory['gosi_base_includes'] ?? 'base_salary,housing' ) ); ?>" />
+                            <p class="description"><?php esc_html_e( 'Comma-separated keywords: base_salary, housing. The sum of these forms the GOSI base before applying the ceiling.', 'sfs-hr' ); ?></p>
+                        </td>
+                    </tr>
+                </table>
+
+                <h2 style="margin-top:30px;"><?php esc_html_e( 'Income Tax', 'sfs-hr' ); ?></h2>
+                <p class="description">
+                    <?php esc_html_e( 'Saudi Arabia has no personal income tax. These settings are provided for Gulf organisations that need to implement tax brackets for specific employee groups.', 'sfs-hr' ); ?>
+                </p>
+
+                <table class="form-table">
+                    <tr>
+                        <th><label for="tax_enabled"><?php esc_html_e( 'Income Tax Enabled', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="tax_enabled" id="tax_enabled" value="1" <?php checked( ! empty( $tax['tax_enabled'] ) ); ?> />
+                                <?php esc_html_e( 'Apply income tax using the bracket schedule below', 'sfs-hr' ); ?>
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="tax_country"><?php esc_html_e( 'Country Code', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <input type="text" name="tax_country" id="tax_country" maxlength="3" class="small-text" value="<?php echo esc_attr( strtoupper( (string) ( $tax['tax_country'] ?? 'SA' ) ) ); ?>" style="text-transform:uppercase;" />
+                            <p class="description"><?php esc_html_e( 'Two-letter ISO country code — selects which bracket set is active.', 'sfs-hr' ); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="tax_year"><?php esc_html_e( 'Tax Year', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <input type="number" name="tax_year" id="tax_year" min="2000" max="2100" value="<?php echo esc_attr( (int) ( $tax['tax_year'] ?? wp_date( 'Y' ) ) ); ?>" />
+                            <p class="description"><?php esc_html_e( 'Leave 0 to auto-select based on the payroll period end date.', 'sfs-hr' ); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="tax_applies_to"><?php esc_html_e( 'Applies To', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <select name="tax_applies_to" id="tax_applies_to">
+                                <option value="all" <?php selected( (string) ( $tax['tax_applies_to'] ?? 'all' ), 'all' ); ?>><?php esc_html_e( 'All employees', 'sfs-hr' ); ?></option>
+                                <option value="foreign_only" <?php selected( (string) ( $tax['tax_applies_to'] ?? '' ), 'foreign_only' ); ?>><?php esc_html_e( 'Foreign employees only', 'sfs-hr' ); ?></option>
+                                <option value="saudi_only" <?php selected( (string) ( $tax['tax_applies_to'] ?? '' ), 'saudi_only' ); ?>><?php esc_html_e( 'Saudi nationals only', 'sfs-hr' ); ?></option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="period_annualize"><?php esc_html_e( 'Periods Per Year', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <input type="number" name="period_annualize" id="period_annualize" min="1" max="52" value="<?php echo esc_attr( (int) ( $tax['period_annualize'] ?? 12 ) ); ?>" />
+                            <p class="description"><?php esc_html_e( '12 for monthly payroll, 24 for semi-monthly, 26 for bi-weekly, 52 for weekly.', 'sfs-hr' ); ?></p>
+                        </td>
+                    </tr>
+                </table>
+
+                <p class="submit">
+                    <button type="submit" class="button button-primary"><?php esc_html_e( 'Save Statutory Settings', 'sfs-hr' ); ?></button>
+                </p>
+            </form>
+
+            <hr style="margin:30px 0;" />
+
+            <h2><?php esc_html_e( 'Tax Brackets', 'sfs-hr' ); ?></h2>
+            <p class="description">
+                <?php esc_html_e( 'Progressive tax slabs. Calculation: for each bracket where income > from, add (min(income, to) - from) × rate%. A per-bracket flat surcharge can be added to the bracket that contains the final income.', 'sfs-hr' ); ?>
+            </p>
+
+            <form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" style="margin:10px 0 20px;">
+                <input type="hidden" name="page" value="sfs-hr-payroll" />
+                <input type="hidden" name="payroll_tab" value="tax" />
+                <label><?php esc_html_e( 'Country:', 'sfs-hr' ); ?>
+                    <input type="text" name="bracket_country" maxlength="3" class="small-text" value="<?php echo esc_attr( $country ); ?>" style="text-transform:uppercase;" />
+                </label>
+                <label style="margin-left:10px;"><?php esc_html_e( 'Year:', 'sfs-hr' ); ?>
+                    <input type="number" name="bracket_year" min="2000" max="2100" value="<?php echo esc_attr( (string) $year ); ?>" />
+                </label>
+                <button type="submit" class="button"><?php esc_html_e( 'Load Brackets', 'sfs-hr' ); ?></button>
+            </form>
+
+            <table class="wp-list-table widefat striped">
+                <thead>
+                    <tr>
+                        <th><?php esc_html_e( 'From', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'To', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Rate %', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Flat Surcharge', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Description', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Active', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php if ( empty( $brackets ) ) : ?>
+                    <tr><td colspan="7" style="text-align:center;color:#888;padding:20px;">
+                        <?php esc_html_e( 'No brackets defined for this country/year. Use the form below to add one.', 'sfs-hr' ); ?>
+                    </td></tr>
+                <?php else : ?>
+                    <?php foreach ( $brackets as $b ) : ?>
+                        <tr>
+                            <td><?php echo esc_html( number_format( (float) $b->bracket_from, 2, '.', ',' ) ); ?></td>
+                            <td><?php echo $b->bracket_to === null ? '<em>' . esc_html__( 'and above', 'sfs-hr' ) . '</em>' : esc_html( number_format( (float) $b->bracket_to, 2, '.', ',' ) ); ?></td>
+                            <td><?php echo esc_html( number_format( (float) $b->rate_percent, 3, '.', '' ) ); ?> %</td>
+                            <td><?php echo esc_html( number_format( (float) $b->flat_base, 2, '.', ',' ) ); ?></td>
+                            <td><?php echo esc_html( (string) $b->description ); ?></td>
+                            <td><?php echo ( (int) $b->is_active === 1 ) ? '✓' : '—'; ?></td>
+                            <td>
+                                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;" onsubmit="return confirm('<?php echo esc_js( __( 'Delete this bracket?', 'sfs-hr' ) ); ?>');">
+                                    <?php wp_nonce_field( 'sfs_hr_payroll_delete_tax_bracket' ); ?>
+                                    <input type="hidden" name="action" value="sfs_hr_payroll_delete_tax_bracket" />
+                                    <input type="hidden" name="bracket_id" value="<?php echo intval( $b->id ); ?>" />
+                                    <input type="hidden" name="bracket_country" value="<?php echo esc_attr( $country ); ?>" />
+                                    <input type="hidden" name="bracket_year" value="<?php echo esc_attr( (string) $year ); ?>" />
+                                    <button type="submit" class="button-link-delete"><?php esc_html_e( 'Delete', 'sfs-hr' ); ?></button>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                </tbody>
+            </table>
+
+            <h3 style="margin-top:25px;"><?php esc_html_e( 'Add Bracket', 'sfs-hr' ); ?></h3>
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                <?php wp_nonce_field( 'sfs_hr_payroll_save_tax_bracket' ); ?>
+                <input type="hidden" name="action" value="sfs_hr_payroll_save_tax_bracket" />
+                <input type="hidden" name="country_code" value="<?php echo esc_attr( $country ); ?>" />
+                <input type="hidden" name="tax_year" value="<?php echo esc_attr( (string) $year ); ?>" />
+
+                <table class="form-table">
+                    <tr>
+                        <th><label for="bracket_from_new"><?php esc_html_e( 'From (annual, inclusive)', 'sfs-hr' ); ?></label></th>
+                        <td><input type="number" name="bracket_from" id="bracket_from_new" step="0.01" min="0" required /></td>
+                    </tr>
+                    <tr>
+                        <th><label for="bracket_to_new"><?php esc_html_e( 'To (annual, exclusive)', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <input type="number" name="bracket_to" id="bracket_to_new" step="0.01" min="0" />
+                            <p class="description"><?php esc_html_e( 'Leave blank for the top bracket (applies to everything above From).', 'sfs-hr' ); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="rate_percent_new"><?php esc_html_e( 'Rate %', 'sfs-hr' ); ?></label></th>
+                        <td><input type="number" name="rate_percent" id="rate_percent_new" step="0.001" min="0" max="100" required /></td>
+                    </tr>
+                    <tr>
+                        <th><label for="flat_base_new"><?php esc_html_e( 'Flat Surcharge', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <input type="number" name="flat_base" id="flat_base_new" step="0.01" min="0" value="0" />
+                            <p class="description"><?php esc_html_e( 'Fixed amount added when the final taxable income lands in this bracket. Leave 0 for pure progressive.', 'sfs-hr' ); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="description_new"><?php esc_html_e( 'Description', 'sfs-hr' ); ?></label></th>
+                        <td><input type="text" name="description" id="description_new" class="regular-text" /></td>
+                    </tr>
+                </table>
+
+                <p class="submit">
+                    <button type="submit" class="button button-primary"><?php esc_html_e( 'Add Bracket', 'sfs-hr' ); ?></button>
+                </p>
+            </form>
+        </div>
+        <?php
+    }
+
+    /**
+     * Persist statutory + income-tax settings from the Tax admin tab.
+     */
+    public function handle_save_tax_settings(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
+        }
+        check_admin_referer( 'sfs_hr_payroll_save_tax_settings' );
+
+        $statutory = [
+            'gosi_enabled'       => ! empty( $_POST['gosi_enabled'] ) ? 1 : 0,
+            'gosi_applies_to'    => in_array( (string) ( $_POST['gosi_applies_to'] ?? '' ), [ 'saudi_only', 'all', 'none' ], true ) ? (string) $_POST['gosi_applies_to'] : 'saudi_only',
+            'gosi_employee_rate' => max( 0.0, min( 100.0, (float) ( $_POST['gosi_employee_rate'] ?? 9.75 ) ) ),
+            'gosi_company_rate'  => max( 0.0, min( 100.0, (float) ( $_POST['gosi_company_rate'] ?? 11.75 ) ) ),
+            'gosi_foreign_rate'  => max( 0.0, min( 100.0, (float) ( $_POST['gosi_foreign_rate'] ?? 2.00 ) ) ),
+            'gosi_ceiling'       => max( 0.0, (float) ( $_POST['gosi_ceiling'] ?? 45000 ) ),
+            'gosi_base_includes' => sanitize_text_field( (string) ( $_POST['gosi_base_includes'] ?? 'base_salary,housing' ) ),
+        ];
+
+        $tax = [
+            'tax_enabled'      => ! empty( $_POST['tax_enabled'] ) ? 1 : 0,
+            'tax_country'      => strtoupper( substr( preg_replace( '/[^A-Za-z]/', '', (string) ( $_POST['tax_country'] ?? 'SA' ) ), 0, 3 ) ),
+            'tax_year'         => max( 0, min( 2100, (int) ( $_POST['tax_year'] ?? 0 ) ) ),
+            'tax_applies_to'   => in_array( (string) ( $_POST['tax_applies_to'] ?? '' ), [ 'all', 'foreign_only', 'saudi_only' ], true ) ? (string) $_POST['tax_applies_to'] : 'all',
+            'period_annualize' => max( 1, min( 52, (int) ( $_POST['period_annualize'] ?? 12 ) ) ),
+        ];
+        if ( $tax['tax_country'] === '' ) {
+            $tax['tax_country'] = 'SA';
+        }
+
+        update_option( 'sfs_hr_statutory_settings', $statutory );
+        update_option( 'sfs_hr_tax_settings', $tax );
+
+        // Brackets cache is keyed by (country, year) — flush after any write
+        // to these settings so the next payroll run reads fresh data.
+        \SFS\HR\Modules\Payroll\Services\Tax_Service::flush_cache();
+
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=tax&saved=1' ) );
+        exit;
+    }
+
+    /**
+     * Add a tax bracket row for a given (country, year).
+     */
+    public function handle_save_tax_bracket(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
+        }
+        check_admin_referer( 'sfs_hr_payroll_save_tax_bracket' );
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_tax_brackets';
+
+        $country = strtoupper( substr( preg_replace( '/[^A-Za-z]/', '', (string) ( $_POST['country_code'] ?? 'SA' ) ), 0, 3 ) );
+        $year    = max( 2000, min( 2100, (int) ( $_POST['tax_year'] ?? wp_date( 'Y' ) ) ) );
+        $from    = max( 0.0, (float) ( $_POST['bracket_from'] ?? 0 ) );
+        $to_raw  = $_POST['bracket_to'] ?? '';
+        $to      = ( is_string( $to_raw ) && trim( $to_raw ) === '' ) ? null : max( 0.0, (float) $to_raw );
+        $rate    = max( 0.0, min( 100.0, (float) ( $_POST['rate_percent'] ?? 0 ) ) );
+        $flat    = max( 0.0, (float) ( $_POST['flat_base'] ?? 0 ) );
+        $desc    = sanitize_text_field( (string) ( $_POST['description'] ?? '' ) );
+
+        $redirect = admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=tax&bracket_country=' . rawurlencode( $country ) . '&bracket_year=' . $year );
+
+        if ( $to !== null && $to <= $from ) {
+            wp_safe_redirect( add_query_arg( 'error', rawurlencode( __( '"To" must be greater than "From".', 'sfs-hr' ) ), $redirect ) );
+            exit;
+        }
+
+        $now = current_time( 'mysql' );
+        $wpdb->insert( $table, [
+            'country_code' => $country,
+            'tax_year'     => $year,
+            'bracket_from' => $from,
+            'bracket_to'   => $to,
+            'rate_percent' => $rate,
+            'flat_base'    => $flat,
+            'description'  => $desc,
+            'is_active'    => 1,
+            'created_at'   => $now,
+            'updated_at'   => $now,
+        ] );
+
+        \SFS\HR\Modules\Payroll\Services\Tax_Service::flush_cache();
+
+        wp_safe_redirect( add_query_arg( 'bracket_saved', '1', $redirect ) );
+        exit;
+    }
+
+    /**
+     * Delete a tax bracket row.
+     */
+    public function handle_delete_tax_bracket(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
+        }
+        check_admin_referer( 'sfs_hr_payroll_delete_tax_bracket' );
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_tax_brackets';
+        $id    = (int) ( $_POST['bracket_id'] ?? 0 );
+
+        $country = strtoupper( substr( preg_replace( '/[^A-Za-z]/', '', (string) ( $_POST['bracket_country'] ?? 'SA' ) ), 0, 3 ) );
+        $year    = max( 2000, min( 2100, (int) ( $_POST['bracket_year'] ?? wp_date( 'Y' ) ) ) );
+
+        if ( $id > 0 ) {
+            $wpdb->delete( $table, [ 'id' => $id ], [ '%d' ] );
+            \SFS\HR\Modules\Payroll\Services\Tax_Service::flush_cache();
+        }
+
+        $redirect = admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=tax&bracket_country=' . rawurlencode( $country ) . '&bracket_year=' . $year . '&bracket_deleted=1' );
+        wp_safe_redirect( $redirect );
         exit;
     }
 
