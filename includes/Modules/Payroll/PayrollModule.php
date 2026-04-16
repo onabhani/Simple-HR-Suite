@@ -647,10 +647,11 @@ class PayrollModule {
 
             if ( $amount > 0 || $comp['code'] === 'BASE' ) {
                 $component_details[] = [
-                    'code'   => $comp['code'],
-                    'name'   => $comp['name'],
-                    'type'   => $comp['type'],
-                    'amount' => $amount,
+                    'code'       => $comp['code'],
+                    'name'       => $comp['name'],
+                    'type'       => $comp['type'],
+                    'amount'     => $amount,
+                    'is_taxable' => (int) ( $comp['is_taxable'] ?? 1 ),
                 ];
                 $total_earnings += $amount;
             }
@@ -667,15 +668,26 @@ class PayrollModule {
         if ( ! $has_base ) {
             $base_amount = $base_salary * $pro_rata;
             array_unshift( $component_details, [
-                'code'   => 'BASE',
-                'name'   => 'Basic Salary',
-                'type'   => 'earning',
-                'amount' => $base_amount,
+                'code'       => 'BASE',
+                'name'       => 'Basic Salary',
+                'type'       => 'earning',
+                'amount'     => $base_amount,
+                'is_taxable' => 1,
             ] );
             $total_earnings += $base_amount;
         }
 
         $gross_salary = $total_earnings;
+
+        // Taxable subtotal: sum only earning lines whose component is marked
+        // taxable. Non-taxable allowances (e.g. reimbursements, end-of-service
+        // accruals flagged non-taxable) must be excluded from the tax base.
+        $taxable_subtotal = 0.0;
+        foreach ( $component_details as $cd ) {
+            if ( ( $cd['type'] ?? '' ) === 'earning' && ! empty( $cd['is_taxable'] ) ) {
+                $taxable_subtotal += (float) $cd['amount'];
+            }
+        }
 
         // Calculate deductions (accumulate unrounded)
         $total_deductions = 0;
@@ -722,9 +734,12 @@ class PayrollModule {
                     // exemptions. Inactive by default; admins must enable tax
                     // and activate the component for any deduction to occur.
                     if ( $comp['code'] === 'INCOME_TAX' ) {
+                        // Use the taxable subtotal (earnings flagged is_taxable
+                        // only) as the tax base, not the full gross. Non-taxable
+                        // allowances (reimbursements, etc.) must not be taxed.
                         $amount = (float) Services\Tax_Service::calculate_income_tax(
                             $employee,
-                            $gross_salary,
+                            $taxable_subtotal,
                             $end_date
                         );
                     } elseif ( $comp['code'] === 'ABSENCE' && $days_absent > 0 && $working_days_full > 0 ) {

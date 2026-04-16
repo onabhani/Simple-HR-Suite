@@ -155,7 +155,11 @@ class Tax_Service {
             $from = (float) $b['bracket_from'];
             $to   = $b['bracket_to'] === null ? null : (float) $b['bracket_to'];
 
-            if ( $annual_taxable <= $from ) {
+            // Use strict less-than: when $annual_taxable == $from the income
+            // is inside THIS bracket (ranges are [from, to) — from inclusive,
+            // to exclusive), so we must still run the containment check below
+            // to capture the bracket's flat_base surcharge.
+            if ( $annual_taxable < $from ) {
                 break;
             }
 

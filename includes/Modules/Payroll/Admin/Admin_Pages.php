@@ -1820,6 +1820,14 @@ class Admin_Pages {
     private function render_tax(): void {
         global $wpdb;
 
+        // Tax & statutory config is admin-only. The manage cap gates the
+        // write handlers too; mirroring it here prevents users with only
+        // `sfs_hr.view` from reading draft rates, bracket schedules, or
+        // per-employee exemptions.
+        if ( ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'Access denied.', 'sfs-hr' ), 403 );
+        }
+
         $statutory = get_option( 'sfs_hr_statutory_settings', [] );
         $tax       = get_option( 'sfs_hr_tax_settings', [] );
         if ( ! is_array( $statutory ) ) { $statutory = []; }
@@ -1853,9 +1861,12 @@ class Admin_Pages {
             <?php endif; ?>
 
             <h2><?php esc_html_e( 'Statutory Deductions (GOSI)', 'sfs-hr' ); ?></h2>
-            <p class="description">
-                <?php esc_html_e( 'Configure Saudi GOSI rates and coverage. Changes apply to payroll runs calculated after saving.', 'sfs-hr' ); ?>
-            </p>
+            <div class="notice notice-warning inline" style="margin:10px 0;">
+                <p>
+                    <strong><?php esc_html_e( 'Scaffolding:', 'sfs-hr' ); ?></strong>
+                    <?php esc_html_e( 'These GOSI fields are saved but not yet consumed by payroll calculation. GOSI_EMP still runs through the legacy percentage component. Wiring to Tax_Service is planned for M1.3. Editing values here will not change payslip totals today.', 'sfs-hr' ); ?>
+                </p>
+            </div>
 
             <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
                 <?php wp_nonce_field( 'sfs_hr_payroll_save_tax_settings' ); ?>
@@ -1960,8 +1971,14 @@ class Admin_Pages {
                     <tr>
                         <th><label for="period_annualize"><?php esc_html_e( 'Periods Per Year', 'sfs-hr' ); ?></label></th>
                         <td>
-                            <input type="number" name="period_annualize" id="period_annualize" min="1" max="52" value="<?php echo esc_attr( (int) ( $tax['period_annualize'] ?? 12 ) ); ?>" />
-                            <p class="description"><?php esc_html_e( '12 for monthly payroll, 24 for semi-monthly, 26 for bi-weekly, 52 for weekly.', 'sfs-hr' ); ?></p>
+                            <?php $current_periods = (int) ( $tax['period_annualize'] ?? 12 ); ?>
+                            <select name="period_annualize" id="period_annualize">
+                                <option value="12" <?php selected( $current_periods, 12 ); ?>><?php esc_html_e( '12 — Monthly', 'sfs-hr' ); ?></option>
+                                <option value="24" <?php selected( $current_periods, 24 ); ?>><?php esc_html_e( '24 — Semi-monthly', 'sfs-hr' ); ?></option>
+                                <option value="26" <?php selected( $current_periods, 26 ); ?>><?php esc_html_e( '26 — Bi-weekly', 'sfs-hr' ); ?></option>
+                                <option value="52" <?php selected( $current_periods, 52 ); ?>><?php esc_html_e( '52 — Weekly', 'sfs-hr' ); ?></option>
+                            </select>
+                            <p class="description"><?php esc_html_e( 'Annualization factor used when converting per-period gross to an annual tax base. Only the four standard frequencies are supported.', 'sfs-hr' ); ?></p>
                         </td>
                     </tr>
                 </table>
@@ -2078,6 +2095,16 @@ class Admin_Pages {
 
     /**
      * Persist statutory + income-tax settings from the Tax admin tab.
+     *
+     * NOTE (M1.2 scaffolding): the `sfs_hr_statutory_settings` option stored
+     * here is currently consumed ONLY by Tax_Service::calculate_gosi(), which
+     * is not yet wired into PayrollModule::calculate_employee_payroll — the
+     * GOSI_EMP component still runs through the legacy `percentage` path.
+     * Editing the GOSI fields on this tab therefore has no effect on payslip
+     * numbers today; they will take effect once the GOSI deduction is
+     * migrated to route through Tax_Service in a follow-up milestone
+     * (planned M1.3). The income-tax half (`sfs_hr_tax_settings` + brackets)
+     * IS live and is consumed by the INCOME_TAX component when active.
      */
     public function handle_save_tax_settings(): void {
         if ( ! current_user_can( 'sfs_hr.manage' ) && ! current_user_can( 'manage_options' ) ) {
@@ -2095,12 +2122,20 @@ class Admin_Pages {
             'gosi_base_includes' => sanitize_text_field( (string) ( $_POST['gosi_base_includes'] ?? 'base_salary,housing' ) ),
         ];
 
+        // period_annualize is an algebraic annualization factor — only the
+        // four standard payroll frequencies make sense here. Anything else
+        // (e.g. 7, 13) would produce nonsensical tax withholding, so fall
+        // back to the safe monthly default.
+        $submitted_periods = (int) ( $_POST['period_annualize'] ?? 12 );
+        $allowed_periods   = [ 12, 24, 26, 52 ];
+        $period_annualize  = in_array( $submitted_periods, $allowed_periods, true ) ? $submitted_periods : 12;
+
         $tax = [
             'tax_enabled'      => ! empty( $_POST['tax_enabled'] ) ? 1 : 0,
             'tax_country'      => strtoupper( substr( preg_replace( '/[^A-Za-z]/', '', (string) ( $_POST['tax_country'] ?? 'SA' ) ), 0, 3 ) ),
             'tax_year'         => max( 0, min( 2100, (int) ( $_POST['tax_year'] ?? 0 ) ) ),
             'tax_applies_to'   => in_array( (string) ( $_POST['tax_applies_to'] ?? '' ), [ 'all', 'foreign_only', 'saudi_only' ], true ) ? (string) $_POST['tax_applies_to'] : 'all',
-            'period_annualize' => max( 1, min( 52, (int) ( $_POST['period_annualize'] ?? 12 ) ) ),
+            'period_annualize' => $period_annualize,
         ];
         if ( $tax['tax_country'] === '' ) {
             $tax['tax_country'] = 'SA';
@@ -2142,6 +2177,53 @@ class Admin_Pages {
 
         if ( $to !== null && $to <= $from ) {
             wp_safe_redirect( add_query_arg( 'error', rawurlencode( __( '"To" must be greater than "From".', 'sfs-hr' ) ), $redirect ) );
+            exit;
+        }
+
+        // Reject overlaps within the same (country, year). Tax_Service treats
+        // brackets as a strictly ordered, non-overlapping schedule — if two
+        // active ranges overlap, apply_brackets() would double-tax the
+        // intersection. Treat NULL bracket_to as +∞.
+        //
+        // Two ranges [a_from, a_to) and [b_from, b_to) overlap iff
+        //   a_from < b_to  AND  b_from < a_to
+        // With NULL-as-infinity, a NULL upper bound makes one side's upper
+        // test trivially true. We translate this into two OR conditions in
+        // SQL: existing.bracket_to IS NULL (other side extends past new from)
+        // OR existing.bracket_to > new.from, combined with the mirror on the
+        // existing.bracket_from side.
+        $new_to_infinite = ( $to === null );
+        if ( $new_to_infinite ) {
+            // New range is [from, ∞). Anything whose upper bound is NULL or
+            // strictly greater than $from overlaps, as long as its lower bound
+            // is below our $from is irrelevant (infinity extends forever).
+            $overlap = $wpdb->get_var( $wpdb->prepare(
+                "SELECT id FROM {$table}
+                 WHERE country_code = %s AND tax_year = %d AND is_active = 1
+                   AND ( bracket_to IS NULL OR bracket_to > %f )
+                 LIMIT 1",
+                $country,
+                $year,
+                $from
+            ) );
+        } else {
+            // New range is [from, to). Overlap iff existing.bracket_from < to
+            // AND (existing.bracket_to IS NULL OR existing.bracket_to > from).
+            $overlap = $wpdb->get_var( $wpdb->prepare(
+                "SELECT id FROM {$table}
+                 WHERE country_code = %s AND tax_year = %d AND is_active = 1
+                   AND bracket_from < %f
+                   AND ( bracket_to IS NULL OR bracket_to > %f )
+                 LIMIT 1",
+                $country,
+                $year,
+                $to,
+                $from
+            ) );
+        }
+
+        if ( $overlap ) {
+            wp_safe_redirect( add_query_arg( 'error', rawurlencode( __( 'This range overlaps an existing active bracket for the same country and year. Adjust the range or delete the conflicting bracket first.', 'sfs-hr' ) ), $redirect ) );
             exit;
         }
 
