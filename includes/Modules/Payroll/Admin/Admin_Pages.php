@@ -1021,6 +1021,47 @@ class Admin_Pages {
                             </select>
                         </td>
                     </tr>
+                    <tr id="formula_expression_row" style="<?php echo ( $comp->calculation_type ?? '' ) !== 'formula' ? 'display:none;' : ''; ?>">
+                        <th><label for="comp_formula_expr"><?php esc_html_e( 'Formula Expression', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <textarea name="formula_expression" id="comp_formula_expr" rows="3" class="large-text" style="font-family:monospace;"><?php echo esc_textarea( $comp->formula_expression ?? '' ); ?></textarea>
+                            <p class="description">
+                                <?php esc_html_e( 'Safe arithmetic expression. Leave empty to use the built-in behaviour for OVERTIME / ABSENCE / LATE components.', 'sfs-hr' ); ?><br>
+                                <strong><?php esc_html_e( 'Examples:', 'sfs-hr' ); ?></strong>
+                                <code>base_salary * 0.25</code>,
+                                <code>overtime_hours * (base_salary / (working_days_full * 8)) * 1.5</code>,
+                                <code>if(tenure_years &gt;= 5, 500, 250)</code>
+                            </p>
+                            <p class="description">
+                                <strong><?php esc_html_e( 'Available variables:', 'sfs-hr' ); ?></strong>
+                                <code>base_salary</code>, <code>gross_salary</code>, <code>pro_rata</code>,
+                                <code>working_days</code>, <code>working_days_full</code>,
+                                <code>days_worked</code>, <code>days_absent</code>, <code>days_late</code>, <code>days_leave</code>,
+                                <code>overtime_hours</code>, <code>overtime_minutes</code>,
+                                <code>tenure_years</code>, <code>department_id</code>, <code>position_id</code>,
+                                <code>default_amount</code>, <code>employee_amount</code>.
+                            </p>
+                            <p class="description">
+                                <strong><?php esc_html_e( 'Supported operators & functions:', 'sfs-hr' ); ?></strong>
+                                <code>+ - * / %</code>, <code>^</code> (power),
+                                <code>= != &lt; &gt; &lt;= &gt;=</code>, <code>and</code>, <code>or</code>, <code>not</code>,
+                                <code>min(a,b)</code>, <code>max(a,b)</code>, <code>round(x,dp)</code>,
+                                <code>abs(x)</code>, <code>floor(x)</code>, <code>ceil(x)</code>, <code>if(cond, a, b)</code>.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr id="formula_condition_row" style="<?php echo ( $comp->calculation_type ?? '' ) !== 'formula' ? 'display:none;' : ''; ?>">
+                        <th><label for="comp_formula_cond"><?php esc_html_e( 'Formula Condition', 'sfs-hr' ); ?></label></th>
+                        <td>
+                            <input type="text" name="formula_condition" id="comp_formula_cond" value="<?php echo esc_attr( $comp->formula_condition ?? '' ); ?>" class="large-text" style="font-family:monospace;" />
+                            <p class="description">
+                                <?php esc_html_e( 'Optional gate — the formula runs only when this expression is truthy (non-zero). Leave empty to always apply.', 'sfs-hr' ); ?>
+                                <?php esc_html_e( 'Example:', 'sfs-hr' ); ?>
+                                <code>tenure_years &gt;= 1</code>,
+                                <code>department_id = 3</code>.
+                            </p>
+                        </td>
+                    </tr>
                     <tr>
                         <th><label for="comp_taxable"><?php esc_html_e( 'Taxable', 'sfs-hr' ); ?></label></th>
                         <td>
@@ -1063,6 +1104,9 @@ class Admin_Pages {
         <script>
         document.getElementById('comp_calc').addEventListener('change', function(){
             document.getElementById('percentage_of_row').style.display = this.value === 'percentage' ? '' : 'none';
+            var isFormula = this.value === 'formula';
+            document.getElementById('formula_expression_row').style.display = isFormula ? '' : 'none';
+            document.getElementById('formula_condition_row').style.display = isFormula ? '' : 'none';
         });
         document.getElementById('comp_code').addEventListener('input', function(){
             this.value = this.value.toUpperCase().replace(/[^A-Z0-9_]/g, '');
@@ -1651,6 +1695,40 @@ class Admin_Pages {
         $display_order    = max( 0, min( 999, intval( $_POST['display_order'] ?? 10 ) ) );
         $description      = sanitize_textarea_field( $_POST['description'] ?? '' );
 
+        // Formula fields only apply when calculation_type = formula.
+        // wp_unslash restores quotes/operators that WordPress auto-escapes on POST.
+        $formula_expression = null;
+        $formula_condition  = null;
+        if ( $calculation_type === 'formula' ) {
+            $raw_expr = isset( $_POST['formula_expression'] ) ? (string) wp_unslash( $_POST['formula_expression'] ) : '';
+            $raw_cond = isset( $_POST['formula_condition'] ) ? (string) wp_unslash( $_POST['formula_condition'] ) : '';
+            // Keep expressions safe: strip HTML, strip control chars, normalize whitespace.
+            $formula_expression = trim( wp_strip_all_tags( $raw_expr ) );
+            $formula_condition  = trim( wp_strip_all_tags( $raw_cond ) );
+            if ( $formula_expression === '' ) {
+                $formula_expression = null;
+            }
+            if ( $formula_condition === '' ) {
+                $formula_condition = null;
+            }
+
+            // Parse-only validation so the admin gets early feedback.
+            if ( $formula_expression !== null ) {
+                $check = \SFS\HR\Modules\Payroll\Services\Formula_Evaluator::validate( $formula_expression );
+                if ( empty( $check['valid'] ) ) {
+                    wp_safe_redirect( add_query_arg( 'comp_error', rawurlencode( sprintf( __( 'Invalid formula expression: %s', 'sfs-hr' ), (string) ( $check['error'] ?? '' ) ) ), $redirect ) );
+                    exit;
+                }
+            }
+            if ( $formula_condition !== null ) {
+                $check = \SFS\HR\Modules\Payroll\Services\Formula_Evaluator::validate( $formula_condition );
+                if ( empty( $check['valid'] ) ) {
+                    wp_safe_redirect( add_query_arg( 'comp_error', rawurlencode( sprintf( __( 'Invalid formula condition: %s', 'sfs-hr' ), (string) ( $check['error'] ?? '' ) ) ), $redirect ) );
+                    exit;
+                }
+            }
+        }
+
         if ( ! $code || ! $name ) {
             wp_safe_redirect( add_query_arg( 'comp_error', rawurlencode( __( 'Code and Name are required.', 'sfs-hr' ) ), $redirect ) );
             exit;
@@ -1664,16 +1742,18 @@ class Admin_Pages {
         }
 
         $data = [
-            'name'             => $name,
-            'name_ar'          => $name_ar,
-            'type'             => $type,
-            'calculation_type' => $calculation_type,
-            'default_amount'   => $default_amount,
-            'percentage_of'    => $percentage_of,
-            'is_taxable'       => $is_taxable,
-            'is_active'        => $is_active,
-            'display_order'    => $display_order,
-            'description'      => $description,
+            'name'               => $name,
+            'name_ar'            => $name_ar,
+            'type'               => $type,
+            'calculation_type'   => $calculation_type,
+            'default_amount'     => $default_amount,
+            'percentage_of'      => $percentage_of,
+            'is_taxable'         => $is_taxable,
+            'is_active'          => $is_active,
+            'display_order'      => $display_order,
+            'description'        => $description,
+            'formula_expression' => $formula_expression,
+            'formula_condition'  => $formula_condition,
         ];
 
         if ( $comp_id ) {
