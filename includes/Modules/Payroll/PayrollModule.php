@@ -6,7 +6,7 @@
  * deductions, payslip generation, and bank exports.
  *
  * @package SFS\HR\Modules\Payroll
- * @version 1.1.0
+ * @version 1.2.0
  */
 
 namespace SFS\HR\Modules\Payroll;
@@ -60,7 +60,7 @@ class PayrollModule {
         global $wpdb;
 
         $installed_version = get_option( 'sfs_hr_payroll_db_version', '0' );
-        $current_version   = '1.1.0';
+        $current_version   = '1.2.0';
 
         if ( version_compare( $installed_version, $current_version, '>=' ) ) {
             return;
@@ -72,6 +72,8 @@ class PayrollModule {
         $p = $wpdb->prefix;
 
         // 1) Salary Components - Define allowances, deductions, benefits
+        // v1.2.0: added formula_expression + formula_condition for the safe
+        //         expression engine (see Services\Formula_Evaluator).
         dbDelta( "CREATE TABLE {$p}sfs_hr_salary_components (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             code VARCHAR(50) NOT NULL,
@@ -81,6 +83,8 @@ class PayrollModule {
             calculation_type ENUM('fixed','percentage','formula') NOT NULL DEFAULT 'fixed',
             default_amount DECIMAL(12,2) NULL DEFAULT 0,
             percentage_of VARCHAR(50) NULL,
+            formula_expression TEXT NULL,
+            formula_condition TEXT NULL,
             is_taxable TINYINT(1) NOT NULL DEFAULT 1,
             is_active TINYINT(1) NOT NULL DEFAULT 1,
             display_order INT NOT NULL DEFAULT 0,
@@ -91,6 +95,12 @@ class PayrollModule {
             UNIQUE KEY code (code),
             KEY type_active (type, is_active)
         ) $charset_collate;" );
+
+        // Belt-and-suspenders: ensure the new columns exist on sites that
+        // were installed before v1.2.0 (dbDelta normally adds missing
+        // columns but this guards against edge cases).
+        self::add_column_if_missing( "{$p}sfs_hr_salary_components", 'formula_expression', 'TEXT NULL' );
+        self::add_column_if_missing( "{$p}sfs_hr_salary_components", 'formula_condition',  'TEXT NULL' );
 
         // 2) Employee Salary Components - Per-employee component overrides
         dbDelta( "CREATE TABLE {$p}sfs_hr_employee_components (
@@ -205,6 +215,21 @@ class PayrollModule {
         self::insert_default_components();
 
         update_option( 'sfs_hr_payroll_db_version', $current_version );
+    }
+
+    /**
+     * Add a column to a table only if it does not already exist.
+     *
+     * Safe to call repeatedly. Used by migrations that need precise column
+     * additions (dbDelta is unreliable for modifying existing tables).
+     */
+    private static function add_column_if_missing( string $table, string $column, string $ddl ): void {
+        global $wpdb;
+        $exists = $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM {$table} LIKE %s", $column ) );
+        if ( ! $exists ) {
+            // $table and $column are controlled literals (never from user input).
+            $wpdb->query( "ALTER TABLE {$table} ADD COLUMN {$column} {$ddl}" );
+        }
     }
 
     /**
@@ -438,6 +463,24 @@ class PayrollModule {
         // Get salary components
         $components = self::get_employee_components( $employee_id, $end_date );
 
+        // Common inputs for every formula evaluation in this payslip. Per-call
+        // extras (gross_salary, default_amount, employee_amount) are merged on
+        // top of this base at each callsite via the union operator.
+        $formula_vars_base = [
+            'employee'          => $employee,
+            'period'            => $period,
+            'base_salary'       => $base_salary,
+            'pro_rata'          => $pro_rata,
+            'working_days'      => $working_days,
+            'working_days_full' => $working_days_full,
+            'days_worked'       => $days_worked,
+            'days_absent'       => $days_absent,
+            'days_late'         => $days_late,
+            'days_leave'        => $days_leave,
+            'overtime_hours'    => $overtime_hours,
+            'overtime_minutes'  => $overtime_minutes,
+        ];
+
         // Calculate earnings (accumulate unrounded, round only at the end)
         $total_earnings = 0;
         $component_details = [];
@@ -477,6 +520,21 @@ class PayrollModule {
 
                 case 'formula':
                     $include_overtime = $options['include_overtime'] ?? true;
+
+                    // Admin-defined formula takes precedence over hardcoded
+                    // component codes. This is the v1.2.0 formula engine path.
+                    // Earnings loop runs before gross is known — pass 0.
+                    $formula_amount = self::evaluate_component_formula( $comp, [
+                        'gross_salary'    => 0,
+                        'default_amount'  => (float) ( $comp['default_amount'] ?? 0 ),
+                        'employee_amount' => (float) $use_amount,
+                    ] + $formula_vars_base );
+                    if ( $formula_amount !== null ) {
+                        $amount = $formula_amount;
+                        break;
+                    }
+
+                    // Backward-compat: legacy hardcoded formula for OVERTIME.
                     if ( $comp['code'] === 'OVERTIME' && $include_overtime && $overtime_hours > 0 && $working_days > 0 ) {
                         // OT multiplier: filterable, default 1.5x per Saudi Labor Law
                         $ot_multiplier = (float) apply_filters( 'sfs_hr_overtime_multiplier', 1.5, $employee_id, $period_id );
@@ -545,6 +603,19 @@ class PayrollModule {
                     break;
 
                 case 'formula':
+                    // Admin-defined formula takes precedence over hardcoded
+                    // component codes. Deductions run after gross is known.
+                    $formula_amount = self::evaluate_component_formula( $comp, [
+                        'gross_salary'    => $gross_salary,
+                        'default_amount'  => (float) ( $comp['default_amount'] ?? 0 ),
+                        'employee_amount' => (float) $use_amount,
+                    ] + $formula_vars_base );
+                    if ( $formula_amount !== null ) {
+                        $amount = $formula_amount;
+                        break;
+                    }
+
+                    // Backward-compat: legacy hardcoded formulas for ABSENCE and LATE.
                     if ( $comp['code'] === 'ABSENCE' && $days_absent > 0 && $working_days_full > 0 ) {
                         $daily_rate = $base_salary / $working_days_full;
                         $amount = $days_absent * $daily_rate;
@@ -656,6 +727,155 @@ class PayrollModule {
             'bank_account'        => $bank_account,
             'iban'                => $iban,
         ];
+    }
+
+    /**
+     * Build a scalar context array for the safe Formula_Evaluator.
+     *
+     * Flattens the `employee` and `period` objects into primitive values the
+     * evaluator can read. Non-scalar values are dropped. Admin-authored
+     * formulas can reference any returned key by name — see
+     * {@see Services\Formula_Evaluator} for the grammar.
+     *
+     * @param array $vars Raw inputs. Recognised keys: `employee`, `period`,
+     *                    plus any scalar payroll variables to pass through
+     *                    (base_salary, gross_salary, pro_rata, working_days,
+     *                    working_days_full, days_worked, days_absent,
+     *                    days_late, days_leave, overtime_hours,
+     *                    overtime_minutes, default_amount, employee_amount).
+     */
+    private static function build_formula_context( array $vars ): array {
+        $ctx = [];
+
+        // Pass through scalar inputs verbatim.
+        foreach ( $vars as $key => $value ) {
+            if ( $key === 'employee' || $key === 'period' ) {
+                continue;
+            }
+            if ( is_scalar( $value ) || is_null( $value ) ) {
+                $ctx[ $key ] = $value;
+            }
+        }
+
+        // Flatten employee fields onto the context. Guard against missing
+        // objects — formulas should see 0 for unknown scalars rather than null.
+        $employee = $vars['employee'] ?? null;
+        if ( is_object( $employee ) ) {
+            $emp_fields = [
+                'employee_id'    => $employee->id ?? 0,
+                'department_id'  => $employee->department_id ?? 0,
+                'position_id'    => $employee->position_id ?? 0,
+                'grade'          => $employee->grade ?? '',
+                'job_title'      => $employee->job_title ?? '',
+                'nationality'    => $employee->nationality ?? '',
+                'gender'         => $employee->gender ?? '',
+                'marital_status' => $employee->marital_status ?? '',
+                'status'         => $employee->status ?? '',
+                'hire_date'      => $employee->hire_date ?? ( $employee->hired_at ?? '' ),
+            ];
+            foreach ( $emp_fields as $k => $v ) {
+                if ( is_scalar( $v ) || is_null( $v ) ) {
+                    $ctx[ $k ] = $v;
+                }
+            }
+
+            // Derive tenure in years from hire_date (falls back to hired_at).
+            $hire = $emp_fields['hire_date'];
+            $tenure_years = 0.0;
+            if ( ! empty( $hire ) ) {
+                $hire_ts = strtotime( (string) $hire );
+                if ( $hire_ts && $hire_ts <= time() ) {
+                    // 365.25-day year averages leap years.
+                    $tenure_years = ( time() - $hire_ts ) / ( 86400 * 365.25 );
+                }
+            }
+            $ctx['tenure_years'] = round( $tenure_years, 4 );
+        } else {
+            $ctx['tenure_years'] = 0.0;
+        }
+
+        // Flatten period fields. Useful for prorating or date-bounded rules.
+        $period = $vars['period'] ?? null;
+        if ( is_object( $period ) ) {
+            $period_fields = [
+                'period_id'         => $period->id ?? 0,
+                'period_start_date' => $period->start_date ?? '',
+                'period_end_date'   => $period->end_date ?? '',
+            ];
+            foreach ( $period_fields as $k => $v ) {
+                if ( is_scalar( $v ) || is_null( $v ) ) {
+                    $ctx[ $k ] = $v;
+                }
+            }
+        }
+
+        /**
+         * Allow extensions (other modules/plugins) to inject variables into
+         * the formula context — e.g. custom HR attributes or external
+         * lookups. Non-scalar values returned by the filter are stripped.
+         */
+        $ctx = apply_filters( 'sfs_hr_payroll_formula_context', $ctx, $vars );
+        if ( ! is_array( $ctx ) ) {
+            return [];
+        }
+        foreach ( $ctx as $k => $v ) {
+            if ( ! ( is_scalar( $v ) || is_null( $v ) ) ) {
+                unset( $ctx[ $k ] );
+            }
+        }
+
+        return $ctx;
+    }
+
+    /**
+     * Run an admin-authored formula for a salary component.
+     *
+     * Centralises the formula dispatch so earning and deduction loops share a
+     * single code path: build context, check the optional gate condition,
+     * evaluate, clamp to ≥ 0.
+     *
+     * @param array<string,mixed> $comp Salary component row. Must carry
+     *                                  `formula_expression` and (optionally)
+     *                                  `formula_condition`.
+     * @param array<string,mixed> $vars Raw context inputs — forwarded to
+     *                                  {@see build_formula_context()}. Must
+     *                                  already include the loop-specific
+     *                                  overrides (gross_salary, default_amount,
+     *                                  employee_amount).
+     *
+     * @return float|null Evaluated amount, or null when the component has no
+     *                    formula expression or its condition is falsy. Callers
+     *                    fall back to legacy hardcoded formulas in that case.
+     */
+    private static function evaluate_component_formula( array $comp, array $vars ): ?float {
+        if ( empty( $comp['formula_expression'] ) ) {
+            return null;
+        }
+        $ctx = self::build_formula_context( $vars );
+        if ( ! self::formula_condition_passes( $comp['formula_condition'] ?? null, $ctx ) ) {
+            return null;
+        }
+        $amount = (float) Services\Formula_Evaluator::evaluate( (string) $comp['formula_expression'], $ctx );
+        return max( 0.0, $amount );
+    }
+
+    /**
+     * Evaluate an optional gating condition for a formula component.
+     *
+     * An empty or null condition passes (the component always applies).
+     * A non-empty condition is evaluated by {@see Services\Formula_Evaluator}
+     * and treated as truthy when it resolves to a non-zero numeric value.
+     */
+    private static function formula_condition_passes( ?string $condition, array $ctx ): bool {
+        if ( $condition === null ) {
+            return true;
+        }
+        $condition = trim( $condition );
+        if ( $condition === '' ) {
+            return true;
+        }
+        $result = Services\Formula_Evaluator::evaluate( $condition, $ctx );
+        return abs( (float) $result ) > 0.0;
     }
 
     /**

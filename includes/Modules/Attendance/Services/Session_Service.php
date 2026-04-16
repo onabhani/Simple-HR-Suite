@@ -660,16 +660,36 @@ if ( $is_off_day && empty( $rows ) ) {
     $is_early  = in_array( 'left_early', $flags, true );
 
     if ($is_late && !$was_late) {
-        $minutes_late = 0;
+        $minutes_late  = 0;
+        $expected_time = null;
         foreach ($ev['segments'] as $seg) {
-            if (!empty($seg['late_minutes'])) {
+            if ( ! empty( $seg['late_minutes'] ) ) {
                 $minutes_late += (int) $seg['late_minutes'];
+                if ( $expected_time === null && ! empty( $seg['start'] ) ) {
+                    $expected_time = (string) $seg['start']; // local HH:MM from segment definition
+                }
             }
         }
+
+        // Actual arrival — first IN punch converted to local time (HH:MM).
+        $actual_time = null;
+        if ( ! empty( $firstIn ) ) {
+            try {
+                $actual_time = ( new \DateTimeImmutable( $firstIn, new \DateTimeZone( 'UTC' ) ) )
+                    ->setTimezone( $tz )
+                    ->format( 'H:i' );
+            } catch ( \Exception $e ) {
+                $actual_time = null;
+            }
+        }
+
         do_action('sfs_hr_attendance_late', $employee_id, [
-            'minutes_late' => $minutes_late,
-            'work_date'    => $ymd,
-            'type'         => 'attendance_flag',
+            'minutes_late'  => $minutes_late,
+            'expected_time' => $expected_time, // local HH:MM or null
+            'actual_time'   => $actual_time,   // local HH:MM or null
+            'work_date'     => $ymd,
+            'session_id'    => $session_id,
+            'type'          => 'attendance_flag',
         ]);
     }
 
