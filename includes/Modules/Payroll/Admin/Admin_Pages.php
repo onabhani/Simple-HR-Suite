@@ -38,6 +38,10 @@ class Admin_Pages {
         add_action( 'admin_post_sfs_hr_payroll_submit_review', [ $this, 'handle_submit_review' ] );
         add_action( 'admin_post_sfs_hr_payroll_mark_paid', [ $this, 'handle_mark_paid' ] );
         add_action( 'admin_post_sfs_hr_payroll_reverse_run', [ $this, 'handle_reverse_run' ] );
+
+        // M1.4: Payslip enhancements
+        add_action( 'admin_post_sfs_hr_payroll_batch_send_payslips', [ $this, 'handle_batch_send_payslips' ] );
+        add_action( 'admin_post_sfs_hr_payroll_send_payslip', [ $this, 'handle_send_payslip' ] );
     }
 
     /**
@@ -1156,6 +1160,20 @@ class Admin_Pages {
         $periods_table = $wpdb->prefix . 'sfs_hr_payroll_periods';
         $emp_table = $wpdb->prefix . 'sfs_hr_employees';
 
+        // Batch send feedback notices.
+        if ( isset( $_GET['batch_sent'] ) ) {
+            $sent    = (int) $_GET['batch_sent'];
+            $failed  = (int) ( $_GET['batch_failed'] ?? 0 );
+            $skipped = (int) ( $_GET['batch_skipped'] ?? 0 );
+            $type    = $failed > 0 ? 'warning' : 'success';
+            echo '<div class="notice notice-' . esc_attr( $type ) . ' is-dismissible"><p>';
+            echo esc_html( sprintf(
+                __( 'Batch email: %d sent, %d failed, %d skipped (already sent).', 'sfs-hr' ),
+                $sent, $failed, $skipped
+            ) );
+            echo '</p></div>';
+        }
+
         // Detail view routing (same pattern as render_runs)
         $view       = isset( $_GET['view'] ) ? sanitize_key( $_GET['view'] ) : '';
         $payslip_id = isset( $_GET['payslip_id'] ) ? intval( $_GET['payslip_id'] ) : 0;
@@ -1213,6 +1231,40 @@ class Admin_Pages {
         <div class="sfs-hr-payslips">
             <h2><?php esc_html_e( 'Payslips', 'sfs-hr' ); ?></h2>
 
+            <?php
+            // Batch send form (admin only, when payslips exist).
+            if ( $is_admin && ! empty( $payslips ) ):
+                // Get distinct run IDs for batch send dropdown.
+                $runs_table = $wpdb->prefix . 'sfs_hr_payroll_runs';
+                $batch_runs = $wpdb->get_results(
+                    "SELECT r.id, p.name AS period_name, r.status
+                     FROM {$runs_table} r
+                     INNER JOIN {$periods_table} p ON p.id = r.period_id
+                     WHERE r.status IN ('approved','paid')
+                     ORDER BY p.start_date DESC
+                     LIMIT 20"
+                );
+                if ( ! empty( $batch_runs ) ):
+            ?>
+            <div style="background:#f0f6fc; padding:12px 16px; border-radius:6px; margin-bottom:16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <strong><?php esc_html_e( 'Batch Send:', 'sfs-hr' ); ?></strong>
+                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:flex; gap:8px; align-items:center;">
+                    <input type="hidden" name="action" value="sfs_hr_payroll_batch_send_payslips">
+                    <?php wp_nonce_field( 'sfs_hr_payroll_batch_send_payslips' ); ?>
+                    <select name="run_id" required>
+                        <option value=""><?php esc_html_e( 'Select run...', 'sfs-hr' ); ?></option>
+                        <?php foreach ( $batch_runs as $br ): ?>
+                        <option value="<?php echo intval( $br->id ); ?>"><?php echo esc_html( $br->period_name . ' (' . $br->status . ')' ); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button type="submit" class="button button-primary" onclick="return confirm('<?php echo esc_js( __( 'Send payslip emails to all employees in this run?', 'sfs-hr' ) ); ?>');">
+                        <?php esc_html_e( 'Send Emails', 'sfs-hr' ); ?>
+                    </button>
+                </form>
+            </div>
+                <?php endif; ?>
+            <?php endif; ?>
+
             <?php if ( empty( $payslips ) ): ?>
             <div class="notice notice-info">
                 <p><?php esc_html_e( 'No payslips found. Payslips are automatically generated when a payroll run is approved.', 'sfs-hr' ); ?></p>
@@ -1233,6 +1285,9 @@ class Admin_Pages {
                         <th><?php esc_html_e( 'Period', 'sfs-hr' ); ?></th>
                         <th><?php esc_html_e( 'Net Salary', 'sfs-hr' ); ?></th>
                         <th><?php esc_html_e( 'Created', 'sfs-hr' ); ?></th>
+                        <?php if ( $is_admin ): ?>
+                        <th><?php esc_html_e( 'Emailed', 'sfs-hr' ); ?></th>
+                        <?php endif; ?>
                         <th><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
                     </tr>
                 </thead>
@@ -1248,6 +1303,15 @@ class Admin_Pages {
                         <td><?php echo esc_html( $ps->period_name ); ?></td>
                         <td style="font-weight:600;"><?php echo esc_html( number_format( (float) $ps->net_salary, 2 ) ); ?></td>
                         <td><?php echo esc_html( date_i18n( 'M j, Y', strtotime( $ps->created_at ) ) ); ?></td>
+                        <?php if ( $is_admin ): ?>
+                        <td>
+                            <?php if ( ! empty( $ps->sent_at ) ): ?>
+                            <span style="color:#00a32a;" title="<?php echo esc_attr( date_i18n( 'M j, Y g:i A', strtotime( $ps->sent_at ) ) ); ?>">&#10003;</span>
+                            <?php else: ?>
+                            <span style="color:#9ca3af;">—</span>
+                            <?php endif; ?>
+                        </td>
+                        <?php endif; ?>
                         <td>
                             <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=payslips&view=detail&payslip_id=' . intval( $ps->id ) ) ); ?>" class="button button-small"><?php esc_html_e( 'View', 'sfs-hr' ); ?></a>
                             <?php if ( $ps->pdf_attachment_id ): ?>
@@ -1321,6 +1385,14 @@ class Admin_Pages {
 
         ?>
         <div class="sfs-hr-payslip-detail">
+            <?php
+            $msg = sanitize_key( $_GET['msg'] ?? '' );
+            if ( $msg === 'sent' ) {
+                echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Payslip email sent successfully.', 'sfs-hr' ) . '</p></div>';
+            } elseif ( $msg === 'send_failed' ) {
+                echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Failed to send payslip email. Check employee email address.', 'sfs-hr' ) . '</p></div>';
+            }
+            ?>
             <p>
                 <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=payslips' ) ); ?>">&larr; <?php esc_html_e( 'Back to Payslips', 'sfs-hr' ); ?></a>
             </p>
@@ -1414,12 +1486,60 @@ class Admin_Pages {
                 <span style="font-size:22px; font-weight:700; color:#00a32a; margin-inline-start:10px;"><?php echo esc_html( number_format( (float) ( $ps->net_salary ?? 0 ), 2 ) ); ?></span>
             </div>
 
+            <?php
+            // YTD Summary
+            $ytd_year = ! empty( $ps->start_date ) ? (int) substr( $ps->start_date, 0, 4 ) : (int) current_time( 'Y' );
+            $ytd = Services\Payslip_Service::get_ytd( (int) $ps->employee_id, $ytd_year );
+            if ( $ytd['months'] > 0 ):
+            ?>
+            <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:6px; padding:16px; margin-bottom:20px;">
+                <h3 style="margin:0 0 10px; color:#92400e;"><?php echo esc_html( sprintf( __( 'Year-to-Date (%d)', 'sfs-hr' ), $ytd_year ) ); ?></h3>
+                <div style="display:flex; gap:24px; flex-wrap:wrap;">
+                    <div>
+                        <div style="font-size:11px; text-transform:uppercase; color:#92400e;"><?php esc_html_e( 'YTD Gross', 'sfs-hr' ); ?></div>
+                        <div style="font-size:18px; font-weight:700; color:#78350f;"><?php echo esc_html( number_format( $ytd['gross'], 2 ) ); ?></div>
+                    </div>
+                    <div>
+                        <div style="font-size:11px; text-transform:uppercase; color:#92400e;"><?php esc_html_e( 'YTD Deductions', 'sfs-hr' ); ?></div>
+                        <div style="font-size:18px; font-weight:700; color:#78350f;"><?php echo esc_html( number_format( $ytd['deductions'], 2 ) ); ?></div>
+                    </div>
+                    <div>
+                        <div style="font-size:11px; text-transform:uppercase; color:#92400e;"><?php esc_html_e( 'YTD Net', 'sfs-hr' ); ?></div>
+                        <div style="font-size:18px; font-weight:700; color:#78350f;"><?php echo esc_html( number_format( $ytd['net'], 2 ) ); ?></div>
+                    </div>
+                    <div>
+                        <div style="font-size:11px; text-transform:uppercase; color:#92400e;"><?php esc_html_e( 'Months', 'sfs-hr' ); ?></div>
+                        <div style="font-size:18px; font-weight:700; color:#78350f;"><?php echo esc_html( (string) $ytd['months'] ); ?></div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <?php if ( $ps->pdf_attachment_id ): ?>
             <p>
                 <a href="<?php echo esc_url( wp_get_attachment_url( $ps->pdf_attachment_id ) ); ?>" class="button button-primary" target="_blank" rel="noopener noreferrer">
                     <?php esc_html_e( 'Download PDF', 'sfs-hr' ); ?>
                 </a>
             </p>
+            <?php endif; ?>
+
+            <?php if ( $is_admin ): ?>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+                <?php if ( empty( $ps->sent_at ) ): ?>
+                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+                    <input type="hidden" name="action" value="sfs_hr_payroll_send_payslip">
+                    <input type="hidden" name="payslip_id" value="<?php echo intval( $ps->id ); ?>">
+                    <?php wp_nonce_field( 'sfs_hr_payroll_send_payslip' ); ?>
+                    <button type="submit" class="button" onclick="return confirm('<?php echo esc_js( __( 'Send payslip email to this employee?', 'sfs-hr' ) ); ?>');">
+                        <?php esc_html_e( 'Send Email', 'sfs-hr' ); ?>
+                    </button>
+                </form>
+                <?php else: ?>
+                <span style="color:#646970; font-size:13px;">
+                    <?php echo esc_html( sprintf( __( 'Sent on %s', 'sfs-hr' ), date_i18n( 'M j, Y g:i A', strtotime( $ps->sent_at ) ) ) ); ?>
+                </span>
+                <?php endif; ?>
+            </div>
             <?php endif; ?>
         </div>
         <?php
@@ -3323,5 +3443,54 @@ class Admin_Pages {
         </table>
         </div>
         <?php endif;
+    }
+
+    /* ================================================================== */
+    /*  M1.4 — Payslip Email Handlers                                     */
+    /* ================================================================== */
+
+    public function handle_send_payslip(): void {
+        if ( ! current_user_can( 'sfs_hr_payroll_admin' ) && ! current_user_can( 'sfs_hr.manage' ) ) {
+            wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
+        }
+        check_admin_referer( 'sfs_hr_payroll_send_payslip' );
+
+        $payslip_id = (int) ( $_POST['payslip_id'] ?? 0 );
+        if ( ! $payslip_id ) {
+            wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=payslips&error=invalid' ) );
+            exit;
+        }
+
+        $sent = Services\Payslip_Service::send_email( $payslip_id );
+        $status = $sent ? 'sent' : 'send_failed';
+
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=payslips&view=detail&payslip_id=' . $payslip_id . '&msg=' . $status ) );
+        exit;
+    }
+
+    public function handle_batch_send_payslips(): void {
+        if ( ! current_user_can( 'sfs_hr_payroll_admin' ) && ! current_user_can( 'sfs_hr.manage' ) ) {
+            wp_die( esc_html__( 'Access denied', 'sfs-hr' ) );
+        }
+        check_admin_referer( 'sfs_hr_payroll_batch_send_payslips' );
+
+        $run_id = (int) ( $_POST['run_id'] ?? 0 );
+        if ( ! $run_id ) {
+            wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-payroll&payroll_tab=payslips&error=no_run' ) );
+            exit;
+        }
+
+        $result = Services\Payslip_Service::batch_send_by_run( $run_id );
+
+        $params = http_build_query( [
+            'page'        => 'sfs-hr-payroll',
+            'payroll_tab' => 'payslips',
+            'batch_sent'  => $result['sent'],
+            'batch_failed' => $result['failed'],
+            'batch_skipped' => $result['skipped'],
+        ] );
+
+        wp_safe_redirect( admin_url( 'admin.php?' . $params ) );
+        exit;
     }
 }
