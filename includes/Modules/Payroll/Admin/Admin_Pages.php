@@ -9,6 +9,7 @@ namespace SFS\HR\Modules\Payroll\Admin;
 
 use SFS\HR\Core\Helpers;
 use SFS\HR\Modules\Payroll\PayrollModule;
+use SFS\HR\Modules\Payroll\Services;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -29,6 +30,14 @@ class Admin_Pages {
         add_action( 'admin_post_sfs_hr_payroll_export_attendance', [ $this, 'handle_export_attendance' ] );
         add_action( 'admin_post_sfs_hr_payroll_export_wps', [ $this, 'handle_export_wps' ] );
         add_action( 'admin_post_sfs_hr_payroll_export_detailed', [ $this, 'handle_export_detailed' ] );
+        add_action( 'admin_post_sfs_hr_payroll_create_adjustment', [ $this, 'handle_create_adjustment' ] );
+        add_action( 'admin_post_sfs_hr_payroll_approve_adjustment', [ $this, 'handle_approve_adjustment' ] );
+        add_action( 'admin_post_sfs_hr_payroll_reject_adjustment', [ $this, 'handle_reject_adjustment' ] );
+        add_action( 'admin_post_sfs_hr_payroll_lock_period', [ $this, 'handle_lock_period' ] );
+        add_action( 'admin_post_sfs_hr_payroll_reopen_period', [ $this, 'handle_reopen_period' ] );
+        add_action( 'admin_post_sfs_hr_payroll_submit_review', [ $this, 'handle_submit_review' ] );
+        add_action( 'admin_post_sfs_hr_payroll_mark_paid', [ $this, 'handle_mark_paid' ] );
+        add_action( 'admin_post_sfs_hr_payroll_reverse_run', [ $this, 'handle_reverse_run' ] );
     }
 
     /**
@@ -56,6 +65,12 @@ class Admin_Pages {
                 break;
             case 'tax':
                 $this->render_tax();
+                break;
+            case 'adjustments':
+                $this->render_adjustments();
+                break;
+            case 'audit':
+                $this->render_audit();
                 break;
             default:
                 $this->render_overview();
@@ -94,8 +109,10 @@ class Admin_Pages {
             'runs'       => __( 'Payroll Runs', 'sfs-hr' ),
             'components' => __( 'Salary Components', 'sfs-hr' ),
             'payslips'   => __( 'Payslips', 'sfs-hr' ),
-            'tax'        => __( 'Tax & Statutory', 'sfs-hr' ),
-            'export'     => __( 'Export', 'sfs-hr' ),
+            'tax'         => __( 'Tax & Statutory', 'sfs-hr' ),
+            'export'      => __( 'Export', 'sfs-hr' ),
+            'adjustments' => __( 'Adjustments', 'sfs-hr' ),
+            'audit'       => __( 'Audit Trail', 'sfs-hr' ),
         ];
 
         $active_tab = isset( $_GET['payroll_tab'] ) ? sanitize_key( $_GET['payroll_tab'] ) : 'overview';
@@ -134,6 +151,12 @@ class Admin_Pages {
                 break;
             case 'export':
                 $this->render_export();
+                break;
+            case 'adjustments':
+                $this->render_adjustments();
+                break;
+            case 'audit':
+                $this->render_audit();
                 break;
         }
 
@@ -3045,5 +3068,260 @@ class Admin_Pages {
 
         fclose( $output );
         exit;
+    }
+
+    // --- M1.3 Handlers ---
+
+    public function handle_create_adjustment(): void {
+        Helpers::require_cap('sfs_hr_payroll_admin');
+        check_admin_referer('sfs_hr_payroll_create_adjustment');
+
+        $item_id = (int) ($_POST['payroll_item_id'] ?? 0);
+        $reason = sanitize_textarea_field($_POST['reason'] ?? '');
+        $lines = [];
+
+        if (!empty($_POST['adj_code']) && is_array($_POST['adj_code'])) {
+            foreach ($_POST['adj_code'] as $i => $code) {
+                $code = sanitize_text_field($code);
+                $amount = (float) ($_POST['adj_amount'][$i] ?? 0);
+                $line_reason = sanitize_text_field($_POST['adj_reason'][$i] ?? '');
+                if ($code && $amount != 0) {
+                    $lines[] = ['component_code' => $code, 'amount' => $amount, 'reason' => $line_reason];
+                }
+            }
+        }
+
+        $redirect = admin_url('admin.php?page=sfs-hr-payroll&payroll_tab=adjustments');
+        $result = Services\AdjustmentService::create($item_id, $lines, $reason, get_current_user_id());
+
+        if (!empty($result['success'])) {
+            wp_safe_redirect(add_query_arg('adj_ok', '1', $redirect));
+        } else {
+            wp_safe_redirect(add_query_arg('adj_err', rawurlencode($result['error'] ?? __('Failed', 'sfs-hr')), $redirect));
+        }
+        exit;
+    }
+
+    public function handle_approve_adjustment(): void {
+        Helpers::require_cap('sfs_hr_payroll_admin');
+        check_admin_referer('sfs_hr_payroll_approve_adjustment');
+        $id = (int) ($_POST['adjustment_id'] ?? 0);
+        $redirect = admin_url('admin.php?page=sfs-hr-payroll&payroll_tab=adjustments');
+        $result = Services\AdjustmentService::approve($id, get_current_user_id());
+        if (!empty($result['success'])) {
+            wp_safe_redirect(add_query_arg('adj_ok', '1', $redirect));
+        } else {
+            wp_safe_redirect(add_query_arg('adj_err', rawurlencode($result['error'] ?? __('Failed', 'sfs-hr')), $redirect));
+        }
+        exit;
+    }
+
+    public function handle_reject_adjustment(): void {
+        Helpers::require_cap('sfs_hr_payroll_admin');
+        check_admin_referer('sfs_hr_payroll_reject_adjustment');
+        $id = (int) ($_POST['adjustment_id'] ?? 0);
+        $reason = sanitize_textarea_field($_POST['rejection_reason'] ?? '');
+        $redirect = admin_url('admin.php?page=sfs-hr-payroll&payroll_tab=adjustments');
+        $result = Services\AdjustmentService::reject($id, get_current_user_id(), $reason);
+        if (!empty($result['success'])) {
+            wp_safe_redirect(add_query_arg('adj_ok', '1', $redirect));
+        } else {
+            wp_safe_redirect(add_query_arg('adj_err', rawurlencode($result['error'] ?? __('Failed', 'sfs-hr')), $redirect));
+        }
+        exit;
+    }
+
+    public function handle_lock_period(): void {
+        Helpers::require_cap('sfs_hr_payroll_admin');
+        check_admin_referer('sfs_hr_payroll_lock_period');
+        $id = (int) ($_POST['period_id'] ?? 0);
+        $redirect = admin_url('admin.php?page=sfs-hr-payroll&payroll_tab=periods');
+        $result = Services\PeriodLockService::lock($id, get_current_user_id());
+        if (!empty($result['success'])) {
+            wp_safe_redirect(add_query_arg('period_ok', '1', $redirect));
+        } else {
+            wp_safe_redirect(add_query_arg('period_err', rawurlencode($result['error'] ?? __('Failed', 'sfs-hr')), $redirect));
+        }
+        exit;
+    }
+
+    public function handle_reopen_period(): void {
+        Helpers::require_cap('sfs_hr.manage');
+        check_admin_referer('sfs_hr_payroll_reopen_period');
+        $id = (int) ($_POST['period_id'] ?? 0);
+        $reason = sanitize_textarea_field($_POST['reason'] ?? '');
+        $redirect = admin_url('admin.php?page=sfs-hr-payroll&payroll_tab=periods');
+        $result = Services\PeriodLockService::reopen($id, get_current_user_id(), $reason);
+        if (!empty($result['success'])) {
+            wp_safe_redirect(add_query_arg('period_ok', '1', $redirect));
+        } else {
+            wp_safe_redirect(add_query_arg('period_err', rawurlencode($result['error'] ?? __('Failed', 'sfs-hr')), $redirect));
+        }
+        exit;
+    }
+
+    public function handle_submit_review(): void {
+        Helpers::require_cap('sfs_hr_payroll_run');
+        check_admin_referer('sfs_hr_payroll_submit_review');
+        $id = (int) ($_POST['run_id'] ?? 0);
+        $redirect = admin_url('admin.php?page=sfs-hr-payroll&payroll_tab=runs');
+        $result = Services\PeriodLockService::submit_for_review($id, get_current_user_id());
+        if (!empty($result['success'])) {
+            wp_safe_redirect(add_query_arg('run_ok', '1', $redirect));
+        } else {
+            wp_safe_redirect(add_query_arg('run_err', rawurlencode($result['error'] ?? __('Failed', 'sfs-hr')), $redirect));
+        }
+        exit;
+    }
+
+    public function handle_mark_paid(): void {
+        Helpers::require_cap('sfs_hr_payroll_admin');
+        check_admin_referer('sfs_hr_payroll_mark_paid');
+        $id = (int) ($_POST['run_id'] ?? 0);
+        $ref = sanitize_text_field($_POST['payment_reference'] ?? '');
+        $redirect = admin_url('admin.php?page=sfs-hr-payroll&payroll_tab=runs');
+        $result = Services\PeriodLockService::mark_paid($id, get_current_user_id(), $ref ?: null);
+        if (!empty($result['success'])) {
+            wp_safe_redirect(add_query_arg('run_ok', '1', $redirect));
+        } else {
+            wp_safe_redirect(add_query_arg('run_err', rawurlencode($result['error'] ?? __('Failed', 'sfs-hr')), $redirect));
+        }
+        exit;
+    }
+
+    public function handle_reverse_run(): void {
+        Helpers::require_cap('sfs_hr.manage');
+        check_admin_referer('sfs_hr_payroll_reverse_run');
+        $id = (int) ($_POST['run_id'] ?? 0);
+        $reason = sanitize_textarea_field($_POST['reason'] ?? '');
+        $redirect = admin_url('admin.php?page=sfs-hr-payroll&payroll_tab=runs');
+        $result = Services\PeriodLockService::reverse_run($id, get_current_user_id(), $reason);
+        if (!empty($result['success'])) {
+            wp_safe_redirect(add_query_arg('run_ok', '1', $redirect));
+        } else {
+            wp_safe_redirect(add_query_arg('run_err', rawurlencode($result['error'] ?? __('Failed', 'sfs-hr')), $redirect));
+        }
+        exit;
+    }
+
+    private function render_adjustments(): void {
+        global $wpdb;
+        $filters = ['limit' => 50, 'offset' => 0];
+        if (!empty($_GET['status'])) $filters['status'] = sanitize_key($_GET['status']);
+        if (!empty($_GET['run_id'])) $filters['run_id'] = (int) $_GET['run_id'];
+
+        $adjustments = Services\AdjustmentService::get_adjustments($filters);
+        ?>
+        <h2><?php esc_html_e('Payroll Adjustments', 'sfs-hr'); ?></h2>
+
+        <?php if (!empty($_GET['adj_ok'])): ?>
+        <div class="notice notice-success"><p><?php esc_html_e('Adjustment processed successfully.', 'sfs-hr'); ?></p></div>
+        <?php endif; ?>
+        <?php if (!empty($_GET['adj_err'])): ?>
+        <div class="notice notice-error"><p><?php echo esc_html(sanitize_text_field(wp_unslash($_GET['adj_err']))); ?></p></div>
+        <?php endif; ?>
+
+        <?php if (empty($adjustments)): ?>
+        <div class="notice notice-info"><p><?php esc_html_e('No adjustments found.', 'sfs-hr'); ?></p></div>
+        <?php else: ?>
+        <div class="sfs-hr-table-responsive">
+        <table class="wp-list-table widefat striped">
+            <thead>
+                <tr>
+                    <th><?php esc_html_e('ID', 'sfs-hr'); ?></th>
+                    <th><?php esc_html_e('Employee', 'sfs-hr'); ?></th>
+                    <th><?php esc_html_e('Run', 'sfs-hr'); ?></th>
+                    <th><?php esc_html_e('Type', 'sfs-hr'); ?></th>
+                    <th><?php esc_html_e('Amount', 'sfs-hr'); ?></th>
+                    <th><?php esc_html_e('Reason', 'sfs-hr'); ?></th>
+                    <th><?php esc_html_e('Status', 'sfs-hr'); ?></th>
+                    <th><?php esc_html_e('Date', 'sfs-hr'); ?></th>
+                    <th><?php esc_html_e('Actions', 'sfs-hr'); ?></th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($adjustments as $adj): ?>
+                <tr>
+                    <td><?php echo (int) $adj['id']; ?></td>
+                    <td><?php echo esc_html(trim(($adj['first_name'] ?? '') . ' ' . ($adj['last_name'] ?? ''))); ?></td>
+                    <td>#<?php echo (int) $adj['run_id']; ?></td>
+                    <td><?php echo esc_html(ucfirst($adj['adjustment_type'])); ?></td>
+                    <td><?php echo esc_html(number_format((float) $adj['total_amount'], 2)); ?> SAR</td>
+                    <td><?php echo esc_html(mb_strimwidth($adj['reason'] ?? '', 0, 60, '...')); ?></td>
+                    <td>
+                        <span class="sfs-hr-badge sfs-hr-badge--<?php echo esc_attr($adj['status']); ?>">
+                            <?php echo esc_html(ucfirst($adj['status'])); ?>
+                        </span>
+                    </td>
+                    <td><?php echo esc_html(date_i18n(get_option('date_format'), strtotime($adj['created_at']))); ?></td>
+                    <td>
+                        <?php if ($adj['status'] === 'pending' && current_user_can('sfs_hr_payroll_admin')): ?>
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline;">
+                            <?php wp_nonce_field('sfs_hr_payroll_approve_adjustment'); ?>
+                            <input type="hidden" name="action" value="sfs_hr_payroll_approve_adjustment" />
+                            <input type="hidden" name="adjustment_id" value="<?php echo (int) $adj['id']; ?>" />
+                            <button type="submit" class="button button-small button-primary" onclick="return confirm('<?php esc_attr_e('Approve this adjustment?', 'sfs-hr'); ?>');"><?php esc_html_e('Approve', 'sfs-hr'); ?></button>
+                        </form>
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline;">
+                            <?php wp_nonce_field('sfs_hr_payroll_reject_adjustment'); ?>
+                            <input type="hidden" name="action" value="sfs_hr_payroll_reject_adjustment" />
+                            <input type="hidden" name="adjustment_id" value="<?php echo (int) $adj['id']; ?>" />
+                            <input type="hidden" name="rejection_reason" value="" />
+                            <button type="submit" class="button button-small" onclick="var r=prompt('<?php esc_attr_e('Rejection reason:', 'sfs-hr'); ?>'); if(!r) return false; this.form.rejection_reason.value=r;"><?php esc_html_e('Reject', 'sfs-hr'); ?></button>
+                        </form>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+        </div>
+        <?php endif;
+    }
+
+    private function render_audit(): void {
+        $recent = Services\AuditService::get_recent(50);
+        ?>
+        <h2><?php esc_html_e('Payroll Audit Trail', 'sfs-hr'); ?></h2>
+
+        <?php if (empty($recent)): ?>
+        <div class="notice notice-info"><p><?php esc_html_e('No audit entries yet.', 'sfs-hr'); ?></p></div>
+        <?php else: ?>
+        <div class="sfs-hr-table-responsive">
+        <table class="wp-list-table widefat striped">
+            <thead>
+                <tr>
+                    <th><?php esc_html_e('Date', 'sfs-hr'); ?></th>
+                    <th><?php esc_html_e('User', 'sfs-hr'); ?></th>
+                    <th><?php esc_html_e('Entity', 'sfs-hr'); ?></th>
+                    <th><?php esc_html_e('Action', 'sfs-hr'); ?></th>
+                    <th><?php esc_html_e('Details', 'sfs-hr'); ?></th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($recent as $entry): ?>
+                <tr>
+                    <td><?php echo esc_html(date_i18n('Y-m-d H:i', strtotime($entry['created_at']))); ?></td>
+                    <td><?php echo esc_html($entry['actor_name'] ?? __('System', 'sfs-hr')); ?></td>
+                    <td><?php echo esc_html(ucfirst($entry['entity_type']) . ' #' . $entry['entity_id']); ?></td>
+                    <td>
+                        <span class="sfs-hr-badge"><?php echo esc_html(ucfirst(str_replace('_', ' ', $entry['action']))); ?></span>
+                    </td>
+                    <td>
+                        <?php
+                        $details = is_array($entry['details'] ?? null) ? $entry['details'] : [];
+                        if (!empty($details['reason'])) {
+                            echo esc_html(mb_strimwidth($details['reason'], 0, 80, '...'));
+                        } elseif (!empty($details['total_amount'])) {
+                            echo esc_html(number_format((float) $details['total_amount'], 2) . ' SAR');
+                        }
+                        ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+        </div>
+        <?php endif;
     }
 }

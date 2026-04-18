@@ -7,6 +7,9 @@ use SFS\HR\Modules\Performance\Services\Goals_Service;
 use SFS\HR\Modules\Performance\Services\Reviews_Service;
 use SFS\HR\Modules\Performance\Services\Performance_Calculator;
 use SFS\HR\Modules\Performance\Services\Alerts_Service;
+use SFS\HR\Modules\Performance\Services\Goal_Hierarchy_Service;
+use SFS\HR\Modules\Performance\Services\Review_Cycle_Service;
+use SFS\HR\Modules\Performance\Services\Feedback_360_Service;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
@@ -32,6 +35,12 @@ class Admin_Pages {
         add_action( 'admin_post_sfs_hr_acknowledge_alert', [ $this, 'handle_acknowledge_alert' ] );
         add_action( 'admin_post_sfs_hr_resolve_alert', [ $this, 'handle_resolve_alert' ] );
         add_action( 'admin_post_sfs_hr_save_justification', [ $this, 'handle_save_justification' ] );
+        add_action( 'admin_post_sfs_hr_save_objective', [ $this, 'handle_save_objective' ] );
+        add_action( 'admin_post_sfs_hr_delete_objective', [ $this, 'handle_delete_objective' ] );
+        add_action( 'admin_post_sfs_hr_save_review_cycle', [ $this, 'handle_save_review_cycle' ] );
+        add_action( 'admin_post_sfs_hr_activate_review_cycle', [ $this, 'handle_activate_review_cycle' ] );
+        add_action( 'admin_post_sfs_hr_save_pip', [ $this, 'handle_save_pip' ] );
+        add_action( 'admin_post_sfs_hr_complete_pip', [ $this, 'handle_complete_pip' ] );
     }
 
     /**
@@ -94,6 +103,42 @@ class Admin_Pages {
             $view_cap,
             'sfs-hr-performance-alerts',
             [ $this, 'render_alerts' ]
+        );
+
+        add_submenu_page(
+            'sfs-hr-performance',
+            __( 'Goals & OKRs', 'sfs-hr' ),
+            __( 'Goals & OKRs', 'sfs-hr' ),
+            $view_cap,
+            'sfs-hr-performance-okrs',
+            [ $this, 'render_okrs' ]
+        );
+
+        add_submenu_page(
+            'sfs-hr-performance',
+            __( 'Review Cycles', 'sfs-hr' ),
+            __( 'Review Cycles', 'sfs-hr' ),
+            $view_cap,
+            'sfs-hr-performance-cycles',
+            [ $this, 'render_cycles' ]
+        );
+
+        add_submenu_page(
+            'sfs-hr-performance',
+            __( '360° Feedback', 'sfs-hr' ),
+            __( '360° Feedback', 'sfs-hr' ),
+            $view_cap,
+            'sfs-hr-performance-feedback',
+            [ $this, 'render_feedback' ]
+        );
+
+        add_submenu_page(
+            'sfs-hr-performance',
+            __( 'Improvement Plans', 'sfs-hr' ),
+            __( 'Improvement Plans', 'sfs-hr' ),
+            $view_cap,
+            'sfs-hr-performance-pips',
+            [ $this, 'render_pips' ]
         );
 
         add_submenu_page(
@@ -1666,6 +1711,1084 @@ class Admin_Pages {
         }
 
         wp_safe_redirect( add_query_arg( 'justification_saved', '1', $redirect_url ) );
+        exit;
+    }
+
+    // -------------------------------------------------------------------------
+    // M4: Goals & OKRs
+    // -------------------------------------------------------------------------
+
+    /**
+     * Render Goals & OKRs page.
+     */
+    public function render_okrs(): void {
+        global $wpdb;
+
+        $level_filter = isset( $_GET['level'] ) ? sanitize_text_field( $_GET['level'] ) : '';
+        $status_filter = isset( $_GET['status'] ) ? sanitize_text_field( $_GET['status'] ) : '';
+
+        // Build WHERE clauses
+        $where = [];
+        $where_vals = [];
+        if ( $level_filter ) {
+            $where[] = 'o.level = %s';
+            $where_vals[] = $level_filter;
+        }
+        if ( $status_filter ) {
+            $where[] = 'o.status = %s';
+            $where_vals[] = $status_filter;
+        }
+        $where_sql = $where ? 'WHERE ' . implode( ' AND ', $where ) : '';
+
+        $sql = "SELECT o.*, u.display_name as creator_name
+                FROM {$wpdb->prefix}sfs_hr_performance_objectives o
+                LEFT JOIN {$wpdb->users} u ON u.ID = o.created_by
+                {$where_sql}
+                ORDER BY o.level ASC, o.parent_id ASC, o.id ASC";
+
+        $objectives = $where_vals
+            ? $wpdb->get_results( $wpdb->prepare( $sql, ...$where_vals ) )
+            : $wpdb->get_results( $sql );
+
+        // Fetch departments for owner_type=department display
+        $departments = $wpdb->get_results(
+            "SELECT id, name FROM {$wpdb->prefix}sfs_hr_departments WHERE active = 1 ORDER BY name"
+        );
+        $dept_map = [];
+        foreach ( $departments as $d ) {
+            $dept_map[ $d->id ] = $d->name;
+        }
+
+        // Fetch employees for owner_type=employee display and form select
+        $employees = $wpdb->get_results(
+            "SELECT id, employee_code, first_name, last_name FROM {$wpdb->prefix}sfs_hr_employees WHERE status = 'active' ORDER BY first_name, last_name"
+        );
+        $emp_map = [];
+        foreach ( $employees as $e ) {
+            $emp_map[ $e->id ] = $e->first_name . ' ' . $e->last_name;
+        }
+
+        $level_labels = [
+            'company'    => __( 'Company', 'sfs-hr' ),
+            'department' => __( 'Department', 'sfs-hr' ),
+            'individual' => __( 'Individual', 'sfs-hr' ),
+        ];
+
+        $status_colors = [
+            'draft'     => 'fair',
+            'active'    => 'good',
+            'completed' => 'excellent',
+            'cancelled' => 'needs_improvement',
+        ];
+
+        $show_form = ! empty( $_GET['add'] );
+        ?>
+        <div class="wrap sfs-hr-wrap sfs-perf-wrap">
+            <div class="sfs-perf-header">
+                <h1><?php esc_html_e( 'Goals & OKRs', 'sfs-hr' ); ?></h1>
+                <a href="<?php echo esc_url( add_query_arg( 'add', '1', admin_url( 'admin.php?page=sfs-hr-performance-okrs' ) ) ); ?>" class="button button-primary">
+                    <?php esc_html_e( '+ New Objective', 'sfs-hr' ); ?>
+                </a>
+            </div>
+
+            <?php if ( isset( $_GET['saved'] ) ) : ?>
+                <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Objective saved.', 'sfs-hr' ); ?></p></div>
+            <?php endif; ?>
+            <?php if ( isset( $_GET['deleted'] ) ) : ?>
+                <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Objective deleted.', 'sfs-hr' ); ?></p></div>
+            <?php endif; ?>
+
+            <?php if ( $show_form ) : ?>
+            <!-- Add Objective Form -->
+            <div class="sfs-perf-section">
+                <h2><?php esc_html_e( 'New Objective', 'sfs-hr' ); ?></h2>
+                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                    <input type="hidden" name="action" value="sfs_hr_save_objective">
+                    <?php wp_nonce_field( 'sfs_hr_save_objective' ); ?>
+
+                    <table class="form-table">
+                        <tr>
+                            <th><?php esc_html_e( 'Title', 'sfs-hr' ); ?></th>
+                            <td><input type="text" name="title" class="regular-text" required></td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Description', 'sfs-hr' ); ?></th>
+                            <td><textarea name="description" rows="3" class="large-text"></textarea></td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Level', 'sfs-hr' ); ?></th>
+                            <td>
+                                <select name="level" id="okr-level">
+                                    <option value="company"><?php esc_html_e( 'Company', 'sfs-hr' ); ?></option>
+                                    <option value="department"><?php esc_html_e( 'Department', 'sfs-hr' ); ?></option>
+                                    <option value="individual" selected><?php esc_html_e( 'Individual', 'sfs-hr' ); ?></option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Owner', 'sfs-hr' ); ?></th>
+                            <td>
+                                <select name="owner_type" id="okr-owner-type">
+                                    <option value="company"><?php esc_html_e( 'Company-wide', 'sfs-hr' ); ?></option>
+                                    <option value="department"><?php esc_html_e( 'Department', 'sfs-hr' ); ?></option>
+                                    <option value="employee" selected><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></option>
+                                </select>
+                                <select name="owner_dept_id" style="margin-left:8px;">
+                                    <option value=""><?php esc_html_e( 'Select Department', 'sfs-hr' ); ?></option>
+                                    <?php foreach ( $departments as $d ) : ?>
+                                    <option value="<?php echo (int) $d->id; ?>"><?php echo esc_html( $d->name ); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <select name="owner_emp_id" style="margin-left:8px;">
+                                    <option value=""><?php esc_html_e( 'Select Employee', 'sfs-hr' ); ?></option>
+                                    <?php foreach ( $employees as $e ) : ?>
+                                    <option value="<?php echo (int) $e->id; ?>"><?php echo esc_html( $e->first_name . ' ' . $e->last_name . ' (' . $e->employee_code . ')' ); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Parent Objective', 'sfs-hr' ); ?></th>
+                            <td>
+                                <select name="parent_id">
+                                    <option value=""><?php esc_html_e( 'None (top-level)', 'sfs-hr' ); ?></option>
+                                    <?php foreach ( $objectives as $obj ) : ?>
+                                    <option value="<?php echo (int) $obj->id; ?>">
+                                        <?php echo esc_html( '[' . ( $level_labels[ $obj->level ] ?? $obj->level ) . '] ' . $obj->title ); ?>
+                                    </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Progress Type', 'sfs-hr' ); ?></th>
+                            <td>
+                                <select name="progress_type">
+                                    <option value="percentage"><?php esc_html_e( 'Percentage', 'sfs-hr' ); ?></option>
+                                    <option value="milestone"><?php esc_html_e( 'Milestone', 'sfs-hr' ); ?></option>
+                                    <option value="binary"><?php esc_html_e( 'Binary (Done/Not Done)', 'sfs-hr' ); ?></option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Weight', 'sfs-hr' ); ?></th>
+                            <td><input type="number" name="weight" min="0.01" max="100" step="0.01" value="1.00" class="small-text"></td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Start Date', 'sfs-hr' ); ?></th>
+                            <td><input type="date" name="start_date"></td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Due Date', 'sfs-hr' ); ?></th>
+                            <td><input type="date" name="due_date"></td>
+                        </tr>
+                    </table>
+
+                    <p>
+                        <button type="submit" class="button button-primary"><?php esc_html_e( 'Save Objective', 'sfs-hr' ); ?></button>
+                        <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-performance-okrs' ) ); ?>" class="button"><?php esc_html_e( 'Cancel', 'sfs-hr' ); ?></a>
+                    </p>
+                </form>
+            </div>
+            <?php endif; ?>
+
+            <!-- Filters -->
+            <form method="get" class="sfs-perf-filters">
+                <input type="hidden" name="page" value="sfs-hr-performance-okrs">
+                <label>
+                    <?php esc_html_e( 'Level:', 'sfs-hr' ); ?>
+                    <select name="level">
+                        <option value=""><?php esc_html_e( 'All Levels', 'sfs-hr' ); ?></option>
+                        <?php foreach ( $level_labels as $val => $lbl ) : ?>
+                        <option value="<?php echo esc_attr( $val ); ?>" <?php selected( $level_filter, $val ); ?>><?php echo esc_html( $lbl ); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <label>
+                    <?php esc_html_e( 'Status:', 'sfs-hr' ); ?>
+                    <select name="status">
+                        <option value=""><?php esc_html_e( 'All', 'sfs-hr' ); ?></option>
+                        <option value="draft" <?php selected( $status_filter, 'draft' ); ?>><?php esc_html_e( 'Draft', 'sfs-hr' ); ?></option>
+                        <option value="active" <?php selected( $status_filter, 'active' ); ?>><?php esc_html_e( 'Active', 'sfs-hr' ); ?></option>
+                        <option value="completed" <?php selected( $status_filter, 'completed' ); ?>><?php esc_html_e( 'Completed', 'sfs-hr' ); ?></option>
+                        <option value="cancelled" <?php selected( $status_filter, 'cancelled' ); ?>><?php esc_html_e( 'Cancelled', 'sfs-hr' ); ?></option>
+                    </select>
+                </label>
+                <button type="submit" class="button"><?php esc_html_e( 'Filter', 'sfs-hr' ); ?></button>
+            </form>
+
+            <!-- Objectives Table -->
+            <div class="sfs-perf-table">
+                <table class="widefat striped">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e( 'Objective', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Level', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Owner', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Progress', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Due', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if ( empty( $objectives ) ) : ?>
+                        <tr><td colspan="7"><?php esc_html_e( 'No objectives found.', 'sfs-hr' ); ?></td></tr>
+                        <?php else : ?>
+                        <?php foreach ( $objectives as $obj ) :
+                            $indent = $obj->parent_id ? 'padding-left:24px;' : '';
+                            $level_badge_class = $obj->level === 'company' ? 'excellent' : ( $obj->level === 'department' ? 'good' : 'fair' );
+                            // Resolve owner display
+                            if ( $obj->owner_type === 'company' ) {
+                                $owner_display = __( 'Company', 'sfs-hr' );
+                            } elseif ( $obj->owner_type === 'department' ) {
+                                $owner_display = $dept_map[ $obj->owner_id ] ?? ( '#' . $obj->owner_id );
+                            } else {
+                                $owner_display = $emp_map[ $obj->owner_id ] ?? ( '#' . $obj->owner_id );
+                            }
+                            $kr_count = (int) $wpdb->get_var( $wpdb->prepare(
+                                "SELECT COUNT(*) FROM {$wpdb->prefix}sfs_hr_performance_key_results WHERE objective_id = %d",
+                                $obj->id
+                            ) );
+                        ?>
+                        <tr>
+                            <td style="<?php echo esc_attr( $indent ); ?>">
+                                <?php if ( $obj->parent_id ) : ?>
+                                    <span style="color:#999;margin-right:4px;">&#x2514;</span>
+                                <?php endif; ?>
+                                <strong><?php echo esc_html( $obj->title ); ?></strong>
+                                <?php if ( $obj->description ) : ?>
+                                    <br><small style="color:#666;"><?php echo esc_html( wp_trim_words( $obj->description, 10 ) ); ?></small>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <span class="sfs-perf-badge <?php echo esc_attr( $level_badge_class ); ?>">
+                                    <?php echo esc_html( $level_labels[ $obj->level ] ?? $obj->level ); ?>
+                                </span>
+                            </td>
+                            <td><?php echo esc_html( $owner_display ); ?></td>
+                            <td style="min-width:120px;">
+                                <div class="sfs-perf-progress">
+                                    <div class="sfs-perf-progress-bar" style="width:<?php echo min( 100, (float) $obj->progress ); ?>%;"></div>
+                                </div>
+                                <small><?php echo esc_html( number_format( (float) $obj->progress, 1 ) ); ?>%
+                                    <?php if ( $kr_count ) : ?>
+                                        &middot; <?php echo esc_html( sprintf( _n( '%d KR', '%d KRs', $kr_count, 'sfs-hr' ), $kr_count ) ); ?>
+                                    <?php endif; ?>
+                                </small>
+                            </td>
+                            <td>
+                                <span class="sfs-perf-badge <?php echo esc_attr( $status_colors[ $obj->status ] ?? 'fair' ); ?>">
+                                    <?php echo esc_html( ucfirst( $obj->status ) ); ?>
+                                </span>
+                            </td>
+                            <td><?php echo $obj->due_date ? esc_html( wp_date( get_option( 'date_format' ), strtotime( $obj->due_date ) ) ) : '—'; ?></td>
+                            <td>
+                                <a href="<?php echo esc_url( wp_nonce_url(
+                                    admin_url( 'admin-post.php?action=sfs_hr_delete_objective&id=' . $obj->id ),
+                                    'sfs_hr_delete_objective_' . $obj->id
+                                ) ); ?>" class="button button-small" onclick="return confirm('<?php esc_attr_e( 'Delete this objective?', 'sfs-hr' ); ?>');">
+                                    <?php esc_html_e( 'Delete', 'sfs-hr' ); ?>
+                                </a>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php
+    }
+
+    // -------------------------------------------------------------------------
+    // M4: Review Cycles
+    // -------------------------------------------------------------------------
+
+    /**
+     * Render Review Cycles page.
+     */
+    public function render_cycles(): void {
+        global $wpdb;
+
+        $cycles = $wpdb->get_results(
+            "SELECT rc.*, u.display_name as creator_name,
+                    (SELECT COUNT(*) FROM {$wpdb->prefix}sfs_hr_performance_reviews r WHERE r.cycle_id = rc.id) as total_reviews,
+                    (SELECT COUNT(*) FROM {$wpdb->prefix}sfs_hr_performance_reviews r WHERE r.cycle_id = rc.id AND r.status = 'submitted') as submitted_reviews
+             FROM {$wpdb->prefix}sfs_hr_performance_review_cycles rc
+             LEFT JOIN {$wpdb->users} u ON u.ID = rc.created_by
+             ORDER BY rc.start_date DESC"
+        );
+
+        $cycle_type_labels = [
+            'annual'      => __( 'Annual', 'sfs-hr' ),
+            'semi_annual' => __( 'Semi-Annual', 'sfs-hr' ),
+            'quarterly'   => __( 'Quarterly', 'sfs-hr' ),
+            'custom'      => __( 'Custom', 'sfs-hr' ),
+        ];
+
+        $status_colors = [
+            'draft'       => 'fair',
+            'active'      => 'good',
+            'in_review'   => 'good',
+            'calibration' => 'fair',
+            'completed'   => 'excellent',
+            'cancelled'   => 'needs_improvement',
+        ];
+
+        $show_form = ! empty( $_GET['add'] );
+        ?>
+        <div class="wrap sfs-hr-wrap sfs-perf-wrap">
+            <div class="sfs-perf-header">
+                <h1><?php esc_html_e( 'Review Cycles', 'sfs-hr' ); ?></h1>
+                <a href="<?php echo esc_url( add_query_arg( 'add', '1', admin_url( 'admin.php?page=sfs-hr-performance-cycles' ) ) ); ?>" class="button button-primary">
+                    <?php esc_html_e( '+ New Cycle', 'sfs-hr' ); ?>
+                </a>
+            </div>
+
+            <?php if ( isset( $_GET['saved'] ) ) : ?>
+                <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Review cycle saved.', 'sfs-hr' ); ?></p></div>
+            <?php endif; ?>
+            <?php if ( isset( $_GET['activated'] ) ) : ?>
+                <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Review cycle activated.', 'sfs-hr' ); ?></p></div>
+            <?php endif; ?>
+
+            <?php if ( $show_form ) : ?>
+            <div class="sfs-perf-section">
+                <h2><?php esc_html_e( 'New Review Cycle', 'sfs-hr' ); ?></h2>
+                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                    <input type="hidden" name="action" value="sfs_hr_save_review_cycle">
+                    <?php wp_nonce_field( 'sfs_hr_save_review_cycle' ); ?>
+
+                    <table class="form-table">
+                        <tr>
+                            <th><?php esc_html_e( 'Name', 'sfs-hr' ); ?></th>
+                            <td><input type="text" name="name" class="regular-text" required></td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Description', 'sfs-hr' ); ?></th>
+                            <td><textarea name="description" rows="3" class="large-text"></textarea></td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Cycle Type', 'sfs-hr' ); ?></th>
+                            <td>
+                                <select name="cycle_type">
+                                    <?php foreach ( $cycle_type_labels as $val => $lbl ) : ?>
+                                    <option value="<?php echo esc_attr( $val ); ?>"><?php echo esc_html( $lbl ); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Start Date', 'sfs-hr' ); ?></th>
+                            <td><input type="date" name="start_date" required></td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'End Date', 'sfs-hr' ); ?></th>
+                            <td><input type="date" name="end_date" required></td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Submission Deadline', 'sfs-hr' ); ?></th>
+                            <td><input type="date" name="deadline"></td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Review Types', 'sfs-hr' ); ?></th>
+                            <td>
+                                <label><input type="checkbox" name="review_types[]" value="self"> <?php esc_html_e( 'Self', 'sfs-hr' ); ?></label>&nbsp;
+                                <label><input type="checkbox" name="review_types[]" value="manager" checked> <?php esc_html_e( 'Manager', 'sfs-hr' ); ?></label>&nbsp;
+                                <label><input type="checkbox" name="review_types[]" value="peer"> <?php esc_html_e( 'Peer', 'sfs-hr' ); ?></label>&nbsp;
+                                <label><input type="checkbox" name="review_types[]" value="360"> <?php esc_html_e( '360°', 'sfs-hr' ); ?></label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Rating Scale (max)', 'sfs-hr' ); ?></th>
+                            <td><input type="number" name="rating_scale_max" min="3" max="10" value="5" class="small-text"></td>
+                        </tr>
+                    </table>
+
+                    <p>
+                        <button type="submit" class="button button-primary"><?php esc_html_e( 'Save Cycle', 'sfs-hr' ); ?></button>
+                        <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-performance-cycles' ) ); ?>" class="button"><?php esc_html_e( 'Cancel', 'sfs-hr' ); ?></a>
+                    </p>
+                </form>
+            </div>
+            <?php endif; ?>
+
+            <div class="sfs-perf-table">
+                <table class="widefat striped">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e( 'Name', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Type', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Period', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Completion', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if ( empty( $cycles ) ) : ?>
+                        <tr><td colspan="6"><?php esc_html_e( 'No review cycles found.', 'sfs-hr' ); ?></td></tr>
+                        <?php else : ?>
+                        <?php foreach ( $cycles as $cycle ) :
+                            $completion_pct = $cycle->total_reviews > 0
+                                ? round( ( $cycle->submitted_reviews / $cycle->total_reviews ) * 100 )
+                                : 0;
+                        ?>
+                        <tr>
+                            <td>
+                                <strong><?php echo esc_html( $cycle->name ); ?></strong>
+                                <?php if ( $cycle->description ) : ?>
+                                    <br><small style="color:#666;"><?php echo esc_html( wp_trim_words( $cycle->description, 8 ) ); ?></small>
+                                <?php endif; ?>
+                            </td>
+                            <td><?php echo esc_html( $cycle_type_labels[ $cycle->cycle_type ] ?? $cycle->cycle_type ); ?></td>
+                            <td>
+                                <?php echo esc_html( wp_date( 'M j, Y', strtotime( $cycle->start_date ) ) ); ?> –
+                                <?php echo esc_html( wp_date( 'M j, Y', strtotime( $cycle->end_date ) ) ); ?>
+                            </td>
+                            <td>
+                                <span class="sfs-perf-badge <?php echo esc_attr( $status_colors[ $cycle->status ] ?? 'fair' ); ?>">
+                                    <?php echo esc_html( ucfirst( str_replace( '_', ' ', $cycle->status ) ) ); ?>
+                                </span>
+                            </td>
+                            <td style="min-width:120px;">
+                                <div class="sfs-perf-progress">
+                                    <div class="sfs-perf-progress-bar" style="width:<?php echo (int) $completion_pct; ?>%;"></div>
+                                </div>
+                                <small><?php echo esc_html( sprintf( __( '%d / %d submitted', 'sfs-hr' ), $cycle->submitted_reviews, $cycle->total_reviews ) ); ?></small>
+                            </td>
+                            <td>
+                                <?php if ( $cycle->status === 'draft' ) : ?>
+                                <a href="<?php echo esc_url( wp_nonce_url(
+                                    admin_url( 'admin-post.php?action=sfs_hr_activate_review_cycle&id=' . $cycle->id ),
+                                    'sfs_hr_activate_review_cycle_' . $cycle->id
+                                ) ); ?>" class="button button-primary button-small">
+                                    <?php esc_html_e( 'Activate', 'sfs-hr' ); ?>
+                                </a>
+                                <?php endif; ?>
+                                <a href="<?php echo esc_url( add_query_arg( [
+                                    'page'     => 'sfs-hr-performance-reviews',
+                                    'cycle_id' => $cycle->id,
+                                ], admin_url( 'admin.php' ) ) ); ?>" class="button button-small">
+                                    <?php esc_html_e( 'View Reviews', 'sfs-hr' ); ?>
+                                </a>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php
+    }
+
+    // -------------------------------------------------------------------------
+    // M4: 360° Feedback
+    // -------------------------------------------------------------------------
+
+    /**
+     * Render 360° Feedback page.
+     */
+    public function render_feedback(): void {
+        global $wpdb;
+
+        $cycle_id_filter = isset( $_GET['cycle_id'] ) ? (int) $_GET['cycle_id'] : 0;
+
+        // Fetch cycles for filter dropdown
+        $cycles = $wpdb->get_results(
+            "SELECT id, name FROM {$wpdb->prefix}sfs_hr_performance_review_cycles ORDER BY start_date DESC"
+        );
+
+        // Build feedback query
+        $where_sql = $cycle_id_filter
+            ? $wpdb->prepare( 'WHERE f.cycle_id = %d', $cycle_id_filter )
+            : '';
+
+        $feedback_rows = $wpdb->get_results(
+            "SELECT f.*,
+                    CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
+                    e.employee_code,
+                    up.display_name AS provider_name,
+                    rc.name AS cycle_name
+             FROM {$wpdb->prefix}sfs_hr_performance_feedback_360 f
+             JOIN {$wpdb->prefix}sfs_hr_employees e ON e.id = f.employee_id
+             LEFT JOIN {$wpdb->users} up ON up.ID = f.provider_id
+             LEFT JOIN {$wpdb->prefix}sfs_hr_performance_review_cycles rc ON rc.id = f.cycle_id
+             {$where_sql}
+             ORDER BY f.created_at DESC
+             LIMIT 100"
+        );
+
+        // Per-cycle completion stats
+        $cycle_stats = [];
+        if ( $cycle_id_filter ) {
+            $total    = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}sfs_hr_performance_feedback_360 WHERE cycle_id = %d",
+                $cycle_id_filter
+            ) );
+            $submitted = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}sfs_hr_performance_feedback_360 WHERE cycle_id = %d AND status = 'submitted'",
+                $cycle_id_filter
+            ) );
+            $cycle_stats = [ 'total' => $total, 'submitted' => $submitted ];
+        }
+
+        $provider_type_labels = [
+            'self'          => __( 'Self', 'sfs-hr' ),
+            'manager'       => __( 'Manager', 'sfs-hr' ),
+            'peer'          => __( 'Peer', 'sfs-hr' ),
+            'direct_report' => __( 'Direct Report', 'sfs-hr' ),
+            'external'      => __( 'External', 'sfs-hr' ),
+        ];
+        ?>
+        <div class="wrap sfs-hr-wrap sfs-perf-wrap">
+            <h1><?php esc_html_e( '360° Feedback', 'sfs-hr' ); ?></h1>
+
+            <!-- Cycle filter + stats -->
+            <form method="get" class="sfs-perf-filters">
+                <input type="hidden" name="page" value="sfs-hr-performance-feedback">
+                <label>
+                    <?php esc_html_e( 'Cycle:', 'sfs-hr' ); ?>
+                    <select name="cycle_id">
+                        <option value=""><?php esc_html_e( 'All Cycles', 'sfs-hr' ); ?></option>
+                        <?php foreach ( $cycles as $c ) : ?>
+                        <option value="<?php echo (int) $c->id; ?>" <?php selected( $cycle_id_filter, $c->id ); ?>>
+                            <?php echo esc_html( $c->name ); ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <button type="submit" class="button"><?php esc_html_e( 'Filter', 'sfs-hr' ); ?></button>
+            </form>
+
+            <?php if ( $cycle_id_filter && $cycle_stats ) : ?>
+            <div class="sfs-perf-cards" style="margin-bottom:20px;">
+                <div class="sfs-perf-card">
+                    <h3><?php esc_html_e( 'Total Requests', 'sfs-hr' ); ?></h3>
+                    <div class="value"><?php echo esc_html( $cycle_stats['total'] ); ?></div>
+                </div>
+                <div class="sfs-perf-card">
+                    <h3><?php esc_html_e( 'Submitted', 'sfs-hr' ); ?></h3>
+                    <div class="value" style="color:#22c55e;"><?php echo esc_html( $cycle_stats['submitted'] ); ?></div>
+                </div>
+                <div class="sfs-perf-card">
+                    <h3><?php esc_html_e( 'Pending', 'sfs-hr' ); ?></h3>
+                    <div class="value" style="color:#f59e0b;"><?php echo esc_html( $cycle_stats['total'] - $cycle_stats['submitted'] ); ?></div>
+                </div>
+                <div class="sfs-perf-card">
+                    <h3><?php esc_html_e( 'Completion', 'sfs-hr' ); ?></h3>
+                    <div class="value"><?php echo $cycle_stats['total'] > 0 ? esc_html( round( ( $cycle_stats['submitted'] / $cycle_stats['total'] ) * 100 ) ) . '%' : '—'; ?></div>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <div class="sfs-perf-table">
+                <table class="widefat striped">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Cycle', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Provider', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Provider Type', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Rating', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Anonymous', 'sfs-hr' ); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if ( empty( $feedback_rows ) ) : ?>
+                        <tr><td colspan="7"><?php esc_html_e( 'No 360° feedback records found.', 'sfs-hr' ); ?></td></tr>
+                        <?php else : ?>
+                        <?php foreach ( $feedback_rows as $fb ) : ?>
+                        <tr>
+                            <td>
+                                <strong><?php echo esc_html( $fb->employee_name ); ?></strong><br>
+                                <small style="color:#666;"><?php echo esc_html( $fb->employee_code ); ?></small>
+                            </td>
+                            <td><?php echo esc_html( $fb->cycle_name ); ?></td>
+                            <td>
+                                <?php if ( $fb->is_anonymous ) : ?>
+                                    <em style="color:#999;"><?php esc_html_e( 'Anonymous', 'sfs-hr' ); ?></em>
+                                <?php else : ?>
+                                    <?php echo esc_html( $fb->provider_name ); ?>
+                                <?php endif; ?>
+                            </td>
+                            <td><?php echo esc_html( $provider_type_labels[ $fb->provider_type ] ?? $fb->provider_type ); ?></td>
+                            <td>
+                                <?php echo $fb->overall_rating !== null
+                                    ? esc_html( number_format( (float) $fb->overall_rating, 1 ) ) . '/5'
+                                    : '—'; ?>
+                            </td>
+                            <td>
+                                <span class="sfs-perf-badge <?php echo $fb->status === 'submitted' ? 'excellent' : 'fair'; ?>">
+                                    <?php echo esc_html( ucfirst( $fb->status ) ); ?>
+                                </span>
+                            </td>
+                            <td><?php echo $fb->is_anonymous ? esc_html__( 'Yes', 'sfs-hr' ) : esc_html__( 'No', 'sfs-hr' ); ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php
+    }
+
+    // -------------------------------------------------------------------------
+    // M4: Performance Improvement Plans (PIPs)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Render PIPs page.
+     */
+    public function render_pips(): void {
+        global $wpdb;
+
+        $status_filter = isset( $_GET['status'] ) ? sanitize_text_field( $_GET['status'] ) : '';
+
+        $where_sql = $status_filter
+            ? $wpdb->prepare( 'WHERE p.status = %s', $status_filter )
+            : '';
+
+        $pips = $wpdb->get_results(
+            "SELECT p.*,
+                    CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
+                    e.employee_code,
+                    u.display_name AS initiated_by_name
+             FROM {$wpdb->prefix}sfs_hr_performance_pips p
+             JOIN {$wpdb->prefix}sfs_hr_employees e ON e.id = p.employee_id
+             LEFT JOIN {$wpdb->users} u ON u.ID = p.initiated_by
+             {$where_sql}
+             ORDER BY p.created_at DESC"
+        );
+
+        $status_colors = [
+            'active'     => 'good',
+            'extended'   => 'fair',
+            'completed'  => 'excellent',
+            'terminated' => 'needs_improvement',
+        ];
+
+        $outcome_labels = [
+            'improved'   => __( 'Improved', 'sfs-hr' ),
+            'no_change'  => __( 'No Change', 'sfs-hr' ),
+            'terminated' => __( 'Terminated', 'sfs-hr' ),
+        ];
+
+        $employees = $wpdb->get_results(
+            "SELECT id, employee_code, first_name, last_name FROM {$wpdb->prefix}sfs_hr_employees WHERE status = 'active' ORDER BY first_name, last_name"
+        );
+
+        $show_form = ! empty( $_GET['add'] );
+        ?>
+        <div class="wrap sfs-hr-wrap sfs-perf-wrap">
+            <div class="sfs-perf-header">
+                <h1><?php esc_html_e( 'Performance Improvement Plans', 'sfs-hr' ); ?></h1>
+                <a href="<?php echo esc_url( add_query_arg( 'add', '1', admin_url( 'admin.php?page=sfs-hr-performance-pips' ) ) ); ?>" class="button button-primary">
+                    <?php esc_html_e( '+ New PIP', 'sfs-hr' ); ?>
+                </a>
+            </div>
+
+            <?php if ( isset( $_GET['saved'] ) ) : ?>
+                <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'PIP saved.', 'sfs-hr' ); ?></p></div>
+            <?php endif; ?>
+            <?php if ( isset( $_GET['completed'] ) ) : ?>
+                <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'PIP marked as completed.', 'sfs-hr' ); ?></p></div>
+            <?php endif; ?>
+
+            <?php if ( $show_form ) : ?>
+            <div class="sfs-perf-section">
+                <h2><?php esc_html_e( 'New Performance Improvement Plan', 'sfs-hr' ); ?></h2>
+                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                    <input type="hidden" name="action" value="sfs_hr_save_pip">
+                    <?php wp_nonce_field( 'sfs_hr_save_pip' ); ?>
+
+                    <table class="form-table">
+                        <tr>
+                            <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
+                            <td>
+                                <select name="employee_id" required>
+                                    <option value=""><?php esc_html_e( 'Select Employee', 'sfs-hr' ); ?></option>
+                                    <?php foreach ( $employees as $e ) : ?>
+                                    <option value="<?php echo (int) $e->id; ?>">
+                                        <?php echo esc_html( $e->first_name . ' ' . $e->last_name . ' (' . $e->employee_code . ')' ); ?>
+                                    </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Reason', 'sfs-hr' ); ?></th>
+                            <td><textarea name="reason" rows="3" class="large-text" required></textarea></td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Goals / Expected Improvements', 'sfs-hr' ); ?></th>
+                            <td><textarea name="goals" rows="4" class="large-text"></textarea></td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Start Date', 'sfs-hr' ); ?></th>
+                            <td><input type="date" name="start_date" required></td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'End Date', 'sfs-hr' ); ?></th>
+                            <td><input type="date" name="end_date" required></td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Review Date', 'sfs-hr' ); ?></th>
+                            <td><input type="date" name="review_date"></td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Notes', 'sfs-hr' ); ?></th>
+                            <td><textarea name="notes" rows="3" class="large-text"></textarea></td>
+                        </tr>
+                    </table>
+
+                    <p>
+                        <button type="submit" class="button button-primary"><?php esc_html_e( 'Save PIP', 'sfs-hr' ); ?></button>
+                        <a href="<?php echo esc_url( admin_url( 'admin.php?page=sfs-hr-performance-pips' ) ); ?>" class="button"><?php esc_html_e( 'Cancel', 'sfs-hr' ); ?></a>
+                    </p>
+                </form>
+            </div>
+            <?php endif; ?>
+
+            <!-- Filters -->
+            <form method="get" class="sfs-perf-filters">
+                <input type="hidden" name="page" value="sfs-hr-performance-pips">
+                <label>
+                    <?php esc_html_e( 'Status:', 'sfs-hr' ); ?>
+                    <select name="status">
+                        <option value=""><?php esc_html_e( 'All', 'sfs-hr' ); ?></option>
+                        <option value="active" <?php selected( $status_filter, 'active' ); ?>><?php esc_html_e( 'Active', 'sfs-hr' ); ?></option>
+                        <option value="extended" <?php selected( $status_filter, 'extended' ); ?>><?php esc_html_e( 'Extended', 'sfs-hr' ); ?></option>
+                        <option value="completed" <?php selected( $status_filter, 'completed' ); ?>><?php esc_html_e( 'Completed', 'sfs-hr' ); ?></option>
+                        <option value="terminated" <?php selected( $status_filter, 'terminated' ); ?>><?php esc_html_e( 'Terminated', 'sfs-hr' ); ?></option>
+                    </select>
+                </label>
+                <button type="submit" class="button"><?php esc_html_e( 'Filter', 'sfs-hr' ); ?></button>
+            </form>
+
+            <!-- PIPs Table -->
+            <div class="sfs-perf-table">
+                <table class="widefat striped">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Reason', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Period', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Review Date', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Outcome', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Initiated By', 'sfs-hr' ); ?></th>
+                            <th><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if ( empty( $pips ) ) : ?>
+                        <tr><td colspan="8"><?php esc_html_e( 'No PIPs found.', 'sfs-hr' ); ?></td></tr>
+                        <?php else : ?>
+                        <?php foreach ( $pips as $pip ) : ?>
+                        <tr>
+                            <td>
+                                <strong><?php echo esc_html( $pip->employee_name ); ?></strong><br>
+                                <small style="color:#666;"><?php echo esc_html( $pip->employee_code ); ?></small>
+                            </td>
+                            <td><small><?php echo esc_html( wp_trim_words( $pip->reason, 12 ) ); ?></small></td>
+                            <td>
+                                <?php echo esc_html( wp_date( get_option( 'date_format' ), strtotime( $pip->start_date ) ) ); ?> –
+                                <?php echo esc_html( wp_date( get_option( 'date_format' ), strtotime( $pip->end_date ) ) ); ?>
+                            </td>
+                            <td>
+                                <?php echo $pip->review_date
+                                    ? esc_html( wp_date( get_option( 'date_format' ), strtotime( $pip->review_date ) ) )
+                                    : '—'; ?>
+                            </td>
+                            <td>
+                                <span class="sfs-perf-badge <?php echo esc_attr( $status_colors[ $pip->status ] ?? 'fair' ); ?>">
+                                    <?php echo esc_html( ucfirst( $pip->status ) ); ?>
+                                </span>
+                            </td>
+                            <td><?php echo $pip->outcome ? esc_html( $outcome_labels[ $pip->outcome ] ?? $pip->outcome ) : '—'; ?></td>
+                            <td><?php echo esc_html( $pip->initiated_by_name ); ?></td>
+                            <td>
+                                <?php if ( $pip->status === 'active' || $pip->status === 'extended' ) : ?>
+                                <a href="<?php echo esc_url( add_query_arg( [
+                                    'page'   => 'sfs-hr-performance-pips',
+                                    'action' => 'complete',
+                                    'id'     => $pip->id,
+                                ], admin_url( 'admin.php' ) ) ); ?>" class="button button-primary button-small" data-pip-id="<?php echo (int) $pip->id; ?>" onclick="return sfsHrCompletePip(this)">
+                                    <?php esc_html_e( 'Complete', 'sfs-hr' ); ?>
+                                </a>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Complete PIP inline form (hidden by default, shown via JS) -->
+        <div id="sfs-pip-complete-dialog" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;">
+            <div style="background:#fff;border-radius:8px;padding:30px;max-width:480px;width:100%;margin:20px;">
+                <h2 style="margin-top:0;"><?php esc_html_e( 'Complete PIP', 'sfs-hr' ); ?></h2>
+                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                    <input type="hidden" name="action" value="sfs_hr_complete_pip">
+                    <input type="hidden" name="pip_id" id="sfs-pip-id-input" value="">
+                    <?php wp_nonce_field( 'sfs_hr_complete_pip' ); ?>
+                    <table class="form-table" style="margin-top:0;">
+                        <tr>
+                            <th><?php esc_html_e( 'Outcome', 'sfs-hr' ); ?></th>
+                            <td>
+                                <select name="outcome" required>
+                                    <option value=""><?php esc_html_e( 'Select outcome', 'sfs-hr' ); ?></option>
+                                    <option value="improved"><?php esc_html_e( 'Improved', 'sfs-hr' ); ?></option>
+                                    <option value="no_change"><?php esc_html_e( 'No Change', 'sfs-hr' ); ?></option>
+                                    <option value="terminated"><?php esc_html_e( 'Terminated', 'sfs-hr' ); ?></option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><?php esc_html_e( 'Notes', 'sfs-hr' ); ?></th>
+                            <td><textarea name="completion_notes" rows="3" class="large-text"></textarea></td>
+                        </tr>
+                    </table>
+                    <p>
+                        <button type="submit" class="button button-primary"><?php esc_html_e( 'Save', 'sfs-hr' ); ?></button>
+                        <button type="button" class="button" onclick="document.getElementById('sfs-pip-complete-dialog').style.display='none';"><?php esc_html_e( 'Cancel', 'sfs-hr' ); ?></button>
+                    </p>
+                </form>
+            </div>
+        </div>
+        <script>
+        function sfsHrCompletePip(btn) {
+            document.getElementById('sfs-pip-id-input').value = btn.getAttribute('data-pip-id');
+            var d = document.getElementById('sfs-pip-complete-dialog');
+            d.style.display = 'flex';
+            return false;
+        }
+        </script>
+        <?php
+    }
+
+    // -------------------------------------------------------------------------
+    // M4: Form Handlers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Handle save objective (Goals & OKRs).
+     */
+    public function handle_save_objective(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
+            wp_die( __( 'Permission denied', 'sfs-hr' ), '', 403 );
+        }
+        check_admin_referer( 'sfs_hr_save_objective' );
+
+        global $wpdb;
+        $now = current_time( 'mysql' );
+
+        $owner_type = sanitize_text_field( $_POST['owner_type'] ?? 'employee' );
+        if ( $owner_type === 'department' ) {
+            $owner_id = (int) ( $_POST['owner_dept_id'] ?? 0 );
+        } elseif ( $owner_type === 'employee' ) {
+            $owner_id = (int) ( $_POST['owner_emp_id'] ?? 0 );
+        } else {
+            $owner_id = 0;
+        }
+
+        $level_raw        = sanitize_text_field( $_POST['level'] ?? 'individual' );
+        $progress_type    = sanitize_text_field( $_POST['progress_type'] ?? 'percentage' );
+        $allowed_levels   = [ 'company', 'department', 'individual' ];
+        $allowed_pt       = [ 'percentage', 'milestone', 'binary' ];
+        $allowed_ot       = [ 'company', 'department', 'employee' ];
+
+        $level         = in_array( $level_raw, $allowed_levels, true ) ? $level_raw : 'individual';
+        $progress_type = in_array( $progress_type, $allowed_pt, true ) ? $progress_type : 'percentage';
+        $owner_type    = in_array( $owner_type, $allowed_ot, true ) ? $owner_type : 'employee';
+
+        $wpdb->insert(
+            $wpdb->prefix . 'sfs_hr_performance_objectives',
+            [
+                'parent_id'       => ( $_POST['parent_id'] ?? '' ) !== '' ? (int) $_POST['parent_id'] : null,
+                'level'           => $level,
+                'title'           => sanitize_text_field( $_POST['title'] ?? '' ),
+                'description'     => sanitize_textarea_field( $_POST['description'] ?? '' ),
+                'owner_type'      => $owner_type,
+                'owner_id'        => $owner_id,
+                'weight'          => isset( $_POST['weight'] ) ? (float) $_POST['weight'] : 1.00,
+                'progress_type'   => $progress_type,
+                'start_date'      => ( $_POST['start_date'] ?? '' ) ?: null,
+                'due_date'        => ( $_POST['due_date'] ?? '' ) ?: null,
+                'created_by'      => get_current_user_id(),
+                'created_at'      => $now,
+            ],
+            [ '%d', '%s', '%s', '%s', '%s', '%d', '%f', '%s', '%s', '%s', '%d', '%s' ]
+        );
+
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-performance-okrs&saved=1' ) );
+        exit;
+    }
+
+    /**
+     * Handle delete objective.
+     */
+    public function handle_delete_objective(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
+            wp_die( __( 'Permission denied', 'sfs-hr' ), '', 403 );
+        }
+
+        $obj_id = isset( $_GET['id'] ) ? (int) $_GET['id'] : 0;
+        check_admin_referer( 'sfs_hr_delete_objective_' . $obj_id );
+
+        global $wpdb;
+        $wpdb->delete( $wpdb->prefix . 'sfs_hr_performance_objectives', [ 'id' => $obj_id ], [ '%d' ] );
+        // Also remove child key results and child objectives
+        $wpdb->delete( $wpdb->prefix . 'sfs_hr_performance_key_results', [ 'objective_id' => $obj_id ], [ '%d' ] );
+        $wpdb->delete( $wpdb->prefix . 'sfs_hr_performance_objectives', [ 'parent_id' => $obj_id ], [ '%d' ] );
+
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-performance-okrs&deleted=1' ) );
+        exit;
+    }
+
+    /**
+     * Handle save review cycle.
+     */
+    public function handle_save_review_cycle(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
+            wp_die( __( 'Permission denied', 'sfs-hr' ), '', 403 );
+        }
+        check_admin_referer( 'sfs_hr_save_review_cycle' );
+
+        global $wpdb;
+        $now = current_time( 'mysql' );
+
+        $allowed_types = [ 'annual', 'semi_annual', 'quarterly', 'custom' ];
+        $cycle_type    = sanitize_text_field( $_POST['cycle_type'] ?? 'annual' );
+        if ( ! in_array( $cycle_type, $allowed_types, true ) ) {
+            $cycle_type = 'annual';
+        }
+
+        $review_types = isset( $_POST['review_types'] ) && is_array( $_POST['review_types'] )
+            ? implode( ',', array_map( 'sanitize_text_field', $_POST['review_types'] ) )
+            : '';
+
+        $wpdb->insert(
+            $wpdb->prefix . 'sfs_hr_performance_review_cycles',
+            [
+                'name'             => sanitize_text_field( $_POST['name'] ?? '' ),
+                'description'      => sanitize_textarea_field( $_POST['description'] ?? '' ),
+                'cycle_type'       => $cycle_type,
+                'start_date'       => sanitize_text_field( $_POST['start_date'] ?? '' ),
+                'end_date'         => sanitize_text_field( $_POST['end_date'] ?? '' ),
+                'deadline'         => ( $_POST['deadline'] ?? '' ) ?: null,
+                'review_types'     => $review_types,
+                'status'           => 'draft',
+                'rating_scale_max' => isset( $_POST['rating_scale_max'] ) ? (int) $_POST['rating_scale_max'] : 5,
+                'created_by'       => get_current_user_id(),
+                'created_at'       => $now,
+            ],
+            [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s' ]
+        );
+
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-performance-cycles&saved=1' ) );
+        exit;
+    }
+
+    /**
+     * Handle activate review cycle.
+     */
+    public function handle_activate_review_cycle(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
+            wp_die( __( 'Permission denied', 'sfs-hr' ), '', 403 );
+        }
+
+        $cycle_id = isset( $_GET['id'] ) ? (int) $_GET['id'] : 0;
+        check_admin_referer( 'sfs_hr_activate_review_cycle_' . $cycle_id );
+
+        global $wpdb;
+        $wpdb->update(
+            $wpdb->prefix . 'sfs_hr_performance_review_cycles',
+            [ 'status' => 'active', 'updated_at' => current_time( 'mysql' ) ],
+            [ 'id' => $cycle_id, 'status' => 'draft' ],
+            [ '%s', '%s' ],
+            [ '%d', '%s' ]
+        );
+
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-performance-cycles&activated=1' ) );
+        exit;
+    }
+
+    /**
+     * Handle save PIP.
+     */
+    public function handle_save_pip(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
+            wp_die( __( 'Permission denied', 'sfs-hr' ), '', 403 );
+        }
+        check_admin_referer( 'sfs_hr_save_pip' );
+
+        global $wpdb;
+        $now = current_time( 'mysql' );
+
+        $wpdb->insert(
+            $wpdb->prefix . 'sfs_hr_performance_pips',
+            [
+                'employee_id'  => (int) ( $_POST['employee_id'] ?? 0 ),
+                'initiated_by' => get_current_user_id(),
+                'reason'       => sanitize_textarea_field( $_POST['reason'] ?? '' ),
+                'goals'        => sanitize_textarea_field( $_POST['goals'] ?? '' ),
+                'start_date'   => sanitize_text_field( $_POST['start_date'] ?? '' ),
+                'end_date'     => sanitize_text_field( $_POST['end_date'] ?? '' ),
+                'review_date'  => ( $_POST['review_date'] ?? '' ) ?: null,
+                'status'       => 'active',
+                'notes'        => sanitize_textarea_field( $_POST['notes'] ?? '' ),
+                'created_at'   => $now,
+            ],
+            [ '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ]
+        );
+
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-performance-pips&saved=1' ) );
+        exit;
+    }
+
+    /**
+     * Handle complete PIP.
+     */
+    public function handle_complete_pip(): void {
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
+            wp_die( __( 'Permission denied', 'sfs-hr' ), '', 403 );
+        }
+        check_admin_referer( 'sfs_hr_complete_pip' );
+
+        $pip_id = isset( $_POST['pip_id'] ) ? (int) $_POST['pip_id'] : 0;
+        if ( ! $pip_id ) {
+            wp_die( __( 'Invalid PIP ID.', 'sfs-hr' ), '', 400 );
+        }
+
+        $allowed_outcomes = [ 'improved', 'no_change', 'terminated' ];
+        $outcome = sanitize_text_field( $_POST['outcome'] ?? '' );
+        if ( ! in_array( $outcome, $allowed_outcomes, true ) ) {
+            wp_die( __( 'Invalid outcome.', 'sfs-hr' ), '', 400 );
+        }
+
+        global $wpdb;
+        $wpdb->update(
+            $wpdb->prefix . 'sfs_hr_performance_pips',
+            [
+                'status'     => 'completed',
+                'outcome'    => $outcome,
+                'notes'      => sanitize_textarea_field( $_POST['completion_notes'] ?? '' ),
+                'updated_at' => current_time( 'mysql' ),
+            ],
+            [ 'id' => $pip_id ],
+            [ '%s', '%s', '%s', '%s' ],
+            [ '%d' ]
+        );
+
+        wp_safe_redirect( admin_url( 'admin.php?page=sfs-hr-performance-pips&completed=1' ) );
         exit;
     }
 }

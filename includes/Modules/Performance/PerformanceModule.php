@@ -29,6 +29,9 @@ class PerformanceModule {
      * Register all hooks.
      */
     public function hooks(): void {
+        // Install / upgrade M4 tables on init (version-gated).
+        add_action( 'init', [ $this, 'maybe_install_tables' ], 5 );
+
         // Admin pages
         add_action( 'init', function () {
             if ( is_admin() ) {
@@ -50,6 +53,178 @@ class PerformanceModule {
         add_action( 'wp_ajax_sfs_hr_save_goal', [ $this, 'ajax_save_goal' ] );
         add_action( 'wp_ajax_sfs_hr_update_goal_progress', [ $this, 'ajax_update_goal_progress' ] );
         add_action( 'wp_ajax_sfs_hr_save_review', [ $this, 'ajax_save_review' ] );
+    }
+
+    /**
+     * Install / upgrade M4 performance tables.
+     *
+     * Version-gated: only runs when sfs_hr_performance_db_version < 2.0.0.
+     * Uses dbDelta() so it is safe to re-run (idempotent).
+     */
+    public function maybe_install_tables(): void {
+        global $wpdb;
+
+        $installed = get_option( 'sfs_hr_performance_db_version', '0' );
+        $target    = '2.0.0';
+
+        if ( version_compare( $installed, $target, '>=' ) ) {
+            return;
+        }
+
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+        $charset_collate = $wpdb->get_charset_collate();
+        $p               = $wpdb->prefix;
+
+        dbDelta( "CREATE TABLE {$p}sfs_hr_performance_objectives (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            parent_id BIGINT UNSIGNED NULL,
+            level ENUM('company','department','individual') NOT NULL DEFAULT 'individual',
+            title VARCHAR(255) NOT NULL,
+            description TEXT NULL,
+            owner_type ENUM('company','department','employee') NOT NULL DEFAULT 'employee',
+            owner_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            weight DECIMAL(5,2) NOT NULL DEFAULT 1.00,
+            progress_type ENUM('percentage','milestone','binary') NOT NULL DEFAULT 'percentage',
+            progress DECIMAL(5,2) NOT NULL DEFAULT 0,
+            status ENUM('draft','active','completed','cancelled') NOT NULL DEFAULT 'draft',
+            start_date DATE NULL,
+            due_date DATE NULL,
+            review_cycle_id BIGINT UNSIGNED NULL,
+            created_by BIGINT UNSIGNED NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NULL,
+            PRIMARY KEY (id),
+            KEY parent_id (parent_id),
+            KEY owner_lookup (owner_type, owner_id),
+            KEY status (status),
+            KEY review_cycle_id (review_cycle_id)
+        ) $charset_collate;" );
+
+        dbDelta( "CREATE TABLE {$p}sfs_hr_performance_key_results (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            objective_id BIGINT UNSIGNED NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            description TEXT NULL,
+            metric_type ENUM('number','percentage','currency','boolean') NOT NULL DEFAULT 'number',
+            start_value DECIMAL(12,2) NOT NULL DEFAULT 0,
+            target_value DECIMAL(12,2) NOT NULL,
+            current_value DECIMAL(12,2) NOT NULL DEFAULT 0,
+            weight DECIMAL(5,2) NOT NULL DEFAULT 1.00,
+            status ENUM('on_track','at_risk','behind','completed') NOT NULL DEFAULT 'on_track',
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NULL,
+            PRIMARY KEY (id),
+            KEY objective_id (objective_id)
+        ) $charset_collate;" );
+
+        dbDelta( "CREATE TABLE {$p}sfs_hr_performance_review_cycles (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            name VARCHAR(255) NOT NULL,
+            description TEXT NULL,
+            cycle_type ENUM('annual','semi_annual','quarterly','custom') NOT NULL DEFAULT 'annual',
+            start_date DATE NOT NULL,
+            end_date DATE NOT NULL,
+            deadline DATE NULL,
+            review_types TEXT NULL,
+            status ENUM('draft','active','in_review','calibration','completed','cancelled') NOT NULL DEFAULT 'draft',
+            rating_scale_max TINYINT UNSIGNED NOT NULL DEFAULT 5,
+            created_by BIGINT UNSIGNED NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NULL,
+            PRIMARY KEY (id),
+            KEY status (status),
+            KEY dates (start_date, end_date)
+        ) $charset_collate;" );
+
+        dbDelta( "CREATE TABLE {$p}sfs_hr_performance_reviews (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            cycle_id BIGINT UNSIGNED NOT NULL,
+            employee_id BIGINT UNSIGNED NOT NULL,
+            reviewer_id BIGINT UNSIGNED NOT NULL,
+            review_type ENUM('self','manager','peer','360','external') NOT NULL,
+            overall_rating DECIMAL(3,1) NULL,
+            strengths TEXT NULL,
+            improvements TEXT NULL,
+            comments TEXT NULL,
+            responses_json LONGTEXT NULL,
+            status ENUM('pending','in_progress','submitted','acknowledged') NOT NULL DEFAULT 'pending',
+            submitted_at DATETIME NULL,
+            acknowledged_at DATETIME NULL,
+            is_anonymous TINYINT(1) NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NULL,
+            PRIMARY KEY (id),
+            KEY cycle_employee (cycle_id, employee_id),
+            KEY reviewer_status (reviewer_id, status),
+            KEY review_type (review_type)
+        ) $charset_collate;" );
+
+        dbDelta( "CREATE TABLE {$p}sfs_hr_performance_review_templates (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            name VARCHAR(255) NOT NULL,
+            description TEXT NULL,
+            questions_json LONGTEXT NULL,
+            is_default TINYINT(1) NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NULL,
+            PRIMARY KEY (id)
+        ) $charset_collate;" );
+
+        dbDelta( "CREATE TABLE {$p}sfs_hr_performance_competencies (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            name VARCHAR(255) NOT NULL,
+            name_ar VARCHAR(255) NULL,
+            description TEXT NULL,
+            category VARCHAR(100) NULL,
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            created_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            KEY category (category),
+            KEY is_active (is_active)
+        ) $charset_collate;" );
+
+        dbDelta( "CREATE TABLE {$p}sfs_hr_performance_pips (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            employee_id BIGINT UNSIGNED NOT NULL,
+            initiated_by BIGINT UNSIGNED NOT NULL,
+            reason TEXT NULL,
+            goals TEXT NULL,
+            start_date DATE NOT NULL,
+            end_date DATE NOT NULL,
+            review_date DATE NULL,
+            status ENUM('active','extended','completed','terminated') NOT NULL DEFAULT 'active',
+            outcome ENUM('improved','no_change','terminated') NULL,
+            notes TEXT NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NULL,
+            PRIMARY KEY (id),
+            KEY employee_id (employee_id),
+            KEY status (status)
+        ) $charset_collate;" );
+
+        dbDelta( "CREATE TABLE {$p}sfs_hr_performance_feedback_360 (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            cycle_id BIGINT UNSIGNED NOT NULL,
+            employee_id BIGINT UNSIGNED NOT NULL,
+            provider_id BIGINT UNSIGNED NOT NULL,
+            provider_type ENUM('self','manager','peer','direct_report','external') NOT NULL,
+            is_anonymous TINYINT(1) NOT NULL DEFAULT 1,
+            overall_rating DECIMAL(3,1) NULL,
+            competency_ratings_json LONGTEXT NULL,
+            strengths TEXT NULL,
+            improvements TEXT NULL,
+            comments TEXT NULL,
+            status ENUM('pending','submitted') NOT NULL DEFAULT 'pending',
+            submitted_at DATETIME NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NULL,
+            PRIMARY KEY (id),
+            KEY cycle_employee (cycle_id, employee_id),
+            KEY provider_status (provider_id, status)
+        ) $charset_collate;" );
+
+        update_option( 'sfs_hr_performance_db_version', $target );
     }
 
     /**
