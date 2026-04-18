@@ -1487,7 +1487,7 @@ class Admin_Pages {
             </div>
 
             <?php
-            // YTD Summary
+            // YTD Summary (uses Payslip_Service abstraction)
             $ytd_year = ! empty( $ps->start_date ) ? (int) substr( $ps->start_date, 0, 4 ) : (int) current_time( 'Y' );
             $ytd = Services\Payslip_Service::get_ytd( (int) $ps->employee_id, $ytd_year );
             if ( $ytd['months'] > 0 ):
@@ -1800,6 +1800,12 @@ class Admin_Pages {
             $run_id
         ) );
 
+        // Get period name for notifications
+        $period_info = $wpdb->get_row( $wpdb->prepare(
+            "SELECT name FROM {$periods_table} WHERE id = %d",
+            $run->period_id
+        ) );
+
         foreach ( $items as $item ) {
             $payslip_number = PayrollModule::generate_payslip_number( (int) $item->employee_id, (int) $run->period_id );
 
@@ -1809,6 +1815,16 @@ class Admin_Pages {
                 'period_id'       => $run->period_id,
                 'payslip_number'  => $payslip_number,
                 'created_at'      => $now,
+            ] );
+
+            // Notify employee that payslip is ready (M1.4)
+            $item_data = $wpdb->get_row( $wpdb->prepare(
+                "SELECT net_salary FROM {$items_table} WHERE id = %d",
+                $item->id
+            ) );
+            do_action( 'sfs_hr_payslip_ready', (int) $item->employee_id, [
+                'period_name' => $period_info->name ?? '',
+                'net_salary'  => $item_data->net_salary ?? 0,
             ] );
         }
 
