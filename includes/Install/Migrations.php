@@ -93,9 +93,45 @@ class Migrations {
         self::add_column_if_missing($types, 'is_annual',     "TINYINT(1) NOT NULL DEFAULT 0");
         self::add_column_if_missing($types, 'special_code', "VARCHAR(50) NULL"); // e.g. SICK_SHORT, SICK_LONG, HAJJ, MATERNITY
         self::add_column_if_missing($types, 'name_translations', "TEXT NULL"); // JSON: {"ar":"...","ur":"...","fil":"..."}
+        // M2: leave type control columns
+        self::add_column_if_missing($types, 'code',              "VARCHAR(64) NULL");
+        self::add_column_if_missing($types, 'color',             "VARCHAR(7) NOT NULL DEFAULT '#2271b1'");
+        self::add_column_if_missing($types, 'gender_required',   "VARCHAR(10) NOT NULL DEFAULT 'any'");
+        self::add_column_if_missing($types, 'requires_attachment', "TINYINT(1) NOT NULL DEFAULT 0");
+        self::add_column_if_missing($types, 'skip_managers_gm',  "TINYINT(1) NOT NULL DEFAULT 0");
+        // M2.1: carry-forward
+        self::add_column_if_missing($types, 'allow_carry_forward',          "TINYINT(1) NOT NULL DEFAULT 0");
+        self::add_column_if_missing($types, 'max_carry_forward',            "INT NOT NULL DEFAULT 0");
+        self::add_column_if_missing($types, 'carry_forward_expiry_months',  "INT NOT NULL DEFAULT 0");
+        // M2.2: encashment
+        self::add_column_if_missing($types, 'allow_encashment',    "TINYINT(1) NOT NULL DEFAULT 0");
+        self::add_column_if_missing($types, 'max_encashment_days', "INT NOT NULL DEFAULT 0");
+        self::add_column_if_missing($types, 'min_balance_after',   "INT NOT NULL DEFAULT 0");
+        // M2.3: compensatory
+        self::add_column_if_missing($types, 'is_compensatory',  "TINYINT(1) NOT NULL DEFAULT 0");
+        self::add_column_if_missing($types, 'comp_expiry_days', "INT NOT NULL DEFAULT 0");
+        // M2.4: half-day / hourly
+        self::add_column_if_missing($types, 'allow_half_day',   "TINYINT(1) NOT NULL DEFAULT 0");
+        self::add_column_if_missing($types, 'allow_hourly',     "TINYINT(1) NOT NULL DEFAULT 0");
+        self::add_column_if_missing($types, 'hours_per_day',    "DECIMAL(3,1) NOT NULL DEFAULT 8.0");
+        // M2.5: additional controls
+        self::add_column_if_missing($types, 'max_days_per_request',  "INT NOT NULL DEFAULT 0");
+        self::add_column_if_missing($types, 'once_per_employment',   "TINYINT(1) NOT NULL DEFAULT 0");
+        self::add_column_if_missing($types, 'min_tenure_months',     "INT NOT NULL DEFAULT 0");
+
+        // M2.4: half-day / hourly on leave requests
+        self::add_column_if_missing($req, 'leave_mode',      "VARCHAR(10) NOT NULL DEFAULT 'full_day'");
+        self::add_column_if_missing($req, 'half_day_period',  "VARCHAR(2) NULL");
+        self::add_column_if_missing($req, 'hours',            "DECIMAL(4,1) NULL");
+
         self::add_column_if_missing($req, 'pay_breakdown', "TEXT NULL");   // JSON: [{days:30, rate:1}, ...]
         self::add_column_if_missing($req, 'paid_days',     "INT NOT NULL DEFAULT 0");
         self::add_column_if_missing($req, 'unpaid_days',   "INT NOT NULL DEFAULT 0");
+
+        // M2: balance tracking columns
+        self::add_column_if_missing($bal, 'carried_expiry_date', "DATE NULL");
+        self::add_column_if_missing($bal, 'expired_days',        "INT NOT NULL DEFAULT 0");
+        self::add_column_if_missing($bal, 'encashed',            "INT NOT NULL DEFAULT 0");
 
 
         /** LEAVE REQUESTS */
@@ -332,6 +368,52 @@ class Migrations {
             KEY `leave_req_idx` (`leave_request_id`),
             KEY `status_idx` (`status`),
             UNIQUE KEY `request_number` (`request_number`)
+        ) $charset");
+
+        /** M2.2: LEAVE ENCASHMENT REQUESTS */
+        $leave_encash = $wpdb->prefix . 'sfs_hr_leave_encashment';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$leave_encash` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `employee_id` BIGINT(20) UNSIGNED NOT NULL,
+            `type_id` BIGINT(20) UNSIGNED NOT NULL,
+            `year` SMALLINT(5) UNSIGNED NOT NULL,
+            `days` INT NOT NULL,
+            `daily_rate` DECIMAL(18,2) NOT NULL,
+            `amount` DECIMAL(18,2) NOT NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `approver_id` BIGINT(20) UNSIGNED NULL,
+            `approver_note` TEXT NULL,
+            `decided_at` DATETIME NULL,
+            `payroll_run_id` BIGINT(20) UNSIGNED NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NULL,
+            PRIMARY KEY (`id`),
+            KEY `emp_type_year` (`employee_id`, `type_id`, `year`),
+            KEY `status_idx` (`status`)
+        ) $charset");
+
+        /** M2.3: COMPENSATORY LEAVE REQUESTS */
+        $leave_comp = $wpdb->prefix . 'sfs_hr_leave_compensatory';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$leave_comp` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `employee_id` BIGINT(20) UNSIGNED NOT NULL,
+            `work_date` DATE NOT NULL,
+            `session_id` BIGINT(20) UNSIGNED NULL,
+            `hours_worked` DECIMAL(5,2) NOT NULL DEFAULT 0,
+            `days_earned` INT NOT NULL DEFAULT 1,
+            `reason` TEXT NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `approver_id` BIGINT(20) UNSIGNED NULL,
+            `approver_note` TEXT NULL,
+            `decided_at` DATETIME NULL,
+            `expiry_date` DATE NULL,
+            `credited` TINYINT(1) NOT NULL DEFAULT 0,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NULL,
+            PRIMARY KEY (`id`),
+            KEY `emp_idx` (`employee_id`),
+            KEY `status_idx` (`status`),
+            KEY `expiry_idx` (`expiry_date`)
         ) $charset");
 
         /** EXIT HISTORY (audit trail for resignations and settlements) */
@@ -631,6 +713,43 @@ class Migrations {
             }
         } else {
             $wpdb->query("UPDATE `$types` SET is_annual=1 WHERE (LOWER(name)='annual' OR LOWER(name)='annual leave' OR LOWER(name)='annual vacation' OR LOWER(name) LIKE 'annual %') AND is_annual=0");
+        }
+
+        // M2: Backfill Saudi-specific leave types on existing installs.
+        // Each row is [name, is_paid, requires_approval, annual_quota, allow_negative, is_annual, special_code, gender_required, once_per_employment, max_days_per_request].
+        // Only inserts if no type with that special_code already exists.
+        $saudi_types = [
+            [ 'Hajj Leave',        1, 1, 15, 0, 0, 'HAJJ',        'any',    1, 15 ],
+            [ 'Maternity Leave',   1, 1, 70, 0, 0, 'MATERNITY',   'female', 0, 70 ],
+            [ 'Paternity Leave',   1, 1,  3, 0, 0, 'PATERNITY',   'male',   0,  3 ],
+            [ 'Marriage Leave',    1, 1,  5, 0, 0, 'MARRIAGE',     'any',    1,  5 ],
+            [ 'Bereavement Leave', 1, 1,  5, 0, 0, 'BEREAVEMENT', 'any',    0,  5 ],
+            [ 'Iddah Leave',       1, 1,130, 0, 0, 'IDDAH',       'female', 0,130 ],
+            [ 'Exam Leave',        0, 1, 10, 0, 0, 'EXAM',        'any',    0, 10 ],
+        ];
+        $now_seed = current_time( 'mysql' );
+        foreach ( $saudi_types as $st ) {
+            $exists_code = $wpdb->get_var( $wpdb->prepare(
+                "SELECT id FROM `$types` WHERE special_code = %s LIMIT 1",
+                $st[6]
+            ) );
+            if ( ! $exists_code ) {
+                $wpdb->insert( $types, [
+                    'name'                => $st[0],
+                    'is_paid'             => $st[1],
+                    'requires_approval'   => $st[2],
+                    'annual_quota'        => $st[3],
+                    'allow_negative'      => $st[4],
+                    'is_annual'           => $st[5],
+                    'special_code'        => $st[6],
+                    'gender_required'     => $st[7],
+                    'once_per_employment' => $st[8],
+                    'max_days_per_request' => $st[9],
+                    'active'              => 1,
+                    'created_at'          => $now_seed,
+                    'updated_at'          => $now_seed,
+                ] );
+            }
         }
 
         /** Policy defaults */

@@ -9,6 +9,9 @@ if (!defined('ABSPATH')) { exit; }
 
 // Load services and helpers
 require_once __DIR__ . '/Services/LeaveCalculationService.php';
+require_once __DIR__ . '/Services/CarryForwardService.php';
+require_once __DIR__ . '/Services/EncashmentService.php';
+require_once __DIR__ . '/Services/CompensatoryService.php';
 require_once __DIR__ . '/class-leave-ui.php';
 
 class LeaveModule {
@@ -70,13 +73,26 @@ class LeaveModule {
         
         add_action('admin_post_sfs_hr_leave_early_return', [$this, 'handle_early_return']);
         add_shortcode('sfs_hr_leave_widget', [$this, 'shortcode_leave_widget']);
-  // Employee Profile tab integration (manager view)
+        // Employee Profile tab integration (manager view)
         add_action( 'sfs_hr_employee_tabs',         [ $this, 'employee_tab' ],         30, 1 );
         add_action( 'sfs_hr_employee_tab_content',  [ $this, 'employee_tab_content' ], 30, 2 );
         add_action( 'admin_post_sfs_hr_leave_request_self', [ $this, 'handle_self_request' ] );
-       // add_action( 'admin_post_sfs_hr_leave_request_self', [ $this, 'handle_self_leave_request' ] );
 
+        // M2: Encashment handlers
+        add_action( 'admin_post_sfs_hr_leave_encashment_create',  [ $this, 'handle_encashment_create' ] );
+        add_action( 'admin_post_sfs_hr_leave_encashment_approve', [ $this, 'handle_encashment_approve' ] );
+        add_action( 'admin_post_sfs_hr_leave_encashment_reject',  [ $this, 'handle_encashment_reject' ] );
 
+        // M2: Compensatory handlers
+        add_action( 'admin_post_sfs_hr_leave_comp_create',  [ $this, 'handle_comp_create' ] );
+        add_action( 'admin_post_sfs_hr_leave_comp_approve', [ $this, 'handle_comp_approve' ] );
+        add_action( 'admin_post_sfs_hr_leave_comp_reject',  [ $this, 'handle_comp_reject' ] );
+
+        // M2: Carry-forward year-end trigger
+        add_action( 'admin_post_sfs_hr_leave_carry_forward', [ $this, 'handle_carry_forward' ] );
+
+        // M2: Cron for carry-forward expiry + compensatory expiry
+        add_action( 'sfs_hr_daily', [ $this, 'cron_m2_daily' ] );
     }
 
     /**
@@ -3576,9 +3592,82 @@ private function render_cancellation_detail( int $cancel_id ): void {
       <option value="MARRIAGE" <?php selected($current_special, 'MARRIAGE'); ?>><?php esc_html_e('Marriage – 5 days','sfs-hr'); ?></option>
       <option value="BEREAVEMENT" <?php selected($current_special, 'BEREAVEMENT'); ?>><?php esc_html_e('Bereavement – 5 days','sfs-hr'); ?></option>
       <option value="PATERNITY" <?php selected($current_special, 'PATERNITY'); ?>><?php esc_html_e('Paternity – 3 days','sfs-hr'); ?></option>
+      <option value="IDDAH" <?php selected($current_special, 'IDDAH'); ?>><?php esc_html_e('Iddah – 130 days (bereavement, female)','sfs-hr'); ?></option>
+      <option value="EXAM" <?php selected($current_special, 'EXAM'); ?>><?php esc_html_e('Exam – study leave','sfs-hr'); ?></option>
     </select>
   </td>
 </tr>
+
+              <!-- M2: Additional Controls -->
+              <tr><th colspan="2" style="padding-top:20px;border-top:1px solid #dcdcde;"><strong><?php esc_html_e('Request Controls','sfs-hr'); ?></strong></th></tr>
+              <tr>
+                <th><?php esc_html_e('Max Days Per Request','sfs-hr'); ?></th>
+                <td><input type="number" name="max_days_per_request" min="0" value="<?php echo (int)($e['max_days_per_request'] ?? 0); ?>" style="width:100px"/><br><small><?php esc_html_e('0 = no limit.','sfs-hr'); ?></small></td>
+              </tr>
+              <tr>
+                <th><?php esc_html_e('Once Per Employment','sfs-hr'); ?></th>
+                <td><label><input type="checkbox" name="once_per_employment" value="1" <?php checked(!empty($e['once_per_employment'])); ?>/> <?php esc_html_e('Employee can only take this leave once (e.g. Hajj, Marriage)','sfs-hr'); ?></label></td>
+              </tr>
+              <tr>
+                <th><?php esc_html_e('Min Tenure (Months)','sfs-hr'); ?></th>
+                <td><input type="number" name="min_tenure_months" min="0" value="<?php echo (int)($e['min_tenure_months'] ?? 0); ?>" style="width:100px"/><br><small><?php esc_html_e('0 = available immediately. Hajj requires 24 months per Saudi labor law.','sfs-hr'); ?></small></td>
+              </tr>
+
+              <!-- M2.4: Half-Day / Hourly -->
+              <tr><th colspan="2" style="padding-top:20px;border-top:1px solid #dcdcde;"><strong><?php esc_html_e('Half-Day & Hourly','sfs-hr'); ?></strong></th></tr>
+              <tr>
+                <th><?php esc_html_e('Allow Half-Day','sfs-hr'); ?></th>
+                <td><label><input type="checkbox" name="allow_half_day" value="1" <?php checked(!empty($e['allow_half_day'])); ?>/> <?php esc_html_e('Employee can request AM or PM half-day','sfs-hr'); ?></label></td>
+              </tr>
+              <tr>
+                <th><?php esc_html_e('Allow Hourly','sfs-hr'); ?></th>
+                <td><label><input type="checkbox" name="allow_hourly" value="1" <?php checked(!empty($e['allow_hourly'])); ?>/> <?php esc_html_e('Permission leave (common in Gulf)','sfs-hr'); ?></label></td>
+              </tr>
+              <tr>
+                <th><?php esc_html_e('Hours Per Day','sfs-hr'); ?></th>
+                <td><input type="number" name="hours_per_day" min="1" max="24" step="0.5" value="<?php echo esc_attr(number_format((float)($e['hours_per_day'] ?? 8.0), 1, '.', '')); ?>" style="width:80px"/><br><small><?php esc_html_e('Used for hourly leave conversion (hours ÷ this = days deducted).','sfs-hr'); ?></small></td>
+              </tr>
+
+              <!-- M2.1: Carry-Forward -->
+              <tr><th colspan="2" style="padding-top:20px;border-top:1px solid #dcdcde;"><strong><?php esc_html_e('Carry-Forward','sfs-hr'); ?></strong></th></tr>
+              <tr>
+                <th><?php esc_html_e('Allow Carry-Forward','sfs-hr'); ?></th>
+                <td><label><input type="checkbox" name="allow_carry_forward" value="1" <?php checked(!empty($e['allow_carry_forward'])); ?>/> <?php esc_html_e('Unused days roll over to next year','sfs-hr'); ?></label></td>
+              </tr>
+              <tr>
+                <th><?php esc_html_e('Max Carry-Forward Days','sfs-hr'); ?></th>
+                <td><input type="number" name="max_carry_forward" min="0" value="<?php echo (int)($e['max_carry_forward'] ?? 0); ?>" style="width:100px"/><br><small><?php esc_html_e('0 = unlimited carry-forward.','sfs-hr'); ?></small></td>
+              </tr>
+              <tr>
+                <th><?php esc_html_e('Carry-Forward Expiry','sfs-hr'); ?></th>
+                <td><input type="number" name="carry_forward_expiry_months" min="0" value="<?php echo (int)($e['carry_forward_expiry_months'] ?? 0); ?>" style="width:100px"/> <?php esc_html_e('months','sfs-hr'); ?><br><small><?php esc_html_e('0 = carried days never expire. Otherwise they expire N months into the new year.','sfs-hr'); ?></small></td>
+              </tr>
+
+              <!-- M2.2: Encashment -->
+              <tr><th colspan="2" style="padding-top:20px;border-top:1px solid #dcdcde;"><strong><?php esc_html_e('Encashment','sfs-hr'); ?></strong></th></tr>
+              <tr>
+                <th><?php esc_html_e('Allow Encashment','sfs-hr'); ?></th>
+                <td><label><input type="checkbox" name="allow_encashment" value="1" <?php checked(!empty($e['allow_encashment'])); ?>/> <?php esc_html_e('Employees can cash out unused leave days','sfs-hr'); ?></label></td>
+              </tr>
+              <tr>
+                <th><?php esc_html_e('Max Encashment Days','sfs-hr'); ?></th>
+                <td><input type="number" name="max_encashment_days" min="0" value="<?php echo (int)($e['max_encashment_days'] ?? 0); ?>" style="width:100px"/><br><small><?php esc_html_e('0 = unlimited. Max days that can be encashed per year.','sfs-hr'); ?></small></td>
+              </tr>
+              <tr>
+                <th><?php esc_html_e('Min Balance After','sfs-hr'); ?></th>
+                <td><input type="number" name="min_balance_after" min="0" value="<?php echo (int)($e['min_balance_after'] ?? 0); ?>" style="width:100px"/><br><small><?php esc_html_e('Employee must retain at least this many days after encashment.','sfs-hr'); ?></small></td>
+              </tr>
+
+              <!-- M2.3: Compensatory -->
+              <tr><th colspan="2" style="padding-top:20px;border-top:1px solid #dcdcde;"><strong><?php esc_html_e('Compensatory','sfs-hr'); ?></strong></th></tr>
+              <tr>
+                <th><?php esc_html_e('Is Compensatory Type','sfs-hr'); ?></th>
+                <td><label><input type="checkbox" name="is_compensatory" value="1" <?php checked(!empty($e['is_compensatory'])); ?>/> <?php esc_html_e('This type receives credits when employees work on off-days/holidays','sfs-hr'); ?></label></td>
+              </tr>
+              <tr>
+                <th><?php esc_html_e('Compensatory Expiry','sfs-hr'); ?></th>
+                <td><input type="number" name="comp_expiry_days" min="0" value="<?php echo (int)($e['comp_expiry_days'] ?? 0); ?>" style="width:100px"/> <?php esc_html_e('days','sfs-hr'); ?><br><small><?php esc_html_e('0 = never expires. Otherwise comp-off days expire N days after the worked date.','sfs-hr'); ?></small></td>
+              </tr>
 
             </table>
             <?php submit_button($is_editing ? __('Update','sfs-hr') : __('Save','sfs-hr')); ?>
@@ -3704,7 +3793,23 @@ private function render_cancellation_detail( int $cancel_id ): void {
     }
     $name_translations_json = ! empty( $name_trans ) ? wp_json_encode( $name_trans, JSON_UNESCAPED_UNICODE ) : null;
 
-    $allowed = ['', 'SICK_SHORT','SICK_LONG','HAJJ','MATERNITY','MARRIAGE','BEREAVEMENT','PATERNITY'];
+    // M2 fields
+    $allow_carry_forward         = ! empty( $_POST['allow_carry_forward'] ) ? 1 : 0;
+    $max_carry_forward           = max( 0, (int) ( $_POST['max_carry_forward'] ?? 0 ) );
+    $carry_forward_expiry_months = max( 0, (int) ( $_POST['carry_forward_expiry_months'] ?? 0 ) );
+    $allow_encashment            = ! empty( $_POST['allow_encashment'] ) ? 1 : 0;
+    $max_encashment_days         = max( 0, (int) ( $_POST['max_encashment_days'] ?? 0 ) );
+    $min_balance_after           = max( 0, (int) ( $_POST['min_balance_after'] ?? 0 ) );
+    $is_compensatory             = ! empty( $_POST['is_compensatory'] ) ? 1 : 0;
+    $comp_expiry_days            = max( 0, (int) ( $_POST['comp_expiry_days'] ?? 0 ) );
+    $allow_half_day              = ! empty( $_POST['allow_half_day'] ) ? 1 : 0;
+    $allow_hourly                = ! empty( $_POST['allow_hourly'] ) ? 1 : 0;
+    $hours_per_day               = max( 1.0, min( 24.0, (float) ( $_POST['hours_per_day'] ?? 8.0 ) ) );
+    $max_days_per_request        = max( 0, (int) ( $_POST['max_days_per_request'] ?? 0 ) );
+    $once_per_employment         = ! empty( $_POST['once_per_employment'] ) ? 1 : 0;
+    $min_tenure_months           = max( 0, (int) ( $_POST['min_tenure_months'] ?? 0 ) );
+
+    $allowed = ['', 'SICK_SHORT','SICK_LONG','HAJJ','MATERNITY','MARRIAGE','BEREAVEMENT','PATERNITY','IDDAH','EXAM'];
     if ( ! in_array($special, $allowed, true) ) {
         $special = '';
     }
@@ -3713,7 +3818,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
         $gender_required = 'any';
     }
     // Auto-set gender based on special code if not manually set
-    if ($gender_required === 'any' && $special === 'MATERNITY') {
+    if ($gender_required === 'any' && in_array($special, ['MATERNITY', 'IDDAH'], true)) {
         $gender_required = 'female';
     } elseif ($gender_required === 'any' && $special === 'PATERNITY') {
         $gender_required = 'male';
@@ -3761,6 +3866,21 @@ private function render_cancellation_detail( int $cancel_id ): void {
             'skip_managers_gm'   => $skip_managers_gm,
             'color'              => $color,
             'name_translations'  => $name_translations_json,
+            // M2 fields
+            'allow_carry_forward'         => $allow_carry_forward,
+            'max_carry_forward'           => $max_carry_forward,
+            'carry_forward_expiry_months' => $carry_forward_expiry_months,
+            'allow_encashment'            => $allow_encashment,
+            'max_encashment_days'         => $max_encashment_days,
+            'min_balance_after'           => $min_balance_after,
+            'is_compensatory'             => $is_compensatory,
+            'comp_expiry_days'            => $comp_expiry_days,
+            'allow_half_day'              => $allow_half_day,
+            'allow_hourly'                => $allow_hourly,
+            'hours_per_day'               => $hours_per_day,
+            'max_days_per_request'        => $max_days_per_request,
+            'once_per_employment'         => $once_per_employment,
+            'min_tenure_months'           => $min_tenure_months,
         ]
     );
 
@@ -3815,7 +3935,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
         $name_translations_json = ! empty( $name_trans ) ? wp_json_encode( $name_trans, JSON_UNESCAPED_UNICODE ) : null;
 
         // Validate special_code and gender_required against the same allowlists used in the add flow.
-        $allowed_specials = ['', 'SICK_SHORT','SICK_LONG','HAJJ','MATERNITY','MARRIAGE','BEREAVEMENT','PATERNITY'];
+        $allowed_specials = ['', 'SICK_SHORT','SICK_LONG','HAJJ','MATERNITY','MARRIAGE','BEREAVEMENT','PATERNITY','IDDAH','EXAM'];
         if ( ! in_array($special, $allowed_specials, true) ) {
             $special = '';
         }
@@ -3823,6 +3943,22 @@ private function render_cancellation_detail( int $cancel_id ): void {
         if ( ! in_array($gender_required, $allowed_genders, true) ) {
             $gender_required = 'any';
         }
+
+        // M2 fields
+        $allow_carry_forward         = ! empty( $_POST['allow_carry_forward'] ) ? 1 : 0;
+        $max_carry_forward           = max( 0, (int) ( $_POST['max_carry_forward'] ?? 0 ) );
+        $carry_forward_expiry_months = max( 0, (int) ( $_POST['carry_forward_expiry_months'] ?? 0 ) );
+        $allow_encashment            = ! empty( $_POST['allow_encashment'] ) ? 1 : 0;
+        $max_encashment_days         = max( 0, (int) ( $_POST['max_encashment_days'] ?? 0 ) );
+        $min_balance_after           = max( 0, (int) ( $_POST['min_balance_after'] ?? 0 ) );
+        $is_compensatory             = ! empty( $_POST['is_compensatory'] ) ? 1 : 0;
+        $comp_expiry_days            = max( 0, (int) ( $_POST['comp_expiry_days'] ?? 0 ) );
+        $allow_half_day              = ! empty( $_POST['allow_half_day'] ) ? 1 : 0;
+        $allow_hourly                = ! empty( $_POST['allow_hourly'] ) ? 1 : 0;
+        $hours_per_day               = max( 1.0, min( 24.0, (float) ( $_POST['hours_per_day'] ?? 8.0 ) ) );
+        $max_days_per_request        = max( 0, (int) ( $_POST['max_days_per_request'] ?? 0 ) );
+        $once_per_employment         = ! empty( $_POST['once_per_employment'] ) ? 1 : 0;
+        $min_tenure_months           = max( 0, (int) ( $_POST['min_tenure_months'] ?? 0 ) );
 
         if (empty($name)) {
             wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=types&edit_id=' . $id . '&err=' . rawurlencode(__('Name is required', 'sfs-hr'))));
@@ -3844,6 +3980,21 @@ private function render_cancellation_detail( int $cancel_id ): void {
                 'skip_managers_gm'   => $skip_managers_gm,
                 'color'              => $color,
                 'name_translations'  => $name_translations_json,
+                // M2 fields
+                'allow_carry_forward'         => $allow_carry_forward,
+                'max_carry_forward'           => $max_carry_forward,
+                'carry_forward_expiry_months' => $carry_forward_expiry_months,
+                'allow_encashment'            => $allow_encashment,
+                'max_encashment_days'         => $max_encashment_days,
+                'min_balance_after'           => $min_balance_after,
+                'is_compensatory'             => $is_compensatory,
+                'comp_expiry_days'            => $comp_expiry_days,
+                'allow_half_day'              => $allow_half_day,
+                'allow_hourly'                => $allow_hourly,
+                'hours_per_day'               => $hours_per_day,
+                'max_days_per_request'        => $max_days_per_request,
+                'once_per_employment'         => $once_per_employment,
+                'min_tenure_months'           => $min_tenure_months,
                 'updated_at'         => current_time('mysql'),
             ],
             ['id' => $id]
@@ -5730,14 +5881,17 @@ if (!$has_idx) {
         'calendar'      => __( 'Calendar',       'sfs-hr' ),
         'types'         => __( 'Types',          'sfs-hr' ),
         'balances'      => __( 'Balances',       'sfs-hr' ),
+        'encashment'    => __( 'Encashment',     'sfs-hr' ),
+        'compensatory'  => __( 'Compensatory',   'sfs-hr' ),
         'settings'      => __( 'Settings',       'sfs-hr' ),
     ];
 
-    // If user cannot manage leave types/settings, show only requests + cancellations
+    // If user cannot manage leave types/settings, show only requests + cancellations + calendar
     if ( ! current_user_can( 'sfs_hr.leave.manage' ) ) {
         $tabs = [
             'requests'      => $tabs['requests'],
             'cancellations' => $tabs['cancellations'],
+            'calendar'      => $tabs['calendar'],
         ];
         if ( ! isset( $tabs[ $tab ] ) ) {
             $tab = 'requests';
@@ -5789,6 +5943,12 @@ if (!$has_idx) {
         case 'balances':
             $this->render_balances();
             break;
+        case 'encashment':
+            $this->render_encashment_tab();
+            break;
+        case 'compensatory':
+            $this->render_compensatory_tab();
+            break;
         case 'settings':
             $this->render_settings();
             break;
@@ -5799,6 +5959,421 @@ if (!$has_idx) {
     }
 
     echo '</div>';
+}
+
+/* ================================================================== *
+ *              M2: Encashment Tab + Handlers                          *
+ * ================================================================== */
+
+private function render_encashment_tab(): void {
+    Helpers::require_cap( 'sfs_hr.leave.manage' );
+    global $wpdb;
+
+    $year   = isset( $_GET['enc_year'] ) ? (int) $_GET['enc_year'] : (int) current_time( 'Y' );
+    $status = isset( $_GET['enc_status'] ) ? sanitize_key( $_GET['enc_status'] ) : '';
+
+    $filters = [ 'year' => $year ];
+    if ( $status ) {
+        $filters['status'] = $status;
+    }
+    $rows = Services\EncashmentService::get_requests( $filters );
+
+    $notice = '';
+    if ( isset( $_GET['enc_ok'] ) )       { $notice = __( 'Encashment request processed.', 'sfs-hr' ); }
+    if ( isset( $_GET['enc_created'] ) )   { $notice = __( 'Encashment request created.', 'sfs-hr' ); }
+    $error = isset( $_GET['enc_err'] ) ? sanitize_text_field( wp_unslash( $_GET['enc_err'] ) ) : '';
+
+    ?>
+    <div class="sfs-hr-encashment-tab">
+        <?php if ( $notice ) : ?>
+            <div class="notice notice-success is-dismissible"><p><?php echo esc_html( $notice ); ?></p></div>
+        <?php endif; ?>
+        <?php if ( $error ) : ?>
+            <div class="notice notice-error is-dismissible"><p><?php echo esc_html( $error ); ?></p></div>
+        <?php endif; ?>
+
+        <h2><?php esc_html_e( 'Leave Encashment Requests', 'sfs-hr' ); ?></h2>
+
+        <form method="get" style="margin-bottom:15px;">
+            <input type="hidden" name="page" value="sfs-hr-leave-requests" />
+            <input type="hidden" name="tab" value="encashment" />
+            <label><?php esc_html_e( 'Year:', 'sfs-hr' ); ?>
+                <input type="number" name="enc_year" min="2000" value="<?php echo (int) $year; ?>" style="width:100px" />
+            </label>
+            <label style="margin-left:10px;"><?php esc_html_e( 'Status:', 'sfs-hr' ); ?>
+                <select name="enc_status">
+                    <option value=""><?php esc_html_e( 'All', 'sfs-hr' ); ?></option>
+                    <option value="pending" <?php selected( $status, 'pending' ); ?>><?php esc_html_e( 'Pending', 'sfs-hr' ); ?></option>
+                    <option value="approved" <?php selected( $status, 'approved' ); ?>><?php esc_html_e( 'Approved', 'sfs-hr' ); ?></option>
+                    <option value="rejected" <?php selected( $status, 'rejected' ); ?>><?php esc_html_e( 'Rejected', 'sfs-hr' ); ?></option>
+                </select>
+            </label>
+            <button type="submit" class="button"><?php esc_html_e( 'Filter', 'sfs-hr' ); ?></button>
+        </form>
+
+        <table class="wp-list-table widefat striped">
+            <thead>
+                <tr>
+                    <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Leave Type', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Days', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Daily Rate', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Amount', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Date', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php if ( empty( $rows ) ) : ?>
+                <tr><td colspan="8" style="text-align:center;padding:20px;color:#888;"><?php esc_html_e( 'No encashment requests found.', 'sfs-hr' ); ?></td></tr>
+            <?php else : foreach ( $rows as $r ) : ?>
+                <tr>
+                    <td><?php echo esc_html( $r['employee_name'] ?? $r['employee_id'] ); ?></td>
+                    <td><?php echo esc_html( $r['type_name'] ?? $r['type_id'] ); ?></td>
+                    <td><?php echo (int) $r['days']; ?></td>
+                    <td><?php echo esc_html( number_format( (float) $r['daily_rate'], 2 ) ); ?></td>
+                    <td><strong><?php echo esc_html( number_format( (float) $r['amount'], 2 ) ); ?></strong></td>
+                    <td>
+                        <?php
+                        $s_colors = [ 'pending' => '#f0ad4e', 'approved' => '#5cb85c', 'rejected' => '#d9534f' ];
+                        $s_color  = $s_colors[ $r['status'] ] ?? '#646970';
+                        ?>
+                        <span style="color:<?php echo esc_attr( $s_color ); ?>;font-weight:600;"><?php echo esc_html( ucfirst( $r['status'] ) ); ?></span>
+                    </td>
+                    <td><?php echo esc_html( date_i18n( 'M j, Y', strtotime( $r['created_at'] ) ) ); ?></td>
+                    <td>
+                        <?php if ( $r['status'] === 'pending' ) : ?>
+                        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+                            <?php wp_nonce_field( 'sfs_hr_leave_encashment_approve' ); ?>
+                            <input type="hidden" name="action" value="sfs_hr_leave_encashment_approve" />
+                            <input type="hidden" name="enc_id" value="<?php echo (int) $r['id']; ?>" />
+                            <button type="submit" class="button button-small button-primary"><?php esc_html_e( 'Approve', 'sfs-hr' ); ?></button>
+                        </form>
+                        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+                            <?php wp_nonce_field( 'sfs_hr_leave_encashment_reject' ); ?>
+                            <input type="hidden" name="action" value="sfs_hr_leave_encashment_reject" />
+                            <input type="hidden" name="enc_id" value="<?php echo (int) $r['id']; ?>" />
+                            <button type="submit" class="button button-small"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>
+                        </form>
+                        <?php else : ?>
+                            —
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            <?php endforeach; endif; ?>
+            </tbody>
+        </table>
+
+        <h3 style="margin-top:25px;"><?php esc_html_e( 'Create Encashment Request (Admin)', 'sfs-hr' ); ?></h3>
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+            <?php wp_nonce_field( 'sfs_hr_leave_encashment_create' ); ?>
+            <input type="hidden" name="action" value="sfs_hr_leave_encashment_create" />
+            <table class="form-table">
+                <tr>
+                    <th><label><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></label></th>
+                    <td>
+                        <select name="employee_id" required>
+                            <option value=""><?php esc_html_e( 'Select…', 'sfs-hr' ); ?></option>
+                            <?php
+                            $emps = $wpdb->get_results( "SELECT id, employee_code, first_name, last_name FROM {$wpdb->prefix}sfs_hr_employees WHERE status='active' ORDER BY first_name" );
+                            foreach ( $emps as $emp ) {
+                                printf( '<option value="%d">%s</option>', (int) $emp->id, esc_html( trim( $emp->first_name . ' ' . $emp->last_name ) . ' (' . $emp->employee_code . ')' ) );
+                            }
+                            ?>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label><?php esc_html_e( 'Leave Type', 'sfs-hr' ); ?></label></th>
+                    <td>
+                        <select name="type_id" required>
+                            <option value=""><?php esc_html_e( 'Select…', 'sfs-hr' ); ?></option>
+                            <?php
+                            $enc_types = $wpdb->get_results( "SELECT id, name FROM {$wpdb->prefix}sfs_hr_leave_types WHERE active=1 AND allow_encashment=1 ORDER BY name" );
+                            foreach ( $enc_types as $et ) {
+                                printf( '<option value="%d">%s</option>', (int) $et->id, esc_html( $et->name ) );
+                            }
+                            ?>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label><?php esc_html_e( 'Year', 'sfs-hr' ); ?></label></th>
+                    <td><input type="number" name="year" min="2000" value="<?php echo (int) current_time( 'Y' ); ?>" style="width:100px" required /></td>
+                </tr>
+                <tr>
+                    <th><label><?php esc_html_e( 'Days', 'sfs-hr' ); ?></label></th>
+                    <td><input type="number" name="days" min="1" required style="width:100px" /></td>
+                </tr>
+            </table>
+            <?php submit_button( __( 'Create Request', 'sfs-hr' ) ); ?>
+        </form>
+    </div>
+    <?php
+}
+
+public function handle_encashment_create(): void {
+    Helpers::require_cap( 'sfs_hr.leave.manage' );
+    check_admin_referer( 'sfs_hr_leave_encashment_create' );
+
+    $employee_id = (int) ( $_POST['employee_id'] ?? 0 );
+    $type_id     = (int) ( $_POST['type_id'] ?? 0 );
+    $year        = (int) ( $_POST['year'] ?? 0 );
+    $days        = (int) ( $_POST['days'] ?? 0 );
+
+    $redirect = admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=encashment' );
+
+    $result = Services\EncashmentService::create_request( $employee_id, $type_id, $year, $days );
+    if ( ! empty( $result['success'] ) ) {
+        wp_safe_redirect( add_query_arg( 'enc_created', '1', $redirect ) );
+    } else {
+        wp_safe_redirect( add_query_arg( 'enc_err', rawurlencode( $result['error'] ?? __( 'Failed', 'sfs-hr' ) ), $redirect ) );
+    }
+    exit;
+}
+
+public function handle_encashment_approve(): void {
+    Helpers::require_cap( 'sfs_hr.leave.manage' );
+    check_admin_referer( 'sfs_hr_leave_encashment_approve' );
+
+    $enc_id = (int) ( $_POST['enc_id'] ?? 0 );
+    $redirect = admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=encashment' );
+
+    $result = Services\EncashmentService::approve( $enc_id, get_current_user_id() );
+    if ( ! empty( $result['success'] ) ) {
+        wp_safe_redirect( add_query_arg( 'enc_ok', '1', $redirect ) );
+    } else {
+        wp_safe_redirect( add_query_arg( 'enc_err', rawurlencode( $result['error'] ?? __( 'Failed', 'sfs-hr' ) ), $redirect ) );
+    }
+    exit;
+}
+
+public function handle_encashment_reject(): void {
+    Helpers::require_cap( 'sfs_hr.leave.manage' );
+    check_admin_referer( 'sfs_hr_leave_encashment_reject' );
+
+    $enc_id = (int) ( $_POST['enc_id'] ?? 0 );
+    $redirect = admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=encashment' );
+
+    Services\EncashmentService::reject( $enc_id, get_current_user_id() );
+    wp_safe_redirect( add_query_arg( 'enc_ok', '1', $redirect ) );
+    exit;
+}
+
+/* ================================================================== *
+ *              M2: Compensatory Tab + Handlers                        *
+ * ================================================================== */
+
+private function render_compensatory_tab(): void {
+    Helpers::require_cap( 'sfs_hr.leave.manage' );
+    global $wpdb;
+
+    $status = isset( $_GET['comp_status'] ) ? sanitize_key( $_GET['comp_status'] ) : '';
+    $filters = [];
+    if ( $status ) {
+        $filters['status'] = $status;
+    }
+    $rows = Services\CompensatoryService::get_requests( $filters );
+
+    $notice = '';
+    if ( isset( $_GET['comp_ok'] ) )      { $notice = __( 'Compensatory request processed.', 'sfs-hr' ); }
+    if ( isset( $_GET['comp_created'] ) )  { $notice = __( 'Compensatory request created.', 'sfs-hr' ); }
+    $error = isset( $_GET['comp_err'] ) ? sanitize_text_field( wp_unslash( $_GET['comp_err'] ) ) : '';
+
+    ?>
+    <div class="sfs-hr-compensatory-tab">
+        <?php if ( $notice ) : ?>
+            <div class="notice notice-success is-dismissible"><p><?php echo esc_html( $notice ); ?></p></div>
+        <?php endif; ?>
+        <?php if ( $error ) : ?>
+            <div class="notice notice-error is-dismissible"><p><?php echo esc_html( $error ); ?></p></div>
+        <?php endif; ?>
+
+        <h2><?php esc_html_e( 'Compensatory Leave Requests', 'sfs-hr' ); ?></h2>
+        <p class="description"><?php esc_html_e( 'Employees who work on holidays or off-days can earn compensatory leave credits.', 'sfs-hr' ); ?></p>
+
+        <form method="get" style="margin-bottom:15px;">
+            <input type="hidden" name="page" value="sfs-hr-leave-requests" />
+            <input type="hidden" name="tab" value="compensatory" />
+            <label><?php esc_html_e( 'Status:', 'sfs-hr' ); ?>
+                <select name="comp_status">
+                    <option value=""><?php esc_html_e( 'All', 'sfs-hr' ); ?></option>
+                    <option value="pending" <?php selected( $status, 'pending' ); ?>><?php esc_html_e( 'Pending', 'sfs-hr' ); ?></option>
+                    <option value="approved" <?php selected( $status, 'approved' ); ?>><?php esc_html_e( 'Approved', 'sfs-hr' ); ?></option>
+                    <option value="rejected" <?php selected( $status, 'rejected' ); ?>><?php esc_html_e( 'Rejected', 'sfs-hr' ); ?></option>
+                    <option value="expired" <?php selected( $status, 'expired' ); ?>><?php esc_html_e( 'Expired', 'sfs-hr' ); ?></option>
+                </select>
+            </label>
+            <button type="submit" class="button"><?php esc_html_e( 'Filter', 'sfs-hr' ); ?></button>
+        </form>
+
+        <table class="wp-list-table widefat striped">
+            <thead>
+                <tr>
+                    <th><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Work Date', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Hours', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Days Earned', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Reason', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Status', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Expiry', 'sfs-hr' ); ?></th>
+                    <th><?php esc_html_e( 'Actions', 'sfs-hr' ); ?></th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php if ( empty( $rows ) ) : ?>
+                <tr><td colspan="8" style="text-align:center;padding:20px;color:#888;"><?php esc_html_e( 'No compensatory requests found.', 'sfs-hr' ); ?></td></tr>
+            <?php else : foreach ( $rows as $r ) : ?>
+                <tr>
+                    <td><?php echo esc_html( $r['employee_name'] ?? $r['employee_id'] ); ?></td>
+                    <td><?php echo esc_html( date_i18n( 'M j, Y', strtotime( $r['work_date'] ) ) ); ?></td>
+                    <td><?php echo esc_html( number_format( (float) $r['hours_worked'], 1 ) ); ?></td>
+                    <td><?php echo (int) $r['days_earned']; ?></td>
+                    <td><?php echo esc_html( wp_trim_words( $r['reason'] ?? '', 10 ) ); ?></td>
+                    <td>
+                        <?php
+                        $s_colors = [ 'pending' => '#f0ad4e', 'approved' => '#5cb85c', 'rejected' => '#d9534f', 'expired' => '#888' ];
+                        $s_color  = $s_colors[ $r['status'] ] ?? '#646970';
+                        ?>
+                        <span style="color:<?php echo esc_attr( $s_color ); ?>;font-weight:600;"><?php echo esc_html( ucfirst( $r['status'] ) ); ?></span>
+                    </td>
+                    <td><?php echo $r['expiry_date'] ? esc_html( date_i18n( 'M j, Y', strtotime( $r['expiry_date'] ) ) ) : '—'; ?></td>
+                    <td>
+                        <?php if ( $r['status'] === 'pending' ) : ?>
+                        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+                            <?php wp_nonce_field( 'sfs_hr_leave_comp_approve' ); ?>
+                            <input type="hidden" name="action" value="sfs_hr_leave_comp_approve" />
+                            <input type="hidden" name="comp_id" value="<?php echo (int) $r['id']; ?>" />
+                            <button type="submit" class="button button-small button-primary"><?php esc_html_e( 'Approve', 'sfs-hr' ); ?></button>
+                        </form>
+                        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+                            <?php wp_nonce_field( 'sfs_hr_leave_comp_reject' ); ?>
+                            <input type="hidden" name="action" value="sfs_hr_leave_comp_reject" />
+                            <input type="hidden" name="comp_id" value="<?php echo (int) $r['id']; ?>" />
+                            <button type="submit" class="button button-small"><?php esc_html_e( 'Reject', 'sfs-hr' ); ?></button>
+                        </form>
+                        <?php else : ?>
+                            —
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            <?php endforeach; endif; ?>
+            </tbody>
+        </table>
+
+        <h3 style="margin-top:25px;"><?php esc_html_e( 'Create Compensatory Request (Admin)', 'sfs-hr' ); ?></h3>
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+            <?php wp_nonce_field( 'sfs_hr_leave_comp_create' ); ?>
+            <input type="hidden" name="action" value="sfs_hr_leave_comp_create" />
+            <table class="form-table">
+                <tr>
+                    <th><label><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></label></th>
+                    <td>
+                        <select name="employee_id" required>
+                            <option value=""><?php esc_html_e( 'Select…', 'sfs-hr' ); ?></option>
+                            <?php
+                            $emps = $wpdb->get_results( "SELECT id, employee_code, first_name, last_name FROM {$wpdb->prefix}sfs_hr_employees WHERE status='active' ORDER BY first_name" );
+                            foreach ( $emps as $emp ) {
+                                printf( '<option value="%d">%s</option>', (int) $emp->id, esc_html( trim( $emp->first_name . ' ' . $emp->last_name ) . ' (' . $emp->employee_code . ')' ) );
+                            }
+                            ?>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label><?php esc_html_e( 'Work Date', 'sfs-hr' ); ?></label></th>
+                    <td><input type="date" name="work_date" required /></td>
+                </tr>
+                <tr>
+                    <th><label><?php esc_html_e( 'Hours Worked', 'sfs-hr' ); ?></label></th>
+                    <td><input type="number" name="hours_worked" min="0" step="0.5" value="8" style="width:100px" /></td>
+                </tr>
+                <tr>
+                    <th><label><?php esc_html_e( 'Reason', 'sfs-hr' ); ?></label></th>
+                    <td><textarea name="reason" class="large-text" rows="2"></textarea></td>
+                </tr>
+            </table>
+            <?php submit_button( __( 'Create Request', 'sfs-hr' ) ); ?>
+        </form>
+    </div>
+    <?php
+}
+
+public function handle_comp_create(): void {
+    Helpers::require_cap( 'sfs_hr.leave.manage' );
+    check_admin_referer( 'sfs_hr_leave_comp_create' );
+
+    $employee_id  = (int) ( $_POST['employee_id'] ?? 0 );
+    $work_date    = sanitize_text_field( $_POST['work_date'] ?? '' );
+    $hours_worked = max( 0.0, (float) ( $_POST['hours_worked'] ?? 0 ) );
+    $reason       = sanitize_textarea_field( $_POST['reason'] ?? '' );
+
+    $redirect = admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=compensatory' );
+
+    $result = Services\CompensatoryService::create_request( $employee_id, $work_date, $hours_worked, $reason );
+    if ( ! empty( $result['success'] ) ) {
+        wp_safe_redirect( add_query_arg( 'comp_created', '1', $redirect ) );
+    } else {
+        wp_safe_redirect( add_query_arg( 'comp_err', rawurlencode( $result['error'] ?? __( 'Failed', 'sfs-hr' ) ), $redirect ) );
+    }
+    exit;
+}
+
+public function handle_comp_approve(): void {
+    Helpers::require_cap( 'sfs_hr.leave.manage' );
+    check_admin_referer( 'sfs_hr_leave_comp_approve' );
+
+    $comp_id  = (int) ( $_POST['comp_id'] ?? 0 );
+    $redirect = admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=compensatory' );
+
+    $result = Services\CompensatoryService::approve( $comp_id, get_current_user_id() );
+    if ( ! empty( $result['success'] ) ) {
+        wp_safe_redirect( add_query_arg( 'comp_ok', '1', $redirect ) );
+    } else {
+        wp_safe_redirect( add_query_arg( 'comp_err', rawurlencode( $result['error'] ?? __( 'Failed', 'sfs-hr' ) ), $redirect ) );
+    }
+    exit;
+}
+
+public function handle_comp_reject(): void {
+    Helpers::require_cap( 'sfs_hr.leave.manage' );
+    check_admin_referer( 'sfs_hr_leave_comp_reject' );
+
+    $comp_id  = (int) ( $_POST['comp_id'] ?? 0 );
+    $redirect = admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=compensatory' );
+
+    Services\CompensatoryService::reject( $comp_id, get_current_user_id() );
+    wp_safe_redirect( add_query_arg( 'comp_ok', '1', $redirect ) );
+    exit;
+}
+
+/* ================================================================== *
+ *              M2: Carry-Forward Handler + Cron                       *
+ * ================================================================== */
+
+public function handle_carry_forward(): void {
+    Helpers::require_cap( 'sfs_hr.leave.manage' );
+    check_admin_referer( 'sfs_hr_leave_carry_forward' );
+
+    $from_year = (int) ( $_POST['from_year'] ?? ( (int) current_time( 'Y' ) - 1 ) );
+    $redirect  = admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=balances&year=' . ( $from_year + 1 ) );
+
+    $result = Services\CarryForwardService::process_year_end( $from_year );
+    if ( ! empty( $result['errors'] ) ) {
+        wp_safe_redirect( add_query_arg( 'err', rawurlencode( implode( '; ', $result['errors'] ) ), $redirect ) );
+    } else {
+        wp_safe_redirect( add_query_arg( 'ok', '1', $redirect ) );
+    }
+    exit;
+}
+
+/**
+ * M2 daily cron: process carry-forward expiry + compensatory expiry.
+ */
+public function cron_m2_daily(): void {
+    Services\CarryForwardService::process_carry_expiry();
+    Services\CompensatoryService::process_expiry();
 }
 
 public function handle_early_return(): void {
@@ -6358,6 +6933,15 @@ public function handle_self_request(): void {
     $end     = isset( $_POST['end_date'] ) ? sanitize_text_field( wp_unslash( $_POST['end_date'] ) ) : '';
     $reason  = isset( $_POST['reason'] ) ? wp_kses_post( wp_unslash( $_POST['reason'] ) ) : '';
 
+    // M2: Half-day / hourly leave mode
+    $leave_mode      = isset( $_POST['leave_mode'] ) ? sanitize_text_field( wp_unslash( $_POST['leave_mode'] ) ) : 'full_day';
+    $half_day_period = isset( $_POST['half_day_period'] ) ? sanitize_text_field( wp_unslash( $_POST['half_day_period'] ) ) : '';
+    $hours           = isset( $_POST['hours'] ) ? (float) $_POST['hours'] : 0.0;
+
+    if ( ! in_array( $leave_mode, [ 'full_day', 'half_day', 'hourly' ], true ) ) {
+        $leave_mode = 'full_day';
+    }
+
     if ( $type_id <= 0 || $start === '' ) {
         $this->redirect_back_with_msg( 'leave_err', 'missing_fields' );
     }
@@ -6391,7 +6975,9 @@ public function handle_self_request(): void {
     // Get leave type details for validation
     $type_row = $wpdb->get_row(
         $wpdb->prepare(
-            "SELECT special_code, gender_required, requires_attachment, skip_managers_gm FROM {$type_table} WHERE id = %d AND active = 1",
+            "SELECT special_code, gender_required, requires_attachment, skip_managers_gm,
+                allow_half_day, allow_hourly, hours_per_day
+         FROM {$type_table} WHERE id = %d AND active = 1",
             $type_id
         )
     );
@@ -6402,6 +6988,37 @@ public function handle_self_request(): void {
     }
 
     $special = strtoupper( trim( (string) ( $type_row->special_code ?? '' ) ) );
+
+    // M2: Validate leave mode against type settings and compute effective days
+    if ( $leave_mode === 'half_day' ) {
+        if ( empty( $type_row->allow_half_day ) ) {
+            $wpdb->query( 'ROLLBACK' );
+            $this->redirect_back_with_msg( 'leave_err', 'half_day_not_allowed' );
+        }
+        if ( ! in_array( $half_day_period, [ 'AM', 'PM' ], true ) ) {
+            $wpdb->query( 'ROLLBACK' );
+            $this->redirect_back_with_msg( 'leave_err', 'missing_fields' );
+        }
+        // Half-day: single date, 0.5 days
+        $end  = $start;
+        $days = 0.5;
+    } elseif ( $leave_mode === 'hourly' ) {
+        if ( empty( $type_row->allow_hourly ) ) {
+            $wpdb->query( 'ROLLBACK' );
+            $this->redirect_back_with_msg( 'leave_err', 'hourly_not_allowed' );
+        }
+        $hours_per_day = (float) ( $type_row->hours_per_day ?? 8 );
+        if ( $hours_per_day <= 0 ) {
+            $hours_per_day = 8.0;
+        }
+        if ( $hours <= 0 || $hours > $hours_per_day ) {
+            $wpdb->query( 'ROLLBACK' );
+            $this->redirect_back_with_msg( 'leave_err', 'invalid_hours' );
+        }
+        // Hourly: single date, fractional days
+        $end  = $start;
+        $days = round( $hours / $hours_per_day, 2 );
+    }
 
     // Validate gender restriction
     $type_gender = strtolower( trim( (string) ( $type_row->gender_required ?? 'any' ) ) );
@@ -6456,6 +7073,9 @@ public function handle_self_request(): void {
         'start_date'       => $start,
         'end_date'         => $end,
         'days'             => $days,
+        'leave_mode'       => $leave_mode,
+        'half_day_period'  => $leave_mode === 'half_day' ? $half_day_period : null,
+        'hours'            => $leave_mode === 'hourly'   ? $hours           : null,
         'reason'           => $reason,
         'status'           => 'pending',
         'approval_level'   => $initial_approval_level,
