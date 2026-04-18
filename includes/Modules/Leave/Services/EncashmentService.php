@@ -71,12 +71,12 @@ class EncashmentService {
             return 0;
         }
 
-        $available = (int) $balance->opening
-            + (int) $balance->accrued
-            + (int) $balance->carried_over
-            - (int) $balance->used
-            - (int) $balance->encashed
-            - (int) $balance->expired_days;
+        $available = (float) $balance->opening
+            + (float) $balance->accrued
+            + (float) $balance->carried_over
+            - (float) $balance->used
+            - (float) $balance->encashed
+            - (float) $balance->expired_days;
 
         $min_after       = (int) $type->min_balance_after;
         $max_encash_days = (int) $type->max_encashment_days;
@@ -87,7 +87,7 @@ class EncashmentService {
             $encashable = min( $encashable, $max_encash_days );
         }
 
-        return max( 0, $encashable );
+        return max( 0, (int) floor( $encashable ) );
     }
 
     /**
@@ -354,6 +354,9 @@ class EncashmentService {
 
         $where_sql = $where ? 'WHERE ' . implode( ' AND ', $where ) : '';
 
+        $limit  = isset( $filters['limit'] )  ? max( 1, (int) $filters['limit'] )  : 50;
+        $offset = isset( $filters['offset'] ) ? max( 0, (int) $filters['offset'] ) : 0;
+
         $sql = "SELECT enc.*,
                        e.first_name, e.last_name, e.employee_code,
                        lt.name AS leave_type_name
@@ -362,12 +365,13 @@ class EncashmentService {
                 INNER JOIN {$lt}  AS lt ON lt.id = enc.type_id
                 {$where_sql}
                 ORDER BY enc.created_at DESC
-                LIMIT 50";
+                LIMIT %d OFFSET %d";
 
-        if ( $params ) {
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-            $sql = $wpdb->prepare( $sql, ...$params );
-        }
+        $params[] = $limit;
+        $params[] = $offset;
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+        $sql = $wpdb->prepare( $sql, ...$params );
 
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
         return $wpdb->get_results( $sql, ARRAY_A ) ?: [];

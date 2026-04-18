@@ -3751,9 +3751,9 @@ private function render_cancellation_detail( int $cancel_id ): void {
                       <input type="hidden" name="action" value="sfs_hr_leave_update_balance"/>
                       <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce); ?>"/>
                       <input type="hidden" name="id" value="<?php echo (int)$r['id']; ?>"/>
-                      <input type="number" name="opening"      value="<?php echo (int)$r['opening']; ?>"      style="width:80px"/>
-                      <input type="number" name="accrued"      value="<?php echo (int)$r['accrued']; ?>"      style="width:80px"/>
-                      <input type="number" name="carried_over" value="<?php echo (int)$r['carried_over']; ?>" style="width:100px"/>
+                      <input type="number" name="opening"      value="<?php echo esc_attr( number_format( (float)$r['opening'], 2, '.', '' ) ); ?>"      step="0.01" min="0" style="width:80px"/>
+                      <input type="number" name="accrued"      value="<?php echo esc_attr( number_format( (float)$r['accrued'], 2, '.', '' ) ); ?>"      step="0.01" min="0" style="width:80px"/>
+                      <input type="number" name="carried_over" value="<?php echo esc_attr( number_format( (float)$r['carried_over'], 2, '.', '' ) ); ?>" step="0.01" min="0" style="width:100px"/>
                       <button class="button button-small"><?php esc_html_e('Save','sfs-hr'); ?></button>
                     </form>
                   </td>
@@ -4873,10 +4873,13 @@ public function shortcode_request($atts = []): string {
         }
         check_admin_referer('sfs_hr_leave_submit');
 
-        $type_id = isset($_POST['type_id']) ? (int)$_POST['type_id'] : 0;
-        $start   = isset($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : '';
-        $end     = isset($_POST['end_date'])   ? sanitize_text_field($_POST['end_date'])   : '';
-        $reason  = isset($_POST['reason']) ? sanitize_textarea_field($_POST['reason']) : '';
+        $type_id         = isset($_POST['type_id']) ? (int)$_POST['type_id'] : 0;
+        $start           = isset($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : '';
+        $end             = isset($_POST['end_date'])   ? sanitize_text_field($_POST['end_date'])   : '';
+        $reason          = isset($_POST['reason']) ? sanitize_textarea_field($_POST['reason']) : '';
+        $leave_mode      = isset($_POST['leave_mode']) ? sanitize_text_field($_POST['leave_mode']) : 'full';
+        $half_day_period = isset($_POST['half_day_period']) ? sanitize_text_field($_POST['half_day_period']) : '';
+        $hours_requested = isset($_POST['hours']) ? max( 0.0, (float)$_POST['hours'] ) : 0.0;
 
         $type = $wpdb->get_row(
             $wpdb->prepare(
@@ -4927,10 +4930,26 @@ public function shortcode_request($atts = []): string {
                    '</p></div>' . $this->render_request_form($emp);
         }
 
-        $days  = (int)$this->business_days($start, $end); // excludes Fridays + company holidays
-        if ($days <= 0) {
-    $days = 1; // minimum one day if the period is valid
-}
+        // Compute days based on leave_mode
+        if ( $leave_mode === 'half_day' ) {
+            $days = 0.5;
+            $end  = $start; // half-day is always a single date
+        } elseif ( $leave_mode === 'hourly' ) {
+            $hours_per_day = (float) get_option( 'sfs_hr_hours_per_day', 8 );
+            $days = $hours_per_day > 0 ? round( $hours_requested / $hours_per_day, 2 ) : 0;
+            $end  = $start; // hourly leave is always a single date
+            if ( $days <= 0 ) {
+                $wpdb->query( 'ROLLBACK' );
+                return $out . '<div class="notice notice-error"><p>' .
+                       esc_html__( 'Please enter valid hours.', 'sfs-hr' ) .
+                       '</p></div>' . $this->render_request_form( $emp );
+            }
+        } else {
+            $days = (float) $this->business_days( $start, $end ); // excludes Fridays + company holidays
+            if ( $days <= 0 ) {
+                $days = 1; // minimum one day if the period is valid
+            }
+        }
 
         $hire  = $emp['hire_date'] ?? ($emp['hired_at'] ?? null);
         $quota = $this->compute_quota_for_year($type, $hire, $y1);
@@ -5084,16 +5103,19 @@ if ($special === 'MATERNITY') {
         $req_t = $wpdb->prefix . 'sfs_hr_leave_requests';
         $now   = current_time('mysql');
         $ins = $wpdb->insert($req_t, [
-            'employee_id' => (int)$emp['id'],
-            'type_id'     => (int)$type['id'],
-            'start_date'  => $start,
-            'end_date'    => $end,
-            'days'        => $days,
-            'reason'      => $reason,
-            'status'      => 'pending',
+            'employee_id'    => (int)$emp['id'],
+            'type_id'        => (int)$type['id'],
+            'start_date'     => $start,
+            'end_date'       => $end,
+            'days'           => $days,
+            'leave_mode'     => $leave_mode,
+            'half_day_period'=> $leave_mode === 'half_day' ? $half_day_period : null,
+            'hours'          => $leave_mode === 'hourly' ? $hours_requested : null,
+            'reason'         => $reason,
+            'status'         => 'pending',
             'doc_attachment_id' => $attach_id ?: null,
-            'created_at'  => $now,
-            'updated_at'  => $now,
+            'created_at'     => $now,
+            'updated_at'     => $now,
         ]);
 
         $target = wp_get_referer();
@@ -5593,24 +5615,32 @@ private function email_approvers_for_employee(int $employee_id, string $subject,
         check_admin_referer('sfs_hr_leave_update_balance');
 
         $id      = isset($_POST['id']) ? (int)$_POST['id'] : 0;
-        $opening = isset($_POST['opening']) ? (int)$_POST['opening'] : 0;
-        $accrued = isset($_POST['accrued']) ? (int)$_POST['accrued'] : 0;
-        $carried = isset($_POST['carried_over']) ? (int)$_POST['carried_over'] : 0;
+        $opening = isset($_POST['opening']) ? round( (float)$_POST['opening'], 2 ) : 0.0;
+        $accrued = isset($_POST['accrued']) ? round( (float)$_POST['accrued'], 2 ) : 0.0;
+        $carried = isset($_POST['carried_over']) ? round( (float)$_POST['carried_over'], 2 ) : 0.0;
 
-        if ($id <= 0) wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=balances&err='.rawurlencode(__('Invalid record','sfs-hr'))));
+        if ($id <= 0) {
+            wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=balances&err='.rawurlencode(__('Invalid record','sfs-hr'))));
+            exit;
+        }
 
         global $wpdb;
         $bal = $wpdb->prefix.'sfs_hr_leave_balances';
         $req = $wpdb->prefix.'sfs_hr_leave_requests';
 
         $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $bal WHERE id=%d", $id), ARRAY_A);
-        if (!$row) wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=balances&err='.rawurlencode(__('Record not found','sfs-hr'))));
+        if (!$row) {
+            wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=balances&err='.rawurlencode(__('Record not found','sfs-hr'))));
+            exit;
+        }
 
-        $used = (int)$wpdb->get_var($wpdb->prepare(
+        $used = (float)$wpdb->get_var($wpdb->prepare(
             "SELECT COALESCE(SUM(days),0) FROM $req WHERE employee_id=%d AND type_id=%d AND status='approved' AND year(start_date)=%d",
             (int)$row['employee_id'], (int)$row['type_id'], (int)$row['year']
         ));
-        $closing = (int)$opening + (int)$accrued + (int)$carried - $used;
+        $encashed     = (float)( $row['encashed'] ?? 0 );
+        $expired_days = (float)( $row['expired_days'] ?? 0 );
+        $closing = max( 0, $opening + $accrued + $carried - $used - $encashed - $expired_days );
 
         $wpdb->update($bal, [
             'opening'=>$opening,
@@ -5619,7 +5649,7 @@ private function email_approvers_for_employee(int $employee_id, string $subject,
             'used'=>$used,
             'closing'=>$closing,
             'updated_at'=> Helpers::now_mysql(),
-        ], ['id'=>$id]);
+        ], ['id'=>$id], ['%f','%f','%f','%f','%f','%s'], ['%d']);
 
         $qs = [
     'page' => 'sfs-hr-leave-requests',
@@ -6201,8 +6231,12 @@ public function handle_encashment_reject(): void {
     $enc_id = (int) ( $_POST['enc_id'] ?? 0 );
     $redirect = admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=encashment' );
 
-    Services\EncashmentService::reject( $enc_id, get_current_user_id() );
-    wp_safe_redirect( add_query_arg( 'enc_ok', '1', $redirect ) );
+    $result = Services\EncashmentService::reject( $enc_id, get_current_user_id() );
+    if ( ! empty( $result['success'] ) ) {
+        wp_safe_redirect( add_query_arg( 'enc_ok', '1', $redirect ) );
+    } else {
+        wp_safe_redirect( add_query_arg( 'enc_err', rawurlencode( $result['error'] ?? __( 'Failed', 'sfs-hr' ) ), $redirect ) );
+    }
     exit;
 }
 
@@ -6376,7 +6410,7 @@ public function handle_comp_create(): void {
         exit;
     }
 
-    $result = Services\CompensatoryService::create_request( $employee_id, $work_date, $hours_worked, $reason );
+    $result = Services\CompensatoryService::create_request( $employee_id, $work_date, $hours_worked, $reason, null, $type_id );
     if ( ! empty( $result['success'] ) ) {
         wp_safe_redirect( add_query_arg( 'comp_created', '1', $redirect ) );
     } else {
@@ -7151,23 +7185,25 @@ public function handle_self_request(): void {
         }
     }
 
-    // M2: Enforce min_tenure_months
+    // M2: Enforce min_tenure_months — compare against leave start date, fail-closed if no hire_date
     $min_tenure = (int) ( $type_row->min_tenure_months ?? 0 );
     if ( $min_tenure > 0 ) {
         $hire_date = $wpdb->get_var(
             $wpdb->prepare(
-                "SELECT COALESCE(hire_date, hired_at) FROM {$emp_table} WHERE id = %d",
+                "SELECT hire_date FROM {$emp_table} WHERE id = %d",
                 $employee_id
             )
         );
-        if ( $hire_date ) {
-            $hire_ts   = strtotime( $hire_date );
-            $now_ts    = current_time( 'timestamp' );
-            $months    = ( $now_ts - $hire_ts ) / ( 30.4375 * DAY_IN_SECONDS );
-            if ( $months < $min_tenure ) {
-                $wpdb->query( 'ROLLBACK' );
-                $this->redirect_back_with_msg( 'leave_err', 'min_tenure_not_met' );
-            }
+        if ( ! $hire_date ) {
+            $wpdb->query( 'ROLLBACK' );
+            $this->redirect_back_with_msg( 'leave_err', 'min_tenure_not_met' );
+        }
+        $hire_ts   = strtotime( $hire_date );
+        $start_ts  = strtotime( $start );
+        $months    = ( $start_ts - $hire_ts ) / ( 30.4375 * DAY_IN_SECONDS );
+        if ( $months < $min_tenure ) {
+            $wpdb->query( 'ROLLBACK' );
+            $this->redirect_back_with_msg( 'leave_err', 'min_tenure_not_met' );
         }
     }
 

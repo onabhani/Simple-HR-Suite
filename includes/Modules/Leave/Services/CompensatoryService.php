@@ -21,6 +21,7 @@ class CompensatoryService {
      * @param float       $hours_worked
      * @param string      $reason
      * @param int|null    $session_id   Optional link to sfs_hr_attendance_sessions row
+     * @param int|null    $type_id      Explicit compensatory leave type ID; auto-detected if null
      * @return array{success: bool, id?: int, error?: string}
      */
     public static function create_request(
@@ -28,7 +29,8 @@ class CompensatoryService {
         string $work_date,
         float $hours_worked = 0.0,
         string $reason = '',
-        ?int $session_id = null
+        ?int $session_id = null,
+        ?int $type_id = null
     ): array {
         global $wpdb;
 
@@ -63,13 +65,25 @@ class CompensatoryService {
             return [ 'success' => false, 'error' => __( 'A compensatory request already exists for this date.', 'sfs-hr' ) ];
         }
 
-        // Find active compensatory leave type
-        $comp_type = $wpdb->get_row(
-            "SELECT * FROM {$wpdb->prefix}sfs_hr_leave_types
-             WHERE is_compensatory = 1 AND active = 1
-             LIMIT 1",
-            ARRAY_A
-        );
+        // Find compensatory leave type — use explicit $type_id when provided, otherwise auto-detect
+        if ( $type_id ) {
+            $comp_type = $wpdb->get_row(
+                $wpdb->prepare(
+                    "SELECT * FROM {$wpdb->prefix}sfs_hr_leave_types
+                     WHERE id = %d AND is_compensatory = 1 AND active = 1
+                     LIMIT 1",
+                    $type_id
+                ),
+                ARRAY_A
+            );
+        } else {
+            $comp_type = $wpdb->get_row(
+                "SELECT * FROM {$wpdb->prefix}sfs_hr_leave_types
+                 WHERE is_compensatory = 1 AND active = 1
+                 LIMIT 1",
+                ARRAY_A
+            );
+        }
         if ( ! $comp_type ) {
             return [ 'success' => false, 'error' => __( 'No active compensatory leave type is configured.', 'sfs-hr' ) ];
         }
