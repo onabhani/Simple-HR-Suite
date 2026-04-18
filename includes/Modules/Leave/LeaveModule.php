@@ -549,7 +549,7 @@ public function render_requests(): void {
                         </td>
                         <td class="hide-mobile"><?php echo esc_html($r['type_name']); ?></td>
                         <td class="hide-mobile"><?php echo esc_html($r['start_date'] . ' → ' . $r['end_date']); ?></td>
-                        <td class="hide-mobile"><?php echo (int)$r['days']; ?></td>
+                        <td class="hide-mobile"><?php echo number_format_i18n( (float) $r['days'], 2 ); ?></td>
                         <td>
                             <?php echo Leave_UI::leave_status_chip($status_key); ?>
                             <?php if ($r['status'] === 'approved' && $state_label): ?>
@@ -691,7 +691,7 @@ public function render_requests(): void {
             'name'          => trim($r['first_name'] . ' ' . $r['last_name']),
             'type'          => $r['type_name'],
             'dates'         => $r['start_date'] . ' → ' . $r['end_date'],
-            'days'          => (int)$r['days'],
+            'days'          => (float)$r['days'],
             'status'        => $r['status'],
             'reason'        => $r['reason'] ?: '—',
             'submitted'     => $this->fmt_dt($r['created_at'] ?? ''),
@@ -3736,16 +3736,16 @@ private function render_cancellation_detail( int $cancel_id ): void {
                 <tr><td colspan="8"><?php esc_html_e('No data for selected year.','sfs-hr'); ?></td></tr>
               <?php else: foreach($rows as $r): 
                     $emp_label = trim(($r['first_name']??'').' '.($r['last_name']??'')) . ' ('. $r['employee_code'] .')';
-                    $closing = (int)$r['opening'] + (int)$r['accrued'] + (int)$r['carried_over'] - (int)$r['used'];
+                    $closing = max(0, (float)$r['opening'] + (float)$r['accrued'] + (float)$r['carried_over'] - (float)$r['used'] - (float)($r['encashed'] ?? 0) - (float)($r['expired_days'] ?? 0));
               ?>
                 <tr>
                   <td><?php echo esc_html($emp_label); ?></td>
                   <td><?php echo esc_html($r['type_name']); ?></td>
-                  <td><?php printf('%d',(int)$r['opening']); ?></td>
-                  <td><?php printf('%d',(int)$r['accrued']); ?></td>
-                  <td><?php printf('%d',(int)$r['used']); ?></td>
-                  <td><?php printf('%d',(int)$r['carried_over']); ?></td>
-                  <td><strong><?php printf('%d',(int)$closing); ?></strong></td>
+                  <td><?php echo number_format_i18n((float)$r['opening'], 2); ?></td>
+                  <td><?php echo number_format_i18n((float)$r['accrued'], 2); ?></td>
+                  <td><?php echo number_format_i18n((float)$r['used'], 2); ?></td>
+                  <td><?php echo number_format_i18n((float)$r['carried_over'], 2); ?></td>
+                  <td><strong><?php echo number_format_i18n((float)$closing, 2); ?></strong></td>
                   <td>
                     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:flex; gap:6px; align-items:center;">
                       <input type="hidden" name="action" value="sfs_hr_leave_update_balance"/>
@@ -3761,6 +3761,21 @@ private function render_cancellation_detail( int $cancel_id ): void {
               <?php endforeach; endif; ?>
             </tbody>
           </table>
+
+          <?php if ( current_user_can( 'sfs_hr.leave.manage' ) ) : ?>
+          <div style="margin-top:20px;padding:15px;background:#f0f0f1;border:1px solid #c3c4c7;border-radius:4px;">
+            <h3 style="margin-top:0;"><?php esc_html_e( 'Annual Carry-Forward', 'sfs-hr' ); ?></h3>
+            <p class="description"><?php esc_html_e( 'Run year-end carry-forward processing. This will carry eligible remaining balances from the selected year into the next year, subject to each leave type\'s carry-forward cap and expiry settings.', 'sfs-hr' ); ?></p>
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Are you sure you want to run carry-forward? This will process all eligible balances.', 'sfs-hr' ) ); ?>');">
+              <?php wp_nonce_field( 'sfs_hr_leave_carry_forward' ); ?>
+              <input type="hidden" name="action" value="sfs_hr_leave_carry_forward" />
+              <label><?php esc_html_e( 'From year:', 'sfs-hr' ); ?>
+                <input type="number" name="from_year" value="<?php echo (int) $year - 1; ?>" min="2000" style="width:100px" />
+              </label>
+              <?php submit_button( __( 'Run Carry-Forward', 'sfs-hr' ), 'secondary', '', false ); ?>
+            </form>
+          </div>
+          <?php endif; ?>
         <?php
     }
 
@@ -3942,6 +3957,14 @@ private function render_cancellation_detail( int $cancel_id ): void {
         $allowed_genders = ['any', 'male', 'female'];
         if ( ! in_array($gender_required, $allowed_genders, true) ) {
             $gender_required = 'any';
+        }
+
+        // Auto-restrict gender for special leave types (mirror handle_add_type logic)
+        if ( $gender_required === 'any' && in_array( $special, [ 'MATERNITY', 'IDDAH' ], true ) ) {
+            $gender_required = 'female';
+        }
+        if ( $gender_required === 'any' && $special === 'PATERNITY' ) {
+            $gender_required = 'male';
         }
 
         // M2 fields
@@ -5156,9 +5179,32 @@ if ( empty( $types ) ) {
               <?php endforeach; ?>
             </select>
           </label></p>
+          <p><label><?php esc_html_e('Leave Mode','sfs-hr'); ?> <br/>
+            <select name="leave_mode" id="sfs-hr-admin-leave-mode" onchange="sfsHrAdminToggleMode()">
+              <option value="full_day"><?php esc_html_e('Full day','sfs-hr'); ?></option>
+              <option value="half_day"><?php esc_html_e('Half day','sfs-hr'); ?></option>
+              <option value="hourly"><?php esc_html_e('Hourly (permission)','sfs-hr'); ?></option>
+            </select>
+          </label></p>
+          <p id="sfs-hr-admin-half-day-row" style="display:none;"><label><?php esc_html_e('Period','sfs-hr'); ?> <br/>
+            <select name="half_day_period">
+              <option value="AM"><?php esc_html_e('Morning (AM)','sfs-hr'); ?></option>
+              <option value="PM"><?php esc_html_e('Afternoon (PM)','sfs-hr'); ?></option>
+            </select>
+          </label></p>
+          <p id="sfs-hr-admin-hours-row" style="display:none;"><label><?php esc_html_e('Hours','sfs-hr'); ?> <br/>
+            <input type="number" name="hours" min="0.5" max="24" step="0.5" value="1" style="width:100px"/>
+          </label></p>
           <p><label><?php esc_html_e('Start Date','sfs-hr'); ?> <br/><input type="date" name="start_date" required/></label></p>
           <p><label><?php esc_html_e('End Date','sfs-hr'); ?> <br/><input type="date" name="end_date" required/></label></p>
           <p><label><?php esc_html_e('Reason','sfs-hr'); ?> <br/><textarea name="reason" rows="4"></textarea></label></p>
+          <script>
+          function sfsHrAdminToggleMode(){
+            var m=document.getElementById('sfs-hr-admin-leave-mode').value;
+            document.getElementById('sfs-hr-admin-half-day-row').style.display=(m==='half_day')?'':'none';
+            document.getElementById('sfs-hr-admin-hours-row').style.display=(m==='hourly')?'':'none';
+          }
+          </script>
           <p>
   <label><?php esc_html_e('Supporting document (PDF or image)','sfs-hr'); ?>
     <br/><input type="file" name="supporting_doc" accept=".pdf,image/*" />
@@ -5202,7 +5248,7 @@ if ( empty( $types ) ) {
               <tr>
                 <td><?php echo esc_html($r['type_name']); ?></td>
                 <td><?php echo esc_html($r['start_date'].' → '.$r['end_date']); ?></td>
-                <td><?php printf('%d', (int)$r['days']); ?></td>
+                <td><?php echo number_format_i18n( (float) $r['days'], 2 ); ?></td>
                 <td><?php echo $this->fmt_dt($r['created_at'] ?? ''); ?></td>
                 <td><?php echo esc_html(__(ucfirst($r['status']), 'sfs-hr')); ?></td>
               </tr>
@@ -5685,19 +5731,18 @@ private function email_approvers_for_employee(int $employee_id, string $subject,
     /* --- Cron: schedule daily and send reminders X days before a holiday starts --- */
 
     public function ensure_cron(bool $force_reschedule = false): void {
-        $enabled = get_option('sfs_hr_holiday_reminder_enabled','0') === '1';
-        $hook    = 'sfs_hr_daily';
+        $hook = 'sfs_hr_daily';
 
         if ($force_reschedule && wp_next_scheduled($hook)) {
             wp_clear_scheduled_hook($hook);
         }
-        if ($enabled && ! wp_next_scheduled($hook)) {
+
+        // Always schedule: M2 carry-forward/compensatory expiry requires daily cron
+        // regardless of whether holiday reminders are enabled.
+        if ( ! wp_next_scheduled($hook) ) {
             $ts = strtotime(date('Y-m-d 09:00:00', current_time('timestamp')));
             if ($ts <= current_time('timestamp')) $ts += DAY_IN_SECONDS;
             wp_schedule_event($ts, 'daily', $hook);
-        }
-        if (!$enabled && wp_next_scheduled($hook)) {
-            wp_clear_scheduled_hook($hook);
         }
     }
 
@@ -6268,6 +6313,20 @@ private function render_compensatory_tab(): void {
             <input type="hidden" name="action" value="sfs_hr_leave_comp_create" />
             <table class="form-table">
                 <tr>
+                    <th><label><?php esc_html_e( 'Compensatory Leave Type', 'sfs-hr' ); ?></label></th>
+                    <td>
+                        <select name="type_id" required>
+                            <option value=""><?php esc_html_e( 'Select…', 'sfs-hr' ); ?></option>
+                            <?php
+                            $comp_types = $wpdb->get_results( "SELECT id, name FROM {$wpdb->prefix}sfs_hr_leave_types WHERE is_compensatory = 1 AND active = 1 ORDER BY name" );
+                            foreach ( $comp_types as $ct ) {
+                                printf( '<option value="%d">%s</option>', (int) $ct->id, esc_html( $ct->name ) );
+                            }
+                            ?>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
                     <th><label><?php esc_html_e( 'Employee', 'sfs-hr' ); ?></label></th>
                     <td>
                         <select name="employee_id" required>
@@ -6304,12 +6363,18 @@ public function handle_comp_create(): void {
     Helpers::require_cap( 'sfs_hr.leave.manage' );
     check_admin_referer( 'sfs_hr_leave_comp_create' );
 
+    $type_id      = (int) ( $_POST['type_id'] ?? 0 );
     $employee_id  = (int) ( $_POST['employee_id'] ?? 0 );
     $work_date    = sanitize_text_field( $_POST['work_date'] ?? '' );
     $hours_worked = max( 0.0, (float) ( $_POST['hours_worked'] ?? 0 ) );
     $reason       = sanitize_textarea_field( $_POST['reason'] ?? '' );
 
     $redirect = admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=compensatory' );
+
+    if ( $type_id <= 0 ) {
+        wp_safe_redirect( add_query_arg( 'comp_err', rawurlencode( __( 'Please select a compensatory leave type.', 'sfs-hr' ) ), $redirect ) );
+        exit;
+    }
 
     $result = Services\CompensatoryService::create_request( $employee_id, $work_date, $hours_worked, $reason );
     if ( ! empty( $result['success'] ) ) {
@@ -6872,6 +6937,38 @@ private function render_self_request_form( \stdClass $employee ): void {
     echo '</td>';
     echo '</tr>';
 
+    // Leave mode (full_day / half_day / hourly)
+    echo '<tr>';
+    echo '<th scope="row"><label>' . esc_html__( 'Leave mode', 'sfs-hr' ) . '</label></th>';
+    echo '<td>';
+    echo '<select name="leave_mode" id="sfs-hr-leave-mode" onchange="sfsHrToggleLeaveMode()">';
+    echo '<option value="full_day">' . esc_html__( 'Full day', 'sfs-hr' ) . '</option>';
+    echo '<option value="half_day">' . esc_html__( 'Half day', 'sfs-hr' ) . '</option>';
+    echo '<option value="hourly">' . esc_html__( 'Hourly (permission)', 'sfs-hr' ) . '</option>';
+    echo '</select>';
+    echo '<p class="description">' . esc_html__( 'Half-day and hourly options depend on leave type settings.', 'sfs-hr' ) . '</p>';
+    echo '</td>';
+    echo '</tr>';
+
+    // Half-day period (AM/PM) — hidden by default
+    echo '<tr id="sfs-hr-half-day-row" style="display:none;">';
+    echo '<th scope="row"><label>' . esc_html__( 'Period', 'sfs-hr' ) . '</label></th>';
+    echo '<td>';
+    echo '<select name="half_day_period">';
+    echo '<option value="AM">' . esc_html__( 'Morning (AM)', 'sfs-hr' ) . '</option>';
+    echo '<option value="PM">' . esc_html__( 'Afternoon (PM)', 'sfs-hr' ) . '</option>';
+    echo '</select>';
+    echo '</td>';
+    echo '</tr>';
+
+    // Hours — hidden by default
+    echo '<tr id="sfs-hr-hours-row" style="display:none;">';
+    echo '<th scope="row"><label>' . esc_html__( 'Hours', 'sfs-hr' ) . '</label></th>';
+    echo '<td>';
+    echo '<input type="number" name="hours" min="0.5" max="24" step="0.5" value="1" style="width:100px" />';
+    echo '</td>';
+    echo '</tr>';
+
     // Reason
     echo '<tr>';
     echo '<th scope="row"><label for="sfs-hr-leave-reason">' . esc_html__( 'Reason / note', 'sfs-hr' ) . '</label></th>';
@@ -6890,6 +6987,15 @@ private function render_self_request_form( \stdClass $employee ): void {
     echo '</tr>';
 
     echo '</tbody></table>';
+
+    // JS to toggle half-day / hourly fields
+    echo '<script>
+    function sfsHrToggleLeaveMode() {
+        var mode = document.getElementById("sfs-hr-leave-mode").value;
+        document.getElementById("sfs-hr-half-day-row").style.display = (mode === "half_day") ? "" : "none";
+        document.getElementById("sfs-hr-hours-row").style.display = (mode === "hourly") ? "" : "none";
+    }
+    </script>';
 
     submit_button( __( 'Submit leave request', 'sfs-hr' ) );
 
@@ -6976,7 +7082,8 @@ public function handle_self_request(): void {
     $type_row = $wpdb->get_row(
         $wpdb->prepare(
             "SELECT special_code, gender_required, requires_attachment, skip_managers_gm,
-                allow_half_day, allow_hourly, hours_per_day
+                allow_half_day, allow_hourly, hours_per_day,
+                max_days_per_request, once_per_employment, min_tenure_months
          FROM {$type_table} WHERE id = %d AND active = 1",
             $type_id
         )
@@ -7018,6 +7125,50 @@ public function handle_self_request(): void {
         // Hourly: single date, fractional days
         $end  = $start;
         $days = round( $hours / $hours_per_day, 2 );
+    }
+
+    // M2: Enforce max_days_per_request
+    $max_days = (int) ( $type_row->max_days_per_request ?? 0 );
+    if ( $max_days > 0 && $days > $max_days ) {
+        $wpdb->query( 'ROLLBACK' );
+        $this->redirect_back_with_msg( 'leave_err', 'exceeds_max_days' );
+    }
+
+    // M2: Enforce once_per_employment
+    if ( ! empty( $type_row->once_per_employment ) ) {
+        $already_taken = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$req_table}
+                 WHERE employee_id = %d AND type_id = %d AND status IN ('pending','approved')
+                 LIMIT 1",
+                $employee_id,
+                $type_id
+            )
+        );
+        if ( $already_taken > 0 ) {
+            $wpdb->query( 'ROLLBACK' );
+            $this->redirect_back_with_msg( 'leave_err', 'once_per_employment' );
+        }
+    }
+
+    // M2: Enforce min_tenure_months
+    $min_tenure = (int) ( $type_row->min_tenure_months ?? 0 );
+    if ( $min_tenure > 0 ) {
+        $hire_date = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COALESCE(hire_date, hired_at) FROM {$emp_table} WHERE id = %d",
+                $employee_id
+            )
+        );
+        if ( $hire_date ) {
+            $hire_ts   = strtotime( $hire_date );
+            $now_ts    = current_time( 'timestamp' );
+            $months    = ( $now_ts - $hire_ts ) / ( 30.4375 * DAY_IN_SECONDS );
+            if ( $months < $min_tenure ) {
+                $wpdb->query( 'ROLLBACK' );
+                $this->redirect_back_with_msg( 'leave_err', 'min_tenure_not_met' );
+            }
+        }
     }
 
     // Validate gender restriction

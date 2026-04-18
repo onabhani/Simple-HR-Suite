@@ -259,7 +259,7 @@ class CompensatoryService {
         $where_sql = $where ? 'WHERE ' . implode( ' AND ', $where ) : '';
 
         $sql = "SELECT c.*,
-                       e.full_name  AS employee_name,
+                       CONCAT(e.first_name, ' ', COALESCE(e.last_name, '')) AS employee_name,
                        e.employee_code
                 FROM {$wpdb->prefix}sfs_hr_leave_compensatory c
                 LEFT JOIN {$wpdb->prefix}sfs_hr_employees e ON e.id = c.employee_id
@@ -302,7 +302,7 @@ class CompensatoryService {
 
         $rows = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT id, employee_id, days_earned
+                "SELECT id, employee_id, days_earned, expiry_date, work_date
                  FROM {$wpdb->prefix}sfs_hr_leave_compensatory
                  WHERE status = 'approved'
                    AND credited = 1
@@ -317,14 +317,16 @@ class CompensatoryService {
             return;
         }
 
-        $year = (int) gmdate( 'Y' );
-
         foreach ( $rows as $row ) {
             $employee_id = (int) $row['employee_id'];
             $days_earned = (int) $row['days_earned'];
 
+            // Derive the year the credit was applied: use work_date year
+            // (the credit is for the year the employee worked the extra day).
+            $credited_year = (int) gmdate( 'Y', strtotime( $row['work_date'] ) );
+
             // Debit the balance (floor at 0)
-            self::debit_balance( $employee_id, $type_id, $days_earned, $year );
+            self::debit_balance( $employee_id, $type_id, $days_earned, $credited_year );
 
             // Mark row as expired
             $wpdb->update(
@@ -368,7 +370,7 @@ class CompensatoryService {
      * Find or create a leave balance row for the given employee/type/year and
      * increment `accrued` by $days, then recalculate `closing`.
      *
-     * closing = accrued + opening - used
+     * closing = max(0, opening + accrued + carried_over - used - encashed - expired_days)
      *
      * @param int $employee_id
      * @param int $type_id
@@ -383,7 +385,7 @@ class CompensatoryService {
         $balance = $wpdb->get_row(
             $wpdb->prepare(
                 "SELECT * FROM {$wpdb->prefix}sfs_hr_leave_balances
-                 WHERE employee_id = %d AND leave_type_id = %d AND year = %d
+                 WHERE employee_id = %d AND type_id = %d AND year = %d
                  LIMIT 1",
                 $employee_id,
                 $type_id,
@@ -393,10 +395,13 @@ class CompensatoryService {
         );
 
         if ( $balance ) {
-            $new_accrued = (int) $balance['accrued'] + $days;
-            $opening     = (int) ( $balance['opening'] ?? 0 );
-            $used        = (int) ( $balance['used'] ?? 0 );
-            $closing     = $new_accrued + $opening - $used;
+            $new_accrued  = (int) $balance['accrued'] + $days;
+            $opening      = (int) ( $balance['opening'] ?? 0 );
+            $carried_over = (int) ( $balance['carried_over'] ?? 0 );
+            $used         = (int) ( $balance['used'] ?? 0 );
+            $encashed     = (int) ( $balance['encashed'] ?? 0 );
+            $expired_days = (int) ( $balance['expired_days'] ?? 0 );
+            $closing      = max( 0, $opening + $new_accrued + $carried_over - $used - $encashed - $expired_days );
 
             $updated = $wpdb->update(
                 "{$wpdb->prefix}sfs_hr_leave_balances",
@@ -405,9 +410,9 @@ class CompensatoryService {
                     'closing' => $closing,
                 ],
                 [
-                    'employee_id'   => $employee_id,
-                    'leave_type_id' => $type_id,
-                    'year'          => $year,
+                    'employee_id' => $employee_id,
+                    'type_id'     => $type_id,
+                    'year'        => $year,
                 ],
                 [ '%d', '%d' ],
                 [ '%d', '%d', '%d' ]
@@ -421,13 +426,13 @@ class CompensatoryService {
             $inserted = $wpdb->insert(
                 "{$wpdb->prefix}sfs_hr_leave_balances",
                 [
-                    'employee_id'   => $employee_id,
-                    'leave_type_id' => $type_id,
-                    'year'          => $year,
-                    'opening'       => 0,
-                    'accrued'       => $days,
-                    'used'          => 0,
-                    'closing'       => $days,
+                    'employee_id' => $employee_id,
+                    'type_id'     => $type_id,
+                    'year'        => $year,
+                    'opening'     => 0,
+                    'accrued'     => $days,
+                    'used'        => 0,
+                    'closing'     => $days,
                 ],
                 [ '%d', '%d', '%d', '%d', '%d', '%d', '%d' ]
             );
@@ -455,7 +460,7 @@ class CompensatoryService {
         $balance = $wpdb->get_row(
             $wpdb->prepare(
                 "SELECT * FROM {$wpdb->prefix}sfs_hr_leave_balances
-                 WHERE employee_id = %d AND leave_type_id = %d AND year = %d
+                 WHERE employee_id = %d AND type_id = %d AND year = %d
                  LIMIT 1",
                 $employee_id,
                 $type_id,
@@ -468,10 +473,13 @@ class CompensatoryService {
             return; // Nothing to debit
         }
 
-        $new_accrued = max( 0, (int) $balance['accrued'] - $days );
-        $opening     = (int) ( $balance['opening'] ?? 0 );
-        $used        = (int) ( $balance['used'] ?? 0 );
-        $closing     = max( 0, $new_accrued + $opening - $used );
+        $new_accrued  = max( 0, (int) $balance['accrued'] - $days );
+        $opening      = (int) ( $balance['opening'] ?? 0 );
+        $carried_over = (int) ( $balance['carried_over'] ?? 0 );
+        $used         = (int) ( $balance['used'] ?? 0 );
+        $encashed     = (int) ( $balance['encashed'] ?? 0 );
+        $expired_days = (int) ( $balance['expired_days'] ?? 0 );
+        $closing      = max( 0, $opening + $new_accrued + $carried_over - $used - $encashed - $expired_days );
 
         $wpdb->update(
             "{$wpdb->prefix}sfs_hr_leave_balances",
@@ -481,7 +489,7 @@ class CompensatoryService {
             ],
             [
                 'employee_id'   => $employee_id,
-                'leave_type_id' => $type_id,
+                'type_id' => $type_id,
                 'year'          => $year,
             ],
             [ '%d', '%d' ],

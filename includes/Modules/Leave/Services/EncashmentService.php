@@ -198,61 +198,61 @@ class EncashmentService {
             ];
         }
 
-        $now = current_time( 'mysql', true );
+        // Re-check encashable balance and clamp days to prevent TOCTOU issues
+        $encashable   = self::get_encashable( (int) $row->employee_id, (int) $row->type_id, (int) $row->year );
+        $allowed_days = min( (int) $row->days, $encashable );
 
-        $updated = $wpdb->update(
-            $wpdb->prefix . 'sfs_hr_leave_encashment',
-            [
-                'status'        => 'approved',
-                'approver_id'   => $approver_id,
-                'approver_note' => $note,
-                'decided_at'    => $now,
-                'updated_at'    => $now,
-            ],
-            [ 'id' => $encashment_id ],
-            [ '%s', '%d', '%s', '%s', '%s' ],
-            [ '%d' ]
-        );
-
-        if ( $updated === false ) {
+        if ( $allowed_days <= 0 ) {
             return [
                 'success' => false,
-                'error'   => __( 'Failed to approve encashment request.', 'sfs-hr' ),
+                'error'   => __( 'Insufficient encashable balance. The balance may have changed since the request was created.', 'sfs-hr' ),
             ];
         }
 
-        // Update leave balance: increment encashed, recalculate closing.
-        $balance = $wpdb->get_row(
+        $now = current_time( 'mysql', true );
+
+        // Atomic conditional update: only transition if still pending
+        $affected = $wpdb->query(
             $wpdb->prepare(
-                "SELECT id, opening, accrued, carried_over, used, encashed, expired_days
-                 FROM {$wpdb->prefix}sfs_hr_leave_balances
-                 WHERE employee_id = %d AND type_id = %d AND year = %d LIMIT 1",
+                "UPDATE {$wpdb->prefix}sfs_hr_leave_encashment
+                 SET status = 'approved', days = %d, amount = %f,
+                     approver_id = %d, approver_note = %s,
+                     decided_at = %s, updated_at = %s
+                 WHERE id = %d AND status = 'pending'",
+                $allowed_days,
+                $allowed_days * (float) $row->daily_rate,
+                $approver_id,
+                $note,
+                $now,
+                $now,
+                $encashment_id
+            )
+        );
+
+        if ( ! $affected ) {
+            return [
+                'success' => false,
+                'error'   => __( 'Failed to approve — request may have already been processed.', 'sfs-hr' ),
+            ];
+        }
+
+        // Atomic balance update: increment encashed and clamp closing in a single query
+        $bal_table = $wpdb->prefix . 'sfs_hr_leave_balances';
+        $wpdb->query(
+            $wpdb->prepare(
+                "UPDATE {$bal_table}
+                 SET encashed = encashed + %d,
+                     closing  = GREATEST( opening + accrued + carried_over - used - (encashed + %d) - expired_days, 0 ),
+                     updated_at = %s
+                 WHERE employee_id = %d AND type_id = %d AND year = %d",
+                $allowed_days,
+                $allowed_days,
+                $now,
                 (int) $row->employee_id,
                 (int) $row->type_id,
                 (int) $row->year
             )
         );
-
-        if ( $balance ) {
-            $new_encashed = (int) $balance->encashed + (int) $row->days;
-            $new_closing  = (int) $balance->opening
-                + (int) $balance->accrued
-                + (int) $balance->carried_over
-                - (int) $balance->used
-                - $new_encashed
-                - (int) $balance->expired_days;
-
-            $wpdb->update(
-                $wpdb->prefix . 'sfs_hr_leave_balances',
-                [
-                    'encashed' => $new_encashed,
-                    'closing'  => $new_closing,
-                ],
-                [ 'id' => (int) $balance->id ],
-                [ '%d', '%d' ],
-                [ '%d' ]
-            );
-        }
 
         return [ 'success' => true ];
     }
