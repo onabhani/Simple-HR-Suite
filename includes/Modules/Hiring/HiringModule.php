@@ -31,10 +31,27 @@ class HiringModule {
     }
 
     public function hooks(): void {
+        // M3 Services
+        require_once __DIR__ . '/Services/RequisitionService.php';
+        require_once __DIR__ . '/Services/JobPostingService.php';
+        require_once __DIR__ . '/Services/InterviewService.php';
+        require_once __DIR__ . '/Services/OfferService.php';
+        require_once __DIR__ . '/Services/OnboardingService.php';
+
         // Admin pages – Hiring has its own submenu under HR → Employees
         require_once __DIR__ . '/Admin/class-admin-pages.php';
         Admin\AdminPages::instance()->hooks();
         add_action('admin_menu', [$this, 'register_menu'], 12);
+
+        // Public job application endpoint (no-priv = guest accessible)
+        add_action('admin_post_nopriv_sfs_hr_apply_job', [$this, 'handle_public_application']);
+        add_action('admin_post_sfs_hr_apply_job', [$this, 'handle_public_application']);
+
+        // Cron: expire stale offers daily
+        add_action('sfs_hr_daily', [$this, 'cron_expire_offers']);
+
+        // Public job listing shortcode
+        add_shortcode('sfs_hr_jobs', [$this, 'render_jobs_shortcode']);
     }
 
     /**
@@ -754,5 +771,150 @@ class HiringModule {
             "SELECT * FROM {$wpdb->prefix}sfs_hr_trainees WHERE user_id = %d",
             $user_id
         ));
+    }
+
+    /* ================================================================
+     *  M3 — Public job application handler
+     * ================================================================ */
+
+    /**
+     * Handle public job application form submission (guest or logged-in).
+     */
+    public function handle_public_application(): void {
+        if ( ! isset( $_POST['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ) ), 'sfs_hr_apply_job' ) ) {
+            wp_die( esc_html__( 'Security check failed.', 'sfs-hr' ) );
+        }
+
+        $posting_id = isset( $_POST['posting_id'] ) ? (int) $_POST['posting_id'] : 0;
+        if ( $posting_id <= 0 ) {
+            wp_die( esc_html__( 'Invalid job posting.', 'sfs-hr' ) );
+        }
+
+        $data = [
+            'first_name'   => isset( $_POST['first_name'] ) ? sanitize_text_field( wp_unslash( $_POST['first_name'] ) ) : '',
+            'last_name'    => isset( $_POST['last_name'] ) ? sanitize_text_field( wp_unslash( $_POST['last_name'] ) ) : '',
+            'email'        => isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '',
+            'phone'        => isset( $_POST['phone'] ) ? sanitize_text_field( wp_unslash( $_POST['phone'] ) ) : '',
+            'cover_letter' => isset( $_POST['cover_letter'] ) ? wp_kses_post( wp_unslash( $_POST['cover_letter'] ) ) : '',
+        ];
+
+        // Collect custom form data
+        if ( ! empty( $_POST['form_data'] ) && is_array( $_POST['form_data'] ) ) {
+            $form_data = [];
+            foreach ( $_POST['form_data'] as $key => $val ) {
+                $form_data[ sanitize_key( $key ) ] = sanitize_text_field( wp_unslash( $val ) );
+            }
+            $data['form_data'] = wp_json_encode( $form_data );
+        }
+
+        $app_id = Services\JobPostingService::submit_application( $posting_id, $data );
+
+        $redirect = wp_get_referer() ?: home_url();
+        if ( $app_id ) {
+            $redirect = add_query_arg( 'applied', '1', $redirect );
+        } else {
+            $redirect = add_query_arg( 'apply_err', '1', $redirect );
+        }
+        wp_safe_redirect( $redirect );
+        exit;
+    }
+
+    /**
+     * Cron: expire sent offers past their expiry date.
+     */
+    public function cron_expire_offers(): void {
+        Services\OfferService::expire_offers();
+    }
+
+    /**
+     * [sfs_hr_jobs] shortcode — render public job listings.
+     */
+    public function render_jobs_shortcode( $atts ): string {
+        $atts = shortcode_atts( [ 'dept' => '' ], $atts, 'sfs_hr_jobs' );
+
+        $postings = Services\JobPostingService::get_public_listings();
+        if ( empty( $postings ) ) {
+            return '<p>' . esc_html__( 'No open positions at this time.', 'sfs-hr' ) . '</p>';
+        }
+
+        ob_start();
+        echo '<div class="sfs-hr-job-listings">';
+        foreach ( $postings as $p ) {
+            $apply_url = add_query_arg( [
+                'sfs_hr_job' => $p->slug,
+            ], get_permalink() );
+            ?>
+            <div class="sfs-hr-job-card" style="border:1px solid #ddd;border-radius:8px;padding:20px;margin-bottom:16px;">
+                <h3 style="margin-top:0;"><?php echo esc_html( $p->title ); ?></h3>
+                <?php if ( ! empty( $p->title_ar ) ) : ?>
+                    <h4 style="margin-top:0;color:#666;"><?php echo esc_html( $p->title_ar ); ?></h4>
+                <?php endif; ?>
+                <div style="color:#666;margin-bottom:10px;">
+                    <?php if ( ! empty( $p->location ) ) : ?>
+                        <span><?php echo esc_html( $p->location ); ?></span> &middot;
+                    <?php endif; ?>
+                    <?php if ( ! empty( $p->employment_type ) ) : ?>
+                        <span><?php echo esc_html( ucwords( str_replace( '_', ' ', $p->employment_type ) ) ); ?></span>
+                    <?php endif; ?>
+                    <?php if ( ! empty( $p->closes_at ) ) : ?>
+                         &middot; <span><?php printf( esc_html__( 'Closes: %s', 'sfs-hr' ), esc_html( $p->closes_at ) ); ?></span>
+                    <?php endif; ?>
+                </div>
+                <?php if ( ! empty( $p->description ) ) : ?>
+                    <div style="margin-bottom:10px;"><?php echo wp_kses_post( wp_trim_words( $p->description, 50 ) ); ?></div>
+                <?php endif; ?>
+                <?php if ( ! empty( $p->salary_range ) ) : ?>
+                    <p><strong><?php esc_html_e( 'Salary Range:', 'sfs-hr' ); ?></strong> <?php echo esc_html( $p->salary_range ); ?></p>
+                <?php endif; ?>
+
+                <?php if ( isset( $_GET['sfs_hr_job'] ) && sanitize_title( wp_unslash( $_GET['sfs_hr_job'] ) ) === $p->slug ) : ?>
+                    <!-- Application Form -->
+                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data" style="margin-top:15px;padding:15px;background:#f9f9f9;border-radius:6px;">
+                        <?php wp_nonce_field( 'sfs_hr_apply_job' ); ?>
+                        <input type="hidden" name="action" value="sfs_hr_apply_job">
+                        <input type="hidden" name="posting_id" value="<?php echo (int) $p->id; ?>">
+                        <p>
+                            <label><?php esc_html_e( 'First Name *', 'sfs-hr' ); ?></label><br>
+                            <input type="text" name="first_name" required style="width:100%;max-width:400px;">
+                        </p>
+                        <p>
+                            <label><?php esc_html_e( 'Last Name', 'sfs-hr' ); ?></label><br>
+                            <input type="text" name="last_name" style="width:100%;max-width:400px;">
+                        </p>
+                        <p>
+                            <label><?php esc_html_e( 'Email *', 'sfs-hr' ); ?></label><br>
+                            <input type="email" name="email" required style="width:100%;max-width:400px;">
+                        </p>
+                        <p>
+                            <label><?php esc_html_e( 'Phone', 'sfs-hr' ); ?></label><br>
+                            <input type="tel" name="phone" style="width:100%;max-width:400px;">
+                        </p>
+                        <p>
+                            <label><?php esc_html_e( 'Resume', 'sfs-hr' ); ?></label><br>
+                            <input type="file" name="resume" accept=".pdf,.doc,.docx">
+                        </p>
+                        <p>
+                            <label><?php esc_html_e( 'Cover Letter', 'sfs-hr' ); ?></label><br>
+                            <textarea name="cover_letter" rows="4" style="width:100%;max-width:400px;"></textarea>
+                        </p>
+                        <p>
+                            <button type="submit" class="button button-primary"><?php esc_html_e( 'Submit Application', 'sfs-hr' ); ?></button>
+                        </p>
+                    </form>
+                <?php else : ?>
+                    <a href="<?php echo esc_url( $apply_url ); ?>" class="button"><?php esc_html_e( 'Apply Now', 'sfs-hr' ); ?></a>
+                <?php endif; ?>
+            </div>
+            <?php
+        }
+        echo '</div>';
+
+        if ( isset( $_GET['applied'] ) ) {
+            echo '<div class="sfs-hr-notice" style="background:#d4edda;border:1px solid #c3e6cb;padding:12px;border-radius:6px;margin-bottom:16px;">';
+            echo esc_html__( 'Your application has been submitted successfully! You will receive a confirmation email shortly.', 'sfs-hr' );
+            echo '</div>';
+        }
+
+        return ob_get_clean();
     }
 }

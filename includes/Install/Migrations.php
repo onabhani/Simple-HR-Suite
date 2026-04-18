@@ -643,6 +643,302 @@ class Migrations {
 
         /** Recalculate balances for current year (non-destructive) */
         self::recalc_all_current_year();
+
+        /* ================================================================
+         *  M3 — RECRUITMENT & ONBOARDING TABLES
+         * ================================================================ */
+
+        /** JOB REQUISITIONS */
+        $requisitions = $wpdb->prefix . 'sfs_hr_requisitions';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$requisitions` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `request_number` VARCHAR(50) NULL,
+            `title` VARCHAR(191) NOT NULL,
+            `dept_id` BIGINT(20) UNSIGNED NULL,
+            `grade` VARCHAR(50) NULL,
+            `salary_min` DECIMAL(12,2) NULL,
+            `salary_mid` DECIMAL(12,2) NULL,
+            `salary_max` DECIMAL(12,2) NULL,
+            `headcount` INT UNSIGNED NOT NULL DEFAULT 1,
+            `filled` INT UNSIGNED NOT NULL DEFAULT 0,
+            `requirements` LONGTEXT NULL,
+            `justification` TEXT NULL,
+            `status` VARCHAR(30) NOT NULL DEFAULT 'draft',
+            `requested_by` BIGINT(20) UNSIGNED NULL,
+            `hr_reviewer_id` BIGINT(20) UNSIGNED NULL,
+            `hr_reviewed_at` DATETIME NULL,
+            `hr_notes` TEXT NULL,
+            `gm_approver_id` BIGINT(20) UNSIGNED NULL,
+            `gm_approved_at` DATETIME NULL,
+            `gm_notes` TEXT NULL,
+            `approval_chain` LONGTEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uq_req_number` (`request_number`),
+            KEY `idx_status` (`status`),
+            KEY `idx_dept` (`dept_id`)
+        ) $charset;");
+
+        /** JOB POSTINGS */
+        $job_postings = $wpdb->prefix . 'sfs_hr_job_postings';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$job_postings` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `requisition_id` BIGINT(20) UNSIGNED NULL,
+            `title` VARCHAR(191) NOT NULL,
+            `title_ar` VARCHAR(191) NULL,
+            `description` LONGTEXT NULL,
+            `description_ar` LONGTEXT NULL,
+            `dept_id` BIGINT(20) UNSIGNED NULL,
+            `location` VARCHAR(191) NULL,
+            `employment_type` VARCHAR(30) NULL DEFAULT 'full_time',
+            `salary_range` VARCHAR(100) NULL,
+            `channel` VARCHAR(30) NOT NULL DEFAULT 'both',
+            `form_fields` LONGTEXT NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'draft',
+            `slug` VARCHAR(191) NULL,
+            `published_at` DATETIME NULL,
+            `closes_at` DATE NULL,
+            `created_by` BIGINT(20) UNSIGNED NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uq_slug` (`slug`),
+            KEY `idx_requisition` (`requisition_id`),
+            KEY `idx_status` (`status`)
+        ) $charset;");
+
+        /** JOB APPLICATIONS (public applicants) */
+        $job_applications = $wpdb->prefix . 'sfs_hr_job_applications';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$job_applications` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `posting_id` BIGINT(20) UNSIGNED NOT NULL,
+            `candidate_id` BIGINT(20) UNSIGNED NULL,
+            `first_name` VARCHAR(191) NOT NULL,
+            `last_name` VARCHAR(191) NULL,
+            `email` VARCHAR(191) NOT NULL,
+            `phone` VARCHAR(64) NULL,
+            `resume_url` VARCHAR(500) NULL,
+            `cover_letter` TEXT NULL,
+            `form_data` LONGTEXT NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'received',
+            `acknowledged_at` DATETIME NULL,
+            `created_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `idx_posting` (`posting_id`),
+            KEY `idx_candidate` (`candidate_id`),
+            KEY `idx_email` (`email`)
+        ) $charset;");
+
+        /** INTERVIEWS */
+        $interviews = $wpdb->prefix . 'sfs_hr_interviews';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$interviews` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `candidate_id` BIGINT(20) UNSIGNED NOT NULL,
+            `posting_id` BIGINT(20) UNSIGNED NULL,
+            `stage` VARCHAR(50) NOT NULL DEFAULT 'screening',
+            `scheduled_at` DATETIME NULL,
+            `duration_minutes` INT UNSIGNED NULL DEFAULT 60,
+            `location` VARCHAR(255) NULL,
+            `meeting_link` VARCHAR(500) NULL,
+            `interviewer_id` BIGINT(20) UNSIGNED NULL,
+            `panel_ids` TEXT NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'scheduled',
+            `notes` TEXT NULL,
+            `created_by` BIGINT(20) UNSIGNED NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `idx_candidate` (`candidate_id`),
+            KEY `idx_interviewer` (`interviewer_id`),
+            KEY `idx_status` (`status`)
+        ) $charset;");
+
+        /** INTERVIEW SCORECARDS */
+        $scorecards = $wpdb->prefix . 'sfs_hr_interview_scorecards';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$scorecards` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `interview_id` BIGINT(20) UNSIGNED NOT NULL,
+            `interviewer_id` BIGINT(20) UNSIGNED NOT NULL,
+            `criteria` LONGTEXT NULL,
+            `total_score` DECIMAL(5,2) NULL,
+            `recommendation` VARCHAR(30) NULL,
+            `comments` TEXT NULL,
+            `submitted_at` DATETIME NULL,
+            `created_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `idx_interview` (`interview_id`),
+            KEY `idx_interviewer` (`interviewer_id`)
+        ) $charset;");
+
+        /** CANDIDATE COMMUNICATION LOG */
+        $comm_log = $wpdb->prefix . 'sfs_hr_candidate_comm_log';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$comm_log` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `candidate_id` BIGINT(20) UNSIGNED NOT NULL,
+            `channel` VARCHAR(20) NOT NULL DEFAULT 'note',
+            `direction` VARCHAR(10) NOT NULL DEFAULT 'outbound',
+            `subject` VARCHAR(255) NULL,
+            `body` LONGTEXT NULL,
+            `logged_by` BIGINT(20) UNSIGNED NULL,
+            `created_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `idx_candidate` (`candidate_id`)
+        ) $charset;");
+
+        /** REFERENCE CHECKS */
+        $ref_checks = $wpdb->prefix . 'sfs_hr_reference_checks';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$ref_checks` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `candidate_id` BIGINT(20) UNSIGNED NOT NULL,
+            `referee_name` VARCHAR(191) NOT NULL,
+            `referee_title` VARCHAR(191) NULL,
+            `referee_company` VARCHAR(191) NULL,
+            `referee_phone` VARCHAR(64) NULL,
+            `referee_email` VARCHAR(191) NULL,
+            `relationship` VARCHAR(100) NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `notes` TEXT NULL,
+            `checked_by` BIGINT(20) UNSIGNED NULL,
+            `checked_at` DATETIME NULL,
+            `created_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `idx_candidate` (`candidate_id`)
+        ) $charset;");
+
+        /** OFFERS */
+        $offers = $wpdb->prefix . 'sfs_hr_offers';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$offers` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `request_number` VARCHAR(50) NULL,
+            `candidate_id` BIGINT(20) UNSIGNED NOT NULL,
+            `posting_id` BIGINT(20) UNSIGNED NULL,
+            `position` VARCHAR(191) NULL,
+            `dept_id` BIGINT(20) UNSIGNED NULL,
+            `salary` DECIMAL(12,2) NULL,
+            `housing_allowance` DECIMAL(12,2) NULL,
+            `transport_allowance` DECIMAL(12,2) NULL,
+            `other_allowances` DECIMAL(12,2) NULL,
+            `start_date` DATE NULL,
+            `probation_months` INT UNSIGNED NOT NULL DEFAULT 3,
+            `benefits` TEXT NULL,
+            `template_id` BIGINT(20) UNSIGNED NULL,
+            `letter_html` LONGTEXT NULL,
+            `status` VARCHAR(30) NOT NULL DEFAULT 'draft',
+            `expires_at` DATE NULL,
+            `hr_drafter_id` BIGINT(20) UNSIGNED NULL,
+            `manager_reviewer_id` BIGINT(20) UNSIGNED NULL,
+            `manager_reviewed_at` DATETIME NULL,
+            `manager_notes` TEXT NULL,
+            `finance_approver_id` BIGINT(20) UNSIGNED NULL,
+            `finance_approved_at` DATETIME NULL,
+            `finance_notes` TEXT NULL,
+            `sent_at` DATETIME NULL,
+            `responded_at` DATETIME NULL,
+            `approval_chain` LONGTEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uq_offer_number` (`request_number`),
+            KEY `idx_candidate` (`candidate_id`),
+            KEY `idx_status` (`status`)
+        ) $charset;");
+
+        /** OFFER TEMPLATES */
+        $offer_templates = $wpdb->prefix . 'sfs_hr_offer_templates';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$offer_templates` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `name` VARCHAR(191) NOT NULL,
+            `language` VARCHAR(5) NOT NULL DEFAULT 'ar',
+            `body_html` LONGTEXT NOT NULL,
+            `merge_fields` TEXT NULL,
+            `active` TINYINT(1) NOT NULL DEFAULT 1,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`)
+        ) $charset;");
+
+        /** ONBOARDING CHECKLIST TEMPLATES */
+        $onboard_templates = $wpdb->prefix . 'sfs_hr_onboarding_templates';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$onboard_templates` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `name` VARCHAR(191) NOT NULL,
+            `dept_id` BIGINT(20) UNSIGNED NULL,
+            `position_match` VARCHAR(191) NULL,
+            `active` TINYINT(1) NOT NULL DEFAULT 1,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `idx_dept` (`dept_id`)
+        ) $charset;");
+
+        /** ONBOARDING TEMPLATE ITEMS */
+        $onboard_items = $wpdb->prefix . 'sfs_hr_onboarding_template_items';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$onboard_items` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `template_id` BIGINT(20) UNSIGNED NOT NULL,
+            `title` VARCHAR(191) NOT NULL,
+            `description` TEXT NULL,
+            `task_type` VARCHAR(30) NOT NULL DEFAULT 'general',
+            `assigned_role` VARCHAR(50) NULL,
+            `due_days` INT UNSIGNED NOT NULL DEFAULT 7,
+            `sort_order` INT UNSIGNED NOT NULL DEFAULT 0,
+            `created_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `idx_template` (`template_id`)
+        ) $charset;");
+
+        /** ONBOARDING INSTANCES (per employee) */
+        $onboard_instances = $wpdb->prefix . 'sfs_hr_onboarding';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$onboard_instances` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `employee_id` BIGINT(20) UNSIGNED NOT NULL,
+            `template_id` BIGINT(20) UNSIGNED NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'active',
+            `started_at` DATE NOT NULL,
+            `completed_at` DATE NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `idx_employee` (`employee_id`),
+            KEY `idx_status` (`status`)
+        ) $charset;");
+
+        /** ONBOARDING TASKS (per employee) */
+        $onboard_tasks = $wpdb->prefix . 'sfs_hr_onboarding_tasks';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$onboard_tasks` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `onboarding_id` BIGINT(20) UNSIGNED NOT NULL,
+            `template_item_id` BIGINT(20) UNSIGNED NULL,
+            `title` VARCHAR(191) NOT NULL,
+            `description` TEXT NULL,
+            `task_type` VARCHAR(30) NOT NULL DEFAULT 'general',
+            `assigned_to` BIGINT(20) UNSIGNED NULL,
+            `due_date` DATE NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `completed_by` BIGINT(20) UNSIGNED NULL,
+            `completed_at` DATETIME NULL,
+            `notes` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `idx_onboarding` (`onboarding_id`),
+            KEY `idx_assigned` (`assigned_to`),
+            KEY `idx_status` (`status`)
+        ) $charset;");
+
+        /** CANDIDATES — add M3 columns for enhanced tracking */
+        $candidates = $wpdb->prefix . 'sfs_hr_candidates';
+        $cand_exists_m3 = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $candidates ) );
+        if ( $cand_exists_m3 ) {
+            self::add_column_if_missing( $candidates, 'posting_id',        "BIGINT(20) UNSIGNED NULL" );
+            self::add_column_if_missing( $candidates, 'requisition_id',    "BIGINT(20) UNSIGNED NULL" );
+            self::add_column_if_missing( $candidates, 'current_stage',     "VARCHAR(50) NULL DEFAULT 'applied'" );
+            self::add_column_if_missing( $candidates, 'overall_score',     "DECIMAL(5,2) NULL" );
+            self::add_column_if_missing( $candidates, 'background_status', "VARCHAR(20) NULL DEFAULT 'not_started'" );
+            self::add_column_if_missing( $candidates, 'background_notes',  "TEXT NULL" );
+            self::add_column_if_missing( $candidates, 'source_channel',    "VARCHAR(50) NULL" );
+        }
     }
 
     private static function add_column_if_missing(string $table, string $column, string $definition): void {
