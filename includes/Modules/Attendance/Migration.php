@@ -143,6 +143,27 @@ class Migration {
             KEY work_date (work_date)
         ) $charset_collate;");
 
+        // Migration: Make shift_id nullable in shift_assign to support off-day rows (shift_id = NULL).
+        // Must drop FK first, modify column, then re-add FK with ON DELETE SET NULL.
+        $assign_tbl = "{$p}sfs_hr_attendance_shift_assign";
+        $col_info   = $wpdb->get_row( $wpdb->prepare( "SHOW COLUMNS FROM {$assign_tbl} LIKE %s", 'shift_id' ) );
+        if ( $col_info && 'NO' === strtoupper( $col_info->Null ?? '' ) ) {
+            // Drop FK if it exists.
+            $fk_exists = $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS
+                     WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND CONSTRAINT_NAME = %s AND CONSTRAINT_TYPE = 'FOREIGN KEY'",
+                    DB_NAME,
+                    $assign_tbl,
+                    'fk_shift_assign_shift'
+                )
+            );
+            if ( $fk_exists ) {
+                $wpdb->query( "ALTER TABLE {$assign_tbl} DROP FOREIGN KEY fk_shift_assign_shift" );
+            }
+            $wpdb->query( "ALTER TABLE {$assign_tbl} MODIFY COLUMN shift_id BIGINT UNSIGNED NULL" );
+        }
+
         // 5) employee default shifts (history)
         dbDelta("CREATE TABLE {$p}sfs_hr_attendance_emp_shifts (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -283,8 +304,75 @@ class Migration {
             KEY session_id (session_id)
         ) $charset_collate;");
 
-        // Add early_leave_approved column to sessions if missing
+        // ── M5.1: UTC Timestamp Normalization ────────────────────────────────
+        // Add punch_time_utc and tz_offset to punches table
+        $this->add_column_if_missing($wpdb, $punchesT, 'punch_time_utc', "punch_time_utc DATETIME NULL AFTER punch_time");
+        $this->add_column_if_missing($wpdb, $punchesT, 'tz_offset', "tz_offset VARCHAR(6) NULL AFTER punch_time_utc");
+
+        // Add UTC columns to sessions table
         $sessions_table = "{$p}sfs_hr_attendance_sessions";
+        $this->add_column_if_missing($wpdb, $sessions_table, 'in_time_utc', "in_time_utc DATETIME NULL AFTER out_time");
+        $this->add_column_if_missing($wpdb, $sessions_table, 'out_time_utc', "out_time_utc DATETIME NULL AFTER in_time_utc");
+        $this->add_column_if_missing($wpdb, $sessions_table, 'tz_offset', "tz_offset VARCHAR(6) NULL AFTER out_time_utc");
+
+        // ── M5.2: Shift Templates (roster patterns) ─────────────────────────
+        dbDelta("CREATE TABLE {$p}sfs_hr_attendance_shift_templates (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            name VARCHAR(100) NOT NULL,
+            pattern_type ENUM('fixed','rotating','custom') NOT NULL DEFAULT 'fixed',
+            pattern_json LONGTEXT NOT NULL,
+            cycle_days SMALLINT UNSIGNED NOT NULL DEFAULT 7,
+            min_rest_hours TINYINT UNSIGNED NOT NULL DEFAULT 8,
+            description TEXT NULL,
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            KEY is_active (is_active)
+        ) $charset_collate;");
+
+        // ── M5.2: Shift Bids ────────────────────────────────────────────────
+        dbDelta("CREATE TABLE {$p}sfs_hr_attendance_shift_bids (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            employee_id BIGINT UNSIGNED NOT NULL,
+            work_date DATE NOT NULL,
+            preferred_shift_id BIGINT UNSIGNED NOT NULL,
+            reason TEXT NULL,
+            status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+            decided_by BIGINT UNSIGNED NULL,
+            decided_at DATETIME NULL,
+            rejection_reason TEXT NULL,
+            created_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            KEY emp_date (employee_id, work_date),
+            KEY status (status),
+            KEY shift_date (preferred_shift_id, work_date)
+        ) $charset_collate;");
+
+        // ── M5.4: Biometric Devices ─────────────────────────────────────────
+        dbDelta("CREATE TABLE {$p}sfs_hr_attendance_biometric_devices (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            device_serial VARCHAR(100) NOT NULL,
+            device_type ENUM('zkteco','hikvision','generic') NOT NULL DEFAULT 'generic',
+            device_name VARCHAR(100) NULL,
+            api_key VARCHAR(64) NOT NULL,
+            location_label VARCHAR(100) NULL,
+            location_lat DECIMAL(10,7) NULL,
+            location_lng DECIMAL(10,7) NULL,
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            last_heartbeat_at DATETIME NULL,
+            last_punch_at DATETIME NULL,
+            total_punches BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            config_json LONGTEXT NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY device_serial (device_serial),
+            KEY is_active (is_active),
+            KEY device_type (device_type)
+        ) $charset_collate;");
+
+        // Add early_leave_approved column to sessions if missing
         $this->add_column_if_missing($wpdb, $sessions_table, 'early_leave_approved', "early_leave_approved TINYINT(1) NOT NULL DEFAULT 0");
         $this->add_column_if_missing($wpdb, $sessions_table, 'early_leave_request_id', "early_leave_request_id BIGINT UNSIGNED NULL");
 
