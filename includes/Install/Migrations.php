@@ -293,6 +293,96 @@ class Migrations {
         // Generate reference numbers for existing records that don't have them
         self::backfill_request_numbers();
 
+        /** M7: OFFBOARDING & EXIT INTERVIEW TABLES */
+
+        // M7.1: Garden leave columns on resignations
+        self::add_column_if_missing($resign, 'garden_leave_start', "DATE NULL");
+        self::add_column_if_missing($resign, 'garden_leave_end', "DATE NULL");
+        self::add_column_if_missing($resign, 'buyout_amount', "DECIMAL(18,2) NULL");
+        self::add_column_if_missing($resign, 'buyout_processed_at', "DATETIME NULL");
+        self::add_column_if_missing($resign, 'buyout_processed_by', "BIGINT(20) UNSIGNED NULL");
+
+        // M7.2: Offboarding templates
+        $ob_templates = $wpdb->prefix . 'sfs_hr_offboarding_templates';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$ob_templates}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `template_name` VARCHAR(100) NOT NULL,
+            `dept_id` BIGINT(20) UNSIGNED NULL,
+            `tasks_json` LONGTEXT NOT NULL,
+            `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `dept_idx` (`dept_id`),
+            KEY `active_idx` (`is_active`)
+        ) {$charset}");
+
+        // M7.2: Offboarding tasks
+        $ob_tasks = $wpdb->prefix . 'sfs_hr_offboarding_tasks';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$ob_tasks}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `resignation_id` BIGINT(20) UNSIGNED NOT NULL,
+            `employee_id` BIGINT(20) UNSIGNED NOT NULL,
+            `template_id` BIGINT(20) UNSIGNED NULL,
+            `task_title` VARCHAR(255) NOT NULL,
+            `task_type` VARCHAR(50) NOT NULL,
+            `description` TEXT NULL,
+            `assigned_to` BIGINT(20) UNSIGNED NULL,
+            `due_date` DATE NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `completed_at` DATETIME NULL,
+            `completed_by` BIGINT(20) UNSIGNED NULL,
+            `notes` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `resignation_idx` (`resignation_id`),
+            KEY `employee_idx` (`employee_id`),
+            KEY `assigned_idx` (`assigned_to`),
+            KEY `status_idx` (`status`),
+            KEY `due_date_idx` (`due_date`)
+        ) {$charset}");
+
+        // M7.3: Exit interview questions
+        $ei_questions = $wpdb->prefix . 'sfs_hr_exit_interview_questions';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$ei_questions}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `question_text` TEXT NOT NULL,
+            `question_type` VARCHAR(20) NOT NULL DEFAULT 'text',
+            `options_json` TEXT NULL,
+            `sort_order` INT NOT NULL DEFAULT 0,
+            `is_required` TINYINT(1) NOT NULL DEFAULT 1,
+            `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `active_sort` (`is_active`, `sort_order`)
+        ) {$charset}");
+
+        // M7.3: Exit interviews
+        $ei_interviews = $wpdb->prefix . 'sfs_hr_exit_interviews';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$ei_interviews}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `resignation_id` BIGINT(20) UNSIGNED NOT NULL,
+            `employee_id` BIGINT(20) UNSIGNED NOT NULL,
+            `interviewer_id` BIGINT(20) UNSIGNED NULL,
+            `interview_date` DATE NULL,
+            `exit_reason` VARCHAR(100) NULL,
+            `responses_json` LONGTEXT NULL,
+            `is_anonymous` TINYINT(1) NOT NULL DEFAULT 0,
+            `additional_comments` TEXT NULL,
+            `rehire_eligible` TINYINT(1) NULL,
+            `rehire_notes` TEXT NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `resignation_idx` (`resignation_id`),
+            KEY `employee_idx` (`employee_id`),
+            KEY `status_idx` (`status`),
+            KEY `exit_reason_idx` (`exit_reason`)
+        ) {$charset}");
+
         /** CANDIDATES – add columns for enhanced workflow */
         $candidates = $wpdb->prefix.'sfs_hr_candidates';
         $cand_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $candidates));
