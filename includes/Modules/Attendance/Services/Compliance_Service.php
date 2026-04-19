@@ -58,11 +58,11 @@ class Compliance_Service {
 
         $dept_join  = '';
         $dept_where = '';
-        $args       = [ $start_date, $end_date ];
+        $dept_args  = [];
 
         if ( $dept_id !== null ) {
             $dept_where = ' AND e.dept_id = %d';
-            $args[]     = $dept_id;
+            $dept_args[] = $dept_id;
         }
 
         // Per-day totals and per-employee aggregates in one pass.
@@ -84,12 +84,12 @@ class Compliance_Service {
                 WHERE s.work_date BETWEEN %s AND %s
                   AND e.status != 'terminated'" . $dept_where . "
                 GROUP BY s.employee_id",
-                self::MAX_DAILY_HOURS * 60, // days_over_daily_limit threshold
+                self::MAX_DAILY_HOURS * 60,
                 $end_date,
                 $start_date,
                 $start_date,
                 $end_date,
-                ...$args
+                ...$dept_args
             ),
             ARRAY_A
         );
@@ -364,11 +364,11 @@ class Compliance_Service {
         $empT  = $wpdb->prefix . 'sfs_hr_employees';
 
         $dept_where = '';
-        $args       = [ $start_date, $end_date ];
+        $dept_args  = [];
 
         if ( $dept_id !== null ) {
             $dept_where = ' AND e.dept_id = %d';
-            $args[]     = $dept_id;
+            $dept_args[] = $dept_id;
         }
 
         // Retrieve consecutive session pairs using a self-join on next calendar date.
@@ -403,7 +403,11 @@ class Compliance_Service {
                 HAVING rest_minutes IS NOT NULL
                    AND rest_minutes < %d
                 ORDER BY s1.employee_id, s1.work_date",
-                ...array_merge( $args, [ self::MIN_REST_BETWEEN_SHIFTS * 60 ] )
+                ...array_merge(
+                    [ $extended_start, $end_date ],
+                    $dept_args,
+                    [ self::MIN_REST_BETWEEN_SHIFTS * 60 ]
+                )
             ),
             ARRAY_A
         );
@@ -642,7 +646,11 @@ class Compliance_Service {
         }
 
         // Optionally update the parent session status.
+        $allowed_statuses = [ 'present', 'late', 'left_early', 'absent', 'incomplete', 'on_leave', 'holiday', 'day_off' ];
         $session_before = null;
+        if ( $new_session_status !== null && ! in_array( $new_session_status, $allowed_statuses, true ) ) {
+            return [ 'success' => false, 'message' => 'Invalid session status value.', 'flag_id' => $flag_id ];
+        }
         if ( $new_session_status !== null && ! empty( $flag->session_id ) ) {
             $session_before = $wpdb->get_row(
                 $wpdb->prepare( "SELECT * FROM {$sessT} WHERE id = %d LIMIT 1", (int) $flag->session_id )
@@ -925,14 +933,18 @@ class Compliance_Service {
             return 100.0;
         }
 
-        // Days with open (unresolved) flags — each flagged session counts as a violation day.
+        // Days with open (unresolved) flags within the scoring period.
         $flagged_session_ids = $wpdb->get_col(
             $wpdb->prepare(
-                "SELECT DISTINCT session_id FROM {$flagT}
-                 WHERE employee_id = %d
-                   AND flag_status = 'open'
-                   AND session_id IS NOT NULL",
-                $employee_id
+                "SELECT DISTINCT f.session_id FROM {$flagT} f
+                 INNER JOIN {$sessT} s ON s.id = f.session_id
+                 WHERE f.employee_id = %d
+                   AND f.flag_status = 'open'
+                   AND f.session_id IS NOT NULL
+                   AND s.work_date BETWEEN %s AND %s",
+                $employee_id,
+                $start_date,
+                $end_date
             )
         );
 

@@ -210,7 +210,12 @@ class UTC_Service {
         $server_tz  = self::get_server_tz_offset();
         $total      = 0;
 
-        while ( true ) {
+        $max_iterations = 1000; // Safety limit to prevent infinite loops.
+        $iteration      = 0;
+
+        while ( $iteration < $max_iterations ) {
+            $iteration++;
+
             $rows = $wpdb->get_results( $wpdb->prepare(
                 "SELECT id, punch_time FROM {$table}
                  WHERE punch_time_utc IS NULL
@@ -222,9 +227,21 @@ class UTC_Service {
                 break;
             }
 
+            $batch_updated = 0;
             foreach ( $rows as $row ) {
                 $utc_time = self::to_utc( $row->punch_time, $server_tz );
                 if ( '0000-00-00 00:00:00' === $utc_time ) {
+                    // Mark unfixable rows with a sentinel so they don't block progress.
+                    $wpdb->update(
+                        $table,
+                        [
+                            'punch_time_utc' => '1970-01-01 00:00:00',
+                            'tz_offset'      => $server_tz,
+                        ],
+                        [ 'id' => (int) $row->id ],
+                        [ '%s', '%s' ],
+                        [ '%d' ]
+                    );
                     continue;
                 }
 
@@ -241,7 +258,13 @@ class UTC_Service {
 
                 if ( false !== $updated ) {
                     $total++;
+                    $batch_updated++;
                 }
+            }
+
+            // If no rows were updated in this batch, stop to avoid infinite loop.
+            if ( $batch_updated === 0 ) {
+                break;
             }
 
             // If we got fewer rows than the batch size, no more work remains.

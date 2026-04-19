@@ -271,7 +271,7 @@ class M5_REST {
     /**
      * Validate Y-m-d date format.
      */
-    private static function validate_date( $value ): bool {
+    public static function validate_date( $value ): bool {
         return (bool) preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) $value );
     }
 
@@ -607,10 +607,13 @@ class M5_REST {
             return new \WP_Error( 'unauthorized', __( 'Missing X-API-Key header.', 'sfs-hr' ), [ 'status' => 401 ] );
         }
 
-        // Validate content type
+        // Accept both JSON and form-encoded payloads (ZKTeco sends form-encoded ATTLOG).
         $params = $req->get_json_params();
         if ( empty( $params ) || ! is_array( $params ) ) {
-            return new \WP_Error( 'bad_request', __( 'Request body must be valid JSON.', 'sfs-hr' ), [ 'status' => 400 ] );
+            $params = $req->get_body_params();
+        }
+        if ( empty( $params ) || ! is_array( $params ) ) {
+            return new \WP_Error( 'bad_request', __( 'Request body must be valid JSON or form-encoded data.', 'sfs-hr' ), [ 'status' => 400 ] );
         }
 
         // Authenticate the device
@@ -623,11 +626,12 @@ class M5_REST {
             return new \WP_Error( 'unauthorized', __( 'Invalid API key.', 'sfs-hr' ), [ 'status' => 401 ] );
         }
 
-        // Process punch data — use process_punch or process_batch if available
+        // Process punch data — authenticate_device returns array, process_punch takes payload array
         if ( method_exists( \SFS\HR\Modules\Attendance\Services\Biometric_Service::class, 'process_punch' ) ) {
-            $result = \SFS\HR\Modules\Attendance\Services\Biometric_Service::process_punch( (int) $device->id, $params );
+            $params['device_serial'] = $device['device_serial'];
+            $result = \SFS\HR\Modules\Attendance\Services\Biometric_Service::process_punch( $params );
         } elseif ( method_exists( \SFS\HR\Modules\Attendance\Services\Biometric_Service::class, 'process_batch' ) ) {
-            $result = \SFS\HR\Modules\Attendance\Services\Biometric_Service::process_batch( (int) $device->id, $params );
+            $result = \SFS\HR\Modules\Attendance\Services\Biometric_Service::process_batch( $params );
         } else {
             return new \WP_Error( 'not_implemented', __( 'Punch processing not yet available.', 'sfs-hr' ), [ 'status' => 501 ] );
         }

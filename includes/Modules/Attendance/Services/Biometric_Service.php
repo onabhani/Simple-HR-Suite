@@ -57,8 +57,9 @@ class Biometric_Service {
             return [ 'ok' => false, 'error' => 'A device with this serial already exists.' ];
         }
 
-        $api_key = self::generate_api_key();
-        $now     = gmdate( 'Y-m-d H:i:s' );
+        $api_key      = self::generate_api_key();
+        $api_key_hash = password_hash( $api_key, PASSWORD_DEFAULT );
+        $now          = gmdate( 'Y-m-d H:i:s' );
 
         $row = [
             'device_serial'  => $serial,
@@ -66,7 +67,7 @@ class Biometric_Service {
                                     ? $data['device_type']
                                     : 'generic',
             'device_name'    => isset( $data['device_name'] ) ? sanitize_text_field( $data['device_name'] ) : null,
-            'api_key'        => $api_key,
+            'api_key'        => $api_key_hash,
             'location_label' => isset( $data['location_label'] ) ? sanitize_text_field( $data['location_label'] ) : null,
             'location_lat'   => isset( $data['location_lat'] )   ? (float) $data['location_lat']   : null,
             'location_lng'   => isset( $data['location_lng'] )   ? (float) $data['location_lng']   : null,
@@ -264,10 +265,10 @@ class Biometric_Service {
     /**
      * Validate a raw API key and return the matching device record.
      *
-     * Only returns the device if it is active. The api_key column stores the
-     * key in plain text (it is generated once and is the device's credential).
+     * Only returns the device if it is active. The api_key column stores a
+     * bcrypt hash; we iterate active devices and password_verify().
      *
-     * @param string $api_key
+     * @param string $api_key Raw (unhashed) API key from the request header.
      * @return array|null Device row, or null if not found / inactive.
      */
     public static function authenticate_device( string $api_key ): ?array {
@@ -278,15 +279,19 @@ class Biometric_Service {
             return null;
         }
 
-        $row = $wpdb->get_row(
-            $wpdb->prepare(
-                "SELECT * FROM {$table} WHERE api_key = %s AND is_active = 1 LIMIT 1",
-                $api_key
-            ),
+        // Fetch all active devices (typically a small set) and verify the hash.
+        $devices = $wpdb->get_results(
+            "SELECT * FROM {$table} WHERE is_active = 1",
             ARRAY_A
         );
 
-        return $row ?: null;
+        foreach ( $devices ?: [] as $device ) {
+            if ( password_verify( $api_key, $device['api_key'] ?? '' ) ) {
+                return $device;
+            }
+        }
+
+        return null;
     }
 
     // -------------------------------------------------------------------------
@@ -397,13 +402,14 @@ class Biometric_Service {
             return [ 'ok' => false, 'error' => 'Device not found or inactive.' ];
         }
 
-        // 2. Validate punch_time
+        // 2. Validate punch_time using explicit UTC parsing
         $punch_time_raw = sanitize_text_field( $payload['punch_time'] ?? '' );
-        $punch_ts       = strtotime( $punch_time_raw );
-        if ( ! $punch_ts || $punch_ts <= 0 ) {
+        $utc_tz         = new \DateTimeZone( 'UTC' );
+        $punch_dt       = \DateTimeImmutable::createFromFormat( 'Y-m-d H:i:s', $punch_time_raw, $utc_tz );
+        if ( ! $punch_dt ) {
             return [ 'ok' => false, 'error' => 'Invalid punch_time format. Expected Y-m-d H:i:s.' ];
         }
-        $punch_time = gmdate( 'Y-m-d H:i:s', $punch_ts );
+        $punch_time = $punch_dt->format( 'Y-m-d H:i:s' );
 
         // 3. Employee lookup
         $identifier  = sanitize_text_field( $payload['employee_identifier'] ?? '' );
@@ -417,7 +423,7 @@ class Biometric_Service {
 
         // 4. Determine punch type
         $raw_type   = $payload['punch_type'] ?? null;
-        $work_date  = gmdate( 'Y-m-d', $punch_ts );
+        $work_date  = $punch_dt->format( 'Y-m-d' );
         if ( in_array( $raw_type, [ 'in', 'out' ], true ) ) {
             $punch_type = $raw_type;
         } else {
@@ -439,21 +445,26 @@ class Biometric_Service {
         $punchT  = $wpdb->prefix . 'sfs_hr_attendance_punches';
         $now_utc = gmdate( 'Y-m-d H:i:s' );
 
+        // Compute UTC columns — punch_time is already UTC from device.
+        $server_tz_offset = \SFS\HR\Modules\Attendance\Services\UTC_Service::get_server_tz_offset();
+
         $inserted = $wpdb->insert(
             $punchT,
             [
-                'employee_id'  => $employee_id,
-                'punch_type'   => $punch_type,
-                'punch_time'   => $punch_time,
-                'source'       => 'import_sync',
-                'device_id'    => (int) $device['id'],
-                'valid_geo'    => 1,
-                'valid_selfie' => 1,
-                'note'         => $verify_mode !== 'fingerprint' ? "verify:{$verify_mode}" : null,
-                'created_at'   => $now_utc,
-                'created_by'   => null,
+                'employee_id'    => $employee_id,
+                'punch_type'     => $punch_type,
+                'punch_time'     => $punch_time,
+                'punch_time_utc' => $punch_time,
+                'tz_offset'      => '+00:00',
+                'source'         => 'import_sync',
+                'device_id'      => (int) $device['id'],
+                'valid_geo'      => 1,
+                'valid_selfie'   => 1,
+                'note'           => $verify_mode !== 'fingerprint' ? "verify:{$verify_mode}" : null,
+                'created_at'     => $now_utc,
+                'created_by'     => null,
             ],
-            [ '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s' ]
+            [ '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s' ]
         );
 
         if ( ! $inserted ) {
@@ -480,7 +491,7 @@ class Biometric_Service {
         // 8. Schedule async session recalculation (fire-and-forget)
         wp_schedule_single_event(
             time(),
-            'sfs_hr_attendance_deferred_recalc',
+            'sfs_hr_deferred_recalc',
             [ $employee_id, $work_date, true ]
         );
 
@@ -538,7 +549,7 @@ class Biometric_Service {
      * @param int    $window_seconds Default 60.
      * @return bool
      */
-    public static function is_duplicate( int $employee_id, string $punch_time, string $punch_type, int $window_seconds = 60 ): bool {
+    public static function is_duplicate( int $employee_id, string $punch_time, string $punch_type, int $window_seconds = 300 ): bool {
         global $wpdb;
         $table     = $wpdb->prefix . 'sfs_hr_attendance_punches';
         $ts        = strtotime( $punch_time );

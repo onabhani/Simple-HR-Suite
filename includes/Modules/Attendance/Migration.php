@@ -143,6 +143,27 @@ class Migration {
             KEY work_date (work_date)
         ) $charset_collate;");
 
+        // Migration: Make shift_id nullable in shift_assign to support off-day rows (shift_id = NULL).
+        // Must drop FK first, modify column, then re-add FK with ON DELETE SET NULL.
+        $assign_tbl = "{$p}sfs_hr_attendance_shift_assign";
+        $col_info   = $wpdb->get_row( $wpdb->prepare( "SHOW COLUMNS FROM {$assign_tbl} LIKE %s", 'shift_id' ) );
+        if ( $col_info && 'NO' === strtoupper( $col_info->Null ?? '' ) ) {
+            // Drop FK if it exists.
+            $fk_exists = $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS
+                     WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND CONSTRAINT_NAME = %s AND CONSTRAINT_TYPE = 'FOREIGN KEY'",
+                    DB_NAME,
+                    $assign_tbl,
+                    'fk_shift_assign_shift'
+                )
+            );
+            if ( $fk_exists ) {
+                $wpdb->query( "ALTER TABLE {$assign_tbl} DROP FOREIGN KEY fk_shift_assign_shift" );
+            }
+            $wpdb->query( "ALTER TABLE {$assign_tbl} MODIFY COLUMN shift_id BIGINT UNSIGNED NULL" );
+        }
+
         // 5) employee default shifts (history)
         dbDelta("CREATE TABLE {$p}sfs_hr_attendance_emp_shifts (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

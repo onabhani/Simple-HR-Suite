@@ -560,7 +560,7 @@ class Roster_Service {
 
         $prev_row = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT sa.shift_id, sh.end_time
+                "SELECT sa.shift_id, sh.start_time, sh.end_time
                  FROM {$assign_table} sa
                  JOIN {$shift_table} sh ON sh.id = sa.shift_id
                  WHERE sa.employee_id = %d
@@ -582,10 +582,15 @@ class Roster_Service {
         $prev_end_dt      = new \DateTime( $prev_date . ' ' . $prev_row['end_time'] );
         $proposed_start_dt = new \DateTime( $date       . ' ' . $proposed_shift['start_time'] );
 
-        // If prev shift end is after proposed start (shouldn't happen normally),
-        // add 24h to prev end to account for a night shift crossing midnight.
-        if ( $prev_end_dt > $proposed_start_dt ) {
+        // Detect overnight shift: if end_time <= start_time, the shift crosses midnight.
+        if ( ! empty( $prev_row['start_time'] ) && $prev_row['end_time'] <= $prev_row['start_time'] ) {
             $prev_end_dt->modify( '+1 day' );
+        }
+
+        // Safety: if prev end is still after proposed start, adjust.
+        if ( $prev_end_dt > $proposed_start_dt ) {
+            // This means the previous shift's effective end is in the same calendar day
+            // as the proposed start — rest period is negative (overlap).
         }
 
         $diff_seconds = $proposed_start_dt->getTimestamp() - $prev_end_dt->getTimestamp();
@@ -648,6 +653,9 @@ class Roster_Service {
 
         foreach ( $employee_ids as $employee_id ) {
             $employee_id = (int) $employee_id;
+            // Track the previous day's shift within this template for intra-template checks.
+            $prev_template_shift_id = 0;
+
             foreach ( $date_range as $day_offset => $ymd ) {
                 $entry    = $pattern_map[ $day_offset % $cycle_days ] ?? null;
                 $shift_id = $entry && ! empty( $entry['shift_id'] ) && empty( $entry['is_off'] )
@@ -655,13 +663,43 @@ class Roster_Service {
                     : 0;
 
                 if ( ! $shift_id ) {
+                    $prev_template_shift_id = 0;
                     continue;
                 }
 
+                // First check against DB (previous day's stored assignment).
                 $violation = self::check_rest_violation( $employee_id, $ymd, $shift_id, $min_rest, $shift_cache );
                 if ( $violation ) {
                     $violations[] = $violation;
+                } elseif ( $prev_template_shift_id && $day_offset > 0 ) {
+                    // Also check against the intra-template previous day's shift
+                    // (may not be in DB yet during dry-run validation).
+                    $prev_shift = self::get_shift_cached( $prev_template_shift_id, $shift_cache );
+                    $curr_shift = self::get_shift_cached( $shift_id, $shift_cache );
+                    if ( $prev_shift && $curr_shift && ! empty( $prev_shift['end_time'] ) && ! empty( $curr_shift['start_time'] ) ) {
+                        $prev_ymd  = $date_range[ $day_offset - 1 ] ?? '';
+                        $prev_end  = new \DateTime( $prev_ymd . ' ' . $prev_shift['end_time'] );
+                        $curr_start = new \DateTime( $ymd . ' ' . $curr_shift['start_time'] );
+                        // Handle overnight previous shift.
+                        if ( ! empty( $prev_shift['start_time'] ) && $prev_shift['end_time'] <= $prev_shift['start_time'] ) {
+                            $prev_end->modify( '+1 day' );
+                        }
+                        $rest_hours = ( $curr_start->getTimestamp() - $prev_end->getTimestamp() ) / 3600;
+                        if ( $rest_hours < $min_rest ) {
+                            $violations[] = [
+                                'employee_id'    => $employee_id,
+                                'date'           => $ymd,
+                                'previous_date'  => $prev_ymd,
+                                'previous_end'   => $prev_shift['end_time'],
+                                'proposed_start' => $curr_shift['start_time'],
+                                'rest_hours'     => round( $rest_hours, 2 ),
+                                'min_rest_hours' => $min_rest,
+                            ];
+                        }
+                    }
                 }
+
+                $prev_template_shift_id = $shift_id;
             }
         }
 
@@ -802,41 +840,52 @@ class Roster_Service {
 
         $now = current_time( 'mysql' );
 
-        // Create/overwrite the shift assignment.
-        $assign_table = $wpdb->prefix . 'sfs_hr_attendance_shift_assign';
+        // Wrap in transaction for atomicity.
+        $wpdb->query( 'START TRANSACTION' );
 
-        $wpdb->delete(
-            $assign_table,
-            [ 'employee_id' => (int) $bid['employee_id'], 'work_date' => $bid['work_date'] ],
-            [ '%d', '%s' ]
-        );
+        try {
+            // Create/overwrite the shift assignment.
+            $assign_table = $wpdb->prefix . 'sfs_hr_attendance_shift_assign';
 
-        $wpdb->insert(
-            $assign_table,
-            [
-                'employee_id' => (int) $bid['employee_id'],
-                'shift_id'    => (int) $bid['preferred_shift_id'],
-                'work_date'   => $bid['work_date'],
-                'is_holiday'  => 0,
-            ],
-            [ '%d', '%d', '%s', '%d' ]
-        );
+            $wpdb->delete(
+                $assign_table,
+                [ 'employee_id' => (int) $bid['employee_id'], 'work_date' => $bid['work_date'] ],
+                [ '%d', '%s' ]
+            );
 
-        // Update bid status.
-        $updated = $wpdb->update(
-            $wpdb->prefix . 'sfs_hr_attendance_shift_bids',
-            [
-                'status'      => 'approved',
-                'decided_by'  => $approved_by,
-                'decided_at'  => $now,
-            ],
-            [ 'id' => $bid_id ],
-            [ '%s', '%d', '%s' ],
-            [ '%d' ]
-        );
+            $wpdb->insert(
+                $assign_table,
+                [
+                    'employee_id' => (int) $bid['employee_id'],
+                    'shift_id'    => (int) $bid['preferred_shift_id'],
+                    'work_date'   => $bid['work_date'],
+                    'is_holiday'  => 0,
+                ],
+                [ '%d', '%d', '%s', '%d' ]
+            );
 
-        if ( false === $updated ) {
-            return [ 'success' => false, 'error' => __( 'Database error approving bid.', 'sfs-hr' ) ];
+            // Update bid status.
+            $updated = $wpdb->update(
+                $wpdb->prefix . 'sfs_hr_attendance_shift_bids',
+                [
+                    'status'      => 'approved',
+                    'decided_by'  => $approved_by,
+                    'decided_at'  => $now,
+                ],
+                [ 'id' => $bid_id ],
+                [ '%s', '%d', '%s' ],
+                [ '%d' ]
+            );
+
+            if ( false === $updated ) {
+                $wpdb->query( 'ROLLBACK' );
+                return [ 'success' => false, 'error' => __( 'Database error approving bid.', 'sfs-hr' ) ];
+            }
+
+            $wpdb->query( 'COMMIT' );
+        } catch ( \Throwable $e ) {
+            $wpdb->query( 'ROLLBACK' );
+            return [ 'success' => false, 'error' => $e->getMessage() ];
         }
 
         return [ 'success' => true ];
