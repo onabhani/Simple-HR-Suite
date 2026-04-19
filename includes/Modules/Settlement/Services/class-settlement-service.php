@@ -266,48 +266,30 @@ class Settlement_Service {
     }
 
     /**
-     * Calculate gratuity amount
-     * Based on Saudi Labor Law Article 84:
-     * - 15 days (half-month) salary per year for first 5 years
-     * - 30 days (full month) salary per year beyond 5 years
-     * Returns full gratuity before any trigger-type reduction.
+     * Calculate gratuity amount (base — before trigger-type reduction).
+     *
+     * Delegates to the country-specific Labor_Law_Strategy resolved from
+     * the company profile. For Saudi Arabia (default) this produces the
+     * same result as the original Article 84 implementation.
+     *
+     * @since M8 — country-aware via Labor_Law_Service.
      */
     public static function calculate_gratuity(float $basic_salary, float $years_of_service): float {
-        if ($years_of_service <= 0 || $basic_salary <= 0) {
-            return 0;
-        }
-
-        $daily_rate = $basic_salary / 30;
-
-        if ($years_of_service <= 5) {
-            return $daily_rate * 15 * $years_of_service;
-        }
-
-        $first_5_years = $daily_rate * 15 * 5;
-        $remaining_years = $years_of_service - 5;
-        $after_5_years = $daily_rate * 30 * $remaining_years;
-
-        return $first_5_years + $after_5_years;
+        return \SFS\HR\Core\LaborLaw\Labor_Law_Service::current()
+            ->calculate_gratuity_base( $basic_salary, $years_of_service );
     }
 
     /**
-     * Calculate gratuity with trigger-type multiplier per Saudi labor law.
-     * - resignation < 2 years: 0
-     * - resignation 2–5 years: 1/3 of full gratuity
-     * - resignation 5–10 years: 2/3 of full gratuity
-     * - resignation 10+ years: full gratuity
-     * - termination / contract_end: full gratuity regardless of tenure
+     * Calculate gratuity with trigger-type multiplier per country labor law.
+     *
+     * Trigger types: resignation | termination | contract_end.
+     * Each country's Labor_Law_Strategy applies its own reduction tiers.
+     *
+     * @since M8 — country-aware via Labor_Law_Service.
      */
     public static function calculate_gratuity_with_trigger(float $basic_salary, float $years_of_service, string $trigger_type = 'termination'): float {
-        $full_gratuity = self::calculate_gratuity($basic_salary, $years_of_service);
-        if ($trigger_type === 'resignation') {
-            if ($years_of_service < 2) return 0;
-            if ($years_of_service < 5) return round($full_gratuity / 3, 2);
-            if ($years_of_service < 10) return round($full_gratuity * 2 / 3, 2);
-            return $full_gratuity; // 10+ years = full
-        }
-        // termination and contract_end = full gratuity
-        return $full_gratuity;
+        return \SFS\HR\Core\LaborLaw\Labor_Law_Service::current()
+            ->calculate_gratuity_with_trigger( $basic_salary, $years_of_service, $trigger_type );
     }
 
     /**

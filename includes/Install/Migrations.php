@@ -385,6 +385,45 @@ class Migrations {
             KEY `exit_reason_idx` (`exit_reason`)
         ) {$charset}");
 
+        /** M8: COUNTRY RULES — multi-country labor law overrides (Gulf compliance) */
+        $country_rules = $wpdb->prefix . 'sfs_hr_country_rules';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$country_rules}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `country_code` VARCHAR(2) NOT NULL,
+            `rule_type` VARCHAR(50) NOT NULL,
+            `config_json` LONGTEXT NOT NULL,
+            `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+            `notes` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `country_rule` (`country_code`, `rule_type`),
+            KEY `active_country` (`is_active`, `country_code`)
+        ) {$charset}");
+
+        /** M8: SOCIAL INSURANCE SCHEMES — per-country statutory contribution schemes */
+        $social_insurance = $wpdb->prefix . 'sfs_hr_social_insurance_schemes';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$social_insurance}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `country_code` VARCHAR(2) NOT NULL,
+            `scheme_code` VARCHAR(50) NOT NULL,
+            `scheme_name` VARCHAR(191) NOT NULL,
+            `employee_rate` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+            `employer_rate` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+            `applies_to` VARCHAR(30) NOT NULL DEFAULT 'nationals_only',
+            `base_components` VARCHAR(255) NULL,
+            `ceiling` DECIMAL(18,2) NULL,
+            `floor` DECIMAL(18,2) NULL,
+            `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+            `effective_from` DATE NULL,
+            `effective_to` DATE NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `country_scheme` (`country_code`, `scheme_code`),
+            KEY `active_country` (`is_active`, `country_code`)
+        ) {$charset}");
+
         /** CANDIDATES – add columns for enhanced workflow */
         $candidates = $wpdb->prefix.'sfs_hr_candidates';
         $cand_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $candidates));

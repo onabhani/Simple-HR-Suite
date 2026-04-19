@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Simple HR Suite
  * Description: Simple HR Suite – employees, departments, leave, balances, approvals.
- * Version: 2.2.8
+ * Version: 2.2.9
  * Author: hdqah.com
  * Author URI: https://hdqah.com
  * Requires at least: 6.4
@@ -15,7 +15,7 @@
 
 if (!defined('ABSPATH')) { exit; }
 
-define('SFS_HR_VER', '2.2.8');
+define('SFS_HR_VER', '2.2.9');
 define('SFS_HR_DIR', plugin_dir_path(__FILE__));
 define('SFS_HR_URL', plugin_dir_url(__FILE__));
 define('SFS_HR_PLUGIN_FILE', __FILE__);
@@ -117,6 +117,9 @@ register_activation_hook(__FILE__, function(){
 
     // Create default frontend pages (HR Portal, Attendance Kiosk)
     \SFS\HR\Install\Pages::create();
+
+    // M8: Seed default social insurance schemes for all supported countries.
+    \SFS\HR\Core\SocialInsurance\Social_Insurance_Service::seed_defaults();
 
     flush_rewrite_rules();
 });
@@ -253,6 +256,9 @@ add_action('admin_init', function(){
         \SFS\HR\Install\Migrations::run();
         \SFS\HR\Modules\Hiring\HiringModule::install();
         \SFS\HR\Modules\Surveys\SurveysModule::install();
+
+        // M8: Seed social insurance defaults after migration creates the table.
+        \SFS\HR\Core\SocialInsurance\Social_Insurance_Service::seed_defaults();
 
         // One-time cleanup/repair migrations (each is idempotent with its own guard)
         \SFS\HR\Install\Migrations::cleanup_false_early_leave_requests();
@@ -462,6 +468,9 @@ add_action('plugins_loaded', function(){
 
     // Company Profile page
     (new \SFS\HR\Core\Company_Profile())->hooks();
+
+    // M8: Gulf Compliance admin page (labor law overview + social insurance + hijri)
+    (new \SFS\HR\Core\LaborLaw\Admin_Page())->hooks();
 
     // Setup Wizard (optional first-run configuration)
     (new \SFS\HR\Core\Setup_Wizard())->hooks();
