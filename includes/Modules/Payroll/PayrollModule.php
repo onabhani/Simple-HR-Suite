@@ -60,7 +60,7 @@ class PayrollModule {
         global $wpdb;
 
         $installed_version = get_option( 'sfs_hr_payroll_db_version', '0' );
-        $current_version   = '1.3.0';
+        $current_version   = '1.4.0';
 
         if ( version_compare( $installed_version, $current_version, '>=' ) ) {
             return;
@@ -195,7 +195,31 @@ class PayrollModule {
             KEY payment_status (payment_status)
         ) $charset_collate;" );
 
-        // 6) Payslip History - For employee self-service
+        // 6) Payroll Adjustments - Post-approval additive corrections to payroll items
+        dbDelta( "CREATE TABLE {$p}sfs_hr_payroll_adjustments (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            payroll_item_id BIGINT UNSIGNED NOT NULL,
+            run_id BIGINT UNSIGNED NOT NULL,
+            employee_id BIGINT UNSIGNED NOT NULL,
+            adjustment_type ENUM('correction','reversal','bonus','deduction') NOT NULL DEFAULT 'correction',
+            total_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+            reason TEXT NULL,
+            status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+            lines_json LONGTEXT NULL,
+            created_by BIGINT UNSIGNED NULL,
+            created_at DATETIME NOT NULL,
+            approved_by BIGINT UNSIGNED NULL,
+            approved_at DATETIME NULL,
+            rejected_by BIGINT UNSIGNED NULL,
+            rejected_at DATETIME NULL,
+            rejection_reason TEXT NULL,
+            PRIMARY KEY (id),
+            KEY payroll_item (payroll_item_id),
+            KEY run_status (run_id, status),
+            KEY employee_status (employee_id, status)
+        ) $charset_collate;" );
+
+        // 7) Payslip History - For employee self-service
         dbDelta( "CREATE TABLE {$p}sfs_hr_payslips (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             payroll_item_id BIGINT UNSIGNED NOT NULL,
@@ -249,6 +273,25 @@ class PayrollModule {
             KEY employee_active (employee_id, effective_from, effective_to),
             KEY exemption_type (exemption_type)
         ) $charset_collate;" );
+
+        // 9) Payroll Audit Log - Immutable record of all payroll actions
+        dbDelta( "CREATE TABLE {$p}sfs_hr_payroll_audit_log (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            entity_type VARCHAR(50) NOT NULL,
+            entity_id BIGINT UNSIGNED NOT NULL,
+            action VARCHAR(50) NOT NULL,
+            actor_id BIGINT UNSIGNED NOT NULL,
+            details_json LONGTEXT NULL,
+            ip_address VARCHAR(45) NULL,
+            created_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            KEY entity_lookup (entity_type, entity_id),
+            KEY actor_id (actor_id),
+            KEY created_at (created_at)
+        ) $charset_collate;" );
+
+        // Add payment_reference to payroll_runs for M1.4.0
+        self::add_column_if_missing( "{$p}sfs_hr_payroll_runs", 'payment_reference', 'VARCHAR(100) NULL AFTER paid_by' );
 
         // Insert default salary components
         self::insert_default_components();
