@@ -360,11 +360,13 @@ class Migrations {
         ) {$charset}");
 
         // M7.3: Exit interviews
+        // employee_id and resignation_id are nullable to support anonymity:
+        // when is_anonymous = 1, the service layer NULLs both identifying columns.
         $ei_interviews = $wpdb->prefix . 'sfs_hr_exit_interviews';
         $wpdb->query("CREATE TABLE IF NOT EXISTS `{$ei_interviews}` (
             `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-            `resignation_id` BIGINT(20) UNSIGNED NOT NULL,
-            `employee_id` BIGINT(20) UNSIGNED NOT NULL,
+            `resignation_id` BIGINT(20) UNSIGNED NULL,
+            `employee_id` BIGINT(20) UNSIGNED NULL,
             `interviewer_id` BIGINT(20) UNSIGNED NULL,
             `interview_date` DATE NULL,
             `exit_reason` VARCHAR(100) NULL,

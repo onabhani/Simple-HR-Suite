@@ -113,19 +113,19 @@ class Resignation_REST {
         register_rest_route( $ns, '/resignation/(?P<id>\d+)/offboarding/tasks', [
             'methods'             => 'GET',
             'callback'            => [ __CLASS__, 'tasks_list' ],
-            'permission_callback' => [ __CLASS__, 'can_view' ],
+            'permission_callback' => [ __CLASS__, 'can_view_resignation' ],
         ] );
 
         register_rest_route( $ns, '/resignation/(?P<id>\d+)/offboarding/progress', [
             'methods'             => 'GET',
             'callback'            => [ __CLASS__, 'tasks_progress' ],
-            'permission_callback' => [ __CLASS__, 'can_view' ],
+            'permission_callback' => [ __CLASS__, 'can_view_resignation' ],
         ] );
 
         register_rest_route( $ns, '/resignation/offboarding/tasks/(?P<task_id>\d+)/complete', [
             'methods'             => 'POST',
             'callback'            => [ __CLASS__, 'task_complete' ],
-            'permission_callback' => [ __CLASS__, 'can_view' ],
+            'permission_callback' => [ __CLASS__, 'can_modify_task' ],
         ] );
 
         register_rest_route( $ns, '/resignation/offboarding/tasks/(?P<task_id>\d+)/skip', [
@@ -220,6 +220,47 @@ class Resignation_REST {
         return current_user_can( 'sfs_hr.view' );
     }
 
+    /**
+     * Resource-aware check: user must have sfs_hr.manage OR be the resignation's
+     * employee or their department manager.
+     */
+    public static function can_view_resignation( \WP_REST_Request $req ): bool {
+        if ( current_user_can( 'sfs_hr.manage' ) ) {
+            return true;
+        }
+        $resignation = \SFS\HR\Modules\Resignation\Services\Resignation_Service::get_resignation( (int) $req['id'] );
+        if ( ! $resignation ) {
+            return false;
+        }
+        $current_user_id = get_current_user_id();
+        // Owner check.
+        if ( (int) ( $resignation['emp_user_id'] ?? 0 ) === $current_user_id ) {
+            return true;
+        }
+        // Department manager check.
+        $manager_depts = \SFS\HR\Modules\Resignation\Services\Resignation_Service::get_manager_dept_ids( $current_user_id );
+        return in_array( (int) ( $resignation['dept_id'] ?? 0 ), $manager_depts, true );
+    }
+
+    /**
+     * Resource-aware check for task mutation: user must have sfs_hr.manage OR
+     * be the assigned_to user on the task.
+     */
+    public static function can_modify_task( \WP_REST_Request $req ): bool {
+        if ( current_user_can( 'sfs_hr.manage' ) ) {
+            return true;
+        }
+        global $wpdb;
+        $task = $wpdb->get_row( $wpdb->prepare(
+            "SELECT assigned_to FROM {$wpdb->prefix}sfs_hr_offboarding_tasks WHERE id = %d",
+            (int) $req['task_id']
+        ), ARRAY_A );
+        if ( ! $task ) {
+            return false;
+        }
+        return (int) ( $task['assigned_to'] ?? 0 ) === get_current_user_id();
+    }
+
     // ── Notice Period endpoints ─────────────────────────────────────────
 
     public static function notice_config_get(): \WP_REST_Response {
@@ -254,7 +295,7 @@ class Resignation_REST {
 
     public static function garden_leave_get( \WP_REST_Request $req ): \WP_REST_Response {
         $data = Notice_Service::get_garden_leave( (int) $req['id'] );
-        return rest_ensure_response( $data ?: [ 'garden_leave_start' => null, 'garden_leave_end' => null ] );
+        return rest_ensure_response( $data ?: [ 'start' => null, 'end' => null ] );
     }
 
     public static function garden_leave_set( \WP_REST_Request $req ): \WP_REST_Response {
@@ -284,7 +325,8 @@ class Resignation_REST {
     // ── Offboarding Template endpoints ──────────────────────────────────
 
     public static function templates_list( \WP_REST_Request $req ): \WP_REST_Response {
-        $active = (bool) ( $req->get_param( 'active_only' ) ?? true );
+        $param  = $req->get_param( 'active_only' );
+        $active = null === $param ? true : rest_sanitize_boolean( $param );
         return rest_ensure_response( Offboarding_Service::list_templates( $active ) );
     }
 

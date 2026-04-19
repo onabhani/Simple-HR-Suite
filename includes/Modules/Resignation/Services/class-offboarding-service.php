@@ -236,6 +236,24 @@ class Offboarding_Service {
 		$created     = 0;
 
 		foreach ( $template['tasks_json'] as $task_def ) {
+			$task_title = sanitize_text_field( $task_def['title'] ?? '' );
+			$task_type  = sanitize_text_field( $task_def['task_type'] ?? 'custom' );
+
+			// Idempotency: skip if a matching task already exists for this resignation + template.
+			$exists = $wpdb->get_var( $wpdb->prepare(
+				"SELECT id FROM {$tasks_table}
+				 WHERE resignation_id = %d AND template_id = %d AND task_title = %s AND task_type = %s
+				 LIMIT 1",
+				$resignation_id,
+				(int) $template['id'],
+				$task_title,
+				$task_type
+			) );
+
+			if ( $exists ) {
+				continue;
+			}
+
 			$due_date = null;
 			if ( $last_day && isset( $task_def['due_days_before_exit'] ) ) {
 				$due_date = gmdate( 'Y-m-d', strtotime( $last_day ) - ( (int) $task_def['due_days_before_exit'] * DAY_IN_SECONDS ) );
@@ -247,8 +265,8 @@ class Offboarding_Service {
 				'resignation_id' => $resignation_id,
 				'employee_id'    => $employee_id,
 				'template_id'    => (int) $template['id'],
-				'task_title'     => sanitize_text_field( $task_def['title'] ?? '' ),
-				'task_type'      => sanitize_text_field( $task_def['task_type'] ?? 'custom' ),
+				'task_title'     => $task_title,
+				'task_type'      => $task_type,
 				'description'    => sanitize_textarea_field( $task_def['description'] ?? '' ),
 				'assigned_to'    => $assigned_to ?: null,
 				'due_date'       => $due_date,
@@ -345,6 +363,16 @@ class Offboarding_Service {
 		global $wpdb;
 		$table = $wpdb->prefix . 'sfs_hr_offboarding_tasks';
 
+		// Pre-check existence.
+		$task = $wpdb->get_row( $wpdb->prepare(
+			"SELECT id, resignation_id FROM {$table} WHERE id = %d",
+			$task_id
+		), ARRAY_A );
+
+		if ( ! $task ) {
+			return [ 'success' => false, 'error' => __( 'Task not found.', 'sfs-hr' ) ];
+		}
+
 		$result = $wpdb->update( $table, [
 			'status'       => 'completed',
 			'completed_at' => current_time( 'mysql' ),
@@ -357,18 +385,10 @@ class Offboarding_Service {
 			return [ 'success' => false, 'error' => __( 'Failed to complete task.', 'sfs-hr' ) ];
 		}
 
-		// Log event.
-		$task = $wpdb->get_row( $wpdb->prepare(
-			"SELECT resignation_id FROM {$table} WHERE id = %d",
-			$task_id
-		), ARRAY_A );
-
-		if ( $task ) {
-			EmployeeExitModule::log_resignation_event( (int) $task['resignation_id'], 'offboarding_task_completed', [
-				'task_id'      => $task_id,
-				'completed_by' => $completed_by,
-			] );
-		}
+		EmployeeExitModule::log_resignation_event( (int) $task['resignation_id'], 'offboarding_task_completed', [
+			'task_id'      => $task_id,
+			'completed_by' => $completed_by,
+		] );
 
 		return [ 'success' => true ];
 	}
@@ -385,6 +405,16 @@ class Offboarding_Service {
 		global $wpdb;
 		$table = $wpdb->prefix . 'sfs_hr_offboarding_tasks';
 
+		// Pre-check existence.
+		$task = $wpdb->get_row( $wpdb->prepare(
+			"SELECT id, resignation_id FROM {$table} WHERE id = %d",
+			$task_id
+		), ARRAY_A );
+
+		if ( ! $task ) {
+			return [ 'success' => false, 'error' => __( 'Task not found.', 'sfs-hr' ) ];
+		}
+
 		$result = $wpdb->update( $table, [
 			'status'       => 'skipped',
 			'completed_at' => current_time( 'mysql' ),
@@ -397,19 +427,11 @@ class Offboarding_Service {
 			return [ 'success' => false, 'error' => __( 'Failed to skip task.', 'sfs-hr' ) ];
 		}
 
-		// Log event.
-		$task = $wpdb->get_row( $wpdb->prepare(
-			"SELECT resignation_id FROM {$table} WHERE id = %d",
-			$task_id
-		), ARRAY_A );
-
-		if ( $task ) {
-			EmployeeExitModule::log_resignation_event( (int) $task['resignation_id'], 'offboarding_task_skipped', [
-				'task_id'    => $task_id,
-				'skipped_by' => $skipped_by,
-				'reason'     => $reason,
-			] );
-		}
+		EmployeeExitModule::log_resignation_event( (int) $task['resignation_id'], 'offboarding_task_skipped', [
+			'task_id'    => $task_id,
+			'skipped_by' => $skipped_by,
+			'reason'     => $reason,
+		] );
 
 		return [ 'success' => true ];
 	}

@@ -301,7 +301,7 @@ class Exit_Interview_Service {
 		\SFS\HR\Modules\EmployeeExit\EmployeeExitModule::log_resignation_event(
 			$resignation_id,
 			'exit_interview_created',
-			__( 'Exit interview record created.', 'sfs-hr' )
+			[ 'message' => __( 'Exit interview record created.', 'sfs-hr' ) ]
 		);
 
 		return [ 'success' => true, 'data' => $interview ];
@@ -345,11 +345,11 @@ class Exit_Interview_Service {
 		\SFS\HR\Modules\EmployeeExit\EmployeeExitModule::log_resignation_event(
 			(int) $interview['resignation_id'],
 			'exit_interview_scheduled',
-			sprintf(
-				/* translators: %s: interview date */
-				__( 'Exit interview scheduled for %s.', 'sfs-hr' ),
-				$date
-			)
+			[
+				'message'        => sprintf( __( 'Exit interview scheduled for %s.', 'sfs-hr' ), $date ),
+				'interview_date' => $date,
+				'interviewer_id' => $interviewer_id,
+			]
 		);
 
 		return [ 'success' => true, 'data' => self::get_interview( $interview_id ) ];
@@ -393,6 +393,20 @@ class Exit_Interview_Service {
 			return [ 'success' => false, 'message' => __( 'Invalid exit reason.', 'sfs-hr' ) ];
 		}
 
+		// Validate required questions are answered.
+		$required_questions = self::get_questions( true );
+		$answered_ids       = [];
+		foreach ( $responses as $resp ) {
+			if ( ! empty( $resp['question_id'] ) && isset( $resp['answer'] ) && '' !== $resp['answer'] ) {
+				$answered_ids[] = (int) $resp['question_id'];
+			}
+		}
+		foreach ( $required_questions as $q ) {
+			if ( (int) $q['is_required'] && ! in_array( (int) $q['id'], $answered_ids, true ) ) {
+				return [ 'success' => false, 'message' => __( 'Please answer all required questions.', 'sfs-hr' ) ];
+			}
+		}
+
 		$update_data = [
 			'responses_json'      => wp_json_encode( $responses ),
 			'exit_reason'         => $exit_reason,
@@ -402,6 +416,14 @@ class Exit_Interview_Service {
 			'updated_at'          => current_time( 'mysql' ),
 		];
 		$format = [ '%s', '%s', '%d', '%s', '%s', '%s' ];
+
+		// Enforce anonymity: NULL out identifying columns when anonymous.
+		if ( $is_anonymous ) {
+			$update_data['employee_id']    = null;
+			$update_data['resignation_id'] = null;
+			$format[] = '%s'; // employee_id NULL
+			$format[] = '%s'; // resignation_id NULL
+		}
 
 		if ( null !== $rehire_eligible ) {
 			$update_data['rehire_eligible'] = (int) $rehire_eligible;
@@ -416,9 +438,14 @@ class Exit_Interview_Service {
 		$wpdb->update( $table, $update_data, [ 'id' => $interview_id ], $format, [ '%d' ] );
 
 		\SFS\HR\Modules\EmployeeExit\EmployeeExitModule::log_resignation_event(
-			(int) $interview['resignation_id'],
+			(int) ( $interview['resignation_id'] ?? 0 ),
 			'exit_interview_completed',
-			__( 'Exit interview responses submitted.', 'sfs-hr' )
+			[
+				'message'      => __( 'Exit interview responses submitted.', 'sfs-hr' ),
+				'interview_id' => $interview_id,
+				'is_anonymous' => $is_anonymous,
+				'exit_reason'  => $exit_reason,
+			]
 		);
 
 		return [ 'success' => true, 'data' => self::get_interview( $interview_id ) ];

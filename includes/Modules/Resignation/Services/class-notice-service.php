@@ -260,7 +260,17 @@ class Notice_Service {
     public static function set_garden_leave(int $resignation_id, string $start, string $end, int $set_by): array {
         global $wpdb;
 
-        if ($start > $end) {
+        // Validate date formats strictly.
+        $start_dt = \DateTime::createFromFormat( 'Y-m-d', $start );
+        $end_dt   = \DateTime::createFromFormat( 'Y-m-d', $end );
+
+        if ( ! $start_dt || $start_dt->format( 'Y-m-d' ) !== $start ) {
+            return [ 'success' => false, 'error' => __( 'Invalid garden leave start date. Expected Y-m-d format.', 'sfs-hr' ) ];
+        }
+        if ( ! $end_dt || $end_dt->format( 'Y-m-d' ) !== $end ) {
+            return [ 'success' => false, 'error' => __( 'Invalid garden leave end date. Expected Y-m-d format.', 'sfs-hr' ) ];
+        }
+        if ( $start_dt > $end_dt ) {
             return ['success' => false, 'error' => __('Garden leave start date must be before end date.', 'sfs-hr')];
         }
 
