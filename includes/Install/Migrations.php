@@ -414,6 +414,9 @@ class Migrations {
             KEY `expiry_idx` (`expiry_date`)
         ) $charset");
 
+        // M2.3: Add leave_type_id column to compensatory leave table
+        self::add_column_if_missing($leave_comp, 'leave_type_id', "BIGINT(20) UNSIGNED NULL AFTER `employee_id`");
+
         /** EXIT HISTORY (audit trail for resignations and settlements) */
         $exit_history = $wpdb->prefix.'sfs_hr_exit_history';
         $wpdb->query("CREATE TABLE IF NOT EXISTS `$exit_history` (
