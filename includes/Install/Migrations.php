@@ -352,6 +352,122 @@ class Migrations {
             KEY `status_idx` (`status`)
         ) $charset");
 
+        /** M10: EXPENSE MANAGEMENT */
+
+        $exp_categories = $wpdb->prefix . 'sfs_hr_expense_categories';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$exp_categories}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `code` VARCHAR(30) NOT NULL,
+            `name` VARCHAR(100) NOT NULL,
+            `name_ar` VARCHAR(100) NULL,
+            `description` TEXT NULL,
+            `receipt_required` TINYINT(1) NOT NULL DEFAULT 1,
+            `monthly_limit` DECIMAL(18,2) NULL,
+            `per_claim_limit` DECIMAL(18,2) NULL,
+            `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+            `sort_order` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `code` (`code`),
+            KEY `active_sort` (`is_active`, `sort_order`)
+        ) $charset");
+
+        $exp_claims = $wpdb->prefix . 'sfs_hr_expense_claims';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$exp_claims}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `request_number` VARCHAR(50) NULL,
+            `employee_id` BIGINT(20) UNSIGNED NOT NULL,
+            `advance_id` BIGINT(20) UNSIGNED NULL,
+            `title` VARCHAR(191) NOT NULL,
+            `description` TEXT NULL,
+            `total_amount` DECIMAL(18,2) NOT NULL DEFAULT 0,
+            `approved_amount` DECIMAL(18,2) NULL,
+            `currency` VARCHAR(3) NOT NULL DEFAULT 'SAR',
+            `status` VARCHAR(30) NOT NULL DEFAULT 'draft',
+            `approval_tier` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            `current_approver_id` BIGINT(20) UNSIGNED NULL,
+            `submitted_at` DATETIME NULL,
+            `decided_at` DATETIME NULL,
+            `paid_at` DATETIME NULL,
+            `payment_reference` VARCHAR(191) NULL,
+            `rejection_reason` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `request_number` (`request_number`),
+            KEY `emp_status` (`employee_id`, `status`),
+            KEY `status_submitted` (`status`, `submitted_at`),
+            KEY `approver_status` (`current_approver_id`, `status`),
+            KEY `advance_id` (`advance_id`)
+        ) $charset");
+
+        $exp_items = $wpdb->prefix . 'sfs_hr_expense_items';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$exp_items}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `claim_id` BIGINT(20) UNSIGNED NOT NULL,
+            `category_id` BIGINT(20) UNSIGNED NOT NULL,
+            `item_date` DATE NOT NULL,
+            `amount` DECIMAL(18,2) NOT NULL DEFAULT 0,
+            `currency` VARCHAR(3) NOT NULL DEFAULT 'SAR',
+            `description` TEXT NULL,
+            `receipt_media_id` BIGINT(20) UNSIGNED NULL,
+            `merchant` VARCHAR(191) NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `approved_amount` DECIMAL(18,2) NULL,
+            `review_note` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `claim_idx` (`claim_id`),
+            KEY `category_idx` (`category_id`),
+            KEY `item_date` (`item_date`)
+        ) $charset");
+
+        $exp_advances = $wpdb->prefix . 'sfs_hr_expense_advances';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$exp_advances}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `request_number` VARCHAR(50) NULL,
+            `employee_id` BIGINT(20) UNSIGNED NOT NULL,
+            `amount` DECIMAL(18,2) NOT NULL DEFAULT 0,
+            `outstanding_amount` DECIMAL(18,2) NOT NULL DEFAULT 0,
+            `currency` VARCHAR(3) NOT NULL DEFAULT 'SAR',
+            `purpose` VARCHAR(191) NOT NULL,
+            `notes` TEXT NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `approver_id` BIGINT(20) UNSIGNED NULL,
+            `decided_at` DATETIME NULL,
+            `approver_note` TEXT NULL,
+            `paid_at` DATETIME NULL,
+            `paid_by` BIGINT(20) UNSIGNED NULL,
+            `payment_reference` VARCHAR(191) NULL,
+            `settled_at` DATETIME NULL,
+            `rejection_reason` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `request_number` (`request_number`),
+            KEY `emp_status` (`employee_id`, `status`),
+            KEY `status_idx` (`status`)
+        ) $charset");
+
+        $exp_approvals = $wpdb->prefix . 'sfs_hr_expense_approvals';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$exp_approvals}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `entity_type` ENUM('claim','advance') NOT NULL DEFAULT 'claim',
+            `entity_id` BIGINT(20) UNSIGNED NOT NULL,
+            `tier` TINYINT UNSIGNED NOT NULL DEFAULT 1,
+            `role` VARCHAR(30) NOT NULL DEFAULT 'manager',
+            `approver_id` BIGINT(20) UNSIGNED NULL,
+            `decision` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `decided_at` DATETIME NULL,
+            `note` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `entity` (`entity_type`, `entity_id`),
+            KEY `approver_decision` (`approver_id`, `decision`)
+        ) $charset");
+
         /** M7: OFFBOARDING & EXIT INTERVIEW TABLES */
 
         // M7.1: Garden leave columns on resignations
