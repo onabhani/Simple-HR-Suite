@@ -10,6 +10,7 @@ require_once __DIR__ . '/Admin/Views/class-settlement-list.php';
 require_once __DIR__ . '/Admin/Views/class-settlement-form.php';
 require_once __DIR__ . '/Admin/Views/class-settlement-view.php';
 require_once __DIR__ . '/Handlers/class-settlement-handlers.php';
+require_once __DIR__ . '/Rest/class-settlement-rest.php';
 
 use SFS\HR\Modules\Settlement\Services\Settlement_Service;
 use SFS\HR\Modules\Settlement\Admin\Settlement_Admin;
@@ -37,6 +38,9 @@ class SettlementModule {
         // Initialize submodules
         (new Settlement_Admin())->hooks();
         (new Settlement_Handlers())->hooks();
+
+        // M9.1: REST endpoints for settlements
+        \SFS\HR\Modules\Settlement\Rest\Settlement_Rest::register();
     }
 
     // =========================================================================

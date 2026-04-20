@@ -293,6 +293,65 @@ class Migrations {
         // Generate reference numbers for existing records that don't have them
         self::backfill_request_numbers();
 
+        /** M9: WEBHOOKS + API KEYS (REST API infrastructure) */
+
+        $webhooks = $wpdb->prefix . 'sfs_hr_webhooks';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$webhooks}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `url` VARCHAR(500) NOT NULL,
+            `secret` VARCHAR(255) NOT NULL,
+            `events` TEXT NOT NULL,
+            `status` ENUM('active','inactive') NOT NULL DEFAULT 'active',
+            `retry_policy` TINYINT(3) UNSIGNED NOT NULL DEFAULT 3,
+            `created_by` BIGINT(20) UNSIGNED NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `status_idx` (`status`)
+        ) $charset");
+
+        $webhook_deliveries = $wpdb->prefix . 'sfs_hr_webhook_deliveries';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$webhook_deliveries}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `webhook_id` BIGINT(20) UNSIGNED NOT NULL,
+            `event` VARCHAR(100) NOT NULL,
+            `payload` LONGTEXT NOT NULL,
+            `response_code` SMALLINT UNSIGNED NULL,
+            `response_body` TEXT NULL,
+            `attempt` TINYINT(3) UNSIGNED NOT NULL DEFAULT 1,
+            `status` ENUM('success','failed','pending') NOT NULL DEFAULT 'pending',
+            `delivered_at` DATETIME NULL,
+            `next_retry_at` DATETIME NULL,
+            `created_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `webhook_idx` (`webhook_id`),
+            KEY `event_idx` (`event`),
+            KEY `status_idx` (`status`),
+            KEY `next_retry_idx` (`next_retry_at`)
+        ) $charset");
+        // Ensure the next_retry_at column exists on older installs
+        self::add_column_if_missing($webhook_deliveries, 'next_retry_at', "DATETIME NULL");
+
+        $api_keys = $wpdb->prefix . 'sfs_hr_api_keys';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$api_keys}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `user_id` BIGINT(20) UNSIGNED NOT NULL,
+            `label` VARCHAR(100) NOT NULL,
+            `key_prefix` VARCHAR(16) NOT NULL,
+            `key_hash` VARCHAR(255) NOT NULL,
+            `scopes` TEXT NULL,
+            `status` ENUM('active','revoked') NOT NULL DEFAULT 'active',
+            `last_used_at` DATETIME NULL,
+            `last_ip` VARCHAR(45) NULL,
+            `expires_at` DATETIME NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `key_prefix` (`key_prefix`),
+            KEY `user_idx` (`user_id`),
+            KEY `status_idx` (`status`)
+        ) $charset");
+
         /** M7: OFFBOARDING & EXIT INTERVIEW TABLES */
 
         // M7.1: Garden leave columns on resignations

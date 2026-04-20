@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Simple HR Suite
  * Description: Simple HR Suite – employees, departments, leave, balances, approvals.
- * Version: 2.2.9
+ * Version: 2.3.0
  * Author: hdqah.com
  * Author URI: https://hdqah.com
  * Requires at least: 6.4
@@ -15,7 +15,7 @@
 
 if (!defined('ABSPATH')) { exit; }
 
-define('SFS_HR_VER', '2.2.9');
+define('SFS_HR_VER', '2.3.0');
 define('SFS_HR_DIR', plugin_dir_path(__FILE__));
 define('SFS_HR_URL', plugin_dir_url(__FILE__));
 define('SFS_HR_PLUGIN_FILE', __FILE__);
@@ -471,6 +471,17 @@ add_action('plugins_loaded', function(){
 
     // M8: Gulf Compliance admin page (labor law overview + social insurance + hijri)
     (new \SFS\HR\Core\LaborLaw\Admin_Page())->hooks();
+
+    // M9: Webhook dispatcher + REST endpoints
+    \SFS\HR\Core\Webhooks\Webhook_Service::init();
+    \SFS\HR\Core\Webhooks\Webhook_Rest::register();
+
+    // M9: API key authentication (Bearer tokens) + REST management endpoints
+    \SFS\HR\Core\ApiKeys\Api_Key_Rest::register();
+    add_filter( 'rest_authentication_errors', [ \SFS\HR\Core\ApiKeys\Api_Key_Service::class, 'authenticate' ], 20 );
+
+    // M9: Developer admin page (webhooks + api keys + REST overview)
+    (new \SFS\HR\Core\Rest\Developer_Admin_Page())->hooks();
 
     // Setup Wizard (optional first-run configuration)
     (new \SFS\HR\Core\Setup_Wizard())->hooks();
