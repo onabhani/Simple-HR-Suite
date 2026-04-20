@@ -9,42 +9,28 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class Survey_Enhancement_Service {
 
-    /* ═══════════════════ Table helpers ═══════════════════ */
-
     private static function t( string $name ): string {
         global $wpdb;
         return $wpdb->prefix . 'sfs_hr_' . $name;
     }
 
-    /* ═══════════════════ Template Management ═══════════════════ */
-
-    /**
-     * List all surveys marked as templates.
-     *
-     * @return array<int, array>
-     */
-    public static functionlist_templates(): array {
+    public static function list_templates(): array {
         global $wpdb;
-        $rows = $wpdb->get_results(
-            "SELECT * FROM {self::t('surveys')} WHERE is_template = 1 ORDER BY id DESC",
+        $table = self::t( 'surveys' );
+        $rows  = $wpdb->get_results(
+            "SELECT * FROM {$table} WHERE is_template = 1 ORDER BY id DESC",
             ARRAY_A
         );
         return $rows ?: [];
     }
 
-    /**
-     * Create a new draft survey from a template, cloning questions.
-     *
-     * @param int   $template_id  Source template survey ID.
-     * @param array $overrides    Optional column overrides for the new survey.
-     * @return array{success: bool, survey_id?: int, error?: string}
-     */
-    public static functioncreate_from_template( int $template_id, array $overrides = [] ): array {
+    public static function create_from_template( int $template_id, array $overrides = [] ): array {
         global $wpdb;
+        $table = self::t( 'surveys' );
 
         $template = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT * FROM {self::t('surveys')} WHERE id = %d AND is_template = 1",
+                "SELECT * FROM {$table} WHERE id = %d AND is_template = 1",
                 $template_id
             ),
             ARRAY_A
@@ -73,7 +59,7 @@ class Survey_Enhancement_Service {
             'updated_at'    => $now,
         ];
 
-        $wpdb->insert( self::t( 'surveys' ), $data );
+        $wpdb->insert( $table, $data );
         $new_id = $wpdb->insert_id;
 
         if ( ! $new_id ) {
@@ -85,16 +71,12 @@ class Survey_Enhancement_Service {
         return [ 'success' => true, 'survey_id' => $new_id ];
     }
 
-    /**
-     * Save an existing survey as a reusable template.
-     *
-     * @return array{success: bool, survey_id?: int, error?: string}
-     */
-    public static functionsave_as_template( int $survey_id, string $name ): array {
+    public static function save_as_template( int $survey_id, string $name ): array {
         global $wpdb;
+        $table = self::t( 'surveys' );
 
         $source = $wpdb->get_row(
-            $wpdb->prepare( "SELECT * FROM {self::t('surveys')} WHERE id = %d", $survey_id ),
+            $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $survey_id ),
             ARRAY_A
         );
 
@@ -103,7 +85,7 @@ class Survey_Enhancement_Service {
         }
 
         $now = Helpers::now_mysql();
-        $wpdb->insert( self::t( 'surveys' ), [
+        $wpdb->insert( $table, [
             'title'        => sanitize_text_field( $name ),
             'description'  => $source['description'],
             'status'       => 'draft',
@@ -126,16 +108,7 @@ class Survey_Enhancement_Service {
         return [ 'success' => true, 'survey_id' => $tpl_id ];
     }
 
-    /* ═══════════════════ Branching Logic ═══════════════════ */
-
-    /**
-     * Save branching rules on a question.
-     *
-     * @param int   $question_id
-     * @param array $rules  Array of {answer_value: string, next_question_id: int|null}.
-     * @return bool
-     */
-    public static functionset_branching( int $question_id, array $rules ): bool {
+    public static function set_branching( int $question_id, array $rules ): bool {
         global $wpdb;
 
         $sanitized = [];
@@ -162,18 +135,14 @@ class Survey_Enhancement_Service {
         return $result !== false;
     }
 
-    /**
-     * Given an answer to a question, return the next question_id based on branching rules.
-     *
-     * @return int|null  Next question_id, or null if survey should end.
-     */
-    public static functionget_next_question( int $question_id, string $answer ): ?int {
+    public static function get_next_question( int $question_id, string $answer ): ?int {
         global $wpdb;
+        $q_table = self::t( 'survey_questions' );
 
         $row = $wpdb->get_row(
             $wpdb->prepare(
                 "SELECT survey_id, sort_order, branching_json
-                 FROM {self::t('survey_questions')}
+                 FROM {$q_table}
                  WHERE id = %d",
                 $question_id
             ),
@@ -184,22 +153,20 @@ class Survey_Enhancement_Service {
             return null;
         }
 
-        // Check branching rules first.
         if ( ! empty( $row['branching_json'] ) ) {
             $rules = json_decode( $row['branching_json'], true );
             if ( is_array( $rules ) ) {
                 foreach ( $rules as $rule ) {
                     if ( isset( $rule['answer_value'] ) && $rule['answer_value'] === $answer ) {
-                        return $rule['next_question_id']; // null means end survey
+                        return $rule['next_question_id'];
                     }
                 }
             }
         }
 
-        // No matching branching rule — fall through to next question by sort_order.
         $next_id = $wpdb->get_var(
             $wpdb->prepare(
-                "SELECT id FROM {self::t('survey_questions')}
+                "SELECT id FROM {$q_table}
                  WHERE survey_id = %d AND sort_order > %d
                  ORDER BY sort_order ASC, id ASC
                  LIMIT 1",
@@ -211,18 +178,12 @@ class Survey_Enhancement_Service {
         return $next_id ? (int) $next_id : null;
     }
 
-    /* ═══════════════════ Survey Scheduling ═══════════════════ */
-
-    /**
-     * Find active surveys with a recurring schedule.
-     *
-     * @return array
-     */
-    public static functionget_scheduled_surveys(): array {
+    public static function get_scheduled_surveys(): array {
         global $wpdb;
-        $rows = $wpdb->get_results(
+        $table = self::t( 'surveys' );
+        $rows  = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT * FROM {self::t('surveys')}
+                "SELECT * FROM {$table}
                  WHERE schedule_type != %s
                    AND status IN ('draft','published')
                    AND is_template = 0
@@ -234,16 +195,14 @@ class Survey_Enhancement_Service {
         return $rows ?: [];
     }
 
-    /**
-     * Process scheduled surveys — called daily by cron.
-     */
-    public static functionprocess_scheduled(): void {
+    public static function process_scheduled(): void {
         global $wpdb;
+        $table = self::t( 'surveys' );
         $today = wp_date( 'Y-m-d' );
 
         $due = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT * FROM {self::t('surveys')}
+                "SELECT * FROM {$table}
                  WHERE schedule_type != %s
                    AND next_run_date IS NOT NULL
                    AND next_run_date <= %s
@@ -263,9 +222,8 @@ class Survey_Enhancement_Service {
                 ? (int) $survey['template_id']
                 : (int) $survey['id'];
 
-            // Clone into a new published survey.
             $now = Helpers::now_mysql();
-            $wpdb->insert( self::t( 'surveys' ), [
+            $wpdb->insert( $table, [
                 'title'         => $survey['title'],
                 'description'   => $survey['description'],
                 'status'        => 'published',
@@ -286,14 +244,13 @@ class Survey_Enhancement_Service {
                 self::clone_questions( $source_id, $new_id );
             }
 
-            // Calculate and update next run date on the original scheduled survey.
             $config   = ! empty( $survey['schedule_config'] )
                 ? json_decode( $survey['schedule_config'], true )
                 : [];
             $next     = self::calculate_next_run( $survey['schedule_type'], $config ?: [] );
 
             $wpdb->update(
-                self::t( 'surveys' ),
+                $table,
                 [ 'next_run_date' => $next, 'updated_at' => $now ],
                 [ 'id' => (int) $survey['id'] ],
                 [ '%s', '%s' ],
@@ -302,16 +259,7 @@ class Survey_Enhancement_Service {
         }
     }
 
-    /**
-     * Calculate the next run date for a schedule.
-     *
-     * Config keys:
-     *   - day_of_week (int 1-7 for weekly, ISO Monday=1)
-     *   - day_of_month (int 1-28 for monthly)
-     *
-     * @return string|null  Y-m-d or null if schedule_type is 'none'.
-     */
-    public static functioncalculate_next_run( string $schedule_type, array $config ): ?string {
+    public static function calculate_next_run( string $schedule_type, array $config ): ?string {
         $today = wp_date( 'Y-m-d' );
 
         switch ( $schedule_type ) {
@@ -348,19 +296,15 @@ class Survey_Enhancement_Service {
         }
     }
 
-    /* ═══════════════════ Non-Respondent Reminders ═══════════════════ */
-
-    /**
-     * Find employees targeted by the survey who have not yet responded.
-     *
-     * @return array  Array of employee rows (assoc arrays with at least user_id, id, employee_code, full_name).
-     */
-    public static functionget_non_respondents( int $survey_id ): array {
+    public static function get_non_respondents( int $survey_id ): array {
         global $wpdb;
+        $s_table   = self::t( 'surveys' );
+        $emp_table = self::t( 'employees' );
+        $res_table = self::t( 'survey_responses' );
 
         $survey = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT target_scope, target_ids FROM {self::t('surveys')} WHERE id = %d",
+                "SELECT target_scope, target_ids FROM {$s_table} WHERE id = %d",
                 $survey_id
             ),
             ARRAY_A
@@ -369,9 +313,6 @@ class Survey_Enhancement_Service {
         if ( ! $survey ) {
             return [];
         }
-
-        $emp_table = self::t( 'employees' );
-        $res_table = self::t( 'survey_responses' );
 
         if ( $survey['target_scope'] === 'department' && ! empty( $survey['target_ids'] ) ) {
             $dept_ids = json_decode( $survey['target_ids'], true );
@@ -392,7 +333,6 @@ class Survey_Enhancement_Service {
                 ...array_merge( array_map( 'intval', $dept_ids ), [ $survey_id ] )
             );
         } else {
-            // 'all' scope — every active employee.
             $sql = $wpdb->prepare(
                 "SELECT e.id, e.user_id, e.employee_code,
                         CONCAT(e.first_name, ' ', e.last_name) AS full_name
@@ -410,17 +350,13 @@ class Survey_Enhancement_Service {
         return $rows ?: [];
     }
 
-    /**
-     * Send email reminders to non-respondents who haven't exceeded max_reminders.
-     *
-     * @return int  Number of reminders sent.
-     */
-    public static functionsend_reminders( int $survey_id, int $max_reminders = 3 ): int {
+    public static function send_reminders( int $survey_id, int $max_reminders = 3 ): int {
         global $wpdb;
+        $s_table = self::t( 'surveys' );
 
         $survey = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT id, title, status FROM {self::t('surveys')} WHERE id = %d",
+                "SELECT id, title, status FROM {$s_table} WHERE id = %d",
                 $survey_id
             ),
             ARRAY_A
@@ -435,33 +371,12 @@ class Survey_Enhancement_Service {
             return 0;
         }
 
-        $res_table = self::t( 'survey_responses' );
-        $sent      = 0;
-        $now       = Helpers::now_mysql();
+        $sent = 0;
+        $now  = Helpers::now_mysql();
 
         foreach ( $non_respondents as $emp ) {
             $employee_id = (int) $emp['id'];
 
-            // Check reminder count via a tracking row in responses (reminder_count column).
-            // We use a placeholder response row with submitted_at = NULL concept, but
-            // actually track via separate query since non-respondents have no response row.
-            // Instead, we insert a temp tracking approach: check if a "pending" row exists.
-            $existing = $wpdb->get_row(
-                $wpdb->prepare(
-                    "SELECT id, reminder_count FROM {$res_table}
-                     WHERE survey_id = %d AND employee_id = %d",
-                    $survey_id,
-                    $employee_id
-                ),
-                ARRAY_A
-            );
-
-            if ( $existing ) {
-                // Already responded — skip.
-                continue;
-            }
-
-            // Track reminders via wp_usermeta for non-respondents.
             $meta_key       = '_sfs_hr_survey_reminder_' . $survey_id;
             $reminder_data  = get_user_meta( (int) $emp['user_id'], $meta_key, true );
             $reminder_count = ! empty( $reminder_data['count'] ) ? (int) $reminder_data['count'] : 0;
@@ -476,7 +391,6 @@ class Survey_Enhancement_Service {
             }
 
             $subject = sprintf(
-                /* translators: %s: survey title */
                 __( 'Reminder: Please complete the survey "%s"', 'sfs-hr' ),
                 $survey['title']
             );
@@ -484,12 +398,10 @@ class Survey_Enhancement_Service {
             $message = sprintf(
                 '<p>%s</p><p>%s</p>',
                 sprintf(
-                    /* translators: %s: employee name */
                     __( 'Dear %s,', 'sfs-hr' ),
                     esc_html( $emp['full_name'] )
                 ),
                 sprintf(
-                    /* translators: %s: survey title */
                     __( 'This is a friendly reminder to complete the survey: <strong>%s</strong>. Your feedback is important.', 'sfs-hr' ),
                     esc_html( $survey['title'] )
                 )
@@ -508,19 +420,17 @@ class Survey_Enhancement_Service {
         return $sent;
     }
 
-    /* ═══════════════════ Response Export ═══════════════════ */
-
-    /**
-     * Generate CSV content for all responses to a survey.
-     *
-     * @return string  CSV content.
-     */
-    public static functionexport_responses( int $survey_id, string $format = 'csv' ): string {
+    public static function export_responses( int $survey_id, string $format = 'csv' ): string {
         global $wpdb;
+        $s_table = self::t( 'surveys' );
+        $r_table = self::t( 'survey_responses' );
+        $a_table = self::t( 'survey_answers' );
+        $q_table = self::t( 'survey_questions' );
+        $e_table = self::t( 'employees' );
 
         $survey = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT id, is_anonymous FROM {self::t('surveys')} WHERE id = %d",
+                "SELECT id, is_anonymous FROM {$s_table} WHERE id = %d",
                 $survey_id
             ),
             ARRAY_A
@@ -539,10 +449,10 @@ class Survey_Enhancement_Service {
                         a.answer_text, a.answer_rating,
                         e.employee_code,
                         CONCAT(e.first_name, ' ', e.last_name) AS full_name
-                 FROM {self::t('survey_responses')} r
-                 JOIN {self::t('survey_answers')} a ON a.response_id = r.id
-                 JOIN {self::t('survey_questions')} q ON q.id = a.question_id
-                 LEFT JOIN {self::t('employees')} e ON e.id = r.employee_id
+                 FROM {$r_table} r
+                 JOIN {$a_table} a ON a.response_id = r.id
+                 JOIN {$q_table} q ON q.id = a.question_id
+                 LEFT JOIN {$e_table} e ON e.id = r.employee_id
                  WHERE r.survey_id = %d
                  ORDER BY r.submitted_at ASC, q.sort_order ASC, q.id ASC",
                 $survey_id
@@ -556,7 +466,6 @@ class Survey_Enhancement_Service {
 
         $handle = fopen( 'php://temp', 'r+' );
 
-        // Header row.
         fputcsv( $handle, [
             __( 'Employee Code', 'sfs-hr' ),
             __( 'Employee Name', 'sfs-hr' ),
@@ -592,17 +501,13 @@ class Survey_Enhancement_Service {
         return $csv;
     }
 
-    /* ═══════════════════ Internal helpers ═══════════════════ */
-
-    /**
-     * Clone all questions from one survey to another, including options and branching.
-     */
     private static function clone_questions( int $source_id, int $target_id ): void {
         global $wpdb;
+        $q_table = self::t( 'survey_questions' );
 
         $questions = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT * FROM {self::t('survey_questions')} WHERE survey_id = %d ORDER BY sort_order ASC, id ASC",
+                "SELECT * FROM {$q_table} WHERE survey_id = %d ORDER BY sort_order ASC, id ASC",
                 $source_id
             ),
             ARRAY_A
@@ -613,10 +518,10 @@ class Survey_Enhancement_Service {
         }
 
         $now    = Helpers::now_mysql();
-        $id_map = []; // old_id => new_id
+        $id_map = [];
 
         foreach ( $questions as $q ) {
-            $wpdb->insert( self::t( 'survey_questions' ), [
+            $wpdb->insert( $q_table, [
                 'survey_id'      => $target_id,
                 'sort_order'     => $q['sort_order'],
                 'question_text'  => $q['question_text'],
@@ -629,12 +534,11 @@ class Survey_Enhancement_Service {
             $id_map[ (int) $q['id'] ] = $wpdb->insert_id;
         }
 
-        // Re-map branching next_question_id references to the new question IDs.
         foreach ( $questions as $q ) {
             if ( empty( $q['branching_json'] ) ) {
                 continue;
             }
-            $rules   = json_decode( $q['branching_json'], true );
+            $rules = json_decode( $q['branching_json'], true );
             if ( ! is_array( $rules ) ) {
                 continue;
             }
@@ -654,7 +558,7 @@ class Survey_Enhancement_Service {
                 $new_qid = $id_map[ (int) $q['id'] ] ?? 0;
                 if ( $new_qid ) {
                     $wpdb->update(
-                        self::t( 'survey_questions' ),
+                        $q_table,
                         [ 'branching_json' => wp_json_encode( $rules ) ],
                         [ 'id' => $new_qid ],
                         [ '%s' ],

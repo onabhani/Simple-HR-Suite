@@ -20,46 +20,96 @@ class AutomationModule {
         Automation_Rest::register();
         Automation_Cron::register();
 
-        add_action( 'sfs_hr_employee_created',    [ self::class, 'on_employee_event' ], 10, 2 );
-        add_action( 'sfs_hr_employee_updated',    [ self::class, 'on_employee_updated' ], 10, 3 );
-        add_action( 'sfs_hr_leave_request_created', [ self::class, 'on_event' ], 10, 2 );
-        add_action( 'sfs_hr_leave_request_status_changed', [ self::class, 'on_event' ], 10, 2 );
-        add_action( 'sfs_hr_attendance_late',     [ self::class, 'on_event' ], 10, 2 );
-        add_action( 'sfs_hr_loan_approved',       [ self::class, 'on_event' ], 10, 2 );
-        add_action( 'sfs_hr_resignation_submitted', [ self::class, 'on_event' ], 10, 2 );
-        add_action( 'sfs_hr_payroll_run_approved', [ self::class, 'on_event' ], 10, 2 );
+        add_action( 'sfs_hr_employee_created',              [ self::class, 'on_employee_created' ], 10, 2 );
+        add_action( 'sfs_hr_employee_updated',              [ self::class, 'on_employee_updated' ], 10, 3 );
+        add_action( 'sfs_hr_leave_request_created',         [ self::class, 'on_leave_created' ], 10, 2 );
+        add_action( 'sfs_hr_leave_request_status_changed',  [ self::class, 'on_leave_status_changed' ], 10, 3 );
+        add_action( 'sfs_hr_attendance_late',               [ self::class, 'on_attendance_late' ], 10, 2 );
+        add_action( 'sfs_hr_loan_status_changed',           [ self::class, 'on_loan_status_changed' ], 10, 3 );
+        add_action( 'sfs_hr_resignation_status_changed',    [ self::class, 'on_resignation_status_changed' ], 10, 3 );
+        add_action( 'sfs_hr_payroll_run_approved',          [ self::class, 'on_payroll_approved' ], 10, 2 );
     }
 
-    public static function on_event( string $event_name, array $context = [] ): void {
+    private static function dispatch( string $event, array $context ): void {
         try {
-            Automation_Rule_Service::evaluate_event( $event_name, $context );
+            Automation_Rule_Service::evaluate_event( $event, $context );
         } catch ( \Throwable $e ) {
             error_log( '[SFS HR Automation] Event handler error: ' . $e->getMessage() );
         }
     }
 
-    public static function on_employee_event( string $event_name, array $context = [] ): void {
-        self::on_event( $event_name, $context );
+    public static function on_employee_created( int $employee_id, array $data ): void {
+        self::dispatch( 'employee.created', [
+            'employee_id' => $employee_id,
+            'data'        => $data,
+        ] );
     }
 
-    public static function on_employee_updated( string $event_name, array $context = [], array $changes = [] ): void {
-        self::on_event( $event_name, $context );
+    public static function on_employee_updated( int $employee_id, array $old_data, array $new_data ): void {
+        self::dispatch( 'employee.updated', [
+            'employee_id' => $employee_id,
+            'old_data'    => $old_data,
+            'new_data'    => $new_data,
+        ] );
 
-        if ( ! empty( $changes ) && ! empty( $context['employee_id'] ) ) {
-            foreach ( $changes as $field => $vals ) {
-                $old = $vals['old'] ?? null;
-                $new = $vals['new'] ?? null;
-                if ( $old !== $new ) {
-                    try {
-                        Automation_Rule_Service::evaluate_field_change(
-                            'employee', $field, $old, $new, (int) $context['employee_id']
-                        );
-                    } catch ( \Throwable $e ) {
-                        error_log( '[SFS HR Automation] Field change error: ' . $e->getMessage() );
-                    }
+        foreach ( $new_data as $field => $new_val ) {
+            $old_val = $old_data[ $field ] ?? null;
+            if ( $old_val !== $new_val ) {
+                try {
+                    Automation_Rule_Service::evaluate_field_change(
+                        'employee', $field, $old_val, $new_val, $employee_id
+                    );
+                } catch ( \Throwable $e ) {
+                    error_log( '[SFS HR Automation] Field change error: ' . $e->getMessage() );
                 }
             }
         }
+    }
+
+    public static function on_leave_created( int $request_id, array $data ): void {
+        self::dispatch( 'leave.created', [
+            'request_id'  => $request_id,
+            'employee_id' => $data['employee_id'] ?? null,
+            'data'        => $data,
+        ] );
+    }
+
+    public static function on_leave_status_changed( int $request_id, string $old_status, string $new_status ): void {
+        self::dispatch( 'leave.status_changed', [
+            'request_id' => $request_id,
+            'old_status' => $old_status,
+            'new_status' => $new_status,
+        ] );
+    }
+
+    public static function on_attendance_late( int $employee_id, array $data ): void {
+        self::dispatch( 'attendance.late', [
+            'employee_id' => $employee_id,
+            'data'        => $data,
+        ] );
+    }
+
+    public static function on_loan_status_changed( int $loan_id, string $old_status, string $new_status ): void {
+        self::dispatch( 'loan.status_changed', [
+            'loan_id'    => $loan_id,
+            'old_status' => $old_status,
+            'new_status' => $new_status,
+        ] );
+    }
+
+    public static function on_resignation_status_changed( int $resignation_id, string $old_status, string $new_status ): void {
+        self::dispatch( 'resignation.status_changed', [
+            'resignation_id' => $resignation_id,
+            'old_status'     => $old_status,
+            'new_status'     => $new_status,
+        ] );
+    }
+
+    public static function on_payroll_approved( int $run_id, array $data ): void {
+        self::dispatch( 'payroll.approved', [
+            'run_id' => $run_id,
+            'data'   => $data,
+        ] );
     }
 
     public function maybe_install_tables(): void {
