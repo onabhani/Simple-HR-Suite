@@ -550,6 +550,10 @@ add_action('plugins_loaded', function(){
 
     // M11: Training & Development (programs, sessions, certifications, compliance)
     (new \SFS\HR\Modules\Training\TrainingModule())->hooks();
+
+    // M12: Automation & Workflow Engine (rule-based triggers, scheduled actions)
+    require_once __DIR__ . '/includes/Modules/Automation/AutomationModule.php';
+    (new \SFS\HR\Modules\Automation\AutomationModule())->hooks();
 });
 
 /**
