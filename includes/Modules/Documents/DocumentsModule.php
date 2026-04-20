@@ -5,14 +5,21 @@ if (!defined('ABSPATH')) { exit; }
 
 // Load submodules
 require_once __DIR__ . '/Services/class-documents-service.php';
+require_once __DIR__ . '/Services/Document_Compliance_Service.php';
+require_once __DIR__ . '/Services/Letter_Template_Service.php';
 require_once __DIR__ . '/Admin/class-documents-tab.php';
 require_once __DIR__ . '/Handlers/class-documents-handlers.php';
 require_once __DIR__ . '/Rest/class-documents-rest.php';
+require_once __DIR__ . '/Rest/Document_Compliance_Rest.php';
+require_once __DIR__ . '/Cron/Document_Expiry_Cron.php';
 
 use SFS\HR\Modules\Documents\Services\Documents_Service;
+use SFS\HR\Modules\Documents\Services\Letter_Template_Service;
 use SFS\HR\Modules\Documents\Admin\Documents_Tab;
 use SFS\HR\Modules\Documents\Handlers\Documents_Handlers;
 use SFS\HR\Modules\Documents\Rest\Documents_Rest;
+use SFS\HR\Modules\Documents\Rest\Document_Compliance_Rest;
+use SFS\HR\Modules\Documents\Cron\Document_Expiry_Cron;
 
 /**
  * Documents Module
@@ -51,6 +58,10 @@ class DocumentsModule {
 
         // REST API
         add_action('rest_api_init', [Documents_Rest::class, 'register']);
+        add_action('rest_api_init', [Document_Compliance_Rest::class, 'routes']);
+
+        // Cron
+        Document_Expiry_Cron::register();
     }
 
     /**
@@ -92,6 +103,14 @@ class DocumentsModule {
         } else {
             // Add update_requested columns if they don't exist (migration)
             $this->maybe_add_update_request_columns($table);
+        }
+
+        // Letter templates table (ensure_table is idempotent; seed only on first creation)
+        $tpl_table = $wpdb->prefix . 'sfs_hr_letter_templates';
+        $tpl_exists = (bool) $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $tpl_table));
+        Letter_Template_Service::ensure_table();
+        if ( ! $tpl_exists ) {
+            Letter_Template_Service::seed_defaults();
         }
     }
 
