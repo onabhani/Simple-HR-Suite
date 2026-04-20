@@ -4144,5 +4144,21 @@
     "Today is %s's birthday. You may wish to send your congratulations.": "Today is %s's birthday. You may wish to send your congratulations.",
     "Work Anniversary: %s (%d years)": "Work Anniversary: %s (%d years)",
     "Today marks %1$d year(s) since %2$s joined the company. You may wish to acknowledge this milestone.": "Today marks %1$d year(s) since %2$s joined the company. You may wish to acknowledge this milestone.",
-    "Field not in automation allowlist.": "Field not in automation allowlist."
+    "Field not in automation allowlist.": "Field not in automation allowlist.",
+    "Failed to create survey.": "Failed to create survey.",
+    "Survey not found.": "Survey not found.",
+    "Failed to create template.": "Failed to create template.",
+    "Reminder: Please complete the survey \"%s\"": "Reminder: Please complete the survey \"%s\"",
+    "Dear %s,": "Dear %s,",
+    "This is a friendly reminder to complete the survey: <strong>%s</strong>. Your feedback is important.": "This is a friendly reminder to complete the survey: <strong>%s</strong>. Your feedback is important.",
+    "Employee Code": "Employee Code",
+    "Employee Name": "Employee Name",
+    "Question": "Question",
+    "Answer": "Answer",
+    "Submitted At": "Submitted At",
+    "Anonymous": "Anonymous",
+    "Message is required.": "Message is required.",
+    "Giver employee not found or inactive.": "Giver employee not found or inactive.",
+    "Recipient employee not found or inactive.": "Recipient employee not found or inactive.",
+    "Cannot give recognition to yourself.": "Cannot give recognition to yourself."
 }

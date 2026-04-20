@@ -4161,5 +4161,21 @@
     "Today is %s's birthday. You may wish to send your congratulations.": "اليوم عيد ميلاد %s. قد ترغب في إرسال تهنئتك.",
     "Work Anniversary: %s (%d years)": "ذكرى العمل: %s (%d سنة)",
     "Today marks %1$d year(s) since %2$s joined the company. You may wish to acknowledge this milestone.": "يصادف اليوم مرور %1$d سنة على انضمام %2$s للشركة. قد ترغب في الاحتفاء بهذا الإنجاز.",
-    "Field not in automation allowlist.": "الحقل غير مسموح به في قائمة الأتمتة."
+    "Field not in automation allowlist.": "الحقل غير مسموح به في قائمة الأتمتة.",
+    "Failed to create survey.": "فشل في إنشاء الاستبيان.",
+    "Survey not found.": "الاستبيان غير موجود.",
+    "Failed to create template.": "فشل في إنشاء القالب.",
+    "Reminder: Please complete the survey \"%s\"": "تذكير: يرجى إكمال الاستبيان \"%s\"",
+    "Dear %s,": "عزيزي %s،",
+    "This is a friendly reminder to complete the survey: <strong>%s</strong>. Your feedback is important.": "هذا تذكير ودي لإكمال الاستبيان: <strong>%s</strong>. ملاحظاتك مهمة.",
+    "Employee Code": "رقم الموظف",
+    "Employee Name": "اسم الموظف",
+    "Question": "السؤال",
+    "Answer": "الإجابة",
+    "Submitted At": "تاريخ التقديم",
+    "Anonymous": "مجهول",
+    "Message is required.": "الرسالة مطلوبة.",
+    "Giver employee not found or inactive.": "الموظف المرسل غير موجود أو غير نشط.",
+    "Recipient employee not found or inactive.": "الموظف المستلم غير موجود أو غير نشط.",
+    "Cannot give recognition to yourself.": "لا يمكنك تقدير نفسك."
 }

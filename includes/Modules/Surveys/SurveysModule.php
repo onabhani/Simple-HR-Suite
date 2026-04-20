@@ -26,6 +26,15 @@ class SurveysModule {
 
         // Register frontend tab.
         Tab_Dispatcher::register( 'surveys', 'SFS\\HR\\Modules\\Surveys\\Frontend\\SurveysTab' );
+
+        // M13: Enhancement services, REST, and cron.
+        require_once __DIR__ . '/Services/Survey_Enhancement_Service.php';
+        require_once __DIR__ . '/Services/Engagement_Service.php';
+        require_once __DIR__ . '/Rest/Survey_Rest.php';
+        require_once __DIR__ . '/Cron/Survey_Cron.php';
+
+        Rest\Survey_Rest::register();
+        Cron\Survey_Cron::register();
     }
 
     /* ───────────────────────── admin menu ──────────────────── */
@@ -101,6 +110,65 @@ class SurveysModule {
             KEY idx_response (response_id),
             KEY idx_question (question_id)
         ) $charset;" );
+
+        // M13: Engagement tables.
+        dbDelta( "CREATE TABLE {$wpdb->prefix}sfs_hr_employee_suggestions (
+            id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            message       TEXT            NOT NULL,
+            category      VARCHAR(50)     DEFAULT NULL,
+            status        ENUM('new','reviewed','actioned','dismissed') NOT NULL DEFAULT 'new',
+            admin_notes   TEXT            DEFAULT NULL,
+            reviewed_by   BIGINT UNSIGNED DEFAULT NULL,
+            reviewed_at   DATETIME        DEFAULT NULL,
+            created_at    DATETIME        NOT NULL,
+            PRIMARY KEY (id),
+            KEY idx_status (status),
+            KEY idx_created (created_at)
+        ) $charset;" );
+
+        dbDelta( "CREATE TABLE {$wpdb->prefix}sfs_hr_employee_recognition (
+            id                    BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            giver_employee_id     BIGINT UNSIGNED NOT NULL,
+            recipient_employee_id BIGINT UNSIGNED NOT NULL,
+            message               TEXT            NOT NULL,
+            badge                 VARCHAR(50)     DEFAULT NULL,
+            is_public             TINYINT(1)      NOT NULL DEFAULT 1,
+            created_at            DATETIME        NOT NULL,
+            PRIMARY KEY (id),
+            KEY idx_recipient (recipient_employee_id),
+            KEY idx_created (created_at)
+        ) $charset;" );
+
+        // M13: Add new columns to existing survey tables.
+        self::m13_add_columns();
+    }
+
+    private static function m13_add_columns(): void {
+        global $wpdb;
+        $p = $wpdb->prefix;
+
+        $add = static function ( string $table, string $col, string $def ) use ( $wpdb ) {
+            $exists = $wpdb->get_var( $wpdb->prepare(
+                "SHOW COLUMNS FROM `{$table}` LIKE %s", $col
+            ) );
+            if ( ! $exists ) {
+                $wpdb->query( "ALTER TABLE `{$table}` ADD COLUMN {$def}" );
+            }
+        };
+
+        $surveys = "{$p}sfs_hr_surveys";
+        $add( $surveys, 'is_template',    "is_template TINYINT(1) NOT NULL DEFAULT 0 AFTER target_ids" );
+        $add( $surveys, 'template_id',    "template_id BIGINT UNSIGNED NULL AFTER is_template" );
+        $add( $surveys, 'schedule_type',  "schedule_type VARCHAR(20) NOT NULL DEFAULT 'none' AFTER template_id" );
+        $add( $surveys, 'schedule_config', "schedule_config JSON NULL AFTER schedule_type" );
+        $add( $surveys, 'next_run_date',  "next_run_date DATE NULL AFTER schedule_config" );
+
+        $questions = "{$p}sfs_hr_survey_questions";
+        $add( $questions, 'branching_json', "branching_json JSON NULL AFTER is_required" );
+
+        $responses = "{$p}sfs_hr_survey_responses";
+        $add( $responses, 'reminder_count',   "reminder_count TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER submitted_at" );
+        $add( $responses, 'last_reminder_at', "last_reminder_at DATETIME NULL AFTER reminder_count" );
     }
 
     /* ───────────────────────── admin render ────────────────── */
