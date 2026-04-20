@@ -554,6 +554,10 @@ add_action('plugins_loaded', function(){
     // M12: Automation & Workflow Engine (rule-based triggers, scheduled actions)
     require_once __DIR__ . '/includes/Modules/Automation/AutomationModule.php';
     (new \SFS\HR\Modules\Automation\AutomationModule())->hooks();
+
+    // M14: Reporting & Analytics Platform (dashboards, report builder, scheduled reports)
+    require_once __DIR__ . '/includes/Modules/Reporting/ReportingModule.php';
+    (new \SFS\HR\Modules\Reporting\ReportingModule())->hooks();
 });
 
 /**
