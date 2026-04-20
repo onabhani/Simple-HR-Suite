@@ -112,6 +112,11 @@ class Migration {
 
         // Migration: Add dept_id column if missing (for existing installations)
         $shifts_table = "{$p}sfs_hr_attendance_shifts";
+
+        // ── M5: Shift compliance columns ──
+        $this->add_column_if_missing($wpdb, $shifts_table, 'min_rest_hours', "min_rest_hours TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Minimum hours between shifts (0=unchecked)'");
+        $this->add_column_if_missing($wpdb, $shifts_table, 'max_daily_minutes', "max_daily_minutes SMALLINT UNSIGNED NULL COMMENT 'Max work minutes per day (480=8h, 360=6h Ramadan)'");
+        $this->add_column_if_missing($wpdb, $shifts_table, 'weekly_off_required', "weekly_off_required TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1=enforce at least 1 day off per 7 days'");
         $dept_id_added = !$wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$shifts_table} LIKE %s", 'dept_id'));
         $this->add_column_if_missing($wpdb, $shifts_table, 'dept_id', "dept_id BIGINT UNSIGNED NULL AFTER active");
         if ($dept_id_added) {
@@ -142,6 +147,10 @@ class Migration {
             KEY shift_date (shift_id, work_date),
             KEY work_date (work_date)
         ) $charset_collate;");
+
+        // ── M5: Roster run tracking on assignments ──
+        $assignT = "{$p}sfs_hr_attendance_shift_assign";
+        $this->add_column_if_missing($wpdb, $assignT, 'roster_run_id', "roster_run_id BIGINT UNSIGNED NULL COMMENT 'FK to roster_runs if auto-generated'");
 
         // 5) employee default shifts (history)
         dbDelta("CREATE TABLE {$p}sfs_hr_attendance_emp_shifts (
@@ -223,6 +232,16 @@ class Migration {
         $this->add_column_if_missing($wpdb, $t, 'suggest_out_time',           "suggest_out_time TIME NULL");
         $this->add_column_if_missing($wpdb, $t, 'break_enabled',              "break_enabled TINYINT(1) NOT NULL DEFAULT 0");
 
+        // ── M5: Biometric device columns ──
+        $this->add_column_if_missing($wpdb, $t, 'api_token_hash', "api_token_hash VARCHAR(64) NULL COMMENT 'SHA-256 hash of device API bearer token'");
+        $this->add_column_if_missing($wpdb, $t, 'webhook_secret', "webhook_secret VARCHAR(255) NULL COMMENT 'HMAC secret for inbound webhooks from this device'");
+        $this->add_column_if_missing($wpdb, $t, 'employee_id_field', "employee_id_field VARCHAR(50) NOT NULL DEFAULT 'employee_code' COMMENT 'How device identifies employees'");
+
+        // M5: Biometric device type enum expansion
+        $device_type_col = $wpdb->get_row( $wpdb->prepare( "SHOW COLUMNS FROM {$t} LIKE %s", 'type' ) );
+        if ( $device_type_col && strpos( $device_type_col->Type, 'biometric' ) === false ) {
+            $wpdb->query( "ALTER TABLE {$t} MODIFY COLUMN type ENUM('kiosk','mobile','web','biometric') NOT NULL DEFAULT 'kiosk'" );
+        }
 
         // 6) flags (exceptions)
         dbDelta("CREATE TABLE {$p}sfs_hr_attendance_flags (
@@ -283,6 +302,20 @@ class Migration {
             KEY session_id (session_id)
         ) $charset_collate;");
 
+        // ── M5: UTC normalization columns on punches ──
+        $this->add_column_if_missing($wpdb, $punchesT, 'punch_time_utc', "punch_time_utc DATETIME NULL AFTER punch_time");
+        $this->add_column_if_missing($wpdb, $punchesT, 'tz_offset', "tz_offset VARCHAR(6) NULL AFTER punch_time_utc");
+        $this->add_column_if_missing($wpdb, $punchesT, 'external_ref', "external_ref VARCHAR(128) NULL COMMENT 'External device transaction ID for dedup'");
+
+        // M5: Biometric source enum expansion (idempotent check)
+        $punch_source_col = $wpdb->get_row( $wpdb->prepare( "SHOW COLUMNS FROM {$punchesT} LIKE %s", 'source' ) );
+        if ( $punch_source_col && strpos( $punch_source_col->Type, 'biometric' ) === false ) {
+            $wpdb->query( "ALTER TABLE {$punchesT} MODIFY COLUMN source ENUM('self_web','self_mobile','kiosk','manager_adjust','import_sync','biometric') NOT NULL" );
+        }
+
+        // M5: Unique index for biometric deduplication
+        $this->add_index_if_missing($wpdb, $punchesT, 'uq_external_ref', "ALTER TABLE {$punchesT} ADD UNIQUE KEY uq_external_ref (device_id, external_ref)");
+
         // Add early_leave_approved column to sessions if missing
         $sessions_table = "{$p}sfs_hr_attendance_sessions";
         $this->add_column_if_missing($wpdb, $sessions_table, 'early_leave_approved', "early_leave_approved TINYINT(1) NOT NULL DEFAULT 0");
@@ -300,6 +333,52 @@ class Migration {
         $this->add_column_if_missing($wpdb, $early_leave_table, 'request_number', "request_number VARCHAR(50) NULL");
         $this->add_unique_key_if_missing($wpdb, $early_leave_table, 'request_number');
         Services\Early_Leave_Service::backfill_early_leave_request_numbers($wpdb);
+
+        // ── M5: Roster generation runs ──
+        dbDelta("CREATE TABLE {$p}sfs_hr_attendance_roster_runs (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            start_date DATE NOT NULL,
+            end_date DATE NOT NULL,
+            dept_id BIGINT UNSIGNED NULL,
+            shift_id BIGINT UNSIGNED NULL,
+            schedule_id BIGINT UNSIGNED NULL,
+            assignments_created INT UNSIGNED NOT NULL DEFAULT 0,
+            assignments_skipped INT UNSIGNED NOT NULL DEFAULT 0,
+            violations_json LONGTEXT NULL,
+            status ENUM('draft','published','reverted') NOT NULL DEFAULT 'draft',
+            published_at DATETIME NULL,
+            published_by BIGINT UNSIGNED NULL,
+            created_at DATETIME NOT NULL,
+            created_by BIGINT UNSIGNED NOT NULL,
+            PRIMARY KEY (id),
+            KEY date_range (start_date, end_date),
+            KEY dept_id (dept_id),
+            KEY status (status)
+        ) $charset_collate;");
+
+        // ── M5: Compliance snapshots (materialized report data) ──
+        dbDelta("CREATE TABLE {$p}sfs_hr_attendance_compliance_snapshots (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            employee_id BIGINT UNSIGNED NOT NULL,
+            period_start DATE NOT NULL,
+            period_end DATE NOT NULL,
+            contracted_minutes_total INT UNSIGNED NOT NULL DEFAULT 0,
+            actual_minutes_total INT UNSIGNED NOT NULL DEFAULT 0,
+            overtime_minutes_total INT UNSIGNED NOT NULL DEFAULT 0,
+            days_worked SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            days_absent SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            days_late SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            max_consecutive_days SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            weekly_off_violations SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            daily_hour_violations SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            rest_period_violations SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            violations_json LONGTEXT NULL,
+            computed_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY emp_period (employee_id, period_start, period_end),
+            KEY period_range (period_start, period_end),
+            KEY computed_at (computed_at)
+        ) $charset_collate;");
 
         // Migration: Add foreign key constraints (runs once)
         if ( ! get_option( 'sfs_hr_att_fk_migrated' ) ) {
