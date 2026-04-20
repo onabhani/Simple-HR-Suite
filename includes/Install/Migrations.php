@@ -468,6 +468,131 @@ class Migrations {
             KEY `approver_decision` (`approver_id`, `decision`)
         ) $charset");
 
+        /** M11: TRAINING & DEVELOPMENT */
+
+        $trn_programs = $wpdb->prefix . 'sfs_hr_training_programs';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$trn_programs}` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `code` VARCHAR(30) NULL,
+            `title` VARCHAR(191) NOT NULL,
+            `title_ar` VARCHAR(191) NULL,
+            `description` TEXT NULL,
+            `category` VARCHAR(50) NULL,
+            `training_type` ENUM('classroom','online','on_the_job','conference','certification') NOT NULL DEFAULT 'classroom',
+            `provider` VARCHAR(191) NULL,
+            `is_internal` TINYINT(1) NOT NULL DEFAULT 1,
+            `duration_hours` DECIMAL(6,1) NULL,
+            `cost_per_person` DECIMAL(18,2) NULL,
+            `currency` VARCHAR(3) NOT NULL DEFAULT 'SAR',
+            `max_capacity` SMALLINT UNSIGNED NULL,
+            `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+            `sort_order` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `code` (`code`),
+            KEY `active_type` (`is_active`, `training_type`)
+        ) $charset");
+
+        $trn_sessions = $wpdb->prefix . 'sfs_hr_training_sessions';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$trn_sessions}` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `program_id` BIGINT UNSIGNED NOT NULL,
+            `title` VARCHAR(191) NULL,
+            `start_date` DATE NOT NULL,
+            `end_date` DATE NULL,
+            `start_time` TIME NULL,
+            `end_time` TIME NULL,
+            `location` VARCHAR(191) NULL,
+            `trainer` VARCHAR(191) NULL,
+            `capacity` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            `status` ENUM('scheduled','in_progress','completed','cancelled') NOT NULL DEFAULT 'scheduled',
+            `notes` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `program_idx` (`program_id`),
+            KEY `status_date` (`status`, `start_date`)
+        ) $charset");
+
+        $trn_enrollments = $wpdb->prefix . 'sfs_hr_training_enrollments';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$trn_enrollments}` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `session_id` BIGINT UNSIGNED NOT NULL,
+            `employee_id` BIGINT UNSIGNED NOT NULL,
+            `status` ENUM('enrolled','attended','completed','no_show','cancelled') NOT NULL DEFAULT 'enrolled',
+            `enrolled_by` BIGINT UNSIGNED NULL,
+            `enrolled_at` DATETIME NULL,
+            `attended_at` DATETIME NULL,
+            `score` DECIMAL(5,2) NULL,
+            `cert_media_id` BIGINT UNSIGNED NULL,
+            `feedback` TEXT NULL,
+            `completed_at` DATETIME NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `session_idx` (`session_id`),
+            KEY `emp_idx` (`employee_id`),
+            UNIQUE KEY `session_emp` (`session_id`, `employee_id`)
+        ) $charset");
+
+        $trn_requests = $wpdb->prefix . 'sfs_hr_training_requests';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$trn_requests}` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `request_number` VARCHAR(50) NULL,
+            `employee_id` BIGINT UNSIGNED NOT NULL,
+            `training_title` VARCHAR(191) NOT NULL,
+            `training_type` VARCHAR(30) NULL,
+            `provider` VARCHAR(191) NULL,
+            `estimated_cost` DECIMAL(18,2) NOT NULL DEFAULT 0,
+            `currency` VARCHAR(3) NOT NULL DEFAULT 'SAR',
+            `preferred_date` DATE NULL,
+            `justification` TEXT NULL,
+            `notes` TEXT NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `approved_by` BIGINT UNSIGNED NULL,
+            `approved_at` DATETIME NULL,
+            `approver_note` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `request_number` (`request_number`),
+            KEY `emp_status` (`employee_id`, `status`),
+            KEY `status_idx` (`status`)
+        ) $charset");
+
+        $trn_certifications = $wpdb->prefix . 'sfs_hr_training_certifications';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$trn_certifications}` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `employee_id` BIGINT UNSIGNED NOT NULL,
+            `cert_name` VARCHAR(191) NOT NULL,
+            `issuing_body` VARCHAR(191) NULL,
+            `credential_id` VARCHAR(100) NULL,
+            `issued_date` DATE NULL,
+            `expiry_date` DATE NULL,
+            `cert_media_id` BIGINT UNSIGNED NULL,
+            `status` ENUM('active','expired','revoked') NOT NULL DEFAULT 'active',
+            `notes` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `emp_idx` (`employee_id`),
+            KEY `expiry_idx` (`expiry_date`),
+            KEY `status_idx` (`status`)
+        ) $charset");
+
+        $trn_cert_reqs = $wpdb->prefix . 'sfs_hr_training_cert_requirements';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$trn_cert_reqs}` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `role` VARCHAR(100) NOT NULL,
+            `cert_name` VARCHAR(191) NOT NULL,
+            `mandatory` TINYINT(1) NOT NULL DEFAULT 1,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `role_idx` (`role`)
+        ) $charset");
+
         /** M7: OFFBOARDING & EXIT INTERVIEW TABLES */
 
         // M7.1: Garden leave columns on resignations

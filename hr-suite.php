@@ -547,6 +547,9 @@ add_action('plugins_loaded', function(){
     // Projects Module (project sites, employee-project assignments, project shifts)
     require_once __DIR__ . '/includes/Modules/Projects/ProjectsModule.php';
     \SFS\HR\Modules\Projects\ProjectsModule::instance()->hooks();
+
+    // M11: Training & Development (programs, sessions, certifications, compliance)
+    (new \SFS\HR\Modules\Training\TrainingModule())->hooks();
 });
 
 /**

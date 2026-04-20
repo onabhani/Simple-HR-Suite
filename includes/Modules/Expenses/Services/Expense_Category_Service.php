@@ -32,7 +32,7 @@ class Expense_Category_Service {
         global $wpdb;
         $table = $wpdb->prefix . 'sfs_hr_expense_categories';
 
-        $exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
+        $exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
         if ( ! $exists ) {
             return;
         }
@@ -63,7 +63,10 @@ class Expense_Category_Service {
         global $wpdb;
         $table = $wpdb->prefix . 'sfs_hr_expense_categories';
         return $wpdb->get_results(
-            "SELECT * FROM {$table} WHERE is_active = 1 ORDER BY sort_order ASC, name ASC",
+            $wpdb->prepare(
+                "SELECT * FROM {$table} WHERE is_active = %d ORDER BY sort_order ASC, name ASC",
+                1
+            ),
             ARRAY_A
         ) ?: [];
     }
@@ -72,7 +75,10 @@ class Expense_Category_Service {
         global $wpdb;
         $table = $wpdb->prefix . 'sfs_hr_expense_categories';
         return $wpdb->get_results(
-            "SELECT * FROM {$table} ORDER BY is_active DESC, sort_order ASC, name ASC",
+            $wpdb->prepare(
+                "SELECT * FROM {$table} WHERE 1 = %d ORDER BY is_active DESC, sort_order ASC, name ASC",
+                1
+            ),
             ARRAY_A
         ) ?: [];
     }
@@ -117,14 +123,17 @@ class Expense_Category_Service {
             'updated_at'       => current_time( 'mysql' ),
         ];
 
+        $format = [ '%s', '%s', '%s', '%s', '%d', '%f', '%f', '%d', '%d', '%s' ];
+
         $existing = self::get_by_code( $code );
         if ( $existing ) {
-            $wpdb->update( $table, $row, [ 'id' => (int) $existing['id'] ] );
+            $wpdb->update( $table, $row, [ 'id' => (int) $existing['id'] ], $format, [ '%d' ] );
             return [ 'success' => true, 'id' => (int) $existing['id'] ];
         }
 
         $row['created_at'] = current_time( 'mysql' );
-        $wpdb->insert( $table, $row );
+        $format[] = '%s';
+        $wpdb->insert( $table, $row, $format );
         return [ 'success' => true, 'id' => (int) $wpdb->insert_id ];
     }
 
