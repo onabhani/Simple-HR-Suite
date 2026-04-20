@@ -12,6 +12,7 @@ require_once __DIR__ . '/Services/LeaveCalculationService.php';
 require_once __DIR__ . '/Services/CarryForwardService.php';
 require_once __DIR__ . '/Services/EncashmentService.php';
 require_once __DIR__ . '/Services/CompensatoryService.php';
+require_once __DIR__ . '/Rest/Leave_Rest.php';
 require_once __DIR__ . '/class-leave-ui.php';
 
 class LeaveModule {
@@ -42,6 +43,9 @@ class LeaveModule {
 
     public function hooks(): void {
         add_action('admin_menu', [$this, 'menu']);
+
+        // REST API (M2 enhancements)
+        \SFS\HR\Modules\Leave\Rest\Leave_Rest::register();
 
         add_action('admin_post_sfs_hr_leave_approve',        [$this, 'handle_approve']);
         add_action('admin_post_sfs_hr_leave_reject',         [$this, 'handle_reject']);

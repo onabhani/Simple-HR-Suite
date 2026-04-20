@@ -38,6 +38,10 @@ class HiringModule {
         require_once __DIR__ . '/Services/OfferService.php';
         require_once __DIR__ . '/Services/OnboardingService.php';
 
+        // REST API
+        require_once __DIR__ . '/Rest/Hiring_Rest.php';
+        Rest\Hiring_Rest::register();
+
         // Admin pages – Hiring has its own submenu under HR → Employees
         require_once __DIR__ . '/Admin/class-admin-pages.php';
         Admin\AdminPages::instance()->hooks();
