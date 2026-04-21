@@ -101,6 +101,7 @@ class CompensatoryService {
             "{$wpdb->prefix}sfs_hr_leave_compensatory",
             [
                 'employee_id'   => $employee_id,
+                'leave_type_id' => (int) $comp_type['id'],
                 'work_date'     => $work_date,
                 'session_id'    => $session_id,
                 'hours_worked'  => $hours_worked,
@@ -115,7 +116,7 @@ class CompensatoryService {
                 'created_at'    => $now,
                 'updated_at'    => null,
             ],
-            [ '%d', '%s', '%d', '%f', '%d', '%s', '%s', '%d', '%s', '%s', '%s', '%d', '%s', '%s' ]
+            [ '%d', '%d', '%s', '%d', '%f', '%d', '%s', '%s', '%d', '%s', '%s', '%s', '%d', '%s', '%s' ]
         );
 
         if ( ! $inserted ) {
@@ -144,15 +145,20 @@ class CompensatoryService {
             return [ 'success' => false, 'error' => __( 'Only pending requests can be approved.', 'sfs-hr' ) ];
         }
 
-        // Find active compensatory leave type
-        $comp_type = $wpdb->get_row(
-            "SELECT * FROM {$wpdb->prefix}sfs_hr_leave_types
-             WHERE is_compensatory = 1 AND active = 1
-             LIMIT 1",
-            ARRAY_A
-        );
-        if ( ! $comp_type ) {
-            return [ 'success' => false, 'error' => __( 'No active compensatory leave type is configured.', 'sfs-hr' ) ];
+        // Use leave_type_id from the row if stored, otherwise fall back to auto-detect
+        $leave_type_id = ! empty( $row['leave_type_id'] ) ? (int) $row['leave_type_id'] : null;
+
+        if ( ! $leave_type_id ) {
+            $comp_type = $wpdb->get_row(
+                "SELECT * FROM {$wpdb->prefix}sfs_hr_leave_types
+                 WHERE is_compensatory = 1 AND active = 1
+                 LIMIT 1",
+                ARRAY_A
+            );
+            if ( ! $comp_type ) {
+                return [ 'success' => false, 'error' => __( 'No active compensatory leave type is configured.', 'sfs-hr' ) ];
+            }
+            $leave_type_id = (int) $comp_type['id'];
         }
 
         $now = current_time( 'mysql' );
@@ -180,7 +186,7 @@ class CompensatoryService {
         // Credit the leave balance
         $credit_result = self::credit_balance(
             (int) $row['employee_id'],
-            (int) $comp_type['id'],
+            $leave_type_id,
             (int) $row['days_earned']
         );
 

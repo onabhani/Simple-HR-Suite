@@ -845,6 +845,9 @@ class Migrations {
             KEY `expiry_idx` (`expiry_date`)
         ) $charset");
 
+        // M2.3: Add leave_type_id column to compensatory leave table
+        self::add_column_if_missing($leave_comp, 'leave_type_id', "BIGINT(20) UNSIGNED NULL AFTER `employee_id`");
+
         /** EXIT HISTORY (audit trail for resignations and settlements) */
         $exit_history = $wpdb->prefix.'sfs_hr_exit_history';
         $wpdb->query("CREATE TABLE IF NOT EXISTS `$exit_history` (
@@ -1477,6 +1480,49 @@ class Migrations {
             KEY `idx_assigned` (`assigned_to`),
             KEY `idx_status` (`status`)
         ) $charset;");
+
+        /* ================================================================
+         *  M6 — DOCUMENTS & COMPLIANCE TABLES
+         * ================================================================ */
+
+        /** DOCUMENT VERSIONS (version history per document) */
+        $doc_versions = $wpdb->prefix . 'sfs_hr_document_versions';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$doc_versions` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `document_id` BIGINT(20) UNSIGNED NOT NULL,
+            `version_number` INT UNSIGNED NOT NULL,
+            `attachment_id` BIGINT(20) UNSIGNED NOT NULL,
+            `file_name` VARCHAR(255) NOT NULL,
+            `file_size` BIGINT(20) UNSIGNED DEFAULT 0,
+            `mime_type` VARCHAR(100) DEFAULT '',
+            `uploaded_by` BIGINT(20) UNSIGNED NOT NULL,
+            `notes` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `document_id` (`document_id`),
+            KEY `doc_version` (`document_id`, `version_number`)
+        ) $charset");
+
+        /** DOCUMENT LETTER TEMPLATES */
+        $doc_templates = $wpdb->prefix . 'sfs_hr_document_templates';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `$doc_templates` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `template_key` VARCHAR(50) NOT NULL,
+            `name_en` VARCHAR(255) NOT NULL,
+            `name_ar` VARCHAR(255) NOT NULL,
+            `body_en` LONGTEXT NOT NULL,
+            `body_ar` LONGTEXT NOT NULL,
+            `category` ENUM('certificate','letter','notice','contract') DEFAULT 'letter',
+            `is_active` TINYINT(1) DEFAULT 1,
+            `created_by` BIGINT(20) UNSIGNED NULL,
+            `updated_by` BIGINT(20) UNSIGNED NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uq_template_key` (`template_key`),
+            KEY `category` (`category`),
+            KEY `is_active` (`is_active`)
+        ) $charset");
 
         /** CANDIDATES — add M3 columns for enhanced tracking */
         $candidates = $wpdb->prefix . 'sfs_hr_candidates';
