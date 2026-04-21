@@ -280,7 +280,10 @@ class Employees_Rest {
             $id
         ), ARRAY_A );
 
-        do_action( 'sfs_hr_employee_updated', $id, $new_row, $existing );
+        // Args: ( employee_id, old_data, new_data ) — matches Admin.php:4869
+        // and the signatures expected by AutomationModule::on_employee_updated
+        // and AuditTrail::log_employee_updated.
+        do_action( 'sfs_hr_employee_updated', $id, $existing, $new_row );
 
         return Rest_Response::success( self::filter_fields( $new_row, true ) );
     }

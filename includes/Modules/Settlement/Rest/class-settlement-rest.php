@@ -151,7 +151,14 @@ class Settlement_Rest {
         $required = [ 'employee_id', 'resignation_id', 'last_working_day', 'years_of_service', 'basic_salary' ];
         $missing  = [];
         foreach ( $required as $k ) {
-            if ( empty( $req[ $k ] ) && 0 !== (int) $req[ $k ] ) {
+            if ( ! $req->has_param( $k ) ) {
+                $missing[ $k ] = 'required';
+                continue;
+            }
+            $v = $req[ $k ];
+            // Reject null, empty string, and empty array.
+            // Allow literal 0 / '0' for numeric fields (e.g., years_of_service = 0).
+            if ( $v === null || $v === '' || ( is_array( $v ) && empty( $v ) ) ) {
                 $missing[ $k ] = 'required';
             }
         }

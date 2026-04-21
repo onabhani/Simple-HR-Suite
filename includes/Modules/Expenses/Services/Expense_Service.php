@@ -34,7 +34,8 @@ class Expense_Service {
     const SETTINGS_OPTION = 'sfs_hr_expense_settings';
 
     private const ALLOWED_TRANSITIONS = [
-        self::STATUS_DRAFT           => [ self::STATUS_PENDING_MANAGER, self::STATUS_CANCELLED ],
+        // Draft can go straight to APPROVED when auto_approve_below clamps the claim.
+        self::STATUS_DRAFT           => [ self::STATUS_PENDING_MANAGER, self::STATUS_APPROVED, self::STATUS_CANCELLED ],
         self::STATUS_PENDING_MANAGER => [ self::STATUS_PENDING_FINANCE, self::STATUS_APPROVED, self::STATUS_REJECTED, self::STATUS_CANCELLED ],
         self::STATUS_PENDING_FINANCE => [ self::STATUS_APPROVED, self::STATUS_REJECTED, self::STATUS_CANCELLED ],
         self::STATUS_APPROVED        => [ self::STATUS_PAID ],
@@ -150,7 +151,10 @@ class Expense_Service {
                 $item['claim_id']   = $claim_id;
                 $item['created_at'] = $now;
                 $item['updated_at'] = $now;
-                $wpdb->insert( $wpdb->prefix . 'sfs_hr_expense_items', $item );
+                $item_inserted = $wpdb->insert( $wpdb->prefix . 'sfs_hr_expense_items', $item );
+                if ( ! $item_inserted ) {
+                    throw new \RuntimeException( 'item_insert_failed' );
+                }
             }
 
             $wpdb->query( 'COMMIT' );
@@ -271,6 +275,10 @@ class Expense_Service {
      *  - Approver must not be the claim's employee (self-approval blocked).
      */
     public static function manager_decide( int $claim_id, string $decision, int $approver_id, string $note = '', ?float $approved_amount = null ): array {
+        if ( ! in_array( $decision, [ 'approved', 'rejected' ], true ) ) {
+            return [ 'success' => false, 'error' => __( 'Invalid decision.', 'sfs-hr' ) ];
+        }
+
         $claim = self::get( $claim_id );
         if ( ! $claim ) {
             return [ 'success' => false, 'error' => __( 'Claim not found.', 'sfs-hr' ) ];
@@ -323,6 +331,16 @@ class Expense_Service {
     }
 
     public static function finance_decide( int $claim_id, string $decision, int $approver_id, string $note = '', ?float $approved_amount = null ): array {
+        if ( ! in_array( $decision, [ 'approved', 'rejected' ], true ) ) {
+            return [ 'success' => false, 'error' => __( 'Invalid decision.', 'sfs-hr' ) ];
+        }
+
+        // Finance-tier decisions require an explicit finance or admin capability.
+        // Department managers are not sufficient for this tier.
+        if ( ! user_can( $approver_id, 'sfs_hr.finance' ) && ! user_can( $approver_id, 'sfs_hr.manage' ) ) {
+            return [ 'success' => false, 'error' => __( 'You do not have permission to review finance-tier claims.', 'sfs-hr' ) ];
+        }
+
         $claim = self::get( $claim_id );
         if ( ! $claim ) {
             return [ 'success' => false, 'error' => __( 'Claim not found.', 'sfs-hr' ) ];
@@ -466,6 +484,16 @@ class Expense_Service {
         }
 
         $is_admin = user_can( $approver_user_id, 'sfs_hr.manage' );
+
+        // Finance-tier listing: requires a finance-capable or admin user.
+        // Department managers without finance capability must not see
+        // pending_finance claims regardless of their department scope.
+        if ( self::STATUS_PENDING_FINANCE === $status
+            && ! $is_admin
+            && ! user_can( $approver_user_id, 'sfs_hr.finance' )
+        ) {
+            return [];
+        }
 
         // Non-admins are scoped to departments they manage.
         if ( $is_admin ) {

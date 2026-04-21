@@ -130,6 +130,22 @@ class Survey_Rest {
         return current_user_can( 'sfs_hr.view' );
     }
 
+    /**
+     * Resolve the current user's employee_id for self-service actions.
+     */
+    private static function current_employee_id(): ?int {
+        global $wpdb;
+        $uid = get_current_user_id();
+        if ( ! $uid ) {
+            return null;
+        }
+        $id = $wpdb->get_var( $wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}sfs_hr_employees WHERE user_id = %d LIMIT 1",
+            $uid
+        ) );
+        return $id ? (int) $id : null;
+    }
+
     /* ── Templates ── */
 
     public static function list_templates(): \WP_REST_Response {
@@ -237,8 +253,21 @@ class Survey_Rest {
     }
 
     public static function give_recognition( \WP_REST_Request $req ): \WP_REST_Response {
+        // Resolve giver from the authenticated user; only admins may
+        // specify a different giver_id in the request body.
+        $giver_id = current_user_can( 'sfs_hr.manage' )
+            ? absint( $req['giver_id'] ?? 0 ) ?: (int) ( self::current_employee_id() ?? 0 )
+            : (int) ( self::current_employee_id() ?? 0 );
+
+        if ( $giver_id <= 0 ) {
+            return new \WP_REST_Response(
+                [ 'success' => false, 'error' => __( 'Giver could not be resolved.', 'sfs-hr' ) ],
+                400
+            );
+        }
+
         $result = Engagement_Service::give_recognition(
-            absint( $req['giver_id'] ?? 0 ),
+            $giver_id,
             absint( $req['recipient_id'] ?? 0 ),
             sanitize_textarea_field( $req['message'] ?? '' ),
             sanitize_text_field( $req['badge'] ?? '' ) ?: null

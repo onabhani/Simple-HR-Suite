@@ -408,7 +408,11 @@ class Expenses_Rest {
     }
 
     /**
-     * CSV streaming endpoint — returns text/csv directly rather than a JSON envelope.
+     * CSV streaming endpoint — returns raw text/csv, not a JSON-encoded envelope.
+     *
+     * WP_REST_Response bodies are json_encode()'d by the REST server regardless
+     * of Content-Type headers. To serve binary/text payloads we short-circuit
+     * the serialization via the rest_pre_serve_request filter.
      */
     public static function report_by_employee_csv( \WP_REST_Request $req ) {
         $csv = Expense_Report_Service::export_by_employee_csv(
@@ -418,11 +422,23 @@ class Expenses_Rest {
         );
         $filename = sprintf( 'expenses-by-employee-%s-to-%s.csv', (string) $req['start_date'], (string) $req['end_date'] );
 
-        $response = new \WP_REST_Response( $csv );
-        $response->header( 'Content-Type', 'text/csv; charset=utf-8' );
-        $response->header( 'Content-Disposition', 'attachment; filename="' . rawurlencode( $filename ) . '"' );
-        $response->header( 'X-Content-Type-Options', 'nosniff' );
-        return $response;
+        add_filter(
+            'rest_pre_serve_request',
+            static function ( $served ) use ( $csv, $filename ) {
+                if ( headers_sent() ) {
+                    return $served;
+                }
+                header( 'Content-Type: text/csv; charset=utf-8' );
+                header( 'Content-Disposition: attachment; filename="' . rawurlencode( $filename ) . '"' );
+                header( 'X-Content-Type-Options: nosniff' );
+                echo $csv; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+                return true;
+            },
+            10,
+            1
+        );
+
+        return new \WP_REST_Response( null, 200 );
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
