@@ -150,11 +150,23 @@ class Expenses_Rest {
     public static function can_view(): bool        { return is_user_logged_in(); }
     public static function can_submit(): bool      { return is_user_logged_in(); }
     public static function can_manage(): bool      { return current_user_can( 'sfs_hr.manage' ); }
-    public static function can_review(): bool      {
-        return current_user_can( 'sfs_hr.manage' ) || current_user_can( 'sfs_hr.leave.review' );
+
+    /**
+     * Manager-tier review of expense claims. Uses a module-specific capability
+     * so granting leave-review rights elsewhere does not implicitly grant
+     * expense-review rights.
+     */
+    public static function can_review(): bool {
+        return current_user_can( 'sfs_hr.manage' ) || current_user_can( 'sfs_hr.expense.review' );
     }
+
+    /**
+     * Finance-tier review / payment authority. Must match the capability
+     * enforced by Expense_Service::finance_decide() so the REST gate and the
+     * service layer stay aligned. Uses the dotted sfs_hr.* naming convention.
+     */
     public static function can_finance(): bool {
-        return current_user_can( 'sfs_hr.manage' ) || current_user_can( 'sfs_hr_resignation_finance_approve' );
+        return current_user_can( 'sfs_hr.manage' ) || current_user_can( 'sfs_hr.finance' );
     }
 
     public static function can_view_own_or_team(): bool {

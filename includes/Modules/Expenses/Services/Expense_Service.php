@@ -299,11 +299,17 @@ class Expense_Service {
         }
 
         if ( 'rejected' === $decision ) {
-            self::record_approval( 'claim', $claim_id, 1, 'manager', $approver_id, 'rejected', $note );
-            return self::set_status( $claim_id, self::STATUS_REJECTED, [
+            // Transition first; only record the audit row after the state
+            // change actually succeeded (prevents orphaned approval rows on
+            // concurrent-update / DB-failure paths).
+            $result = self::set_status( $claim_id, self::STATUS_REJECTED, [
                 'rejection_reason' => sanitize_textarea_field( $note ),
                 'decided_at'       => current_time( 'mysql' ),
             ] );
+            if ( ! empty( $result['success'] ) ) {
+                self::record_approval( 'claim', $claim_id, 1, 'manager', $approver_id, 'rejected', $note );
+            }
+            return $result;
         }
 
         // H3 fix: clamp approved_amount to [0, total_amount].
@@ -315,19 +321,24 @@ class Expense_Service {
 
         $settings = self::get_settings();
 
-        self::record_approval( 'claim', $claim_id, 1, 'manager', $approver_id, 'approved', $note );
-
-        // Route above threshold to finance; otherwise finalize.
+        // Route above threshold to finance; otherwise finalize. Audit the
+        // approval only after the transition lands so a lost race does not
+        // leave behind a ghost "approved" row.
         if ( $effective_amount > (float) $settings['manager_threshold'] ) {
-            return self::set_status( $claim_id, self::STATUS_PENDING_FINANCE, [
+            $result = self::set_status( $claim_id, self::STATUS_PENDING_FINANCE, [
                 'approval_tier' => 2,
+            ] );
+        } else {
+            $result = self::set_status( $claim_id, self::STATUS_APPROVED, [
+                'approved_amount' => $effective_amount,
+                'decided_at'      => current_time( 'mysql' ),
             ] );
         }
 
-        return self::set_status( $claim_id, self::STATUS_APPROVED, [
-            'approved_amount' => $effective_amount,
-            'decided_at'      => current_time( 'mysql' ),
-        ] );
+        if ( ! empty( $result['success'] ) ) {
+            self::record_approval( 'claim', $claim_id, 1, 'manager', $approver_id, 'approved', $note );
+        }
+        return $result;
     }
 
     public static function finance_decide( int $claim_id, string $decision, int $approver_id, string $note = '', ?float $approved_amount = null ): array {
@@ -356,11 +367,14 @@ class Expense_Service {
         }
 
         if ( 'rejected' === $decision ) {
-            self::record_approval( 'claim', $claim_id, 2, 'finance', $approver_id, 'rejected', $note );
-            return self::set_status( $claim_id, self::STATUS_REJECTED, [
+            $result = self::set_status( $claim_id, self::STATUS_REJECTED, [
                 'rejection_reason' => sanitize_textarea_field( $note ),
                 'decided_at'       => current_time( 'mysql' ),
             ] );
+            if ( ! empty( $result['success'] ) ) {
+                self::record_approval( 'claim', $claim_id, 2, 'finance', $approver_id, 'rejected', $note );
+            }
+            return $result;
         }
 
         // H3 fix: clamp approved_amount to [0, total_amount].
@@ -370,12 +384,16 @@ class Expense_Service {
             return [ 'success' => false, 'error' => __( 'Approved amount must be between 0 and the claim total.', 'sfs-hr' ) ];
         }
 
-        self::record_approval( 'claim', $claim_id, 2, 'finance', $approver_id, 'approved', $note );
-
-        return self::set_status( $claim_id, self::STATUS_APPROVED, [
+        // Record the approval only after the state transition commits, so a
+        // lost TOCTOU race does not persist a phantom "approved" audit row.
+        $result = self::set_status( $claim_id, self::STATUS_APPROVED, [
             'approved_amount' => $effective_amount,
             'decided_at'      => current_time( 'mysql' ),
         ] );
+        if ( ! empty( $result['success'] ) ) {
+            self::record_approval( 'claim', $claim_id, 2, 'finance', $approver_id, 'approved', $note );
+        }
+        return $result;
     }
 
     /**
@@ -545,9 +563,16 @@ class Expense_Service {
             'updated_at' => current_time( 'mysql' ),
         ], $extra );
 
-        $ok = $wpdb->update( $table, $data, [ 'id' => $claim_id ] );
+        // Atomic transition: add the old status to the WHERE clause so a
+        // concurrent UPDATE that already flipped the row can't both succeed.
+        // $wpdb->update distinguishes false (DB error) from 0 (no rows
+        // matched), so 0 rows affected is treated as a lost race, not success.
+        $ok = $wpdb->update( $table, $data, [ 'id' => $claim_id, 'status' => $current ] );
         if ( false === $ok ) {
             return [ 'success' => false, 'error' => __( 'DB update failed.', 'sfs-hr' ) ];
+        }
+        if ( 0 === (int) $ok ) {
+            return [ 'success' => false, 'error' => __( 'Claim status changed concurrently; please retry.', 'sfs-hr' ) ];
         }
 
         do_action( 'sfs_hr_expense_claim_status_changed', $claim_id, (string) $current, $new_status );

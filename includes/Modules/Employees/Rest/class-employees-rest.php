@@ -41,12 +41,29 @@ class Employees_Rest {
         'bank_name', 'bank_account', 'iban',
     ];
 
-    /** Fields writable via create/update. Everything else is ignored. */
+    /**
+     * Fields returned when an employee views their OWN record (self-service).
+     * Intentionally narrower than ADMIN_FIELDS — excludes base_salary and
+     * bank details, which stay admin-only.
+     */
+    private const SELF_FIELDS = [
+        'national_id', 'national_id_expiry',
+        'passport_no', 'passport_expiry',
+        'emergency_contact_name', 'emergency_contact_phone',
+    ];
+
+    /**
+     * Fields writable via create/update. Everything else is ignored.
+     * `hired_at` is intentionally omitted: the canonical column is
+     * `hire_date`. Incoming `hired_at` is mapped to `hire_date` in
+     * extract_writable_fields() for backwards compatibility with older
+     * clients.
+     */
     private const WRITABLE_FIELDS = [
         'employee_code', 'user_id', 'status',
         'first_name', 'last_name', 'first_name_ar', 'last_name_ar',
         'email', 'phone', 'dept_id', 'position',
-        'hire_date', 'hired_at', 'base_salary',
+        'hire_date', 'base_salary',
         'national_id', 'national_id_expiry',
         'passport_no', 'passport_expiry',
         'emergency_contact_name', 'emergency_contact_phone',
@@ -101,26 +118,54 @@ class Employees_Rest {
 
     // ── Permission callbacks ────────────────────────────────────────────────
 
+    /**
+     * List access: admins see everything; `sfs_hr.view` holders (typically
+     * department managers via user_has_cap filter) pass the gate, but the
+     * list query itself further constrains them to their managed departments.
+     * Non-admin, non-view users are rejected.
+     */
     public static function can_view(): bool {
-        return current_user_can( 'sfs_hr.view' );
+        return current_user_can( 'sfs_hr.manage' ) || current_user_can( 'sfs_hr.view' );
     }
 
     public static function can_manage(): bool {
         return current_user_can( 'sfs_hr.manage' );
     }
 
-    /** Allow self-view (employee reading their own record) in addition to admins. */
+    /**
+     * Single-record access:
+     *  - admins (sfs_hr.manage) always pass.
+     *  - self-view: users may read their own linked employee row.
+     *  - sfs_hr.view: only when the target employee is in one of the
+     *    requester's managed departments.
+     */
     public static function can_view_single( \WP_REST_Request $req ): bool {
-        if ( current_user_can( 'sfs_hr.view' ) ) {
+        if ( current_user_can( 'sfs_hr.manage' ) ) {
             return true;
         }
+
         global $wpdb;
-        $id      = (int) $req['id'];
-        $row_uid = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT user_id FROM {$wpdb->prefix}sfs_hr_employees WHERE id = %d",
+        $id  = (int) $req['id'];
+        $row = $wpdb->get_row( $wpdb->prepare(
+            "SELECT user_id, dept_id FROM {$wpdb->prefix}sfs_hr_employees WHERE id = %d",
             $id
-        ) );
-        return $row_uid > 0 && $row_uid === get_current_user_id();
+        ), ARRAY_A );
+        if ( ! $row ) {
+            return false;
+        }
+
+        // Self-view.
+        if ( (int) $row['user_id'] === get_current_user_id() ) {
+            return true;
+        }
+
+        // Department-scoped manager access.
+        if ( current_user_can( 'sfs_hr.view' ) ) {
+            $allowed = \SFS\HR\Frontend\Role_Resolver::get_manager_dept_ids( get_current_user_id() );
+            return in_array( (int) $row['dept_id'], array_map( 'intval', $allowed ), true );
+        }
+
+        return false;
     }
 
     // ── List ────────────────────────────────────────────────────────────────
@@ -136,6 +181,20 @@ class Employees_Rest {
 
         $where  = [ '1=1' ];
         $params = [];
+
+        // Scope non-admin callers to the departments they manage. An empty
+        // scope yields an empty result set (no cross-department leakage).
+        $is_admin = current_user_can( 'sfs_hr.manage' );
+        if ( ! $is_admin ) {
+            $allowed = \SFS\HR\Frontend\Role_Resolver::get_manager_dept_ids( get_current_user_id() );
+            $allowed = array_values( array_unique( array_map( 'intval', $allowed ) ) );
+            if ( empty( $allowed ) ) {
+                return Rest_Response::paginated( [], 0, $pg['page'], $pg['per_page'] );
+            }
+            $placeholders = implode( ',', array_fill( 0, count( $allowed ), '%d' ) );
+            $where[]      = "dept_id IN ({$placeholders})";
+            array_push( $params, ...$allowed );
+        }
 
         if ( $status !== '' ) {
             $where[]  = 'status = %s';
@@ -160,8 +219,8 @@ class Employees_Rest {
         $rows_params  = array_merge( $params, [ $pg['per_page'], $pg['offset'] ] );
         $rows         = $wpdb->get_results( $wpdb->prepare( $rows_sql, ...$rows_params ), ARRAY_A ) ?: [];
 
-        $is_admin = current_user_can( 'sfs_hr.manage' );
-        $rows     = array_map( fn( $r ) => self::filter_fields( $r, $is_admin ), $rows );
+        $view = $is_admin ? 'admin' : 'public';
+        $rows = array_map( fn( $r ) => self::filter_fields( $r, $view ), $rows );
 
         return Rest_Response::paginated( $rows, $total, $pg['page'], $pg['per_page'] );
     }
@@ -181,9 +240,9 @@ class Employees_Rest {
         }
 
         $is_admin = current_user_can( 'sfs_hr.manage' );
-        // Non-admins viewing their own record still get admin fields for themselves.
-        $self     = (int) $row['user_id'] === get_current_user_id();
-        return Rest_Response::success( self::filter_fields( $row, $is_admin || $self ) );
+        $is_self  = (int) $row['user_id'] === get_current_user_id();
+        $view     = $is_admin ? 'admin' : ( $is_self ? 'self' : 'public' );
+        return Rest_Response::success( self::filter_fields( $row, $view ) );
     }
 
     // ── Create ──────────────────────────────────────────────────────────────
@@ -303,6 +362,13 @@ class Employees_Rest {
             return Rest_Response::error( 'not_found', __( 'Employee not found.', 'sfs-hr' ), 404 );
         }
 
+        // Idempotent: if already terminated, don't re-run the DB update or
+        // fire the deletion hook again (which would duplicate webhook /
+        // audit / automation side effects on replayed requests).
+        if ( 'terminated' === (string) ( $existing['status'] ?? '' ) ) {
+            return Rest_Response::success( [ 'terminated' => true, 'id' => $id, 'already_terminated' => true ] );
+        }
+
         $ok = $wpdb->update(
             $table,
             [ 'status' => 'terminated', 'updated_at' => current_time( 'mysql' ) ],
@@ -322,14 +388,26 @@ class Employees_Rest {
     // ── Helpers ─────────────────────────────────────────────────────────────
 
     /**
-     * Filter row fields: redact admin-only columns for non-admin callers.
+     * Filter row fields by view tier:
+     *   - 'admin'  → return the row unfiltered.
+     *   - 'self'   → PUBLIC_FIELDS + SELF_FIELDS (no salary, no bank).
+     *   - 'public' → PUBLIC_FIELDS only.
+     *
+     * Accepts bool for backwards compatibility: true ≡ 'admin', false ≡ 'public'.
+     *
+     * @param array       $row
+     * @param string|bool $view
      */
-    private static function filter_fields( array $row, bool $is_admin ): array {
-        if ( $is_admin ) {
+    private static function filter_fields( array $row, $view ): array {
+        if ( true === $view || 'admin' === $view ) {
             return $row;
         }
+        $allow = self::PUBLIC_FIELDS;
+        if ( 'self' === $view ) {
+            $allow = array_merge( $allow, self::SELF_FIELDS );
+        }
         $out = [];
-        foreach ( self::PUBLIC_FIELDS as $f ) {
+        foreach ( $allow as $f ) {
             if ( array_key_exists( $f, $row ) ) {
                 $out[ $f ] = $row[ $f ];
             }
@@ -343,6 +421,18 @@ class Employees_Rest {
      */
     private static function extract_writable_fields( \WP_REST_Request $req ): array {
         $out = [];
+
+        // Back-compat: map legacy `hired_at` input to `hire_date`, but only
+        // when `hire_date` is not also supplied. Legacy clients won't have
+        // their payloads rejected, but new code paths persist the canonical
+        // column.
+        if ( $req->has_param( 'hired_at' ) && ! $req->has_param( 'hire_date' ) ) {
+            $legacy = $req->get_param( 'hired_at' );
+            if ( is_string( $legacy ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $legacy ) ) {
+                $out['hire_date'] = $legacy;
+            }
+        }
+
         foreach ( self::WRITABLE_FIELDS as $field ) {
             if ( ! $req->has_param( $field ) ) {
                 continue;
@@ -363,7 +453,6 @@ class Employees_Rest {
                     $out[ $field ] = sanitize_email( (string) $val );
                     break;
                 case 'hire_date':
-                case 'hired_at':
                 case 'national_id_expiry':
                 case 'passport_expiry':
                     // Accept Y-m-d only
