@@ -47,6 +47,9 @@ class EmployeeExitModule {
         // Settlement functionality (handlers)
         (new Settlement_Handlers())->hooks();
 
+        // M9.1: Settlement REST endpoints
+        \SFS\HR\Modules\Settlement\Rest\Settlement_Rest::register();
+
         // Register roles from resignation module
         add_action('init', [$this, 'register_roles_and_caps']);
     }

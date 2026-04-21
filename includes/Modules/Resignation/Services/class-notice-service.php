@@ -95,8 +95,10 @@ class Notice_Service {
             }
         }
 
-        // Default 30 days if no matching config found
-        return 30;
+        // M8: Country-aware fallback when no explicit config entry matches.
+        // Falls through to 30 days for jurisdictions without a modeled strategy.
+        return \SFS\HR\Core\LaborLaw\Labor_Law_Service::current()
+            ->notice_period_days( (string) $contract_type );
     }
 
     // ─── Last Working Day Calculation ───────────────────────────────────

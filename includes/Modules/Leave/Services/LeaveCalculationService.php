@@ -52,13 +52,14 @@ class LeaveCalculationService {
         $hd = strtotime($hire_date);
         if (!$hd) return $quota;
 
-        $years = (int)floor(($as_of - $hd) / (365.2425 * DAY_IN_SECONDS));
-        if ($years < 0) $years = 0;
+        $years_float = ($as_of - $hd) / (365.2425 * DAY_IN_SECONDS);
+        if ($years_float < 0) $years_float = 0.0;
 
-        $lt5 = (int)get_option('sfs_hr_annual_lt5', '21');
-        $ge5 = (int)get_option('sfs_hr_annual_ge5', '30');
-
-        return ($years >= 5) ? $ge5 : $lt5;
+        // M8: Delegate to country-specific Labor_Law_Strategy.
+        // Saudi_Labor_Law reads sfs_hr_annual_lt5 / sfs_hr_annual_ge5 options,
+        // preserving the previous behavior on SA installations.
+        return \SFS\HR\Core\LaborLaw\Labor_Law_Service::current()
+            ->annual_leave_days( $years_float );
     }
 
     /**

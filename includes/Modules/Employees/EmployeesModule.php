@@ -20,5 +20,9 @@ class EmployeesModule {
             ( new Employee_Profile_Page() )->hooks();
             ( new My_Profile_Page() )->hooks();
         }
+
+        // M9.1: REST endpoints for Employees CRUD
+        require_once __DIR__ . '/Rest/class-employees-rest.php';
+        \SFS\HR\Modules\Employees\Rest\Employees_Rest::register();
     }
 }

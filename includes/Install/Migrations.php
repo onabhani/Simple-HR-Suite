@@ -293,6 +293,306 @@ class Migrations {
         // Generate reference numbers for existing records that don't have them
         self::backfill_request_numbers();
 
+        /** M9: WEBHOOKS + API KEYS (REST API infrastructure) */
+
+        $webhooks = $wpdb->prefix . 'sfs_hr_webhooks';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$webhooks}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `url` VARCHAR(500) NOT NULL,
+            `secret` VARCHAR(255) NOT NULL,
+            `events` TEXT NOT NULL,
+            `status` ENUM('active','inactive') NOT NULL DEFAULT 'active',
+            `retry_policy` TINYINT(3) UNSIGNED NOT NULL DEFAULT 3,
+            `created_by` BIGINT(20) UNSIGNED NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `status_idx` (`status`)
+        ) $charset");
+
+        $webhook_deliveries = $wpdb->prefix . 'sfs_hr_webhook_deliveries';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$webhook_deliveries}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `webhook_id` BIGINT(20) UNSIGNED NOT NULL,
+            `event` VARCHAR(100) NOT NULL,
+            `payload` LONGTEXT NOT NULL,
+            `response_code` SMALLINT UNSIGNED NULL,
+            `response_body` TEXT NULL,
+            `attempt` TINYINT(3) UNSIGNED NOT NULL DEFAULT 1,
+            `status` ENUM('success','failed','pending') NOT NULL DEFAULT 'pending',
+            `delivered_at` DATETIME NULL,
+            `next_retry_at` DATETIME NULL,
+            `created_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `webhook_idx` (`webhook_id`),
+            KEY `event_idx` (`event`),
+            KEY `status_idx` (`status`),
+            KEY `next_retry_idx` (`next_retry_at`)
+        ) $charset");
+        // Ensure the next_retry_at column exists on older installs
+        self::add_column_if_missing($webhook_deliveries, 'next_retry_at', "DATETIME NULL");
+
+        $api_keys = $wpdb->prefix . 'sfs_hr_api_keys';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$api_keys}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `user_id` BIGINT(20) UNSIGNED NOT NULL,
+            `label` VARCHAR(100) NOT NULL,
+            `key_prefix` VARCHAR(16) NOT NULL,
+            `key_hash` VARCHAR(255) NOT NULL,
+            `scopes` TEXT NULL,
+            `status` ENUM('active','revoked') NOT NULL DEFAULT 'active',
+            `last_used_at` DATETIME NULL,
+            `last_ip` VARCHAR(45) NULL,
+            `expires_at` DATETIME NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `key_prefix` (`key_prefix`),
+            KEY `user_idx` (`user_id`),
+            KEY `status_idx` (`status`)
+        ) $charset");
+
+        /** M10: EXPENSE MANAGEMENT */
+
+        $exp_categories = $wpdb->prefix . 'sfs_hr_expense_categories';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$exp_categories}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `code` VARCHAR(30) NOT NULL,
+            `name` VARCHAR(100) NOT NULL,
+            `name_ar` VARCHAR(100) NULL,
+            `description` TEXT NULL,
+            `receipt_required` TINYINT(1) NOT NULL DEFAULT 1,
+            `monthly_limit` DECIMAL(18,2) NULL,
+            `per_claim_limit` DECIMAL(18,2) NULL,
+            `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+            `sort_order` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `code` (`code`),
+            KEY `active_sort` (`is_active`, `sort_order`)
+        ) $charset");
+
+        $exp_claims = $wpdb->prefix . 'sfs_hr_expense_claims';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$exp_claims}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `request_number` VARCHAR(50) NULL,
+            `employee_id` BIGINT(20) UNSIGNED NOT NULL,
+            `advance_id` BIGINT(20) UNSIGNED NULL,
+            `title` VARCHAR(191) NOT NULL,
+            `description` TEXT NULL,
+            `total_amount` DECIMAL(18,2) NOT NULL DEFAULT 0,
+            `approved_amount` DECIMAL(18,2) NULL,
+            `currency` VARCHAR(3) NOT NULL DEFAULT 'SAR',
+            `status` VARCHAR(30) NOT NULL DEFAULT 'draft',
+            `approval_tier` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            `current_approver_id` BIGINT(20) UNSIGNED NULL,
+            `submitted_at` DATETIME NULL,
+            `decided_at` DATETIME NULL,
+            `paid_at` DATETIME NULL,
+            `payment_reference` VARCHAR(191) NULL,
+            `rejection_reason` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `request_number` (`request_number`),
+            KEY `emp_status` (`employee_id`, `status`),
+            KEY `status_submitted` (`status`, `submitted_at`),
+            KEY `approver_status` (`current_approver_id`, `status`),
+            KEY `advance_id` (`advance_id`)
+        ) $charset");
+
+        $exp_items = $wpdb->prefix . 'sfs_hr_expense_items';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$exp_items}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `claim_id` BIGINT(20) UNSIGNED NOT NULL,
+            `category_id` BIGINT(20) UNSIGNED NOT NULL,
+            `item_date` DATE NOT NULL,
+            `amount` DECIMAL(18,2) NOT NULL DEFAULT 0,
+            `currency` VARCHAR(3) NOT NULL DEFAULT 'SAR',
+            `description` TEXT NULL,
+            `receipt_media_id` BIGINT(20) UNSIGNED NULL,
+            `merchant` VARCHAR(191) NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `approved_amount` DECIMAL(18,2) NULL,
+            `review_note` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `claim_idx` (`claim_id`),
+            KEY `category_idx` (`category_id`),
+            KEY `item_date` (`item_date`)
+        ) $charset");
+
+        $exp_advances = $wpdb->prefix . 'sfs_hr_expense_advances';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$exp_advances}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `request_number` VARCHAR(50) NULL,
+            `employee_id` BIGINT(20) UNSIGNED NOT NULL,
+            `amount` DECIMAL(18,2) NOT NULL DEFAULT 0,
+            `outstanding_amount` DECIMAL(18,2) NOT NULL DEFAULT 0,
+            `currency` VARCHAR(3) NOT NULL DEFAULT 'SAR',
+            `purpose` VARCHAR(191) NOT NULL,
+            `notes` TEXT NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `approver_id` BIGINT(20) UNSIGNED NULL,
+            `decided_at` DATETIME NULL,
+            `approver_note` TEXT NULL,
+            `paid_at` DATETIME NULL,
+            `paid_by` BIGINT(20) UNSIGNED NULL,
+            `payment_reference` VARCHAR(191) NULL,
+            `settled_at` DATETIME NULL,
+            `rejection_reason` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `request_number` (`request_number`),
+            KEY `emp_status` (`employee_id`, `status`),
+            KEY `status_idx` (`status`)
+        ) $charset");
+
+        $exp_approvals = $wpdb->prefix . 'sfs_hr_expense_approvals';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$exp_approvals}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `entity_type` ENUM('claim','advance') NOT NULL DEFAULT 'claim',
+            `entity_id` BIGINT(20) UNSIGNED NOT NULL,
+            `tier` TINYINT UNSIGNED NOT NULL DEFAULT 1,
+            `role` VARCHAR(30) NOT NULL DEFAULT 'manager',
+            `approver_id` BIGINT(20) UNSIGNED NULL,
+            `decision` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `decided_at` DATETIME NULL,
+            `note` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `entity` (`entity_type`, `entity_id`),
+            KEY `approver_decision` (`approver_id`, `decision`)
+        ) $charset");
+
+        /** M11: TRAINING & DEVELOPMENT */
+
+        $trn_programs = $wpdb->prefix . 'sfs_hr_training_programs';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$trn_programs}` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `code` VARCHAR(30) NULL,
+            `title` VARCHAR(191) NOT NULL,
+            `title_ar` VARCHAR(191) NULL,
+            `description` TEXT NULL,
+            `category` VARCHAR(50) NULL,
+            `training_type` ENUM('classroom','online','on_the_job','conference','certification') NOT NULL DEFAULT 'classroom',
+            `provider` VARCHAR(191) NULL,
+            `is_internal` TINYINT(1) NOT NULL DEFAULT 1,
+            `duration_hours` DECIMAL(6,1) NULL,
+            `cost_per_person` DECIMAL(18,2) NULL,
+            `currency` VARCHAR(3) NOT NULL DEFAULT 'SAR',
+            `max_capacity` SMALLINT UNSIGNED NULL,
+            `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+            `sort_order` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `code` (`code`),
+            KEY `active_type` (`is_active`, `training_type`)
+        ) $charset");
+
+        $trn_sessions = $wpdb->prefix . 'sfs_hr_training_sessions';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$trn_sessions}` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `program_id` BIGINT UNSIGNED NOT NULL,
+            `title` VARCHAR(191) NULL,
+            `start_date` DATE NOT NULL,
+            `end_date` DATE NULL,
+            `start_time` TIME NULL,
+            `end_time` TIME NULL,
+            `location` VARCHAR(191) NULL,
+            `trainer` VARCHAR(191) NULL,
+            `capacity` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            `status` ENUM('scheduled','in_progress','completed','cancelled') NOT NULL DEFAULT 'scheduled',
+            `notes` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `program_idx` (`program_id`),
+            KEY `status_date` (`status`, `start_date`)
+        ) $charset");
+
+        $trn_enrollments = $wpdb->prefix . 'sfs_hr_training_enrollments';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$trn_enrollments}` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `session_id` BIGINT UNSIGNED NOT NULL,
+            `employee_id` BIGINT UNSIGNED NOT NULL,
+            `status` ENUM('enrolled','attended','completed','no_show','cancelled') NOT NULL DEFAULT 'enrolled',
+            `enrolled_by` BIGINT UNSIGNED NULL,
+            `enrolled_at` DATETIME NULL,
+            `attended_at` DATETIME NULL,
+            `score` DECIMAL(5,2) NULL,
+            `cert_media_id` BIGINT UNSIGNED NULL,
+            `feedback` TEXT NULL,
+            `completed_at` DATETIME NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `session_idx` (`session_id`),
+            KEY `emp_idx` (`employee_id`),
+            UNIQUE KEY `session_emp` (`session_id`, `employee_id`)
+        ) $charset");
+
+        $trn_requests = $wpdb->prefix . 'sfs_hr_training_requests';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$trn_requests}` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `request_number` VARCHAR(50) NULL,
+            `employee_id` BIGINT UNSIGNED NOT NULL,
+            `training_title` VARCHAR(191) NOT NULL,
+            `training_type` VARCHAR(30) NULL,
+            `provider` VARCHAR(191) NULL,
+            `estimated_cost` DECIMAL(18,2) NOT NULL DEFAULT 0,
+            `currency` VARCHAR(3) NOT NULL DEFAULT 'SAR',
+            `preferred_date` DATE NULL,
+            `justification` TEXT NULL,
+            `notes` TEXT NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `approved_by` BIGINT UNSIGNED NULL,
+            `approved_at` DATETIME NULL,
+            `approver_note` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `request_number` (`request_number`),
+            KEY `emp_status` (`employee_id`, `status`),
+            KEY `status_idx` (`status`)
+        ) $charset");
+
+        $trn_certifications = $wpdb->prefix . 'sfs_hr_training_certifications';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$trn_certifications}` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `employee_id` BIGINT UNSIGNED NOT NULL,
+            `cert_name` VARCHAR(191) NOT NULL,
+            `issuing_body` VARCHAR(191) NULL,
+            `credential_id` VARCHAR(100) NULL,
+            `issued_date` DATE NULL,
+            `expiry_date` DATE NULL,
+            `cert_media_id` BIGINT UNSIGNED NULL,
+            `status` ENUM('active','expired','revoked') NOT NULL DEFAULT 'active',
+            `notes` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `emp_idx` (`employee_id`),
+            KEY `expiry_idx` (`expiry_date`),
+            KEY `status_idx` (`status`)
+        ) $charset");
+
+        $trn_cert_reqs = $wpdb->prefix . 'sfs_hr_training_cert_requirements';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$trn_cert_reqs}` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `role` VARCHAR(100) NOT NULL,
+            `cert_name` VARCHAR(191) NOT NULL,
+            `mandatory` TINYINT(1) NOT NULL DEFAULT 1,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `role_idx` (`role`)
+        ) $charset");
+
         /** M7: OFFBOARDING & EXIT INTERVIEW TABLES */
 
         // M7.1: Garden leave columns on resignations
@@ -383,6 +683,45 @@ class Migrations {
             KEY `employee_idx` (`employee_id`),
             KEY `status_idx` (`status`),
             KEY `exit_reason_idx` (`exit_reason`)
+        ) {$charset}");
+
+        /** M8: COUNTRY RULES — multi-country labor law overrides (Gulf compliance) */
+        $country_rules = $wpdb->prefix . 'sfs_hr_country_rules';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$country_rules}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `country_code` VARCHAR(2) NOT NULL,
+            `rule_type` VARCHAR(50) NOT NULL,
+            `config_json` LONGTEXT NOT NULL,
+            `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+            `notes` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `country_rule` (`country_code`, `rule_type`),
+            KEY `active_country` (`is_active`, `country_code`)
+        ) {$charset}");
+
+        /** M8: SOCIAL INSURANCE SCHEMES — per-country statutory contribution schemes */
+        $social_insurance = $wpdb->prefix . 'sfs_hr_social_insurance_schemes';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$social_insurance}` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `country_code` VARCHAR(2) NOT NULL,
+            `scheme_code` VARCHAR(50) NOT NULL,
+            `scheme_name` VARCHAR(191) NOT NULL,
+            `employee_rate` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+            `employer_rate` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+            `applies_to` VARCHAR(30) NOT NULL DEFAULT 'nationals_only',
+            `base_components` VARCHAR(255) NULL,
+            `ceiling` DECIMAL(18,2) NULL,
+            `floor` DECIMAL(18,2) NULL,
+            `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+            `effective_from` DATE NULL,
+            `effective_to` DATE NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `country_scheme` (`country_code`, `scheme_code`),
+            KEY `active_country` (`is_active`, `country_code`)
         ) {$charset}");
 
         /** CANDIDATES – add columns for enhanced workflow */

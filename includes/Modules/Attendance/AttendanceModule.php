@@ -23,13 +23,13 @@ require_once __DIR__ . '/Admin/class-admin-pages.php';
 require_once __DIR__ . '/Rest/class-attendance-admin-rest.php';
 require_once __DIR__ . '/Rest/class-attendance-rest.php';
 require_once __DIR__ . '/Rest/class-early-leave-rest.php';
-require_once __DIR__ . '/Cron/Daily_Session_Builder.php';
-require_once __DIR__ . '/Frontend/Widget_Shortcode.php';
-require_once __DIR__ . '/Frontend/Kiosk_Shortcode.php';
-require_once __DIR__ . '/Services/UTC_Service.php';
 require_once __DIR__ . '/Services/Roster_Service.php';
 require_once __DIR__ . '/Services/Compliance_Service.php';
 require_once __DIR__ . '/Services/Biometric_Service.php';
+require_once __DIR__ . '/Services/UTC_Service.php';
+require_once __DIR__ . '/Cron/Daily_Session_Builder.php';
+require_once __DIR__ . '/Frontend/Widget_Shortcode.php';
+require_once __DIR__ . '/Frontend/Kiosk_Shortcode.php';
 require_once __DIR__ . '/Rest/class-m5-rest.php';
 require_once __DIR__ . '/Migration.php';
 
@@ -90,6 +90,9 @@ class AttendanceModule {
             // M5 REST: Roster, Compliance, Biometric, UTC
             \SFS\HR\Modules\Attendance\Rest\M5_REST::routes();
         }, 10);
+
+        // M5: Biometric device integration + Roster/Compliance REST
+        // (consolidated in Rest/class-m5-rest.php — registered via M5_REST::routes() above)
 
         add_shortcode('sfs_hr_attendance_widget', [ $this, 'shortcode_widget' ]);
 
