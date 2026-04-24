@@ -5,8 +5,10 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 require_once __DIR__ . '/Admin/class-admin-pages.php';
 require_once __DIR__ . '/Services/class-projects-service.php';
+require_once __DIR__ . '/Rest/Projects_Rest.php';
 
 use SFS\HR\Modules\Projects\Admin\Admin_Pages;
+use SFS\HR\Modules\Projects\Rest\Projects_Rest;
 
 class ProjectsModule {
 
@@ -28,6 +30,7 @@ class ProjectsModule {
         add_action( 'admin_menu', [ $this, 'register_menu' ], 14 );
 
         Admin_Pages::instance()->hooks();
+        Projects_Rest::register();
     }
 
     public function register_menu(): void {
