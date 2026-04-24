@@ -35,74 +35,35 @@ class Hijri_Rest {
 			'permission_callback' => '__return_true',
 		] );
 
-		$validate_year = function ( $value ) {
-			if ( $value === null || $value === '' ) {
-				return true; // optional — handler defaults to current year.
-			}
-			$v = (int) $value;
-			return ( $v >= 1900 && $v <= 2200 )
-				? true
-				: new \WP_Error( 'rest_invalid_param', __( 'year must be between 1900 and 2200.', 'sfs-hr' ), [ 'status' => 400 ] );
-		};
+		$year_validator = self::int_range_validator( 1900, 2200, 'year' );
 
 		register_rest_route( self::NS, '/hijri/convert', [
 			'methods'             => 'GET',
 			'callback'            => [ self::class, 'convert' ],
 			'permission_callback' => '__return_true',
 			'args'                => [
-				'date' => [
+				'date'    => [
 					'type'              => 'string',
 					'description'       => 'Gregorian date Y-m-d',
-					'validate_callback' => function ( $value ) {
-						if ( $value === null || $value === '' ) {
-							return true;
-						}
-						return preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) $value )
-							? true
-							: new \WP_Error( 'rest_invalid_param', __( 'date must be YYYY-MM-DD.', 'sfs-hr' ), [ 'status' => 400 ] );
-					},
+					'validate_callback' => self::date_ymd_validator(),
 				],
 				'hijri_y' => [
 					'type'              => 'integer',
 					'minimum'           => 1,
 					'maximum'           => 9999,
-					'validate_callback' => function ( $value ) {
-						if ( $value === null || $value === '' ) {
-							return true;
-						}
-						$v = (int) $value;
-						return ( $v >= 1 && $v <= 9999 )
-							? true
-							: new \WP_Error( 'rest_invalid_param', __( 'hijri_y must be between 1 and 9999.', 'sfs-hr' ), [ 'status' => 400 ] );
-					},
+					'validate_callback' => self::int_range_validator( 1, 9999, 'hijri_y' ),
 				],
 				'hijri_m' => [
 					'type'              => 'integer',
 					'minimum'           => 1,
 					'maximum'           => 12,
-					'validate_callback' => function ( $value ) {
-						if ( $value === null || $value === '' ) {
-							return true;
-						}
-						$v = (int) $value;
-						return ( $v >= 1 && $v <= 12 )
-							? true
-							: new \WP_Error( 'rest_invalid_param', __( 'hijri_m must be between 1 and 12.', 'sfs-hr' ), [ 'status' => 400 ] );
-					},
+					'validate_callback' => self::int_range_validator( 1, 12, 'hijri_m' ),
 				],
 				'hijri_d' => [
 					'type'              => 'integer',
 					'minimum'           => 1,
 					'maximum'           => 30,
-					'validate_callback' => function ( $value ) {
-						if ( $value === null || $value === '' ) {
-							return true;
-						}
-						$v = (int) $value;
-						return ( $v >= 1 && $v <= 30 )
-							? true
-							: new \WP_Error( 'rest_invalid_param', __( 'hijri_d must be between 1 and 30.', 'sfs-hr' ), [ 'status' => 400 ] );
-					},
+					'validate_callback' => self::int_range_validator( 1, 30, 'hijri_d' ),
 				],
 			],
 		] );
@@ -116,7 +77,7 @@ class Hijri_Rest {
 					'type'              => 'integer',
 					'minimum'           => 1900,
 					'maximum'           => 2200,
-					'validate_callback' => $validate_year,
+					'validate_callback' => $year_validator,
 				],
 			],
 		] );
@@ -130,10 +91,46 @@ class Hijri_Rest {
 					'type'              => 'integer',
 					'minimum'           => 1900,
 					'maximum'           => 2200,
-					'validate_callback' => $validate_year,
+					'validate_callback' => $year_validator,
 				],
 			],
 		] );
+	}
+
+	/**
+	 * Build a validate_callback closure that accepts integers in [min, max]
+	 * (or omits the param entirely). Single source of truth for the four
+	 * integer params on /hijri/convert and the year param on /hijri/holidays
+	 * and /hijri/ramadan.
+	 */
+	private static function int_range_validator( int $min, int $max, string $field ): \Closure {
+		return function ( $value ) use ( $min, $max, $field ) {
+			if ( $value === null || $value === '' ) {
+				return true;
+			}
+			$v = (int) $value;
+			if ( $v < $min || $v > $max ) {
+				return new \WP_Error(
+					'rest_invalid_param',
+					sprintf( __( '%1$s must be between %2$d and %3$d.', 'sfs-hr' ), $field, $min, $max ),
+					[ 'status' => 400 ]
+				);
+			}
+			return true;
+		};
+	}
+
+	/** Build a validate_callback closure that enforces YYYY-MM-DD or empty. */
+	private static function date_ymd_validator(): \Closure {
+		return function ( $value ) {
+			if ( $value === null || $value === '' ) {
+				return true;
+			}
+			if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) $value ) ) {
+				return new \WP_Error( 'rest_invalid_param', __( 'date must be YYYY-MM-DD.', 'sfs-hr' ), [ 'status' => 400 ] );
+			}
+			return true;
+		};
 	}
 
 	/* ───────── Handlers ───────── */
