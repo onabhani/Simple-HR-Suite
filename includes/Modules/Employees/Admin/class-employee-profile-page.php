@@ -556,6 +556,10 @@ class Employee_Profile_Page {
         <?php else : ?>
         <!-- ═══ VIEW MODE ═══ -->
         <?php
+        // Returns the raw (unescaped) formatted date so it composes safely
+        // with esc_html() in callers like $fmt_id_exp. Hijri month names
+        // contain apostrophes (Rabi', Sha'ban, Dhu al-Qi'dah) that would
+        // double-escape if this returned pre-escaped output.
         $fmt_date = function( string $d ) : string {
             if ( ! $d ) return '—';
             $dt = \DateTimeImmutable::createFromFormat( 'Y-m-d', $d )
@@ -563,7 +567,11 @@ class Employee_Profile_Page {
             $ymd = $dt ? $dt->format( 'Y-m-d' ) : $d;
             // M8.4: appends Hijri when enabled in Gulf Compliance → Hijri.
             $out = \SFS\HR\Core\LaborLaw\Hijri_Service::format_with_gregorian( $ymd, 'd/m/Y' );
-            return esc_html( $out !== '' ? $out : ( $dt ? $dt->format( 'd/m/Y' ) : $d ) );
+            return $out !== '' ? $out : ( $dt ? $dt->format( 'd/m/Y' ) : $d );
+        };
+        // HTML-escaped wrapper for direct <?= ?> sites.
+        $fmt_date_html = function( string $d ) use ( $fmt_date ) : string {
+            return esc_html( $fmt_date( $d ) );
         };
         $fmt_val = function( $v ) : string { return ( $v !== null && $v !== '' ) ? esc_html( (string) $v ) : '—'; };
         $fmt_id_exp = function( string $val, string $exp ) use ( $fmt_val, $fmt_date ) : string {
@@ -626,7 +634,7 @@ class Employee_Profile_Page {
                     <tr><th><?php esc_html_e( 'Gender', 'sfs-hr' ); ?></th><td><?php echo $gender ? esc_html( ucwords( str_replace( '_', ' ', $gender ) ) ) : '—'; ?></td></tr>
                     <tr><th><?php esc_html_e( 'Nationality', 'sfs-hr' ); ?></th><td><?php echo $fmt_val( $nationality ); ?></td></tr>
                     <tr><th><?php esc_html_e( 'Marital status', 'sfs-hr' ); ?></th><td><?php echo $marital_status ? esc_html( ucfirst( $marital_status ) ) : '—'; ?></td></tr>
-                    <tr><th><?php esc_html_e( 'Date of birth', 'sfs-hr' ); ?></th><td><?php echo $fmt_date( $birth_date ); ?></td></tr>
+                    <tr><th><?php esc_html_e( 'Date of birth', 'sfs-hr' ); ?></th><td><?php echo $fmt_date_html( $birth_date ); ?></td></tr>
                     <tr><th><?php esc_html_e( 'Work location', 'sfs-hr' ); ?></th><td><?php echo $fmt_val( $work_location ); ?></td></tr>
                     <tr><th><?php esc_html_e( 'Language', 'sfs-hr' ); ?></th><td><?php $lang_options = Helpers::get_available_languages(); echo $language && isset( $lang_options[ $language ] ) ? esc_html( $lang_options[ $language ] ) : esc_html__( 'Site default', 'sfs-hr' ); ?></td></tr>
                     <?php if ( $first_name_ar || $last_name_ar ) : ?><tr><th><?php esc_html_e( 'Arabic name', 'sfs-hr' ); ?></th><td dir="rtl"><?php echo esc_html( trim( $first_name_ar . ' ' . $last_name_ar ) ); ?></td></tr><?php endif; ?>
@@ -645,11 +653,11 @@ class Employee_Profile_Page {
                 <table class="sfs-ep-info-table"><tbody>
                     <tr><th><?php esc_html_e( 'Department', 'sfs-hr' ); ?></th><td><?php echo $dept_name ? esc_html( $dept_name ) : '—'; ?></td></tr>
                     <tr><th><?php esc_html_e( 'Position', 'sfs-hr' ); ?></th><td><?php echo $fmt_val( $position ); ?></td></tr>
-                    <tr><th><?php esc_html_e( 'Hire date', 'sfs-hr' ); ?></th><td><?php echo $fmt_date( $hire_date ); ?></td></tr>
-                    <tr><th><?php esc_html_e( 'Entry (KSA)', 'sfs-hr' ); ?></th><td><?php echo $fmt_date( $entry_date_ksa ); ?></td></tr>
+                    <tr><th><?php esc_html_e( 'Hire date', 'sfs-hr' ); ?></th><td><?php echo $fmt_date_html( $hire_date ); ?></td></tr>
+                    <tr><th><?php esc_html_e( 'Entry (KSA)', 'sfs-hr' ); ?></th><td><?php echo $fmt_date_html( $entry_date_ksa ); ?></td></tr>
                     <tr><th><?php esc_html_e( 'Contract duration', 'sfs-hr' ); ?></th><td><?php echo $fmt_val( $contract_type ); ?></td></tr>
-                    <tr><th><?php esc_html_e( 'Contract', 'sfs-hr' ); ?></th><td><?php echo $fmt_date( $contract_start ); ?> — <?php echo $fmt_date( $contract_end ); ?></td></tr>
-                    <tr><th><?php esc_html_e( 'Probation end', 'sfs-hr' ); ?></th><td><?php echo $fmt_date( $probation_end ); ?></td></tr>
+                    <tr><th><?php esc_html_e( 'Contract', 'sfs-hr' ); ?></th><td><?php echo $fmt_date_html( $contract_start ); ?> — <?php echo $fmt_date_html( $contract_end ); ?></td></tr>
+                    <tr><th><?php esc_html_e( 'Probation end', 'sfs-hr' ); ?></th><td><?php echo $fmt_date_html( $probation_end ); ?></td></tr>
                     <tr><th><?php esc_html_e( 'WP User', 'sfs-hr' ); ?></th><td><?php if ( $wp_username ) { $edit_link = get_edit_user_link( $wp_user ); echo $edit_link ? '<a href="' . esc_url( $edit_link ) . '">' . esc_html( $wp_username ) . '</a>' : esc_html( $wp_username ); } else { echo '—'; } ?></td></tr>
                 </tbody></table>
             </div>

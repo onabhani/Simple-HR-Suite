@@ -300,16 +300,27 @@ class Hijri_Service {
     }
 
     /**
-     * True if a Gregorian date falls on any Islamic holiday for its year.
+     * True if a Gregorian date falls on any Islamic holiday.
+     *
+     * Multi-day holidays (Eid al-Adha in particular) can span a Gregorian
+     * year boundary — start in year N, end in year N+1. islamic_holidays_for_year()
+     * lists each holiday under the year that contains its start, so a date
+     * like 2027-01-01 might belong to a holiday listed under 2026. Merge
+     * ±1 year to cover that.
      */
     public static function is_islamic_holiday( string $gregorian_date ): bool {
         $ts = strtotime( $gregorian_date );
         if ( $ts === false ) {
             return false;
         }
-        $year     = (int) gmdate( 'Y', $ts );
-        $ymd      = gmdate( 'Y-m-d', $ts );
-        $holidays = self::islamic_holidays_for_year( $year );
+        $year = (int) gmdate( 'Y', $ts );
+        $ymd  = gmdate( 'Y-m-d', $ts );
+
+        $holidays = array_merge(
+            self::islamic_holidays_for_year( $year - 1 ),
+            self::islamic_holidays_for_year( $year ),
+            self::islamic_holidays_for_year( $year + 1 )
+        );
 
         foreach ( $holidays as $h ) {
             if ( strcmp( $ymd, $h['start'] ) >= 0 && strcmp( $ymd, $h['end'] ) <= 0 ) {

@@ -35,15 +35,75 @@ class Hijri_Rest {
 			'permission_callback' => '__return_true',
 		] );
 
+		$validate_year = function ( $value ) {
+			if ( $value === null || $value === '' ) {
+				return true; // optional — handler defaults to current year.
+			}
+			$v = (int) $value;
+			return ( $v >= 1900 && $v <= 2200 )
+				? true
+				: new \WP_Error( 'rest_invalid_param', __( 'year must be between 1900 and 2200.', 'sfs-hr' ), [ 'status' => 400 ] );
+		};
+
 		register_rest_route( self::NS, '/hijri/convert', [
 			'methods'             => 'GET',
 			'callback'            => [ self::class, 'convert' ],
 			'permission_callback' => '__return_true',
 			'args'                => [
-				'date'      => [ 'type' => 'string', 'description' => 'Gregorian date Y-m-d' ],
-				'hijri_y'   => [ 'type' => 'integer', 'minimum' => 1, 'maximum' => 9999 ],
-				'hijri_m'   => [ 'type' => 'integer', 'minimum' => 1, 'maximum' => 12 ],
-				'hijri_d'   => [ 'type' => 'integer', 'minimum' => 1, 'maximum' => 30 ],
+				'date' => [
+					'type'              => 'string',
+					'description'       => 'Gregorian date Y-m-d',
+					'validate_callback' => function ( $value ) {
+						if ( $value === null || $value === '' ) {
+							return true;
+						}
+						return preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) $value )
+							? true
+							: new \WP_Error( 'rest_invalid_param', __( 'date must be YYYY-MM-DD.', 'sfs-hr' ), [ 'status' => 400 ] );
+					},
+				],
+				'hijri_y' => [
+					'type'              => 'integer',
+					'minimum'           => 1,
+					'maximum'           => 9999,
+					'validate_callback' => function ( $value ) {
+						if ( $value === null || $value === '' ) {
+							return true;
+						}
+						$v = (int) $value;
+						return ( $v >= 1 && $v <= 9999 )
+							? true
+							: new \WP_Error( 'rest_invalid_param', __( 'hijri_y must be between 1 and 9999.', 'sfs-hr' ), [ 'status' => 400 ] );
+					},
+				],
+				'hijri_m' => [
+					'type'              => 'integer',
+					'minimum'           => 1,
+					'maximum'           => 12,
+					'validate_callback' => function ( $value ) {
+						if ( $value === null || $value === '' ) {
+							return true;
+						}
+						$v = (int) $value;
+						return ( $v >= 1 && $v <= 12 )
+							? true
+							: new \WP_Error( 'rest_invalid_param', __( 'hijri_m must be between 1 and 12.', 'sfs-hr' ), [ 'status' => 400 ] );
+					},
+				],
+				'hijri_d' => [
+					'type'              => 'integer',
+					'minimum'           => 1,
+					'maximum'           => 30,
+					'validate_callback' => function ( $value ) {
+						if ( $value === null || $value === '' ) {
+							return true;
+						}
+						$v = (int) $value;
+						return ( $v >= 1 && $v <= 30 )
+							? true
+							: new \WP_Error( 'rest_invalid_param', __( 'hijri_d must be between 1 and 30.', 'sfs-hr' ), [ 'status' => 400 ] );
+					},
+				],
 			],
 		] );
 
@@ -52,7 +112,12 @@ class Hijri_Rest {
 			'callback'            => [ self::class, 'holidays' ],
 			'permission_callback' => '__return_true',
 			'args'                => [
-				'year' => [ 'type' => 'integer', 'minimum' => 1900, 'maximum' => 2200 ],
+				'year' => [
+					'type'              => 'integer',
+					'minimum'           => 1900,
+					'maximum'           => 2200,
+					'validate_callback' => $validate_year,
+				],
 			],
 		] );
 
@@ -61,7 +126,12 @@ class Hijri_Rest {
 			'callback'            => [ self::class, 'ramadan' ],
 			'permission_callback' => '__return_true',
 			'args'                => [
-				'year' => [ 'type' => 'integer', 'minimum' => 1900, 'maximum' => 2200 ],
+				'year' => [
+					'type'              => 'integer',
+					'minimum'           => 1900,
+					'maximum'           => 2200,
+					'validate_callback' => $validate_year,
+				],
 			],
 		] );
 	}
