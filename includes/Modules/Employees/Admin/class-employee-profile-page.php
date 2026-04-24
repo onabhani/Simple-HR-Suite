@@ -560,7 +560,10 @@ class Employee_Profile_Page {
             if ( ! $d ) return '—';
             $dt = \DateTimeImmutable::createFromFormat( 'Y-m-d', $d )
                ?: \DateTimeImmutable::createFromFormat( 'Y-m-d H:i:s', $d );
-            return esc_html( $dt ? $dt->format( 'd/m/Y' ) : $d );
+            $ymd = $dt ? $dt->format( 'Y-m-d' ) : $d;
+            // M8.4: appends Hijri when enabled in Gulf Compliance → Hijri.
+            $out = \SFS\HR\Core\LaborLaw\Hijri_Service::format_with_gregorian( $ymd, 'd/m/Y' );
+            return esc_html( $out !== '' ? $out : ( $dt ? $dt->format( 'd/m/Y' ) : $d ) );
         };
         $fmt_val = function( $v ) : string { return ( $v !== null && $v !== '' ) ? esc_html( (string) $v ) : '—'; };
         $fmt_id_exp = function( string $val, string $exp ) use ( $fmt_val, $fmt_date ) : string {

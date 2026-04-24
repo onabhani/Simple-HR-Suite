@@ -478,6 +478,9 @@ add_action('plugins_loaded', function(){
     // M8: Gulf Compliance admin page (labor law overview + social insurance + hijri)
     (new \SFS\HR\Core\LaborLaw\Admin_Page())->hooks();
 
+    // M8.4: Hijri REST endpoints (/hijri/today, /convert, /holidays, /ramadan)
+    \SFS\HR\Core\LaborLaw\Hijri_Rest::register();
+
     // M9: Webhook dispatcher + REST endpoints
     \SFS\HR\Core\Webhooks\Webhook_Service::init();
     \SFS\HR\Core\Webhooks\Webhook_Rest::register();
