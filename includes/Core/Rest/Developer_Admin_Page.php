@@ -59,6 +59,8 @@ class Developer_Admin_Page {
                    class="nav-tab <?php echo $tab === 'api_keys' ? 'nav-tab-active' : ''; ?>"><?php esc_html_e( 'API Keys', 'sfs-hr' ); ?></a>
                 <a href="<?php echo esc_url( add_query_arg( [ 'page' => self::MENU_SLUG, 'tab' => 'rest' ], admin_url( 'admin.php' ) ) ); ?>"
                    class="nav-tab <?php echo $tab === 'rest' ? 'nav-tab-active' : ''; ?>"><?php esc_html_e( 'REST Overview', 'sfs-hr' ); ?></a>
+                <a href="<?php echo esc_url( add_query_arg( [ 'page' => self::MENU_SLUG, 'tab' => 'api_v2' ], admin_url( 'admin.php' ) ) ); ?>"
+                   class="nav-tab <?php echo $tab === 'api_v2' ? 'nav-tab-active' : ''; ?>"><?php esc_html_e( 'API v2', 'sfs-hr' ); ?></a>
             </nav>
 
             <?php $this->render_flash(); ?>
@@ -68,6 +70,7 @@ class Developer_Admin_Page {
                 switch ( $tab ) {
                     case 'api_keys': $this->render_api_keys(); break;
                     case 'rest':     $this->render_rest_overview(); break;
+                    case 'api_v2':   $this->render_api_v2(); break;
                     case 'webhooks':
                     default:         $this->render_webhooks();
                 }
@@ -433,6 +436,95 @@ class Developer_Admin_Page {
         check_admin_referer( 'sfs_hr_apikey_revoke_' . $id, '_sfs_nonce' );
         Api_Key_Service::revoke( $id );
         $this->redirect( 'api_keys', [ 'msg' => __( 'API key revoked.', 'sfs-hr' ) ] );
+    }
+
+    /* ───────── API v2 tab ───────── */
+
+    private function render_api_v2(): void {
+        $openapi_url = rest_url( 'sfs-hr/v2/openapi.json' );
+        $server      = rest_get_server();
+        $all_routes  = $server->get_routes();
+
+        $v2_routes = [];
+        foreach ( $all_routes as $route => $handlers ) {
+            if ( strpos( ltrim( $route, '/' ), 'sfs-hr/v2' ) !== 0 ) {
+                continue;
+            }
+            foreach ( $handlers as $h ) {
+                foreach ( (array) ( $h['methods'] ?? [] ) as $method => $enabled ) {
+                    if ( ! $enabled ) {
+                        continue;
+                    }
+                    $v2_routes[] = [
+                        'method' => $method,
+                        'route'  => $route,
+                    ];
+                }
+            }
+        }
+
+        ?>
+        <h2><?php esc_html_e( 'API v2', 'sfs-hr' ); ?></h2>
+        <p><?php esc_html_e( 'The sfs-hr/v2 namespace adds standardized envelopes, pagination, rate limiting, and an auto-generated OpenAPI specification. v1 endpoints continue to work unchanged.', 'sfs-hr' ); ?></p>
+
+        <h3><?php esc_html_e( 'OpenAPI Specification', 'sfs-hr' ); ?></h3>
+        <p><?php esc_html_e( 'Machine-readable description of all v2 endpoints (OpenAPI 3.1):', 'sfs-hr' ); ?></p>
+        <p>
+            <a href="<?php echo esc_url( $openapi_url ); ?>" class="button button-primary" target="_blank" rel="noopener"><?php esc_html_e( 'View OpenAPI JSON', 'sfs-hr' ); ?></a>
+            <a href="https://editor.swagger.io/?url=<?php echo esc_attr( rawurlencode( $openapi_url ) ); ?>" class="button" target="_blank" rel="noopener"><?php esc_html_e( 'Open in Swagger Editor', 'sfs-hr' ); ?></a>
+        </p>
+        <p class="description">
+            <code><?php echo esc_html( $openapi_url ); ?></code>
+        </p>
+
+        <h3><?php esc_html_e( 'Conventions', 'sfs-hr' ); ?></h3>
+        <table class="widefat striped" style="max-width:800px;">
+            <tbody>
+                <tr>
+                    <th style="width:180px;"><?php esc_html_e( 'Success envelope', 'sfs-hr' ); ?></th>
+                    <td><code>{ "data": ..., "meta": { "timestamp": ... } }</code></td>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e( 'Pagination', 'sfs-hr' ); ?></th>
+                    <td><?php esc_html_e( 'Page-offset via ?page and ?per_page (max 100). Meta block exposes total, total_pages, has_next, has_prev. Headers: X-Total-Count, X-Page, X-Per-Page, X-Total-Pages.', 'sfs-hr' ); ?></td>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e( 'Error shape', 'sfs-hr' ); ?></th>
+                    <td><code>{ "code": ..., "message": ..., "data": { "status": 4xx, "errors": { ... } } }</code></td>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e( 'Rate limit', 'sfs-hr' ); ?></th>
+                    <td><?php esc_html_e( 'Default 60 req/min per user. Headers on every response: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset. 429 on exceed with Retry-After.', 'sfs-hr' ); ?></td>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e( 'Authentication', 'sfs-hr' ); ?></th>
+                    <td><?php esc_html_e( 'Bearer token (issued in the API Keys tab) or a logged-in WordPress session with the required capability.', 'sfs-hr' ); ?></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3><?php esc_html_e( 'Registered v2 routes', 'sfs-hr' ); ?></h3>
+        <?php if ( empty( $v2_routes ) ): ?>
+            <p><em><?php esc_html_e( 'No v2 routes registered yet.', 'sfs-hr' ); ?></em></p>
+        <?php else: ?>
+            <table class="widefat striped" style="max-width:800px;">
+                <thead>
+                    <tr>
+                        <th><?php esc_html_e( 'Method', 'sfs-hr' ); ?></th>
+                        <th><?php esc_html_e( 'Route', 'sfs-hr' ); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ( $v2_routes as $r ): ?>
+                        <tr>
+                            <td><code><?php echo esc_html( $r['method'] ); ?></code></td>
+                            <td><code><?php echo esc_html( $r['route'] ); ?></code></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
+        <?php
     }
 
     /* ───────── helpers ───────── */

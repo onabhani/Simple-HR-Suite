@@ -489,6 +489,9 @@ add_action('plugins_loaded', function(){
     // M9: Developer admin page (webhooks + api keys + REST overview)
     (new \SFS\HR\Core\Rest\Developer_Admin_Page())->hooks();
 
+    // M9.2: v2 REST namespace (OpenAPI + rate-limited reference endpoints)
+    \SFS\HR\Core\Rest\V2_Bootstrap::init();
+
     // M10: Expense Management (claims, advances, approvals, reports)
     (new \SFS\HR\Modules\Expenses\ExpensesModule())->hooks();
 
