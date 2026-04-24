@@ -59,9 +59,16 @@ class Settlement_Rest {
         ] );
 
         register_rest_route( $ns, '/settlements/(?P<id>\d+)', [
-            'methods'             => 'GET',
-            'callback'            => [ __CLASS__, 'get_settlement' ],
-            'permission_callback' => [ __CLASS__, 'can_view' ],
+            [
+                'methods'             => 'GET',
+                'callback'            => [ __CLASS__, 'get_settlement' ],
+                'permission_callback' => [ __CLASS__, 'can_view' ],
+            ],
+            [
+                'methods'             => 'DELETE',
+                'callback'            => [ __CLASS__, 'delete_settlement' ],
+                'permission_callback' => [ __CLASS__, 'can_manage' ],
+            ],
         ] );
 
         register_rest_route( $ns, '/settlements/(?P<id>\d+)/approve', [
@@ -258,6 +265,32 @@ class Settlement_Rest {
             return Rest_Response::error( 'invalid_transition', __( 'Cannot reject from the current status.', 'sfs-hr' ), 409 );
         }
         return Rest_Response::success( Settlement_Service::get_settlement( $id ) );
+    }
+
+    /**
+     * Hard-delete a settlement. Distinct from rejection: rejection is the
+     * audit-trail "we evaluated and decided no"; deletion is "this row
+     * should never have existed" (e.g. duplicate, wrong employee). The
+     * service guards against deleting anything past the pending state,
+     * so approvals and payments stay immutable.
+     */
+    public static function delete_settlement( \WP_REST_Request $req ) {
+        $id = (int) $req['id'];
+        $settlement = Settlement_Service::get_settlement( $id );
+        if ( ! $settlement ) {
+            return Rest_Response::error( 'not_found', __( 'Settlement not found.', 'sfs-hr' ), 404 );
+        }
+
+        $ok = Settlement_Service::delete( $id );
+        if ( ! $ok ) {
+            return Rest_Response::error(
+                'invalid_state',
+                __( 'Only pending settlements can be deleted. Reject instead to keep the audit trail.', 'sfs-hr' ),
+                409
+            );
+        }
+
+        return Rest_Response::success( [ 'deleted' => true, 'id' => $id ] );
     }
 
     public static function mark_paid( \WP_REST_Request $req ) {
