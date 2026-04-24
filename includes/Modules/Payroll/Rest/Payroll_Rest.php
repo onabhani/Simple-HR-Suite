@@ -8,6 +8,7 @@
 namespace SFS\HR\Modules\Payroll\Rest;
 
 use SFS\HR\Modules\Payroll\PayrollModule;
+use SFS\HR\Modules\Payroll\Services\Payslip_Service;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -312,7 +313,7 @@ class Payroll_Rest {
      * Get rendered HTML for a payslip.
      */
     public static function get_payslip_html( \WP_REST_Request $req ): \WP_REST_Response {
-        $html = Services\Payslip_Service::render_html( (int) $req['id'] );
+        $html = Payslip_Service::render_html( (int) $req['id'] );
 
         if ( ! $html ) {
             return new \WP_REST_Response( [ 'message' => 'Payslip not found.' ], 404 );
@@ -325,7 +326,7 @@ class Payroll_Rest {
      * Send payslip email to a single employee.
      */
     public static function send_payslip_email( \WP_REST_Request $req ): \WP_REST_Response {
-        $sent = Services\Payslip_Service::send_email( (int) $req['id'] );
+        $sent = Payslip_Service::send_email( (int) $req['id'] );
 
         if ( ! $sent ) {
             return new \WP_REST_Response( [ 'message' => 'Failed to send payslip email.' ], 400 );
@@ -338,7 +339,7 @@ class Payroll_Rest {
      * Batch send payslip emails for a payroll run.
      */
     public static function batch_send_payslips( \WP_REST_Request $req ): \WP_REST_Response {
-        $result = Services\Payslip_Service::batch_send_by_run( (int) $req['id'] );
+        $result = Payslip_Service::batch_send_by_run( (int) $req['id'] );
 
         if ( ! empty( $result['error'] ) ) {
             return new \WP_REST_Response( $result, 400 );
@@ -352,7 +353,7 @@ class Payroll_Rest {
      */
     public static function get_employee_ytd( \WP_REST_Request $req ): \WP_REST_Response {
         $year = (int) ( $req['year'] ?? 0 ) ?: null;
-        $ytd  = Services\Payslip_Service::get_ytd( (int) $req['id'], $year );
+        $ytd  = Payslip_Service::get_ytd( (int) $req['id'], $year );
 
         return rest_ensure_response( $ytd );
     }
@@ -362,7 +363,7 @@ class Payroll_Rest {
      */
     public static function get_employee_comparison( \WP_REST_Request $req ): \WP_REST_Response {
         $limit = min( 24, max( 2, (int) ( $req['limit'] ?? 6 ) ) );
-        $data  = Services\Payslip_Service::get_month_comparison( (int) $req['id'], $limit );
+        $data  = Payslip_Service::get_month_comparison( (int) $req['id'], $limit );
 
         return rest_ensure_response( $data );
     }
@@ -383,7 +384,7 @@ class Payroll_Rest {
         }
 
         $year = (int) ( $req['year'] ?? 0 ) ?: null;
-        $ytd  = Services\Payslip_Service::get_ytd( $emp_id, $year );
+        $ytd  = Payslip_Service::get_ytd( $emp_id, $year );
 
         return rest_ensure_response( $ytd );
     }
@@ -404,7 +405,7 @@ class Payroll_Rest {
         }
 
         $limit = min( 24, max( 2, (int) ( $req['limit'] ?? 6 ) ) );
-        $data  = Services\Payslip_Service::get_month_comparison( $emp_id, $limit );
+        $data  = Payslip_Service::get_month_comparison( $emp_id, $limit );
 
         return rest_ensure_response( $data );
     }

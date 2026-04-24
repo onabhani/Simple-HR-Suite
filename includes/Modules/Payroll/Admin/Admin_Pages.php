@@ -3498,15 +3498,20 @@ class Admin_Pages {
 
         $result = Services\Payslip_Service::batch_send_by_run( $run_id );
 
-        $params = http_build_query( [
+        $base_params = [
             'page'        => 'sfs-hr-payroll',
             'payroll_tab' => 'payslips',
-            'batch_sent'  => $result['sent'],
-            'batch_failed' => $result['failed'],
-            'batch_skipped' => $result['skipped'],
-        ] );
+        ];
 
-        wp_safe_redirect( admin_url( 'admin.php?' . $params ) );
+        if ( ! empty( $result['error'] ) ) {
+            $base_params['batch_error'] = sanitize_key( $result['error'] );
+        } else {
+            $base_params['batch_sent']    = (int) ( $result['sent'] ?? 0 );
+            $base_params['batch_failed']  = (int) ( $result['failed'] ?? 0 );
+            $base_params['batch_skipped'] = (int) ( $result['skipped'] ?? 0 );
+        }
+
+        wp_safe_redirect( admin_url( 'admin.php?' . http_build_query( $base_params ) ) );
         exit;
     }
 }

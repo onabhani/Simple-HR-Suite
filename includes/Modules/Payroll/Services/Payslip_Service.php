@@ -48,7 +48,7 @@ class Payslip_Service {
              INNER JOIN {$periods_table} p ON p.id = r.period_id
              WHERE i.employee_id = %d
                AND YEAR(p.start_date) = %d
-               AND r.status NOT IN ('reversed','draft')
+               AND r.status IN ('approved','paid')
              ORDER BY p.start_date ASC",
             $employee_id,
             $year
@@ -91,7 +91,7 @@ class Payslip_Service {
              INNER JOIN {$periods_table} p ON p.id = r.period_id
              WHERE i.employee_id = %d
                AND YEAR(p.start_date) = %d
-               AND r.status NOT IN ('reversed','draft')
+               AND r.status IN ('approved','paid')
              ORDER BY p.start_date ASC",
             $employee_id,
             $year
@@ -150,7 +150,7 @@ class Payslip_Service {
              INNER JOIN {$runs_table} r ON r.id = i.run_id
              INNER JOIN {$periods_table} p ON p.id = r.period_id
              WHERE i.employee_id = %d
-               AND r.status NOT IN ('reversed','draft')
+               AND r.status IN ('approved','paid')
              ORDER BY p.start_date DESC
              LIMIT %d",
             $employee_id,
@@ -542,12 +542,6 @@ table.ps-table tr.total-row td{font-weight:700;border-top:2px solid #e5e7eb;back
             $wpdb->update( $payslips_table, [
                 'sent_at' => current_time( 'mysql' ),
             ], [ 'id' => $payslip_id ] );
-
-            do_action( 'sfs_hr_payslip_ready', (int) $ps->employee_id, [
-                'payslip_id'  => $payslip_id,
-                'period_name' => $ps->period_name ?? '',
-                'net_salary'  => isset( $ps->net_salary ) ? (float) $ps->net_salary : null,
-            ] );
         }
 
         return $sent;
@@ -587,15 +581,16 @@ table.ps-table tr.total-row td{font-weight:700;border-top:2px solid #e5e7eb;back
             return [ 'sent' => 0, 'failed' => 0, 'skipped' => 0, 'error' => 'run_not_approved' ];
         }
 
-        // Get all payslips for this run's period.
-        $period_id = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT period_id FROM {$runs_table} WHERE id = %d",
-            $run_id
-        ) );
+        // Get all payslips for this specific run (not the whole period — same
+        // period can have multiple runs, e.g. original + reversal).
+        $items_table = $wpdb->prefix . 'sfs_hr_payroll_items';
 
         $payslip_ids = $wpdb->get_col( $wpdb->prepare(
-            "SELECT id FROM {$payslips_table} WHERE period_id = %d",
-            $period_id
+            "SELECT ps.id
+             FROM {$payslips_table} ps
+             INNER JOIN {$items_table} i ON i.id = ps.payroll_item_id
+             WHERE i.run_id = %d",
+            $run_id
         ) );
 
         $result = [ 'sent' => 0, 'failed' => 0, 'skipped' => 0 ];
