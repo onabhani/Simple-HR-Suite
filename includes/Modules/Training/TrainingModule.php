@@ -24,6 +24,7 @@ class TrainingModule {
     public function hooks(): void {
         // REST endpoints
         Rest\Training_Rest::register();
+        Rest\IDP_Rest::register(); // M11.3
 
         // Admin pages
         if ( is_admin() ) {

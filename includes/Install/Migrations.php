@@ -593,6 +593,91 @@ class Migrations {
             KEY `role_idx` (`role`)
         ) $charset");
 
+        /** M11.3: SKILLS, IDP, SKILL-GAP TABLES */
+
+        $skills_table = $wpdb->prefix . 'sfs_hr_skills';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$skills_table}` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `name` VARCHAR(191) NOT NULL,
+            `category` VARCHAR(50) NULL,
+            `description` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `name` (`name`),
+            KEY `category` (`category`)
+        ) $charset");
+
+        $role_skills_table = $wpdb->prefix . 'sfs_hr_role_skills';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$role_skills_table}` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `role` VARCHAR(100) NOT NULL,
+            `skill_id` BIGINT UNSIGNED NOT NULL,
+            `required_level` TINYINT UNSIGNED NOT NULL DEFAULT 3,
+            `mandatory` TINYINT(1) NOT NULL DEFAULT 1,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `role_skill` (`role`, `skill_id`),
+            KEY `skill_idx` (`skill_id`)
+        ) $charset");
+
+        $emp_skills_table = $wpdb->prefix . 'sfs_hr_employee_skills';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$emp_skills_table}` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `employee_id` BIGINT UNSIGNED NOT NULL,
+            `skill_id` BIGINT UNSIGNED NOT NULL,
+            `self_rating` TINYINT UNSIGNED NULL,
+            `manager_rating` TINYINT UNSIGNED NULL,
+            `last_assessed` DATE NULL,
+            `notes` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `emp_skill` (`employee_id`, `skill_id`),
+            KEY `skill_idx` (`skill_id`)
+        ) $charset");
+
+        $idps_table = $wpdb->prefix . 'sfs_hr_idps';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$idps_table}` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `employee_id` BIGINT UNSIGNED NOT NULL,
+            `title` VARCHAR(255) NOT NULL,
+            `objective` TEXT NULL,
+            `period_start` DATE NULL,
+            `period_end` DATE NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'draft',
+            `created_by` BIGINT UNSIGNED NULL,
+            `approved_by` BIGINT UNSIGNED NULL,
+            `approved_at` DATETIME NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `emp_status` (`employee_id`, `status`),
+            KEY `period` (`period_start`, `period_end`)
+        ) $charset");
+
+        $idp_items_table = $wpdb->prefix . 'sfs_hr_idp_items';
+        $wpdb->query("CREATE TABLE IF NOT EXISTS `{$idp_items_table}` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `idp_id` BIGINT UNSIGNED NOT NULL,
+            `skill_id` BIGINT UNSIGNED NULL,
+            `description` TEXT NOT NULL,
+            `target_level` TINYINT UNSIGNED NULL,
+            `training_request_id` BIGINT UNSIGNED NULL,
+            `target_date` DATE NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+            `progress_pct` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            `completed_at` DATETIME NULL,
+            `notes` TEXT NULL,
+            `created_at` DATETIME NOT NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `idp_idx` (`idp_id`),
+            KEY `skill_idx` (`skill_id`),
+            KEY `target_date` (`target_date`)
+        ) $charset");
+
         /** M7: OFFBOARDING & EXIT INTERVIEW TABLES */
 
         // M7.1: Garden leave columns on resignations
