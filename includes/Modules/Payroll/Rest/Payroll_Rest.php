@@ -57,6 +57,49 @@ class Payroll_Rest {
             'callback'            => [ self::class, 'get_components' ],
             'permission_callback' => fn() => current_user_can( 'sfs_hr_payroll_admin' ) || current_user_can( 'sfs_hr.manage' ),
         ] );
+
+        // M1.4 — Payslip enhancements
+        register_rest_route( $ns, '/payroll/payslips/(?P<id>\d+)/html', [
+            'methods'             => 'GET',
+            'callback'            => [ self::class, 'get_payslip_html' ],
+            'permission_callback' => fn() => current_user_can( 'sfs_hr_payroll_admin' ) || current_user_can( 'sfs_hr.manage' ),
+        ] );
+
+        register_rest_route( $ns, '/payroll/payslips/(?P<id>\d+)/send', [
+            'methods'             => 'POST',
+            'callback'            => [ self::class, 'send_payslip_email' ],
+            'permission_callback' => fn() => current_user_can( 'sfs_hr_payroll_admin' ) || current_user_can( 'sfs_hr.manage' ),
+        ] );
+
+        register_rest_route( $ns, '/payroll/runs/(?P<id>\d+)/send-payslips', [
+            'methods'             => 'POST',
+            'callback'            => [ self::class, 'batch_send_payslips' ],
+            'permission_callback' => fn() => current_user_can( 'sfs_hr_payroll_admin' ) || current_user_can( 'sfs_hr.manage' ),
+        ] );
+
+        register_rest_route( $ns, '/payroll/employees/(?P<id>\d+)/ytd', [
+            'methods'             => 'GET',
+            'callback'            => [ self::class, 'get_employee_ytd' ],
+            'permission_callback' => fn() => current_user_can( 'sfs_hr_payroll_view' ) || current_user_can( 'sfs_hr.manage' ),
+        ] );
+
+        register_rest_route( $ns, '/payroll/employees/(?P<id>\d+)/comparison', [
+            'methods'             => 'GET',
+            'callback'            => [ self::class, 'get_employee_comparison' ],
+            'permission_callback' => fn() => current_user_can( 'sfs_hr_payroll_view' ) || current_user_can( 'sfs_hr.manage' ),
+        ] );
+
+        register_rest_route( $ns, '/payroll/my-ytd', [
+            'methods'             => 'GET',
+            'callback'            => [ self::class, 'my_ytd' ],
+            'permission_callback' => fn() => current_user_can( 'sfs_hr_payslip_view' ) || current_user_can( 'sfs_hr.view' ),
+        ] );
+
+        register_rest_route( $ns, '/payroll/my-comparison', [
+            'methods'             => 'GET',
+            'callback'            => [ self::class, 'my_comparison' ],
+            'permission_callback' => fn() => current_user_can( 'sfs_hr_payslip_view' ) || current_user_can( 'sfs_hr.view' ),
+        ] );
     }
 
     /**
@@ -259,5 +302,110 @@ class Payroll_Rest {
         $components = $wpdb->get_results( $sql, ARRAY_A );
 
         return rest_ensure_response( $components ?: [] );
+    }
+
+    /* ================================================================== */
+    /*  M1.4 — Payslip Enhancements                                       */
+    /* ================================================================== */
+
+    /**
+     * Get rendered HTML for a payslip.
+     */
+    public static function get_payslip_html( \WP_REST_Request $req ): \WP_REST_Response {
+        $html = Services\Payslip_Service::render_html( (int) $req['id'] );
+
+        if ( ! $html ) {
+            return new \WP_REST_Response( [ 'message' => 'Payslip not found.' ], 404 );
+        }
+
+        return rest_ensure_response( [ 'html' => $html ] );
+    }
+
+    /**
+     * Send payslip email to a single employee.
+     */
+    public static function send_payslip_email( \WP_REST_Request $req ): \WP_REST_Response {
+        $sent = Services\Payslip_Service::send_email( (int) $req['id'] );
+
+        if ( ! $sent ) {
+            return new \WP_REST_Response( [ 'message' => 'Failed to send payslip email.' ], 400 );
+        }
+
+        return rest_ensure_response( [ 'sent' => true ] );
+    }
+
+    /**
+     * Batch send payslip emails for a payroll run.
+     */
+    public static function batch_send_payslips( \WP_REST_Request $req ): \WP_REST_Response {
+        $result = Services\Payslip_Service::batch_send_by_run( (int) $req['id'] );
+
+        if ( ! empty( $result['error'] ) ) {
+            return new \WP_REST_Response( $result, 400 );
+        }
+
+        return rest_ensure_response( $result );
+    }
+
+    /**
+     * Get YTD data for an employee (admin).
+     */
+    public static function get_employee_ytd( \WP_REST_Request $req ): \WP_REST_Response {
+        $year = (int) ( $req['year'] ?? 0 ) ?: null;
+        $ytd  = Services\Payslip_Service::get_ytd( (int) $req['id'], $year );
+
+        return rest_ensure_response( $ytd );
+    }
+
+    /**
+     * Get month-over-month comparison for an employee (admin).
+     */
+    public static function get_employee_comparison( \WP_REST_Request $req ): \WP_REST_Response {
+        $limit = min( 24, max( 2, (int) ( $req['limit'] ?? 6 ) ) );
+        $data  = Services\Payslip_Service::get_month_comparison( (int) $req['id'], $limit );
+
+        return rest_ensure_response( $data );
+    }
+
+    /**
+     * Get YTD data for the current user (self-service).
+     */
+    public static function my_ytd( \WP_REST_Request $req ): \WP_REST_Response {
+        global $wpdb;
+
+        $emp_id = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}sfs_hr_employees WHERE user_id = %d LIMIT 1",
+            get_current_user_id()
+        ) );
+
+        if ( ! $emp_id ) {
+            return new \WP_REST_Response( [ 'message' => 'Employee not found.' ], 404 );
+        }
+
+        $year = (int) ( $req['year'] ?? 0 ) ?: null;
+        $ytd  = Services\Payslip_Service::get_ytd( $emp_id, $year );
+
+        return rest_ensure_response( $ytd );
+    }
+
+    /**
+     * Get month-over-month comparison for the current user (self-service).
+     */
+    public static function my_comparison( \WP_REST_Request $req ): \WP_REST_Response {
+        global $wpdb;
+
+        $emp_id = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}sfs_hr_employees WHERE user_id = %d LIMIT 1",
+            get_current_user_id()
+        ) );
+
+        if ( ! $emp_id ) {
+            return new \WP_REST_Response( [ 'message' => 'Employee not found.' ], 404 );
+        }
+
+        $limit = min( 24, max( 2, (int) ( $req['limit'] ?? 6 ) ) );
+        $data  = Services\Payslip_Service::get_month_comparison( $emp_id, $limit );
+
+        return rest_ensure_response( $data );
     }
 }
