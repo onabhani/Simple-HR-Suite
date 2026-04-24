@@ -48,6 +48,10 @@ class LoansModule {
             add_action( 'admin_init', [ __CLASS__, 'maybe_upgrade_db' ] );
         }
 
+        // REST API (M9.1)
+        require_once __DIR__ . '/Rest/Loans_Rest.php';
+        Rest\Loans_Rest::register();
+
         // Activation hook for DB and roles
         register_activation_hook( SFS_HR_PLUGIN_FILE, [ __CLASS__, 'on_activation' ] );
 
