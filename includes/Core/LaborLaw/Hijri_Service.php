@@ -39,7 +39,12 @@ class Hijri_Service {
         12 => 'Dhu al-Hijjah',
     ];
 
-    const MONTH_RAMADAN = 9;
+    const MONTH_RAMADAN     = 9;
+    const MONTH_SHAWWAL     = 10;
+    const MONTH_DHU_HIJJAH  = 12;
+    const MONTH_MUHARRAM    = 1;
+
+    const OPT_HIJRI_DISPLAY = 'sfs_hr_hijri_display';
 
     /** Whether Intl extension with Islamic calendar is available. */
     private static ?bool $intl_available = null;
@@ -160,6 +165,169 @@ class Hijri_Service {
         }
 
         return [ 'start' => $start, 'end' => $end ];
+    }
+
+    /**
+     * Get today's date in Hijri.
+     *
+     * @return array{y:int, m:int, d:int}
+     */
+    public static function today(): array {
+        return self::to_hijri( current_time( 'Y-m-d' ) );
+    }
+
+    /**
+     * Return the admin-configured Hijri display settings with defaults.
+     *
+     * @return array{enabled:bool, show_alongside:bool, ramadan_short_hours:bool}
+     */
+    public static function get_settings(): array {
+        $raw = get_option( self::OPT_HIJRI_DISPLAY, [] );
+        if ( ! is_array( $raw ) ) {
+            $raw = [];
+        }
+        return [
+            'enabled'             => ! empty( $raw['enabled'] ),
+            'show_alongside'      => ! isset( $raw['show_alongside'] ) || ! empty( $raw['show_alongside'] ),
+            'ramadan_short_hours' => ! isset( $raw['ramadan_short_hours'] ) || ! empty( $raw['ramadan_short_hours'] ),
+        ];
+    }
+
+    /**
+     * Format a Gregorian date honoring the admin Hijri display settings.
+     *
+     *   - Hijri disabled:          returns the Gregorian date unchanged
+     *   - show_alongside = true:   "2026-04-20 (2 Ramadan 1447)"
+     *   - show_alongside = false:  "2 Ramadan 1447" (Hijri only)
+     *
+     * The 'sfs_hr_format_date_with_hijri' filter is available so themes /
+     * extensions can override the combined rendering.
+     *
+     * @param string $gregorian_date Y-m-d (or any strtotime-parseable string).
+     * @param string $gregorian_format date() format used for the Gregorian part.
+     * @return string
+     */
+    public static function format_with_gregorian( string $gregorian_date, string $gregorian_format = 'Y-m-d' ): string {
+        $ts = strtotime( $gregorian_date );
+        if ( $ts === false ) {
+            return '';
+        }
+
+        $gregorian = wp_date( $gregorian_format, $ts );
+
+        $settings = self::get_settings();
+        if ( ! $settings['enabled'] ) {
+            $out = $gregorian;
+        } else {
+            $hijri = self::format( $gregorian_date, 'full' );
+            if ( $hijri === '' ) {
+                $out = $gregorian;
+            } elseif ( $settings['show_alongside'] ) {
+                $out = sprintf( '%s (%s)', $gregorian, $hijri );
+            } else {
+                $out = $hijri;
+            }
+        }
+
+        /**
+         * Filter the combined Gregorian/Hijri string before display.
+         *
+         * @param string $out             Final formatted string.
+         * @param string $gregorian_date  Source Gregorian date.
+         * @param array  $settings        Resolved Hijri display settings.
+         */
+        return (string) apply_filters( 'sfs_hr_format_date_with_hijri', $out, $gregorian_date, $settings );
+    }
+
+    /**
+     * Compute the major Islamic holidays for a given Gregorian year.
+     *
+     *   - Islamic New Year  — 1 Muharram
+     *   - Eid al-Fitr       — 1-3 Shawwal (3 days)
+     *   - Eid al-Adha       — 10-13 Dhu al-Hijjah (4 days, Hajj tied)
+     *
+     * Dates are Gregorian ISO strings. Uses the configured calendar (Umm
+     * al-Qura via Intl when available; arithmetic fallback otherwise).
+     *
+     * @param int $gregorian_year
+     * @return array<string, array{start:string, end:string, hijri:string}>
+     */
+    public static function islamic_holidays_for_year( int $gregorian_year ): array {
+        // A Gregorian year typically spans ~1-2 Hijri years. Probe both
+        // Hijri years that could fall within the year, then keep only the
+        // holidays whose Gregorian start lands in the target year.
+        $year_start = self::to_hijri( sprintf( '%d-01-01', $gregorian_year ) );
+        $year_end   = self::to_hijri( sprintf( '%d-12-31', $gregorian_year ) );
+        $hijri_years = array_unique( array_filter( [ $year_start['y'], $year_end['y'] ] ) );
+
+        $holidays = [];
+
+        foreach ( $hijri_years as $hy ) {
+            // Islamic New Year (1 Muharram).
+            $g = self::to_gregorian( $hy, self::MONTH_MUHARRAM, 1 );
+            if ( $g && str_starts_with( $g, (string) $gregorian_year ) ) {
+                $holidays['islamic_new_year'] = [
+                    'start' => $g,
+                    'end'   => $g,
+                    'hijri' => sprintf( '1 Muharram %d AH', $hy ),
+                ];
+            }
+
+            // Eid al-Fitr (1-3 Shawwal).
+            $gs = self::to_gregorian( $hy, self::MONTH_SHAWWAL, 1 );
+            $ge = self::to_gregorian( $hy, self::MONTH_SHAWWAL, 3 );
+            if ( $gs && str_starts_with( $gs, (string) $gregorian_year ) ) {
+                $holidays['eid_al_fitr'] = [
+                    'start' => $gs,
+                    'end'   => $ge ?: $gs,
+                    'hijri' => sprintf( '1-3 Shawwal %d AH', $hy ),
+                ];
+            }
+
+            // Eid al-Adha (10-13 Dhu al-Hijjah).
+            $gs = self::to_gregorian( $hy, self::MONTH_DHU_HIJJAH, 10 );
+            $ge = self::to_gregorian( $hy, self::MONTH_DHU_HIJJAH, 13 );
+            if ( $gs && str_starts_with( $gs, (string) $gregorian_year ) ) {
+                $holidays['eid_al_adha'] = [
+                    'start' => $gs,
+                    'end'   => $ge ?: $gs,
+                    'hijri' => sprintf( '10-13 Dhu al-Hijjah %d AH', $hy ),
+                ];
+            }
+        }
+
+        return $holidays;
+    }
+
+    /**
+     * True if a Gregorian date falls on any Islamic holiday.
+     *
+     * Multi-day holidays (Eid al-Adha in particular) can span a Gregorian
+     * year boundary — start in year N, end in year N+1. islamic_holidays_for_year()
+     * lists each holiday under the year that contains its start, so a date
+     * like 2027-01-01 might belong to a holiday listed under 2026. Merge
+     * ±1 year to cover that.
+     */
+    public static function is_islamic_holiday( string $gregorian_date ): bool {
+        $ts = strtotime( $gregorian_date );
+        if ( $ts === false ) {
+            return false;
+        }
+        $year = (int) gmdate( 'Y', $ts );
+        $ymd  = gmdate( 'Y-m-d', $ts );
+
+        $holidays = array_merge(
+            self::islamic_holidays_for_year( $year - 1 ),
+            self::islamic_holidays_for_year( $year ),
+            self::islamic_holidays_for_year( $year + 1 )
+        );
+
+        foreach ( $holidays as $h ) {
+            if ( strcmp( $ymd, $h['start'] ) >= 0 && strcmp( $ymd, $h['end'] ) <= 0 ) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Does the running PHP have Intl with Islamic calendar support? */
