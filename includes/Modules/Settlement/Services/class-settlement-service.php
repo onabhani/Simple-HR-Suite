@@ -172,6 +172,39 @@ class Settlement_Service {
     }
 
     /**
+     * Hard-delete a settlement record. Strictly for mistakes (duplicate
+     * creation, wrong employee). Only allowed when status = 'pending'
+     * — once approved or rejected the row is part of an audit trail
+     * and may only move forward via update_status().
+     *
+     * Returns false if the settlement does not exist or is non-pending.
+     */
+    public static function delete(int $settlement_id): bool {
+        global $wpdb;
+        $table = $wpdb->prefix . 'sfs_hr_settlements';
+
+        $status = $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$table} WHERE id = %d", $settlement_id ) );
+        if ( ! $status || $status !== 'pending' ) {
+            return false;
+        }
+
+        // Atomic: deletion only succeeds if the row is still pending,
+        // guarding against a concurrent approve/reject between the
+        // status check above and the DELETE.
+        $result = $wpdb->query( $wpdb->prepare(
+            "DELETE FROM {$table} WHERE id = %d AND status = 'pending'",
+            $settlement_id
+        ) );
+
+        if ( $result === false || $result < 1 ) {
+            return false;
+        }
+
+        do_action( 'sfs_hr_settlement_deleted', $settlement_id );
+        return true;
+    }
+
+    /**
      * Update settlement status
      */
     public static function update_status(int $settlement_id, string $status, array $extra = []): bool {
