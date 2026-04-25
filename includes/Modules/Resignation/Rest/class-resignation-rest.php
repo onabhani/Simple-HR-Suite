@@ -208,6 +208,73 @@ class Resignation_REST {
                 'dept_id'    => [ 'type' => 'integer', 'default' => 0 ],
             ],
         ] );
+
+        // ── M9.1: core resignation lifecycle ──────────────────────────────
+        // Submit / list / detail / approve / reject / cancel. The existing
+        // multi-tier (manager → HR → finance) approval flow lives in the
+        // admin UI handlers. The /approve endpoint here applies a direct
+        // admin override; full multi-tier remains an admin-UI flow until
+        // refactored into the service.
+
+        register_rest_route( $ns, '/resignations', [
+            [
+                'methods'             => 'GET',
+                'callback'            => [ __CLASS__, 'list_resignations' ],
+                'permission_callback' => [ __CLASS__, 'can_view' ],
+                'args'                => [
+                    'status'   => [ 'type' => 'string',  'default' => 'pending' ],
+                    'page'     => [ 'type' => 'integer', 'default' => 1, 'minimum' => 1 ],
+                    'per_page' => [ 'type' => 'integer', 'default' => 20, 'minimum' => 1, 'maximum' => 100 ],
+                    'search'   => [ 'type' => 'string' ],
+                ],
+            ],
+            [
+                'methods'             => 'POST',
+                'callback'            => [ __CLASS__, 'submit_resignation' ],
+                'permission_callback' => [ __CLASS__, 'can_submit_resignation' ],
+                'args'                => [
+                    'employee_id'      => [ 'type' => 'integer', 'minimum' => 1 ],
+                    'resignation_date' => [ 'type' => 'string',  'required' => true, 'description' => 'YYYY-MM-DD' ],
+                    'last_working_day' => [ 'type' => 'string',  'description' => 'YYYY-MM-DD; auto-computed from notice when omitted' ],
+                    'reason'           => [ 'type' => 'string',  'required' => true ],
+                    'resignation_type' => [ 'type' => 'string',  'enum' => [ 'regular', 'final_exit' ], 'default' => 'regular' ],
+                    'notice_period_days' => [ 'type' => 'integer', 'minimum' => 0 ],
+                ],
+            ],
+        ] );
+
+        register_rest_route( $ns, '/resignations/(?P<id>\d+)', [
+            'methods'             => 'GET',
+            'callback'            => [ __CLASS__, 'get_resignation' ],
+            'permission_callback' => [ __CLASS__, 'can_view_resignation_lifecycle' ],
+        ] );
+
+        register_rest_route( $ns, '/resignations/(?P<id>\d+)/approve', [
+            'methods'             => 'POST',
+            'callback'            => [ __CLASS__, 'approve_resignation_lifecycle' ],
+            'permission_callback' => [ __CLASS__, 'can_manage' ],
+            'args'                => [
+                'note' => [ 'type' => 'string' ],
+            ],
+        ] );
+
+        register_rest_route( $ns, '/resignations/(?P<id>\d+)/reject', [
+            'methods'             => 'POST',
+            'callback'            => [ __CLASS__, 'reject_resignation_lifecycle' ],
+            'permission_callback' => [ __CLASS__, 'can_manage' ],
+            'args'                => [
+                'reason' => [ 'type' => 'string', 'required' => true ],
+            ],
+        ] );
+
+        register_rest_route( $ns, '/resignations/(?P<id>\d+)/cancel', [
+            'methods'             => 'POST',
+            'callback'            => [ __CLASS__, 'cancel_resignation_lifecycle' ],
+            'permission_callback' => [ __CLASS__, 'can_cancel_resignation' ],
+            'args'                => [
+                'reason' => [ 'type' => 'string' ],
+            ],
+        ] );
     }
 
     // ── Permission callbacks ────────────────────────────────────────────
@@ -218,6 +285,73 @@ class Resignation_REST {
 
     public static function can_view(): bool {
         return current_user_can( 'sfs_hr.view' );
+    }
+
+    /**
+     * Submit-resignation gate. Admins can submit on anyone's behalf.
+     * Employees can only submit for themselves (handler enforces that
+     * employee_id, when provided, matches their own record).
+     */
+    public static function can_submit_resignation(): bool {
+        return is_user_logged_in();
+    }
+
+    /**
+     * View a single resignation. Admins always; otherwise the row's
+     * employee must belong to the requester.
+     */
+    public static function can_view_resignation_lifecycle( \WP_REST_Request $req ): bool {
+        if ( current_user_can( 'sfs_hr.manage' ) ) {
+            return true;
+        }
+        if ( ! is_user_logged_in() ) {
+            return false;
+        }
+        $r = \SFS\HR\Modules\Resignation\Services\Resignation_Service::get_resignation( (int) $req['id'] );
+        if ( ! $r ) {
+            return false;
+        }
+        return self::is_owner_of_employee( (int) ( $r['employee_id'] ?? 0 ) );
+    }
+
+    /**
+     * Cancel gate. Admins always; the owning employee can cancel their
+     * own pending resignation.
+     */
+    public static function can_cancel_resignation( \WP_REST_Request $req ): bool {
+        if ( current_user_can( 'sfs_hr.manage' ) ) {
+            return true;
+        }
+        if ( ! is_user_logged_in() ) {
+            return false;
+        }
+        $r = \SFS\HR\Modules\Resignation\Services\Resignation_Service::get_resignation( (int) $req['id'] );
+        return $r && self::is_owner_of_employee( (int) ( $r['employee_id'] ?? 0 ) );
+    }
+
+    private static function is_owner_of_employee( int $employee_id ): bool {
+        if ( $employee_id <= 0 ) {
+            return false;
+        }
+        global $wpdb;
+        $owner = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT user_id FROM {$wpdb->prefix}sfs_hr_employees WHERE id = %d",
+            $employee_id
+        ) );
+        return $owner > 0 && $owner === get_current_user_id();
+    }
+
+    private static function current_employee_id_or_null(): ?int {
+        global $wpdb;
+        $uid = get_current_user_id();
+        if ( ! $uid ) {
+            return null;
+        }
+        $id = $wpdb->get_var( $wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}sfs_hr_employees WHERE user_id = %d AND status = 'active' LIMIT 1",
+            $uid
+        ) );
+        return $id ? (int) $id : null;
     }
 
     /**
@@ -479,5 +613,208 @@ class Resignation_REST {
             $dept_id > 0 ? $dept_id : null
         );
         return rest_ensure_response( $result );
+    }
+
+    /* ───────────────────────────────────────────────────────────── */
+    /*  M9.1 — Core resignation lifecycle handlers                    */
+    /* ───────────────────────────────────────────────────────────── */
+
+    public static function list_resignations( \WP_REST_Request $req ) {
+        $svc      = '\\SFS\\HR\\Modules\\Resignation\\Services\\Resignation_Service';
+        $page     = max( 1, (int) ( $req->get_param( 'page' ) ?? 1 ) );
+        $per_page = max( 1, min( 100, (int) ( $req->get_param( 'per_page' ) ?? 20 ) ) );
+        $status   = (string) ( $req->get_param( 'status' ) ?? 'pending' );
+        $search   = (string) ( $req->get_param( 'search' ) ?? '' );
+
+        // Non-admins are auto-scoped to their own resignations.
+        if ( ! current_user_can( 'sfs_hr.manage' ) ) {
+            $own_emp_id = self::current_employee_id_or_null();
+            if ( ! $own_emp_id ) {
+                return \SFS\HR\Core\Rest\Rest_Response::paginated( [], 0, $page, $per_page );
+            }
+            $rows = $svc::get_resignations( $status, $page, $per_page, $search );
+            $rows = array_values( array_filter(
+                $rows,
+                fn( $r ) => (int) ( $r['employee_id'] ?? 0 ) === $own_emp_id
+            ) );
+            return \SFS\HR\Core\Rest\Rest_Response::paginated( $rows, count( $rows ), $page, $per_page );
+        }
+
+        $rows   = $svc::get_resignations( $status, $page, $per_page, $search );
+        $counts = $svc::get_status_counts( $search );
+        $total  = (int) ( $counts[ $status ] ?? count( $rows ) );
+
+        return \SFS\HR\Core\Rest\Rest_Response::paginated( $rows, $total, $page, $per_page );
+    }
+
+    public static function get_resignation( \WP_REST_Request $req ) {
+        $svc = '\\SFS\\HR\\Modules\\Resignation\\Services\\Resignation_Service';
+        $r   = $svc::get_resignation( (int) $req['id'] );
+        if ( ! $r ) {
+            return \SFS\HR\Core\Rest\Rest_Response::error( 'not_found', __( 'Resignation not found.', 'sfs-hr' ), 404 );
+        }
+        return \SFS\HR\Core\Rest\Rest_Response::success( $r );
+    }
+
+    public static function submit_resignation( \WP_REST_Request $req ) {
+        $svc = '\\SFS\\HR\\Modules\\Resignation\\Services\\Resignation_Service';
+
+        $employee_id  = (int) ( $req->get_param( 'employee_id' ) ?? 0 );
+        $admin        = current_user_can( 'sfs_hr.manage' );
+
+        // Resolve employee_id when omitted; non-admins must self-submit.
+        if ( ! $admin ) {
+            $own = self::current_employee_id_or_null();
+            if ( ! $own ) {
+                return \SFS\HR\Core\Rest\Rest_Response::error( 'no_employee_record', __( 'No employee record for the current user.', 'sfs-hr' ), 403 );
+            }
+            if ( $employee_id && $employee_id !== $own ) {
+                return \SFS\HR\Core\Rest\Rest_Response::error( 'forbidden', __( 'You can only submit a resignation for yourself.', 'sfs-hr' ), 403 );
+            }
+            $employee_id = $own;
+        }
+
+        if ( $employee_id <= 0 ) {
+            return \SFS\HR\Core\Rest\Rest_Response::error( 'invalid_input', __( 'employee_id is required.', 'sfs-hr' ), 400 );
+        }
+
+        $resignation_date = (string) $req->get_param( 'resignation_date' );
+        $reason           = trim( (string) $req->get_param( 'reason' ) );
+        $type             = (string) ( $req->get_param( 'resignation_type' ) ?? 'regular' );
+        $type             = in_array( $type, [ 'regular', 'final_exit' ], true ) ? $type : 'regular';
+
+        if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $resignation_date ) || $reason === '' ) {
+            return \SFS\HR\Core\Rest\Rest_Response::error( 'invalid_input', __( 'resignation_date (YYYY-MM-DD) and reason are required.', 'sfs-hr' ), 400 );
+        }
+
+        $notice_days = (int) ( $req->get_param( 'notice_period_days' ) ?? 30 );
+        $notice_days = max( 0, $notice_days );
+
+        $last_working_day = (string) $req->get_param( 'last_working_day' );
+        if ( $last_working_day === '' || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $last_working_day ) ) {
+            try {
+                $dt = new \DateTimeImmutable( $resignation_date );
+                $last_working_day = $dt->modify( '+' . $notice_days . ' days' )->format( 'Y-m-d' );
+            } catch ( \Exception $e ) {
+                return \SFS\HR\Core\Rest\Rest_Response::error( 'invalid_input', __( 'Could not compute last_working_day.', 'sfs-hr' ), 400 );
+            }
+        }
+
+        $id = $svc::create_resignation( [
+            'employee_id'        => $employee_id,
+            'resignation_date'   => $resignation_date,
+            'resignation_type'   => $type,
+            'notice_period_days' => $notice_days,
+            'last_working_day'   => $last_working_day,
+            'reason'             => sanitize_textarea_field( $reason ),
+        ] );
+
+        if ( ! $id ) {
+            return \SFS\HR\Core\Rest\Rest_Response::error( 'insert_failed', __( 'Failed to submit resignation.', 'sfs-hr' ), 500 );
+        }
+
+        do_action( 'sfs_hr_resignation_submitted', (int) $id, $employee_id );
+
+        return \SFS\HR\Core\Rest\Rest_Response::success( $svc::get_resignation( (int) $id ), 201 );
+    }
+
+    /**
+     * Direct admin override approval — bypasses the multi-tier
+     * (manager → HR → finance) workflow that the admin UI runs through.
+     * Use this when the multi-tier flow is unavailable (e.g. external
+     * client) or for edge-case overrides. The full multi-tier flow stays
+     * in the admin handler until refactored into the service.
+     */
+    public static function approve_resignation_lifecycle( \WP_REST_Request $req ) {
+        $svc = '\\SFS\\HR\\Modules\\Resignation\\Services\\Resignation_Service';
+        $id  = (int) $req['id'];
+
+        $r = $svc::get_resignation( $id );
+        if ( ! $r ) {
+            return \SFS\HR\Core\Rest\Rest_Response::error( 'not_found', __( 'Resignation not found.', 'sfs-hr' ), 404 );
+        }
+        if ( ($r['status'] ?? '') !== 'pending' ) {
+            return \SFS\HR\Core\Rest\Rest_Response::error( 'invalid_state', __( 'Only pending resignations can be approved.', 'sfs-hr' ), 409 );
+        }
+
+        $note = sanitize_textarea_field( (string) ( $req->get_param( 'note' ) ?? '' ) );
+        $now  = current_time( 'mysql' );
+
+        $ok = $svc::update_status( $id, 'approved', [
+            'approver_note' => $note ?: null,
+            'decided_at'    => $now,
+        ] );
+
+        if ( ! $ok ) {
+            return \SFS\HR\Core\Rest\Rest_Response::error( 'update_failed', __( 'Could not approve resignation.', 'sfs-hr' ), 500 );
+        }
+
+        do_action( 'sfs_hr_resignation_status_changed', $id, $r['status'], 'approved' );
+
+        return \SFS\HR\Core\Rest\Rest_Response::success( $svc::get_resignation( $id ) );
+    }
+
+    public static function reject_resignation_lifecycle( \WP_REST_Request $req ) {
+        $svc = '\\SFS\\HR\\Modules\\Resignation\\Services\\Resignation_Service';
+        $id  = (int) $req['id'];
+
+        $r = $svc::get_resignation( $id );
+        if ( ! $r ) {
+            return \SFS\HR\Core\Rest\Rest_Response::error( 'not_found', __( 'Resignation not found.', 'sfs-hr' ), 404 );
+        }
+        if ( ($r['status'] ?? '') !== 'pending' ) {
+            return \SFS\HR\Core\Rest\Rest_Response::error( 'invalid_state', __( 'Only pending resignations can be rejected.', 'sfs-hr' ), 409 );
+        }
+
+        $reason = trim( (string) $req->get_param( 'reason' ) );
+        if ( $reason === '' ) {
+            return \SFS\HR\Core\Rest\Rest_Response::error( 'invalid_input', __( 'reason is required.', 'sfs-hr' ), 400 );
+        }
+
+        $ok = $svc::update_status( $id, 'rejected', [
+            'approver_note' => sanitize_textarea_field( $reason ),
+            'decided_at'    => current_time( 'mysql' ),
+        ] );
+
+        if ( ! $ok ) {
+            return \SFS\HR\Core\Rest\Rest_Response::error( 'update_failed', __( 'Could not reject resignation.', 'sfs-hr' ), 500 );
+        }
+
+        do_action( 'sfs_hr_resignation_status_changed', $id, $r['status'], 'rejected' );
+
+        return \SFS\HR\Core\Rest\Rest_Response::success( $svc::get_resignation( $id ) );
+    }
+
+    /**
+     * Withdraw a pending resignation. Owner can cancel their own;
+     * admins can cancel anyone's. Non-pending resignations cannot be
+     * cancelled (use the offboarding flow to halt an approved one).
+     */
+    public static function cancel_resignation_lifecycle( \WP_REST_Request $req ) {
+        $svc = '\\SFS\\HR\\Modules\\Resignation\\Services\\Resignation_Service';
+        $id  = (int) $req['id'];
+
+        $r = $svc::get_resignation( $id );
+        if ( ! $r ) {
+            return \SFS\HR\Core\Rest\Rest_Response::error( 'not_found', __( 'Resignation not found.', 'sfs-hr' ), 404 );
+        }
+        if ( ($r['status'] ?? '') !== 'pending' ) {
+            return \SFS\HR\Core\Rest\Rest_Response::error( 'invalid_state', __( 'Only pending resignations can be cancelled.', 'sfs-hr' ), 409 );
+        }
+
+        $reason = sanitize_textarea_field( (string) ( $req->get_param( 'reason' ) ?? '' ) );
+
+        $ok = $svc::update_status( $id, 'cancelled', [
+            'approver_note' => $reason ?: null,
+            'decided_at'    => current_time( 'mysql' ),
+        ] );
+
+        if ( ! $ok ) {
+            return \SFS\HR\Core\Rest\Rest_Response::error( 'update_failed', __( 'Could not cancel resignation.', 'sfs-hr' ), 500 );
+        }
+
+        do_action( 'sfs_hr_resignation_status_changed', $id, $r['status'], 'cancelled' );
+
+        return \SFS\HR\Core\Rest\Rest_Response::success( $svc::get_resignation( $id ) );
     }
 }
