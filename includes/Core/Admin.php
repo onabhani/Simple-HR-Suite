@@ -6435,7 +6435,12 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                                     <input type="checkbox" name="sms_enabled" value="1" <?php checked( $settings['sms_enabled'] ); ?> id="sms_enabled_toggle">
                                     <?php esc_html_e( 'SMS', 'sfs-hr' ); ?>
                                 </label>
+                                <label>
+                                    <input type="checkbox" name="whatsapp_enabled" value="1" <?php checked( ! empty( $settings['whatsapp_enabled'] ) ); ?>>
+                                    <?php esc_html_e( 'WhatsApp', 'sfs-hr' ); ?>
+                                </label>
                             </div>
+                            <p class="description"><?php esc_html_e( 'WhatsApp delivery is handled by an external gateway plugin (e.g. SimpleNotify). See the gateway status panel below.', 'sfs-hr' ); ?></p>
                         </td>
                     </tr>
                     <tr>
@@ -6539,6 +6544,56 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
                     </table>
                     <p class="description"><?php esc_html_e( 'The API will receive POST requests with "phone" and "message" fields.', 'sfs-hr' ); ?></p>
                 </div>
+            </div>
+
+            <!-- External Gateway Status (SimpleNotify) -->
+            <?php
+            $simplenotify_active   = class_exists( '\\SimpleNotify\\Plugin' );
+            $sms_handler_listeners = (int) has_filter( 'sfs_hr/notifications/sms_handler' );
+            $wa_handler_listeners  = (int) has_filter( 'sfs_hr/notifications/whatsapp_handler' );
+            $ok_color              = '#46b450';
+            $warn_color            = '#dba617';
+            ?>
+            <div class="sfs-hr-settings-section">
+                <h2><?php esc_html_e( 'External Gateway (SimpleNotify)', 'sfs-hr' ); ?></h2>
+                <p class="description" style="margin-bottom:12px;">
+                    <?php esc_html_e( 'When SimpleNotify (or any compatible gateway) is active, SMS and WhatsApp delivery is handed off to it via the sfs_hr/notifications/sms_handler and sfs_hr/notifications/whatsapp_handler filters. SMS falls back to the native provider above if no gateway is registered; WhatsApp is silently dropped.', 'sfs-hr' ); ?>
+                </p>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'SimpleNotify plugin', 'sfs-hr' ); ?></th>
+                        <td>
+                            <?php if ( $simplenotify_active ) : ?>
+                                <span style="color:<?php echo esc_attr( $ok_color ); ?>;font-weight:600;">&#10003; <?php esc_html_e( 'Detected', 'sfs-hr' ); ?></span>
+                            <?php else : ?>
+                                <span style="color:<?php echo esc_attr( $warn_color ); ?>;font-weight:600;">&#9888; <?php esc_html_e( 'Not detected', 'sfs-hr' ); ?></span>
+                                <p class="description"><?php esc_html_e( 'Install or activate the SimpleNotify plugin to enable WhatsApp delivery and unified SMS/WhatsApp queueing.', 'sfs-hr' ); ?></p>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'SMS handler filter', 'sfs-hr' ); ?></th>
+                        <td>
+                            <?php if ( $sms_handler_listeners ) : ?>
+                                <span style="color:<?php echo esc_attr( $ok_color ); ?>;font-weight:600;">&#10003; <?php esc_html_e( 'Listener registered — gateway will handle delivery.', 'sfs-hr' ); ?></span>
+                            <?php else : ?>
+                                <span style="color:<?php echo esc_attr( $warn_color ); ?>;font-weight:600;">&#9888; <?php esc_html_e( 'No listener — falling back to native SMS provider.', 'sfs-hr' ); ?></span>
+                            <?php endif; ?>
+                            <p class="description"><code>sfs_hr/notifications/sms_handler</code></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'WhatsApp handler filter', 'sfs-hr' ); ?></th>
+                        <td>
+                            <?php if ( $wa_handler_listeners ) : ?>
+                                <span style="color:<?php echo esc_attr( $ok_color ); ?>;font-weight:600;">&#10003; <?php esc_html_e( 'Listener registered — gateway will handle delivery.', 'sfs-hr' ); ?></span>
+                            <?php else : ?>
+                                <span style="color:<?php echo esc_attr( $warn_color ); ?>;font-weight:600;">&#9888; <?php esc_html_e( 'No listener — WhatsApp messages will be dropped.', 'sfs-hr' ); ?></span>
+                            <?php endif; ?>
+                            <p class="description"><code>sfs_hr/notifications/whatsapp_handler</code></p>
+                        </td>
+                    </tr>
+                </table>
             </div>
 
             <!-- Leave Notifications -->
@@ -6776,6 +6831,7 @@ $gosi_salary    = $this->sanitize_field('gosi_salary');
             'enabled'              => isset( $_POST['enabled'] ),
             'email_enabled'        => isset( $_POST['email_enabled'] ),
             'sms_enabled'          => isset( $_POST['sms_enabled'] ),
+            'whatsapp_enabled'     => isset( $_POST['whatsapp_enabled'] ),
             'sms_provider'         => isset( $_POST['sms_provider'] ) ? sanitize_key( $_POST['sms_provider'] ) : 'none',
 
             // SMS Providers

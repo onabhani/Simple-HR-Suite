@@ -8,12 +8,47 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Centralized Notification System
  *
- * Handles email and SMS notifications for all HR events:
+ * Handles email, SMS, and WhatsApp notifications for all HR events:
  * - Leave requests (created, approved, rejected)
  * - Attendance (late arrivals, missed punches, early leaves)
  * - Employee events (birthdays, anniversaries, contract expiry)
  * - Payroll (payslip ready, salary updates)
  * - Loans (all statuses)
+ *
+ * ---------------------------------------------------------------------------
+ * SMS / WhatsApp delivery — filter-based dependency inversion
+ * ---------------------------------------------------------------------------
+ *
+ * SMS and WhatsApp delivery is dispatched through two filters so that an
+ * external gateway plugin (e.g. SimpleNotify) can take over delivery without
+ * this plugin depending on the gateway directly. The pattern mirrors
+ * SimpleNotify\Integrations\NozuleHandler.
+ *
+ *   apply_filters( 'sfs_hr/notifications/sms_handler',      null, $context )
+ *   apply_filters( 'sfs_hr/notifications/whatsapp_handler', null, $context )
+ *
+ * A listener should return a `callable(array $context): void` (or any other
+ * callable). When the filter returns a callable we invoke it with $context
+ * and skip the native provider switch. When it returns null (the default),
+ * SMS falls through to the built-in Twilio / Nexmo / Custom-API providers,
+ * and WhatsApp is silently dropped (no native fallback exists).
+ *
+ * $context shape:
+ *   [
+ *     'recipient'       => string,        // E.164-normalised phone number
+ *     'message'         => string,        // Pre-localised message body
+ *     'channel'         => 'sms'|'whatsapp',
+ *     'notification_id' => int|null,      // Internal tracking id, if any
+ *     'type'            => string,        // Event slug, e.g. 'leave_request_created'
+ *     'employee_id'     => int|null,      // sfs_hr_employees.id, if known
+ *   ]
+ *
+ * Terminal-status callback:
+ *   When the gateway resolves a final state for a queued send it should call
+ *   do_action( 'sfs_hr/notifications/mark_delivered', $notification_id, $status, $meta )
+ *   so future delivery-tracking infra in this plugin can persist the result.
+ *   The action is currently a no-op listener-wise; the contract is reserved
+ *   for the matching gateway-side PR.
  */
 class Notifications {
 
@@ -80,6 +115,7 @@ class Notifications {
             'enabled'                  => true,
             'email_enabled'            => true,
             'sms_enabled'              => false,
+            'whatsapp_enabled'         => false,
             'sms_provider'             => self::SMS_PROVIDER_NONE,
 
             // SMS provider settings
@@ -1668,10 +1704,16 @@ class Notifications {
     }
 
     /**
-     * Send SMS notification
+     * Send SMS notification.
      *
-     * @param string $phone   Phone number
-     * @param string $message SMS message (max 160 chars)
+     * Delivery is dispatched through the `sfs_hr/notifications/sms_handler`
+     * filter (see class-level docblock for the contract). When a registered
+     * listener returns a callable, we invoke it with $context and consider
+     * delivery handed off. When no callable is returned, we fall through to
+     * the built-in Twilio / Nexmo / Custom-API providers.
+     *
+     * @param string $phone   Phone number.
+     * @param string $message SMS message (max 160 chars).
      */
     private static function send_sms( string $phone, string $message ): void {
         $settings = self::get_settings();
@@ -1688,6 +1730,21 @@ class Notifications {
             return;
         }
 
+        $context = [
+            'recipient'       => $phone,
+            'message'         => $message,
+            'channel'         => 'sms',
+            'notification_id' => null,
+            'type'            => '',
+            'employee_id'     => null,
+        ];
+
+        $handler = apply_filters( 'sfs_hr/notifications/sms_handler', null, $context );
+        if ( self::is_safe_handler( $handler ) ) {
+            $handler( $context );
+            return;
+        }
+
         switch ( $settings['sms_provider'] ) {
             case self::SMS_PROVIDER_TWILIO:
                 self::send_sms_twilio( $phone, $message, $settings );
@@ -1701,6 +1758,80 @@ class Notifications {
                 self::send_sms_custom( $phone, $message, $settings );
                 break;
         }
+    }
+
+    /**
+     * Send WhatsApp notification.
+     *
+     * Delivery is dispatched exclusively through the
+     * `sfs_hr/notifications/whatsapp_handler` filter — there is no native
+     * WhatsApp provider in this plugin. If no listener returns a callable,
+     * the message is silently dropped.
+     *
+     * @param string $phone   Phone number.
+     * @param string $message Message body.
+     * @param array  $context Optional extra context keys merged into the
+     *                        $context array passed to the filter (e.g.
+     *                        notification_id, type, employee_id).
+     */
+    private static function send_whatsapp( string $phone, string $message, array $context = [] ): void {
+        $settings = self::get_settings();
+
+        if ( empty( $settings['whatsapp_enabled'] ) ) {
+            return;
+        }
+
+        if ( empty( $phone ) ) {
+            return;
+        }
+        $phone = preg_replace( '/[^0-9+]/', '', $phone );
+        if ( empty( $phone ) ) {
+            return;
+        }
+
+        $context = array_merge(
+            [
+                'notification_id' => null,
+                'type'            => '',
+                'employee_id'     => null,
+            ],
+            $context,
+            [
+                'recipient' => $phone,
+                'message'   => $message,
+                'channel'   => 'whatsapp',
+            ]
+        );
+
+        $handler = apply_filters( 'sfs_hr/notifications/whatsapp_handler', null, $context );
+        if ( self::is_safe_handler( $handler ) ) {
+            $handler( $context );
+        }
+    }
+
+    /**
+     * Whether a value returned from a notification-handler filter is safe to
+     * invoke. Accepts Closures, invokable objects, and `[ object, 'method' ]`
+     * arrays — but rejects string-name callables (e.g. `'system'`) so that a
+     * malicious or buggy filter listener cannot trigger arbitrary native PHP
+     * functions through the dispatch path.
+     *
+     * @param mixed $handler Value returned from apply_filters().
+     */
+    private static function is_safe_handler( $handler ): bool {
+        if ( $handler instanceof \Closure ) {
+            return true;
+        }
+
+        if ( is_object( $handler ) && method_exists( $handler, '__invoke' ) ) {
+            return true;
+        }
+
+        if ( is_array( $handler ) && is_callable( $handler ) ) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
