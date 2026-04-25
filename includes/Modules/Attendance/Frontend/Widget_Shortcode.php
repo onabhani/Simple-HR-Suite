@@ -947,13 +947,47 @@ window.sfsAttI18n = window.sfsAttI18n || {
                     return;
                 }
 
+                // First-attempt TIMEOUT (slow GPS lock — indoor / cold-start /
+                // weak signal) is the most common failure mode. Retry once with
+                // WiFi/cell positioning + a 60s cached fix; this typically
+                // resolves in 1-3s. PERMISSION_DENIED and POSITION_UNAVAILABLE
+                // aren't fixed by waiting longer, so surface those immediately.
+                // Geofence radius check is preserved on the retry path.
+                if (err.code === err.TIMEOUT) {
+                    navigator.geolocation.getCurrentPosition(
+                        pos => {
+                            const lat  = pos.coords.latitude;
+                            const lng  = pos.coords.longitude;
+                            const dist = haversineMeters(cfg.lat, cfg.lng, lat, lng);
+
+                            if (cfg.enforce && dist > cfg.radius) {
+                                onReject && onReject(
+                                    i18n.outside_allowed_area || 'You are outside the allowed area. Please move closer to the workplace and try again.',
+                                    'OUTSIDE_RADIUS'
+                                );
+                                return;
+                            }
+
+                            onAllow && onAllow({
+                                latitude: lat,
+                                longitude: lng,
+                                distance: dist
+                            });
+                        },
+                        () => {
+                            const msg = i18n.location_timeout || 'Timed out while getting location. Try again.';
+                            onReject && onReject(msg, 'GEO_ERROR_TIMEOUT_AFTER_RETRY');
+                        },
+                        { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+                    );
+                    return;
+                }
+
                 let msg;
                 if (err.code === err.PERMISSION_DENIED) {
                     msg = i18n.location_permission_denied || 'Location permission was denied. Enable it to use attendance.';
                 } else if (err.code === err.POSITION_UNAVAILABLE) {
                     msg = i18n.location_unavailable || 'Location is unavailable. Check GPS or network.';
-                } else if (err.code === err.TIMEOUT) {
-                    msg = i18n.location_timeout || 'Timed out while getting location. Try again.';
                 } else {
                     msg = i18n.location_error_generic || 'Could not get your location. Try again.';
                 }
