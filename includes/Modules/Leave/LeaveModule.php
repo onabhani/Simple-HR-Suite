@@ -1350,12 +1350,21 @@ public function handle_approve(): void {
         exit;
     }
 
-    // Pure WP admin (no HR/GM/manager assignment) cannot approve — can only cancel.
-    $this->guard_admin_cannot_approve_or_reject(
-        $current_uid,
-        $redirect_base,
-        __( 'Administrators cannot approve leave requests. Use cancel instead.', 'sfs-hr' )
-    );
+    // A WP admin may approve ONLY when they are the manager of the request's
+    // department — i.e. the employee belongs to a department they manage. Pure
+    // admins (with no manager assignment for this department) stay cancel-only.
+    // When allowed through, the stage logic below scopes them to their own
+    // department via the "current user is also the dept manager" path.
+    $admin_manages_request_dept = ! empty( $empInfo['dept_id'] )
+        && in_array( (int) $empInfo['dept_id'], $this->manager_dept_ids_for_user( $current_uid ), true );
+
+    if ( ! $admin_manages_request_dept ) {
+        $this->guard_admin_cannot_approve_or_reject(
+            $current_uid,
+            $redirect_base,
+            __( 'Administrators can only approve leave requests for employees in the department they manage.', 'sfs-hr' )
+        );
+    }
 
     // ==================== DEPARTMENT MANAGER LEAVE REQUEST ====================
     // Flow: Dept Manager → GM (level 1) → HR (level 2, final)
@@ -1934,12 +1943,18 @@ public function handle_reject(): void {
     if ((int)($empInfo['user_id'] ?? 0) === (int)$current_uid) {
         wp_safe_redirect(admin_url('admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending&err='.rawurlencode(__('You cannot reject your own request.','sfs-hr')))); exit;
     }
-    // Pure WP admin (no HR/GM/manager assignment) cannot reject — can only cancel.
-    $this->guard_admin_cannot_approve_or_reject(
-        $current_uid,
-        admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending' ),
-        __( 'Administrators cannot reject leave requests. Use cancel instead.', 'sfs-hr' )
-    );
+    // A WP admin may reject ONLY when they manage the request's department. The
+    // stage-aware checks below then confirm they can act at the current stage.
+    $admin_manages_request_dept = ! empty( $empInfo['dept_id'] )
+        && in_array( (int) $empInfo['dept_id'], $this->manager_dept_ids_for_user( $current_uid ), true );
+
+    if ( ! $admin_manages_request_dept ) {
+        $this->guard_admin_cannot_approve_or_reject(
+            $current_uid,
+            admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending' ),
+            __( 'Administrators can only reject leave requests for employees in the department they manage.', 'sfs-hr' )
+        );
+    }
     // Stage-aware rejection: only the role responsible for the current stage can reject.
     $approval_level = (int) ( $row['approval_level'] ?? 1 );
     $reject_allowed = false;
