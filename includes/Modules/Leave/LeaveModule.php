@@ -1230,6 +1230,11 @@ private function invalidate_leave_caches(): void {
  * @param bool   $use_notice    True for screens driven by the sfs_hr_notice bar.
  */
 private function deny_leave_action( string $redirect_base, string $message, bool $use_notice ): void {
+    // Never returns: both branches end the request. Callers still write an explicit
+    // return after calling this, so that each guard's fail-closed behaviour is readable
+    // at the call site rather than resting on knowledge of what this method does. The
+    // return type stays void rather than never so the file keeps parsing on PHP 8.0,
+    // where a never return type is a fatal parse error and would take the site down.
     if ( $use_notice ) {
         Helpers::redirect_with_notice( $redirect_base, 'error', $message ); // exits
     }
@@ -1252,6 +1257,7 @@ private function guard_admin_cannot_approve_or_reject( int $current_uid, string 
         || \SFS\HR\Frontend\Role_Resolver::resolve( $current_uid ) === 'admin'
     ) {
         $this->deny_leave_action( $redirect_base, $message, $use_notice );
+        return;
     }
 }
 
@@ -1272,9 +1278,10 @@ private function guard_admin_cannot_approve_or_reject( int $current_uid, string 
  * Both rules are skipped for an administrator who has been explicitly assigned as HR,
  * up to and including the HR stage, because such a person is acting on that assignment
  * and not on being an administrator. Role_Resolver::is_hr() is the capability-
- * independent test for that: the sfs_hr_manager role, the sfs_hr_leave_hr_approvers
- * option or an active department's hr_responsible_user_id, never the inherited
- * sfs_hr.manage capability, so holding manage_options is never sufficient on its own.
+ * independent test for that: the sfs_hr_manager role or the sfs_hr_leave_hr_approvers
+ * option, never the inherited sfs_hr.manage capability, so holding manage_options is
+ * never sufficient on its own. hr_responsible_user_id is NOT one of those signals; see
+ * Role_Resolver::is_hr() for why it is a portal signal and not a leave approval one.
  * What an assigned HR approver may then do at each stage is decided by the caller's own
  * stage checks, and guard_actor_cannot_act_twice() still stops them acting at two
  * stages of one request.
@@ -1318,6 +1325,7 @@ private function guard_admin_leave_action( int $current_uid, int $dept_id, int $
                 : __( 'Leave approvals are unavailable right now: the role resolver could not be loaded.', 'sfs-hr' ),
             $use_notice
         );
+        return;
     }
 
     // Only administrators are governed by this guard. Hoisted from below, where the
@@ -1344,6 +1352,7 @@ private function guard_admin_leave_action( int $current_uid, int $dept_id, int $
                 : __( 'Being assigned as HR lets you approve up to the HR stage. This request has already reached the finance stage, so only the finance approver can act on it now.', 'sfs-hr' ),
             $use_notice
         );
+        return;
     }
 
     // Rule 1: department scope. Administrators outside the request's department are
@@ -1379,6 +1388,7 @@ private function guard_admin_leave_action( int $current_uid, int $dept_id, int $
         }
 
         $this->deny_leave_action( $redirect_base, $message, $use_notice );
+        return;
     }
 }
 
@@ -1443,6 +1453,7 @@ private function guard_actor_cannot_act_twice( int $current_uid, array $row, str
                 : __( 'This request has passed an earlier approval stage, but its approval history is missing or unreadable, so there is no way to confirm that you did not act on it earlier. Approval is blocked until the record is repaired.', 'sfs-hr' ),
             $use_notice
         );
+        return;
     }
 
     // Every entry is an array by the check above.
@@ -1458,6 +1469,7 @@ private function guard_actor_cannot_act_twice( int $current_uid, array $row, str
                 : __( 'You already acted on this request at an earlier approval stage. One person cannot approve the same request at two stages, so a different approver has to handle this one.', 'sfs-hr' ),
             $use_notice
         );
+        return;
     }
 }
 
@@ -2534,8 +2546,14 @@ public function handle_cancellation_approve(): void {
         Helpers::redirect_with_notice( $redirect_base, 'error', __( 'You cannot approve a cancellation for your own leave.', 'sfs-hr' ) );
     }
 
-    // Also prevent the cancellation requester from approving their own cancellation request
-    if ( isset( $cancel['created_by'] ) && (int) $cancel['created_by'] === $current_uid ) {
+    // Also prevent the cancellation requester from approving their own cancellation
+    // request. The column is initiated_by ( Migrations.php:875, written at :2418 ). This
+    // read used to say created_by, a key SELECT * never produces, so isset() was
+    // permanently false and the rule had never run once. Initiation writes an empty
+    // approval_chain, so guard_actor_cannot_act_twice() does not cover it either: this
+    // check is the only thing stopping an HR approver from initiating a cancellation of
+    // somebody else's leave and then granting its final HR approval themselves.
+    if ( isset( $cancel['initiated_by'] ) && (int) $cancel['initiated_by'] === $current_uid ) {
         Helpers::redirect_with_notice( $redirect_base, 'error', __( 'You cannot approve a cancellation you requested.', 'sfs-hr' ) );
     }
 
@@ -3390,15 +3408,25 @@ private function render_cancellation_detail( int $cancel_id ): void {
         $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
         $gm_user_id = ! empty( $gm_user_ids ) ? (int) $gm_user_ids[0] : 0;
     }
-    $is_gm = ( $gm_user_id > 0 && $current_uid === $gm_user_id );
+
+    // Level 2 of a cancellation is the HR stage, so the button gate uses the same
+    // predicate as handle_cancellation_approve() does at that stage. It used to be
+    // $is_gm, which matched nothing in this flow: there is no GM stage here. The
+    // handler, the notify_hr_users() call that announces the stage and the "HR Approval
+    // Required" subject all agree that level 2 belongs to HR, so the gate was the
+    // outlier. Showing the forms to the GM and hiding them from HR left every level 2
+    // cancellation stuck once the guards started enforcing the handler's own rule.
+    $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
+    $is_hr = ( ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true ) )
+             || current_user_can( 'sfs_hr.leave.manage' );
 
     // Can approve?
     $can_approve = false;
     $approval_stage = '';
     if ( $cancel->status === 'pending' ) {
         if ( $approval_level >= 2 ) {
-            $approval_stage = 'gm';
-            $can_approve = $is_gm;
+            $approval_stage = 'hr';
+            $can_approve = $is_hr;
         } else {
             $approval_stage = 'manager';
             $can_approve = $is_dept_manager;
@@ -3625,14 +3653,14 @@ private function render_cancellation_detail( int $cancel_id ): void {
                                 </div>
                             <?php endif; ?>
 
-                        <?php elseif ( $approval_stage === 'gm' ) : ?>
-                            <h3><?php esc_html_e( 'GM Final Decision', 'sfs-hr' ); ?></h3>
+                        <?php elseif ( $approval_stage === 'hr' ) : ?>
+                            <h3><?php esc_html_e( 'HR Final Decision', 'sfs-hr' ); ?></h3>
                             <?php if ( $can_approve ) : ?>
                                 <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap;">
                                     <input type="hidden" name="action" value="sfs_hr_leave_cancellation_approve" />
                                     <?php wp_nonce_field( 'sfs_hr_leave_cancellation_approve_' . $cancel_id, '_wpnonce' ); ?>
                                     <input type="hidden" name="cancel_id" value="<?php echo (int) $cancel_id; ?>" />
-                                    <button type="submit" class="button button-primary"><?php esc_html_e( 'Approve Cancellation (GM)', 'sfs-hr' ); ?></button>
+                                    <button type="submit" class="button button-primary"><?php esc_html_e( 'Approve Cancellation (HR)', 'sfs-hr' ); ?></button>
                                     <input type="text" name="note" placeholder="<?php esc_attr_e( 'Note (optional)', 'sfs-hr' ); ?>" style="width:300px;" />
                                 </form>
                                 <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-flex;gap:10px;align-items:center;margin-top:10px;" onsubmit="return sfsHrConfirmCancelReject(this);">
@@ -3644,13 +3672,7 @@ private function render_cancellation_detail( int $cancel_id ): void {
                                 </form>
                             <?php else : ?>
                                 <div class="notice notice-info inline" style="margin:0;">
-                                    <p><?php
-                                        if ( $gm_name ) {
-                                            printf( esc_html__( 'Awaiting GM approval from: %s', 'sfs-hr' ), '<strong>' . esc_html( $gm_name ) . '</strong>' );
-                                        } else {
-                                            esc_html_e( 'Awaiting GM approval.', 'sfs-hr' );
-                                        }
-                                    ?></p>
+                                    <p><?php esc_html_e( 'Awaiting HR approval.', 'sfs-hr' ); ?></p>
                                 </div>
                             <?php endif; ?>
                         <?php endif; ?>
