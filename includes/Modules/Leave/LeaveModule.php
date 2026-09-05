@@ -1218,20 +1218,40 @@ private function invalidate_leave_caches(): void {
 }
 
 /**
+ * Emit a guard denial and stop, in the notice style the destination screen renders.
+ *
+ * The leave requests screen echoes ?err ( render_requests() ), while the cancellations
+ * screen renders only the global ?sfs_hr_notice bar and never echoes ?err, so sending an
+ * 'err' denial there would redirect silently and the user would be told nothing. One
+ * decision path, two presentations: guards decide, this decides how to say it.
+ *
+ * @param string $redirect_base URL to redirect to.
+ * @param string $message       Already translated reason for the denial.
+ * @param bool   $use_notice    True for screens driven by the sfs_hr_notice bar.
+ */
+private function deny_leave_action( string $redirect_base, string $message, bool $use_notice ): void {
+    if ( $use_notice ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', $message ); // exits
+    }
+
+    wp_safe_redirect(
+        add_query_arg( 'err', rawurlencode( $message ), $redirect_base )
+    );
+    exit;
+}
+
+/**
  * Guard: pure WP admin (no HR/GM/manager assignment) cannot approve or reject.
  *
  * Resolves the user's role via Role_Resolver; if 'admin', redirects with the
  * given error message and exits. Call this early in approve/reject handlers.
  */
-private function guard_admin_cannot_approve_or_reject( int $current_uid, string $redirect_base, string $message ): void {
+private function guard_admin_cannot_approve_or_reject( int $current_uid, string $redirect_base, string $message, bool $use_notice = false ): void {
     // Fail-closed: deny if Role_Resolver is unavailable or resolves to 'admin'.
     if ( ! class_exists( \SFS\HR\Frontend\Role_Resolver::class )
         || \SFS\HR\Frontend\Role_Resolver::resolve( $current_uid ) === 'admin'
     ) {
-        wp_safe_redirect(
-            add_query_arg( 'err', rawurlencode( $message ), $redirect_base )
-        );
-        exit;
+        $this->deny_leave_action( $redirect_base, $message, $use_notice );
     }
 }
 
@@ -1272,13 +1292,18 @@ private function guard_admin_cannot_approve_or_reject( int $current_uid, string 
  *
  * Fail-closed: denies when Role_Resolver is unavailable.
  *
+ * Also used by the leave cancellation handlers, whose stages line up one for one:
+ * level 1 is the department manager, level 2 is HR final. They have no finance stage, so
+ * the finance branch below simply never fires for them.
+ *
  * @param int    $current_uid    Acting user ID.
  * @param int    $dept_id        Department of the request's employee ( 0 when unknown ).
  * @param int    $approval_level Current approval level of the request.
  * @param string $redirect_base  URL to redirect to when denying.
- * @param bool   $is_reject      True when called from the reject handler ( wording only ).
+ * @param bool   $is_reject      True when called from a reject handler ( wording only ).
+ * @param bool   $use_notice     True for screens driven by the sfs_hr_notice bar.
  */
-private function guard_admin_leave_action( int $current_uid, int $dept_id, int $approval_level, string $redirect_base, bool $is_reject ): void {
+private function guard_admin_leave_action( int $current_uid, int $dept_id, int $approval_level, string $redirect_base, bool $is_reject, bool $use_notice = false ): void {
     // Fail-closed: without the resolver an administrator cannot be told apart from an
     // assigned HR approver or from a plain department manager, so nobody passes this
     // point. is_hr() is checked separately because the plugin is deployed by copying
@@ -1286,18 +1311,13 @@ private function guard_admin_leave_action( int $current_uid, int $dept_id, int $
     if ( ! class_exists( \SFS\HR\Frontend\Role_Resolver::class )
         || ! method_exists( \SFS\HR\Frontend\Role_Resolver::class, 'is_hr' )
     ) {
-        wp_safe_redirect(
-            add_query_arg(
-                'err',
-                rawurlencode(
-                    $is_reject
-                        ? __( 'Leave rejections are unavailable right now: the role resolver could not be loaded.', 'sfs-hr' )
-                        : __( 'Leave approvals are unavailable right now: the role resolver could not be loaded.', 'sfs-hr' )
-                ),
-                $redirect_base
-            )
+        $this->deny_leave_action(
+            $redirect_base,
+            $is_reject
+                ? __( 'Leave rejections are unavailable right now: the role resolver could not be loaded.', 'sfs-hr' )
+                : __( 'Leave approvals are unavailable right now: the role resolver could not be loaded.', 'sfs-hr' ),
+            $use_notice
         );
-        exit;
     }
 
     // Only administrators are governed by this guard. Hoisted from below, where the
@@ -1317,18 +1337,13 @@ private function guard_admin_leave_action( int $current_uid, int $dept_id, int $
             return;
         }
 
-        wp_safe_redirect(
-            add_query_arg(
-                'err',
-                rawurlencode(
-                    $is_reject
-                        ? __( 'Being assigned as HR lets you reject up to the HR stage. This request has already reached the finance stage, so only the finance approver can act on it now.', 'sfs-hr' )
-                        : __( 'Being assigned as HR lets you approve up to the HR stage. This request has already reached the finance stage, so only the finance approver can act on it now.', 'sfs-hr' )
-                ),
-                $redirect_base
-            )
+        $this->deny_leave_action(
+            $redirect_base,
+            $is_reject
+                ? __( 'Being assigned as HR lets you reject up to the HR stage. This request has already reached the finance stage, so only the finance approver can act on it now.', 'sfs-hr' )
+                : __( 'Being assigned as HR lets you approve up to the HR stage. This request has already reached the finance stage, so only the finance approver can act on it now.', 'sfs-hr' ),
+            $use_notice
         );
-        exit;
     }
 
     // Rule 1: department scope. Administrators outside the request's department are
@@ -1342,7 +1357,8 @@ private function guard_admin_leave_action( int $current_uid, int $dept_id, int $
             $redirect_base,
             $is_reject
                 ? __( 'Administrators can only reject leave requests for employees in the department they manage.', 'sfs-hr' )
-                : __( 'Administrators can only approve leave requests for employees in the department they manage.', 'sfs-hr' )
+                : __( 'Administrators can only approve leave requests for employees in the department they manage.', 'sfs-hr' ),
+            $use_notice
         );
         return;
     }
@@ -1362,10 +1378,7 @@ private function guard_admin_leave_action( int $current_uid, int $dept_id, int $
                 : __( 'Managing this department only lets you approve at the manager stage. This request has already reached the HR stage, so only an HR approver can act on it now.', 'sfs-hr' );
         }
 
-        wp_safe_redirect(
-            add_query_arg( 'err', rawurlencode( $message ), $redirect_base )
-        );
-        exit;
+        $this->deny_leave_action( $redirect_base, $message, $use_notice );
     }
 }
 
@@ -1393,12 +1406,18 @@ private function guard_admin_leave_action( int $current_uid, int $dept_id, int $
  * claims to have cleared a stage that nothing records, so the question this guard
  * exists to answer cannot be answered and the action is denied.
  *
+ * Also used by the leave cancellation handlers. Cancellation rows carry the same two
+ * columns with the same meaning, and are inserted at approval_level 1 with an empty
+ * chain, so the level 1 early return covers a fresh one and a cancellation at level 2
+ * always carries the manager entry that put it there.
+ *
  * @param int    $current_uid   Acting user ID.
- * @param array  $row           Leave request row ( needs approval_level and approval_chain ).
+ * @param array  $row           Request row ( needs approval_level and approval_chain ).
  * @param string $redirect_base URL to redirect to when denying.
- * @param bool   $is_reject     True when called from the reject handler ( wording only ).
+ * @param bool   $is_reject     True when called from a reject handler ( wording only ).
+ * @param bool   $use_notice    True for screens driven by the sfs_hr_notice bar.
  */
-private function guard_actor_cannot_act_twice( int $current_uid, array $row, string $redirect_base, bool $is_reject ): void {
+private function guard_actor_cannot_act_twice( int $current_uid, array $row, string $redirect_base, bool $is_reject, bool $use_notice = false ): void {
     $approval_level = (int) ( $row['approval_level'] ?? 1 );
 
     if ( $approval_level < 2 ) {
@@ -1407,38 +1426,38 @@ private function guard_actor_cannot_act_twice( int $current_uid, array $row, str
 
     $chain = json_decode( (string) ( $row['approval_chain'] ?? '' ), true );
 
-    if ( ! is_array( $chain ) || empty( $chain ) ) {
-        wp_safe_redirect(
-            add_query_arg(
-                'err',
-                rawurlencode(
-                    $is_reject
-                        ? __( 'This leave request has passed an earlier approval stage, but its approval history is missing, so there is no way to confirm that you did not act on it earlier. Rejection is blocked until the request record is repaired.', 'sfs-hr' )
-                        : __( 'This leave request has passed an earlier approval stage, but its approval history is missing, so there is no way to confirm that you did not act on it earlier. Approval is blocked until the request record is repaired.', 'sfs-hr' )
-                ),
-                $redirect_base
-            )
+    // Every entry must be an array, not just the chain itself. A chain hand-edited into a
+    // JSON object of scalars ( {"by":7,"role":"manager"} ) decodes to a non-empty array
+    // whose entries are strings and integers, which would survive the emptiness test and
+    // then match nothing in the loop below, silently allowing the action. Same
+    // fail-closed answer as a missing chain: the history cannot be read.
+    $unreadable = ! is_array( $chain )
+        || empty( $chain )
+        || count( $chain ) !== count( array_filter( $chain, 'is_array' ) );
+
+    if ( $unreadable ) {
+        $this->deny_leave_action(
+            $redirect_base,
+            $is_reject
+                ? __( 'This request has passed an earlier approval stage, but its approval history is missing or unreadable, so there is no way to confirm that you did not act on it earlier. Rejection is blocked until the record is repaired.', 'sfs-hr' )
+                : __( 'This request has passed an earlier approval stage, but its approval history is missing or unreadable, so there is no way to confirm that you did not act on it earlier. Approval is blocked until the record is repaired.', 'sfs-hr' ),
+            $use_notice
         );
-        exit;
     }
 
+    // Every entry is an array by the check above.
     foreach ( $chain as $step ) {
-        if ( ! is_array( $step ) || (int) ( $step['by'] ?? 0 ) !== $current_uid ) {
+        if ( (int) ( $step['by'] ?? 0 ) !== $current_uid ) {
             continue;
         }
 
-        wp_safe_redirect(
-            add_query_arg(
-                'err',
-                rawurlencode(
-                    $is_reject
-                        ? __( 'You already acted on this leave request at an earlier approval stage. One person cannot decide the same request at two stages, so a different approver has to handle this one.', 'sfs-hr' )
-                        : __( 'You already acted on this leave request at an earlier approval stage. One person cannot approve the same request at two stages, so a different approver has to handle this one.', 'sfs-hr' )
-                ),
-                $redirect_base
-            )
+        $this->deny_leave_action(
+            $redirect_base,
+            $is_reject
+                ? __( 'You already acted on this request at an earlier approval stage. One person cannot decide the same request at two stages, so a different approver has to handle this one.', 'sfs-hr' )
+                : __( 'You already acted on this request at an earlier approval stage. One person cannot approve the same request at two stages, so a different approver has to handle this one.', 'sfs-hr' ),
+            $use_notice
         );
-        exit;
     }
 }
 
@@ -2499,11 +2518,12 @@ public function handle_cancellation_approve(): void {
     $approval_level  = (int) $cancel['approval_level'];
     $note            = isset( $_POST['note'] ) ? sanitize_text_field( $_POST['note'] ) : '';
 
-    // HR check
+    // HR check. current_user_can( 'administrator' ) used to be a third term here: a role
+    // name is not a capability, every administrator passed it, and it handed any
+    // administrator the HR final approval on any department's cancellation. Dropped.
     $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
     $is_hr = ( ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true ) )
-             || current_user_can( 'sfs_hr.leave.manage' )
-             || current_user_can( 'administrator' );
+             || current_user_can( 'sfs_hr.leave.manage' );
 
     // Dept manager check
     $managed_depts = $this->manager_dept_ids_for_user( $current_uid );
@@ -2518,6 +2538,22 @@ public function handle_cancellation_approve(): void {
     if ( isset( $cancel['created_by'] ) && (int) $cancel['created_by'] === $current_uid ) {
         Helpers::redirect_with_notice( $redirect_base, 'error', __( 'You cannot approve a cancellation you requested.', 'sfs-hr' ) );
     }
+
+    // Cancellation approval reverses an approved leave and restores balance, so it gets
+    // the same two guards as the leave approval it undoes. Its stages line up: level 1 is
+    // the department manager, level 2 is HR final. $is_hr above is satisfied by the
+    // inherited sfs_hr.leave.manage, so without the first guard any administrator reaches
+    // the HR stage; without the second, one person clears both stages.
+    $this->guard_admin_leave_action(
+        $current_uid,
+        (int) ( $empInfo['dept_id'] ?? 0 ),
+        $approval_level,
+        $redirect_base,
+        false,
+        true
+    );
+
+    $this->guard_actor_cannot_act_twice( $current_uid, $cancel, $redirect_base, false, true );
 
     $emp_name = trim( ( $empInfo['first_name'] ?? '' ) . ' ' . ( $empInfo['last_name'] ?? '' ) );
     if ( empty( $emp_name ) ) {
@@ -2743,10 +2779,24 @@ public function handle_cancellation_reject(): void {
     $managed_depts = $this->manager_dept_ids_for_user( $current_uid );
     $is_dept_manager = ! empty( $managed_depts ) && in_array( (int) ( $empInfo['dept_id'] ?? 0 ), $managed_depts, true );
 
+    // See handle_cancellation_approve(): the current_user_can( 'administrator' ) term that
+    // used to be here was a role name tested as a capability, and every administrator
+    // passed it.
     $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
     $is_hr = ( ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true ) )
-             || current_user_can( 'sfs_hr.leave.manage' )
-             || current_user_can( 'administrator' );
+             || current_user_can( 'sfs_hr.leave.manage' );
+
+    // Same two guards as the approve twin, for the same reasons.
+    $this->guard_admin_leave_action(
+        $current_uid,
+        (int) ( $empInfo['dept_id'] ?? 0 ),
+        $approval_level,
+        $redirect_base,
+        true,
+        true
+    );
+
+    $this->guard_actor_cannot_act_twice( $current_uid, $cancel, $redirect_base, true, true );
 
     if ( $approval_level < 2 && ! $is_dept_manager && ! $is_hr ) {
         Helpers::redirect_with_notice( $redirect_base, 'error', __( 'You do not have permission to reject this cancellation.', 'sfs-hr' ) );
