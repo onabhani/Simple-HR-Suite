@@ -1249,13 +1249,26 @@ private function guard_admin_cannot_approve_or_reject( int $current_uid, string 
  *     would otherwise grant themselves the final HR approval on a request from
  *     their own department.
  *
- * Role_Resolver::resolve() is the capability-independent signal used here: its HR
- * branch checks the sfs_hr_manager role, the sfs_hr_leave_hr_approvers option and
- * hr_responsible_user_id, never the inherited capability. Note that it evaluates
- * manage_options first, so every WP administrator resolves to 'admin' and none can
- * satisfy the 'hr' test. Users who resolve to anything else ( hr, gm, finance,
- * manager, ... ) are not touched here and are governed by the caller's own stage
- * checks, which already restrict the HR and finance stages.
+ * Both rules are skipped for an administrator who has been explicitly assigned as HR,
+ * up to and including the HR stage, because such a person is acting on that assignment
+ * and not on being an administrator. Role_Resolver::is_hr() is the capability-
+ * independent test for that: the sfs_hr_manager role, the sfs_hr_leave_hr_approvers
+ * option or an active department's hr_responsible_user_id, never the inherited
+ * sfs_hr.manage capability, so holding manage_options is never sufficient on its own.
+ * What an assigned HR approver may then do at each stage is decided by the caller's own
+ * stage checks, and guard_actor_cannot_act_twice() still stops them acting at two
+ * stages of one request.
+ *
+ * The finance stage ( approval_level >= 3 ) is deliberately outside that: the caller's
+ * finance gate is a capability check on sfs_hr_loans_finance_approve, which the
+ * administrator role holds statically ( LoansModule::register_roles_and_caps() ) and an
+ * HR assignment does not. Letting an assigned HR administrator through at that stage
+ * would hand them more than the assignment grants, and more than a non-administrator
+ * with the same assignment gets, so they stay denied there exactly as before.
+ *
+ * Users who resolve to something other than 'admin' ( hr, gm, finance, manager, ... )
+ * are not this guard's business at all: the caller's stage checks already restrict the
+ * HR and finance stages for them.
  *
  * Fail-closed: denies when Role_Resolver is unavailable.
  *
@@ -1266,25 +1279,13 @@ private function guard_admin_cannot_approve_or_reject( int $current_uid, string 
  * @param bool   $is_reject      True when called from the reject handler ( wording only ).
  */
 private function guard_admin_leave_action( int $current_uid, int $dept_id, int $approval_level, string $redirect_base, bool $is_reject ): void {
-    // Rule 1: department scope. Administrators outside the request's department are
-    // denied by the pure-admin guard, which is itself fail-closed.
-    $manages_request_dept = $dept_id > 0
-        && in_array( $dept_id, $this->manager_dept_ids_for_user( $current_uid ), true );
-
-    if ( ! $manages_request_dept ) {
-        $this->guard_admin_cannot_approve_or_reject(
-            $current_uid,
-            $redirect_base,
-            $is_reject
-                ? __( 'Administrators can only reject leave requests for employees in the department they manage.', 'sfs-hr' )
-                : __( 'Administrators can only approve leave requests for employees in the department they manage.', 'sfs-hr' )
-        );
-        return;
-    }
-
-    // Fail-closed: without the resolver an administrator cannot be told apart from a
-    // plain department manager, so nobody passes this point.
-    if ( ! class_exists( \SFS\HR\Frontend\Role_Resolver::class ) ) {
+    // Fail-closed: without the resolver an administrator cannot be told apart from an
+    // assigned HR approver or from a plain department manager, so nobody passes this
+    // point. is_hr() is checked separately because the plugin is deployed by copying
+    // the folder, so a half-updated install can have the class without the method.
+    if ( ! class_exists( \SFS\HR\Frontend\Role_Resolver::class )
+        || ! method_exists( \SFS\HR\Frontend\Role_Resolver::class, 'is_hr' )
+    ) {
         wp_safe_redirect(
             add_query_arg(
                 'err',
@@ -1299,7 +1300,50 @@ private function guard_admin_leave_action( int $current_uid, int $dept_id, int $
         exit;
     }
 
+    // Only administrators are governed by this guard. Hoisted from below, where the
+    // same test used to sit in front of rule 2: with the class check above already
+    // done, both rules are no-ops for a non-administrator, so this is the scope the
+    // guard already had, stated once and up front.
     if ( \SFS\HR\Frontend\Role_Resolver::resolve( $current_uid ) !== 'admin' ) {
+        return;
+    }
+
+    // An administrator who was explicitly assigned as HR is acting on that assignment,
+    // so neither administrator rule below applies to them at the manager or HR stage.
+    // Being an administrator alone never reaches this branch: is_hr() reads assignments,
+    // not capabilities. The finance stage is excluded on purpose, see the docblock.
+    if ( \SFS\HR\Frontend\Role_Resolver::is_hr( $current_uid ) ) {
+        if ( $approval_level < 3 ) {
+            return;
+        }
+
+        wp_safe_redirect(
+            add_query_arg(
+                'err',
+                rawurlencode(
+                    $is_reject
+                        ? __( 'Being assigned as HR lets you reject up to the HR stage. This request has already reached the finance stage, so only the finance approver can act on it now.', 'sfs-hr' )
+                        : __( 'Being assigned as HR lets you approve up to the HR stage. This request has already reached the finance stage, so only the finance approver can act on it now.', 'sfs-hr' )
+                ),
+                $redirect_base
+            )
+        );
+        exit;
+    }
+
+    // Rule 1: department scope. Administrators outside the request's department are
+    // denied by the pure-admin guard, which is itself fail-closed.
+    $manages_request_dept = $dept_id > 0
+        && in_array( $dept_id, $this->manager_dept_ids_for_user( $current_uid ), true );
+
+    if ( ! $manages_request_dept ) {
+        $this->guard_admin_cannot_approve_or_reject(
+            $current_uid,
+            $redirect_base,
+            $is_reject
+                ? __( 'Administrators can only reject leave requests for employees in the department they manage.', 'sfs-hr' )
+                : __( 'Administrators can only approve leave requests for employees in the department they manage.', 'sfs-hr' )
+        );
         return;
     }
 
@@ -1320,6 +1364,79 @@ private function guard_admin_leave_action( int $current_uid, int $dept_id, int $
 
         wp_safe_redirect(
             add_query_arg( 'err', rawurlencode( $message ), $redirect_base )
+        );
+        exit;
+    }
+}
+
+/**
+ * Guard: the same person may not act at two stages of one leave request.
+ *
+ * Separation of stages is a property of the request and its actor, not of roles, so
+ * this is keyed on the request's own approval history rather than on who holds which
+ * role. It closes the path where one human clears the manager stage and then clears
+ * the HR stage of the same request: a department manager who is also an HR approver,
+ * an assigned HR approver who also manages the department, or an administrator who has
+ * been assigned as HR and manages the department.
+ *
+ * The history read is the approval_chain column on the leave request row. Every place
+ * in handle_approve() that advances approval_level writes an appended chain entry
+ * carrying 'by' => acting user ID in the same $wpdb->update() as the level change, so a
+ * request cannot reach level 2 or 3 through the approval handler without an entry
+ * naming whoever advanced it. approver_id is not usable for this: it is overwritten at
+ * each stage and therefore remembers only the most recent actor.
+ *
+ * Level 1 is the first stage: there is no earlier stage, the chain is legitimately
+ * empty, and this guard does nothing.
+ *
+ * Fail-closed: a request at level 2 or above whose chain is missing or unreadable
+ * claims to have cleared a stage that nothing records, so the question this guard
+ * exists to answer cannot be answered and the action is denied.
+ *
+ * @param int    $current_uid   Acting user ID.
+ * @param array  $row           Leave request row ( needs approval_level and approval_chain ).
+ * @param string $redirect_base URL to redirect to when denying.
+ * @param bool   $is_reject     True when called from the reject handler ( wording only ).
+ */
+private function guard_actor_cannot_act_twice( int $current_uid, array $row, string $redirect_base, bool $is_reject ): void {
+    $approval_level = (int) ( $row['approval_level'] ?? 1 );
+
+    if ( $approval_level < 2 ) {
+        return;
+    }
+
+    $chain = json_decode( (string) ( $row['approval_chain'] ?? '' ), true );
+
+    if ( ! is_array( $chain ) || empty( $chain ) ) {
+        wp_safe_redirect(
+            add_query_arg(
+                'err',
+                rawurlencode(
+                    $is_reject
+                        ? __( 'This leave request has passed an earlier approval stage, but its approval history is missing, so there is no way to confirm that you did not act on it earlier. Rejection is blocked until the request record is repaired.', 'sfs-hr' )
+                        : __( 'This leave request has passed an earlier approval stage, but its approval history is missing, so there is no way to confirm that you did not act on it earlier. Approval is blocked until the request record is repaired.', 'sfs-hr' )
+                ),
+                $redirect_base
+            )
+        );
+        exit;
+    }
+
+    foreach ( $chain as $step ) {
+        if ( ! is_array( $step ) || (int) ( $step['by'] ?? 0 ) !== $current_uid ) {
+            continue;
+        }
+
+        wp_safe_redirect(
+            add_query_arg(
+                'err',
+                rawurlencode(
+                    $is_reject
+                        ? __( 'You already acted on this leave request at an earlier approval stage. One person cannot decide the same request at two stages, so a different approver has to handle this one.', 'sfs-hr' )
+                        : __( 'You already acted on this leave request at an earlier approval stage. One person cannot approve the same request at two stages, so a different approver has to handle this one.', 'sfs-hr' )
+                ),
+                $redirect_base
+            )
         );
         exit;
     }
@@ -1451,6 +1568,12 @@ public function handle_approve(): void {
         $redirect_base,
         false
     );
+
+    // Separation of stages: whoever acted at an earlier stage of this request may not
+    // also act at a later one, whatever role lets them see it. Keyed on the request's
+    // approval chain rather than on roles, so it catches the department manager who is
+    // also an HR approver as well as the assigned HR admin allowed through above.
+    $this->guard_actor_cannot_act_twice( $current_uid, $row, $redirect_base, false );
 
     // ==================== DEPARTMENT MANAGER LEAVE REQUEST ====================
     // Flow: Dept Manager → GM (level 1) → HR (level 2, final)
@@ -2040,6 +2163,15 @@ public function handle_reject(): void {
         $current_uid,
         (int) ( $empInfo['dept_id'] ?? 0 ),
         $approval_level,
+        admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending' ),
+        true
+    );
+
+    // Separation of stages: same rule as in handle_approve(). A manager who approved at
+    // the manager stage cannot come back and reject the same request at the HR stage.
+    $this->guard_actor_cannot_act_twice(
+        $current_uid,
+        $row,
         admin_url( 'admin.php?page=sfs-hr-leave-requests&tab=requests&status=pending' ),
         true
     );
