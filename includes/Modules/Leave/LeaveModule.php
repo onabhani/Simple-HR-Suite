@@ -2548,12 +2548,17 @@ public function handle_cancellation_approve(): void {
 
     // Also prevent the cancellation requester from approving their own cancellation
     // request. The column is initiated_by ( Migrations.php:875, written at :2418 ). This
-    // read used to say created_by, a key SELECT * never produces, so isset() was
-    // permanently false and the rule had never run once. Initiation writes an empty
-    // approval_chain, so guard_actor_cannot_act_twice() does not cover it either: this
-    // check is the only thing stopping an HR approver from initiating a cancellation of
-    // somebody else's leave and then granting its final HR approval themselves.
-    if ( isset( $cancel['initiated_by'] ) && (int) $cancel['initiated_by'] === $current_uid ) {
+    // read used to say created_by, a key SELECT * never produces, so the isset() that
+    // guarded it was permanently false and the rule had never run once. Written without
+    // isset() for that reason: initiated_by is NOT NULL and always present in a
+    // SELECT *, so the guard protected nothing and only provided the silent-disable
+    // behaviour that hid the original bug. Same shape as the leave owner check above.
+    //
+    // Initiation writes an empty approval_chain, so guard_actor_cannot_act_twice() does
+    // not cover it either: this check is the only thing stopping an HR approver from
+    // initiating a cancellation of somebody else's leave and then granting its final HR
+    // approval themselves.
+    if ( (int) ( $cancel['initiated_by'] ?? 0 ) === $current_uid ) {
         Helpers::redirect_with_notice( $redirect_base, 'error', __( 'You cannot approve a cancellation you requested.', 'sfs-hr' ) );
     }
 
@@ -3402,12 +3407,9 @@ private function render_cancellation_detail( int $cancel_id ): void {
     $managed_depts = $this->manager_dept_ids_for_user( $current_uid );
     $is_dept_manager = ! empty( $managed_depts ) && in_array( (int) $cancel->dept_id, $managed_depts, true );
 
-    $gm_user_id = (int) get_option( 'sfs_hr_leave_gm_approver', 0 );
-    if ( ! $gm_user_id ) {
-        $loan_settings = \SFS\HR\Modules\Loans\LoansModule::get_settings();
-        $gm_user_ids = $loan_settings['gm_user_ids'] ?? [];
-        $gm_user_id = ! empty( $gm_user_ids ) ? (int) $gm_user_ids[0] : 0;
-    }
+    // No GM lookup here any more: this flow has no GM stage, and the three places that
+    // used one ( the level 2 button gate, the timeline's step 3, its "awaiting" line )
+    // were all copied from the leave flow, which does have one.
 
     // Level 2 of a cancellation is the HR stage, so the button gate uses the same
     // predicate as handle_cancellation_approve() does at that stage. It used to be
@@ -3431,8 +3433,18 @@ private function render_cancellation_detail( int $cancel_id ): void {
             $approval_stage = 'manager';
             $can_approve = $is_dept_manager;
         }
-        // Prevent self-approval
+        // Prevent self-approval. Both column comparisons mirror
+        // handle_cancellation_approve(), which refuses the leave owner and the
+        // cancellation's initiator at every level. The initiator rule was dead until
+        // eda7332 fixed the column name it read, so this view never needed to mirror it
+        // before; now that it is live, omitting it here would render a working Approve
+        // button that the handler refuses on submit. That is the common case, not an
+        // edge one: initiation is restricted to HR or the leave owner, level 2 belongs
+        // to HR, and this view's own step 1 is captioned "HR Initiated".
         if ( (int) $cancel->emp_user_id === $current_uid ) {
+            $can_approve = false;
+        }
+        if ( (int) $cancel->initiated_by === $current_uid ) {
             $can_approve = false;
         }
     }
@@ -3453,13 +3465,6 @@ private function render_cancellation_detail( int $cancel_id ): void {
     if ( ! empty( $cancel->manager_user_id ) ) {
         $mgr = get_user_by( 'id', (int) $cancel->manager_user_id );
         $dept_manager_name = $mgr ? $mgr->display_name : '';
-    }
-
-    // GM name
-    $gm_name = '';
-    if ( $gm_user_id > 0 ) {
-        $gm = get_user_by( 'id', $gm_user_id );
-        $gm_name = $gm ? $gm->display_name : '';
     }
 
     // Status key for chip
@@ -3598,21 +3603,24 @@ private function render_cancellation_detail( int $cancel_id ): void {
                         echo '</div>';
                         echo '<span style="color:#999;">→</span>';
 
-                        // Step 3: GM
-                        $gm_step = null;
+                        // Step 3: HR final. This matched role 'gm' until eda7332, a role
+                        // neither cancellation handler has ever written, so $hr_step was
+                        // permanently null: the approve and reject colouring below was
+                        // dead code and an approved cancellation rendered its final stage
+                        // grey and unfinished forever. The handlers write role 'hr' here.
+                        $hr_step = null;
                         foreach ( $chain as $step ) {
-                            if ( ( $step['role'] ?? '' ) === 'gm' ) { $gm_step = $step; break; }
+                            if ( ( $step['role'] ?? '' ) === 'hr' ) { $hr_step = $step; break; }
                         }
-                        $gm_bg = '#f3f4f6'; $gm_border = '#e5e7eb';
-                        if ( $gm_step && ( $gm_step['action'] ?? '' ) === 'approve' ) { $gm_bg = '#ecfdf3'; $gm_border = '#bbf7d0'; }
-                        elseif ( $gm_step && ( $gm_step['action'] ?? '' ) === 'reject' ) { $gm_bg = '#fef2f2'; $gm_border = '#fecaca'; }
-                        elseif ( $approval_level >= 2 && $cancel->status === 'pending' ) { $gm_bg = '#ffedd5'; $gm_border = '#fdba74'; }
+                        $hr_bg = '#f3f4f6'; $hr_border = '#e5e7eb';
+                        if ( $hr_step && ( $hr_step['action'] ?? '' ) === 'approve' ) { $hr_bg = '#ecfdf3'; $hr_border = '#bbf7d0'; }
+                        elseif ( $hr_step && ( $hr_step['action'] ?? '' ) === 'reject' ) { $hr_bg = '#fef2f2'; $hr_border = '#fecaca'; }
+                        elseif ( $approval_level >= 2 && $cancel->status === 'pending' ) { $hr_bg = '#ffedd5'; $hr_border = '#fdba74'; }
 
-                        echo '<div style="padding:8px 14px;border-radius:6px;background:' . $gm_bg . ';border:1px solid ' . $gm_border . ';font-size:12px;">';
-                        echo '<strong>' . esc_html__( '3. General Manager', 'sfs-hr' ) . '</strong>';
-                        if ( $gm_name ) echo '<br><small>' . esc_html( $gm_name ) . '</small>';
-                        if ( $gm_step ) {
-                            echo '<br><small>' . esc_html( __( ucfirst( $gm_step['action'] ?? '' ), 'sfs-hr' ) ) . '</small>';
+                        echo '<div style="padding:8px 14px;border-radius:6px;background:' . $hr_bg . ';border:1px solid ' . $hr_border . ';font-size:12px;">';
+                        echo '<strong>' . esc_html__( '3. HR Final', 'sfs-hr' ) . '</strong>';
+                        if ( $hr_step ) {
+                            echo '<br><small>' . esc_html( __( ucfirst( $hr_step['action'] ?? '' ), 'sfs-hr' ) ) . '</small>';
                         } elseif ( $cancel->status === 'pending' && $approval_level >= 2 ) {
                             echo '<br><small>' . esc_html__( 'Awaiting', 'sfs-hr' ) . '</small>';
                         }
