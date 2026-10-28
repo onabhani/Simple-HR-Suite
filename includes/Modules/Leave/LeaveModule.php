@@ -2809,6 +2809,13 @@ public function handle_cancellation_reject(): void {
     $is_hr = ( ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true ) )
              || current_user_can( 'sfs_hr.leave.manage' );
 
+    // Same initiator rule as handle_cancellation_approve(): the person who raised the
+    // cancellation does not decide it. render_cancellation_detail() already hides both
+    // the Approve and the Reject form from them, so this keeps the handler in line.
+    if ( (int) ( $cancel['initiated_by'] ?? 0 ) === $current_uid ) {
+        Helpers::redirect_with_notice( $redirect_base, 'error', __( 'You cannot reject a cancellation you requested.', 'sfs-hr' ) );
+    }
+
     // Same two guards as the approve twin, for the same reasons.
     $this->guard_admin_leave_action(
         $current_uid,
@@ -3421,6 +3428,16 @@ private function render_cancellation_detail( int $cancel_id ): void {
     $hr_user_ids = (array) get_option( 'sfs_hr_leave_hr_approvers', [] );
     $is_hr = ( ! empty( $hr_user_ids ) && in_array( $current_uid, $hr_user_ids, true ) )
              || current_user_can( 'sfs_hr.leave.manage' );
+
+    // Mirror guard_admin_leave_action(): administrators inherit sfs_hr.leave.manage, but
+    // the handler only lets one act at the HR stage through an explicit HR assignment.
+    // Without this the view renders Approve and Reject forms the handler always refuses.
+    // Fail-closed like the guard: no resolver means no HR stage for an administrator.
+    if ( $is_hr && user_can( $current_uid, 'manage_options' ) ) {
+        $is_hr = class_exists( \SFS\HR\Frontend\Role_Resolver::class )
+            && method_exists( \SFS\HR\Frontend\Role_Resolver::class, 'is_hr' )
+            && \SFS\HR\Frontend\Role_Resolver::is_hr( $current_uid );
+    }
 
     // Can approve?
     $can_approve = false;
