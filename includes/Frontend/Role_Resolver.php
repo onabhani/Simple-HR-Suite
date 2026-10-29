@@ -79,20 +79,14 @@ class Role_Resolver {
 
         // HR: has the sfs_hr_manager role, is in HR approvers list, or is hr_responsible.
         // Note: checking role/assignment — NOT sfs_hr.manage capability (admins inherit that).
+        // The checks live in has_hr_assignment() so is_hr() can ask a related question
+        // without the manage_options short-circuit above. is_hr() uses the narrower
+        // has_hr_approver_assignment(): hr_responsible_user_id is a portal signal, not a
+        // leave approval one. All three stay in force here.
         global $wpdb;
         $dept_table = $wpdb->prefix . 'sfs_hr_departments';
 
-        $has_hr_role = $user_obj && in_array( 'sfs_hr_manager', (array) $user_obj->roles, true );
-
-        $hr_approvers   = array_map( 'intval', (array) get_option( 'sfs_hr_leave_hr_approvers', [] ) );
-        $is_hr_approver = in_array( $user_id, $hr_approvers, true );
-
-        $is_hr_responsible = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM {$dept_table} WHERE hr_responsible_user_id = %d AND active = 1",
-            $user_id
-        ) ) > 0;
-
-        if ( $has_hr_role || $is_hr_approver || $is_hr_responsible ) {
+        if ( self::has_hr_assignment( $user_id, $user_obj ) ) {
             self::$cache[ $user_id ] = 'hr';
             return 'hr';
         }
@@ -131,6 +125,102 @@ class Role_Resolver {
 
         self::$cache[ $user_id ] = 'none';
         return 'none';
+    }
+
+    /**
+     * Whether a user is explicitly assigned as HR.
+     *
+     * This answers a different question from resolve(): not "which portal role does
+     * this user get?" but "has this user deliberately been put in an HR position?".
+     * resolve() cannot answer it, because its documented admin-first ordering returns
+     * 'admin' for every user holding manage_options before the HR branch is reached,
+     * and that ordering has to stay exactly as it is because it drives portal
+     * navigation. Both functions are correct for their own question.
+     *
+     * The signals are the two that actually confer leave approval authority, through
+     * the shared has_hr_approver_assignment() helper: the sfs_hr_manager role, or
+     * membership of the sfs_hr_leave_hr_approvers option. Neither is a capability test,
+     * so being a WordPress administrator is never sufficient on its own: an
+     * administrator satisfies this only when somebody assigned them.
+     *
+     * hr_responsible_user_id is deliberately NOT one of them, even though resolve()'s
+     * HR branch counts it. That column is the per-department HR contact for performance
+     * justifications, and Capabilities::dynamic_caps() grants the person holding it only
+     * sfs_hr.view and sfs_hr_performance_view, never sfs_hr.leave.review. A
+     * non-administrator holding it therefore cannot reach a leave approval handler at
+     * all. Honouring it here would let an administrator who is the HR contact of one
+     * department approve leave for every other department, so the signal could only ever
+     * benefit administrators: exactly the asymmetry this predicate exists to prevent.
+     *
+     * Deliberately does not read or write self::$cache. That cache holds resolve()
+     * strings keyed by user ID, and the two functions return different answers for the
+     * same user, so sharing it would corrupt whichever ran second.
+     *
+     * @param int $user_id WordPress user ID.
+     * @return bool True when the user holds an explicit HR assignment.
+     */
+    public static function is_hr( int $user_id ): bool {
+        if ( ! $user_id ) {
+            return false;
+        }
+
+        return self::has_hr_approver_assignment( $user_id, get_userdata( $user_id ) );
+    }
+
+    /**
+     * The narrow HR test: assignments that actually confer leave approval authority.
+     *
+     * The sfs_hr_manager role or membership of the sfs_hr_leave_hr_approvers option.
+     * Role and assignment only, never the sfs_hr.manage capability, which administrators
+     * inherit. Short-circuits on the first match; both checks are in memory.
+     *
+     * Used directly by is_hr(), and by has_hr_assignment() as its first two signals, so
+     * the two cannot drift: a signal added here reaches both callers, while
+     * has_hr_assignment() adds the one signal that is portal-only. That containment is
+     * why this is a pair of named functions rather than one function with a boolean
+     * argument: the call sites cannot silently pick the wrong view, and the wide view is
+     * defined as the narrow view plus a stated extra rather than as a parallel copy.
+     *
+     * @param int                $user_id  WordPress user ID.
+     * @param \WP_User|false|null $user_obj Already fetched user object, or a falsy
+     *                                     value when the role test should be skipped.
+     * @return bool
+     */
+    private static function has_hr_approver_assignment( int $user_id, $user_obj ): bool {
+        if ( $user_obj && in_array( 'sfs_hr_manager', (array) $user_obj->roles, true ) ) {
+            return true;
+        }
+
+        $hr_approvers = array_map( 'intval', (array) get_option( 'sfs_hr_leave_hr_approvers', [] ) );
+
+        return in_array( $user_id, $hr_approvers, true );
+    }
+
+    /**
+     * The wide HR test used by resolve()'s HR branch: approver assignment, or being an
+     * active department's hr_responsible_user_id.
+     *
+     * The third signal is right for resolve(), whose job is to pick a portal role and
+     * give the per-department HR contact the HR portal view. It is wrong for is_hr(),
+     * which answers an authorization question; see that method for why.
+     *
+     * @param int                $user_id  WordPress user ID.
+     * @param \WP_User|false|null $user_obj Already fetched user object, or a falsy
+     *                                     value when the role test should be skipped.
+     * @return bool
+     */
+    private static function has_hr_assignment( int $user_id, $user_obj ): bool {
+        if ( self::has_hr_approver_assignment( $user_id, $user_obj ) ) {
+            return true;
+        }
+
+        global $wpdb;
+        $dept_table = $wpdb->prefix . 'sfs_hr_departments';
+
+        return (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$dept_table} WHERE hr_responsible_user_id = %d AND active = 1",
+            $user_id
+        ) ) > 0;
     }
 
     /**
